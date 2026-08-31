@@ -45,7 +45,7 @@ today and says which surface carried each post.
 
 - [x] The tokened transport replies into a thread the connector resolved, under the
       same `chat:write` scope, every existing call byte-identical. (#20260831042312-teach-the-tokened-transport-to-reply-into-a-thread.md)
-- [ ] The model states which transport carries which shape and why; directed shapes
+- [x] The model states which transport carries which shape and why; directed shapes
       ride the bot, everything else the connector, a missing token falls back to
       today's behaviour reported by name. (#20260831042312-state-which-transport-carries-which-shape-and-why.md)
 - [ ] Proved offline by a drill with a breaker row, registered in the drill register,
@@ -55,3 +55,4 @@ today and says which surface carried each post.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-31 — ticket archived — 20260831042312-teach-the-tokened-transport-to-reply-into-a-thread.md
+- 2026-08-31 — ticket archived — 20260831042312-state-which-transport-carries-which-shape-and-why.md

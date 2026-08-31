@@ -110,6 +110,26 @@ The model above says *which* thread a post lands in; this says *what carries it 
 
 **This is a capability and not yet a licence.** Which shape rides which transport is the selection rule below, and a call site still may not pick this script for its *identity* except where that rule says so. A caller reaching it as the ordinary no-connector fallback and having no coordinate to pass still posts a **keyed root**, carrying the record's **URL** in the text (or, with no record to link, `` `unit:<unit-id>` ``) — the lookup's own not-found branch reduced to what one message can do: two roots naming one record is repairable, an unattributable post is not. The URL rather than a bare key since 2026-08-22 — it is the same identifier in the one form a person can also use.
 
+### Which transport carries which shape, and why
+
+**The ranking above is about availability, and it was silently deciding identity too** (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). Every post reaches Slack **as the operator's own account** — that is what "the account's Slack connector" means — and Slack notifies nobody of their own message. So *the connector is primary* also read, unstated, as *every post is made as the operator*, which is harmless for a post that records an outcome and fatal for one whose entire purpose is to reach a person: the `🙋` question keeps its `<@U…>` unconditionally, by the mention rule's own carve-out, and in the single-developer configuration — the normal one — that token resolves to the posting identity and pages nobody. Measured: the loop's blockers reached the operator only when they happened to reread the channel, twice found by asking a session directly.
+
+**The rule is narrowed, not reversed.** The connector stays primary for every post. **A directed post takes the bot identity when its mention target resolves to the posting identity**, and the connector otherwise — so the change is *which account speaks*, never *which transport finds the thread*. The connector resolves the thread as it always has and hands the coordinate to `--thread-ts`; the bot replies into it.
+
+**The directed set is enumerated, never judged at post time.** Exactly two shapes:
+
+| Shape | Carrier | Why |
+| ----- | ------- | --- |
+| `🙋` the maintenance tick's question | **bot** when the addressee is the posting identity, else the connector | Its whole purpose is to reach a named person; a self-resolving mention pages nobody |
+| `🟡 Handoff` addressed to the person who must run the declared verification | **bot** when the addressee is the posting identity, else the connector | Same purpose: it is waiting on one person's act, and it named nobody at all after 2026-08-23 |
+| Every other shape — `🔵`, `🟢`, `🚀`, `🔴`, `⚪`, `📣`, `📥`, `⚫`, the `📝 FB` description root, every reply into a found thread | **connector** | They record an outcome or open a thread. None pages anyone, and the connector is the only transport that can search |
+
+Extending that list is a **deliberate edit to this skill**, never a model judgement made at post time — the discipline the precondition-stop class already carries. A looser reading of "directed" — *any post naming a person* — is refused: `🟢`, `🔴` and `📣` name people as facts and page nobody, and that is exactly the distinction the enumeration keeps checkable. The wider rule *any call site may pick the bot* is refused too: it would let an ordinary root escape the connector and lose its threading, and the identity question only ever arises for a directed post.
+
+**With no bot token a directed post falls back to today's behaviour and the run says which surface carried it.** No token means the connector posts it exactly as it does now — never dropped, never silently downgraded, and never counted as delivered on a surface it did not use. The caller reports the surface and the outcome per post (`workaholic:drive` §7's per-unit notification outcome), so *reached the operator as the bot* and *posted as the operator, notifying nobody* never read alike.
+
+**What does not move.** The two-query lookup bound and its private-inclusive search; the fuzzy-matching prohibition; case 4's description root as a **connector** shape; *never mention the identity you are posting as* — which this **satisfies** by changing the identity rather than by dropping the mention, so the `<@U…>` now resolves to somebody other than the author and is a real mention again; and *the prompt is the ceiling*, so a routine emits a bot-carried shape only once its own template names it. The fallback's other limits hold unchanged: it cannot search, so it is never the lookup's carrier, and the connector resolves every thread it replies into.
+
 **Never load-bearing, and never silent about it.** With no token the script records `{"notified": false, "reason": "no_token"}` and **exits 0**; a connector post can fail the same way. A run whose work landed is still a success — but the outcome is reported by the caller, because a notification that vanished and one that arrived must not read alike from outside the run.
 
 ## Post shapes, mentions, and the red-alert dedup

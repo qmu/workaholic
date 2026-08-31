@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260831-141027
 ---
 
 # Read doc drift against the published base

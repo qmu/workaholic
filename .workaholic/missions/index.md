@@ -4,6 +4,7 @@
 
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
+* [make-the-tick-s-questions-readable-and-close-them-in-the-thread](active/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [name-the-steps-a-tick-could-not-read](active/name-the-steps-a-tick-could-not-read/mission.md) - Name the steps a tick could not read
 * [notify-the-person-a-directed-question-addresses](active/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses

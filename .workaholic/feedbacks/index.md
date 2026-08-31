@@ -612,4 +612,5 @@
 * [Stop two runs from claiming and driving one unit](20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md)
 * [Give the asking path a bot identity so a directed question actually notifies its addressee](20260831041651-give-the-asking-path-a-bot-identity-so-a-directed-question-actually-notifies-its-addressee.md)
 * [A tick that cannot read its inputs reports the same shape as a healthy one](20260831101847-a-tick-that-cannot-read-its-inputs-reports-the-same-shape-as-a-healthy-one.md)
+* [Make the tick's Slack questions self-explanatory and close the loop in the thread](20260831200350-make-the-tick-s-slack-questions-self-explanatory-and-close-the-loop-in-the-thread.md)
 <!-- okf:generated:end -->

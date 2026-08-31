@@ -52,3 +52,28 @@ Bash text pipeline*.
 *configuration* a run inherits — established, with its evidence and its limit, in
 `workaholic:workaholify`, *Where an unattended run's prompt policy is configured*. A policy nothing
 configures is a policy each run re-decides.
+
+## The language of a post is the language its readers use
+
+**A Slack post is prose a person reads, and this loop's readers read Japanese** (2026-09-01, the
+developer's instruction). Every free-text slot in every notification shape — the `🔎 Moderation`
+root's event lines, the `🙋` question's sentence, the `✅`/`🧾` reply sentences, the `🔵`/`🟢`/`🚀`/`🟡`/`🔴`
+body sentences, the `📝 FB` root's description — is written in **Japanese**. The English in the
+shape catalogs is the *instruction* describing what to write, never the wire text: the fenced
+blocks say `<one sentence, max 25 words, …>`, and what fills that slot is the sentence, in the
+reader's language.
+
+**What is never translated**, because it is not prose: the shape's own label (`🔎 Moderation`,
+`🟢 Implemented` — the pinned wire format, `workaholic:notify`), step ids, status and reason words
+(`base_unreadable:tip_no_checks`), refusal words, mission and strategy slugs, branch and file
+names, `<@U…>` tokens, and every URL. Translating a machine word makes it unsearchable and
+breaks the dedup that keys on it.
+
+**Why this rule lives here and not in a repository's `CLAUDE.md`.** It did live there, in exactly
+one repository's, and the measured consequence was that a routine running in *another* repository
+was never told: on 2026-09-01 a `🔎 Moderation` root in that repository's channel was English end
+to end, written by a session that had read a `CLAUDE.md` carrying no such rule. A rule that
+governs what the plugin's own shapes emit belongs in the plugin, on the surface that ships with
+them — the same reasoning that moved the post shapes out of the routine prompts and into the
+commands (`workaholic:notify`, *The command is the ceiling*). A repository whose readers use
+another language overrides this in its own `CLAUDE.md`; silence means Japanese.

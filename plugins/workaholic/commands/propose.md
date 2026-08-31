@@ -27,6 +27,8 @@ issue, assigned to the running identity so `/specificate`'s discovery ingests it
 names this command and nothing else, so a change to the wire format reaches every account's
 routine on the next run with no routine edit (`workaholic:notify`, *The command is the ceiling*).
 
+**Every free-text slot below is written in Japanese** — the shape's label, step ids, status and reason words, slugs, branch names, `<@U…>` tokens and URLs are never translated (`rules/interaction.md`, *The language of a post is the language its readers use*).
+
 Read Slack only through the Slack connector; the inbound sweep needs no mention to capture an ask.
 
 For each ask the sweep files **in this run**, post one reply into that message's own thread — its

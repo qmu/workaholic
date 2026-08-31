@@ -58,3 +58,4 @@ recorded and what came of it — once.
 - 2026-08-31 — ticket archived — 20260831200959-reply-the-answer-and-its-outcome-into-the-thread.md
 - 2026-08-31 — ticket archived — 20260831200959-drill-the-outcome-reply-offline.md
 - 2026-08-31 — mission achieved — mission.md
+- 2026-08-31 — story reported — work-20260831-114321

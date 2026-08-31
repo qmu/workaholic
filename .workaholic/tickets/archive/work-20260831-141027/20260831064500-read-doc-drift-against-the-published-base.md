@@ -1,11 +1,13 @@
 ---
 created_at: 2026-08-31T06:45:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260831-141027
 ---
 
 # Read doc drift against the published base
@@ -92,3 +94,54 @@ this branch will merge into.
   reader defect to a direction it does not answer, and `workaholic:drive`'s
   failure contract says a wrong thread is worse than none. The stated cost is
   that its own finish line will have no thread to land in.
+
+## Final Report
+
+Development completed as planned.
+
+Step 1's fork resolved to **the script's default, not a caller's omission**. Both
+live callers already pass a base: `/story` passes the resolved `base_branch` from
+`git-context.sh` (`reference/release-readiness.md` §4 states it), and
+`moderate/scripts/step-doc-drift.sh` always computes an explicit commit sha before
+calling. No caller relied on the default, so it was fixed and the callers were left
+alone.
+
+`doc-drift.sh` now resolves its base through `gather/scripts/base-ref.sh` — the
+repository's single base resolver, whose own header names a bare positional default
+of `main` as the bug it replaces — preferring `origin/<default>`, offline, with no
+network read added. An explicitly passed base still wins, and a base the resolver
+cannot answer is reported by name (`base_never_fetched` / `no_base_ref` /
+`base_unresolved`) rather than silently replaced by a local ref.
+
+Step 4: `area-freshness.sh` does **not** share the assumption. It resolves no base
+at all — it reads each record's own last commit with `git log -1 -- <file>`, which is
+history-wide and cannot be skewed by a stale local `main`. Nothing was changed there;
+a regression assertion now pins that it stays base-free.
+
+### Discovered Insights
+
+- **Insight**: The stale-local-`main` class was already closed everywhere else —
+  `collect-commits.sh`, `git-context.sh`, `scan-branch-safety.sh` and
+  `check-version-bump.sh` all resolve through `base-ref.sh`, and
+  `test-workflow-scripts.mjs` even asserts two of them carry no bare positional
+  default. `doc-drift.sh` was the one straggler the sweep missed, and its own
+  assertion was missing from the same test section.
+  **Context**: When a defect class gets a single resolver, the durable repair is the
+  source assertion beside it, not the call-site edit. The new row adds the missing
+  assertion so a future straggler is caught by the suite rather than by a misleading
+  story months later.
+
+- **Insight**: A source-grep assertion and an explanatory comment collide — the first
+  version of this fix failed its own new assertion because the comment quoted the
+  defective token verbatim.
+  **Context**: This repository already states the rule for its rename registry ("never
+  uses a live token as its own example"); it generalises to any comment sitting in a
+  file a test greps. Describe the shape, do not spell it.
+
+- **Insight**: `makeStaleBaseClone` is the repository's structurally-faithful fixture
+  for this whole defect class (real bare origin, real stale local `main`, branch cut
+  from the fresh tip), and it takes composable option flags rather than being copied.
+  **Context**: A new reading that can be fooled by a stale base should extend that
+  fixture with one flag and assert both directions — the resolved read is clean *and*
+  the forced-stale read still reproduces the bug — which is what proves the row can
+  fail.

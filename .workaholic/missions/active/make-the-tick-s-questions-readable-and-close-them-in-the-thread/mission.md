@@ -54,3 +54,4 @@ recorded and what came of it — once.
 - 2026-08-31 — ticket archived — 20260831200916-state-what-a-tick-s-question-must-carry.md
 - 2026-08-31 — ticket archived — 20260831200959-rewrite-each-step-s-question-to-that-contract.md
 - 2026-08-31 — ticket archived — 20260831200959-read-what-a-recorded-answer-became.md
+- 2026-08-31 — ticket archived — 20260831200959-give-the-answer-s-outcome-a-reply-shape.md

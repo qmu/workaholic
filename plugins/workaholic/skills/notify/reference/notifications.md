@@ -245,6 +245,21 @@ It rides the **coordinate already in hand** — the `(channel, ts)` of the messa
 
 **Two audiences, and this serves one of them.** A reaction carries no link and is invisible to anyone reading the issue rather than the thread. That is accepted: the person who wrote the answer is reading the thread, and where the answer produced an issue, that issue is assigned and GitHub notifies — a reply carrying its link would be the same noise twice, which is the argument that shaped this whole catalog.
 
+**And once the loop has ACTED on that answer, one reply says what came of it** (2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). The reaction says *received*, which is not *acted on*, and nothing said the second thing at all: from the thread, an answer that became a merged mission and one that was read and dropped looked identical. No mention token — it closes a loop rather than demanding attention, exactly as `✅ 解消を確認` does:
+
+```
+🧾 対応結果 - <the question's subject, one line>
+One sentence: the answer as recorded, and what came of it.
+```
+
+**This narrows the no-reply rule above; it does not drop it, and the bounds are the narrowing.** That rule was written against a **restatement** — a reply into a thread the person is already reading, saying what they already know — and it is right for the moment of recording, when nothing has happened yet. It is wrong once something has. So the reply is posted **once, ever, per question**; **after the act**, never before; and it carries **facts the thread does not already have**. It never restates the question, never re-asks, never confirms, and never fires while the outcome is still unknown.
+
+**When the outcome is known is a reading, not a guess**: `moderate/scripts/answer-outcome.sh` answers `settled:nothing_filed` / `settled:issue_closed` / `pending` / `unreadable:<reason>` per answered question, and **only a `settled:` reading posts**. `pending` and `unreadable:<reason>` post nothing and are reported by name — an unread outcome rendered as a settled one would tell somebody their answer was acted on when nobody knows. Every value is a **judgement** (`workaholic:drive`'s `reference/claims.md`, *Whether a recorded answer has been acted on*): nothing may merge, close, gate, hold work or re-ask on it.
+
+**The two events keep their own emoji, and that is load-bearing.** `:ballot_box_with_check:` stamps *received* at recording time and its rule above is untouched; `🧾` says *acted on* afterwards. One symbol answering both is how a reader stops being able to tell them apart — the same reason the stamp is deliberately not the sweep's `:inbox_tray:`. Two replies were considered and refused: a second post at recording time would carry nothing the reaction does not already say.
+
+**It is never load-bearing.** The answer is recorded, any issue filed, and the reaction stamped long before this is attempted, so a failure is reported as `outcome_post_failed: <reason>` and changes nothing about the recording, the filing, the question's state or the reading. The dedup is the ledger line `human-checkin-outcome-<slug>` plus the `settled:` reading, not a cursor: a question whose outcome is not yet known is simply a candidate again next tick.
+
 **And a thread whose last word is false is corrected in that thread, once** (2026-08-28, mission `reconcile-a-stale-thread-with-the-unit-s-real-state`). A finish line is posted by the run that **finishes** a unit (SKILL, *Which thread an `/implement` unit's posts land in*), so a pull request a person merges or closes by hand gets its finish posted by nobody: the item's thread keeps `🔵 Proposed` or `🟡 Handoff` as its last word while the work is long merged. The merged form **reuses `🟢 Implemented`** and is marked by its sentence rather than by a new colour — the reader's question is *did this finish*, and a fifth finish emoji would make one event two vocabularies:
 
 ```

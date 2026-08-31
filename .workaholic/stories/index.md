@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260831-125156](work-20260831-125156.md) - The tick learns to watch absence — a repository declares what should keep being produced, and one step asks when it stops
 * [work-20260831-104307](work-20260831-104307.md) - The moderation tick's root now names the steps that could not read, and a changed impairment earns a root of its own
 * [Ask a person about a claim race](work-20260830-094214.md)
 * [work-20260830-084240](work-20260830-084240.md) - A raced loser is now readable as superseded from the tree and cannot write a duplicate; the arbitration that would stop the race is blocked on a measured transport refusal.

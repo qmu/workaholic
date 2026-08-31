@@ -1924,6 +1924,7 @@ decide something before any change is the right one*.
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
 | `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
 | `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. |
+| `cadence-lapse` | `needs_ruling` | The reading says an artifact **stopped** and cannot say **why** — a routine switched off, a credential that expired, a producer that moved, or a declaration that is now wrong — and which of those it is decides whether any change is the right one. `note-cadence` is the row worth arguing against and it loses on exactly that: it names one workflow **this repository owns and can fix**, while a declared cadence names an artifact whose producer the declaration does not identify. Filing it as work would have the loop repairing a cause it never established. |
 | `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |
 | `human-checkin` | `needs_ruling` | The asking step itself. |
 
@@ -2506,3 +2507,76 @@ merged or closed, no worktree touched, no gate lifted, and nothing written anywh
 tick-log line (`run.sh` writes that). Every reading it carries is a **judgement**
 (`drive/reference/claims.md`, *Whether a unit is being driven twice*): a race resolves the
 moment one of the two branches merges.
+
+## 30. `cadence-lapse` — a periodic artifact that stopped being produced
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-cadence-lapse.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-31, mission `notice-a-periodic-artifact-that-stopped-being-produced`).
+Every other step of this tick is driven by an object that **exists** — an open pull request, a
+commit, a claim, a ticket, a record — so a producer that dies produces nothing and no step has
+anything to find. Measured: a daily record stopped for four days while hourly ticks ran
+throughout, and not one of them reported it. The tick watches presence; this is the step that
+watches **absence**. `/implement` may not ask and a run report is read by nobody on the day it
+matters, so without it there is no path from *something stopped being produced* to *a person is
+told*.
+
+**What it reads.** `cadence-state.sh`, the one reader, and nothing else. That script owns the
+declaration's parse, the age and the three states; this step reads its answer and decides only
+who hears about it. A second parse of the declaration here is how the offer and the reading
+would start disagreeing. **Where the declaration lives and what it says** is stated once in
+`workaholic:moderate`, *Where a cadence is declared, and what it says*, with the two rejected
+homes and their costs — it is not restated here or in the reader.
+
+**What it asks.** One question per `lapsed` cadence, keyed `cadence-lapsed:<name>` through the
+existing gate, so one lapse costs one question however many ticks see it; `ask-question.sh` is
+byte-identical and no key, cap or hold moved. The question names the cadence, its pattern, its
+period, when its newest artifact was last produced and how long ago — and says plainly that the
+loop can see the artifact stopped and **cannot see why**.
+
+**Which sibling it follows, on each axis**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | *nobody* | the declaration names a cadence, a pattern and a period and **no person**, so there is no addressee to name and the step will not stamp one nothing verified (`base-health`'s rule for an unmapped login). The question is still visible on the root, which is where a person scanning the channel meets it |
+| running identity | `undrivable-units` | never consulted — a lapsed cadence is lapsed for every account, and a repository-scoped question that answered differently per container would be asked once per runner rather than once per repository |
+| what it may read | `undrivable-units` | one pure reader; **`plan-units.sh` is refused**, because that survey reaches the mission readers, which carry the living migrations and **stage** what they converge |
+
+**An unreadable cadence is named and asked about by nobody.** A pattern that resolves to
+nothing, a malformed entry and a bad period are **our** degradation rather than a lapse, and
+spending a person's attention on a reading we could not make is what `strategy-pace` already
+refuses. The step reports `degraded` with reason `cadence_unreadable`, so the root's impairment
+clause names it (`name-the-steps-a-tick-could-not-read`) — and it **still hands over any cadence
+that did read `lapsed`**, because losing a question because a *different* cadence was unreadable
+trades one silence for another, the trade `run.sh` refuses when it declines to zero
+`needs_agent` on a jq compile error.
+
+**A repository declaring nothing is `skipped`, not `degraded`.** It is a step declining to run
+for a stated, healthy reason — the `no_log_source` split §3 draws — and `skipped` is
+deliberately not impairment, so such a repository is byte-identical to one before this step
+existed: no candidate, no event, no root line.
+
+**It carries no question-ledger age, deliberately.** The four steps that compose
+`condition-age.sh` do so because their own readings are instantaneous and they borrow the age of
+the *question* as a lower bound. This reading answers the condition's **own** age directly, off
+the newest commit that produced the artifact, which is the stronger fact; attaching the ledger
+age beside it would put two numbers for one question in front of a person and add a fifth
+consumer to a table pinned at four (`drive/reference/claims.md`, *Which question reads which
+age*).
+
+**The summary carries no age and no timestamp**, for the correctness reason
+`step-stalled-units.sh`'s header records: the root calls a step changed when its summary differs
+from the same step's an hour ago, and an age increments every tick, which would mark this step
+changed hourly by construction — the retired `📦 Release Preparation` shape. The summary is
+counts only, so a standing lapse renders no new line while a **new** one moves it the hour it
+appears.
+
+**Abort reasons**: `reader_missing` (the reader is not present beside this skill),
+`cadence_unreadable` (the reader answered nothing parseable, or at least one cadence read
+`unreadable`), and the reader's own `reason` when the declaration set could not be read at all.
+
+**It asks and nothing else.** It re-runs no routine, writes no artifact to satisfy a cadence,
+repairs or rewrites no declaration, touches no claim, lifts no gate, and writes nothing anywhere
+but its own tick-log line, which `run.sh` writes. Drilled offline by `verify-cadence-lapse`.

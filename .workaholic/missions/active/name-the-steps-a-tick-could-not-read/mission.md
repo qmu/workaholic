@@ -52,3 +52,4 @@ own. A tick whose steps all read cleanly posts exactly what it posts today.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831102424-read-the-impairment-off-the-tick-s-own-rows.md

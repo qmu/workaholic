@@ -5,6 +5,7 @@
 # Usage: run.sh ... | render-tick-post.sh --tick <id> [--root <repo-root>] [--questions <n>]
 # Output: one JSON object
 #   {"post": bool, "reason": "...", "tick": "...", "token": "tick:<id>",
+#    ... "impaired": [{"step","status","reason"}], "impaired_count": N}
 #
 # `token` IS NOT PRINTED AT A READER (2026-08-22). It was rendered as a `tick:<id>` line on
 # the root until then, and NOTHING EVER SEARCHED IT -- the already-asked ledger matches the
@@ -65,6 +66,26 @@
 #
 # A DEGRADED READ IS NOT AN IDLE HOUR. `no_log` is reported separately and posts nothing,
 # because a mechanism that could not read must never announce quiet.
+#
+# ═══ WHICH STEPS COULD NOT READ ═══════════════════════════════════════════════════
+#
+# `run.sh` classifies every step `ok|filed|skipped|degraded|blocked` with a stable reason,
+# and until now THIS SCRIPT DISCARDED BOTH: the two field patterns below captured `step`,
+# `summary` and `event`, so a tick where six steps saw nothing was byte-identical here to a
+# tick where everything was read — and with no question it posted nothing at all. Measured:
+# 24 of 25 ticks in that state, found four days later by asking.
+#
+# `impaired` is the ONE derivation of that fact. The root line and the gate are separate
+# tickets and BOTH COMPOSE THIS FIELD rather than each re-deriving it from the rows: two
+# parsers of one fact is what this repository refuses by name everywhere else.
+#
+# `skipped` IS NOT IMPAIRMENT. A skipped step declined to run for a stated, healthy reason
+# (`budget`, an absent precondition) — folding it in here would report a tick that behaved
+# exactly as designed as one that could not see, which is the opposite of the defect.
+#
+# IT IS EMITTED ON EVERY EXIT PATH, INCLUDING THE SILENT ONES. A tick that posts nothing is
+# precisely the case the operator could not see, so the reading has to survive `idle`,
+# `no_question`, `no_previous_tick`, `no_log`, `no_rows` and `no_tick` alike.
 
 set -eu
 
@@ -91,9 +112,16 @@ json_escape() {
       | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g' \
       | awk 'BEGIN{ORS=""} NR>1{print "\\n"} {print}'
 }
+# The impairment reading, global so that EVERY `emit` carries it — including the early
+# returns that fire before the rows are parsed, where it is honestly empty rather than
+# absent. Filled once, below, and read nowhere else.
+IMPAIRED=''
+IMPAIRED_COUNT=0
+TAB=$(printf '\t')
+
 emit() {
-    printf '{"post": %s, "reason": "%s", "tick": "%s", "token": "tick:%s", "changes": [%s], "change_count": %s, "questions": %s, "previous_tick": "%s", "root_text": "%s"}\n' \
-        "$1" "$2" "$(json_escape "$TICK")" "$(json_escape "$TICK")" "$3" "$4" "$QUESTIONS" "$(json_escape "$5")" "$(json_escape "$6")"
+    printf '{"post": %s, "reason": "%s", "tick": "%s", "token": "tick:%s", "changes": [%s], "change_count": %s, "questions": %s, "previous_tick": "%s", "root_text": "%s", "impaired": [%s], "impaired_count": %s}\n' \
+        "$1" "$2" "$(json_escape "$TICK")" "$(json_escape "$TICK")" "$3" "$4" "$QUESTIONS" "$(json_escape "$5")" "$(json_escape "$6")" "$IMPAIRED" "$IMPAIRED_COUNT"
     exit 0
 }
 
@@ -102,7 +130,6 @@ emit() {
 # the first time anything else feeds it — which is exactly how this was caught, by a test
 # handing it `JSON.stringify` output with no spaces at all.
 INPUT=$(cat 2>/dev/null || true)
-[ -n "$TICK" ] || emit false no_tick "" 0 "" ""
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT INT TERM
 
@@ -136,6 +163,31 @@ printf '%s\n' "$INPUT" \
 printf '%s\n' "$INPUT" \
   | tr '{' '\n' \
   | sed -n 's/.*"step": *"\([^"]*\)".*"event": *"\([^"]*\)".*/\1\t\2/p' > "${TMP}/events"
+
+# THE THIRD PASS, beside the two above and in the same idiom: `step<TAB>status<TAB>reason`,
+# whitespace-tolerant for the reason the header records. `status` and `reason` sit between
+# `step` and `summary` in every row `run.sh` emits, and nothing here read either until now.
+#
+# A ROW WITH NO `status` FIELD SIMPLY DOES NOT MATCH, so an impairment is never invented for
+# a producer that does not classify its steps; an empty `reason` matches and stays empty.
+printf '%s\n' "$INPUT" \
+  | tr '{' '\n' \
+  | sed -n 's/.*"step": *"\([^"]*\)".*"status": *"\([^"]*\)".*"reason": *"\([^"]*\)".*/\1\t\2\t\3/p' > "${TMP}/status"
+
+# `STEPS` ORDER COMES FOR FREE: `run.sh` walks `STEPS` and emits its rows in that order, so
+# preserving the input order IS that order. Re-listing the steps here would be a second copy
+# of a list this script has no business owning.
+while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
+    [ -n "$step" ] || continue
+    case "$status" in
+        degraded|blocked) ;;
+        *) continue ;;
+    esac
+    IMPAIRED="${IMPAIRED:+${IMPAIRED}, }{\"step\": \"$(json_escape "$step")\", \"status\": \"$(json_escape "$status")\", \"reason\": \"$(json_escape "$reason")\"}"
+    IMPAIRED_COUNT=$((IMPAIRED_COUNT + 1))
+done < "${TMP}/status"
+
+[ -n "$TICK" ] || emit false no_tick "" 0 "" ""
 
 [ -s "${TMP}/now" ] || emit false no_rows "" 0 "" ""
 
@@ -193,7 +245,6 @@ lines=''
 # as it did — a delivering check-in and a quiet one both supply no event and are dropped
 # below, before they can be counted as a change.
 delivery_failure=0
-TAB=$(printf '\t')
 while IFS="$TAB" read -r step summary || [ -n "$step" ]; do
     [ -n "$step" ] || continue
     [ "$step" = "open-log" ] && continue

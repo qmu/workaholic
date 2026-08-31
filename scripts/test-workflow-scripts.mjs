@@ -11713,6 +11713,77 @@ function testDocDrift() {
     const r = JSON.parse(run(nodocs, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
     assertEq("doc-drift reports docs_dir_present false when no docs/", r.docs_dir_present, false);
   } finally { cleanup(nodocs); }
+
+  // ---- The base is RESOLVED, never defaulted to a local `main` (ticket 20260831064500) ----
+  // Every /story run happens inside a claim worktree, where local `main` is whatever the clone
+  // fetched when it was created and is never advanced. The old `BASE="${1:-main}"` therefore
+  // compared the branch against a tree it will not merge into. Structurally-faithful fixture:
+  // a real bare origin, a real stale local main, and somebody else's merge carrying the
+  // structural change.
+  {
+    const { origin, clone } = makeStaleBaseClone({ nBehind: 5, mergedStructural: true });
+    try {
+      // With NO argument the resolver answers origin/main, and the reading names only what
+      // THIS branch changed — which is nothing structural.
+      const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.docDrift}`).stdout);
+      assertEq("doc-drift (default base) resolves origin/main, not local main", r.base, "origin/main");
+      assertEq("doc-drift (default base) reports no structural change from another's merge",
+        r.structural_changes, []);
+      assertEq("doc-drift (default base) raises no candidate", r.candidates, []);
+      assertEq("doc-drift (default base) does not call README.md this branch's change",
+        r.meta_docs["README.md"], { present: true, changed: false });
+
+      // Forcing the stale local main reproduces the measured bug — proof the row can fail
+      // against the old default, and that the fixture bites.
+      const stale = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.docDrift} main`).stdout);
+      assertEq("doc-drift against stale local main over-reports another's merge (fixture is faithful)",
+        stale.structural_changes,
+        [{ kind: "skill_added", path: "plugins/workaholic/skills/ghost/SKILL.md" }]);
+      assertEq("doc-drift against stale local main mis-reports README.md as changed here",
+        stale.meta_docs["README.md"], { present: true, changed: true });
+
+      // A caller naming its own base still gets that base.
+      const explicit = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.docDrift} origin/main`).stdout);
+      assertEq("doc-drift honours an explicitly passed base", explicit.base, "origin/main");
+      assertEq("doc-drift explicit base reads the same as the resolved one",
+        explicit.structural_changes, []);
+    } finally { cleanup(origin); cleanup(clone); }
+  }
+
+  // An unresolvable base is NAMED, never silently replaced by a local ref: origin configured
+  // but never fetched is base-ref.sh's exit 3, and a drift reading nobody can trust is worse
+  // than none.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`git remote add origin https://example.invalid/nope.git`, { cwd: dir });
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.docDrift}`);
+      assertEq("doc-drift unresolvable base exits 0", r.status, 0);
+      const j = JSON.parse(r.stdout);
+      assertEq("doc-drift names an unfetched origin rather than falling back to local main",
+        j.not_applicable, "base_never_fetched");
+      assertEq("doc-drift reports no base when it could not resolve one", j.base, "");
+      assertEq("doc-drift emits no structural facts on an unresolvable base", j.structural_changes, []);
+    } finally { cleanup(dir); }
+  }
+
+  // Single source: the script re-derives no bare `${1:-main}` default of its own.
+  {
+    const src = readFileSync(SCRIPTS.docDrift, "utf8");
+    assertTrue("doc-drift carries no bare ${1:-main} default",
+      !/\$\{1:-main\}/.test(src), "found ${1:-main} in doc-drift.sh");
+    assertTrue("doc-drift resolves its base through gather/base-ref.sh",
+      /base-ref\.sh/.test(src), "doc-drift.sh does not reach the single base resolver");
+  }
+
+  // area-freshness.sh does NOT share the assumption: it resolves no base at all, reading each
+  // record's own last commit, so a stale local `main` cannot reach it. Asserted so a later
+  // change that gives it a base default is caught here (ticket step 4).
+  {
+    const src = readFileSync(SCRIPTS.areaFreshness, "utf8");
+    assertTrue("area-freshness carries no base default to go stale",
+      !/\$\{1:-main\}/.test(src) && !/BASE=/.test(src), "area-freshness.sh grew a base ref");
+  }
 }
 
 // ---------- hooks/policy-lens.sh (real policy-lens injection under a workflow command) ----------
@@ -12435,9 +12506,12 @@ function testGuardTicketStructure() {
 // (the desk pin — a worktree can't move the `main` another worktree holds), and a work
 // branch cut from the FRESH origin/main carrying exactly one real commit. If `opts.mergedSecret`
 // is set, one of the already-merged commits carries a credential-shaped line; if
-// `opts.branchSecret`, the branch's one real commit does. Returns { origin, clone }.
+// `opts.branchSecret`, the branch's one real commit does. If `opts.mergedStructural`, one of
+// the already-merged commits adds a SKILL (a structural presence change) and touches README.md
+// — the shape a stale base makes doc-drift.sh narrate as this branch's drift. Returns
+// { origin, clone }.
 function makeStaleBaseClone(opts = {}) {
-  const { nBehind = 5, mergedSecret = false, branchSecret = false } = opts;
+  const { nBehind = 5, mergedSecret = false, branchSecret = false, mergedStructural = false } = opts;
   const origin = mkdtempSync(join(tmpdir(), "wh-sborigin-"));
   const clone = mkdtempSync(join(tmpdir(), "wh-sbclone-"));
   const seed = mkdtempSync(join(tmpdir(), "wh-sbseed-"));
@@ -12445,12 +12519,26 @@ function makeStaleBaseClone(opts = {}) {
   execSync(`git clone -q ${origin} .`, { cwd: seed });
   execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
   writeFileSync(join(seed, "base.txt"), "base\n");
+  if (mergedStructural) {
+    // The index docs doc-drift.sh reads must EXIST on the base for the reading to mean
+    // anything; without them every candidate is vacuously absent.
+    writeFileSync(join(seed, "CLAUDE.md"), "# claude\n");
+    writeFileSync(join(seed, "README.md"), "# readme\n");
+  }
   execSync(`git add -A && git commit -q -m "seed base" && git push -q origin main`, { cwd: seed });
   // N commits merged to origin/main — the "already merged" history a stale local base
   // would wrongly narrate/scan. One optionally carries a secret (to prove the false BLOCK).
   for (let i = 1; i <= nBehind; i++) {
-    writeFileSync(join(seed, `merged-${i}.txt`),
-      mergedSecret && i === 1 ? "aws = AKIA1234567890ABCDEF\n" : `merged work ${i}\n`);
+    if (mergedStructural && i === 1) {
+      // Somebody ELSE's merge: a skill appears and README.md moves with it. Both facts are
+      // already on origin/main, so neither belongs to the branch cut from it.
+      mkdirSync(join(seed, "plugins/workaholic/skills/ghost"), { recursive: true });
+      writeFileSync(join(seed, "plugins/workaholic/skills/ghost/SKILL.md"), "---\nname: ghost\n---\n");
+      writeFileSync(join(seed, "README.md"), "# readme\n- ghost skill\n");
+    } else {
+      writeFileSync(join(seed, `merged-${i}.txt`),
+        mergedSecret && i === 1 ? "aws = AKIA1234567890ABCDEF\n" : `merged work ${i}\n`);
+    }
     execSync(`git add -A && git commit -q -m "merged work ${i}" && git push -q origin main`, { cwd: seed });
   }
   rmSync(seed, { recursive: true, force: true });

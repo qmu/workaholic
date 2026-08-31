@@ -1787,16 +1787,37 @@ contract is *writes nothing*.
    `🔴`, or a reconciliation this loop already posted, is **not**. **When unsure, post nothing and
    say what made you unsure** — the standing bar, and here it costs one tick rather than a duplicate
    announcement in a person's thread.
-3. **Post the catalog's shape** for the state the reader gave: `🟢 Implemented` with the sentence
-   naming that it merged outside the loop, **by whom and when**, for a merge; `⚫ Closed` for a pull
-   request closed without merging. **Never invent an author or a time** — an unresolved one is
-   *stated* as unresolved, never omitted silently and never guessed.
+3. **Post the catalog's shape** for the **pair** of (latest status, pull request state), and there
+   are exactly three: `🟡 Handoff` + merged reuses `🟢 Implemented` with the sentence naming that it
+   merged outside the loop, **by whom and when**; `🔵 Proposed` + closed-unmerged uses `⚫ Closed`;
+   and `🔵 Proposed` + **merged posts nothing**, reported `proposal_merged_is_not_a_finish`.
+   **Never invent an author or a time** — an unresolved one is *stated* as unresolved, never
+   omitted silently and never guessed.
+
+   **A merged proposal is the item's START, not its finish** (2026-09-01, issue #787). Merging a
+   proposal lands a feedback record and a ticket set, which is the moment the work becomes
+   **queued**; `🟢 Implemented` there asserts the opposite of what happened. Measured on a
+   consuming repository: an operator read the green circle as their ask being done while the
+   ticket was still in `todo/` and the thing they complained about was byte-identical. The two
+   cases were already distinguishable with no new state — the latest status reply is read anyway,
+   and it is what tells them apart. **Saying nothing is strictly better than saying the opposite**:
+   the thread keeps its last true status, and the real `🟢 Implemented` still arrives when the work
+   is driven. **No fifth finish emoji was introduced** — a shape of its own saying *the tickets are
+   queued* is additive, can follow, and is the operator's to ask for; the catalog already reasons
+   against growing the finish vocabulary.
+
+   **The stated cost**: a queued item whose ticket is never driven now has a thread that simply
+   stops at `🔵 Proposed`. That is a **true** last word rather than a false one, but it is still a
+   silence, and it was chosen rather than overlooked. `[Consent]`'s retirement is untouched: this
+   **narrows** what the step corrects and announces no human merge it did not already announce.
 4. **Record one `thread-reconcile-filed` line per candidate** through `log-append.sh`, naming the
    key and the outcome, then persist again through `persist-log.sh --tick` — the **second** persist,
    without which the line dies with the container.
 5. **One outcome per candidate, or the other**: `posted`, or a named not-posted reason —
-   `no_thread`, `already_finished`, `unsure`, `no_slack_transport`, `thread_unreadable`,
-   `post_failed`. **A candidate handed back with no outcome is non-conformant on its face**: this is
+   `no_thread`, `already_finished`, `proposal_merged_is_not_a_finish`, `unsure`,
+   `no_slack_transport`, `thread_unreadable`, `post_failed`. The third is **counted rather than
+   dropped silently**, so a merged proposal reaching no reply is visible as a decision rather than
+   as a step that found nothing. **A candidate handed back with no outcome is non-conformant on its face**: this is
    a prose contract, not a script gate — no mechanical check tells a real thread read from a claimed
    one — and what it buys is that a report naming no outcome is visibly wrong.
 

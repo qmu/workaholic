@@ -30832,6 +30832,41 @@ function testThreadReconcileStep() {
     assertTrue("with one outcome required per candidate",
       /non-conformant on its face/.test(need.outcomes), JSON.stringify(need.outcomes));
 
+    // ---- THE FOUR TRANSITIONS, ONE ROW EACH (2026-09-01, issue #787) ----------------------
+    // The reply itself is the AGENT's act — no script renders it — so what is pinnable is the
+    // instruction the agent is held to, and that is exactly where the defect lived: the step told
+    // it to post `🟢 Implemented` for *a merge*, without asking which status it was merging under.
+    // A merged `🔵 Proposed` therefore announced the opposite of what happened: merging a proposal
+    // lands a record and a ticket set, which is the moment the work becomes QUEUED.
+    assertTrue("🟡 Handoff + merged still reuses 🟢 Implemented, by whom and when",
+      /🟡 Handoff \+ merged reuses 🟢 Implemented/.test(need.post)
+        && /by whom and when/.test(need.post), JSON.stringify(need.post));
+    assertTrue("🔵 Proposed + closed-unmerged still uses ⚫ Closed",
+      /🔵 Proposed \+ closed-unmerged uses ⚫ Closed/.test(need.post), JSON.stringify(need.post));
+    assertTrue("🔵 Proposed + merged POSTS NOTHING, and says why",
+      /🔵 Proposed \+ MERGED POSTS NOTHING/.test(need.post)
+        && /proposal_merged_is_not_a_finish/.test(need.post), JSON.stringify(need.post));
+    assertTrue("...and the skip is a counted outcome rather than a silent drop",
+      /proposal_merged_is_not_a_finish/.test(need.outcomes), JSON.stringify(need.outcomes));
+    // THE GATE THE TICKET SET ON ITSELF: no fifth finish emoji. The instruction names exactly the
+    // two finish shapes the catalog already has, and introduces none of its own.
+    assertEq("no fifth finish emoji is introduced",
+      [...new Set((need.post.match(/[🟢🚀🟡🔵🔴⚫⚪]/gu) || []))].sort().join(""),
+      ["🟢", "🟡", "🔵", "⚫"].sort().join(""));
+    // AND THE FOUR COPIES AGREE. The script, the catalog, the command mirror and the step's own
+    // spec are read separately: two of them carried the narrowing while the spec still told a
+    // reader that a merge means `🟢 Implemented`, which is the drift this row exists to catch.
+    for (const [file, what] of [
+      ["plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh", "the step"],
+      ["plugins/workaholic/skills/notify/reference/notifications.md", "the catalog"],
+      ["plugins/workaholic/commands/moderate.md", "the command mirror"],
+      ["plugins/workaholic/skills/moderate/reference/workflow.md", "the step's own spec"],
+    ]) {
+      assertTrue(`${what} carries the narrowing`,
+        readFileSync(join(REPO_ROOT, file), "utf8").includes("proposal_merged_is_not_a_finish"),
+        `${file} still describes a merged proposal as a finish`);
+    }
+
     // AN EARLIER TICK'S `<step>-filed` LINE SUBTRACTS THE CANDIDATE — an optimisation, never the
     // gate: the real dedup is the agent reading the thread before it writes.
     run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --root ${repo} --tick 20260828-060000 `

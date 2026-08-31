@@ -160,11 +160,30 @@ in the window / queued now) instead of "item(s)".
 **One thread per tick, and two speech acts told apart by position** (2026-08-21, the developer's design). The tick posts a **root** carrying what changed in the hour, and every question it has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
 
 ```
-🔎 Moderation - <N> change(s), <M> question(s)
+🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>
 <on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
 <what happened to the repository, one line per changed step that has an event>
+<one line per step that could not read, after the event lines: ⚠️ <step> — <status>: <reason>, at most 5 then "and <K> more">
 <session URL>
 ```
+
+**And every root names the steps that could not read** (2026-08-31, mission
+`name-the-steps-a-tick-could-not-read`). A degraded step normally supplies no `event`, and *a step
+with no event renders no line* — so a tick where six steps saw nothing rendered identically to one
+where everything was read and everything was fine; measured, 24 of 25 ticks in that state, found
+four days later by asking. The count rides the head, the names and reasons ride the body after the
+event lines, and both are omitted entirely when nothing was impaired, so a healthy root is
+byte-identical to what it always was. `skipped` is **not** impairment (a step declining to run for
+a stated, healthy reason did not fail to see) and `blocked` renders beside `degraded` under one
+clause, because they differ in cause and are identical in consequence to the reader.
+
+**It rides outside the diff and earns no post.** A step degraded the same way for twenty-four ticks
+has an unchanged summary, so the diff would call it unchanged and the impairment would be said once
+and then vanish — the defect rather than the fix. And it adds a clause to a root that was *already*
+being posted for a question, a digest or a delivery failure, so a tick that would have been silent
+stays silent: this is not `📦 Release Preparation` returning, which earned a post with an unchanged
+answer. The list is bounded (5 by default) with the remainder counted rather than cut, and it
+carries no dedup key, no mention token and no session URL of its own.
 
 **Each line names a repository event, not the tick's bookkeeping** (2026-08-23). A line used to be
 the step's own **log** summary rendered verbatim — an audit trail written for a maintainer

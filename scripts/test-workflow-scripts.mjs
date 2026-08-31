@@ -26541,7 +26541,7 @@ function testModerateRoutineTemplate() {
   }
   assertEq("and they are the only five shapes the template authorizes",
     [...template.matchAll(/```\n([^\n]*)/gu)].map((m) => m[1]).filter((l) => /^[^\s`]/.test(l)),
-    ["🔎 Moderation - <N> change(s), <M> question(s)",
+    ["🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>",
      "🙋 <@U…> - <what this tick could not decide>",
      "✅ 解消を確認 - <the question's subject, one line>",
      "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",

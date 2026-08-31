@@ -54,3 +54,4 @@ puts a tick log back on `main` fails a drill.
 - 2026-08-31 — ticket archived — 20260831182058-rule-which-ref-the-tick-log-lives-on.md
 - 2026-08-31 — ticket archived — 20260831182058-publish-the-tick-log-to-its-own-ref.md
 - 2026-08-31 — ticket archived — 20260831182058-keep-the-tick-s-feedback-records-on-the-base.md
+- 2026-08-31 — ticket archived — 20260831182058-read-the-tick-log-through-one-reader.md

@@ -136,11 +136,26 @@
 # undeletable branches and seven undrivable units all held behind it. A delivery failure IS
 # the event the root exists to carry.
 #
-# It is supplied ONLY on the ok branch and only for `cap_spent` and `cap_unbounded` — the two
-# states where the tick was eligible to ask and structurally could not. Every other case
-# supplies NO event and therefore renders no line: a genuinely quiet hour, an off day and the
-# quiet window are the DESIGNED hold and are already named in the log, and a tick that
-# delivered questions needs no event because the questions themselves are the delivery.
+# It is supplied for `cap_spent` and `cap_unbounded` — the two states where the tick was
+# eligible to ask and structurally could not — and, since 2026-08-31 (mission
+# `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`), for an `all_held` tick whose
+# ARREARS OUTLIVED THE DESIGNED HOLD.
+#
+# THAT LAST CASE WAS EXCLUDED, ON A REASONING THAT IS RIGHT FOR ONE TICK AND WRONG ACROSS
+# DAYS. The quiet window and the off day are the DESIGNED hold and are already named in the
+# log, so neither earned a line — and measured, 24 consecutive ticks reported `all_held` with
+# 13 questions behind them while the root said nothing. A hold that has outlived the window
+# which was supposed to explain it is no longer a delay. So an `all_held` tick — on the `ok`
+# branch and, because that is where a weekend's arrears actually sit, on the `off_day` and
+# `quiet_hours` branches too — supplies an event naming the DEPTH and the AGE once its oldest
+# hold predates the working-day boundary composed below; a hold inside that boundary still
+# supplies none. The refused alternative was an escalation after N ticks: N is a tunable
+# constant this repository refuses by name, while the working-day boundary is a derivation
+# whose three terms were already justified.
+#
+# Every other case supplies NO event and therefore renders no line: a genuinely quiet hour,
+# `all_asked_before`, the degraded read, and a tick that delivered questions, which needs no
+# event because the questions themselves are the delivery.
 # `cap_spent` is worth a line even though the budget worked, because a reader must be able to
 # tell it from `cap_unbounded`, which is the loop broken. The line names no dedup key and
 # carries no mention token — the root is addressed to nobody, and the questions are the
@@ -327,11 +342,57 @@ fi
 # Null, never `0`, when there is nothing held or the day could not be read.
 held_oldest_json=null
 held_days_json=null
+held_days=''
 if [ -n "$held_oldest_day" ]; then
     held_oldest_json="\"$(json_escape "$held_oldest_day")\""
-    held_days_json=$(days_between "$held_oldest_day" "$TICK_DAY")
-    case "$held_days_json" in ''|*[!0-9]*) held_days_json=null ;; esac
+    held_days=$(days_between "$held_oldest_day" "$TICK_DAY")
+    case "$held_days" in ''|*[!0-9]*) held_days='' ;; esac
+    [ -z "$held_days" ] || held_days_json="$held_days"
 fi
+
+# --- THE BOUNDARY THE DESIGNED HOLD WAS SUPPOSED TO EXPLAIN ---------------------------
+# (2026-08-31, mission `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`.) The first
+# hour inside `WORKAHOLIC_WORK_DAYS` at the end of `WORKAHOLIC_QUIET_HOURS`, in
+# `WORKAHOLIC_QUIET_TZ` — exactly as the red-alert cool-down's expiry composes it, and from
+# NO constant of its own: every term is already read above and already justified, so the
+# comparison means *this hold outlived the window that was supposed to explain it* rather
+# than *N ticks have passed*.
+#
+# WHAT IS DERIVED IS HOW MANY DAYS BACK THAT OPENING IS, never a second date. `held_days` is
+# already the distance from the oldest hold to the tick's day, so `held_days > boundary_back`
+# IS `held_oldest_day` earlier than the boundary's day — and no inverse day-to-date
+# conversion has to exist anywhere in this repository for it.
+#
+#   `boundary_back` = 0  the tick stands on a working day at or after the quiet window's end,
+#                        so today's opening has already happened;
+#               1..7     otherwise, the distance back to the most recent working day. The
+#                        seven is the length of the week, not a threshold.
+boundary_back=''
+if [ "$offday" != "true" ] && [ "$HOUR" -ge "$END" ]; then
+    boundary_back=0
+else
+    _n=1
+    while [ "$_n" -le 7 ]; do
+        _wd=$(( (WEEKDAY - _n - 1 + 70) % 7 + 1 ))
+        if [ "$_wd" -ge "$DAY_START" ] && [ "$_wd" -le "$DAY_END" ]; then
+            boundary_back="$_n"
+            break
+        fi
+        _n=$((_n + 1))
+    done
+fi
+
+# The event an outlived hold earns, or nothing. A NULL reading supplies nothing: a reading we
+# could not make is never dressed as one we did. It is a function of the reading alone — no
+# clock, no timestamp — so two consecutive ticks with the same reading render one line, and
+# it names no dedup key and carries no mention token.
+outlived_event() {
+    [ -n "$held_days" ] || return 0
+    [ -n "$boundary_back" ] || return 0
+    [ "$held_days" -gt "$boundary_back" ] || return 0
+    printf '%s question(s) held and none asked — the oldest has waited since %s (%s day(s)), past the working-day boundary that was supposed to explain the hold' \
+        "$held_count" "$held_oldest_day" "$held_days"
+}
 
 # --- What this tick delivered, and why it delivered nothing ---------------------------
 # `delivered` is the ask lines recorded under THIS tick's id: a read of the log, never an
@@ -349,16 +410,24 @@ fi
 
 if [ "$offday" = "true" ]; then
     [ "$held_count" -eq 0 ] || delivery=all_held
-    printf '{"step": "human-checkin", "status": "skipped", "reason": "off_day", "summary": "weekday %s is outside the %s working week (%s) — %s candidate(s): %s delivered, %s held (%s)", "event": "", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
+    # A hold inside the boundary is the DESIGNED hold and supplies nothing; one that outlived
+    # it earns its line here too, because this is where a weekend's arrears actually sit.
+    event=''
+    [ "$delivery" != "all_held" ] || event=$(outlived_event)
+    printf '{"step": "human-checkin", "status": "skipped", "reason": "off_day", "summary": "weekday %s is outside the %s working week (%s) — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
         "$WEEKDAY" "$ZONE" "$WORK_DAYS" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
+        "$(json_escape "$event")" \
         "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"
     exit 0
 fi
 
 if [ "$quiet" = "true" ]; then
     [ "$held_count" -eq 0 ] || delivery=all_held
-    printf '{"step": "human-checkin", "status": "skipped", "reason": "quiet_hours", "summary": "inside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
+    event=''
+    [ "$delivery" != "all_held" ] || event=$(outlived_event)
+    printf '{"step": "human-checkin", "status": "skipped", "reason": "quiet_hours", "summary": "inside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
         "$WINDOW" "$ZONE" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
+        "$(json_escape "$event")" \
         "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"
     exit 0
 fi
@@ -377,13 +446,16 @@ if [ "$delivered" -eq 0 ] && [ "$held_count" -gt 0 ]; then
     fi
 fi
 
-# THE EVENT: only a tick that was eligible to ask and structurally could not reach anybody.
+# THE EVENT: a tick that was eligible to ask and structurally could not reach anybody, or one
+# whose arrears outlived the hold that was supposed to explain them.
 event=''
 case "$delivery" in
     cap_spent)
         event="${candidates} finding(s) waiting and none asked — the day's question budget is spent; they are held for the next working day" ;;
     cap_unbounded)
         event="${candidates} finding(s) waiting and none asked — the day's question count could not be bounded, so nothing reached anybody" ;;
+    all_held)
+        event=$(outlived_event) ;;
 esac
 
 # The instruction is deliberately a single entry: the questions themselves come from

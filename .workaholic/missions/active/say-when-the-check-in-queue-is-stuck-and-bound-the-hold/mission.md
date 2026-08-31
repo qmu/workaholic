@@ -43,7 +43,7 @@ unchanged.
 
 ## Acceptance
 
-- [ ] An all-held tick whose arrears outlived the designed hold names their depth and age
+- [x] An all-held tick whose arrears outlived the designed hold names their depth and age
       on the root, once, and an unchanged reading never restates. (#20260831112534-let-an-outlived-hold-earn-a-root-line.md)
 - [x] Every held question carries its own refusal word, so the reason is per question
       rather than aggregated into one token. (#20260831112534-say-why-each-held-question-is-held.md)
@@ -54,3 +54,4 @@ unchanged.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-31 — ticket archived — 20260831112534-read-how-deep-and-how-old-the-arrears-are.md
 - 2026-08-31 — ticket archived — 20260831112534-say-why-each-held-question-is-held.md
+- 2026-08-31 — ticket archived — 20260831112534-let-an-outlived-hold-earn-a-root-line.md

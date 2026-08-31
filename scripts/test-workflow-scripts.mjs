@@ -26407,10 +26407,18 @@ function testCheckInDeliveryReading() {
     assertEq("a tick that can still deliver names no failure",
       [j.candidates, j.delivery, j.event], [2, "", ""]);
 
-    // `all_held` — the designed hold. The quiet window and the off day are named, and
-    // neither supplies an event: they are not a delivery failure, they are the gate working.
+    // `all_held` — the designed hold. The quiet window and the off day are named, and while
+    // the hold is INSIDE the window that explains it neither supplies an event: that is not
+    // a delivery failure, it is the gate working. Once the arrears OUTLIVE that window they
+    // earn a line (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`): 24 consecutive ticks
+    // reported `all_held` with 13 questions behind them and the root said nothing.
     j = step("20260828-020000", "--hour 2 --weekday 3");
-    assertEq("the quiet window names the hold", [j.delivery, j.event], ["all_held", ""]);
+    assertEq("the quiet window names the hold", j.delivery, "all_held");
+    assertTrue("and arrears that outlived it name their depth and age",
+      /2 question\(s\) held/.test(j.event) && /since 2026-08-26 \(2 day\(s\)\)/.test(j.event), j.event);
+    assertTrue("naming no dedup key and no mention token",
+      !/tick:|ask:|fb:|<@/.test(j.event), j.event);
     // AND EACH HELD QUESTION NAMES ITS OWN REFUSAL (2026-08-31, mission
     // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). `all_held` was one token
     // over four refusals that call for four different acts, so the aggregate is kept as the
@@ -26418,9 +26426,28 @@ function testCheckInDeliveryReading() {
     assertEq("every held entry carries the gate's own word for that key",
       j.held.map((h) => h.reason), ["quiet_hours", "quiet_hours"]);
     j = step("20260829-140000", "--hour 14 --weekday 6");
-    assertEq("so does the off day", [j.delivery, j.event], ["all_held", ""]);
+    assertEq("so does the off day", j.delivery, "all_held");
     assertEq("and the off day's own word rides each entry too",
       j.held.map((h) => h.reason), ["off_day", "off_day"]);
+    assertTrue("a weekend's outlived arrears earn the line where they actually sit",
+      /since 2026-08-26/.test(j.event), j.event);
+    // TWO CONSECUTIVE TICKS WITH THE SAME READING RENDER ONE LINE, because the event is a
+    // function of the reading alone — no clock, no timestamp, nothing that moves.
+    assertEq("and a second tick with the same reading says exactly the same thing",
+      step("20260829-150000", "--hour 15 --weekday 6").event, j.event);
+
+    // A HOLD INSIDE THE BOUNDARY IS THE DESIGNED HOLD AND SUPPLIES NOTHING. The boundary is
+    // composed from the gate's own three variables: on a Saturday the most recent working
+    // opening is Friday, so a Friday hold is inside it and a Thursday one is not.
+    const fresh = makeRepo();
+    try {
+      mkdirSync(join(fresh, ".workaholic"), { recursive: true });
+      run(fresh, `${LOG} --tick 20260828-100000 --step human-checkin-held-fri --status skipped --summary "held"`);
+      const f = JSON.parse(run(fresh,
+        `${STEP} --root . --tick 20260829-140000 --hour 14 --weekday 6`).stdout);
+      assertEq("a hold inside the working-day boundary supplies no event",
+        [f.delivery, f.event], ["all_held", ""]);
+    } finally { cleanup(fresh); }
 
     // `cap_spent` — the budget worked, and it is still worth one line, because a reader has
     // to be able to tell it from `cap_unbounded`.

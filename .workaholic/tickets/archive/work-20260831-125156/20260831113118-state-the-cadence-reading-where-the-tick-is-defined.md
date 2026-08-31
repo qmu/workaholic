@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:31:18+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,33 @@ and a new question key each have a documented home.
 - The step count appears in more than one sentence of `CLAUDE.md`'s `/moderate` row;
   grep for the numeral rather than trusting one edit.
 
+
+## Final Report
+
+Development completed as planned. The step is documented in `reference/workflow.md` §30 — what
+it reads, what it asks, its abort reasons, and that it supplies an event only when something
+lapsed — and named in `SKILL.md`'s list of what the tick can ask about. The step count moved
+from twenty-nine to thirty in all four places together (`SKILL.md`'s frontmatter description,
+its relocated-detail line, its run section and its ask enumeration) plus `CLAUDE.md`'s
+`/moderate` row, and `scripts/test-workflow-scripts.mjs`'s expected `STEPS` array — which is the
+mechanical check that the two cannot disagree, and which caught four assertions the moment the
+step was registered.
+
+`cadence-lapse` is classified in the finding table **deliberately** as `needs_ruling`:
+the reading says an artifact stopped and cannot say **why** — a routine switched off, a
+credential that expired, a producer that moved, or a declaration that is now wrong — and which
+of those it is decides whether any change is the right one. `note-cadence` is the row worth
+arguing against (a draft note that stopped refreshing is `repairable`) and it loses on exactly
+that distinction: it names one workflow this repository owns and can fix, while a declared
+cadence names an artifact whose producer the declaration does not identify.
+
+**What did not move**: the keys, the caps, the holds, `ask-question.sh`, the change-diff rule,
+the impairment gate and every existing step. `outputs/` was regenerated in the same change.
+
+### Discovered Insights
+
+- **Insight**: the expected `STEPS` array in `scripts/test-workflow-scripts.mjs` is the real
+  lockstep partner of the prose step count, not `CLAUDE.md`.
+  **Context**: adding a step fails four assertions immediately and by name, while a stale
+  numeral in prose fails nothing. A future step should be registered in `run.sh` first and let
+  the suite point at every place the count is written down.

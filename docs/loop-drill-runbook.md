@@ -1464,6 +1464,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-claim-race` | `hermetic` | yes | `stop-two-runs-from-claiming-and-driving-one-unit` |
 | `verify-directed-notification` | `hermetic` | yes | `notify-the-person-a-directed-question-addresses` |
 | `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
+| `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 
 ### The evidence behind the classification
 

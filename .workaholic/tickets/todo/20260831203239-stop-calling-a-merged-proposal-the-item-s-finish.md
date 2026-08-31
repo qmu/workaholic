@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260831203218-thread-reconcile-calls-a-merged-proposal-the-item-s-finish.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260831-231823
 ---
 
 # Stop calling a merged proposal the item's finish

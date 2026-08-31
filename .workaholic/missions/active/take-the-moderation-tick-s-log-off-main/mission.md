@@ -43,7 +43,7 @@ puts a tick log back on `main` fails a drill.
 
 - [x] The tick log's home is a dedicated ref this repository creates and a fresh
       container fetches, and `main` carries no tick-log write. (#20260831182058-publish-the-tick-log-to-its-own-ref.md)
-- [ ] Every reader reaches the log through one reader, concurrent ticks still
+- [x] Every reader reaches the log through one reader, concurrent ticks still
       union by `(tick, step)`, and the persist count per tick is justified by name. (#20260831182058-justify-or-drop-each-persist-the-tick-makes.md)
 - [ ] Two drills: one fails when a tick's log misses the ref, one fails when a
       tick log reaches `main` again. (#20260831182058-drill-that-a-tick-log-never-reaches-main.md)
@@ -56,3 +56,4 @@ puts a tick log back on `main` fails a drill.
 - 2026-08-31 — ticket archived — 20260831182058-keep-the-tick-s-feedback-records-on-the-base.md
 - 2026-08-31 — ticket archived — 20260831182058-read-the-tick-log-through-one-reader.md
 - 2026-08-31 — ticket archived — 20260831182058-rule-on-the-moderations-history-left-on-main.md
+- 2026-08-31 — ticket archived — 20260831182058-justify-or-drop-each-persist-the-tick-makes.md

@@ -171,7 +171,7 @@ RECORDS=''
 # So the two travel separately, in that order, each with its own commit. This is one more commit
 # than before on a tick that filed something, and strictly fewer on the ~90% of ticks that file
 # nothing at all -- which used to commit to `main` regardless.
-LOG_REF=$(sh "${SCRIPT_DIR}/log-ref.sh")
+LOG_REF=$(sh "${SCRIPT_DIR}/../../gather/scripts/log-ref.sh")
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -357,7 +357,7 @@ fi
 # The branch is created on first use; every repository taking this version has none yet, and a
 # first tick reporting `base_unresolved` forever would leave the log in the container exactly as
 # it was before this seam existed.
-ensure_out=$(sh "${SCRIPT_DIR}/ensure-log-ref.sh" --root "$repo_root" 2>/dev/null || true)
+ensure_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/ensure-log-ref.sh" --root "$repo_root" 2>/dev/null || true)
 case "$ensure_out" in
     *'"ok": true'*) ;;
     *)

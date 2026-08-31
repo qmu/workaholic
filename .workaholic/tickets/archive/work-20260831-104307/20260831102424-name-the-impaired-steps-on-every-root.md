@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T10:24:24+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260831102424-read-the-impairment-off-the-tick-s-own-rows.md
@@ -108,3 +109,71 @@ one *is* gated on the diff.
 - `blocked` is rendered beside `degraded` under one clause. They differ in cause and are
   identical in consequence to the reader — the tick did not do the job — and two clauses
   would be two vocabularies for one question.
+
+## Final Report
+
+Development completed as planned.
+
+The reproduction was confirmed first at `--questions 1`, where a root *is* produced: over a
+tick with two `degraded` steps and one `blocked` one, `root_text` read
+`🔎 Moderation - 1 change(s), 1 question(s)` followed by the single event line — a clean-looking
+root over an impaired tick, with the omission visible in the text rather than in silence.
+
+The clause is composed from the derived set the previous ticket added and from nothing else:
+the derivation loop now also writes `${TMP}/impaired`, and the render reads that file. `counts`
+is never consulted and the rows are never re-tokenised.
+
+- **Head**: a third term, `, <K> step(s) could not read`, appended to the two already there and
+  **omitted entirely at `K == 0`**.
+- **Body**: one line per impaired step, `⚠️ <step> — <status>: <reason>`, appended after the
+  event lines. An empty reason renders without the colon rather than with a dangling one.
+- **Bound**: `WORKAHOLIC_IMPAIRED_MAX` (default 5) named, the rest counted as `and <K> more`.
+  The head always carries the full count, so the bound cannot hide the size of the problem.
+
+It rides outside the diff and is gated on nothing the diff decided. It reaches no gate either:
+`post`, its `reason`, `changes[]`, `change_count`, the question replies and all three posting
+gates are untouched, so a tick that would have been silent stays silent.
+
+`reference/workflow.md`, the notify catalog and the `[Moderate]` routine template moved in the
+same change, and the drift pin's expected first-line list moved with them.
+
+Verified:
+
+- **The gate — two consecutive ticks.** Tick A at 10:45 and tick B at 11:45 over the same three
+  impaired steps with identical summaries. Tick B reports `change_count: 0` — the diff swallowed
+  every one of them — and its root still names all three. That is the whole difference between
+  this and a line the diff would have said once and dropped.
+- **A healthy tick.** With every status flipped to `ok`, `root_text` is byte-identical to the
+  pre-change capture, and the head carries no third term.
+- **The bound.** Seven impaired steps render five names and `and 2 more`, with
+  `impaired_count: 7` in the head and the JSON; `WORKAHOLIC_IMPAIRED_MAX=2` renders two and
+  `and 5 more`.
+- **No key, no token.** `root_text` carries no `tick:` line and no `<@U`.
+- `node scripts/test-workflow-scripts.mjs`: 5422 passed, 0 failed, including the notify-catalog
+  drift pin (the template and catalog copies verified byte-identical under the new shape).
+- `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs`: clean.
+  `outputs/` is unchanged, correctly — `notify`, `moderate` and `workaholify` are not in the
+  cross-agent bundle.
+
+### Discovered Insights
+
+- **Insight**: `BODY=$(printf '%s%s' "$lines" "$IMPAIRED_BODY")` composes two newline-terminated
+  blocks and gets the healthy case byte-identical for free, because command substitution strips
+  the trailing newline exactly as it did for `lines` alone.
+  **Context**: The obvious alternative — a conditional that appends `\n` plus the clause only
+  when non-empty — has the same result and one more branch to get wrong. The existing
+  `$(printf '%s' "$lines")` was already relying on that stripping; extending it rather than
+  working around it is what makes "byte-identical when K is 0" structural instead of tested.
+
+- **Insight**: Rendering the clause inside the diff loop is the shorter implementation and
+  reproduces the measured defect exactly. The steady, days-long impairment is the case that was
+  measured, and it is precisely the case a diff calls unchanged.
+  **Context**: Worth stating for a later reader who sees an unconditional clause in a file whose
+  entire header argues that everything should be diffed. The diff exists to stop an *unchanged
+  answer earning a post*; this clause earns no post, so the argument does not reach it.
+
+- **Insight**: The distinction that keeps this from being `📦 Release Preparation` again is
+  *earning a post* versus *riding one*. Both retired status roots were retired for the former.
+  **Context**: The next ticket in this mission gives a changed impairment a root of its own, and
+  that one *is* diff-gated — so the mission ends up with both halves and neither is a status line
+  addressed to nobody. The two tickets look contradictory read separately and are not.

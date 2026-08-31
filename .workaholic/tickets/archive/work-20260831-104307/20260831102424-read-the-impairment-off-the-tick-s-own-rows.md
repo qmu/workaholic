@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T10:24:24+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -107,3 +108,52 @@ anything depends on it.
   how many steps were blind and never which, and the ask is for the steps **by name**.
 - The renderer parses with `sed`/`awk` rather than `jq` on purpose (its header: every other
   script in this skill runs where `jq` may be absent). Keep the third pass in that idiom.
+
+## Final Report
+
+Development completed as planned.
+
+The defect was reproduced before it was repaired: a captured `run.sh` JSON carrying two
+`degraded` steps (`inbound-sweep` / `no_slack_transport`, `merge-conflicts` /
+`gh_unavailable`) and one `blocked` step (`stalled-units` / `shallow_history`) rendered an
+object with **no term naming any of them**, and with `--questions 0` it emitted
+`post: false, reason: idle` — total silence, byte-identical to a tick where everything was
+read.
+
+`render-tick-post.sh` gained a third pass over the same tokenised input in the same
+`sed`/`awk` idiom, writing `step<TAB>status<TAB>reason` to `${TMP}/status`, and one
+derivation of `impaired[]` / `impaired_count` from the rows whose status is `degraded` or
+`blocked`. `skipped` is excluded by name and in a comment: a step declining to run for a
+stated, healthy reason (`budget`) is not an impairment.
+
+The reading is emitted on **every** exit path. `no_tick` was the one early return that fired
+before the rows were parsed, so the `[ -n "$TICK" ]` check moved below the parse; its output
+is otherwise unchanged. `TAB` moved to the top of the script and is now defined once.
+
+No output moved. Verified across all eight exit paths (`idle`, `no_question`,
+`no_previous_tick`, `no_log`, `no_rows`, `no_tick`, and `ready` at one and three questions)
+by diffing the post-change output with the two new fields stripped against output captured
+from the pre-change script: **byte-identical on every pre-existing field**, demonstrated
+rather than asserted.
+
+### Discovered Insights
+
+- **Insight**: `STEPS` order needs no list in the renderer — `run.sh` walks `STEPS` and emits
+  its rows in that order, so preserving input order *is* `STEPS` order.
+  **Context**: The ticket asks for `STEPS` order and the obvious reading is to re-declare the
+  step list here. That would be a second copy of a list this script has no business owning,
+  and it would drift the first time a step is added. The ordering guarantee is structural.
+
+- **Insight**: `run.sh`'s row field order is `step, status, reason, summary, needs_agent,
+  logged, event`, so `status` and `reason` sit *between* the two fields the renderer already
+  parsed — they were passing under the existing patterns on every tick.
+  **Context**: The two `sed` patterns are anchored on `"step"` and then skip forward with
+  `.*`, so the impairment was never unreachable, only unasked-for. Any future field between
+  `step` and `summary` is readable the same way, with no change to how the input arrives.
+
+- **Insight**: The whitespace-tolerant field patterns (`": *\""`) are load-bearing beyond
+  formatting: the new pass was exercised against compact `JSON.stringify` output with no
+  spaces at all and reads identically.
+  **Context**: The file's header records that a parser written against one producer's
+  formatting breaks the first time anything else feeds it. A drill or test that builds its
+  fixture with `JSON.stringify` is exactly that other producer.

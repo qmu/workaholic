@@ -25536,6 +25536,13 @@ function testModerateRun() {
     // placement and same reason as `base-health` — it reads, the check-in asks — and it names
     // the mission that shipped the drill so whoever is asked can redirect.
     "drill-health",
+    // `cadence-lapse` sits beside it (2026-08-31): a DECLARED periodic artifact whose newest
+    // one is older than its period allows. Every other step here is driven by an object that
+    // EXISTS, so a producer that dies produces nothing and no step has anything to find —
+    // measured, a daily record stopped for four days while hourly ticks ran throughout. It is
+    // placed beside `drill-health` because both name a mechanism that stopped working rather
+    // than a unit in flight, and like both its neighbours it reads and the check-in asks.
+    "cadence-lapse",
     // `strategy-digest` is step 13's neighbour (2026-08-24): the integrated standup. Once
     // per JST day, on the first tick at or after 09:00, it hands the per-strategy digest to
     // the agent to render at the top of the Moderation root — and that digest is the root's

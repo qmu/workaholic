@@ -42,7 +42,7 @@ own. A tick whose steps all read cleanly posts exactly what it posts today.
 
 ## Acceptance
 
-- [ ] Every root names the steps that could not read, with their reasons, outside the
+- [x] Every root names the steps that could not read, with their reasons, outside the
       diff — so a standing impairment is stated on every tick that speaks. (#20260831102424-name-the-impaired-steps-on-every-root.md)
 - [ ] An impairment that appeared or cleared earns a root with no question, and an
       unchanged one never restates hourly. (#20260831102424-let-a-changed-impairment-earn-a-root.md)
@@ -53,3 +53,4 @@ own. A tick whose steps all read cleanly posts exactly what it posts today.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-08-31 — ticket archived — 20260831102424-read-the-impairment-off-the-tick-s-own-rows.md
+- 2026-08-31 — ticket archived — 20260831102424-name-the-impaired-steps-on-every-root.md

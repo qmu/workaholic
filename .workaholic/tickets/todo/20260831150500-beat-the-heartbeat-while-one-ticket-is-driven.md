@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260831-152743
 ---
 
 # Beat the heartbeat while one ticket is driven

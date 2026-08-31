@@ -114,9 +114,10 @@ The `question-answers` step names one thread per outstanding question, each on a
 When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
 
 ```
-🔎 Moderation - <N> change(s), <M> question(s)
+🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>
 <on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
 <what happened to the repository, one line per changed step that has an event>
+<one line per step that could not read, after the event lines: ⚠️ <step> — <status>: <reason>, at most 5 then "and <K> more">
 <session URL>
 ```
 

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T10:24:24+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260831102424-let-a-changed-impairment-earn-a-root.md
@@ -109,3 +110,83 @@ a JSON document and a tick log, both of which a fixture can write.
   drill that passes against a line shape the writer never produces proves nothing).
 - The drill does not exercise the Slack post: `workaholic:notify`'s transport is out of this
   mission's scope, and `root_text` is the contract the renderer owns.
+
+## Final Report
+
+Development completed as planned.
+
+`verify-impairment` is a hermetic drill with **eleven load-bearing rows and one breaker**. Its
+fixture is a throwaway directory: a tick log written through `log-append.sh` — the real
+writer, so the drill cannot pass against a line shape the writer never produces — and a
+sequence of captured `run.sh` JSON documents fed to the renderer on stdin. No network, no
+`gh`, no Slack, no `origin`.
+
+The rows walk one impairment's whole life across five logged ticks:
+
+| Row | What it proves |
+| --- | --- |
+| `impairment_is_named` | an impaired tick names both steps with their reasons, count in the head |
+| `impairment_earns_a_root` | the fourth gate: the same tick with **zero** questions posts, as `ready_impairment` |
+| `impairment_survives_the_diff` | an hour later, `change_count: 0`, and the root still names all of it |
+| `impairment_middle_tick_is_silent` | the same unchanged tick with no question posts **nothing** |
+| `impairment_cleared_posts_once` | a clearing earns one root, and that root says what cleared |
+| `impairment_then_silence` | the tick after is quiet again |
+| `impairment_healthy_is_unchanged` | a healthy root and reason are what they were before this mission |
+| `impairment_excludes_skipped` | `doc-drift` is `skipped` in every fixture and appears nowhere |
+| `impairment_stores_nothing` | nothing written but the tick log the tick already keeps |
+| `impairment_writes_nothing` | the checkout is byte-identical after the drill |
+| `impairment_breaker` | **the intentional failure** |
+
+Rows 3 and 4 are the pair that carries the mission and neither is sufficient alone: row 3 is
+the outside-the-diff property a diff-gated render would fail, row 4 is the anti-restatement
+property whose absence would make this the hourly status root retired twice.
+
+### The breaker, demonstrated failing
+
+Written against the **behaviour**, not the return shape: the pre-change parse restored (the
+`status` pass dropped), and it must show **both** halves of the measured defect — the
+impairment going unnamed on a root that posts, *and* the impaired tick going silent. A row
+asserting `impaired[]` merely exists would pass the refactor this drill is for.
+
+Proved rather than asserted: the same break was applied to the **real** script and the drill
+run against it. Four load-bearing rows failed — `impairment_is_named`, `impairment_earns_a_root`,
+`impairment_survives_the_diff` and `impairment_middle_tick_is_silent` — verdict `fail`,
+`passed: 7, failed: 4`. The script was then restored and the drill is green again at
+`passed: 11, failed: 0` with the checkout clean.
+
+### Registered and reached
+
+- `drill-register.sh drill verify-impairment` → `kind: hermetic`,
+  `mission: name-the-steps-a-tick-could-not-read`, `mission_resolved: true`.
+- `verify-all --list --kind hermetic` includes it (28 hermetic drills), which is what
+  `loop-drills.yml` derives its matrix from — so it gets its own leg and its own named check
+  run with no edit to the workflow, whose matrix is derived and never listed.
+- `sh scripts/e2e/loop-drill.sh verify-all --kind hermetic`: 36 drills, **0 failed**,
+  `verify-impairment` `pass` with `breaker: present` — not `unproved`, not `unclassified`.
+- `node scripts/test-workflow-scripts.mjs`: 5422 passed, 0 failed, including
+  *every drill the dispatcher names is classified in the register*.
+- Re-run with `HTTPS_PROXY`/`HTTP_PROXY` unset and `PATH=/usr/bin:/bin`: passes unchanged.
+
+### Discovered Insights
+
+- **Insight**: The drill helpers' `_field` idiom (`sed 's/.*"key": *"\([^"]*\)".*/\1/'`) is
+  **greedy** and answers with the *last* occurrence, so it silently reads the wrong value on
+  any JSON carrying a repeated key. It cost one debugging round here, because `impaired[]`
+  carries a `reason` on every entry and the top-level `reason` is the one under test.
+  **Context**: Copied from `verify-condition-age`, whose output has exactly one `reason`. Any
+  drill over a document with nested objects needs an anchored match instead — here, the exact
+  leading substring `{"post": true, "reason": "..."`.
+
+- **Insight**: `loop-drills.yml` needs no edit for a new drill: its matrix comes from
+  `verify-all --list --kind hermetic`, which reads the dispatcher's `case` arms and the
+  register. Adding the arm and the register row is the whole wiring.
+  **Context**: The workflow's own header says a list in that file would be the second
+  hand-kept enumeration the mission that built it exists to remove. Worth knowing before
+  opening the YAML looking for where to add a leg.
+
+- **Insight**: A reporting silence is the defect class a return-shape assertion is worst at,
+  and the breaker discipline is what converts that from a hope into a check — the break is
+  applied to the real script and the *rows that carry the mission* must be the ones that fail.
+  **Context**: Here the correct break produced exactly the two symptoms measured in
+  production (unnamed, and silent), which is the signal that the drill is pointed at the
+  defect rather than at its implementation.

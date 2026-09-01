@@ -28204,6 +28204,34 @@ function testMissionStrategy() {
       /^strategy:/m.test(readFileSync(join(dir, ".workaholic/missions/active/carried/mission.md"), "utf8")),
       false);
 
+    // THE ANSWER HAS TO REACH A PERSON WHERE THEY MEET A MISSION (2026-09-01, mission
+    // `report-where-the-work-stands-not-only-what-is-wrong`). The ask was "a person opening a
+    // mission file cannot tell which direction it serves", and it proposed the one mechanism
+    // this repository has ruled against by name. The need is met by the RENDER, so what is
+    // pinned is that the render surfaces state the reader and the three-way answer, and that
+    // the ruling is written where the question will be asked again.
+    {
+      const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+      const report = skill.slice(skill.indexOf("## Mission Position Report"));
+      assertTrue("the Mission Position Report derives the direction through the one inverse reader",
+        /mission-strategy\.sh/.test(report.slice(0, 3000)), report.slice(0, 300));
+      assertTrue("and renders no strategy explicitly, so unattributed never reads as absent",
+        /no strategy/.test(report.slice(0, 3000)), report.slice(0, 300));
+      const schema = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/schema.md"), "utf8");
+      assertTrue("the schema records how a mission's direction is read",
+        /mission-strategy\.sh/.test(schema), "missing from mission/reference/schema.md");
+      assertTrue("and why the frontmatter key is not the answer",
+        /no `strategy:` key/.test(schema), "missing from mission/reference/schema.md");
+      const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+      assertTrue("and CLAUDE.md agrees that it is a render rather than a field",
+        /Which direction a mission serves is a render, not a field/.test(claudeMd),
+        "missing from CLAUDE.md");
+    }
+    // NO SCAFFOLD WRITES ONE EITHER. The template is where a re-added key would arrive first.
+    assertTrue("create.sh scaffolds no strategy: key",
+      !/^\s*strategy:/m.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"), "utf8")),
+      "a strategy: key survives in the mission scaffold");
+
     // It is a READER: the roadmap it feeds runs on the operator's own checkout.
     assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
     assertEq("and exits 0 even with no strategies at all",

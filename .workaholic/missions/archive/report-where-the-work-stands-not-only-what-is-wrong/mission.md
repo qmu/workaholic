@@ -2,7 +2,7 @@
 type: Mission
 title: Report where the work stands, not only what is wrong
 slug: report-where-the-work-stands-not-only-what-is-wrong
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T08:32:14+00:00
 author: a@qmu.jp
@@ -40,10 +40,12 @@ intersection — and no artifact gains a field to make that true.
 
 - [x] The digest reports the mission grain — per direction its missions, per mission acceptance done/total and queued count, and the total queued (#20260901083237-read-the-plan-s-shape-at-the-mission-grain.md)
 - [x] That shape reaches the operator in the tick's own morning root and in `/standup`, from one derivation (#20260901083238-render-the-plan-s-shape-in-the-morning-digest.md)
-- [ ] Which direction a mission serves is readable by a person, with no new field on any artifact (#20260901083239-make-a-mission-s-direction-readable-without-a-field.md)
+- [x] Which direction a mission serves is readable by a person, with no new field on any artifact (#20260901083239-make-a-mission-s-direction-readable-without-a-field.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-01 — ticket archived — 20260901083237-read-the-plan-s-shape-at-the-mission-grain.md
 - 2026-09-01 — ticket archived — 20260901083238-render-the-plan-s-shape-in-the-morning-digest.md
+- 2026-09-01 — ticket archived — 20260901083239-make-a-mission-s-direction-readable-without-a-field.md
+- 2026-09-01 — mission achieved — mission.md

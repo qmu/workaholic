@@ -122,7 +122,7 @@ The lifecycle precedence is fixed: **`unreadable` > `arrived` > `overdue` > `exp
 
 **A strategy-touching publication never auto-merges** — the seam's rule, not the caller's: `publish-tree-pr.sh` derives it from the tree and reports `merge_reason: strategy_touching`, whatever `WORKAHOLIC_AUTO_MERGE` says. The operator's merge is the authorship; closing is the refusal.
 
-The retired `strategy:` mission relation and its ownership hop stay retired; `mission/scripts/migrate-strategies.sh` and the `missions_migrate_strategies` seam are retired — **do not re-add them**. Full record: `skills/mission/SKILL.md`, *The strategy layer: retired, then redefined*.
+The retired `strategy:` mission relation and its ownership hop stay retired; `mission/scripts/migrate-strategies.sh` and the `missions_migrate_strategies` seam are retired — **do not re-add them**. Full record: `skills/mission/SKILL.md`, *The strategy layer: retired, then redefined*. **Which direction a mission serves is a render, not a field** (2026-09-01): `mission-strategy.sh` answers it and three mission-facing surfaces state it — the bare `/mission` roadmap, the **Mission Position Report** (`/mission-close` and `/drive`), and `/standup`'s per-strategy digest — each rendering an explicit *no strategy* where nothing could be attributed and naming an unreadable walk as unreadable. Why the field is not the answer is recorded in `mission/reference/schema.md`, beside the frontmatter block where the question recurs.
 
 #### Tickets, ownership, identity
 

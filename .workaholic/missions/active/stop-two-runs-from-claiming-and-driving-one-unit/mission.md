@@ -76,3 +76,4 @@ happens, one person is told once, both branches named.
 - 2026-08-31 — run recorded (+0.3h) — implement-20260831-1743
 - 2026-08-31 — run recorded (+0.4h) — implement-20260831-1943
 - 2026-09-01 — ticket archived — 20260831235425-beat-the-heartbeat-from-where-the-workflow-says-to-work.md
+- 2026-09-01 — story reported — work-20260901-105657

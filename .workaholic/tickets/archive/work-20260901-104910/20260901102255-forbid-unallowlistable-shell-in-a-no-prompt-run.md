@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T10:22:55+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -97,3 +98,45 @@ Diagnosis first, on the ask's own claim that this is not the first shape of the 
   unallowlistable shape. Whether the harness classifies a given command as sensitive is not
   ours and must not be claimed as fixed.
 - Depends on the wording landed by the two tickets before it; drive it last.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced the recurrence** (step 1): read the whole of *An unattended run never waits for a
+person* and the whole of `rules/shell.md`'s read-tool section. The first names **waiting** (three
+conceivable outcomes, two admitted) and pointed at the second as "the rule that removes it" where
+a run's own reach raises the prompt; the second names one **shape of reaching** (an inspection
+read through a Bash text pipeline). Between them nothing stated the axis — whether a composed
+command is one an allowlist can name — so a session obeying both in full could still compose an
+assignment-prefixed call and stall, which is exactly what the sibling ticket's measured case did.
+
+**Localized the observer gap** (step 2): `/moderate`'s `blocked-tick` step (2026-08-31) already
+covers it, and only partly. It reads its own tick log for an opening with no closing, names a
+stopped tick an hour later by a structural bound, and covers `/moderate` alone — `/implement`,
+`/specificate` and `/propose` write no such log. That is now recorded in the section, so nothing
+later re-proposes a mechanism that exists.
+
+**Checked the ceiling** (step 5): all four unattended commands already carry *no `AskUserQuestion`
+anywhere* (`commands/implement.md`, `specificate.md`, `propose.md`, `moderate.md`), and the section
+already says to read that as *no prompt of any kind*. **No command file needs its own copy**, and
+the section now says so in as many words. `CLAUDE.md`'s `AskUserQuestion` enforcement bullet gains
+the one-clause statement of the axis and its two instances.
+
+The enforcement sentence still says plainly that this is prose a human reads, extended to cover
+the new clause with its own reason (the composition happens at run time and never appears in this
+tree's markdown), and the configuration half stays attributed to `workaholic:workaholify`. No new
+check is claimed anywhere.
+
+### Discovered Insights
+
+- **Insight**: the two shell rules are not two rules but one axis seen at two points — *what* the
+  run reaches for and *how* it spells the reach.
+  **Context**: written as a list they would keep growing one measured stall at a time; written as
+  an axis, a third shape is recognisable before it is measured. That is the whole reason this
+  ticket was worth its own place in the mission rather than a sentence in the first one.
+- **Insight**: `blocked-tick` covers exactly one of the four unattended commands, because it reads
+  the log that only `/moderate` writes.
+  **Context**: a later session tempted to extend it to `[Implement]` should notice that the
+  extension is really "give the other three ticks a persisted opening record", which is a much
+  larger change than it looks — and that the cheaper repair is upstream: not stalling.

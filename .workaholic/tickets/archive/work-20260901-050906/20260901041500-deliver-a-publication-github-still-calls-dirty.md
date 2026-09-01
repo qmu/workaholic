@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T04:15:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -7,6 +8,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: 20260901032409-a-clean-stranded-publication-is-delivered-by-nothing.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md
+claim: work-20260901-050906
 ---
 
 # Deliver a publication GitHub still calls dirty
@@ -117,3 +119,75 @@ nobody has looked at it.
 - **The five publications are evidence, not the deliverable.** Merging them by hand would clear
   the symptom and lose the measurement; whoever drives this should read them before anything is
   merged.
+
+## Final Report
+
+Development completed as planned. The diagnosis came first and it named a **fourth** cause, not
+one of the three the Overview anticipated.
+
+### The diagnosis
+
+Six open publications, read three ways on the same tick:
+
+| PR | branch | local class | API `mergeable` / `mergeable_state` |
+| -- | ------ | ----------- | ----------------------------------- |
+| 813 | `work-20260901-022335` | `clean` | `false` / `dirty` |
+| 799 | `work-20260901-073500` | `clean` | `true` / `unstable` |
+| 688 | `work-20260828-122456` | `clean` | `false` / `dirty` |
+| 635 | `work-20260826-144344` | `clean` | `true` / `clean` |
+| 625 | `work-20260826-110530` | `clean` | `false` / `dirty` |
+| 622 | `work-20260826-103318` | `content` | — |
+
+**Lazy computation is real and is not the cause.** Every first read after the base moved answered
+`mergeable: null, mergeable_state: "unknown"`; a second read resolved each one. The reading is
+worth one re-read and nothing else — and no script here reads that field at all, so nothing
+changed for it.
+
+**Branch protection is not the cause either**: #635 answered `clean` and #799 `unstable`, both
+mergeable.
+
+**The cause is `.gitattributes`.** For #813 the only file both sides touch is
+`.workaholic/feedbacks/index.md`, and `git check-attr merge` answers `union` for it — the repair
+issue #780 added. Proved with the same git (2.43.0) and the same two commits: from the checkout
+`git merge-tree --write-tree` exits 0; from a clone with **no `.gitattributes` in its working
+tree** it exits 1 with three stages on that path. **GitHub applies no `.gitattributes` merge
+driver when it computes `mergeable`**, so the loop's reader was answering a question about a merge
+only this clone can perform.
+
+That also explains why #780 did not deliver what it was for: it removed the *local* occasion, so
+these branches stopped reading `mechanical` and nothing caught them up — and a branch that is
+never caught up is one GitHub keeps refusing.
+
+### The repair
+
+`claim-mergeability.sh` now computes its merge from an empty directory with `GIT_DIR` set, so the
+working tree's `.gitattributes` is out of reach. The reader's class now matches the remote on all
+six: 813/688/625 `mechanical`, 799/635 `clean`, 622 `content`.
+
+Nothing else moved. The union driver stays — the **writer** runs in a real checkout and still
+resolves such a path with no judgement, which is exactly why `mechanical` is the honest class and
+why the existing catch-up settles these branches: merge the base in (the driver resolves the
+index), regenerate, push, and GitHub then merges a branch that contains the base.
+
+- **Step 3, what the act reports**: no new rung in `merge-reason.sh`. `merge_not_allowed` was a
+  true answer to a merge that should never have been attempted; the repair removes the attempt.
+- **Step 4, who is told**: nobody new. `/implement` settles `mechanical` through
+  `settle-stranded-publication.sh`, `/moderate` still asks about `content` alone, and no question,
+  key, cap, addressee or gate moved.
+- **No loop, no poll, no retry-until-success, no gate override.**
+
+### Discovered Insights
+
+- **Insight**: A local merge and GitHub's merge are different merges, and `.gitattributes` is
+  where they diverge. Any reader whose job is to predict the remote must compute without the
+  working tree's attributes; any writer that performs the merge locally should keep them.
+  **Context**: `git merge-tree` reads merge attributes from the working tree, so the same command
+  answers differently in a checkout and in a bare clone. The fix is to run it from an empty
+  directory with `GIT_DIR` set — `GIT_WORK_TREE` and `GIT_INDEX_FILE` do **not** suppress them
+  when the command runs from inside the repository.
+- **Insight**: A repair that removes a symptom locally can hide the condition from the machinery
+  built to fix it. Issue #780 made these conflicts vanish from every local merge, which took the
+  branches out of the `mechanical` class — the one class whose act would have made them mergeable
+  at GitHub.
+  **Context**: The two changes are individually correct and were wrong together for six days. It
+  is worth asking of any future local-resolution repair which readings it silences.

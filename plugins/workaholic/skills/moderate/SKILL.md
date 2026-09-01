@@ -13,16 +13,52 @@ metadata:
 
 # Moderate
 
-The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/moderate` finds those, files them **through the existing seams**, and says what needs a human (issue #471).
+The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/moderate` finds those, files them **through the existing seams**, repairs the ones a **proof** licenses it to repair, and says what needs a human (issue #471).
 
 Relocated detail: [the thirty-one-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
 
-## The tick has a voice, and it is one thread an hour
+## What the tick repairs, on what licenses it, and who does the rest
 
-**Root, then its questions inside it** (2026-08-21, the developer's design). Every step but the last reads and logs; the last one speaks. What it posts is **one root per tick** carrying what changed in the hour, with every question of that tick as a **mentioned reply inside that root's thread**:
+**The tick is not a pure reporter, and never was.** Four of its steps act, and the boundary between the ones that act and the ones that only ask is a rule this repository already wrote down — in `../drive/reference/claims.md`, *Proofs and judgements*: **a consumer may act on a proof and may only report or ask about a judgement.** That rule is **cited here, never restated** — it lives beside the claim verdicts because that is where the words it classifies are emitted, and two copies of it would drift. What this section adds is that a reader of *this* skill meets the boundary rather than inferring it.
 
-- the **root** is orientation — addressed to nobody, no mention token, keyed `` `tick:<tick-id>` ``;
+**A proof** is a reading the tree or a merged pull request established, which cannot become false by looking again. Everything else — a check-run colour, a mergeability answer, a staleness, an absence — is a judgement, and the absence-of-a-reading words most of all. An act on a proof is further bounded: it **re-derives that proof at the moment of the act**, is **idempotent**, is **reversible**, and **refuses every bound by its own word** with nothing written.
+
+### The four steps that act
+
+| Step | Acts on | The act | Refuses |
+| ---- | ------- | ------- | ------- |
+| `retire-claims` (§19) | `superseded` — the unit's tickets reached the base **and** the branch is empty against it | `retire-claim.sh`: close the pull request, delete the remote branch, reap the worktree | every other verdict by its own word; `stranded` reaches no retirement at all |
+| `closable-missions` (§12) | arithmetic it **re-proves** in a publish tree — acceptance fully checked, queue empty | `close.sh <slug> achieved`, and only `achieved` | a rejected re-proof is reported, never closed; `abandoned` and `carried` assert intent and stay the operator's |
+| `standing-rulings` (§24) | nothing — it **drafts** the ruling it cannot make | one pull request the seam refuses to auto-merge (`ruling_touching`) | an unjudged candidate reads `undecided` and reaches no writer; at most one ruling open at a time |
+| `file-findings` (§25) | a finding a **closed table** classifies `repairable` | one `[FB]` issue the next `[Specificate]` ingests | an unclassified step id reads `needs_ruling` and is left to a person |
+
+The last two act on nothing the loop could get wrong: a draft and an issue are both *proposals*, reversible by closing them, and neither changes the development target.
+
+### Who repairs what the tick does not
+
+| Class | Repairer |
+| ----- | -------- |
+| A `mechanical` conflict on a reported claim | `[Implement]`'s `catch-up-claim.sh`, on the next tick — the question here (`catchup-blocked`, §26) exists for the *other* class |
+| A `mechanical` or `clean` stranded publication | `[Implement]`'s `settle-stranded-publication.sh`, on the next tick |
+| A `content` conflict, on a claim or a publication | **a person** — the claim holder or the publication's author, reached by `catchup-blocked` / `stranded-publications` |
+| An operator-facing pull request (`ruling_touching`, `strategy_touching`) | **the operator** — merging it *is* the ruling and closing it *is* the refusal; no mechanism may take either |
+| A red base, a failing drill | **the attributed author** — the reading is a judgement (a re-run can flip it), so nothing here reverts, re-runs or holds work on it |
+| A repairable finding | the loop itself, the long way round: `[FB]` issue → `[Specificate]` → tickets → `[Implement]` |
+| A lapsed cadence, a stopped tick, a raced unit | **nobody yet, by design** — each says what is known and cannot say why, so the finding is `needs_ruling` and the repair is a person's judgement |
+
+**The drain this places on a person is real and is named rather than hidden.** The question budget is `max_per_tick` inside a day cap, and a held question waits; the operator's own complaint was that they discover the backlog by asking. Widening what the tick may repair is a separate ask against the rule above, with its own measurement — and the strongest existing evidence for one is on the record: five conflicted pull requests the tick reported for days were unblocked by a person in an afternoon.
+
+**What the bound still forbids, and what it does not mean.** The tick never merges a pull request, never pushes into a branch the claim protocol owns, and never edits a live strategy. Those are **bounds on which acts are licensed**, not a claim that it repairs nothing.
+
+## The tick has a voice, and it is one thread a day
+
+**Root, then its questions inside it** (2026-08-21, the developer's design). Every step but the last reads and logs; the last one speaks. What it posts is **one root per day** — opened by the day's first *speaking* tick — with every later speaking tick's changes as a **delta reply** into it and every question of every tick as a **mentioned reply inside that same thread**:
+
+- the **root** is orientation — addressed to nobody, no mention token, keyed `` `tick-day:<YYYYMMDD>` ``;
+- the **delta reply** is the hour's change and impairment lines with no restated head, also addressed to nobody and carrying no mention token;
 - the **replies** are directed — one named person each, keyed `` `ask:<key>` ``, asked once and never re-asked.
+
+**The key names the day and not the tick, since 2026-09-01.** Under `` `tick:<tick-id>` `` the string an hour searched for was one no earlier message could contain, so the lookup could never find the previous hour and each tick opened a fresh top-level post — measured, **14 roots in one window, 12 with no question at all**. The lookup itself is unchanged: one exact string the tick derives, never a similarity match and never recency (`workaholic:notify`, *Fuzzy matching is prohibited by name*). A day with nothing to say opens no root, so the root's timestamp says when the day's first news arrived and nothing about when the day started.
 
 Two speech acts, one place to look, told apart by **position in the thread** rather than by two routines. Exact shapes: `workaholic:notify`, *The moderator's hourly thread*.
 

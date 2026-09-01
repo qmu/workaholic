@@ -113,3 +113,41 @@ contended-ref question, or the blocked mission item those probes were measuring.
 - **This is not the mission's blocked item.** The mission's first acceptance item waits on an
   operator ruling about the contended ref; this ticket is driveable now and independent of that
   ruling in both directions.
+
+## Drive Findings — 2026-09-01 (step 2 decided; blocked on the act)
+
+*Step 1 — re-read.* Both refs still stand, confirmed by a read and no probe:
+
+```
+$ git ls-remote origin 'refs/heads/wh-probe-*' 'refs/heads/wk-transport-probe-*'
+5b6427654b3c3ad955755e446a3474c81e22cfe8	refs/heads/wh-probe-20260831194543
+304652b2b9f21b444f9b963a37c6e1462b2c1b66	refs/heads/wk-transport-probe-1788104778
+```
+
+*Step 2 — the decision, and its bound: **a person, not a workflow**.* Step 3's
+`workflow_dispatch`-only job is buildable and was **not** built. The case is two branches, once;
+the job would be a standing `contents: write` capability to delete a branch, added permanently to
+close a one-off. Step 2's own instruction is *prefer the narrowest one that closes the case*, and
+the narrowest is the two commands below. It also would not have shortened the path: this container
+cannot dispatch a workflow either — the same proxy refuses it (`.github/workflows/claim-retirement.yml`,
+*WHY THE TRIGGER IS A PUSH*) — so the dispatch would be a person's act just as the push is, with a
+new capability standing afterwards that nothing else needs. If these branches were dozens rather
+than two, the trade would invert and step 3 would be right.
+
+*Step 4 — the act, stated as a person's.* Run from a checkout with ordinary push rights (not a
+Claude Code Web container, where both transports answer 403):
+
+```
+git push origin --delete wh-probe-20260831194543
+git push origin --delete wk-transport-probe-1788104778
+```
+
+Both commits are pointers to a then-current base commit and carry no work of their own; confirm
+with `git log --oneline origin/main..<sha>` before deleting, which is step 1 of the Considerations
+above and takes one command.
+
+*Why this ticket stays queued.* Its Quality Gate is *the two refs are gone*, which the instruction
+above does not make true — step 4 says so in its own words: **do not mark this ticket implemented
+on the strength of having written the instruction down.** It is `blocked` on that push, by a
+person, and closes the moment `git ls-remote` answers empty. Step 5 (removing the standing ask from
+the mechanism ticket's *Residue* paragraph) is that same person's closing move, or the next run's.

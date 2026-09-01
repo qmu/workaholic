@@ -148,6 +148,35 @@ a human, or the CI job that holds `contents: write`, must delete both:
 - `wk-transport-probe-1788104778` → `304652b2` (left by the earlier reading)
 - `wh-probe-20260831194543` → `5b6427654b3c3ad955755e446a3474c81e22cfe8` (left by this one)
 
+The cleanup is **no longer this ticket's**: it was lifted out on 2026-09-01 into
+`20260901123000-delete-the-branches-the-transport-probes-left-on-origin.md`, which is driveable
+now and independent of the ruling below in both directions. Binding it to a blocked ticket meant
+nothing in the queue named it as work. The measurements above stay here — they are the finding,
+and they are still the reason nobody should re-probe.
+
+## Drive Findings — 2026-09-01 (blocked, unchanged)
+
+Re-verified **by reading the sources this ticket names, not by re-probing**: `claims.md`'s *What
+the claim contends for* (the `refs/claims/*`, `refs/tags/*`, `refs/notes/*` and `refs/heads/*`
+rows, both transports, with the `ls-remote` confirmations) and this ticket's own table. Nothing
+in them has moved, and no probe was pushed. The block stands on the same measurement.
+
+Two of the three rulings this ticket offers are already answered in that section, and only the
+third is open:
+
+- **Move the arbitration to `.github/workflows/`** — refused there by name, not merely unbuilt:
+  *an arbitration must be decided synchronously, in the container, before the run drives
+  anything*, and an asynchronous CI-side release leaves a window in which a unit's own follow-up
+  re-claim is refused by a ref that no longer stands for anything.
+- **Force the named mechanism** — it reaches **one grain, not two**. `claim.sh` mints
+  `batch-<timestamp>` inside the claim act, so two runners racing at the batch grain push two
+  different unit-keyed refs and both win. That half is **independent of the transport**: an
+  operator ruling that unblocks ref writes still does not deliver this ticket's acceptance
+  criteria at the batch grain.
+
+So what is open is the **re-scope or the abandon**, and both assert intent, which an unattended
+run may not do. Deferred to the operator, unasked.
+
 **The ruling this needs.** Re-scope acceptance item 1 to a mechanism `refs/heads/*` can express,
 or move the arbitration to where the write is permitted (`.github/workflows/`, which holds
 `contents: write`), or abandon the item on the bounded-later repair already landed.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:28:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -90,3 +91,30 @@ step has nothing left to debug.
   static-assets binding is the current way to serve a built site, so no fork arises.
 - `wrangler` pulls a large dependency tree into `docs/`. It stays a devDependency of that
   package only, so nothing in the plugin's own verification chain gains a dependency.
+
+## Final Report
+
+Development completed as planned.
+
+`docs/wrangler.jsonc` defines an assets-only Worker (`workaholic-docs`) whose
+`assets.directory` is `.vitepress/dist` — the directory `npm run docs:build` actually
+produced, confirmed by building first and by the dry run reading 45 files out of it.
+`not_found_handling` is `404-page`, so VitePress's real `404.html` is served for a missing
+path. `wrangler` is a devDependency of `docs/` only, with the lockfile updated beside it.
+Proved offline: `npx wrangler deploy --dry-run` from `docs/` with `CLOUDFLARE_API_TOKEN`
+and `CLOUDFLARE_ACCOUNT_ID` unset from the environment succeeds. No secret, workflow,
+route or custom domain was added here.
+
+### Discovered Insights
+
+- **Insight**: VitePress's build emits one real `.html` per page plus `404.html`, so the
+  assets Worker must use `not_found_handling: "404-page"`; the `single-page-application`
+  form would answer 200 for every dead deep link.
+  **Context**: A soft 404 returns a success status, so neither an HTTP smoke test nor the
+  deployment record's `curl` confirmation would ever catch a broken link — the failure
+  would only be visible to a human reading the page.
+- **Insight**: `wrangler deploy --dry-run` reads the assets directory off disk, so it
+  silently "succeeds" against a stale or empty `dist`. The proof is only meaningful when
+  `npm run docs:build` ran first in the same checkout.
+  **Context**: A CI job that dry-runs without building would pass while proving nothing
+  about the configuration's path.

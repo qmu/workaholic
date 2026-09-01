@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:28:04+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -99,3 +100,42 @@ opens and stays open with its `## Handoff` quoting exactly that.
 - The `paths:` filter is a deliberate choice with a stated cost: a change that alters the
   rendered site without touching `docs/**` will not redeploy. `workflow_dispatch` is the
   escape hatch, and it is cheaper than redeploying on every merge to `main`.
+
+## Final Report
+
+Development completed as planned, up to the handoff this ticket declared at creation.
+
+`.github/workflows/docs-deploy.yml` builds `docs/` and deploys the `workaholic-docs`
+Worker on push to `main`, filtered by `paths:` to `docs/**` plus the workflow's own file,
+with `workflow_dispatch` beside it so the operator can run the first deploy by hand once
+the secrets exist. `permissions: contents: read` only; node pinned to 20; `npm ci` inside
+`docs/` so the lockfile decides both `vitepress` and `wrangler`. The two Cloudflare
+secrets are read into job-level `env` — the shape `release-note-draft.yml` already uses
+for its own optional credential — so the deploy step gates on their presence and a
+separate step writes the named skip into the job summary. The build half runs
+unconditionally and touches nothing at Cloudflare.
+
+Proved with no credential: `npm ci && npm run docs:build` in `docs/` from a cleaned
+`node_modules`/`dist`, with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` unset.
+The workflow parses, triggers only on `push` to `main` under those paths and on
+`workflow_dispatch`, and carries no `pull_request` trigger.
+
+The live site is deliberately **not** asserted here — that is the declared handoff. What
+a person must do is exactly: add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as
+repository secrets, and bind `workaholic.qmu.co.jp` to the `workaholic-docs` Worker as a
+custom domain in Cloudflare.
+
+### Discovered Insights
+
+- **Insight**: A step-level `if` can gate on a secret only when the secret is read into
+  job-level `env` first — `secrets.X != ''` is not available in a step condition, and a
+  secret referenced only at step level leaves nothing to test.
+  **Context**: This is why `release-note-draft.yml` lifts `ANTHROPIC_API_KEY` to the job's
+  `env` block; the same lift is what makes "skip, do not fail" expressible at all, and
+  copying the shape rather than reinventing it keeps both optional-credential workflows
+  reading the same way.
+- **Insight**: The skip needs its own step. A single step that exits early would report
+  green with nothing in the summary, and an absent credential would look exactly like a
+  successful deploy in the Actions list.
+  **Context**: The pair of mutually exclusive `if:` conditions is what makes the skip
+  visible without failing the job.

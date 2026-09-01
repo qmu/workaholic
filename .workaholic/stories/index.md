@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260901-065202](work-20260901-065202.md) - Closes the direction-health mission by verifying its landed chain against each ticket's own gate and giving its drill the breaker row it never had.
 * [work-20260901-055834](work-20260901-055834.md)
 * [work-20260901-050906](work-20260901-050906.md) - Make the mergeability reader predict GitHub's merge rather than this checkout's, which a local merge driver had been quietly resolving
 * [work-20260901-044913](work-20260901-044913.md)

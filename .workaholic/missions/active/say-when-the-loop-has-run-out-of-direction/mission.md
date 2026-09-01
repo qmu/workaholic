@@ -59,3 +59,4 @@ and `/propose`'s gates are unchanged.
 - 2026-09-01 — ticket archived — 20260826110016-pin-the-three-refusals-with-a-hermetic-test.md
 - 2026-09-01 — ticket archived — 20260826110017-drill-the-direction-health-chain-with-no-network.md
 - 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — reported — work-20260901-065202.md

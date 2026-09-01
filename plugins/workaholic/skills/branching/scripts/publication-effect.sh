@@ -46,6 +46,9 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 GATHER="${SCRIPT_DIR}/../../gather/scripts"
+AGE_LIB="${SCRIPT_DIR}/lib/publication-age.sh"
+[ -f "$AGE_LIB" ] || { printf '{"ok": false, "number": 0, "url": "", "effect": "unreadable", "age_hours": null, "reason": "no_age_rule"}\n'; exit 0; }
+. "$AGE_LIB"
 
 NUMBER="${1:-}"
 
@@ -91,17 +94,13 @@ fi
 
 # `open:<age>` — the age is what makes an un-acted pull request legible as a finding, and it is
 # derived from `created_at` rather than stored anywhere.
+#
+# THE ARITHMETIC ITSELF LIVES IN `lib/publication-age.sh` (2026-09-01), which the stranded
+# reader and the settle act read too. This block was the original and is unchanged in
+# behaviour — an unparseable or absent timestamp still answers `null` rather than `0`.
 age=null
 if [ -n "$created_at" ] && [ "$created_at" != "null" ]; then
-    opened_epoch="$(date -u -d "$created_at" +%s 2>/dev/null \
-        || date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$created_at" +%s 2>/dev/null \
-        || printf '')"
-    if [ -n "$opened_epoch" ]; then
-        now="$(date -u +%s)"
-        hours=$(( (now - opened_epoch) / 3600 ))
-        [ "$hours" -ge 0 ] || hours=0
-        age="$hours"
-    fi
+    age="$(publication_age_json "$created_at")"
 fi
 
 if [ "$age" = "null" ]; then

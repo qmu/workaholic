@@ -20,6 +20,30 @@ The single home of the granularity discipline — every other place links here r
 
 `status` is the one lifecycle field: `active` (in `active/`, in flight) | `achieved` | `abandoned` | `carried` (ended, in `archive/`). **Merging a mission's pull request is its approval** — there is no draft state and no approve step (retirement record: [`reference/schema.md`](reference/schema.md), *History*) — and **`close.sh` is the only status flip that exists**: never hand-edit `status:` or `mv` a mission dir. **The unified run calls it for one outcome** (2026-08-23): the archive gate (`drive`) closes a mission `achieved` when archiving a ticket leaves `progress.sh` reporting `checked == total` with `unlinked == 0` and `queue-size.sh` reporting `todo == 0`. `achieved` is the one of the three that is **arithmetic**; `abandoned` and `carried` assert *intent* and stay the operator's, through `/mission-close`. The single-writer rule is unmoved — the run calls this script, never a status — and the measured objection is answered rather than dropped: of four missions closed by hand on 2026-08-04 one turned out not to be achieved, and this proof, which asks whether the acceptance is complete rather than whether the work was good, would have refused it. An unreadable reader is not a proof and leaves the mission alone; the close and any refusal are reported by name. Drivability is not a status word: a mission is claimable when it is in the active area, has a plan (`## Acceptance` non-empty, else `no_plan`) and has a queued ticket naming it (`no_tickets`). `merge_policy: auto | review` is the orthogonal axis (G5), recorded at creation (K2); **absent means `review`**, exactly as on a ticket.
 
+**One slug can end up naming two missions, and `create.sh` cannot prevent it** (2026-09-01, ticket
+`20260901070000-collapse-two-missions-that-plan-the-same-ask.md`). `create.sh` refuses a slug that
+`mission_resolve` finds in either area — but it resolves against **the checkout it runs in**, and
+`/specificate` writes into a publish tree cut from `origin/main`. A mission living only on an
+unmerged publication is invisible there, so a second record for the same ask produces a second
+mission with the same slug; the collision then arrives by **merge**, where no create runs at all.
+`/specificate`'s own dedup does not catch it either, because it keys on the ask's **feedback
+refs** and two records for one ask carry different ones.
+
+**Measured 2026-09-01**, both pairs in this repository — `deliver-what-the-loop-already-knows-…`
+(records 6 hours apart) and `say-when-the-loop-has-run-out-of-direction` (1 hour apart). In each,
+the **later** record's mission was driven and archived while the earlier sat in a publication the
+transport had refused, landing days later with a queue of finished work.
+
+**`layout-doctor.sh` reports each pair as an advisory** — the audit is where this repository puts
+a structural finding the operator must rule on, beside `retired-area` and `renamed-area`. It is
+deliberately **not** a finding: that sets `conforming: false` and fails the merge gate, and pairs
+already in a tree would block every merge until somebody ruled on history that is harming nothing
+until something tries to move the active copy into an occupied archive. **Nothing deletes or
+chooses**: both copies are history — one carries the implementation changelog and the run hours,
+the other the verification — and which survives is the operator's ruling. Refusing at the close or
+the move was rejected because `archive.sh` runs unattended with no person attached, which turns a
+silent collision into a refusal nobody reads.
+
 ## Location and Schema
 
 ```

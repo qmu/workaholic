@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T06:20:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -7,6 +8,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: 20260901032409-a-clean-stranded-publication-is-delivered-by-nothing.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md
+claim: work-20260901-070504
 ---
 
 # Check a stranded proposal is still worth landing
@@ -126,3 +128,98 @@ the repair made necessary.
   and roughly fifteen of them are queued right now.
 - **Rejected while minting**: reverting the two merges. They carry the missions' own records and a
   revert would lose the evidence and the attribution; and the proposals were correct when written.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — the measurement, before choosing a seam
+
+**Open publications, with ages** (`list-stranded-publications.sh`, 2026-09-01 07:10 UTC): one
+remains — `#622`, 140 hours (5 days), class `content`. The other five were settled earlier the
+same run: `#799` and `#635` delivered, `#813`, `#688` and `#625` settled with the merge refused
+`merge_not_allowed` and delivered shortly after.
+
+**The two missions those publications queued**, counted separately for *done* and *similar*, as
+the ticket required:
+
+| Mission (from) | Queued tickets | Exact-title archived twin | Work exists under another title |
+| -------------- | -------------: | ------------------------: | ------------------------------: |
+| `deliver-what-the-loop-already-knows-…` (#688) | 7 | 0 | **7** |
+| `say-when-the-loop-has-run-out-of-direction` (#625) | 8 | **5** | 3 |
+
+The first mission's seven were verified individually against the running behaviour and archived
+earlier in this same run; its acceptance closed 3/3 with an empty queue. The second mission's
+five exact-title twins all sit in `.workaholic/tickets/archive/work-20260826-084111/`; the
+remaining three name no twin but their work is present anyway — `direction-state.sh`,
+`step-direction-health.sh` and the `dormant`/`overdue` readings in `survey-strategies.sh` all
+exist on the base under differently-worded ticket titles.
+
+**That table is the argument against seam (c).** Five of eight were catchable by an exact-title
+match; three were not, and their work was done. *Already implemented* is a judgement about
+behaviour, exactly as the ticket warned, and a file test would have been wrong three times out
+of eight in the one place it was measured.
+
+### Step 2 — the seam, and why the other two do not own it
+
+**Chosen: (b), the question — with the act left unconditional.**
+
+- **(a) the act — rejected.** An age threshold that refuses to settle would strand precisely the
+  publications this week's work exists to deliver: five of six open publications were `clean`
+  and 1–6 days old, so any threshold under six days refuses all five. The `clean` widening
+  landed hours earlier for exactly the reason that they were green and delivered by nothing.
+- **(c) after the fact — rejected as a gate**, on step 1's own numbers above. It survives as
+  *evidence* — which is what a driving run should do by hand, and did seven times this run — but
+  it cannot be a mechanism.
+- **(b) the question — chosen.** `/moderate`'s `stranded-publications` step already asks about
+  what a person must judge; the second key puts this judgement in the same place. The act stays
+  unconditional, so nothing is stranded and nothing is dropped, and the acceptance criterion's
+  second branch is satisfied: merged **and** the fact reaches a person.
+
+### Step 3 — no age becomes a gate that silently drops work
+
+Nothing refuses, holds, delays or closes on the age. Pinned as behaviour by the suite: the act
+settles and delivers a publication over the threshold identically to one under it, reporting the
+age it acted on. The `content` question's key, cap and addressee are untouched.
+
+### Step 4 — no mission closed, abandoned or carried
+
+Nothing here closes a mission. (Separately in this run, `archive.sh`'s own arithmetic gate closed
+`deliver-what-the-loop-already-knows-…` `achieved` after its queue drained — that is the
+`closable-missions` proof the ticket names as the honest route, not this change.)
+
+### What was built
+
+- `branching/scripts/lib/publication-age.sh` — the one derivation, now shared by
+  `publication-effect.sh` (whose output shape is unchanged: `age_hours: 78` on #694),
+  `list-stranded-publications.sh` and `settle-stranded-publication.sh`. Null, never `0`.
+- `list-stranded-publications.sh` gains `age_hours` per publication, from the `created_at` it
+  already carried — no extra call.
+- `settle-stranded-publication.sh` reports `age_hours`, read off the row whose verdict it
+  re-derived at the moment of the act. No refusal added.
+- `step-stranded-publications.sh` gains `stranded-publication-stale:<number>`, disjoint from the
+  `content` set by construction.
+- Documented in `CLAUDE.md`, `moderate/reference/workflow.md` and `workaholic:drive` §7.
+
+### Verification
+
+- `node scripts/test-workflow-scripts.mjs` — **5748 passed, 0 failed** (5737 before; 11 new
+  assertions in `moderate/stranded-publications: a publication old enough that its plan may be stale`).
+- `sh scripts/e2e/loop-drill.sh verify-stranded-publication` — pass, 11 load-bearing, 2 breakers.
+- `bash plugins/workaholic/hooks/layout-doctor.sh .` — `conforming: true`.
+- `build.mjs` + `verify.mjs` + `validate-metadata.mjs` — clean.
+- `reference/claims.md` gained no row and no claim verdict word was introduced.
+
+### Discovered Insights
+
+- **Insight**: The act and the question deliberately race, and the race is safe in both
+  directions — if the act wins the hour, the question is the record that nothing landed
+  silently; if the person wins, they close the pull request.
+  **Context**: The instinct is to make the question a precondition of the act, which would
+  reintroduce seam (a) through the back door and strand the deliverable set. Independence is the
+  design, not an accident of scheduling.
+
+- **Insight**: `age_hours` had to be `null` rather than `0` on an unreadable timestamp, because
+  zero reads as *opened this second* — the one answer that makes a stale publication look fresh.
+  **Context**: `cadence-state.sh` records the identical reasoning for its own null age. That is
+  now twice in this repository, which makes it a convention rather than a local choice.

@@ -117,10 +117,36 @@ unreadable=$(printf '%s' "$out" | jq '[.publications[]? | select(.mergeability =
 settleable=$(printf '%s' "$out" | jq '[.publications[]? | select(.mergeability == "mechanical" or .mergeability == "clean")] | length')
 n=$(printf '%s' "$candidates" | jq 'length')
 
+# ── THE SECOND CANDIDATE SET: SETTLEABLE, AND ALREADY STALE ──────────────────────────
+# `publish-tree-pr.sh` auto-merges on opening, so a proposal is normally written and landed
+# minutes apart; only one the transport refused stays open long enough for its PLAN to go
+# stale. Measured 2026-09-01: five of six open publications were `clean`, the oldest six days
+# old, and landing them queued roughly fifteen tickets for work the loop had already finished.
+#
+# IT DOES NOT HOLD THE ACT, and that is the whole design. `/implement` settles a `clean` or
+# `mechanical` publication unconditionally, exactly as before this question existed — an age
+# threshold on the act would strand precisely the publications the `clean` widening exists to
+# deliver, and this repository has paid repeatedly for a reading that stops something and tells
+# nobody. So the two run independently: usually the act wins the hour and the question is the
+# record; when a person gets there first, they can close it. Either way nobody merges silently.
+#
+# IT IS DISJOINT FROM THE `content` SET BY CONSTRUCTION — that set is exactly `content` and this
+# one is exactly `mechanical`/`clean` — so no publication ever draws both questions, the
+# `retire-claims`/`stalled-units` division applied to one reader's rows.
+#
+# AN UNREADABLE AGE IS NOT A CANDIDATE. `age_hours` is null when the timestamp could not be
+# parsed, and asking on an absence is the failure the three-valued readings exist to avoid.
+STALE_HOURS="${WORKAHOLIC_PUBLICATION_STALE_HOURS:-48}"
+stale=$(printf '%s' "$out" | jq -c --argjson h "$STALE_HOURS" '[.publications[]?
+    | select(.mergeability == "mechanical" or .mergeability == "clean")
+    | select((.age_hours|type) == "number" and .age_hours >= $h)]' 2>/dev/null || printf '[]')
+sn=$(printf '%s' "$stale" | jq 'length' 2>/dev/null || printf 0)
+
 summary="${total} open publication(s); ${n} colliding on content"
 [ "$settleable" -eq 0 ] || summary="${summary}; ${settleable} settleable by the loop itself"
+[ "$sn" -eq 0 ] || summary="${summary}; ${sn} of those open long enough for its plan to be stale"
 [ "$unreadable" -eq 0 ] || summary="${summary}; ${unreadable} whose mergeability could not be read"
-[ "$n" -eq 0 ] && emit ok "" "$summary"
+[ "$n" -eq 0 ] && [ "$sn" -eq 0 ] && emit ok "" "$summary"
 
 rows=""
 rsep=""
@@ -139,15 +165,55 @@ for number in $(printf '%s' "$candidates" | jq -r '.[].number'); do
 done
 rows="[${rows}]"
 
+stalerows=""
+srsep=""
+for number in $(printf '%s' "$stale" | jq -r '.[].number'); do
+    age=$(read_age "stranded-publication-stale:${number}")
+    row=$(printf '%s' "$stale" | jq -c --argjson num "$number" --argjson age "$age" '
+        .[] | select(.number == $num)
+        | {number, branch, url, title,
+           author: (if (.author // "") == "" then "unknown" else .author end),
+           open_hours: .age_hours,
+           mergeability,
+           age: $age,
+           key: ("stranded-publication-stale:" + (.number | tostring))}' 2>/dev/null || printf '')
+    [ -n "$row" ] || continue
+    stalerows="${stalerows}${srsep}${row}"
+    srsep=","
+done
+stalerows="[${stalerows}]"
+
 needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_publication_author_to_resolve_the_conflict_the_loop_must_not_resolve",
     bound: "one question per pull request, addressed to its author, keyed on `key` so it is asked once; the tick asks and never merges, catches up, pushes or closes anything",
     compose: "lead with what happened in words a reader outside the repository understands -- an artifact the loop published is waiting because its change and the base changed the same lines -- then the pull request, then the files both sides changed. Say the loop already brought back everything a generator could settle and stopped here because only a person can judge this collision, and name the one act asked of them: resolve it on the pull request. `age` is how long this has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`) and never how long the pull request has been open; say nothing about it when `age.first_seen` is null and the reading is readable, and when `age.readable` is false name it as an age we could not read, by its `age.reason`.",
     stranded: .}' 2>/dev/null || echo '{}')
 
+staleneeds=$(printf '%s' "$stalerows" | jq -c '{action: "ask_the_publication_author_whether_the_plan_this_would_queue_is_still_wanted",
+    bound: "one question per pull request, addressed to its author, keyed on `key` so it is asked once. The tick asks and NOTHING else: it does not hold, delay, close or merge the publication, and `/implement` may settle it this same hour — the question is the record that it was not landed silently, never a gate in front of it.",
+    compose: "lead with what happened in words a reader outside the repository understands -- something the loop wrote days ago is about to be published, and what it plans may already be done -- then the pull request and how long it has been open (`open_hours`). Say that merging it queues the plan it carries, and name the one act asked of them: say whether that plan is still wanted, or close the pull request. `open_hours` is how long the PULL REQUEST has been open; `age` is how long this has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`) -- never conflate them, say nothing about `age` when `age.first_seen` is null and the reading is readable, and when `age.readable` is false name it as an age we could not read, by its `age.reason`.",
+    stale: .}' 2>/dev/null || echo '{}')
+
 if [ "$n" -eq 1 ]; then
     event="a published artifact is waiting on a person — the loop brought back everything a generator could settle and stopped at a collision only somebody can judge"
-else
+elif [ "$n" -gt 1 ]; then
     event="${n} published artifacts are waiting on a person — the loop brought back everything a generator could settle and stopped at collisions only somebody can judge"
+else
+    event=""
+fi
+if [ "$sn" -gt 0 ]; then
+    if [ "$sn" -eq 1 ]; then
+        stale_event="a published artifact has been waiting long enough that what it plans may already be done"
+    else
+        stale_event="${sn} published artifacts have been waiting long enough that what they plan may already be done"
+    fi
+    if [ -n "$event" ]; then event="${event}; ${stale_event}"; else event="$stale_event"; fi
 fi
 
-emit ok "" "$summary" "$needs" "$event"
+all_needs=""
+[ "$n" -eq 0 ]  || all_needs="$needs"
+if [ "$sn" -gt 0 ]; then
+    [ -z "$all_needs" ] || all_needs="${all_needs},"
+    all_needs="${all_needs}${staleneeds}"
+fi
+
+emit ok "" "$summary" "$all_needs" "$event"

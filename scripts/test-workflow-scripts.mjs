@@ -12033,6 +12033,32 @@ function testLayoutDoctor() {
     assertTrue("doctor: no false positive on feedbacks/", !paths.includes(".workaholic/concerns"));
   } finally { cleanup(dir); }
 
+  // ONE SLUG NAMING TWO MISSIONS (2026-09-01). `/specificate` dedups on the ask's feedback
+  // refs, so two records for one ask produce two missions whose slugs — derived from the title
+  // — collide. Measured: both pairs in this repository arose that way, and in each the later
+  // record's mission was driven while the earlier sat in a refused publication.
+  //
+  // IT IS AN ADVISORY, NOT A FINDING, AND THE TEST PINS THAT: a finding sets
+  // `conforming: false`, which fails the merge gate, and pairs already in a tree would block
+  // every merge until somebody ruled on history that is harming nothing.
+  const dupes = mkdtempSync(join(tmpdir(), "workaholic-doctor-dupe-"));
+  try {
+    for (const d of [".workaholic/missions/active/one", ".workaholic/missions/archive/one",
+                     ".workaholic/missions/active/two", ".workaholic/missions/archive/three"]) {
+      mkdirSync(join(dupes, d), { recursive: true });
+    }
+    writeFileSync(join(dupes, ".workaholic/README.md"), "x");
+    const r = JSON.parse(run(dupes, `${POSIX_SH} ${DOCTOR} ${dupes}`).stdout);
+    const adv = r.advisories.filter((a) => /two missions/.test(a.reason)).map((a) => a.path);
+    assertEq("the doctor names exactly the slug that exists in both areas", adv,
+      [".workaholic/missions/active/one"]);
+    assertTrue("and says the operator rules, deleting neither",
+      /operator rules/.test(r.advisories.find((a) => /two missions/.test(a.reason)).reason),
+      JSON.stringify(r.advisories));
+    assertEq("a same-slug pair is advisory, never a finding that fails the merge gate",
+      [r.conforming, r.findings.length], [true, 0]);
+  } finally { cleanup(dupes); }
+
   // The three areas retired 2026-08-13 (issue #436) are named BY THE RETIREMENT,
   // not as generic undesignated dirs — a consuming repo's plugin updates before
   // its tree, so the reason it reads must describe the change, not its own shape.
@@ -20960,6 +20986,7 @@ const tests = [
   ["branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader],
   ["branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication],
   ["moderate/stranded-publications: the collision only a person can settle", testStrandedPublicationsStep],
+  ["moderate/stranded-publications: a publication old enough that its plan may be stale", testStrandedPublicationStaleQuestion],
   ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
   ["drive/claim-mergeability.sh: the reader predicts the remote's merge, not this checkout's", testMergeabilityIgnoresLocalMergeAttributes],
   ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
@@ -31951,6 +31978,83 @@ function testStrandedPublicationsStep() {
     assertTrue("and the publication reader drops any branch the oracle names",
       readFileSync(SCRIPTS.listStrandedPublications, "utf8").includes("list-claims.sh"),
       "the reader does not compose the claim oracle");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- a publication old enough that its plan may be stale (2026-09-01) ----------
+//
+// `publish-tree-pr.sh` auto-merges on opening, so a proposal is normally written and landed
+// minutes apart and its age says nothing. Only one the TRANSPORT refused stays open long
+// enough for the plan it carries to go stale. Measured 2026-09-01: five of six open
+// publications were `clean`, the oldest six days old, and landing them queued roughly fifteen
+// tickets for work the loop had already finished — two whole missions of it.
+//
+// THE QUESTION DOES NOT HOLD THE ACT, and that is what this pins. An age threshold on
+// `settle-stranded-publication.sh` would strand exactly the publications the `clean` widening
+// exists to deliver, so the act stays unconditional and the age is REPORTED: the run report
+// names it and `/moderate` asks the author while the publication is still open.
+function testStrandedPublicationStaleQuestion() {
+  const fx = makePublicationFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    // A publication that collides with nothing — `clean`, the class the loop settles itself.
+    const clean = publishBranch(fx.A, "work-20260826-110000", (wt) => {
+      writeFileSync(join(wt, "src/other.txt"), "untouched-by-the-base\n");
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    publicationGhStub(fx.binDir, {
+      pulls: [{ number: 41, url: "https://example.test/pr/41", title: "[Proposal] direction",
+                created: "2026-01-02T03:04:05Z", author: "claude[bot]", head: clean }],
+      files: { 41: pubFiles(["src/other.txt"]) },
+    });
+
+    // 1. THE READER CARRIES AN AGE, derived from the `created_at` it already had — no extra
+    //    call, and one derivation shared with `publication-effect.sh` via `lib/publication-age.sh`.
+    const read = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.listStrandedPublications}`, { env: withGh }).stdout);
+    const row = read.publications.find((p) => p.number === 41);
+    assertTrue("the reader reports the publication's age in hours",
+      typeof row.age_hours === "number" && row.age_hours > 0, JSON.stringify(row));
+
+    const step = (env) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.stepStrandedPublications} --tick 20260901T0700 --root ${fx.A}`,
+      { env }).stdout);
+
+    // 2. UNDER THE THRESHOLD IT ASKS NOBODY. A fresh publication is the loop's own work.
+    const fresh = step({ ...withGh, WORKAHOLIC_PUBLICATION_STALE_HOURS: "999999" });
+    assertEq("a publication younger than the bound draws no question", fresh.needs_agent, []);
+    assertEq("and the step still reports ok", fresh.status, "ok");
+
+    // 3. OVER IT, THE AUTHOR IS ASKED — once, keyed on its own number.
+    const stale = step({ ...withGh, WORKAHOLIC_PUBLICATION_STALE_HOURS: "1" });
+    const asked = JSON.stringify(stale.needs_agent);
+    assertTrue("a stale settleable publication asks its author whether the plan is still wanted",
+      /stranded-publication-stale:41/.test(asked), asked);
+    assertTrue("naming how long the pull request itself has been open",
+      /"open_hours": *\d+/.test(asked), asked);
+    assertTrue("and it earns a root line of its own",
+      /may already be done/.test(stale.event), stale.event);
+    assertTrue("the summary says how many are stale, with no age or timestamp in it",
+      /stale/.test(stale.summary)
+      && !/\d{4}-\d{2}-\d{2}|\d+ *(hour|day|tick)/.test(stale.summary), stale.summary);
+
+    // 4. THE TWO QUESTION SETS ARE DISJOINT BY CONSTRUCTION: `content` draws the collision
+    //    question and `mechanical`/`clean` draw this one, so no publication draws both.
+    assertTrue("a clean publication draws the stale question and never the collision one",
+      !/ask_the_publication_author_to_resolve_the_conflict/.test(asked), asked);
+
+    // 5. IT HOLDS NOTHING. The act re-derives its own verdict and settles a stale publication
+    //    exactly as it settles a fresh one — the age rides the report and gates nothing.
+    const settled = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.settleStrandedPublication} 41`, { env: withGh }).stdout);
+    assertEq("the act settles and delivers a stale publication unchanged",
+      [settled.outcome, settled.class, settled.delivery], ["settled", "clean", "merged"]);
+    assertTrue("while reporting the age it acted on",
+      typeof settled.age_hours === "number" && settled.age_hours > 0, JSON.stringify(settled));
+
+    // 6. IT WRITES NOTHING ANYWHERE.
+    assertEq("the step left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 

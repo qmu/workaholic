@@ -69,6 +69,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 GATHER="${SCRIPT_DIR}/../../gather/scripts"
 REFUSAL_LIB="${SCRIPT_DIR}/lib/publication-refusal.sh"
+AGE_LIB="${SCRIPT_DIR}/lib/publication-age.sh"
 LIST_CLAIMS="${SCRIPT_DIR}/../../drive/scripts/list-claims.sh"
 MERGEABILITY="${SCRIPT_DIR}/../../drive/scripts/claim-mergeability.sh"
 
@@ -98,6 +99,8 @@ emit_err() {
 command -v jq >/dev/null 2>&1 || emit_err "jq_unavailable" "jq is not on PATH"
 [ -f "$REFUSAL_LIB" ] || emit_err "no_refusal_rule" "publication-refusal.sh is not present beside the branching skill"
 . "$REFUSAL_LIB"
+[ -f "$AGE_LIB" ] || emit_err "no_age_rule" "publication-age.sh is not present beside the branching skill"
+. "$AGE_LIB"
 [ -f "$LIST_CLAIMS" ] || emit_err "no_claim_reader" "list-claims.sh is not present"
 [ -f "$MERGEABILITY" ] || emit_err "no_mergeability_reader" "claim-mergeability.sh is not present"
 
@@ -203,7 +206,7 @@ while IFS="$TAB" read -r number url title created author head; do
     [ -n "$content_files" ] || content_files="[]"
 
     count=$((count + 1))
-    pubs="${pubs:+${pubs}, }{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"title\": \"$(json_escape "$title")\", \"branch\": \"$(json_escape "$head")\", \"created_at\": \"$(json_escape "$created")\", \"author\": \"$(json_escape "$author")\", \"mergeability\": \"$(json_escape "$class")\", \"mergeability_reason\": \"$(json_escape "$reason")\", \"mergeability_content_files\": ${content_files}}"
+    pubs="${pubs:+${pubs}, }{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"title\": \"$(json_escape "$title")\", \"branch\": \"$(json_escape "$head")\", \"created_at\": \"$(json_escape "$created")\", \"age_hours\": $(publication_age_json "$created"), \"author\": \"$(json_escape "$author")\", \"mergeability\": \"$(json_escape "$class")\", \"mergeability_reason\": \"$(json_escape "$reason")\", \"mergeability_content_files\": ${content_files}}"
 done <<EOF
 $list
 EOF

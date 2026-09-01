@@ -40,7 +40,7 @@ is in its context.
 
 <!-- PROPOSED criteria - a sketch for discussion, not a plan. -->
 
-- [ ] The plugin-path Bash-call rule is stated with its measured evidence and why no
+- [x] The plugin-path Bash-call rule is stated with its measured evidence and why no
       allowlist can cover an assignment-prefixed command (#20260901102255-write-a-plugin-path-out-in-full-in-a-bash-call.md)
 - [ ] A session that has loaded no `.sh` file still reads the rule (#20260901102255-put-the-shell-rule-where-every-session-loads-it.md)
 - [ ] The no-prompt promise names unallowlistable shell as one of the ways it breaks (#20260901102255-forbid-unallowlistable-shell-in-a-no-prompt-run.md)
@@ -48,3 +48,4 @@ is in its context.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260901102255-write-a-plugin-path-out-in-full-in-a-bash-call.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T12:21:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -67,3 +68,19 @@ Order the tick's candidates **oldest-held first**, still bounded by the unchange
 - Ordering is not prioritisation by severity. Urgency here means *how long it has waited*,
   which is mechanical; ranking the four verdicts against each other would be a judgement
   this step has no basis to make.
+
+## Final Report
+
+**The work is already on the base**, landed while proposal #688 sat stranded. Verified:
+
+- `step-human-checkin.sh` orders `held` by the day each key was **first** held, tie-broken on
+  the tick id and then the key (`LC_ALL=C sort` over a composed line), so the order is total
+  and a re-entered tick produces a byte-identical sequence. Its header records what the order
+  replaced — `sort -u`, alphabetical over a set whose only meaningful order is age.
+- The step **orders; it neither caps nor asks**: `max_per_tick` stays with `ask-question.sh`
+  and `held_count` counts the whole set rather than a prefix. The handoff to the agent carries
+  `"order": "the held list is ordered oldest-held first; take it in that order"`.
+- Age rather than urgency is deliberate and recorded: a severity ranking across the step
+  vocabularies is a judgement no script can make.
+
+Nothing was re-implemented.

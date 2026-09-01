@@ -40,7 +40,7 @@ of looking like a quiet hour.
 
 - [x] The day count is bounded to one derived day; a log carrying only earlier
       days' asks no longer refuses `day_cap`, pinned by a hermetic test. (#20260828122110-bound-the-check-in-day-count-to-one-derived-day.md)
-- [ ] Held findings are offered oldest-held first under the unchanged
+- [x] Held findings are offered oldest-held first under the unchanged
       `max_per_tick`, so a multi-day backlog drains in urgency order. (#20260828122110-drain-a-multi-day-question-backlog-oldest-held-first.md)
 - [ ] A check-in with candidates and zero delivered supplies its own `event` and
       names what it held, so total silence is a reported state, not `ok`. (#20260828122110-make-a-tick-that-reached-nobody-a-visible-event.md)
@@ -50,3 +50,4 @@ of looking like a quiet hour.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-01 — ticket archived — 20260828122109-reproduce-the-check-in-day-cap-jam-and-pin-it.md
 - 2026-09-01 — ticket archived — 20260828122110-bound-the-check-in-day-count-to-one-derived-day.md
+- 2026-09-01 — ticket archived — 20260828122110-drain-a-multi-day-question-backlog-oldest-held-first.md

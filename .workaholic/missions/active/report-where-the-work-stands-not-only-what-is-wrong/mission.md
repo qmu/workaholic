@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-085116
 ---
 
 # Report where the work stands, not only what is wrong

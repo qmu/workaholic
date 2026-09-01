@@ -50,3 +50,4 @@ what the tick repairs and who repairs the rest.
 - 2026-09-01 — ticket archived — 20260901122448-reply-an-hour-s-changes-into-the-day-s-standing-root.md
 - 2026-09-01 — ticket archived — 20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate.md
 - 2026-09-01 — ticket archived — 20260901122448-name-every-step-summary-carrying-transport-derived-volatility.md
+- 2026-09-01 — ticket archived — 20260901122448-say-the-tick-s-root-is-day-keyed-beside-the-exact-string-rule.md

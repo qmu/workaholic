@@ -8766,68 +8766,27 @@ function testProposeWriteFloor() {
 // The routine template and the two contracts that only its frontmatter can carry: what it
 // is allowed to write, and what it is allowed to say.
 function testProposeRoutineTemplate() {
+  // THE STANDING [Specificate] ROUTINE IS RETIRED (2026-09-02, the developer's instruction):
+  // its act is the closing half of [Propose], whose prompt runs /propose then
+  // /specificate in one session. What is pinned: the merge itself (no specificate.md
+  // template), the order inside the prompt (supply the ask, then ingest it), and the
+  // carried-over sweep surface (the Slack connector and the push notification).
+  assertTrue("no standing [Specificate] template exists",
+    !existsSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/specificate.md")),
+    "specificate.md re-appeared; the standing routine is retired, not dormant");
   const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/propose.md"), "utf8");
   const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
-  assertTrue("it is developer-scoped, like the identity-filtered routine it feeds",
+  assertTrue("the merged routine is developer-scoped, like the identity-filtered acts it runs",
     /^scope: developer$/m.test(fm), fm);
-  assertTrue("it carries no write tool, because its only write is a GitHub issue",
-    !/Write|Edit/.test(fm.match(/^allowed_tools:.*$/m)[0]), fm);
-  assertTrue("it declares no auto-fix, since it opens no pull request",
-    /^autofix_on_pr_create: false$/m.test(fm), fm);
-  // A CONNECTOR TO READ, AND STILL NO POST (2026-08-23, the Claude Tag removal). The
-  // inbound sweep reads the channel through the Slack connector, so the template must
-  // carry it -- and the no-posting contract is now carried by the prompt's own words
-  // rather than by the connector's absence, which is what the assertions below pin.
   assertTrue("it holds the Slack connector the inbound sweep reads through",
     /^mcp: \[Slack\]$/m.test(fm), fm);
-  assertTrue("and declares the notification that reaches its one reader instead",
+  assertTrue("and declares the notification that reaches the sweep's one reader",
     /^notifications: push$/m.test(fm), fm);
   const prompt = tpl.slice(tpl.indexOf("## Prompt"));
-  assertTrue("its prompt invokes the command", /\/propose\b/.test(prompt), prompt);
-  // AND NOTHING ELSE, literally, since 2026-09-01 (the developer's instruction): a routine
-  // record is account-level, so a rule written into a prompt reached a fleet only by being
-  // re-pasted into every developer's copy in every project. The prompt now carries the command
-  // and the load fallback; every shape it used to authorize lives in the command, which ships
-  // with the plugin. Pinned as the ABSENCE of any fenced block, because a shape that comes back
-  // here is a shape that has to be re-pasted by hand again.
-  assertEq("and authorizes no post shape of its own",
-    [...prompt.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
-  // ONE SHAPE, AND THE CATALOG IS ITS ONLY SOURCE (2026-08-26). The routine posted nothing
-  // until the sweep's receipt, which is the whole fix: a filed ask and an ignored one were
-  // byte-identical from the channel. A post shape lives in exactly two places — the catalog
-  // and this prompt, the ceiling on what a session may emit — so a drift between them ships
-  // either a documented shape nobody may post or a posted shape nothing documents.
-  const blocks = [...cmd.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]);
-  assertEq("the command authorizes exactly one post shape", blocks.length, 1);
-  assertTrue("and that shape is the sweep's receipt", /^\u{1F4E5} 受理 - /u.test(blocks[0]), blocks[0]);
-  const catalog = readFileSync(
-    join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-  const catalogued = [...catalog.matchAll(/```\n(\u{1F4E5}[\s\S]*?)```/gu)].map((m) => m[1]);
-  assertEq("the catalog carries that shape exactly once", catalogued.length, 1);
-  assertEq("byte for byte, command against catalog", blocks[0], catalogued[0]);
-  // THE REACTION, PINNED TO THE SAME SINGLE SOURCE (2026-08-26). The reply closed half the
-  // gap: it lives INSIDE a thread, so from a channel scroll a filed ask and an ignored one
-  // still looked identical. The reaction is the same receipt at a glance -- and because it
-  // is a Slack write, the prompt is its ceiling too, so the emoji is named once in the
-  // catalog and read from there by the template rather than restated beside it.
-  const reactions = [...catalog.matchAll(/reaction on the message itself: `(:[a-z_]+:)`/g)]
-    .map((m) => m[1]);
-  assertEq("the catalog names the reaction exactly once", reactions.length, 1);
-  assertTrue("and the command authorizes that same reaction",
-    cmd.includes(reactions[0]), cmd);
-  assertTrue("the reaction rides the coordinate already in hand, never a lookup",
-    /no lookup and no search/.test(cmd.slice(cmd.indexOf(reactions[0]))), cmd);
-  // The receipt is the ONLY thing it may say: everything the no-posting argument covered is
-  // still covered, and the command is where that ceiling is written.
-  assertTrue("and the command still forbids every other post",
-    /Post nothing else to Slack/.test(cmd), cmd);
-  assertTrue("and every other reaction, now that it may add one",
-    /add no other reaction/.test(cmd), cmd);
-  assertTrue("including a receipt for a message it did not file this run",
-    /already-swept/.test(cmd), cmd);
-  assertTrue("and states the receipt never blocks the capture",
-    /ack_failed/.test(cmd), cmd);
+  assertTrue("its prompt invokes /propose", /\/propose\b/.test(prompt), prompt);
+  assertTrue("and /specificate", /\/specificate\b/.test(prompt), prompt);
+  assertTrue("in that order -- the ask is supplied before the inbox is read",
+    prompt.indexOf("/propose") < prompt.indexOf("/specificate"), prompt);
 }
 
 // ---------- the [Standup] routine template (ticket `20260817115233`) ----------
@@ -15453,8 +15412,7 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Specificate] workaholic", "[Implement] workaholic", "[Moderate] workaholic",
-                      "[Propose] workaholic"]) {
+  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Moderate] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // ---- the scope filter (2026-08-14, issue #451) ----
@@ -15464,8 +15422,8 @@ function testRenderSetupSheet() {
   const scopedSheet = (sc) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} ${sc}`).stdout;
   const devSheet = scopedSheet("developer");
   assertTrue("the developer sheet covers every developer routine and no repository one",
-    devSheet.includes("## [Specificate] workaholic") && devSheet.includes("## [Implement] workaholic") &&
-    devSheet.includes("## [Propose] workaholic") &&
+    devSheet.includes("## [Propose] workaholic") && devSheet.includes("## [Implement] workaholic") &&
+    !devSheet.includes("## [Specificate] workaholic") &&
     !devSheet.includes("## [Moderate] workaholic"), devSheet.slice(0, 300));
   // The channel step is DERIVED from `mcp:`. [Propose] carries the connector since
   // 2026-08-23 -- the inbound sweep READS the channel, so the sheet telling the operator to
@@ -15603,8 +15561,8 @@ function testRenderSetupSheet() {
     all);
   // VERBATIM PROMPT. The sheet is worthless if the prompt is paraphrased: what the
   // developer pastes is what runs.
-  const fbSheet = sheet("specificate");
-  const rendered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderRoutine} specificate ${WH}`).stdout).prompt;
+  const fbSheet = sheet("propose");
+  const rendered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderRoutine} propose ${WH}`).stdout).prompt;
   assertTrue("the prompt appears verbatim in the sheet", fbSheet.includes(rendered.trim()), fbSheet.slice(0, 400));
   assertEq("an unknown template is refused",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} no-such ${WH}`).status !== 0, true);
@@ -21333,7 +21291,7 @@ const tests = [
   ["moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline],
   ["propose: the gates that replace the dropped judgment bar", testProposeGates],
   ["propose: the write floor and its named refusals", testProposeWriteFloor],
-  ["propose: the [Propose] routine template writes nothing and posts nothing", testProposeRoutineTemplate],
+  ["propose: the standing [Specificate] routine is retired into [Propose]", testProposeRoutineTemplate],
   ["standup: the command and skill are a reader", testStandupIsAReader],
   ["standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
@@ -25086,12 +25044,12 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    // FOUR since 2026-08-24: [Standup] retired into the moderation tick (the developer's
-    // ruling — the digest rides the morning Moderation root's strategy-digest step).
-    assertEq("the plugin ships four routine templates", tpl.count, 4);
-    assertEq("and they are the four live patterns",
+    // THREE since 2026-09-02: [Specificate] retired into [Propose] (the developer's
+    // ruling — the merged routine runs /propose then /specificate in one :15 session).
+    assertEq("the plugin ships three routine templates", tpl.count, 3);
+    assertEq("and they are the three live patterns",
       tpl.templates.map((t) => t.id).sort(),
-      ["implement", "moderate", "propose", "specificate"]);
+      ["implement", "moderate", "propose"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -25101,13 +25059,14 @@ function testWorkaholifyRoutines() {
     assertTrue("every template declares a scope",
       tpl.templates.every((t) => ["developer", "repository"].includes(t.scope)),
       JSON.stringify(tpl.templates.map((t) => [t.id, t.scope])));
-    // THREE since 2026-08-21 (issue #555): `propose` supplies the loop's own ask, and it is
-    // developer-scoped for the reason `specificate` is -- it acts on the strategies assigned
-    // to the RUNNING IDENTITY and opens issues assigned to it, so one repository-wide copy
-    // would route every developer's directions through whichever account created it.
+    // TWO since 2026-09-02: `propose` supplies the loop's own ask AND ingests it (its
+    // /specificate half), and it is developer-scoped because it acts on the strategies
+    // assigned to the RUNNING IDENTITY and opens issues assigned to it, so one
+    // repository-wide copy would route every developer's directions through whichever
+    // account created it.
     assertEq("the routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
-      ["implement", "propose", "specificate"]);
+      ["implement", "propose"]);
     assertEq("the routine the repository needs exactly one of is repository-scoped",
       JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
       ["moderate"]);
@@ -25130,13 +25089,14 @@ function testWorkaholifyRoutines() {
     // server jitter).
     assertEq("the templates carry the staggered hourly schedule",
       tpl.templates.map((t) => t.cron_expression).sort(),
-      ["15 * * * *", "30 * * * *", "40 * * * *", "50 * * * *"]);
-    // The LOOP's order is the point of `:40`, not the minute itself: the judgment is made
-    // against what actually landed, so `[Propose]` must fire AFTER `[Implement]` drives and
-    // before the next hour's `[Specificate]` ingests. A tidy-up that moved it earlier would
-    // judge each hour against the state that hour was about to change.
-    assertTrue("the ask-supplying routine fires after the executor it reads the result of",
-      Number(tpl.templates.find((t) => t.id === "propose").cron_expression.split(" ")[0]) >
+      ["15 * * * *", "30 * * * *", "50 * * * *"]);
+    // The LOOP's order: the merged [Specificate] supplies the ask (its /propose half) and
+    // ingests it in the same session, and [Implement] drives it later the same hour -- so the
+    // supplier must fire BEFORE the executor. The propose half judges against everything up
+    // to the PREVIOUS hour's driving, which is the same freshness the retired `:40` slot
+    // bought (2026-09-02, the merge of [Propose] into [Specificate]).
+    assertTrue("the ask-supplying routine fires before the executor that drives what it queued",
+      Number(tpl.templates.find((t) => t.id === "propose").cron_expression.split(" ")[0]) <
       Number(tpl.templates.find((t) => t.id === "implement").cron_expression.split(" ")[0]),
       JSON.stringify(tpl.templates.map((t) => [t.id, t.cron_expression])));
     // CONVERGENCE MATCHES BY RENDERED `name`, so two templates rendering one name can be
@@ -25158,8 +25118,8 @@ function testWorkaholifyRoutines() {
       new Set(tpl.templates.map((t) => t.cron_expression)).size, tpl.count);
     assertEq("implement declares the schedule trigger",
       tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
-    assertEq("specificate declares the schedule trigger",
-      tpl.templates.find((t) => t.id === "specificate").trigger, "schedule-hourly");
+    assertEq("propose declares the schedule trigger",
+      tpl.templates.find((t) => t.id === "propose").trigger, "schedule-hourly");
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
@@ -25184,23 +25144,28 @@ function testWorkaholifyRoutines() {
     // AND IT NAMES THE COMMAND AND THE LOAD FALLBACK, AND NOTHING ELSE. Pinned as the
     // absence of a fenced block: a post shape that comes back into a prompt is a shape
     // every account has to be told to re-paste before it takes effect.
-    for (const id of ["implement", "specificate", "propose", "moderate"]) {
+    for (const id of ["implement", "propose", "moderate"]) {
       const t = readFileSync(join(REPO_ROOT, `plugins/workaholic/skills/workaholify/routines/${id}.md`), "utf8");
       const pr = t.slice(t.indexOf("## Prompt"));
       assertEq(`the [${id}] prompt authorizes no post shape of its own`,
         [...pr.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
-      assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\`\\.`).test(pr), pr);
+      assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\``).test(pr), pr);
       assertTrue(`and the load fallback that reads it when the plugin did not bind`,
         pr.includes(`<src>/commands/${id}.md`), pr);
     }
+    // The merged [Propose] prompt runs BOTH commands, in order (2026-09-02).
+    {
+      const t = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/propose.md"), "utf8");
+      const pr = t.slice(t.indexOf("## Prompt"));
+      assertTrue("the [propose] prompt also names /specificate and its fallback",
+        /run \`\/specificate\`/.test(pr) && pr.includes("<src>/commands/specificate.md"), pr);
+    }
 
-    const fb = JSON.parse(run(dir, `${RENDER} specificate ${WH}`).stdout);
+    const fb = JSON.parse(run(dir, `${RENDER} propose ${WH}`).stdout);
     // The template's trigger states the DESIGNED trigger (the record stores no such
-    // field): [Specificate] fires on a fixed 30-minute schedule, same as [Implement]
-    // (ticket 20260810085347, developer's explicit ask covering both routines,
-    // 2026-08-10, superseding the 2026-08-06 assigned-issue-only pin). The word is the
-    // design, so it is pinned.
-    assertEq("the specificate routine declares the schedule trigger, matching implement",
+    // field): the merged [Propose] fires on a fixed hourly schedule, same as [Implement]
+    // (ticket 20260810085347; merged 2026-09-02). The word is the design, so it is pinned.
+    assertEq("the propose routine declares the schedule trigger, matching implement",
       [fb.trigger, fb.cron_expression], ["schedule-hourly", "15 * * * *"]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
@@ -26970,8 +26935,15 @@ function testModerateRun() {
     // that could not name an hour could only be run during one* -- reached here through the
     // environment, because `run.sh` takes no such flag. The startup scrub above strips every
     // `WORKAHOLIC_*` before this spread, so these two are the only ones the tick sees.
+    //
+    // ZERO-WIDTH, because the first pin ("02-03") re-created the defect one hour narrower:
+    // measured 2026-09-02 at 02:0x JST, the suite failed on this row again, inside the very
+    // window the pin had chosen as "surely nobody runs then". `speaking-window.sh` reads
+    // start == end as an empty window (the non-crossing branch needs hour >= start AND
+    // hour < end, which no hour satisfies), verified at hours 0, 3, 12 and 23 -- so "03-03"
+    // is quiet never, at any wall clock, which is the only pin that cannot rot.
     const OPEN_WINDOW = {
-      env: { ...process.env, WORKAHOLIC_QUIET_HOURS: "02-03", WORKAHOLIC_WORK_DAYS: "1-7" },
+      env: { ...process.env, WORKAHOLIC_QUIET_HOURS: "03-03", WORKAHOLIC_WORK_DAYS: "1-7" },
     };
     const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`, OPEN_WINDOW).stdout);
     assertEq("every step of the ask is run and reported", j.steps.map((s) => s.step), STEPS);
@@ -28145,8 +28117,8 @@ function testModerateRoutineTemplate() {
   // vocabularies — so it is marked by its sentence; `⚫ Closed` is genuinely new, because
   // *closed* and *merged* ask a reader for different things.
   {
-    for (const lead of ["🟢 Implemented - \\[#123 Title\\]\\(<repo-url>/pull/123\\)\\nMerged outside",
-                        "⚫ Closed - \\[#123 Title\\]"]) {
+    for (const lead of ["🟢 Implemented \\[#123 Title\\]\\(<repo-url>/pull/123\\)\\nMerged outside",
+                        "⚫ Closed \\[#123 Title\\]"]) {
       const c = block(catalog, lead);
       assertTrue(`the catalog carries the reconciliation reply ${lead}`, c !== "",
         "missing from notifications.md");
@@ -28198,8 +28170,8 @@ function testModerateRoutineTemplate() {
      "🙋 <@U…> - <what this tick could not decide>",
      "✅ 解消を確認 - <the question's subject, one line>",
      "🧾 対応結果 - <the question's subject, one line>",
-     "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",
-     "⚫ Closed - [#123 Title](<repo-url>/pull/123)"]);
+     "🟢 Implemented [#123 Title](<repo-url>/pull/123)",
+     "⚫ Closed [#123 Title](<repo-url>/pull/123)"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
     assertEq(`no session may post ${retired} any more — the template`, block(template, retired), "");
     assertEq(`no session may post ${retired} any more — the catalog`, block(catalog, retired), "");

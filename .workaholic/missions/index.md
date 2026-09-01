@@ -4,6 +4,7 @@
 
 * [compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it](active/compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it/mission.md) - Compose an unattended run's shell so an allowlist can name it
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [leave-only-live-work-in-the-unmerged-branch-list](active/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it

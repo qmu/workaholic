@@ -20267,6 +20267,48 @@ function testPostLanguageRuleShipsWithThePlugin() {
 
 
 
+
+// ---------- one channel, one resolution (2026-09-01, issue #806) ----------------------------
+// The tokened fallback read `WORKAHOLIC_SLACK_CHANNEL` and nothing else, with no default — so a
+// repository that had already declared its channel the way `workaholic:notify` states it still
+// got `no_channel` from this transport. Two variables for one channel is the second derivation
+// this repository forbids everywhere else, and the cost was concrete: the transport designated
+// to survive a connector outage needed a token AND a second variable nobody had a reason to set,
+// so it could not run during one.
+function testTokenedTransportResolvesTheChannel() {
+  const NS = join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/notify-slack.sh");
+  const dir = makeRepo("main");
+  try {
+    execSync("git remote add origin https://github.com/qmu/some-repo.git", { cwd: dir });
+    // A dead API URL, so the run reaches the transport and fails there — which is what proves
+    // the channel resolved. `no_channel` would have stopped it before curl.
+    const base = {
+      ...process.env,
+      SLACK_BOT_TOKEN: "xoxb-fake",
+      WORKAHOLIC_SLACK_API_URL: "http://127.0.0.1:9/none",
+      WORKAHOLIC_SLACK_CHANNEL: "",
+      WORKAHOLIC_INBOUND_SLACK_CHANNEL: "",
+    };
+    const call = (env) => JSON.parse(
+      execSync(`${POSIX_SH} ${NS} "x"`, { cwd: dir, env: { ...base, ...env }, encoding: "utf8" }));
+
+    assertEq("with the declared channel and no second variable, the channel resolves",
+      call({ WORKAHOLIC_INBOUND_SLACK_CHANNEL: "dev-workaholic" }).reason, "curl_failed");
+    assertEq("with neither variable it falls back to the repository's own name",
+      call({}).reason, "curl_failed");
+    // AN EXPLICIT VALUE STILL WINS: a caller that wants a different channel for the tokened post
+    // keeps saying so, and this script stays a reader of the order rather than a second author.
+    assertEq("an explicit channel is still honoured",
+      call({ WORKAHOLIC_SLACK_CHANNEL: "C123", WORKAHOLIC_INBOUND_SLACK_CHANNEL: "other" }).reason,
+      "curl_failed");
+
+    // THE TOKEN'S REFUSAL IS UNCHANGED — this widened the channel, not the credential.
+    assertEq("no token is still no_token, before any channel question",
+      JSON.parse(execSync(`${POSIX_SH} ${NS} "x"`,
+        { cwd: dir, env: { ...base, SLACK_BOT_TOKEN: "" }, encoding: "utf8" })).reason, "no_token");
+  } finally { cleanup(dir); }
+}
+
 // ---------- a ticket an unattended run cannot perform is a handoff (2026-09-01, issue #793) ----
 // MEASURED on a consuming repository: every `[Implement]` run from 13:37Z onward read
 // `requires_action` — frozen, not idle — each ending at the same line, `permission prompt Edit:
@@ -20924,6 +20966,7 @@ const tests = [
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
   ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
+  ["the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
   ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
   ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],

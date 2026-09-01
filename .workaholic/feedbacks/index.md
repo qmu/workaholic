@@ -624,4 +624,5 @@
 * [superseded proves the tickets landed, not that the branch is empty](20260831203426-superseded-proves-the-tickets-landed-not-that-the-branch-is-empty.md)
 * [The operator rejects provisioning a Slack bot identity](20260831221757-the-operator-rejects-provisioning-a-slack-bot-identity.md)
 * [An unattended run decides everything below the handoff bar](20260831221825-an-unattended-run-decides-everything-below-the-handoff-bar.md)
+* [The moderation tick has no Slack transport that reaches the loop's channel](20260901002017-the-moderation-tick-has-no-slack-transport-that-reaches-the-loop-s-channel.md)
 <!-- okf:generated:end -->

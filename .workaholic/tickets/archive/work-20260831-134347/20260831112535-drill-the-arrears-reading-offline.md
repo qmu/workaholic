@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:25:35+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,30 @@ about one mechanism.
   second fixture for one mechanism, which the register's own rule about one reader per
   reading argues against.
 
+
+## Final Report
+
+Development completed as planned.
+
+`verify-checkin-delivery` gained a section 6b over its existing fixture: the arrears' depth
+and age, the gate's own refusal word per held entry, an `all_held` tick past the working-day
+boundary earning its line, one inside the boundary staying silent, a degraded read reporting
+null counts and no event, and the root's diff rule exercised (same reading → one line,
+changed reading → a second). Section 7b adds a **second breaker** written against the
+behaviour: the real script's source with the boundary wired at a fresh constant, over the
+same fixture, changing no field and no key — the outlived line simply stops being earned.
+
+The drill stays hermetic (no network, no `gh`, no Slack, no touch of the working tree, which
+`checkin_writes_nothing` still pins). `docs/loop-drill-runbook.md` §5s gained a blame row per
+new row and §9 still classifies the drill `hermetic` with a breaker, so it is not `unproved`.
+
+Verification: `verify-checkin-delivery` → pass, 18 load-bearing rows, 2 breakers;
+`verify-all` → 37 total, 26 proved, 0 failed; the hermetic suite 5455 passed.
+
+### Discovered Insights
+
+- **Insight**: the second breaker changes no JSON field, key or shape at all.
+  **Context**: `verify-checkin-delivery`'s own first breaker records the lesson — a breaker
+  written against the return shape is satisfied by any refactor that keeps the shape. Wiring
+  the boundary at a constant leaves every field present and correctly typed; only the
+  `event` string stops being earned, which is the behaviour under test.

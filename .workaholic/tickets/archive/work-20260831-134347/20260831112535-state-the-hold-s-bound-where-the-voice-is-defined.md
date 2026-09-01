@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:25:34+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -74,3 +75,35 @@ root line.
 - The step header is long and argues its own history; the correction belongs in place,
   because a header that argues for the behaviour it no longer has is worse than none.
 
+
+## Final Report
+
+Development completed as planned.
+
+Four documents now state the boundary and none still asserts that every non-cap case supplies
+no event:
+
+- `plugins/workaholic/skills/moderate/reference/workflow.md` — the step's contract: the
+  per-candidate probe, the arrears reading, the `all_held` event and its bound, and an
+  explicit *what did not move*.
+- `plugins/workaholic/skills/moderate/SKILL.md` — the tick's voice: the third root gate now
+  names the outlived-hold case beside `cap_spent` and `cap_unbounded`.
+- `CLAUDE.md` — the `/moderate` check-in paragraph.
+- `step-human-checkin.sh`'s own header — corrected **in place** while the behaviour was
+  written, rather than appended to.
+
+The refused alternative (an escalation after N ticks, N being a tunable constant this
+repository refuses by name) is recorded once, in `workflow.md`, with the other three
+referring to the bound rather than re-arguing the fork.
+
+`node scripts/build-plugins/build.mjs` produced no diff under `outputs/` — `moderate` is an
+internal, script-bearing skill and reaches no cross-agent bundle — and `verify.mjs`,
+`validate-metadata.mjs` and the hermetic suite all pass.
+
+### Discovered Insights
+
+- **Insight**: the root's gate count did not change with this behaviour.
+  **Context**: `render-tick-post.sh` has four gates (question, morning digest,
+  delivery-failure event, changed impairment) and the outlived hold rides the third — it is
+  an `event` the check-in supplies, which is exactly what that gate reads. Adding a fifth
+  gate would have been the wrong shape and would have needed the renderer to learn a word.

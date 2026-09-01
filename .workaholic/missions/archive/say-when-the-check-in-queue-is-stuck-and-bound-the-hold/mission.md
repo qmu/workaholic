@@ -2,7 +2,7 @@
 type: Mission
 title: Say when the check-in queue is stuck, and bound the hold
 slug: say-when-the-check-in-queue-is-stuck-and-bound-the-hold
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T11:24:17+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260831-134347
 ---
 
 # Say when the check-in queue is stuck, and bound the hold
@@ -42,12 +43,18 @@ unchanged.
 
 ## Acceptance
 
-- [ ] An all-held tick whose arrears outlived the designed hold names their depth and age
+- [x] An all-held tick whose arrears outlived the designed hold names their depth and age
       on the root, once, and an unchanged reading never restates. (#20260831112534-let-an-outlived-hold-earn-a-root-line.md)
-- [ ] Every held question carries its own refusal word, so the reason is per question
+- [x] Every held question carries its own refusal word, so the reason is per question
       rather than aggregated into one token. (#20260831112534-say-why-each-held-question-is-held.md)
-- [ ] Proved offline by a drill with a breaker row, in the register. (#20260831112535-drill-the-arrears-reading-offline.md)
+- [x] Proved offline by a drill with a breaker row, in the register. (#20260831112535-drill-the-arrears-reading-offline.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-08-31 — ticket archived — 20260831112534-read-how-deep-and-how-old-the-arrears-are.md
+- 2026-08-31 — ticket archived — 20260831112534-say-why-each-held-question-is-held.md
+- 2026-08-31 — ticket archived — 20260831112534-let-an-outlived-hold-earn-a-root-line.md
+- 2026-08-31 — ticket archived — 20260831112535-drill-the-arrears-reading-offline.md
+- 2026-08-31 — ticket archived — 20260831112535-state-the-hold-s-bound-where-the-voice-is-defined.md
+- 2026-08-31 — mission achieved — mission.md

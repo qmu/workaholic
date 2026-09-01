@@ -18,13 +18,15 @@
 # and version/manifest drift entirely; the Outputs Freshness CI and
 # validate-metadata.mjs own those domains.
 #
-# Usage: doc-drift.sh [base-branch]   (default base: main)
+# Usage: doc-drift.sh [base-branch]
+#   With no argument the base is RESOLVED by gather/scripts/base-ref.sh -- the
+#   single place the base is decided -- never defaulted to a local `main`.
 # Output: JSON facts to stdout. Always exits 0 -- a missing base ref or repo
 # quirk degrades to a not_applicable result rather than erroring the report.
 
 set -eu
 
-BASE="${1:-main}"
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 
 emit_not_applicable() {
     cat <<EOF
@@ -39,6 +41,37 @@ emit_not_applicable() {
 EOF
     exit 0
 }
+
+# THE BASE IS RESOLVED, NEVER DEFAULTED TO A LOCAL `main`. Every /story run happens
+# inside a CLAIM WORKTREE, where local `main` is whatever the clone happened to fetch
+# when it was created and is never advanced afterwards -- so defaulting the positional
+# argument to the local branch name compared this branch against a tree it will not
+# merge into (the shape base-ref.sh's own header names as the bug). Both directions are
+# wrong: a stale base OVER-reports somebody else's merge as this branch's drift, and
+# for a file changed on both sides it can UNDER-report. Measured 2026-08-31 on
+# `work-20260831-044223`: the default read reported a removed hook and a changed
+# README.md that `git diff origin/main...HEAD` matched neither of; re-run against
+# `origin/main` the same branch reported no structural change at all.
+#
+# base-ref.sh is that single resolver, and every base-reading script asks it rather than
+# re-deriving a default of its own: it prefers `origin/<default>` -- what the pull request is
+# actually diffed against -- and resolves offline, so this stays a no-network read.
+# An unresolvable base is REPORTED by its name, never silently replaced by a local ref:
+# a drift reading nobody can trust is worse than none (observability policy).
+if [ "$#" -ge 1 ] && [ -n "$1" ]; then
+    BASE="$1"
+else
+    BASE=$("${SCRIPT_DIR}/../../gather/scripts/base-ref.sh" 2>/dev/null) || BASE_STATUS=$?
+    if [ -z "${BASE:-}" ]; then
+        # base-ref.sh's own exit vocabulary: 3 = origin configured but never fetched,
+        # 4 = no origin and no local main/master.
+        case "${BASE_STATUS:-1}" in
+            3) emit_not_applicable "base_never_fetched" ;;
+            4) emit_not_applicable "no_base_ref" ;;
+            *) emit_not_applicable "base_unresolved" ;;
+        esac
+    fi
+fi
 
 # Degrade gracefully: a missing or detached base ref must not error the report.
 if ! git rev-parse --verify --quiet "${BASE}" >/dev/null 2>&1; then

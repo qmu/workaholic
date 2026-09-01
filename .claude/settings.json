@@ -9,7 +9,23 @@
       "Bash(git rebase:*)",
       "Bash(git push:*)",
       "Bash(git merge:*)",
-      "Bash(sh:*)"
+      "Bash(sh:*)",
+      "Bash(bash:*)",
+      "Bash(node:*)",
+      "Bash(python3:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(jq:*)",
+      "Bash(diff:*)",
+      "Bash(wc:*)",
+      "Read(//home/**)"
     ]
   },
   "enabledPlugins": {

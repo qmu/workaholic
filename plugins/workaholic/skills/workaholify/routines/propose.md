@@ -56,8 +56,8 @@ and the developer, seeing no trace in the thread, asked why neither had been tre
 feedback. The receipt is **two signals for two audiences on one event**: the threaded reply,
 which carries the issue link for whoever opens the thread, and a **reaction on the message
 itself**, which says the same thing to whoever is only scrolling the channel — a reply lives
-inside a thread and is invisible from a scroll. The prompt names that one shape and that one
-reaction and nothing else, which is the ceiling on what this routine may emit. **The no-posting argument is unchanged for everything else** and is why
+inside a thread and is invisible from a scroll. `/propose` names that one shape and that one
+reaction and nothing else, which is the ceiling on what a session running this routine may emit. **The no-posting argument is unchanged for everything else** and is why
 nothing else moved: the proposal issue is assigned to exactly one person whom GitHub already
 notifies, a Slack copy would be the same noise twice, and a status line addressed to nobody is
 what retired `🔧 Needs a decision` and `📦 Release Preparation`. The receipt is none of those —
@@ -75,30 +75,24 @@ otherwise adopt a repository-scoped `/moderate` record as this developer-scoped 
 is the inverse of what `renamed_from:` instructs, and no template carries the field today
 (`workaholic:propose`, `reference/loop.md`, *Taking the name back*).
 
-**The prompt is the developer's own** and states no rule a skill already owns:
-`workaholic:propose` owns the gates, the three moves and the refusal of housekeeping,
-`workaholic:strategy` owns the artifact, and the always-loaded `rules/` own the standing
-prohibitions. It names **one** post format — the sweep's receipt — byte-identical to
-`workaholic:notify`'s catalog copy, plus the one **reaction** that catalog names, and those are
-the ceiling on what a session running this routine may emit.
+**The prompt names the command and nothing else** (2026-09-01, the developer's instruction).
+Everything a session running this routine may do — the post shapes, the transports, what it may
+read, and what it must never emit — lives in `plugins/workaholic/commands/propose.md`, versioned
+with the plugin and shipped with it. A routine record is an **account-level** object no
+repository can edit, so every rule that lived in this prompt had to be re-pasted into every
+developer's copy in every project before it took effect, and a prompt that drifted from the
+plugin was invisible from the repository. A rule written in the command reaches every account's
+routine on its next run with no routine edit at all.
+
+**The command is the ceiling** (`workaholic:notify`, *The command is the ceiling*): the shapes
+that command's own notification section names are the only ones a session running this routine
+may emit, and `workaholic:notify`'s `reference/notifications.md` mirrors each of them verbatim,
+so a drift between the two is a defect to fix rather than a second wording. What stays in the
+prompt is the one instruction the command cannot carry — the load fallback that finds and reads
+the command when the plugin did not bind.
 
 ## Prompt
 
 Run `/propose`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/propose.md` and follow it with every script path under `<src>`.
-
-Read Slack only through the Slack connector; the inbound sweep needs no mention to capture an ask.
-
-For each ask the sweep files **in this run**, post one reply into that message's own thread — its `thread_ts` is the `ts` half of the `slack-ref` just written, so run no lookup and no search:
-
-```
-📥 受理 - [#123 [FB] Issue title](<repo-url>/issues/123)
-<session URL>
-```
-
-Then add the reaction `:inbox_tray:` to that same message, on the same coordinate — again no lookup and no search.
-
-Post nothing else to Slack and add no other reaction: not for an already-swept message, not for an exclusion, not for a degradation, not for the proposal, and not on an idle tick. A reply or a reaction that fails is reported as `ack_failed` and never blocks the capture.
-
-Report each swept ask's issue URL and whether its receipt landed — the reply and the reaction each — or its named exclusion, then the proposal's issue URL and its move, or the named reason nothing was proposed.

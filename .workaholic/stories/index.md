@@ -3,6 +3,23 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260901-085116](work-20260901-085116.md) - The digest reports where the work stands — each direction's missions with acceptance progress and queued counts, the repository's whole queue, and which direction a mission serves
+* [work-20260901-070504](work-20260901-070504.md)
+* [work-20260901-065202](work-20260901-065202.md) - Closes the direction-health mission by verifying its landed chain against each ticket's own gate and giving its drill the breaker row it never had.
+* [work-20260901-064758](work-20260901-064758.md)
+* [work-20260901-055834](work-20260901-055834.md)
+* [work-20260901-050906](work-20260901-050906.md) - Make the mergeability reader predict GitHub's merge rather than this checkout's, which a local merge driver had been quietly resolving
+* [work-20260901-044913](work-20260901-044913.md)
+* [work-20260901-034625](work-20260901-034625.md) - Give the clean stranded-publication class an owner — the act, the caller, and a drill that fails when it stops firing
+* [work-20260831-231823](work-20260831-231823.md) - Pin the merged-proposal narrowing — the step spec's fourth copy caught up with the other three, and nine rows hold all four transitions
+* [work-20260831-224412](work-20260831-224412.md) - Give a publish-tree publication a reader, an act and a question, so a collision a generator settles is repaired rather than reported hourly
+* [work-20260831-152743](work-20260831-152743.md) - The heartbeat becomes step 0 of every ticket, so a unit that is one long ticket keeps its own claim
+* [work-20260831-140035](work-20260831-140035.md) - An unattended run never waits for a person, and a tick that stops leaves a record the next tick reads
+* [work-20260831-134347](work-20260831-134347.md) - An all-held check-in whose arrears outlived the designed hold now says how deep and how old they are, and each held question names its own refusal
+* [work-20260831-125156](work-20260831-125156.md) - The tick learns to watch absence — a repository declares what should keep being produced, and one step asks when it stops
+* [work-20260831-114321](work-20260831-114321.md) - The tick's questions gain a composition contract and a voice, and an answer written in a thread now gets one reply saying what came of it.
+* [work-20260831-104307](work-20260831-104307.md) - The moderation tick's root now names the steps that could not read, and a changed impairment earns a root of its own
+* [work-20260831-044223](work-20260831-044223.md) - The two posts whose purpose is to reach a person now ride a bot identity, so their mention fires instead of resolving to the account that posted them
 * [work-20260830-124234](work-20260830-124234.md) - Measures the last namespace a per-unit claim ref could use, records the grain that ref could never reach and why a ruling-blocked handoff keeps no verdict word, makes the step-0 heartbeat land from the directory the workflow says to work in, and hands off the three tickets whose repair the container's transport refuses.
 * [Ask a person about a claim race](work-20260830-094214.md)
 * [work-20260830-084240](work-20260830-084240.md) - A raced loser is now readable as superseded from the tree and cannot write a duplicate; the arbitration that would stop the race is blocked on a measured transport refusal.

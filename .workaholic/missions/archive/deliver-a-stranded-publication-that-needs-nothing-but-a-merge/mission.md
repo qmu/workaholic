@@ -50,3 +50,4 @@ A regression that leaves the class ownerless fails a drill.
 - 2026-09-01 — ticket archived — 20260901032502-act-on-every-clean-publication-the-run-reads.md
 - 2026-09-01 — ticket archived — 20260901032502-drill-the-clean-publication-settlement.md
 - 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — story opened — work-20260901-034625.md

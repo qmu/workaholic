@@ -38,7 +38,7 @@ what the tick repairs and who repairs the rest.
 
 - [x] A day's first speaking tick opens the root; every later one replies into it, still by
       exact-string key. (#20260901122448-reply-an-hour-s-changes-into-the-day-s-standing-root.md)
-- [ ] A summary that moved only because a transport answered differently opens no
+- [x] A summary that moved only because a transport answered differently opens no
       root. (#20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate.md)
 - [ ] `workaholic:moderate` says what the tick may repair and who does the
       rest. (#20260901122448-say-what-the-tick-repairs-on-what-proof-and-who-does-the-rest.md)
@@ -48,3 +48,4 @@ what the tick repairs and who repairs the rest.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-01 — ticket archived — 20260901122448-derive-the-tick-s-thread-key-from-the-day-not-the-tick.md
 - 2026-09-01 — ticket archived — 20260901122448-reply-an-hour-s-changes-into-the-day-s-standing-root.md
+- 2026-09-01 — ticket archived — 20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate.md

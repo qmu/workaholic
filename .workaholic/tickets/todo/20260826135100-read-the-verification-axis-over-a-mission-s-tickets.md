@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260901-105941
 ---
 
 # Read the verification axis over a mission's tickets

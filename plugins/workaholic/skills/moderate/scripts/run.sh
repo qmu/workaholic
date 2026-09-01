@@ -49,7 +49,8 @@
 #
 # Output: one JSON line
 #   {"tick": "...", "log": "<path>|", "steps": [
-#      {"step","status","reason","summary","event","needs_agent":[...],"logged":true|false}, ...],
+#      {"step","status","reason","summary","event","needs_agent":[...],
+#       "needs_agent_count":n,"logged":true|false}, ...],
 #    "counts": {"ok":n,"filed":n,"skipped":n,"degraded":n,"blocked":n},
 #    "needs_agent": <total>,
 #    "persist": {"status","reason","summary","persisted","logged"}}
@@ -142,11 +143,20 @@ json_field() {
         }'
 }
 
-# `needs_agent` is an array of flat objects; the report only needs its length, so
-# this counts top-level `{` between the array's brackets with a depth counter. A
-# comma count would be wrong by a factor of however many fields an entry has —
-# measured, on the first step that returned three entries and was reported as
-# eleven.
+# THE REPORT CARRIES THE ARRAY, NOT ITS LENGTH (2026-08-26). This once emitted the
+# count, on the reasoning that "the report only needs its length" — and two readers
+# needed the payload. `question-liveness.sh` matches a question's key as a string inside
+# `needs_agent` to answer live/settled, so against a counted report it answered `settled`
+# for every key by construction: the bounded re-ask could never fire, and the `✅ 解消を確認`
+# confirmation would fire on every open question every tick. And the agent, which acts on
+# `needs_agent` after the run returns, had to re-invoke every step to see what it had
+# found — extra network and clock in a container nobody is watching, and a second reading
+# of steps whose window shifts between invocations. Both are the same defect: a report
+# that names how much there is and not what it is.
+# `json_array_len` stays for `needs_agent_count`, a convenience beside the payload rather
+# than a substitute for it. It counts top-level `{` between the array's brackets with a
+# depth counter; a comma count would be wrong by however many fields an entry has —
+# measured, on the first step that returned three entries and was reported as eleven.
 json_array_len() {
     printf '%s' "$2" | awk -v key="\"$1\":" '
         {
@@ -163,6 +173,29 @@ json_array_len() {
                 else if (c == "]" && depth == 0) break
             }
             print n
+        }'
+}
+
+# The array's own text, brackets excluded, carried through verbatim. A step's entries are
+# already valid JSON — this script re-emits them rather than re-encoding them, so no step
+# has to learn a second shape and no field is lost on the way to the agent.
+json_array_raw() {
+    printf '%s' "$2" | awk -v key="\"$1\":" '
+        {
+            i = index($0, key)
+            if (i == 0) { print ""; exit }
+            rest = substr($0, i + length(key))
+            i = index(rest, "[")
+            if (i == 0) { print ""; exit }
+            depth = 0; out = ""
+            for (j = i + 1; j <= length(rest); j++) {
+                c = substr(rest, j, 1)
+                if (c == "]" && depth == 0) break
+                if (c == "{" || c == "[") depth++
+                else if (c == "}" || c == "]") depth--
+                out = out c
+            }
+            print out
         }'
 }
 
@@ -255,14 +288,15 @@ log_file=''
 ok=0; filed=0; skipped=0; degraded=0; blocked=0; needs_total=0
 
 emit_row() {
-    # $1 step  $2 status  $3 reason  $4 summary  $5 needs_agent count  $6 logged  $7 event
+    # $1 step  $2 status  $3 reason  $4 summary  $5 needs_agent array body  $6 logged
+    # $7 event  $8 needs_agent count (the body's own, counted once by the caller)
     # `event` (2026-08-23) is the POST-facing phrase, carried beside the LOG-facing
     # `summary` and never instead of it. Two audiences: the log is an audit trail a
     # maintainer reads when the tick misbehaves, and it keeps every counter; the root is
     # read by a person scanning a channel, who needs the repository's events. The step
     # supplies it because the step knows what its finding MEANS and the renderer does not.
     # Empty means "nothing happened here" and renders no line at all.
-    rows="$rows${rows:+, }{\"step\": \"$1\", \"status\": \"$2\", \"reason\": \"$(json_escape "$3")\", \"summary\": \"$(json_escape "$4")\", \"needs_agent\": $5, \"logged\": $6, \"event\": \"$(json_escape "${7:-}")\"}"
+    rows="$rows${rows:+, }{\"step\": \"$1\", \"status\": \"$2\", \"reason\": \"$(json_escape "$3")\", \"summary\": \"$(json_escape "$4")\", \"needs_agent\": [$5], \"needs_agent_count\": ${8:-0}, \"logged\": $6, \"event\": \"$(json_escape "${7:-}")\"}"
     case "$2" in
         ok)       ok=$((ok + 1)) ;;
         filed)    filed=$((filed + 1)) ;;
@@ -270,7 +304,7 @@ emit_row() {
         degraded) degraded=$((degraded + 1)) ;;
         blocked)  blocked=$((blocked + 1)) ;;
     esac
-    needs_total=$((needs_total + $5))
+    needs_total=$((needs_total + ${8:-0}))
     # Refreshed after every row so a later step reads exactly what the steps before it
     # reported — never a stale snapshot, and never the rows of a step that has not run.
     [ -n "$REPORTS_FILE" ] && printf '{"steps": [%s]}\n' "$rows" > "$REPORTS_FILE"
@@ -348,7 +382,7 @@ for step in $STEPS; do
     if [ -n "$SKIP" ] && in_list "$step" "$SKIP"; then
         summary='skipped by the caller'
         logged=$(log_step "$step" skipped "$summary")
-        emit_row "$step" skipped requested "$summary" 0 "$logged"
+        emit_row "$step" skipped requested "$summary" "" "$logged" "" 0
         continue
     fi
     # THE TICK'S VOICE IS NEVER STARVED (2026-08-21). The deadline cuts steps in order and
@@ -360,7 +394,7 @@ for step in $STEPS; do
        && [ "$DEADLINE" -gt 0 ] && [ $(( $(date -u +%s) - started )) -ge "$DEADLINE" ]; then
         summary="not reached within the tick's ${DEADLINE}s budget"
         logged=$(log_step "$step" skipped "$summary")
-        emit_row "$step" skipped budget "$summary" 0 "$logged"
+        emit_row "$step" skipped budget "$summary" "" "$logged" "" 0
         continue
     fi
 
@@ -368,7 +402,7 @@ for step in $STEPS; do
     if [ ! -f "$script" ]; then
         summary="no step script at step-${step}.sh"
         logged=$(log_step "$step" degraded "$summary")
-        emit_row "$step" degraded step_missing "$summary" 0 "$logged"
+        emit_row "$step" degraded step_missing "$summary" "" "$logged" "" 0
         continue
     fi
 
@@ -378,14 +412,14 @@ for step in $STEPS; do
     if ! out=$(sh "$script" --tick "$TICK" --root "$ROOT" 2>/dev/null); then
         summary="the step exited non-zero"
         logged=$(log_step "$step" degraded "$summary")
-        emit_row "$step" degraded step_error "$summary" 0 "$logged"
+        emit_row "$step" degraded step_error "$summary" "" "$logged" "" 0
         continue
     fi
     out=$(printf '%s' "$out" | tail -n 1)
     if [ -z "$out" ]; then
         summary='the step printed nothing'
         logged=$(log_step "$step" degraded "$summary")
-        emit_row "$step" degraded no_output "$summary" 0 "$logged"
+        emit_row "$step" degraded no_output "$summary" "" "$logged" "" 0
         continue
     fi
 
@@ -393,8 +427,9 @@ for step in $STEPS; do
     reason=$(json_field reason "$out")
     summary=$(json_field summary "$out")
     event=$(json_field event "$out")
-    needs=$(json_array_len needs_agent "$out")
-    [ -n "$needs" ] || needs=0
+    needs=$(json_array_raw needs_agent "$out")
+    needs_n=$(json_array_len needs_agent "$out")
+    [ -n "$needs_n" ] || needs_n=0
 
     case "$status" in
         ok|filed|skipped|degraded|blocked) ;;
@@ -402,7 +437,8 @@ for step in $STEPS; do
             summary="the step's status was not in the log vocabulary: '${status}'"
             status=degraded
             reason=bad_output
-            needs=0
+            needs=''
+            needs_n=0
             ;;
     esac
     [ -n "$summary" ] || summary="(the step reported no summary)"
@@ -423,7 +459,7 @@ for step in $STEPS; do
     fi
 
     logged=$(log_step "$step" "$status" "$summary")
-    emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event"
+    emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event" "$needs_n"
 
     # The opening is on the base before anything else runs. Keyed on the first step in
     # `STEPS` rather than on a loop counter, so a caller that narrowed the run with

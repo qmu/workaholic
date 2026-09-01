@@ -83,6 +83,20 @@ is only what a line is allowed to prove.
   recorded an `inbound-sweep` line, read out of the tick log; with no such tick, this tick's own UTC
   day start. Anchoring to a fact in the log avoids `date -d`/`date -v`, which differ between the
   developer's laptop and the routine's container.
+- **And the conversion validates** (2026-08-26, `lib/tick-iso.sh`, shared with step 7). The log is
+  append-only and carries whatever any tick ever wrote, so the tick id it hands back is an input,
+  not a guarantee. Measured: a sentinel section `## 20260819-999999` sat on the base; `999999`
+  sorts last, so it won every window from that day, the unvalidated substitution produced
+  `2026-08-19T99:99:99Z`, and GitHub answered `422 The since parameter needs to be in ISO 8601
+  format` for **seven days** while this step reported itself `ok`. An id that does not validate now
+  widens the window to the tick's own day start and **names the widening in the summary** — one wide
+  window instead of seven silent days. Nothing prunes the log to fix it: it is append-only, and a
+  machine deleting a line it disliked is a worse failure than the one it would cure.
+- **A failed read is not an empty one, and never a finding** (same change). The transport's exit
+  status was swallowed by `|| true`, and the error body reaching stdout was parsed as a row — so the
+  422 document was handed to the agent as an inbound ask "to judge", with itself as the reference.
+  The status now decides whether the read happened, and a row whose issue number is not a number
+  means the response was not the issues list: both are `degraded`/`gh_read_failed`, by name.
 - **Writes**: nothing. The agent applies the **materiality bar** — a genuine problem or improvement
   idea, or something that must not be overlooked; a passing remark is not filed — and writes what
   passes as a **feedback record** (`feedback/scripts/create.sh`, `--subject` naming *whose* opinion
@@ -102,7 +116,9 @@ is only what a line is allowed to prove.
 - **Slack's bound is not advice**: exact-string search, at most two queries, **no channel history
   read at any point** (`workaholic:notify`).
 - **Aborts**: `gh_unavailable` (GitHub named as unreadable while the three connector surfaces are
-  still handed over — three of four working is not "nothing found").
+  still handed over — three of four working is not "nothing found"), `gh_read_failed` (the endpoint
+  did not answer, or did not answer with issues), `bad_window` (neither the previous tick nor this
+  one is a timestamp — the one case where no window can be derived at all).
 - **Dedup**: an issue a feedback record already names, or one an earlier tick logged under
   `inbound-sweep-filed`, is skipped and counted in the summary.
 
@@ -252,13 +268,20 @@ is a **dedup key and never a heading**: the contract's clause 3 in its oldest fo
 - **The window is a git question**: the base is `git rev-list -1 --before=<the previous doc-drift
   tick, as ISO> HEAD`, so no `date -d`/`date -v` arithmetic is involved. `no_baseline` when nothing
   precedes that boundary — comparing against nothing would report every document as drifted.
+- **The conversion is `lib/tick-iso.sh`'s, shared with step 2** (2026-08-26). The same sentinel tick
+  id blinded this step too, and more quietly: the sweep at least got a 422, while `git rev-list
+  --before=2026-08-19T99:99:99Z` simply matched nothing, so this step answered `no_baseline` — a
+  legitimate answer on a young repository — for seven days without one document being checked.
+  Sharing the derivation is the point: two copies of an unvalidated substitution is how one poisoned
+  log entry took out both steps. An unusable previous tick widens to the day start and says so;
+  `bad_window` is the abort when even that is not a date.
 - **Writes**: nothing. Drift becomes a **ticket**, because fixing documentation is work and work
   has a queue; an hourly agent rewriting `main`'s documents is the unattended-write class this
   project has refused twice.
 - **Dedup is not optional here.** `terms/retired-terms.md` is a glossary *of* retired terms, so it
   names retired terms by construction and `area-freshness.sh` reports it truthfully and forever.
   A finding an earlier tick logged under `doc-drift-filed` is counted and dropped.
-- **Aborts**: `no_repo`, `no_baseline`, `drift_unreadable`.
+- **Aborts**: `no_repo`, `no_baseline`, `bad_window`, `drift_unreadable`.
 
 ## 8. `release-status` — what is waiting to reach a deployment target
 
@@ -2244,6 +2267,16 @@ in a tick is visible.
 
 ## What `run.sh` guarantees around the steps
 
+- **The report carries each step's `needs_agent` array, with `needs_agent_count` beside it**
+  (2026-08-26). It carried the count alone, against this file's own stated shape, on the reasoning
+  that the report only needed the length — and two readers needed the payload.
+  `question-liveness.sh` matches a question's key as a string **inside** `needs_agent`, so against a
+  counted report it answered `settled` for every key by construction: the bounded re-ask could never
+  fire, and the `✅ 解消を確認` confirmation would fire on every open question, every tick. The agent
+  hit the same wall from the other side — acting on `needs_agent` after the run returns, it had to
+  re-invoke every step to see what the tick had found, which is extra network and clock in a
+  container nobody is watching, and a second reading of steps whose window moves between
+  invocations. One defect, two symptoms: a report that named how much there was and not what it was.
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
   non-zero exit → `degraded`/`step_error`; empty or unparseable output → `degraded`/`no_output` or
   `bad_output`; a status outside the log vocabulary → `degraded`/`bad_output`. A step never

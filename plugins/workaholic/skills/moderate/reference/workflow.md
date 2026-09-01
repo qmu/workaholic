@@ -201,8 +201,9 @@ is only what a line is allowed to prove.
 - **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice, and since
   2026-08-29 held by the reader rather than by each caller (step 4's entry carries the
   measurement and the seam).
-- **Every row names the decision, not the colour**: `conflict` → the claim holder must resolve it
-  and nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
+- **Every row names the decision, not the colour**: `conflict` → the next `[Implement]` tick's
+  catch-up clears a generated-index conflict, a real content collision is the claim holder's and
+  nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
   close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
   mergeability yet, re-read before acting.
@@ -220,15 +221,28 @@ is only what a line is allowed to prove.
   `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
   shared key would let either dedup the other away.
 - **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
+- **The `conflict` row names which actor clears it** (2026-09-01, ticket `20260901082633`). It
+  read *the claim holder must resolve the conflict* for **every** conflict, so the one class the
+  loop repairs itself — a collision confined to the generated OKF indexes, settled by
+  `catch-up-claim.sh` from `/implement` and by `settle-stranded-publication.sh` for a
+  publication — was announced to a person as theirs, and queued behind a budget of ten questions
+  a day. Measured: four conflicting pull requests, all four colliding on
+  `.workaholic/stories/index.md`, two of them on nothing else. The correction is **generic
+  rather than per-row, by constraint**: the class lives in `claim-mergeability.sh`, which needs
+  the branch ref, and this step reads GitHub over REST through `pulls-state.sh`, which carries
+  no class — a per-branch judgement here would need the fetch step 4's header refuses. The
+  per-branch judgement therefore stays with `catchup-blocked` (§26), which reads the class off a
+  claim row that already has it. **Wording only**: `stuck:<digest>`, the `blocked_by` set,
+  `headline` and the `needs_agent` shape are byte-identical.
 
 **The question, under the composition contract** (2026-08-31, mission
 `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). This step is the one that
 already met it, and the reason is worth naming: `headline` is derived from the *reason* rather
 than from the identifier, so the post opens `conflicting with main` and not `#642`. Heading —
 the `headline` above, then the pull requests it covers. Body — the act that row's `blocked_by`
-already names (resolve the conflict / review it / fix the check / mark it ready / update it /
-re-read). `stuck:<digest>` is a **dedup key and never a heading**: the contract's clause 3 in
-its oldest form.
+already names (the catch-up clears a generated-index conflict and a content collision is the
+holder's / review it / fix the check / mark it ready / update it / re-read). `stuck:<digest>`
+is a **dedup key and never a heading**: the contract's clause 3 in its oldest form.
 
 ## 7. `doc-drift` — the documentation against the current concept
 
@@ -2641,6 +2655,11 @@ and nothing written anywhere but its own tick-log line.
 - **Heading** — *`<unit>` is finished, `main` has moved under it, and both sides changed the
   same files*, then the branch, the pull request, and the colliding files by name.
 - **Body** — the one act: *decide which side keeps its behaviour and merge `main` in.*
+- **And it says why this one is yours** (2026-09-01, ticket `20260901082633`): the loop clears
+  the other class itself — `catch-up-claim.sh` on a claim, `settle-stranded-publication.sh` on a
+  publication, both from `/implement` — so this question is the residue that reaches a person,
+  not the whole of what conflicts. Step 6's `conflict` row now names both actors generically,
+  and this one names the class it read. One voice, two grains.
 - **Never alone**: `content_conflict`, `mechanical`, `clean`. The distinction this question
   rests on — *the loop looked and only you can decide*, against `merge-conflicts`' *nobody has
   looked yet* — has to be in the sentence, because the two questions are otherwise about the

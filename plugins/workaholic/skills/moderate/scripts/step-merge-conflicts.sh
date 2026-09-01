@@ -123,7 +123,7 @@ if [ "$count" -eq 0 ]; then
 fi
 
 numbers=$(printf '%s' "$conflicted" | sed 's/.*"number": //; s/,.*//' | tr '\n' ' ' | sed 's/ $//')
-printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s)%s — reported to their claim holders, never rebased here", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
+printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s)%s — never rebased here: the catch-up clears what a generator settles, a content collision belongs to the claim holder", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
     "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" "$UNKNOWN_NOTE" \
     "$(printf '%s' "$numbers" | tr ' ' '\n' | awk 'NF { printf "%s%s", (n++ ? ", " : ""), $0 }')" \
     "$uncomputed" \

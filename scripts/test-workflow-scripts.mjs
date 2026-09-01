@@ -12033,6 +12033,32 @@ function testLayoutDoctor() {
     assertTrue("doctor: no false positive on feedbacks/", !paths.includes(".workaholic/concerns"));
   } finally { cleanup(dir); }
 
+  // ONE SLUG NAMING TWO MISSIONS (2026-09-01). `/specificate` dedups on the ask's feedback
+  // refs, so two records for one ask produce two missions whose slugs — derived from the title
+  // — collide. Measured: both pairs in this repository arose that way, and in each the later
+  // record's mission was driven while the earlier sat in a refused publication.
+  //
+  // IT IS AN ADVISORY, NOT A FINDING, AND THE TEST PINS THAT: a finding sets
+  // `conforming: false`, which fails the merge gate, and pairs already in a tree would block
+  // every merge until somebody ruled on history that is harming nothing.
+  const dupes = mkdtempSync(join(tmpdir(), "workaholic-doctor-dupe-"));
+  try {
+    for (const d of [".workaholic/missions/active/one", ".workaholic/missions/archive/one",
+                     ".workaholic/missions/active/two", ".workaholic/missions/archive/three"]) {
+      mkdirSync(join(dupes, d), { recursive: true });
+    }
+    writeFileSync(join(dupes, ".workaholic/README.md"), "x");
+    const r = JSON.parse(run(dupes, `${POSIX_SH} ${DOCTOR} ${dupes}`).stdout);
+    const adv = r.advisories.filter((a) => /two missions/.test(a.reason)).map((a) => a.path);
+    assertEq("the doctor names exactly the slug that exists in both areas", adv,
+      [".workaholic/missions/active/one"]);
+    assertTrue("and says the operator rules, deleting neither",
+      /operator rules/.test(r.advisories.find((a) => /two missions/.test(a.reason)).reason),
+      JSON.stringify(r.advisories));
+    assertEq("a same-slug pair is advisory, never a finding that fails the merge gate",
+      [r.conforming, r.findings.length], [true, 0]);
+  } finally { cleanup(dupes); }
+
   // The three areas retired 2026-08-13 (issue #436) are named BY THE RETIREMENT,
   // not as generic undesignated dirs — a consuming repo's plugin updates before
   // its tree, so the reason it reads must describe the change, not its own shape.

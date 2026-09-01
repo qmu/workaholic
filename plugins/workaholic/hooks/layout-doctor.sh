@@ -197,6 +197,48 @@ if [ -d "${WH}/trips" ]; then
   done
 fi
 
+# --- Advisory: one slug naming two missions ---------------------------------
+# ONE ASK PLANNED TWICE (2026-09-01, ticket `20260901070000-collapse-two-missions-that-plan-the-same-ask.md`).
+#
+# `/specificate` dedups on the ask's FEEDBACK REFS, so two records written for one ask produce
+# two missions — and the slug is derived from the title, so the two collide. Measured
+# 2026-09-01, both pairs in this repository:
+#
+#   deliver-what-the-loop-already-knows-…   records 20260828121729 / 20260828181639, 6h apart
+#   say-when-the-loop-has-run-out-of-direction  records 20260826071745 / 20260826081729, 1h apart
+#
+# In both, the LATER record's mission was driven and archived while the earlier one sat in a
+# publication the transport had refused, landing days later with a queue of finished work.
+#
+# IT IS AN ADVISORY, NOT A FINDING, AND THAT IS THE DECISION. A finding sets
+# `conforming: false`, which fails the `Validate Plugins` merge gate — and both pairs are in the
+# tree today, so it would turn the base red and block every merge until somebody ruled on
+# history that is harming nothing this minute. The collision bites only when something tries to
+# move the active copy into an archive that is already occupied.
+#
+# THE OTHER TWO SEAMS WERE REFUSED, and the reasons belong here beside the check:
+#   * PREVENT AT THE SLUG (`/specificate` refuses a slug that already exists) would refuse a
+#     legitimate second attempt at an ask whose first was abandoned, and — decisively — it
+#     cannot see the two pairs already in the tree, which would then go unreported forever.
+#   * REFUSE AT THE CLOSE OR THE MOVE fires at the moment the collision bites, but `archive.sh`
+#     runs unattended with no person attached, so it converts a silent collision into a refusal
+#     nobody reads.
+# The audit is where this repository already puts a structural finding the operator must rule
+# on — beside `retired-area`, `renamed-area` and `retired-ticket-state`.
+#
+# IT DELETES NOTHING AND CHOOSES NOTHING. Both copies are history: one carries the
+# implementation changelog and the run hours, the other the verification. Which survives is the
+# operator's ruling, and this reports the pair with the decision it needs.
+if [ -d "${WH}/missions/active" ] && [ -d "${WH}/missions/archive" ]; then
+  for mdir in "${WH}/missions/active"/*; do
+    [ -d "$mdir" ] || continue
+    mslug=$(basename "$mdir")
+    [ -d "${WH}/missions/archive/${mslug}" ] || continue
+    add_advisory ".workaholic/missions/active/${mslug}" \
+      "one slug names two missions (an archived copy exists); the operator rules which record survives -- delete neither"
+  done
+fi
+
 # --- Emit -------------------------------------------------------------------
 conforming=true
 [ -n "$findings" ] && conforming=false

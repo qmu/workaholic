@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T07:00:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -110,3 +111,85 @@ script behaving wrongly; what is missing is a rule for the collision.
 - **Do not fix it by making the driving run skip a mission whose slug is archived.** The run
   would then silently ignore a legitimately re-opened ask, and the queued tickets would sit
   undrivable with nothing saying why.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — the walk, before choosing a seam
+
+Every slug present in **both** `missions/active/` and `missions/archive/`:
+
+| Slug | `active` created_at / record | `archive` created_at / record | Same acceptance? |
+| ---- | ---------------------------- | ----------------------------- | ---------------- |
+| `deliver-what-the-loop-already-knows-to-the-person-who-can-act` | 2026-08-28T12:20:17Z / `20260828121729-…` | 2026-08-28T18:19:13Z / `20260828181639-…` | yes — three criteria, same substance, different wording |
+| `say-when-the-loop-has-run-out-of-direction` | 2026-08-26T07:19:28Z / `20260826071745-…` | 2026-08-26T08:19:15Z / `20260826081729-…` | yes — 5 of 8 queued tickets have exact-title archived twins |
+
+Two pairs, one cause, and **neither is a slug reused for different work**: in both, two feedback
+records were written for one ask (6 hours and 1 hour apart), and `/specificate` dedups on the
+ask's **feedback refs**, so different refs meant no duplicate was seen while the slug — derived
+from the title — collided. In both pairs the **later** record's mission was driven and archived
+while the earlier sat in a publication the transport had refused, landing days later.
+
+### Step 2 — the seam, and why the other two do not own it
+
+**Chosen: (c), the audit.** `layout-doctor.sh` names each same-slug pair as an **advisory**.
+
+- **(a) prevent at the slug — rejected, and provably insufficient.** This is the finding that
+  settled it: `create.sh` **already** refuses a slug `mission_resolve` finds in either area
+  (pinned by the suite: *"create.sh refuses a slug that exists in archive/"*). It did not fire
+  here because it resolves against **the checkout it runs in**, and `/specificate` writes into a
+  publish tree cut from `origin/main` — a mission on an unmerged publication is invisible there.
+  Worse, the collision arrives by **merge**, where no create runs at all. So prevention at create
+  is not merely costly (it would refuse a legitimate second attempt at an abandoned ask), it
+  cannot reach this case, and it would leave the two pairs already in the tree unreported forever.
+- **(b) refuse at the close or the move — rejected.** It fires at the moment the collision bites,
+  but `archive.sh` runs unattended with no person attached, so it converts a silent collision
+  into a refusal nobody reads.
+- **(c) the audit — chosen.** It is where this repository already puts a structural finding the
+  operator must rule on, beside `retired-area`, `renamed-area` and `retired-ticket-state`, and it
+  is the only one of the three that names the pairs **already in the tree** — which is what the
+  ticket was written about.
+
+**Advisory, not a finding, and that is a decision rather than a default.** A finding sets
+`conforming: false` and fails the `Validate Plugins` merge gate; both pairs are in the tree today,
+so it would turn the base red and block every merge until somebody ruled on history that harms
+nothing until something tries to move an active copy into an occupied archive.
+
+### Step 3 — neither record deleted
+
+Nothing here deletes, moves or rewrites either copy, and the advisory says so in its own text
+(*the operator rules which record survives -- delete neither*). Both are history: the archived
+copies carry the implementation changelogs and `actual_hours`, the active ones carry the
+verification changelogs written earlier in this run.
+
+### Step 4 — documented in the same change
+
+`CLAUDE.md`'s mission-lifecycle section and `skills/mission/SKILL.md`'s *Lifecycle*, both stating
+why `create.sh`'s existing guard cannot reach this and why the other two seams were refused.
+
+### Verification
+
+- `node scripts/test-workflow-scripts.mjs` — **5751 passed, 0 failed** (5748 before this ticket).
+  The new case pins the advisory on exactly the shared slug, the *delete neither* wording, and
+  that `conforming` stays `true` with zero findings.
+- `bash plugins/workaholic/hooks/layout-doctor.sh .` — `conforming: true`, both real pairs named.
+- `build.mjs` + `verify.mjs` — clean.
+- No script gained a second derivation of a mission's slug or of its lifecycle state: the walk is
+  a directory-existence test in the audit and nowhere else.
+
+### Discovered Insights
+
+- **Insight**: A guard that resolves against "the tree" is only as wide as the checkout it runs
+  in, and `/specificate` deliberately runs in a publish tree cut from `origin/main`. Any
+  uniqueness check written for that caller is blind to every unmerged branch by construction.
+  **Context**: `list-proposed-refs.sh` exists precisely because the dedup it does needed to walk
+  unmerged branches. `create.sh`'s slug check never got that treatment, and the gap is invisible
+  until a publication stays open long enough to matter.
+
+- **Insight**: The collision arrives by **merge**, and a merge runs no writer — no create, no
+  close, no move. A whole class of invariant cannot be enforced at any write seam for that
+  reason, which is what makes the audit the right home rather than a weaker one.
+  **Context**: This is the general form of the same lesson `/moderate`'s `cadence-lapse` step
+  records: some findings have no object that a write seam ever touches, so only something that
+  walks the tree can see them.

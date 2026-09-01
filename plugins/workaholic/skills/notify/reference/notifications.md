@@ -4,7 +4,7 @@ Companion to `SKILL.md` (*One thread per feedback item*, *Post shapes, mentions,
 
 ## The shapes of the runner's posts
 
-A template names its postable events and defers the line formats here. This file is the **catalog** a template draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The prompt is the ceiling — no self-authorized shapes*). `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. Two events (`/specificate` finish, `/implement` unit finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07), aligned against the developer's dictated wording in issue #333, and **narrowed to the finish alone on 2026-08-11** (issue #351 / mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`): the start shapes `📐 Proposing` and `🟠 Implementing` are **retired** — a routine posts its finish only, and the live routine records were edited to match the same day. Every other event keeps its pre-existing shape unchanged.
+A **command** names its postable events and defers the line formats here. This file is the **catalog** a command draws from when it explicitly names an event — never blanket authorization: a shape's presence here does not permit a session to emit it unprompted (SKILL, *The command is the ceiling — no self-authorized shapes*). Since 2026-09-01 the mirror copies live in `plugins/workaholic/commands/*.md`, not in the routine templates: a routine prompt names the command and nothing else, so the wire format is versioned with the plugin rather than re-pasted into every account's routine record. `<@U…>` follows the SKILL's mention rule; `<repo>` is the repository the session is running in, which it derives itself rather than being told. **The English in every fenced block below is the instruction, never the wire text**: a slot like `<one sentence, max 25 words, …>` is filled in the reader's language, which for this loop is **Japanese**, while the shape's own label and every machine word in it are never translated (`rules/interaction.md`, *The language of a post is the language its readers use*). Two events (`/specificate` finish, `/implement` unit finish) carry the **sole sanctioned** wording — the literal templates from issue #300, reconciled below with the shapes that predate them (P10, 2026-08-07), aligned against the developer's dictated wording in issue #333, and **narrowed to the finish alone on 2026-08-11** (issue #351 / mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`): the start shapes `📐 Proposing` and `🟠 Implementing` are **retired** — a routine posts its finish only, and the live routine records were edited to match the same day. Every other event keeps its pre-existing shape unchanged.
 
 ### A post never mentions the identity it is posted as
 
@@ -27,7 +27,7 @@ by the [routine](<session URL>)
 
 #### The description root — every case 4
 
-The root the run posts **before** the finish line when the lookup found no thread (SKILL, *One thread per feedback item* case 4, *The description root*). **`/implement` posts it too, since 2026-08-22** — the shipped alternative was a top-level line opening with a status emoji and a pull request number and ending in a bare machine key, which the developer ruled unusable on sight. Byte-identical in `workaholify/routines/specificate.md` and `workaholify/routines/implement.md`; a diff between the copies is a drift to fix, never a second wording:
+The root the run posts **before** the finish line when the lookup found no thread (SKILL, *One thread per feedback item* case 4, *The description root*). **`/implement` posts it too, since 2026-08-22** — the shipped alternative was a top-level line opening with a status emoji and a pull request number and ending in a bare machine key, which the developer ruled unusable on sight. Byte-identical in `commands/specificate.md` and `commands/implement.md`; a diff between the copies is a drift to fix, never a second wording:
 
 ```
 📝 FB - [<feedback title>](<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md)
@@ -109,7 +109,7 @@ Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implemen
 
 **It carries no mention token**, by the standing rule: the reply reaches Slack as the developer's own account and the person it would name is normally the message's own author, so a `<@U…>` there notifies nobody. Slack's own thread-participation notice reaches the author, which is the whole mechanism this receipt relies on.
 
-**And a reaction on the message itself: `:inbox_tray:`** (2026-08-26). A reply lives *inside* a thread, so from a channel scroll a captured ask and an ignored one still look identical — a person has to open the thread to find out which happened. The reaction is the same receipt at a glance, in the one place someone scrolling the channel is already looking. It is the emoji the reply already speaks with (`📥`), so one event keeps one vocabulary, and **this line is the single source for the name**: the routine template and the drift pin read it from here rather than restating it.
+**And a reaction on the message itself: `:inbox_tray:`** (2026-08-26). A reply lives *inside* a thread, so from a channel scroll a captured ask and an ignored one still look identical — a person has to open the thread to find out which happened. The reaction is the same receipt at a glance, in the one place someone scrolling the channel is already looking. It is the emoji the reply already speaks with (`📥`), so one event keeps one vocabulary, and **this line is the single source for the name**: `/propose` and the drift pin read it from here rather than restating it.
 
 It rides the same coordinate and the same bounds as the reply — `<channel>:<ts>` from the `slack-ref` the run just wrote, so still **no lookup and no second query**; **only a message this run filed**, so an already-swept one gets neither reply nor reaction; and **never load-bearing**, reported per message as `ack_failed: <reason>` beside the reply's own outcome, so a landed reaction and a failed one are two facts exactly as a landed reply and a failed one are. It is a **second signal for a second audience**, never a substitute for the reply: a reaction carries no link and is invisible to anyone reading the issue rather than the channel.
 
@@ -160,10 +160,10 @@ in the window / queued now) instead of "item(s)".
 **One thread per tick, and two speech acts told apart by position** (2026-08-21, the developer's design). The tick posts a **root** carrying what changed in the hour, and every question it has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
 
 ```
-🔎 Moderation - <N> change(s), <M> question(s)<, <K> step(s) could not read — only when K > 0>
+🔎 Moderation - <N> change(s), <M> question(s)
 <on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
 <what happened to the repository, one line per changed step that has an event>
-<one line per step that could not read, after the event lines: ⚠️ <step> — <status>: <reason>, at most 5 then "and <K> more">
+<one line per reading the tick could not make, after the event lines: ⚠️ <that step's own summary — a sentence saying what could not be read and what follows from it>, at most 5 then "and <K> more">
 <session URL>
 ```
 
@@ -202,6 +202,45 @@ still reads `summary`, because that is what tells this hour from the last one.
 One sentence, max 25 words, the question itself, with the two options when there are two.
 ```
 
+**What that sentence must contain — the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). The shape above fixes the
+*form* and said nothing about the *content*, so each step composed its own wording from whatever
+identifier it happened to hold and a question opened with a unit id, an artifact path, a claim
+verdict or a strategy slug. The operator reads it on Slack with nothing else in front of them:
+a heading that opens with `batch-20260818215156` or
+`.workaholic/tickets/todo/20260819103855-….md` tells them neither what happened nor what they
+are being asked to do. **This is the one home for the rule; every step reads it from here.**
+
+1. **The heading leads with what happened**, in words a reader outside the repository
+   understands — a plain clause naming *what happened to what*, never an identifier, a verdict
+   word, a dedup key or a step id.
+2. **The identifier comes after it, never before.** The unit, the path, the number or the slug
+   is how the reader finds the thing once they already know what it is about; leading with it
+   makes them decode before they can read.
+3. **A verdict word, a key or a step id never appears alone.** `report_undelivered`,
+   `content_conflict`, `awaiting_verification`, `superseded` are this repository's vocabulary,
+   not the reader's: where one is worth carrying, carry it **beside** the plain fact it stands
+   for, never in place of it.
+4. **The body names the one act asked of the addressee** — the single thing they are being asked
+   to do or decide, in the second person. Where the question genuinely has two options, both are
+   named; that clause of the shape is unchanged.
+5. **The named details that already ride the heading keep riding it** — a direction's declared
+   stage and its leaving, the days left and the date, the branch a retirement could not delete,
+   the files a conflict collided on, how long the subject has been asked about. The body's one
+   sentence is reserved for the act.
+
+**The ≤25-word body is a ceiling, not a target.** A question that will not fit is a question
+aimed at the wrong reader or standing for a finding nobody can act on, and the repair is
+self-containment rather than more text: name the act, drop the mechanism. A step whose finding
+genuinely cannot be said in one sentence names that in its own section rather than lengthening
+the post.
+
+**Nothing mechanical moves with the wording.** `ask-question.sh`, every question key, the
+per-tick cap, the daily bound, the quiet-hours window, the working-day gate and each question's
+addressee are untouched by this rule, and **changing a body never re-asks a question** —
+`already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text.
+That is what makes a sweep of every question's wording safe to make in one change.
+
 And a previously asked question whose subject settled this tick is confirmed **once**, as a reply
 into the thread that asked it — no mention token, because it closes a loop rather than demanding
 attention (2026-08-24, the developer's instruction; the rules — `asked`-not-`answered` only, the
@@ -225,11 +264,26 @@ One sentence: what the tick measured that says it settled.
 
 **Working days, not only working hours** (2026-08-21). The gate checked the clock alone, so a question found at 10:00 on a Sunday was posted into a channel nobody was reading — and its own asked-once gate then guaranteed it was never posted again on a day somebody was. `WORKAHOLIC_WORK_DAYS` (default `1-5`) holds the weekend, and held is not dropped: the finding waits for Monday.
 
-**And an answer the tick read is stamped where it was written: `:ballot_box_with_check:`, a reaction and nothing else** (2026-08-28, mission `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`). A person who answers in the question's thread has no way to tell whether the loop read them. The stamp is a **reaction on the answer message** — **no reply is posted for this event, in any thread** — because a reply into a thread the person is already reading is the hourly restatement this catalog has retired posts for twice, while a reaction says *received* at a glance in the one place they are already looking. **This line is the single source for the name**: the routine template and the drift pin read it from here rather than restating it, and it is deliberately **not** the receipt's `:inbox_tray:` — capturing a channel message and reading an answer to our own question are two different events, and one emoji answering both is how a reader stops being able to tell them apart.
+**And an answer the tick read is stamped where it was written: `:ballot_box_with_check:`, a reaction and nothing else** (2026-08-28, mission `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`). A person who answers in the question's thread has no way to tell whether the loop read them. The stamp is a **reaction on the answer message** — **no reply is posted for this event, in any thread** — because a reply into a thread the person is already reading is the hourly restatement this catalog has retired posts for twice, while a reaction says *received* at a glance in the one place they are already looking. **This line is the single source for the name**: `/moderate` and the drift pin read it from here rather than restating it, and it is deliberately **not** the receipt's `:inbox_tray:` — capturing a channel message and reading an answer to our own question are two different events, and one emoji answering both is how a reader stops being able to tell them apart.
 
 It rides the **coordinate already in hand** — the `(channel, ts)` of the message the tick just read, on the thread coordinate `ask-question.sh --record-ask` recorded when the question was posted — so there is **no lookup and no second query**, the same case-1 property the inbound sweep's receipt relies on. **Only an answer this run actually recorded** is stamped: one an earlier tick recorded already carries that tick's stamp, and a second an hour later is exactly the restatement above; a candidate the run did not record gets nothing. And it is **never load-bearing** — the answer is recorded and any issue filed *before* the stamp is attempted, so a failure is reported as `ack_failed: <reason>` and changes nothing about the recording, the question's state, or the filing.
 
 **Two audiences, and this serves one of them.** A reaction carries no link and is invisible to anyone reading the issue rather than the thread. That is accepted: the person who wrote the answer is reading the thread, and where the answer produced an issue, that issue is assigned and GitHub notifies — a reply carrying its link would be the same noise twice, which is the argument that shaped this whole catalog.
+
+**And once the loop has ACTED on that answer, one reply says what came of it** (2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). The reaction says *received*, which is not *acted on*, and nothing said the second thing at all: from the thread, an answer that became a merged mission and one that was read and dropped looked identical. No mention token — it closes a loop rather than demanding attention, exactly as `✅ 解消を確認` does:
+
+```
+🧾 対応結果 - <the question's subject, one line>
+One sentence: the answer as recorded, and what came of it.
+```
+
+**This narrows the no-reply rule above; it does not drop it, and the bounds are the narrowing.** That rule was written against a **restatement** — a reply into a thread the person is already reading, saying what they already know — and it is right for the moment of recording, when nothing has happened yet. It is wrong once something has. So the reply is posted **once, ever, per question**; **after the act**, never before; and it carries **facts the thread does not already have**. It never restates the question, never re-asks, never confirms, and never fires while the outcome is still unknown.
+
+**When the outcome is known is a reading, not a guess**: `moderate/scripts/answer-outcome.sh` answers `settled:nothing_filed` / `settled:issue_closed` / `pending` / `unreadable:<reason>` per answered question, and **only a `settled:` reading posts**. `pending` and `unreadable:<reason>` post nothing and are reported by name — an unread outcome rendered as a settled one would tell somebody their answer was acted on when nobody knows. Every value is a **judgement** (`workaholic:drive`'s `reference/claims.md`, *Whether a recorded answer has been acted on*): nothing may merge, close, gate, hold work or re-ask on it.
+
+**The two events keep their own emoji, and that is load-bearing.** `:ballot_box_with_check:` stamps *received* at recording time and its rule above is untouched; `🧾` says *acted on* afterwards. One symbol answering both is how a reader stops being able to tell them apart — the same reason the stamp is deliberately not the sweep's `:inbox_tray:`. Two replies were considered and refused: a second post at recording time would carry nothing the reaction does not already say.
+
+**It is never load-bearing.** The answer is recorded, any issue filed, and the reaction stamped long before this is attempted, so a failure is reported as `outcome_post_failed: <reason>` and changes nothing about the recording, the filing, the question's state or the reading. The dedup is the ledger line `human-checkin-outcome-<slug>` plus the `settled:` reading, not a cursor: a question whose outcome is not yet known is simply a candidate again next tick.
 
 **And a thread whose last word is false is corrected in that thread, once** (2026-08-28, mission `reconcile-a-stale-thread-with-the-unit-s-real-state`). A finish line is posted by the run that **finishes** a unit (SKILL, *Which thread an `/implement` unit's posts land in*), so a pull request a person merges or closes by hand gets its finish posted by nobody: the item's thread keeps `🔵 Proposed` or `🟡 Handoff` as its last word while the work is long merged. The merged form **reuses `🟢 Implemented`** and is marked by its sentence rather than by a new colour — the reader's question is *did this finish*, and a fifth finish emoji would make one event two vocabularies:
 
@@ -248,6 +302,8 @@ Closed without merging outside the loop on <when> — no run posted this item's 
 **Why this earns a post against the bright line.** It does not announce an event; it **corrects a false last word** in the item's own thread, addressed to whoever follows that item, exactly once. The precedent is `/propose`'s inbound receipt — a post addressed to the one person already reading that thread — and emphatically **not** `🔧 Needs a decision`, which was a status line addressed to nobody. `<who>` and `<when>` come from the merge itself; an unresolved one is **stated as unresolved**, never omitted silently and never guessed.
 
 **`[Consent]`'s retirement is answered by name, not worked around.** That routine was retired on 2026-08-06 and this catalog records the consequence — *"a human-merged pull request is announced by nobody"* — with the purple-circle `Merged by <@U…>` shape erased with it (qmu/workaholic#317). **This does not reverse that.** `[Consent]` announced **every** human merge as its own event, on every thread, forever; this corrects only a thread that is **still calling the unit in flight**. The narrowing is what keeps the two apart and it is checkable: **only a thread whose last status reply is `🔵 Proposed` or `🟡 Handoff` is a candidate.** A `review` unit's thread ending at `🟢 Implemented` after a later human merge is **correct and is never touched**, which is this catalog's own standing sentence unchanged.
+
+**And a merged `🔵 Proposed` is not a finish at all** (2026-09-01, issue #787). Measured: an operator's thread ran `📥 受理` → `🔵 Proposed` → `🟢 Implemented`, and the operator read the green circle as their ask being done. The pull request was a **proposal** — three files, all under `.workaholic/`, `+200 −0`, no product code — and the ticket it queued was still in `todo/`; the thing the operator had complained about was byte-identical. Merging a proposal lands a feedback record and a ticket set: it is the moment the work becomes **queued**, the START of the item. So there are exactly **three** pairs and only two of them post: `🟡 Handoff` + merged → `🟢 Implemented`; `🔵 Proposed` + closed-unmerged → `⚫ Closed`; **`🔵 Proposed` + merged → nothing**, reported `proposal_merged_is_not_a_finish`. Saying nothing is strictly better than saying the opposite — the thread keeps its last true status and the real `🟢 Implemented` arrives when the work is driven — and telling the two apart needs no new state, because the latest status reply is already read.
 
 ### `[Workaholic]` — retired, and nothing replaced it
 

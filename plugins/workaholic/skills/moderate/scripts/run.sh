@@ -77,7 +77,7 @@ PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 # The step list IS the contract (reference/workflow.md states each one's inputs,
 # what it may write, and its abort reasons). Order is the ask's order, which is
 # also cheapest-first: the log, then the reads, then the writes, then the ask.
-STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units raced-units undrivable-units standing-rulings undelivered-units catchup-blocked handoff-units thread-reconcile operator-pulls retire-claims closable-missions base-health drill-health strategy-digest question-answers unanswered-asks file-findings human-checkin'
+STEPS='open-log blocked-tick inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units raced-units undrivable-units standing-rulings undelivered-units catchup-blocked handoff-units thread-reconcile stranded-publications operator-pulls retire-claims closable-missions base-health drill-health cadence-lapse strategy-digest question-answers unanswered-asks file-findings human-checkin'
 
 TICK=''
 ROOT='.'
@@ -290,6 +290,57 @@ log_step() {
     esac
 }
 
+# One persist, parsed one way. Both the opening and the closing call land here, so a
+# persist that missed the base is named the same way whichever of the two made it.
+# Sets: p_status / p_reason / p_summary / p_persisted.
+run_persist() {
+    p_status=degraded
+    p_reason=no_output
+    p_summary='the persist printed nothing'
+    p_persisted=false
+    pout=$(sh "$PERSIST_LOG" --tick "$TICK" --root "$ROOT" 2>/dev/null || true)
+    pout=$(printf '%s' "$pout" | tail -n 1)
+    [ -n "$pout" ] || return 0
+    p_status=$(json_field status "$pout")
+    p_reason=$(json_field reason "$pout")
+    p_summary=$(json_field summary "$pout")
+    case "$pout" in *'"persisted": true'*) p_persisted=true ;; *) p_persisted=false ;; esac
+    case "$p_status" in
+        ok|filed|skipped|degraded|blocked) ;;
+        *) p_status=degraded; p_reason=bad_output; p_summary="the persist's status was not in the log vocabulary" ;;
+    esac
+    [ -n "$p_summary" ] || p_summary='(the persist reported no summary)'
+}
+
+# --- The opening act: put the tick's opening on the base before any step ------
+# WHY (2026-08-31, mission `stop-an-unattended-tick-from-waiting-on-a-person`). The
+# persist below is the tick's CLOSING act, so a tick that dies mid-run leaves nothing on
+# the base at all: the record that would show it stopped is the record the stop prevents.
+# Measured — three consecutive ticks sat at `requires_action` and the base carried no
+# trace of any of them. One persist immediately after the log is opened makes a dead tick
+# visible, and `step-blocked-tick.sh` is what reads for it.
+#
+# IT NEEDS NO CHANGE TO THE WRITER'S CONTRACT. `persist-log.sh` is already idempotent and
+# already unions by `(tick, step)`, so the closing persist adds every later line into the
+# same section without rewriting this one. Every prohibition holds unchanged: no `work-*`
+# branch, no claim, no pull request, no merge, and the caller's checkout byte-identical.
+#
+# IT IS NEVER FATAL. A miss is reported `degraded` by name under its own `opening_persist`
+# key and its own log step id, exactly as the closing one reports itself, and the tick runs
+# on — a tick that could not put its opening on the base has still got nineteen steps to do.
+#
+# NOT PER STEP. Thirty commits an hour for a log is the noise the pull-request-per-tick
+# design was refused for. Two bound the loss to whatever a dead tick had done since it
+# opened, which is the fact that matters. The stated price is two commits an hour instead
+# of one on an active repository, which is small beside thirty.
+#
+# A TICK KILLED **BEFORE** ITS FIRST STEP STILL LEAVES NOTHING, and that case is genuinely
+# outside this seam rather than papered over: there is no opening to persist yet.
+open_persist_status=skipped
+open_persist_reason=disabled
+open_persist_summary='the caller kept the log local'
+open_persist_persisted=false
+
 for step in $STEPS; do
     if [ -n "$ONLY" ] && ! in_list "$step" "$ONLY"; then
         continue
@@ -373,6 +424,22 @@ for step in $STEPS; do
 
     logged=$(log_step "$step" "$status" "$summary")
     emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event"
+
+    # The opening is on the base before anything else runs. Keyed on the first step in
+    # `STEPS` rather than on a loop counter, so a caller that narrowed the run with
+    # `--only`/`--skip` and never opened a log does not persist an opening it does not have.
+    if [ "$step" = open-log ] && [ "$DO_LOG" -eq 1 ] && [ "$DO_PERSIST" -eq 1 ]; then
+        run_persist
+        open_persist_status="$p_status"
+        open_persist_reason="$p_reason"
+        open_persist_summary="$p_summary"
+        open_persist_persisted="$p_persisted"
+        # Logged under its own step id: the log is idempotent per `(tick, step)`, so
+        # sharing `persist-log` with the closing act would make the second a duplicate and
+        # lose its outcome. This line reaches the base on the closing persist, like every
+        # other line written after the opening one.
+        log_step persist-log-opening "$open_persist_status" "$open_persist_summary" >/dev/null
+    fi
 done
 
 if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/moderations/$DAY.md" ]; then
@@ -396,27 +463,16 @@ if [ "$DO_LOG" -eq 1 ] && [ "$DO_PERSIST" -eq 1 ]; then
         persist_reason=no_log
         persist_summary='the tick wrote no log, so there is nothing to persist'
     else
-        pout=$(sh "$PERSIST_LOG" --tick "$TICK" --root "$ROOT" 2>/dev/null || true)
-        pout=$(printf '%s' "$pout" | tail -n 1)
-        if [ -z "$pout" ]; then
-            persist_status=degraded
-            persist_reason=no_output
-            persist_summary='the persist printed nothing'
-        else
-            persist_status=$(json_field status "$pout")
-            persist_reason=$(json_field reason "$pout")
-            persist_summary=$(json_field summary "$pout")
-            case "$pout" in *'"persisted": true'*) persist_persisted=true ;; *) persist_persisted=false ;; esac
-            case "$persist_status" in
-                ok|filed|skipped|degraded|blocked) ;;
-                *) persist_status=degraded; persist_reason=bad_output; persist_summary="the persist's status was not in the log vocabulary" ;;
-            esac
-            [ -n "$persist_summary" ] || persist_summary='(the persist reported no summary)'
-        fi
+        run_persist
+        persist_status="$p_status"
+        persist_reason="$p_reason"
+        persist_summary="$p_summary"
+        persist_persisted="$p_persisted"
     fi
     persist_logged=$(log_step persist-log "$persist_status" "$persist_summary")
 fi
 
-printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s, "persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s, "logged": %s}}\n' \
+printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s, "opening_persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s}, "persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s, "logged": %s}}\n' \
     "$TICK" "$(json_escape "$log_file")" "$rows" "$ok" "$filed" "$skipped" "$degraded" "$blocked" "$needs_total" \
+    "$open_persist_status" "$(json_escape "$open_persist_reason")" "$(json_escape "$open_persist_summary")" "$open_persist_persisted" \
     "$persist_status" "$(json_escape "$persist_reason")" "$(json_escape "$persist_summary")" "$persist_persisted" "$persist_logged"

@@ -1346,14 +1346,17 @@ cmd_verify_moderate() {
     _log="${_root}/.workaholic/moderations/${_day}.md"
     if [ -f "$_log" ]; then
         _sections=$(grep -c '^## ' "$_log" || true)
-        # One line per registered step plus the closing act's own `persist-log` line — derived
-        # from `run.sh`'s `STEPS` for the same reason the count above is (2026-08-26): a literal
-        # here goes stale on the next step and turns the drill red for a reason that has nothing
-        # to do with what it drills.
-        _want_lines=$((_want + 1))
+        # One line per registered step plus BOTH persists' own lines — the closing
+        # `persist-log` and, since 2026-08-31, the opening `persist-log-opening` that puts a
+        # dying tick's opening on the base (mission
+        # `stop-an-unattended-tick-from-waiting-on-a-person`). Derived from `run.sh`'s `STEPS`
+        # for the same reason the count above is (2026-08-26): a literal here goes stale on the
+        # next step and turns the drill red for a reason that has nothing to do with what it
+        # drills.
+        _want_lines=$((_want + 2))
         _lines=$(grep -c '^- `' "$_log" || true)
         if [ "$_sections" = "1" ] && [ "$_lines" = "$_want_lines" ]; then
-            add_row "moderate_log" true "one tick section carrying ${_want} step lines and the persist" load
+            add_row "moderate_log" true "one tick section carrying ${_want} step lines and both persists" load
         else
             add_row "moderate_log" false "expected 1 section and ${_want_lines} lines, got ${_sections} and ${_lines}" load
         fi
@@ -3792,7 +3795,10 @@ cmd_verify_claim_race() {
         CLAIMS_FETCH_OK=true
         printf "%s" "$(claims_superseded "$(claims_base)" ".workaholic/missions/active/raced/mission.md" "$2" "origin/$2")"
       ' _ "$_lib" "$_brB" ) 2>/dev/null || true )
-    if [ "$_pre" = "false" ] && [ "$_post" = "true" ]; then
+    # THE VERDICT IS THREE-VALUED SINCE 2026-09-01 (issue #788): the repaired composition answers
+    # the WORD `superseded`, not `true`. What the breaker proves is unchanged -- dropping the
+    # claim's tip ref loses the mission-grain reading entirely.
+    if [ "$_pre" = "false" ] && [ "$_post" = "superseded" ]; then
         add_row "claim_race_reading_is_the_tip_walk" true "dropping the claim's tip ref loses the mission-grain reading -- this drill can fail" breaker
     else
         add_row "claim_race_reading_is_the_tip_walk" false "the pre-repair composition answered '${_pre}' and the repaired one '${_post}', so this row proves nothing" breaker
@@ -5711,12 +5717,21 @@ STUB
     _ev2=$(printf '%s' "$_e2" | jq -r '.event // ""' 2>/dev/null || printf '')
     _sm1=$(printf '%s' "$_e1" | jq -r '.summary // ""' 2>/dev/null || printf '')
     _sm2=$(printf '%s' "$_e2" | jq -r '.summary // ""' 2>/dev/null || printf '')
+    # THE EVENT NAMES NO UNIT SINCE 2026-09-01 (the developer's instruction): a root line is
+    # addressed to nobody and read at a glance, and a sixty-character slug in it is neither
+    # readable nor actionable there. *How many* is news; *which* is the QUESTION's job, and the
+    # question names the unit, its branch and its refusal word to the claim holder. The SUMMARY
+    # still names every unit -- the log is the audit trail -- and this drill's other rows already
+    # assert that. What this row keeps is the pair the mission is about: a tick whose acts did
+    # not take supplies an event, a tick whose acts took supplies none, and the summary is
+    # identical across both so an unchanged reading renders no line.
     if printf '%s' "$_ev1" | grep -q 'still standing' \
-        && printf '%s' "$_ev1" | grep -q 'batch-effect-refused' \
+        && ! printf '%s' "$_ev1" | grep -q 'batch-effect-refused' \
+        && printf '%s' "$_sm1" | grep -q 'batch-effect-refused' \
         && [ -z "$_ev2" ] && [ "$_sm1" = "$_sm2" ]; then
-        add_row "act_effect_event_names_the_units" true "a tick whose acts did not take names the units in its event; a tick whose acts took supplies none, and the summary is identical across both so an unchanged reading renders no line" load
+        add_row "act_effect_event_names_the_units" true "the event says how many are still standing and names none of them, the log's summary names every one, a tick whose acts took supplies no event, and the summary is identical across both" load
     else
-        add_row "act_effect_event_names_the_units" false "the event is wrong (blocked='${_ev1}' took='${_ev2}'; summaries equal=$([ "$_sm1" = "$_sm2" ] && echo yes || echo no))" load
+        add_row "act_effect_event_names_the_units" false "the event is wrong (blocked='${_ev1}' took='${_ev2}'; summary='${_sm1}'; summaries equal=$([ "$_sm1" = "$_sm2" ] && echo yes || echo no))" load
     fi
 
     # THE DELIBERATELY BROKEN ROW, WRITTEN AGAINST THE BEHAVIOUR. The retired inference is
@@ -5883,6 +5898,38 @@ cmd_verify_base_health() {
         add_row "base_health_unanswerable_by_name" true "a running check, a checkless commit and an unknown commit are each unanswerable by their own reason" load
     else
         add_row "base_health_unanswerable_by_name" false "a degradation did not read unanswerable by name: $(one_line "$_p") / $(one_line "$_n")" load
+    fi
+
+    # 1b. A BOOKKEEPING TIP IS WALKED PAST, AND ONLY A `no_checks` ONE (2026-09-01, issue #785).
+    # This loop commits to its own base constantly and most of those commits touch only
+    # `.workaholic/`; every workflow there filters that path out, deliberately, so the tip is
+    # usually a commit no workflow ran on. Measured over a day and a half on a consuming
+    # repository: every tick reported `base_unreadable:tip_no_checks` while the base was green
+    # throughout — the step that exists to notice a broken base was dark exactly when it was
+    # busiest.
+    _clear "$_tip"; _clear "$_c4"
+    _set "$_c3" "$_GREEN"; _set "$_c2" "$_GREEN"; _set "$_c1" "$_GREEN"
+    _wg=$(_run sh "$_walk")
+    if [ "$(_field "$_wg" state)" = "green" ] \
+        && [ -n "$(_field "$_wg" checked_at)" ] \
+        && [ "$(_field "$_wg" checked_at)" = "$(_field "$_wg" last_green)" ] \
+        && [ "$(_field "$_wg" checked_at)" != "$(_field "$_wg" tip)" ] \
+        && printf '%s' "$_wg" | grep -q '"checked_behind": 2'; then
+        add_row "base_health_walks_past_a_checkless_tip" true "a tip no workflow ran on is walked past to the newest checked ancestor, and the verdict says which commit it rests on and how far back" load
+    else
+        add_row "base_health_walks_past_a_checkless_tip" false "a checkless tip did not resolve to its checked ancestor: $(one_line "$_wg")" load
+    fi
+
+    # AND ONLY `no_checks`. A reader that failed, a rate limit, a refused transport are facts
+    # about US, and walking past one would report an older commit's colour as though it were the
+    # tip's -- exactly what the three-valued reader exists to prevent. Proved by asking for a
+    # commit the stub does not know, which is a different unanswerable reason.
+    _wu=$(_run sh "$_walk" --tip 0000000000000000000000000000000000000000)
+    if [ "$(_field "$_wu" state)" = "unanswerable" ] \
+        && [ "$(_field "$_wu" checked_at)" = "" ]; then
+        add_row "base_health_only_no_checks_is_walked_past" true "an unanswerable that is a fact about us stays terminal and names no checked ancestor" load
+    else
+        add_row "base_health_only_no_checks_is_walked_past" false "a non-no_checks unanswerable was walked past: $(one_line "$_wu")" load
     fi
 
     # 2. THE WALK. Red tip, red middle, green behind -- the culprit is the OLDEST red after the
@@ -6531,13 +6578,17 @@ cmd_verify_return_path() {
 
     # 6. THE STAMP IS A REACTION AND NOTHING ELSE, NAMED ONCE IN THE CATALOG.
     _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
-    _template="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
+    # The ceiling moved from the routine prompt to the command on 2026-09-01 (the
+    # developer's instruction): a routine record is account-level, so a shape written into a
+    # prompt reached a fleet only by hand. The shapes ship with the plugin now, so the drill
+    # reads the command that carries them.
+    _template="${REPO_ROOT}/plugins/workaholic/commands/moderate.md"
     _emoji=$(sed -n 's/.*an answer the tick read is stamped where it was written: `\(:[a-z_]*:\)`.*/\1/p' "$_catalog" | head -1)
     if [ -n "$_emoji" ] && grep -qF "$_emoji" "$_template" \
         && grep -q 'post \*\*no reply\*\* for that event' "$_template"; then
-        add_row "return_path_stamp_is_a_reaction" true "the catalog names ${_emoji} once, the routine authorizes it, and no reply is posted for this event" load
+        add_row "return_path_stamp_is_a_reaction" true "the catalog names ${_emoji} once, /moderate authorizes it, and no reply is posted for this event" load
     else
-        add_row "return_path_stamp_is_a_reaction" false "the stamp is not a single-sourced reaction, or the template still allows a reply" load
+        add_row "return_path_stamp_is_a_reaction" false "the stamp is not a single-sourced reaction, or /moderate still allows a reply" load
     fi
     # A FAILED STAMP CHANGES NOTHING: the recording and the filing both happened before it was
     # attempted, so the state after a stamp that never lands is the state asserted above.
@@ -6548,7 +6599,71 @@ cmd_verify_return_path() {
         add_row "return_path_stamp_not_load_bearing" false "the recording depends on the stamp: $(one_line "$_st2")" load
     fi
 
-    # 7. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A copy of the step wired at the
+    # 7. AND WHAT BECAME OF THAT ANSWER COMES BACK INTO THE SAME THREAD, ONCE.
+    # (2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`.)
+    # One fixture, two questions: the answer above is already recorded and filed, so the
+    # outcome half needs only the filing line the agent writes and nothing else staged.
+    _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _slug=${_logstep#human-checkin-ask-}
+
+    # 7a. THE UNKNOWN OUTCOME POSTS NOTHING AND IS NAMED. No filing line yet: the agent has not
+    # said what it did with the answer, so there is nothing to tell anybody.
+    _o0=$(_in sh "$_step" --tick 20260101-140000 --root "$_fx")
+    if ! printf '%s' "$_o0" | grep -q '"outcome_candidates":\[{' \
+        && printf '%s' "$_o0" | grep -q '1 not settled yet'; then
+        add_row "return_path_outcome_pending_silent" true "an answer whose outcome is not known yet yields no reply and is counted as not settled" load
+    else
+        add_row "return_path_outcome_pending_silent" false "an unknown outcome did not stay silent: $(one_line "$_o0")" load
+    fi
+
+    # 7b. A SETTLED OUTCOME BECOMES EXACTLY ONE CANDIDATE, carrying the answer AS RECORDED and
+    # the coordinate the question was posted at -- so the reply needs no lookup and no search.
+    _in sh "$_append" --tick 20260101-140000 --root "$_fx" \
+        --step "question-answers-filed-${_slug}" --status ok --summary "not_filed: no_request" >/dev/null
+    _o1=$(_in sh "$_step" --tick 20260101-150000 --root "$_fx")
+    if printf '%s' "$_o1" | grep -q "\"outcome\":\"settled:nothing_filed\"" \
+        && printf '%s' "$_o1" | grep -q "\"coordinate\":\"${_coord}\",\"answer\":\"$(printf '%s' "$_words" | sed 's/[&/\]/\\&/g')\"" \
+        && printf '%s' "$_o1" | grep -q '1 answered question(s) with a settled outcome to reply'; then
+        add_row "return_path_outcome_named" true "a settled outcome is one candidate carrying the recorded words and the coordinate, with no lookup" load
+    else
+        add_row "return_path_outcome_named" false "the settled outcome did not reach the agent intact: $(one_line "$_o1")" load
+    fi
+    # THE OUTCOME REPLY IS BOUNDED TO THE QUESTION'S OWN THREAD TOO, and says so.
+    if printf '%s' "$_o1" | grep -q 'no lookup, no search, no mention token, once ever per question'; then
+        add_row "return_path_outcome_bounded" true "the reply is bounded to the recorded coordinate and carries no mention token" load
+    else
+        add_row "return_path_outcome_bounded" false "the outcome reply is not bounded to the coordinate: $(one_line "$_o1")" load
+    fi
+
+    # 7c. A SECOND TICK POSTS NOTHING. The dedup is the ledger line plus the reading, never a
+    # cursor: once the reply is logged the slug leaves the pool by construction.
+    _in sh "$_append" --tick 20260101-150000 --root "$_fx" \
+        --step "human-checkin-outcome-${_slug}" --status ok --summary "posted" >/dev/null
+    _o2=$(_in sh "$_step" --tick 20260101-160000 --root "$_fx")
+    if printf '%s' "$_o2" | grep -q '0 answered question(s) with a settled outcome to reply' \
+        && ! printf '%s' "$_o2" | grep -q '"outcome_candidates":\[{'; then
+        add_row "return_path_outcome_once" true "a later tick hands back no outcome candidate, so one question gets one reply ever" load
+    else
+        add_row "return_path_outcome_once" false "a later tick would post the outcome reply again: $(one_line "$_o2")" load
+    fi
+
+    # 7d. THE SHAPE IS SINGLE-SOURCED AND CARRIES NO MENTION TOKEN, exactly as the stamp's
+    # emoji is -- and it is NOT the stamp: received and acted on are two events.
+    if grep -qF '🧾 対応結果' "$_catalog" && grep -qF '🧾 対応結果' "$_template" \
+        && ! sed -n '/🧾 対応結果/,/```/p' "$_catalog" | grep -q '<@U'; then
+        add_row "return_path_outcome_shape_single_sourced" true "the catalog names the outcome reply, the routine authorizes it, and it carries no mention token" load
+    else
+        add_row "return_path_outcome_shape_single_sourced" false "the outcome reply is not single-sourced, or it mentions somebody" load
+    fi
+    # AND NOTHING WAS MERGED, CLOSED, RE-ASKED OR CONFIRMED BY ANY OF IT.
+    _st3=$(_in sh "$_state" --root "$_fx" --key "$_key")
+    if [ "$(_field "$_st3" state)" = "answered" ]; then
+        add_row "return_path_outcome_changes_nothing" true "the question is still answered: the outcome half re-asks nothing and confirms nothing" load
+    else
+        add_row "return_path_outcome_changes_nothing" false "the outcome half moved the question's state: $(one_line "$_st3")" load
+    fi
+
+    # 8. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. A copy of the step wired at the
     # CHANNEL instead of the question's own thread must fail the bound check above.
     _broken="${_tmp}/broken"
     mkdir -p "$_broken"
@@ -6571,6 +6686,40 @@ cmd_verify_return_path() {
         add_row "return_path_breaker" true "a step wired at the channel fails the bound check the real step passes (this drill can fail)" breaker
     fi
 
+    # 9. THE SECOND BREAKER, WRITTEN AGAINST THE BEHAVIOUR RATHER THAN A RETURN SHAPE
+    # (2026-08-31). The natural mistake on the outcome half is to key the candidate set on the
+    # ANSWER'S EXISTENCE rather than on its outcome -- which posts *your answer was acted on*
+    # into somebody's thread while the issue it filed is still open, or while nobody could read
+    # it at all. A second question is staged in the SAME fixture, answered and with no filing
+    # line, so the real step must be silent about it and a step with the outcome gate removed
+    # must not be.
+    _key2="undelivered-unit:drill-two"
+    _coord2="C0DRILL01:1756346000.222222"
+    _gate2=$(_in sh "$_ask" --tick 20260101-160000 --root "$_fx" --key "$_key2" \
+        --to drill@example.com --hour 10 --weekday 1)
+    _logstep2=$(_field "$_gate2" log_step)
+    _in sh "$_ask" --record-ask --tick 20260101-160000 --root "$_fx" --key "$_key2" \
+        --log-step "$_logstep2" --coordinate "$_coord2" >/dev/null
+    _in sh "$_record" --root "$_fx" --tick 20260101-160000 --key "$_key2" \
+        --answer "Please open one for this." >/dev/null
+
+    _real=$(_in sh "$_step" --tick 20260101-170000 --root "$_fx")
+    _wire_at_existence() {
+        # The outcome gate removed: every pooled candidate becomes a reply, whatever the reading.
+        sed -e 's/^            settled:\*)$/            *)/' \
+            "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-question-answers.sh" \
+            > "${_broken}/step-at-existence.sh"
+        chmod +x "${_broken}/step-at-existence.sh"
+    }
+    _wire_at_existence
+    _bout2=$(_in sh "${_broken}/step-at-existence.sh" --tick 20260101-170000 --root "$_fx")
+    if ! printf '%s' "$_real" | grep -q "\"key\":\"${_key2}\"" \
+        && printf '%s' "$_bout2" | grep -q "\"key\":\"${_key2}\""; then
+        add_row "return_path_outcome_breaker" true "a step keyed on the answer's existence replies over an unknown outcome where the real step stays silent (this drill can fail)" breaker
+    else
+        add_row "return_path_outcome_breaker" false "the outcome breaker did not break the seam, so this half of the drill cannot fail" breaker
+    fi
+
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then
@@ -6586,12 +6735,121 @@ cmd_verify_return_path() {
     emit_verdict "return-path" 0 "pass" 0
 }
 
+# --- verify-log-branch ------------------------------------------------------------------
+# THE TICK LOG LIVES OFF `main` (2026-09-01, issue #782). Two properties, and the drill exists
+# because either one alone is worse than neither: the log must REACH its own branch, and it must
+# NOT reach `main`. A move that only stopped writing to `main` would take the dedup's memory with
+# it; a move that only added a branch would double the noise it was meant to remove.
+#
+# Hermetic: a bare origin in a temp dir, no `gh`, no network beyond the local file remote.
+cmd_verify_log_branch() {
+    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
+    for _f in "${_mod}/log-ref.sh" "${_mod}/ensure-log-ref.sh" "${_mod}/hydrate-log.sh" "${_mod}/persist-log.sh"; do
+        [ -f "$_f" ] || emit_err "log_branch_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin.git"
+    _work="${_tmp}/w"
+    git init -q --bare -b main "$_origin" >/dev/null 2>&1
+    git init -q -b main "$_work" >/dev/null 2>&1
+    ( cd "$_work" && git config user.email d@example.com && git config user.name D \
+        && git config commit.gpgsign false \
+        && printf 'seed\n' > README.md && git add README.md && git commit -q -m seed \
+        && git remote add origin "$_origin" && git push -q -u origin main ) >/dev/null 2>&1
+
+    # Run the seam from inside the fixture, never from the operator's checkout: a persist that
+    # resolved the wrong repository root would publish a drill's log into real history.
+    _in() { ( cd "$_work" && "$@" ) 2>&1 || true; }
+
+    _ref=$(sh "${_mod}/log-ref.sh")
+    if [ "$_ref" != "main" ] && [ -n "$_ref" ]; then
+        add_row "log_ref_is_not_the_base" true "the log branch is named ${_ref}, which is not the base" load
+    else
+        add_row "log_ref_is_not_the_base" false "the log branch resolves to the base or to nothing: ${_ref}" load
+    fi
+
+    mkdir -p "${_work}/.workaholic/moderations"
+    printf '# 2026-09-01\n\n## 20260901-050000\n\n- `open-log`: ok — drilled\n' \
+        > "${_work}/.workaholic/moderations/2026-09-01.md"
+    _mainbefore=$(git -C "$_origin" rev-parse refs/heads/main 2>/dev/null || printf '')
+    _p=$(_in sh "${_mod}/persist-log.sh" --tick 20260901-050000 --root "$_work")
+
+    if printf '%s' "$_p" | grep -q '"persisted": true'; then
+        add_row "log_reaches_its_branch" true "the tick's log was filed on ${_ref}" load
+    else
+        add_row "log_reaches_its_branch" false "the persist did not file: $(one_line "$_p")" load
+    fi
+
+    # THE HALF THAT WOULD SILENTLY UNDO THE CHANGE: `main` must be exactly where it was.
+    _mainafter=$(git -C "$_origin" rev-parse refs/heads/main 2>/dev/null || printf '')
+    if [ "$_mainbefore" = "$_mainafter" ]; then
+        add_row "log_never_reaches_main" true "the base did not move; a tick log is not a commit on main" load
+    else
+        add_row "log_never_reaches_main" false "the base moved (${_mainbefore} -> ${_mainafter}); the log is back on main" load
+    fi
+
+    if git -C "$_origin" ls-tree -r --name-only "refs/heads/${_ref}" 2>/dev/null \
+        | grep -q '^\.workaholic/moderations/2026-09-01\.md$'; then
+        add_row "log_day_file_on_the_branch" true "the day file is on ${_ref}" load
+    else
+        add_row "log_day_file_on_the_branch" false "the day file is not on ${_ref}" load
+    fi
+
+    # THE OTHER HALF OF THE MOVE. A fresh clone of `main` has no log; a tick that could not
+    # hydrate has no memory and every dedup re-fires. This is what makes the move survivable.
+    _fresh="${_tmp}/fresh"
+    git clone -q "$_origin" "$_fresh" >/dev/null 2>&1
+    ( cd "$_fresh" && git config user.email d@example.com && git config user.name D ) >/dev/null 2>&1
+    if [ -f "${_fresh}/.workaholic/moderations/2026-09-01.md" ]; then
+        add_row "fresh_clone_carries_no_log" false "a clone of main still carries the log" load
+    else
+        add_row "fresh_clone_carries_no_log" true "a clone of main carries no log, as intended" load
+    fi
+    _h=$(_in sh "${_mod}/hydrate-log.sh" --root "$_fresh")
+    if printf '%s' "$_h" | grep -q '"state": "hydrated"' \
+        && grep -q '20260901-050000' "${_fresh}/.workaholic/moderations/2026-09-01.md" 2>/dev/null; then
+        add_row "hydrate_restores_the_memory" true "the log branch's day files were carried into the checkout" load
+    else
+        add_row "hydrate_restores_the_memory" false "the tick would run with no memory of earlier ticks: $(one_line "$_h")" load
+    fi
+
+    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR RATHER THAN THE RETURN SHAPE. Point the seam at
+    # a log ref that names the base and the whole move is undone -- the log goes straight back
+    # onto `main`. `persist-log.sh` refuses that, and when it stops refusing, this row goes false
+    # and the drill exits 1 exactly as it does for any other failure.
+    _brk=$(cd "$_work" && WORKAHOLIC_LOG_REF=main sh "${_mod}/persist-log.sh" --tick 20260901-060000 --root "$_work" 2>&1 || true)
+    if printf '%s' "$_brk" | grep -q '"reason": "log_ref_is_the_base"'; then
+        add_row "log_ref_may_not_be_the_base" true "a log ref naming the base is refused -- this drill can fail" breaker
+    else
+        add_row "log_ref_may_not_be_the_base" false "a log ref naming the base was accepted, which puts the log back on main: $(one_line "$_brk")" breaker
+    fi
+
+    rm -rf "$_tmp"
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "log_branch_drill_touches_nothing" true "the operator's checkout is byte-identical" load
+    else
+        add_row "log_branch_drill_touches_nothing" false "the drill changed the operator's checkout" load
+    fi
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "log-branch" 0 "fail" 1
+    fi
+    emit_verdict "log-branch" 0 "pass" 0
+}
+
 cmd_verify_reconcile() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"
     _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"
     _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
     _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
-    _template="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
+    # The ceiling moved from the routine prompt to the command on 2026-09-01 (the
+    # developer's instruction): a routine record is account-level, so a shape written into a
+    # prompt reached a fleet only by hand. The shapes ship with the plugin now, so the drill
+    # reads the command that carries them.
+    _template="${REPO_ROOT}/plugins/workaholic/commands/moderate.md"
     for _f in "$_reader" "$_step" "$_append" "$_catalog" "$_template"; do
         [ -f "$_f" ] || emit_err "reconcile_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
@@ -6690,9 +6948,9 @@ cmd_verify_reconcile() {
     done
     grep -q 'no run posted this item.s finish' "$_catalog" || _shapes_ok=false
     if [ "$_shapes_ok" = true ]; then
-        add_row "reconcile_both_shapes_named" true "the catalog names the merged and the closed-unmerged reply, and the routine authorizes both" load
+        add_row "reconcile_both_shapes_named" true "the catalog names the merged and the closed-unmerged reply, and /moderate authorizes both" load
     else
-        add_row "reconcile_both_shapes_named" false "a reply shape is missing from the catalog or from the routine template" load
+        add_row "reconcile_both_shapes_named" false "a reply shape is missing from the catalog or from /moderate" load
     fi
 
     # 3. THE THREAD BAR, DRILLED AS WRITTEN. The read itself belongs to the session (Slack is a
@@ -6992,7 +7250,7 @@ cmd_verify_checkin_delivery() {
     # nothing at all and its silence is indistinguishable from a quiet hour.
     sh "$_log" --root "$_spent" --tick 20260828-120000 --step doc-drift --status ok --summary "no drift" >/dev/null 2>&1 || true
     _rows="{\"rows\": [{\"step\": \"doc-drift\", \"status\": \"ok\", \"summary\": \"no drift\", \"event\": \"\"}, {\"step\": \"human-checkin\", \"status\": \"ok\", \"summary\": \"held and undelivered\", \"event\": \"$(json_escape "$_event")\"}]}"
-    _post=$(printf '%s' "$_rows" | sh "$_render" --tick 20260828-140000 --root "$_spent" 2>&1 || true)
+    _post=$(printf '%s' "$_rows" | sh "$_render" --tick 20260828-140000 --root "$_spent" --hour 10 --weekday 3 2>&1 || true)
     case "$_post" in
         *'"post": true'*)
             add_row "checkin_root_carries_it" true "the root posts on the delivery failure with zero questions" load ;;
@@ -7001,7 +7259,7 @@ cmd_verify_checkin_delivery() {
     esac
     # ...and a quiet hour supplies none and posts nothing, unchanged.
     _quiet="{\"rows\": [{\"step\": \"doc-drift\", \"status\": \"ok\", \"summary\": \"no drift\", \"event\": \"\"}, {\"step\": \"human-checkin\", \"status\": \"ok\", \"summary\": \"nothing waiting\", \"event\": \"\"}]}"
-    _qpost=$(printf '%s' "$_quiet" | sh "$_render" --tick 20260828-140000 --root "$_spent" 2>&1 || true)
+    _qpost=$(printf '%s' "$_quiet" | sh "$_render" --tick 20260828-140000 --root "$_spent" --hour 10 --weekday 3 2>&1 || true)
     case "$_qpost" in
         *'"post": false'*)
             add_row "checkin_quiet_hour_silent" true "a tick with no event still posts nothing, so the gate did not become a status line" load ;;
@@ -7380,8 +7638,8 @@ cmd_verify_directed_notification() {
     _modwf="${REPO_ROOT}/plugins/workaholic/skills/moderate/reference/workflow.md"
     _routing="${REPO_ROOT}/plugins/workaholic/skills/drive/reference/routing.md"
     _askq="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
-    _tmod="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/moderate.md"
-    _timp="${REPO_ROOT}/plugins/workaholic/skills/workaholify/routines/implement.md"
+    _tmod="${REPO_ROOT}/plugins/workaholic/commands/moderate.md"
+    _timp="${REPO_ROOT}/plugins/workaholic/commands/implement.md"
     for _f in "$_spec" "$_notify" "$_catalog" "$_modwf" "$_routing" "$_askq" "$_tmod" "$_timp"; do
         [ -f "$_f" ] || emit_err "directed_notification_unreadable" 4 "$_f is not present in this checkout"
     done
@@ -7495,8 +7753,9 @@ STUB
         add_row "call_sites_state_the_same_rule" false "these documents do not state it:${_sites}" load
     fi
 
-    # 7. THE TEMPLATES. *The prompt is the ceiling*: the rule sanctions the shape and only a
-    #    template lets a session running that routine emit it.
+    # 7. THE COMMANDS. *The command is the ceiling*: the rule sanctions the shape and only the
+    #    command lets a session running that routine emit it (2026-09-01 — before then this read
+    #    the routine templates, which is where the shapes used to live).
     _tm=''
     for _pair in "${_tmod}:🙋" "${_timp}:🟡 Handoff"; do
         _p="${_pair%:*}"; _shape="${_pair##*:}"
@@ -7504,9 +7763,9 @@ STUB
         grep -q "$_shape" "$_p" || _tm="${_tm} $(basename "$_p")(shape)"
     done
     if [ -z "$_tm" ]; then
-        add_row "templates_name_shape_and_carrier" true "both routine templates name the shape they authorize and the transport that carries it" load
+        add_row "templates_name_shape_and_carrier" true "both commands name the shape they authorize and the transport that carries it" load
     else
-        add_row "templates_name_shape_and_carrier" false "a template names one without the other:${_tm}" load
+        add_row "templates_name_shape_and_carrier" false "a command names one without the other:${_tm}" load
     fi
 
     # 8. THE GATE DID NOT MOVE, PROVED BY EXECUTION rather than by reading a diff. The same key
@@ -7631,19 +7890,28 @@ cmd_verify_impairment() {
         sh "$_log" --root "$_fx" --tick "$1" --step base-health --status ok --summary "base green" >/dev/null 2>&1 || true
     }
     _render_at() { # $1 tick $2 run-json $3 questions
-        sh "$_render" --tick "$1" --root "$_fx" --questions "$3" < "$2" 2>&1 || true
+        # A WORKING HOUR IS NAMED (2026-09-01): the root is held by the same window as the
+        # questions, and a drill that read the wall clock could only pass during office hours.
+        sh "$_render" --tick "$1" --root "$_fx" --questions "$3" --hour 10 --weekday 3 < "$2" 2>&1 || true
     }
 
     _logtick 20260819-084500 ok 'swept, 0 filed' ok 'no conflicts'
     _logtick 20260819-094500 ok 'swept, 0 filed' ok 'no conflicts'
 
-    # 1. AN IMPAIRED TICK WITH A QUESTION NAMES EVERY IMPAIRED STEP AND ITS REASON, AND CARRIES
-    #    THE COUNT IN THE HEAD. This is the whole ask, on the ordinary path.
+    # 1. AN IMPAIRED TICK WITH A QUESTION SAYS, IN WORDS, WHAT IT COULD NOT READ. This is the
+    #    whole ask, on the ordinary path.
+    #
+    #    WHAT IS MATCHED IS THE STEP'S OWN SUMMARY, not its id (2026-09-01). The line read
+    #    `⚠️ inbound-sweep — degraded: no_slack_transport` -- a step id, a status word and a
+    #    reason word -- and the developer's answer was *なんのことを言っているのかわからない*.
+    #    The summary is the sentence the log has carried all along, so a person reads what could
+    #    not be read and what follows from it; asserting the id here would pin the shape the
+    #    change removed.
     _t2q=$(_render_at 20260819-104500 "${_tmp}/impaired.json" 1)
     _rt2q=$(_root_text "$_t2q")
     case "$_rt2q" in
-        *'2 step(s) could not read'*'inbound-sweep — degraded: no_slack_transport'*'merge-conflicts — degraded: gh_unavailable'*)
-            add_row "impairment_is_named" true "the root names both impaired steps with their reasons and carries the count in its head" load ;;
+        *'no Slack transport'*'could not read pull requests'*)
+            add_row "impairment_is_named" true "the root says in words what each impaired step could not read" load ;;
         *) add_row "impairment_is_named" false "the root did not name the impairment: ${_rt2q}" load ;;
     esac
 
@@ -7670,7 +7938,7 @@ cmd_verify_impairment() {
     case "$_t3q" in
         *'"change_count": 0'*)
             case "$_rt3q" in
-                *'2 step(s) could not read'*'inbound-sweep — degraded'*'merge-conflicts — degraded'*)
+                *'no Slack transport'*'could not read pull requests'*)
                     add_row "impairment_survives_the_diff" true "a second identically-impaired tick still names all of it, with change_count 0" load ;;
                 *) add_row "impairment_survives_the_diff" false "the diff swallowed the impairment on the second tick: ${_rt3q}" load ;;
             esac ;;
@@ -7747,8 +8015,8 @@ cmd_verify_impairment() {
     sed 's|> "${TMP}/status"|> "${TMP}/status.dropped"; : > "${TMP}/status"|' \
         "$_render" > "${_broken}/render-tick-post.sh"
     chmod +x "${_broken}/render-tick-post.sh"
-    _bq=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --questions 1 < "${_tmp}/impaired.json" 2>&1 || true)
-    _b0=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --questions 0 < "${_tmp}/impaired.json" 2>&1 || true)
+    _bq=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --hour 10 --weekday 3 --questions 1 < "${_tmp}/impaired.json" 2>&1 || true)
+    _b0=$(sh "${_broken}/render-tick-post.sh" --tick 20260819-104500 --root "$_fx" --hour 10 --weekday 3 --questions 0 < "${_tmp}/impaired.json" 2>&1 || true)
     _unnamed=no; _silent=no
     case "$(_root_text "$_bq")" in *'could not read'*) ;; *) _unnamed=yes ;; esac
     case "$_b0" in *'"post": false'*) _silent=yes ;; esac
@@ -8667,7 +8935,657 @@ cmd_verify_all() {
     exit "$_code"
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]"}'
+# --------------------------------------------------------- verify-blocked-tick
+# A TICK THAT OPENED AND NEVER CLOSED (2026-08-31, mission
+# `stop-an-unattended-tick-from-waiting-on-a-person`).
+#
+# The reading fires only when a tick DIES — the rarest path there is, and the one nobody
+# exercises by hand. Both halves are drilled together because neither is worth anything
+# alone: `run.sh`'s opening persist puts the opening on the base, and `step-blocked-tick.sh`
+# reads for it. Measured: three consecutive ticks sat at `requires_action` and the base
+# carried no trace of any of them.
+#
+# HERMETIC. The origin is a **bare local repository** — `git push` to a file path needs no
+# network — and the log is written through `log-append.sh`, THE REAL WRITER, so the drill
+# cannot pass against a line shape the writer never produces. No `gh`, no Slack, no
+# credential.
+#
+# THE STOPPING POINT IS THE STEP BOUNDARY, NOT A TIMEOUT. A tick is "killed" by running it
+# with `--only open-log`, which is exactly the state a tick that died after its first step
+# leaves behind. A timeout would make the drill pass or fail by how fast the machine is,
+# which is the failure its own ticket named.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR: disable the opening persist and the base
+# must carry nothing for that tick, because there is then nothing to notice. A breaker
+# satisfied by keeping the JSON shape proves nothing.
+cmd_verify_blocked_tick() {
+    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
+    _run="${_mod}/run.sh"
+    _step="${_mod}/step-blocked-tick.sh"
+    _log="${_mod}/log-append.sh"
+    _ask="${_mod}/ask-question.sh"
+    for _f in "$_run" "$_step" "$_log" "$_ask"; do
+        [ -f "$_f" ] || emit_err "blocked_tick_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _field() { printf '%s' "$1" | sed -n "s/.*\"$2\": *\"\\([^\"]*\\)\".*/\\1/p" | head -1; }
+
+    # A checkout with a bare local origin, ready for the publish tree the persist opens.
+    _seed() {
+        _b="${1}/origin.git"; _c="${1}/clone"
+        git init -q --bare -b main "$_b" >/dev/null 2>&1
+        git init -q -b main "$_c" >/dev/null 2>&1
+        (
+            cd "$_c" \
+                && git config user.email drill@example.invalid \
+                && git config user.name Drill \
+                && mkdir -p .workaholic/moderations \
+                && printf 'seed\n' > .workaholic/README.md \
+                && git add -A >/dev/null 2>&1 \
+                && git commit -q -m 'Seed the tree' >/dev/null 2>&1 \
+                && git remote add origin "$_b" \
+                && git push -q -u origin main >/dev/null 2>&1
+        )
+    }
+
+    # 1. THE OPENING REACHES THE BASE. A tick stopped after its first step leaves a section
+    #    on the base carrying that step and nothing else — which is the whole premise the
+    #    reading rests on.
+    _fx="${_tmp}/live"
+    mkdir -p "$_fx"
+    _seed "$_fx" || emit_err "blocked_tick_fixture" 4 "could not build the throwaway repository"
+    _day=$(date -u +%Y-%m-%d)
+    _tick="$(date -u +%Y%m%d)-100000"
+    _r=$(sh "$_run" --root "${_fx}/clone" --tick "$_tick" --only open-log 2>&1 || true)
+    # THE OPENING LANDS ON THE LOG BRANCH, NOT ON `main` (2026-09-01, issue #782). What this
+    # drill asserts is unchanged -- a tick that stopped after its first step still left a trace
+    # a later tick can read -- only where that trace lives moved.
+    _logref=$(sh "${REPO_ROOT}/plugins/workaholic/skills/gather/scripts/log-ref.sh")
+    _base=$(git -C "${_fx}/origin.git" show "${_logref}:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    case "${_r}|${_base}" in
+        *'"opening_persist": {"status": "filed"'*'|'*"## ${_tick}"*)
+            case "$_base" in
+                *'- `open-log`'*)
+                    add_row "blocked_tick_opening_reaches_the_base" true "a tick stopped after its first step leaves its opening on the base" load ;;
+                *) add_row "blocked_tick_opening_reaches_the_base" false "the section landed with no open-log line: $(one_line "$_base")" load ;;
+            esac ;;
+        *) add_row "blocked_tick_opening_reaches_the_base" false "the opening did not reach the base: $(one_line "$_r")" load ;;
+    esac
+
+    # 2. THE READING, over a log written by the real writer: the TICK BEFORE LAST opened and
+    #    never closed, so it is named — and a complete one is silent.
+    _lx="${_tmp}/logs"
+    mkdir -p "${_lx}/.workaholic"
+    _A() { sh "$_log" --root "$_lx" --tick "$1" --step "$2" --status ok --summary 'drill' >/dev/null 2>&1 || true; }
+    _A 20260831-100000 open-log
+    _A 20260831-110000 open-log
+    _A 20260831-110000 human-checkin
+    _A 20260831-120000 open-log
+    _s=$(sh "$_step" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_s" | jq -e '(.needs_agent | length == 1) and (.needs_agent[0].key == "blocked-tick:20260831-100000") and (.event | length > 0)' >/dev/null 2>&1; then
+        add_row "blocked_tick_is_named" true "the tick before last opened and never closed, and is named once with its own key" load
+    else
+        add_row "blocked_tick_is_named" false "the stopped tick was not named: $(one_line "$_s")" load
+    fi
+
+    _A 20260831-100000 human-checkin
+    _h=$(sh "$_step" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_h" | jq -e '(.status == "ok") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "blocked_tick_healthy_is_silent" true "a complete previous section produces no question and no event" load
+    else
+        add_row "blocked_tick_healthy_is_silent" false "a healthy tick was not silent: $(one_line "$_h")" load
+    fi
+
+    # 3. ONE QUESTION PER STOPPED HOUR, through the EXISTING gate. `ask-question.sh` gains
+    #    nothing: the key the step composes is handed to it unchanged.
+    _g1=$(sh "$_ask" --tick 20260831-120000 --key 'blocked-tick:20260831-100000' --root "$_lx" --hour 10 --weekday 3 2>&1 || true)
+    sh "$_ask" --record-ask --tick 20260831-120000 --key 'blocked-tick:20260831-100000' --root "$_lx" --summary 'asked about a stopped tick' >/dev/null 2>&1 || true
+    _g2=$(sh "$_ask" --tick 20260831-130000 --key 'blocked-tick:20260831-100000' --root "$_lx" --hour 10 --weekday 3 2>&1 || true)
+    case "${_g1}|${_g2}" in
+        *'"ask": true'*'|'*'"reason": "already_asked"'*)
+            add_row "blocked_tick_asked_once" true "the second tick is refused already_asked, so a stopped hour costs one question" load ;;
+        *) add_row "blocked_tick_asked_once" false "expected ask then already_asked, got: $(one_line "$_g1") / $(one_line "$_g2")" load ;;
+    esac
+
+    # 4. A LOG THAT EXISTS AND CANNOT BE READ IS NAMED, and asks nobody — never rendered as a
+    #    quiet hour, which is the exact collapse this whole mission removes one level up.
+    #    A reader that answers something this step cannot parse is the reachable instance:
+    #    `log-read.sh` itself answers `read: false` only for a missing area, which is the
+    #    healthy `skipped` below rather than a degradation.
+    _unread="${_tmp}/unreadable"
+    mkdir -p "$_unread"
+    cp -R "${_mod}/." "$_unread/"
+    printf '#!/bin/sh\nprintf "not json at all\\n"\n' > "${_unread}/log-read.sh"
+    chmod +x "${_unread}/log-read.sh"
+    _d=$(sh "${_unread}/step-blocked-tick.sh" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_d" | jq -e '(.status == "degraded") and (.reason | length > 0) and (.needs_agent | length == 0)' >/dev/null 2>&1; then
+        add_row "blocked_tick_unreadable_is_named" true "an unreadable log is degraded by name ($(_field "$_d" reason)) and asks nobody" load
+    else
+        add_row "blocked_tick_unreadable_is_named" false "an unreadable log was not named, or asked somebody: $(one_line "$_d")" load
+    fi
+
+    #    ...and a repository that keeps NO log is `skipped` by name, not degraded. A step
+    #    declining to run for a stated, healthy reason did not fail to see, and the root's
+    #    impairment clause is deliberately built on that distinction.
+    _none=$(sh "$_step" --tick 20260831-120000 --root "${_tmp}/absent" 2>&1 || true)
+    if printf '%s' "$_none" | jq -e '(.status == "skipped") and (.reason == "no_log_area") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "blocked_tick_no_log_is_skipped" true "a repository with no tick log is skipped by name, never degraded" load
+    else
+        add_row "blocked_tick_no_log_is_skipped" false "a missing log area was not skipped by name: $(one_line "$_none")" load
+    fi
+
+    # 5. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Disable the opening persist and the
+    #    base carries nothing for a tick that stopped after its first step — so row 1's premise
+    #    is gone and there is nothing for the reading to notice.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${_mod}/." "$_broken/"
+    sed 's|if \[ "$step" = open-log \] && \[ "$DO_LOG" -eq 1 \]|if [ "$step" = never-a-step ] \&\& [ "$DO_LOG" -eq 1 ]|' \
+        "$_run" > "${_broken}/run.sh"
+    chmod +x "${_broken}/run.sh"
+    _bx="${_tmp}/breaker"
+    mkdir -p "$_bx"
+    _seed "$_bx" || true
+    _btick="$(date -u +%Y%m%d)-140000"
+    sh "${_broken}/run.sh" --root "${_bx}/clone" --tick "$_btick" --only open-log >/dev/null 2>&1 || true
+    _bbase=$(git -C "${_bx}/origin.git" show "main:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    case "$_bbase" in
+        *"## ${_btick}"*)
+            add_row "blocked_tick_breaker" false "the breaker did not break: the opening reached the base with the opening persist disabled ($(one_line "$_bbase")), so row 1 proves nothing" breaker ;;
+        *)
+            add_row "blocked_tick_breaker" true "with the opening persist disabled a stopped tick leaves nothing on the base (this drill can fail)" breaker ;;
+    esac
+
+    # 6. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "blocked_tick_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "blocked_tick_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "blocked-tick" 0 "fail" 1
+    fi
+    emit_verdict "blocked-tick" 0 "pass" 0
+}
+
+# ------------------------------------------------------- verify-cadence-lapse
+# A PERIODIC ARTIFACT THAT STOPPED BEING PRODUCED (2026-08-31, mission
+# `notice-a-periodic-artifact-that-stopped-being-produced`).
+#
+# Every other step of the tick is driven by an object that EXISTS, so a producer that dies
+# produces nothing and no step has anything to find — measured, a daily record stopped for
+# four days while hourly ticks ran throughout and none reported it. A reading nothing proves
+# is a reading that quietly stops working, which is that same failure one level up, so the
+# whole chain is drilled here: declaration → reader → step → question.
+#
+# HERMETIC. The fixture is a throwaway git repository this function builds; the declaration is
+# an environment variable it sets; the gate is exercised against the fixture's own tick log. No
+# network, no `gh`, no Slack, no `origin`, no credential.
+#
+# THE FIXTURE'S VERDICTS DO NOT DEPEND ON THE DAY THE DRILL RUNS. The lapsed cadence's commit
+# is dated 2001 and measured against a one-day period, and the current one is committed now and
+# measured against a thirty-day period — so both answers hold whatever the run clock says. The
+# ticket asked for controlled mtimes; the reader deliberately reads COMMIT time instead (a
+# routine's container is a fresh clone, and git stamps every checked-out file with the
+# checkout's own time), so the control is `GIT_COMMITTER_DATE` rather than `touch -t`.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR, not the return shape: wire the reader so an
+# unresolvable pattern answers `lapsed` instead of `unreadable`, and the step must then hand
+# over a candidate it must never hand over. A wrong `lapsed` sends a person after a producer
+# that is working, which is the one way this reading can do harm, so that is the regression
+# worth a row that has to fail.
+cmd_verify_cadence_lapse() {
+    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
+    _reader="${_mod}/cadence-state.sh"
+    _step="${_mod}/step-cadence-lapse.sh"
+    _ask="${_mod}/ask-question.sh"
+    for _f in "$_reader" "$_step" "$_ask"; do
+        [ -f "$_f" ] || emit_err "cadence_lapse_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _fx="${_tmp}/fx"
+    mkdir -p "${_fx}/stale" "${_fx}/fresh" "${_fx}/.workaholic"
+    _field() { printf '%s' "$1" | sed -n "s/.*\"$2\": *\"\\([^\"]*\\)\".*/\\1/p" | head -1; }
+
+    (
+        cd "$_fx" \
+            && git init -q . >/dev/null 2>&1 \
+            && git config user.email drill@example.invalid \
+            && git config user.name Drill \
+            && printf 'the producer stopped here\n' > stale/2001-01-01.md \
+            && git add -A >/dev/null 2>&1 \
+            && GIT_AUTHOR_DATE='2001-01-01T00:00:00+0000' GIT_COMMITTER_DATE='2001-01-01T00:00:00+0000' \
+               git commit -q -m 'Add the stale artifact' >/dev/null 2>&1 \
+            && printf 'produced just now\n' > fresh/today.md \
+            && git add -A >/dev/null 2>&1 \
+            && git commit -q -m 'Add the fresh artifact' >/dev/null 2>&1
+    ) || emit_err "cadence_lapse_fixture" 4 "could not build the throwaway repository"
+
+    _all='daily|stale/*.md|1d;weekly|fresh/*.md|30d;ghost|nothing/*.md|1d'
+    _lapsed_only='daily|stale/*.md|1d'
+    _current_only='weekly|fresh/*.md|30d'
+    _ghost_only='ghost|nothing/*.md|1d'
+
+    # 1. THE THREE STATES, FROM ONE READER. `lapsed` carries the age and the period; the
+    #    unresolvable pattern carries a NAMED reason and a NULL age — never a zero, which reads
+    #    as *produced this second*, and never `lapsed`.
+    _r=$(WORKAHOLIC_CADENCES="$_all" sh "$_reader" --root "$_fx" 2>&1 || true)
+    _ok_states=true
+    printf '%s' "$_r" | jq -e '[.cadences[] | select(.name=="daily" and .state=="lapsed" and .age_hours > 0 and .period_hours == 24)] | length == 1' >/dev/null 2>&1 || _ok_states=false
+    printf '%s' "$_r" | jq -e '[.cadences[] | select(.name=="weekly" and .state=="current")] | length == 1' >/dev/null 2>&1 || _ok_states=false
+    printf '%s' "$_r" | jq -e '[.cadences[] | select(.name=="ghost" and .state=="unreadable" and .age_hours == null and (.reason | length > 0))] | length == 1' >/dev/null 2>&1 || _ok_states=false
+    if [ "$_ok_states" = "true" ]; then
+        add_row "cadence_reader_answers_three_states" true "lapsed with its age and period, current, and unreadable with a named reason and a null age" load
+    else
+        add_row "cadence_reader_answers_three_states" false "the reader did not answer all three states: $(one_line "$_r")" load
+    fi
+
+    # 2. A REPOSITORY DECLARING NOTHING IS A REAL ANSWER, not a degradation — and carries NO
+    #    `readable` field, so a consumer not taught the term is unaffected.
+    _none=$(WORKAHOLIC_CADENCES='' sh "$_reader" --root "$_fx" 2>&1; printf ' exit=%s' "$?")
+    case "$_none" in
+        *'"empty_reason": "no_cadence_declared"'*' exit=0')
+            case "$_none" in
+                *readable*) add_row "cadence_absent_is_not_degraded" false "an undeclared repository emitted a readable field: $(one_line "$_none")" load ;;
+                *) add_row "cadence_absent_is_not_degraded" true "no declaration reads an empty set with a named reason, exit 0, no readable field" load ;;
+            esac ;;
+        *) add_row "cadence_absent_is_not_degraded" false "expected empty_reason no_cadence_declared and exit 0, got: $(one_line "$_none")" load ;;
+    esac
+
+    # 3. THE STEP: a lapse becomes one keyed candidate and an event; a current cadence asks
+    #    nobody and renders no root line; an unreadable read is named and asks nobody; an
+    #    undeclared repository is `skipped`, which is deliberately not impairment.
+    _s_lapsed=$(WORKAHOLIC_CADENCES="$_lapsed_only" sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_lapsed" | jq -e '(.needs_agent | length == 1) and (.needs_agent[0].lapsed | length == 1) and (.needs_agent[0].lapsed[0].key == "cadence-lapsed:daily") and (.event | length > 0)' >/dev/null 2>&1; then
+        add_row "cadence_lapse_reaches_the_checkin" true "a lapsed cadence is one candidate keyed cadence-lapsed:daily, with an event" load
+    else
+        add_row "cadence_lapse_reaches_the_checkin" false "the lapse did not reach the check-in: $(one_line "$_s_lapsed")" load
+    fi
+
+    _s_current=$(WORKAHOLIC_CADENCES="$_current_only" sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_current" | jq -e '(.status == "ok") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "cadence_current_asks_nobody" true "a current cadence supplies no candidate and no event, so the root renders no line" load
+    else
+        add_row "cadence_current_asks_nobody" false "a current cadence was not silent: $(one_line "$_s_current")" load
+    fi
+
+    _s_ghost=$(WORKAHOLIC_CADENCES="$_ghost_only" sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_ghost" | jq -e '(.status == "degraded") and (.reason == "cadence_unreadable") and (.needs_agent | length == 0)' >/dev/null 2>&1; then
+        add_row "cadence_unreadable_is_named" true "an unreadable read is degraded by name and asks nobody" load
+    else
+        add_row "cadence_unreadable_is_named" false "an unreadable read was not named, or asked somebody: $(one_line "$_s_ghost")" load
+    fi
+
+    _s_none=$(WORKAHOLIC_CADENCES='' sh "$_step" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_s_none" | jq -e '(.status == "skipped") and (.reason == "no_cadence_declared") and (.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "cadence_undeclared_is_byte_identical" true "a repository declaring nothing is skipped by name, asks nobody and renders no line" load
+    else
+        add_row "cadence_undeclared_is_byte_identical" false "an undeclared repository was not skipped by name: $(one_line "$_s_none")" load
+    fi
+
+    # 4. ONE LAPSE COSTS ONE QUESTION, however many ticks see it — the EXISTING gate, called
+    #    with the key the step composes. `ask-question.sh` gains nothing and is not modified.
+    _g1=$(sh "$_ask" --tick 20260831-130000 --key 'cadence-lapsed:daily' --root "$_fx" --hour 10 --weekday 3 2>&1 || true)
+    sh "$_ask" --record-ask --tick 20260831-130000 --key 'cadence-lapsed:daily' --root "$_fx" --summary 'asked about a lapsed cadence' >/dev/null 2>&1 || true
+    _g2=$(sh "$_ask" --tick 20260831-140000 --key 'cadence-lapsed:daily' --root "$_fx" --hour 10 --weekday 3 2>&1 || true)
+    case "${_g1}|${_g2}" in
+        *'"ask": true'*'|'*'"reason": "already_asked"'*)
+            add_row "cadence_asked_once" true "the second tick is refused already_asked, so one lapse costs one question" load ;;
+        *) add_row "cadence_asked_once" false "expected ask then already_asked, got: $(one_line "$_g1") / $(one_line "$_g2")" load ;;
+    esac
+
+    # 5. THE STEP WRITES NOTHING BUT ITS OWN LOG LINE, which `run.sh` writes — so a run of the
+    #    step alone must leave even the fixture's own tree untouched.
+    _fx_before=$(cd "$_fx" && git status --porcelain 2>/dev/null | grep -v '^?? .workaholic/moderations' | sort)
+    WORKAHOLIC_CADENCES="$_all" sh "$_step" --tick 20260831-150000 --root "$_fx" >/dev/null 2>&1 || true
+    _fx_after=$(cd "$_fx" && git status --porcelain 2>/dev/null | grep -v '^?? .workaholic/moderations' | sort)
+    if [ "$_fx_before" = "$_fx_after" ]; then
+        add_row "cadence_step_writes_nothing" true "the step left the fixture's tree byte-identical" load
+    else
+        add_row "cadence_step_writes_nothing" false "the step wrote into the tree it read" load
+    fi
+
+    # 6. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Wire the reader so an unresolvable
+    #    pattern answers `lapsed`, and the step must hand over a candidate it must never hand
+    #    over. A breaker satisfied by keeping the JSON shape proves nothing.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${_mod}/." "$_broken/"
+    sed 's|unreadable null '"''"' no_matching_artifact|lapsed 9999 "2001-01-01T00:00:00+00:00" '"''"'|' \
+        "$_reader" > "${_broken}/cadence-state.sh"
+    chmod +x "${_broken}/cadence-state.sh" "${_broken}/step-cadence-lapse.sh"
+    _b=$(WORKAHOLIC_CADENCES="$_ghost_only" sh "${_broken}/step-cadence-lapse.sh" --tick 20260831-130000 --root "$_fx" 2>&1 || true)
+    if printf '%s' "$_b" | jq -e '(.needs_agent | length) > 0' >/dev/null 2>&1; then
+        add_row "cadence_breaker" true "with an unresolvable pattern wired to lapsed the step asks about a producer that may be fine (this drill can fail)" breaker
+    else
+        add_row "cadence_breaker" false "the breaker did not break: an unreadable pattern wired to lapsed still asked nobody ($(one_line "$_b")), so row 3 proves nothing" breaker
+    fi
+
+    # 7. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "cadence_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "cadence_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "cadence-lapse" 0 "fail" 1
+    fi
+    emit_verdict "cadence-lapse" 0 "pass" 0
+}
+
+# ------------------------------------------------ verify-stranded-publication
+# A PUBLICATION THE LOOP OPENED AND COULD NOT MERGE (2026-08-31, mission
+# `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`).
+#
+# The measured failure ran for a full day with the loop reporting it hourly: three open
+# proposals colliding on `.workaholic/feedbacks/index.md` and on nothing else, a repair that was
+# three commands, and no reader anywhere in the loop that could see a publication at all. The
+# regression this mission must not allow is that repair quietly ceasing to fire, so the whole
+# chain is drilled here: reader -> act -> delivery -> re-run -> the question.
+#
+# HERMETIC. The origin is a BARE LOCAL REPOSITORY (`git push` to a file path needs no network)
+# and the GitHub transport is a stub on PATH inside the fixture's own temp directory. No
+# credential, no network, no Slack, and nothing outside the fixture is written.
+#
+# THE ASSERTIONS ARE ABOUT BEHAVIOUR, NOT RETURN SHAPE: the settleable collision is caught up,
+# REGENERATED SO BOTH SIDES' RECORDS SURVIVE, pushed and delivered with no person; the content
+# one is refused with its branch BYTE-IDENTICAL; a re-run of either moves no ref. A drill
+# satisfied by the JSON keys would go on passing through the regression it exists to catch.
+#
+# AND A PUBLICATION THAT COLLIDES WITH NOTHING AT ALL (2026-09-01, mission
+# `deliver-a-stranded-publication-that-needs-nothing-but-a-merge`). The rows above are every one
+# about a COLLISION — `content` refused, `mechanical` settled — so the class that needs nothing
+# but a merge appeared in none of them, and a regression putting `clean` back to
+# `not_mechanical:clean` would have passed the whole drill set. Measured on the morning the class
+# was given an owner: five of six open publications read `clean`, the oldest six days old, every
+# one green and delivered by nothing. Two rows close it: the act settles such a publication and
+# takes NO catch-up, and a re-run over the delivered one moves no ref.
+#
+# THE BREAKERS ARE WRITTEN AGAINST THE BEHAVIOUR, and both run BEFORE anything is settled —
+# afterwards the settleable branch contains the base and the delivered one is closed, so there is
+# nothing left to misclassify or refuse. Strip the generated-region proof out of the shared
+# classification rule and the settleable collision must read `content`; narrow the act's class
+# gate back to `mechanical` alone and the clean publication must be refused `not_mechanical:clean`
+# and delivered by nothing. Each is precisely the measured incident, reproduced on demand.
+#
+# WHAT THIS DRILL DOES NOT PROVE: that the consuming repository's own incident is gone. That
+# repository may be on a different plugin version; this exercises this checkout's scripts only.
+cmd_verify_stranded_publication() {
+    _br="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts"
+    _reader="${_br}/list-stranded-publications.sh"
+    _act="${_br}/settle-stranded-publication.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-stranded-publications.sh"
+    for _f in "$_reader" "$_act" "$_step"; do
+        [ -f "$_f" ] || emit_err "stranded_publication_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"
+    _wt="${_tmp}/A"
+    _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+
+    # What `refresh-index.sh` writes for a flat area: a sorted list between the markers.
+    _idx() {
+        printf '# feedbacks\n\n<!-- okf:generated:begin -->\n'
+        for _s in "$@"; do printf '* [%s](%s.md)\n' "$_s" "$_s"; done
+        printf '%s\n' '<!-- okf:generated:end -->'
+    }
+    _write_mech() {
+        printf -- '---\ntype: Feedback\n---\n\n# b\n' > .workaholic/feedbacks/20260102000000-b.md
+        _idx 20260101000000-a 20260102000000-b > .workaholic/feedbacks/index.md
+    }
+    _write_content() { printf 'alpha\nbeta-branch\ngamma\n' > src/app.txt; }
+    # A publication that touches a path NOTHING else touches: no collision to classify, so the
+    # class is `clean` and the branch is mergeable exactly as it stands.
+    _write_clean() { printf 'untouched-by-the-base\n' > src/other.txt; }
+
+    # One publication: an ordinary commit on a `work-*` branch and NO claim commit, which is
+    # exactly what `publish-tree-pr.sh` pushes.
+    _pub() {
+        _pb="$1"
+        _pw="$2"
+        ( cd "$_wt" && git worktree add -q -b "$_pb" "${_tmp}/${_pb}" origin/main ) >/dev/null 2>&1 || return 1
+        ( cd "${_tmp}/${_pb}" && $_pw ) >/dev/null 2>&1 || return 1
+        ( cd "${_tmp}/${_pb}" && git add -A && git commit -q -m 'Publish an artifact' \
+            && git push -q origin "$_pb" ) >/dev/null 2>&1 || return 1
+        ( cd "$_wt" && git worktree remove --force "${_tmp}/${_pb}" && git branch -q -D "$_pb" \
+            && git fetch -q --prune origin ) >/dev/null 2>&1 || return 1
+    }
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) >/dev/null 2>&1 \
+        || emit_err "stranded_publication_fixture" 4 "could not create the bare origin"
+    (
+        git clone -q "$_origin" "$_wt" \
+            && cd "$_wt" \
+            && git config user.email drill@example.invalid \
+            && git config user.name Drill \
+            && git config commit.gpgsign false \
+            && mkdir -p .workaholic/feedbacks src \
+            && printf -- '---\ntype: Feedback\n---\n\n# a\n' > .workaholic/feedbacks/20260101000000-a.md \
+            && printf 'alpha\nbeta\ngamma\n' > src/app.txt
+    ) >/dev/null 2>&1 || emit_err "stranded_publication_fixture" 4 "could not seed the fixture"
+    _idx 20260101000000-a > "${_wt}/.workaholic/feedbacks/index.md"
+    ( cd "$_wt" && git add -A && git commit -q -m 'Seed the base' && git push -q origin main ) \
+        >/dev/null 2>&1 || emit_err "stranded_publication_fixture" 4 "could not push the base"
+
+    _mech=work-20260831-100000
+    _content=work-20260831-100001
+    _clean=work-20260831-100002
+    _pub "$_mech" _write_mech \
+        || emit_err "stranded_publication_fixture" 4 "could not publish the settleable branch"
+    _pub "$_content" _write_content \
+        || emit_err "stranded_publication_fixture" 4 "could not publish the content branch"
+    _pub "$_clean" _write_clean \
+        || emit_err "stranded_publication_fixture" 4 "could not publish the clean branch"
+
+    # The base moves the way a merged sibling proposal moves it: another record, the index
+    # regenerated around it, and the same source line the content branch touched.
+    _idx 20260101000000-a 20260103000000-c > "${_wt}/.workaholic/feedbacks/index.md"
+    (
+        cd "$_wt" \
+            && printf -- '---\ntype: Feedback\n---\n\n# c\n' > .workaholic/feedbacks/20260103000000-c.md \
+            && printf 'alpha\nbeta-base\ngamma\n' > src/app.txt \
+            && git add -A && git commit -q -m 'Advance the base' && git push -q origin main \
+            && git fetch -q --prune origin
+    ) >/dev/null 2>&1 || emit_err "stranded_publication_fixture" 4 "could not advance the base"
+
+    # The transport, stubbed: the list endpoint answers the TSV projection the reader asks for,
+    # each pull's `files` answers what the publication-refusal rule reads, and the one `PUT
+    # .../merge` succeeds.
+# `_write_gh_stub <open-pull-number>...` re-issues it with exactly the pull requests named still
+# open. A merge CLOSES a pull request, so after a delivery the reader must stop naming it — that
+# is the act's real idempotency guard, and modelling it is what lets row 10 assert a refusal
+# rather than a second settlement of a publication it would now be right to deliver.
+    _write_gh_stub() {
+        {
+            printf '#!/bin/sh\ncase "$*" in\n'
+            printf "  *rate_limit*) printf '5000\\\\n'; exit 0 ;;\n"
+            printf "  *\"/merge\"*) printf '{\"merged\": true}\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/41/files\"*) printf '[{\"status\":\"added\",\"filename\":\".workaholic/feedbacks/20260102000000-b.md\",\"patch\":\"+x\"},{\"status\":\"modified\",\"filename\":\".workaholic/feedbacks/index.md\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/42/files\"*) printf '[{\"status\":\"modified\",\"filename\":\"src/app.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/43/files\"*) printf '[{\"status\":\"added\",\"filename\":\"src/other.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf '  *"pulls?state=open"*)\n'
+            for _n in "$@"; do
+                case "$_n" in
+                    41) printf "    printf '41\\\\thttps://example.invalid/pr/41\\\\t[Proposal] b\\\\t2026-08-31T10:00:00Z\\\\tclaude[bot]\\\\t%s\\\\n'\n" "$_mech" ;;
+                    42) printf "    printf '42\\\\thttps://example.invalid/pr/42\\\\t[Proposal] app\\\\t2026-08-31T10:00:01Z\\\\tclaude[bot]\\\\t%s\\\\n'\n" "$_content" ;;
+                    43) printf "    printf '43\\\\thttps://example.invalid/pr/43\\\\t[Proposal] other\\\\t2026-08-31T10:00:02Z\\\\tclaude[bot]\\\\t%s\\\\n'\n" "$_clean" ;;
+                esac
+            done
+            printf '    exit 0 ;;\nesac\n'
+            printf "printf '[]\\\\n'\n"
+        } > "${_bin}/gh"
+        chmod +x "${_bin}/gh"
+    }
+    _write_gh_stub 41 42 43
+
+    _tip() { git -C "$_wt" rev-parse "origin/$1" 2>/dev/null || printf ''; }
+
+    # 1. THE READER SEES A PUBLICATION AT ALL — the seam that had no reader before this mission.
+    _r=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_reader" 2>&1 || true)
+    if printf '%s' "$_r" | jq -e '(.ok == true) and ([.publications[] | select(.number == 41 and .mergeability == "mechanical")] | length == 1) and ([.publications[] | select(.number == 42 and .mergeability == "content")] | length == 1) and ([.publications[] | select(.number == 43 and .mergeability == "clean")] | length == 1)' >/dev/null 2>&1; then
+        add_row "stranded_reader_sees_a_publication" true "a publication with no claim commit is read, with each of the three classes derived" load
+    else
+        add_row "stranded_reader_sees_a_publication" false "the reader did not classify all three publications: $(one_line "$_r")" load
+    fi
+
+    # 2. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE, and run BEFORE anything is settled —
+    #    afterwards the settleable branch contains the base and there is no collision left to
+    #    misclassify. Strip the generated-region proof and the settleable collision must read
+    #    `content`, i.e. be reported rather than repaired: the measured incident on demand.
+    _broken="${_tmp}/broken"
+    mkdir -p "$_broken"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/." "${_broken}/"
+    sed 's|^conflict_class_generated_region() {|conflict_class_generated_region() { return 1;|' \
+        "${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/lib/conflict-class.sh" \
+        > "${_broken}/ship/scripts/lib/conflict-class.sh"
+    _b=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "${_broken}/branching/scripts/list-stranded-publications.sh" 2>&1 || true)
+    if printf '%s' "$_b" | jq -e '[.publications[]? | select(.number == 41 and .mergeability == "content")] | length == 1' >/dev/null 2>&1; then
+        add_row "stranded_breaker" true "with the generated-region proof removed the settleable collision reads content, so it would be reported rather than repaired (this drill can fail)" breaker
+    else
+        add_row "stranded_breaker" false "the breaker did not break: the settleable collision still read mechanical without the proof ($(one_line "$_b")), so rows 1 and 4 prove nothing" breaker
+    fi
+
+    # 2b. THE SECOND BREAKER, against the behaviour the 2026-09-01 mission added and under the
+    #     same ordering constraint: narrow the act's class gate back to `mechanical` alone and the
+    #     clean publication must be refused `not_mechanical:clean` with nothing attempted — the
+    #     measured incident, in which five green publications were read, named and delivered by
+    #     nothing. It is a SEPARATE broken copy: the first breaker's tree has the classification
+    #     rule stripped, which would confound what this one is asserting.
+    _broken2="${_tmp}/broken2"
+    mkdir -p "$_broken2"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/." "${_broken2}/"
+    sed '/clean) NEEDS_CATCHUP=false ;;/d' \
+        "${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh" \
+        > "${_broken2}/branching/scripts/settle-stranded-publication.sh"
+    _cl_before=$(_tip "$_clean")
+    _b2=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "${_broken2}/branching/scripts/settle-stranded-publication.sh" 43 2>&1 || true)
+    if printf '%s' "$_b2" | jq -e '(.outcome == "settle_refused") and (.reason == "not_mechanical:clean") and (.delivery == "not_attempted")' >/dev/null 2>&1 \
+       && [ "$_cl_before" = "$(_tip "$_clean")" ]; then
+        add_row "stranded_clean_breaker" true "with the class gate narrowed back to mechanical the clean publication is refused not_mechanical:clean and delivered by nothing (this drill can fail)" breaker
+    else
+        add_row "stranded_clean_breaker" false "the breaker did not break: the clean publication was still acted on with the gate narrowed ($(one_line "$_b2")), so rows 9 and 10 prove nothing" breaker
+    fi
+
+    # 3. A COLLISION ONLY A PERSON CAN SETTLE IS REFUSED, BRANCH BYTE-IDENTICAL.
+    _c_before=$(_tip "$_content")
+    _refused=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 42 2>&1 || true)
+    _c_after=$(_tip "$_content")
+    if printf '%s' "$_refused" | jq -e '(.outcome == "settle_refused") and (.pushed == false)' >/dev/null 2>&1 \
+       && [ "$_c_before" = "$_c_after" ]; then
+        add_row "stranded_content_is_refused" true "a content collision is refused by its own word and its branch is byte-identical" load
+    else
+        add_row "stranded_content_is_refused" false "a content collision was not refused, or its branch moved: $(one_line "$_refused")" load
+    fi
+
+    # 4. A COLLISION A GENERATOR SETTLES IS SETTLED AND DELIVERED, WITH NO PERSON — and the
+    #    repair is real: the branch contains the base and the regenerated index carries BOTH
+    #    sides' records rather than one side's stale copy.
+    _settled=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 41 2>&1 || true)
+    _ok_settled=true
+    printf '%s' "$_settled" | jq -e '(.outcome == "settled") and (.pushed == true) and (.delivery == "merged")' >/dev/null 2>&1 || _ok_settled=false
+    ( cd "$_wt" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    ( cd "$_wt" && git merge-base --is-ancestor origin/main "origin/${_mech}" ) >/dev/null 2>&1 || _ok_settled=false
+    _merged_idx=$(git -C "$_wt" show "origin/${_mech}:.workaholic/feedbacks/index.md" 2>/dev/null || printf '')
+    case "$_merged_idx" in
+        *20260102000000-b*)
+            case "$_merged_idx" in *20260103000000-c*) ;; *) _ok_settled=false ;; esac ;;
+        *) _ok_settled=false ;;
+    esac
+    if [ "$_ok_settled" = "true" ]; then
+        add_row "stranded_mechanical_is_settled" true "the settleable collision is caught up, regenerated with both records, pushed and delivered with no person" load
+    else
+        add_row "stranded_mechanical_is_settled" false "the settleable collision was not settled and delivered: $(one_line "$_settled")" load
+    fi
+
+    # 5. NO WORKTREE IS LEFT BEHIND by either path.
+    if [ ! -d "${_wt}/.worktrees/publication-41" ] && [ ! -d "${_wt}/.worktrees/publication-42" ]; then
+        add_row "stranded_leaves_no_worktree" true "the act left no worktree behind on either path" load
+    else
+        add_row "stranded_leaves_no_worktree" false "a worktree was left behind under .worktrees/" load
+    fi
+
+    # 6. A RE-RUN OF EITHER IS A NO-OP REPORTING ITS OWN WORD — nothing pushed, no ref moved.
+    _m_before=$(_tip "$_mech")
+    _again_m=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 41 2>&1 || true)
+    _again_c=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 42 2>&1 || true)
+    _m_after=$(_tip "$_mech")
+    if printf '%s' "$_again_m" | jq -e '.pushed == false' >/dev/null 2>&1 \
+       && printf '%s' "$_again_c" | jq -e '.pushed == false' >/dev/null 2>&1 \
+       && [ "$_m_before" = "$_m_after" ]; then
+        add_row "stranded_rerun_is_a_noop" true "a second run over either publication pushes nothing and moves no ref" load
+    else
+        add_row "stranded_rerun_is_a_noop" false "a re-run was not a no-op: $(one_line "$_again_m") / $(one_line "$_again_c")" load
+    fi
+
+    # 6b. A PUBLICATION THAT NEEDS NOTHING BUT A MERGE IS SETTLED AND DELIVERED, AND TAKES NO
+    #    CATCH-UP AT ALL (2026-09-01). The behaviour, not the return shape: nothing was merged,
+    #    regenerated, validated or pushed, the branch is byte-identical after the act, and the
+    #    delivery is reported in the merge vocabulary. A regression that puts the class back to
+    #    `not_mechanical:clean` fails here.
+    _cl_before=$(_tip "$_clean")
+    _cl=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 43 2>&1 || true)
+    ( cd "$_wt" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    if printf '%s' "$_cl" | jq -e '(.outcome == "settled") and (.class == "clean") and (.merged == false) and (.regenerated == false) and (.validated == false) and (.pushed == false) and (.delivery == "merged")' >/dev/null 2>&1 \
+       && [ "$_cl_before" = "$(_tip "$_clean")" ] \
+       && [ ! -d "${_wt}/.worktrees/publication-43" ]; then
+        add_row "stranded_clean_is_settled" true "a publication that collides with nothing is delivered with no catch-up, no ref written and no worktree left behind" load
+    else
+        add_row "stranded_clean_is_settled" false "the clean publication was not settled and delivered without a catch-up: $(one_line "$_cl")" load
+    fi
+
+    # 6c. AND A RE-RUN OVER THE DELIVERED ONE REFUSES BY NAME AND MOVES NO REF. The merge closed
+    #     the pull request, so the reader stops naming it — the guard that actually holds in
+    #     production, and the only one that survives `clean` being an accepted class: a branch
+    #     that already contains the base reads `clean`, so a fixture keeping the merged pull
+    #     request open would be asserting a refusal of work the act is now right to do.
+    _write_gh_stub 41 42
+    _cl_before=$(_tip "$_clean")
+    _cl_again=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 43 2>&1 || true)
+    if printf '%s' "$_cl_again" | jq -e '(.outcome == "settle_refused") and (.reason == "not_a_stranded_publication") and (.pushed == false) and (.delivery == "not_attempted")' >/dev/null 2>&1 \
+       && [ "$_cl_before" = "$(_tip "$_clean")" ]; then
+        add_row "stranded_clean_rerun_is_a_noop" true "a second run over the delivered publication refuses by name, attempts no delivery and moves no ref" load
+    else
+        add_row "stranded_clean_rerun_is_a_noop" false "a re-run over the delivered publication was not a refusing no-op: $(one_line "$_cl_again")" load
+    fi
+
+    # 7. THE PERSON IS TOLD ABOUT WHAT THE LOOP MUST NOT SETTLE, exactly once and keyed.
+    _s=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260831-130000 --root "$_wt" 2>&1 || true)
+    if printf '%s' "$_s" | jq -e '(.status == "ok") and ([.needs_agent[]?.stranded[]? | select(.key == "stranded-publication:42")] | length == 1) and (.event | length > 0)' >/dev/null 2>&1; then
+        add_row "stranded_content_reaches_a_person" true "the content collision is one candidate keyed stranded-publication:42, with an event" load
+    else
+        add_row "stranded_content_reaches_a_person" false "the content collision did not reach the check-in: $(one_line "$_s")" load
+    fi
+
+    # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "stranded_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "stranded_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    ( cd "$_wt" && git worktree prune ) >/dev/null 2>&1 || true
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "stranded-publication" 0 "fail" 1
+    fi
+    emit_verdict "stranded-publication" 0 "pass" 0
+}
+
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-stranded-publication [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -8725,11 +9643,15 @@ case "$CMD" in
     verify-base-health) cmd_verify_base_health "$@" ;;
     verify-return-path) cmd_verify_return_path "$@" ;;
     verify-reconcile) cmd_verify_reconcile "$@" ;;
+    verify-log-branch) cmd_verify_log_branch "$@" ;;
     verify-checkin-delivery) cmd_verify_checkin_delivery "$@" ;;
     verify-findings-to-work) cmd_verify_findings_to_work "$@" ;;
     verify-stage) cmd_verify_stage "$@" ;;
     verify-operator-pulls) cmd_verify_operator_pulls "$@" ;;
     verify-condition-age) cmd_verify_condition_age "$@" ;;
+    verify-cadence-lapse) cmd_verify_cadence_lapse "$@" ;;
+    verify-blocked-tick) cmd_verify_blocked_tick "$@" ;;
+    verify-stranded-publication) cmd_verify_stranded_publication "$@" ;;
     verify-directed-notification) cmd_verify_directed_notification "$@" ;;
     verify-impairment) cmd_verify_impairment "$@" ;;
     *)

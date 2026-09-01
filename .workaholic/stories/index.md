@@ -4,6 +4,13 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260831-134347](work-20260831-134347.md) - An all-held check-in whose arrears outlived the designed hold now says how deep and how old they are, and each held question names its own refusal
+* [work-20260901-034625](work-20260901-034625.md) - Give the clean stranded-publication class an owner — the act, the caller, and a drill that fails when it stops firing
+* [work-20260831-231823](work-20260831-231823.md) - Pin the merged-proposal narrowing — the step spec's fourth copy caught up with the other three, and nine rows hold all four transitions
+* [work-20260831-224412](work-20260831-224412.md) - Give a publish-tree publication a reader, an act and a question, so a collision a generator settles is repaired rather than reported hourly
+* [work-20260831-152743](work-20260831-152743.md) - The heartbeat becomes step 0 of every ticket, so a unit that is one long ticket keeps its own claim
+* [work-20260831-140035](work-20260831-140035.md) - An unattended run never waits for a person, and a tick that stops leaves a record the next tick reads
+* [work-20260831-125156](work-20260831-125156.md) - The tick learns to watch absence — a repository declares what should keep being produced, and one step asks when it stops
+* [work-20260831-114321](work-20260831-114321.md) - The tick's questions gain a composition contract and a voice, and an answer written in a thread now gets one reply saying what came of it.
 * [work-20260831-104307](work-20260831-104307.md) - The moderation tick's root now names the steps that could not read, and a changed impairment earns a root of its own
 * [work-20260831-044223](work-20260831-044223.md) - The two posts whose purpose is to reach a person now ride a bot identity, so their mention fires instead of resolving to the account that posted them
 * [Ask a person about a claim race](work-20260830-094214.md)

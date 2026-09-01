@@ -52,7 +52,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding one asked question with its coordinate recorded — walks ask → reply → record → file → stamp, proves the read is bounded to the question's own thread, that a second tick files and stamps nothing, and that the stamp is never load-bearing, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding two asked questions with their coordinates recorded — walks ask → reply → record → file → stamp → **outcome reply**, proves the read is bounded to the question's own thread, that a second tick files, stamps and replies nothing, that only a settled outcome earns a reply, and that neither the stamp nor the reply is load-bearing, with the transport stubbed and **two** rows that deliberately break the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json` | a throwaway tick log spanning several days, with the day's asks all on **earlier** days — walks the whole path from a machine finding to a person (gate → ordering → step → event → root), proving a held question lands, that it is not re-asked, that the drain honours `max_per_tick` oldest-held first, that a genuinely spent day still holds, and that a tick which reached nobody supplies its event while a quiet hour stays silent, that the arrears name their depth, their age and the gate's own refusal word per held question, and that an `all_held` tick past the working-day boundary earns a root line while one inside it stays silent, with no network and two rows that deliberately break the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-findings-to-work --json` | a throwaway git repository and a stubbed `gh` — walks the whole path from a tick finding to the work queue (classification → brake → filing → dedup → suppression), proving a `needs_ruling` finding never reaches the filer, that one open finding issue holds the rest, that a second tick files nothing, and that the filed step's question is held while every other step's still asks, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-operator-pulls --json` | a bare local origin and a stubbed `gh` — the pull requests the loop opens FOR A PERSON: membership derived from the publish seam's own refusal word (so a retitled ruling is still named and an auto-merged `[Proposal]` never is), the reader's four values with the null age on `unreadable`, the question reaching its person exactly once over two ticks, the settled case asking nobody, and that nothing merges, closes or gates — with no network and one row that deliberately breaks the seam by keying membership on the title |
@@ -725,7 +725,7 @@ keeps `🔵 Proposed` or `🟡 Handoff` while the work is long merged. No other 
 | `reconcile_no_network` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline contract |
 | `reconcile_merged_named` | the hand-merged unit is not a candidate, or loses its stems, its pull request or who merged it when | the reply's sentence is built from exactly those facts; a candidate that cannot name them cannot be posted without inventing one |
 | `reconcile_closed_is_its_own_state` | a pull request closed without merging reads `merged` | the two states get two shapes because they ask a reader for different things. **A tab is IFS whitespace**, so an empty `merged_at` used to collapse and shift `closed_at` into it — the jq sentinel is what keeps the distinction |
-| `reconcile_both_shapes_named` | the catalog stops naming either reply, or the template's copy diverges | the prompt is the ceiling: a shape the template does not name may not be posted, and a second wording is a drift to fix |
+| `reconcile_both_shapes_named` | the catalog stops naming either reply, or `/moderate`'s copy diverges | the command is the ceiling: a shape the command does not name may not be posted, and a second wording is a drift to fix |
 | `reconcile_thread_bar` | the stated bar misclassifies one of the four fixture threads | the bar is the whole narrowing — only `🔵`/`🟡` is stale-able, a `🟢`-ended thread and one this loop already reconciled are never touched, and no thread means nothing to correct |
 | `reconcile_two_queries` | the handed-back bound stops forbidding a channel-history read, or names a window | a window is a channel read wearing the step's name, and `workaholic:notify` forbids a full-channel read at any point |
 | `reconcile_case4_refused` | case 4's description root stops being refused by name | posting a root would announce a merge nobody was ever told about — `[Consent]`'s retired job |
@@ -1293,7 +1293,20 @@ own questions by rule.
 | `return_path_stamp_is_a_reaction` | the catalog stops naming the emoji exactly once, the template stops authorizing it, or a reply creeps back in | a reply into a thread the person is already reading is the hourly restatement this repository has retired posts for twice |
 | `return_path_stamp_not_load_bearing` | the recording depends on the stamp having landed | the answer is recorded and any issue filed **before** the stamp is attempted; `ack_failed` changes nothing else |
 | `return_path_breaker` | a step wired at the **channel** still passes the bound check | **the deliberately broken row, and the one to look at first on a red drill.** Wiring the read at the channel is the mistake that silently reintroduces the history read this design avoids; a drill that cannot catch it would convert an unproven claim into a believed one |
+| `return_path_outcome_pending_silent` | an answer whose outcome is not known yet yields a reply | *received* is not *acted on*: replying before the outcome is known tells somebody their answer was acted on when nobody knows |
+| `return_path_outcome_named` | a settled outcome does not reach the agent carrying the recorded words and the coordinate | the reply says what **the person actually wrote** and lands on a coordinate already in hand — a paraphrase, or a lookup, is a different post |
+| `return_path_outcome_bounded` | the handed-back bound stops forbidding a lookup, or admits a mention token | it closes a loop rather than demanding attention, exactly as `✅ 解消を確認` does |
+| `return_path_outcome_once` | a later tick would post the outcome reply again | the dedup is the `human-checkin-outcome-<slug>` ledger line **plus** the reading — never a cursor |
+| `return_path_outcome_shape_single_sourced` | the catalog stops naming `🧾 対応結果`, the template stops authorizing it, or it gains a mention | one shape, one home, and it is deliberately **not** the stamp's emoji: *received* and *acted on* are two events |
+| `return_path_outcome_changes_nothing` | the outcome half moves the question's state | it re-asks nothing, confirms nothing and merges nothing; the recording, the filing and the stamp all happened in earlier ticks |
+| `return_path_outcome_breaker` | a step keyed on the answer's **existence** rather than its outcome still stays silent over an unknown one | **the second deliberately broken row.** Written against the *behaviour*, so a refactor that keeps the return shape and loses the outcome gate still fires it |
 | `return_path_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**The outcome rows were added by widening this drill rather than staging a second one**
+(2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). The
+fixture already reaches recording and filing, which is exactly what the outcome half needs, so
+the whole addition is **one filing line and one extra question** — *one fixture, two questions*.
+A near-identical second repository would have been a second thing to keep in step with the first.
 
 **Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
 suite's `testAnswerReturnPath` and the catalog↔template drift pin inside
@@ -1389,9 +1402,58 @@ decides the carrier). Either alone would leave the other half unproved.
 | `no_token_falls_back_and_is_reported` | `notify-slack.sh` — a missing token stopped being a reported no-op |
 | `rule_enumerates_the_directed_set` / `rule_keeps_every_other_shape_on_the_connector` | `notify/SKILL.md` — the carrier became a post-time judgement |
 | `call_sites_state_the_same_rule` | `moderate/reference/workflow.md` or `drive/reference/routing.md` — two consumers reading one rule differently |
-| `templates_name_shape_and_carrier` | a routine template — the prompt is the ceiling, so a shape it does not name cannot be posted |
+| `templates_name_shape_and_carrier` | `/moderate` or `/implement` — the command is the ceiling, so a shape it does not name cannot be posted (the shapes lived in the routine templates until 2026-09-01) |
 | `gate_is_transport_blind` / `gate_never_reads_the_transport` | `ask-question.sh` — which questions are asked started depending on which surface would carry them |
 | `directed_notification_breaker_transport` / `directed_notification_breaker_rule` | the drill can no longer fail, so every row above proves nothing |
+
+## 5t. The stranded publication (does the loop repair what a generator can settle?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-stranded-publication [--json]
+```
+
+Walks reader → act → delivery → re-run → question for a **publish-tree publication** the loop
+opened and could not merge (2026-08-31, mission
+`repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`). It needs **no seed, no
+issue number, no credential and no network**: the origin is a bare local repository and the
+GitHub transport is a stub on `PATH`, so the fixture is a real collision on a real generated
+index rather than a shape that resembles one.
+
+**What it proves.** A publication — a `work-*` branch with **no claim commit**, which is exactly
+what `publish-tree-pr.sh` pushes — is read at all, with each of the three classes derived through
+the one derivation; a collision only a person can settle is refused by its own word with its
+branch **byte-identical**; a collision a generator settles is caught up, **regenerated so both
+sides' records survive**, pushed and delivered with no person; **a publication that collides with
+nothing is delivered with no catch-up at all** — nothing merged, regenerated, validated or
+pushed, and no ref written before the merge; no path leaves a worktree behind; a re-run moves no
+ref, and a re-run over the *delivered* publication refuses by name because the merge closed its
+pull request; and the content one reaches a person as exactly one keyed question.
+
+**Its two breakers both run before anything is settled**, deliberately: afterwards the settleable
+branch contains the base and the delivered one is closed, so there is nothing left to misclassify
+or refuse. The first strips the generated-region proof out of
+`ship/scripts/lib/conflict-class.sh` and asserts the settleable collision then reads `content` —
+reported rather than repaired. The second (2026-09-01, mission
+`deliver-a-stranded-publication-that-needs-nothing-but-a-merge`) narrows the act's class gate back
+to `mechanical` alone and asserts the clean publication is then refused `not_mechanical:clean`
+with nothing attempted — five green publications read, named and delivered by nothing. Each is the
+measured incident reproduced on demand, and each runs against its **own** broken copy of the
+skills tree so neither confounds what the other asserts.
+
+**What this drill does not prove** is that the consuming repository's own incident is gone. That
+repository may be on a different plugin version; this exercises this checkout's scripts only.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `stranded_reader_sees_a_publication` | `list-stranded-publications.sh` — a publication is invisible again, or its class is no longer the one derivation's |
+| `stranded_content_is_refused` | `settle-stranded-publication.sh` — the act is resolving a collision only a person may, or it moved a branch it refused |
+| `stranded_mechanical_is_settled` | `settle-stranded-publication.sh` or `catchup-main.sh` — the repair stopped firing, or the regeneration stopped re-deriving the index from the merged source |
+| `stranded_leaves_no_worktree` | `settle-stranded-publication.sh` — the teardown stopped running |
+| `stranded_rerun_is_a_noop` | `settle-stranded-publication.sh` — the act is no longer idempotent |
+| `stranded_clean_is_settled` | `settle-stranded-publication.sh` — the class gate narrowed back to `mechanical`, or the `clean` path started taking a catch-up it has nothing to do |
+| `stranded_clean_rerun_is_a_noop` | `settle-stranded-publication.sh` or `list-stranded-publications.sh` — a delivered publication is being acted on a second time, or the reader started naming a pull request nobody has open |
+| `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
+| `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
 ## 9. The drill register
 
@@ -1462,6 +1524,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-base-health` | `hermetic` | yes | `read-whether-the-base-survived-what-the-loop-merged` |
 | `verify-return-path` | `hermetic` | yes | `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work` |
 | `verify-reconcile` | `hermetic` | yes | `reconcile-a-stale-thread-with-the-unit-s-real-state` |
+| `verify-log-branch` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |
 | `verify-checkin-delivery` | `hermetic` | yes | `deliver-what-the-loop-already-knows-to-the-person-who-can-act` |
 | `verify-findings-to-work` | `hermetic` | yes | `let-the-tick-s-own-findings-become-the-loop-s-work` |
 | `verify-act-effect` | `hermetic` | yes | `read-back-whether-the-loop-s-own-act-took-effect` |
@@ -1471,6 +1534,9 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-claim-race` | `hermetic` | yes | `stop-two-runs-from-claiming-and-driving-one-unit` |
 | `verify-directed-notification` | `hermetic` | yes | `notify-the-person-a-directed-question-addresses` |
 | `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
+| `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
+| `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
+| `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
 
 ### The evidence behind the classification
 

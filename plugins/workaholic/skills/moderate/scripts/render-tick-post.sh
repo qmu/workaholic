@@ -119,11 +119,19 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 
 TICK=''; ROOT='.'; QUESTIONS=0
+SW_HOUR_IN=''
+SW_WEEKDAY_IN=''
 while [ $# -gt 0 ]; do
     case "$1" in
         --tick)      TICK="${2:-}"; shift 2 ;;
         --root)      ROOT="${2:-}"; shift 2 ;;
         --questions) QUESTIONS="${2:-0}"; shift 2 ;;
+        # THE SAME TWO OVERRIDES `ask-question.sh` TAKES, and for the same reason: the window is
+        # read off the wall clock in production, and a drill that could not name an hour could
+        # only be run during one. Passing them here keeps both halves of the tick answering the
+        # same question from the same inputs.
+        --hour)      SW_HOUR_IN="${2:-}"; shift 2 ;;
+        --weekday)   SW_WEEKDAY_IN="${2:-}"; shift 2 ;;
         *) shift ;;
     esac
 done
@@ -205,13 +213,13 @@ printf '%s\n' "$INPUT" \
 # a producer that does not classify its steps; an empty `reason` matches and stays empty.
 printf '%s\n' "$INPUT" \
   | tr '{' '\n' \
-  | sed -n 's/.*"step": *"\([^"]*\)".*"status": *"\([^"]*\)".*"reason": *"\([^"]*\)".*/\1\t\2\t\3/p' > "${TMP}/status"
+  | sed -n 's/.*"step": *"\([^"]*\)".*"status": *"\([^"]*\)".*"reason": *"\([^"]*\)".*"summary": *"\([^"]*\)".*/\1\t\2\t\3\t\4/p' > "${TMP}/status"
 
 # `STEPS` ORDER COMES FOR FREE: `run.sh` walks `STEPS` and emits its rows in that order, so
 # preserving the input order IS that order. Re-listing the steps here would be a second copy
 # of a list this script has no business owning.
 : > "${TMP}/impaired"
-while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
+while IFS="$TAB" read -r step status reason summary || [ -n "$step" ]; do
     [ -n "$step" ] || continue
     case "$status" in
         degraded|blocked) ;;
@@ -220,8 +228,10 @@ while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
     IMPAIRED="${IMPAIRED:+${IMPAIRED}, }{\"step\": \"$(json_escape "$step")\", \"status\": \"$(json_escape "$status")\", \"reason\": \"$(json_escape "$reason")\"}"
     IMPAIRED_COUNT=$((IMPAIRED_COUNT + 1))
     # The derived set, kept beside the JSON so the root's clause reads THIS and never
-    # re-tokenises the rows. One derivation, two renderings.
-    printf '%s\t%s\t%s\n' "$step" "$status" "$reason" >> "${TMP}/impaired"
+    # re-tokenises the rows. One derivation, two renderings. THE SUMMARY RIDES ALONG since
+    # 2026-09-01: it is the only field of the four that is a SENTENCE, and the root's line is
+    # read by a person.
+    printf '%s\t%s\t%s\t%s\n' "$step" "$status" "$reason" "$summary" >> "${TMP}/impaired"
 done < "${TMP}/status"
 
 [ -n "$TICK" ] || emit false no_tick "" 0 "" ""
@@ -236,7 +246,21 @@ case "$LOG" in
     *) emit false no_log "" 0 "" "" ;;
 esac
 
-PREV=$(printf '%s\n' "$LOG" | tr '{' '\n' | sed -n 's/.*"tick": *"\([^"]*\)".*/\1/p' \
+# THE BASELINE IS THE LAST TICK THAT SPOKE, NOT THE LAST TICK THAT RAN (2026-09-01).
+# The diff answers *what changed since the reader last heard from us*, and once a tick can be
+# held by the speaking window (below) those two stopped being the same question. A change that
+# arrives at 02:00 and persists would otherwise be diffed away by 03:00 against a 02:00 tick
+# nobody read, and be gone by the time anyone was listening -- held is not dropped, and this is
+# the half of that rule the change diff owes.
+#
+# `human-checkin-post` is the line the posting tick already writes, so the baseline is read from
+# the log rather than stored; a tick that posted nothing writes none. With no posting tick in the
+# window the reader falls back to the previous tick, which is exactly the behaviour that predates
+# this and the right answer for a repository whose log does not go back far enough.
+PREV=$(printf '%s\n' "$LOG" | tr '{' '\n' \
+       | sed -n 's/.*"tick": *"\([^"]*\)".*"step": *"human-checkin-post".*/\1/p' \
+       | sort -u | awk -v t="$TICK" '$0 < t' | tail -n 1)
+[ -n "$PREV" ] || PREV=$(printf '%s\n' "$LOG" | tr '{' '\n' | sed -n 's/.*"tick": *"\([^"]*\)".*/\1/p' \
        | sort -u | awk -v t="$TICK" '$0 < t' | tail -n 1)
 [ -n "$PREV" ] || emit false no_previous_tick "" 0 "" ""
 
@@ -399,6 +423,34 @@ esac
 # impairment must be STATED on every root, and it must EARN one only when it moved. A standing
 # impairment therefore appears on every root the tick posts for any reason, and opens no root
 # of its own after the first — which is the property `📦 Release Preparation` lacked.
+# ═══ IS ANYONE LISTENING? ════════════════════════════════════════════════════════
+#
+# THE ROOT IS HELD BY THE SAME WINDOW THAT HOLDS THE QUESTIONS (2026-09-01, the developer's
+# instruction). `ask-question.sh` has honoured `WORKAHOLIC_QUIET_HOURS` / `WORKAHOLIC_WORK_DAYS`
+# since it was written; this renderer did not know the window existed. Measured on
+# `#coop-planner`: a root posted at **04:01 JST** reading `質問 0 件` while the same tick held
+# **seventeen** questions -- six expiring directions and two blocked retirements -- every one
+# refused `quiet_hours`. The loop woke the channel to say something addressed to nobody and held
+# back the only things addressed to someone. A status line addressed to nobody is what
+# `🔧 Needs a decision` and `📦 Release Preparation` were retired for; at 4am it is that shape
+# with the volume turned up.
+#
+# HELD IS NOT DROPPED, and the baseline above is what makes that true: the diff is against the
+# last tick that SPOKE, so the first working-hour tick says what changed across the whole silence
+# and asks what the window held. Nothing is written down to achieve it and no cursor is added.
+#
+# THE RED ALERT IS UNTOUCHED. `workaholic:notify`'s `🔴 Blocked` root has its own cool-down and
+# its own reason to break a quiet hour; this gate governs the moderation root alone, which is
+# never an alert.
+. "${SCRIPT_DIR}/lib/speaking-window.sh"
+speaking_window "${SW_HOUR_IN:-}" "${SW_WEEKDAY_IN:-}" "$TICK"
+if [ "$SW_OFFDAY" = "true" ]; then
+    emit false off_day "$changes" "$count" "$PREV" ""
+fi
+if [ "$SW_QUIET" = "true" ]; then
+    emit false quiet_hours "$changes" "$count" "$PREV" ""
+fi
+
 if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ] && [ "$delivery_failure" -eq 0 ] && [ "$IMPAIRMENT_CHANGED" -eq 0 ]; then
     if [ "$count" -eq 0 ]; then
         emit false idle "" 0 "$PREV" ""
@@ -431,16 +483,33 @@ fi
 IMPAIRED_HEAD=''
 IMPAIRED_BODY=''
 if [ "$IMPAIRED_COUNT" -gt 0 ]; then
-    IMPAIRED_HEAD=", ${IMPAIRED_COUNT} step(s) could not read"
+    # THE HEAD COUNTS NO STEPS (2026-09-01, the developer's instruction). It read
+    # `N step(s) could not read`, and the developer's answer to it was *なんのことを言っている
+    # のかわからない* -- correctly: a reader of this channel has no model of "steps", which are
+    # this loop's own internal machinery. The clause survives where it is useful, in the body,
+    # as a sentence. The gate does not move: an impairment that changed still opens a root.
+    IMPAIRED_HEAD=""
     shown=0
-    while IFS="$TAB" read -r step status reason || [ -n "$step" ]; do
+    while IFS="$TAB" read -r step status reason summary || [ -n "$step" ]; do
         [ -n "$step" ] || continue
         shown=$((shown + 1))
         [ "$shown" -gt "$IMPAIRED_MAX" ] && break
-        # An empty reason renders as no reason rather than as a dangling colon: `run.sh`
-        # leaves it empty where the step named none, and inventing punctuation for an absent
-        # value reads as a truncated one.
-        if [ -n "$reason" ]; then
+        # THE LINE IS THE STEP'S OWN SUMMARY, WHICH IS A SENTENCE. It read
+        # `⚠️ base-health — degraded: base_unreadable:tip_transport_error` -- a step id, a
+        # status word and a reason word, and nothing a person could act on. The same step's
+        # summary already says it in words: *the base's checks could not be read
+        # (tip_no_checks); a red base is indistinguishable from a green one this tick* -- what
+        # was not read AND what follows from it, with the machine word kept inside the
+        # parentheses where it stays searchable. No new field was added to say this; the log
+        # has carried it all along and the root was reading the wrong three columns.
+        #
+        # A step with no summary falls back to the old shape rather than rendering nothing: an
+        # impairment that vanished because its sentence was missing is the failure the whole
+        # clause exists to prevent.
+        if [ -n "$summary" ]; then
+            IMPAIRED_BODY="${IMPAIRED_BODY}⚠️ ${summary}
+"
+        elif [ -n "$reason" ]; then
             IMPAIRED_BODY="${IMPAIRED_BODY}⚠️ ${step} — ${status}: ${reason}
 "
         else

@@ -2,7 +2,7 @@
 type: Mission
 title: Deliver what the loop already knows to the person who can act
 slug: deliver-what-the-loop-already-knows-to-the-person-who-can-act
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-28T12:20:17+00:00
 author: a@qmu.jp
@@ -54,3 +54,5 @@ of looking like a quiet hour.
 - 2026-09-01 — ticket archived — 20260828122110-read-back-what-the-check-in-delivered-and-held.md
 - 2026-09-01 — ticket archived — 20260828122110-make-a-tick-that-reached-nobody-a-visible-event.md
 - 2026-09-01 — ticket archived — 20260828122110-drill-the-check-in-delivery-path-with-no-network.md
+- 2026-09-01 — ticket archived — 20260828122110-state-the-check-in-cap-contract-in-the-skill.md
+- 2026-09-01 — mission achieved — mission.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T08:26:31+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -104,3 +105,42 @@ inherit it and neither gains a network call of its own.
   the cap is genuinely better reported as `unknown` and looked at next hour.
 - The cache is keyed on the limit it was resolved at; the settled answer must go into the
   cached payload, or the second step will re-read the same rows.
+
+## Final Report
+
+Development completed as planned.
+
+The reproduction ran first and corrected the ask's premise in one direction and confirmed
+it in another. Against this repository's eight open pull requests: the **list** endpoint
+answered `mergeable: null` for all 8 — the field does not exist there at all, which is why
+`pulls-state.sh` already does a per-pull `GET`. The **first** per-pull read then settled
+all 8 (`false`/`dirty` × 5, `true`/`clean` × 3), so no second read was needed at that
+moment — because earlier steps of the same run had already scheduled every one of those
+merge jobs. That is the mechanism the ticket names, observed from the other side: the read
+that settles is the one that follows an earlier read, and the tick's own first read is the
+one that schedules.
+
+The second look therefore lives in `pulls-state.sh` alone: one short wait
+(`WORKAHOLIC_PULLS_STATE_REREAD_WAIT`, default 2s), then one re-read per `null` row —
+never a retry loop — bounded by `WORKAHOLIC_PULLS_STATE_REREAD_MAX` (default 5 rows) and
+`WORKAHOLIC_PULLS_STATE_REREAD_BUDGET_SECONDS` (default 10s). A row that answers on the
+re-read is classified from the new answer; a row that stays `null` stays `unknown`, and
+`merge-conflicts`'s `uncomputed` count is unchanged for it. The spend is reported as
+`reread_attempted` / `reread_settled` / `reread_capped`, so a tick that spent the budget
+and learned nothing says so rather than looking like one that never tried.
+
+### Discovered Insights
+
+- **Insight**: `testOneReadingOfTheOpenPullRequests`'s fixture reproduces the historical
+  two-resolutions drift *through* a first answer of `null` — which is exactly what the
+  second look now settles. Left alone, the row would have kept passing while no longer
+  testing what it names.
+  **Context**: The row now runs with `WORKAHOLIC_PULLS_STATE_REREAD_MAX=0`, a legitimate
+  value of a named cap rather than a test-only hook. Any future change to the re-read must
+  ask the same question of that fixture: does the mechanism under test survive the repair?
+
+- **Insight**: The re-read loop reads its rows from a heredoc, and a transport invoked
+  inside it inherits that stdin. Without `</dev/null` on the re-read call, `gh` would
+  consume the rows behind the one being re-read.
+  **Context**: The same shape recurs anywhere a `while read` loop calls out to
+  `gh-rest.sh`; the symptom is silently dropped rows rather than an error.

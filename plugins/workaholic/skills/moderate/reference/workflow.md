@@ -130,6 +130,19 @@ is only what a line is allowed to prove.
   Mergeability lives only on the single-pull endpoint, so the per-pull reads are bounded by
   `--limit` (default 10) and the cap is **reported** — a busy repository is never silently
   half-read. GitHub's lazily-computed `mergeable: null` is `unknown`, never `clean`.
+- **And a `null` gets ONE second look before either step sees it** (2026-09-01, ticket
+  `20260901082631`). Requesting the pull request is what *schedules* the background merge job,
+  so the tick's own first per-pull read is systematically the one most likely to answer `null`:
+  measured (issue #838), four pull requests reported `unknown` hour after hour and a hand read
+  settled all four on the first try, because the hand read was the **second** read. The reader
+  waits once (`WORKAHOLIC_PULLS_STATE_REREAD_WAIT`, default 2s) and re-reads the `null` rows
+  **once** — never a retry loop — bounded by `WORKAHOLIC_PULLS_STATE_REREAD_MAX` (default 5
+  rows) and `WORKAHOLIC_PULLS_STATE_REREAD_BUDGET_SECONDS` (default 10s in total), and reports
+  the spend as `reread_attempted` / `reread_settled` / `reread_capped` so a tick that spent the
+  budget and learned nothing says so. It lives in **`pulls-state.sh` alone**, so both steps
+  inherit the settled answer and **neither gains a network call of its own** — a step-level
+  re-read would re-open exactly the drift the per-tick cache below exists to close. A row still
+  `null` after the second look is still `unknown`, and `uncomputed` still counts it.
 - **Resolved once per tick, used twice — and since 2026-08-29 actually so** (ticket
   `20260829092043`). That sentence stood under step 6 while both steps called the reader
   themselves, so a tick made two rounds of per-pull reads. Because `mergeable` is computed

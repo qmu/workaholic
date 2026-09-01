@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:00:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826110016-add-the-moderate-step-direction-health.md
@@ -76,3 +77,24 @@ the surface, which is why the reading goes to the question surface instead.
 - The root carries questions; the line is context for the question beneath it. A line with
   no question under it is exactly what the `no_question` gate already suppresses, so this
   adds no new posting path.
+
+## Final Report
+
+Development completed as planned — the behaviour was already present on the base when this
+ticket was driven and was verified here against its own Quality Gate rather than assumed.
+
+`step-direction-health.sh` supplies an `event` naming the repository event and an empty one
+when every direction reads `live` or the reader was `unreadable`; `render-tick-post.sh`
+needed no change, which is what the ticket asked to be verified rather than assumed — a step
+with no `event` renders no line, and that is the independent guard against a
+nothing-happened line reaching the root. `summary` stays the audit-trail line, carrying no
+timestamp or bare object name, so the change diff does not read "changed" every tick by
+construction. `/standup`'s `no_strategies` no-op is untouched.
+
+### Discovered Insights
+
+- **Insight**: An event now names no identifier at all — *how many* is news and *which* is a
+  task — so a slug belongs in the question, never in a line addressed to nobody.
+  **Context**: This narrowed after the ticket was written and is the reason the step's
+  `event` and its questions carry different content from the same reading. A later change
+  that puts a slug back on the root line is undoing a decision, not adding detail.

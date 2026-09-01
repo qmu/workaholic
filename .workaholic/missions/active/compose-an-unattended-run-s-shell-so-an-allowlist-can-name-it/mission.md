@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-104910
 ---
 
 # Compose an unattended run's shell so an allowlist can name it

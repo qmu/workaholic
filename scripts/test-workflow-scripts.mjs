@@ -7995,6 +7995,109 @@ function testStandupDigest() {
   } finally { cleanup(dir); }
 }
 
+// ---------- standup/digest.sh: the MISSION GRAIN (2026-09-01, ticket `20260901083237`) ----
+// The operator's ordinary question — "so how many todos are left?" — was answered by no
+// reading this loop had. What is pinned here is that the answer is a COMPOSITION of readers
+// that already existed: `attributed-work.sh` says which missions the direction owns,
+// `progress.sh` says how far each is, `queue-size.sh` says what is queued under it, and
+// `list-todo.sh` is the repository's queue. Nothing here may become a second walker, and no
+// artifact may gain a field to make the join legible — that relation is retired by name.
+function testStandupDigestMissionGrain() {
+  const dir = makeRepo("main");
+  const DIGEST = `${POSIX_SH} ${SCRIPTS.standupDigest}`;
+  const PROGRESS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh")}`;
+  const QUEUE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const REF = "20260801000001-one.md";
+  const mission = (slug, title, acceptance) =>
+    `---\ntype: Mission\ntitle: ${title}\nslug: ${slug}\nstatus: active\nfeedback: [${REF}]\n---\n\n` +
+    `# ${title}\n\n## Experience\n\nx\n${acceptance}`;
+  try {
+    wf(".workaholic/strategies/dir-a.md",
+      `---\ntype: Strategy\ntitle: Direction A\nslug: dir-a\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [a@qmu.jp]\nfeedback: [${REF}]\n---\n\n` +
+      `# Direction A\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`);
+    wf(".workaholic/missions/active/m-one/mission.md",
+      mission("m-one", "M One", "\n## Acceptance\n\n- [x] done one\n- [ ] left one\n"));
+    wf(".workaholic/missions/active/m-two/mission.md",
+      mission("m-two", "M Two", "\n## Acceptance\n\n- [ ] left two\n"));
+    // A mission with no acceptance block at all reads 0/0 — a real state, and the one that
+    // would be indistinguishable from an unreadable read if a failure were allowed to zero.
+    wf(".workaholic/missions/active/m-three/mission.md", mission("m-three", "M Three", ""));
+    for (const [n, slug] of [[1, "m-one"], [2, "m-one"], [3, "m-two"]]) {
+      wf(`.workaholic/tickets/todo/2026081000000${n}-queued-${n}.md`,
+        `---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: ${slug}\n---\n\n# Queued ${n}\n`);
+    }
+    // Queued under no mission and no direction: it counts toward the repository total and
+    // toward nothing else, which is the whole point of reporting the total separately.
+    wf(".workaholic/tickets/todo/20260812000001-orphan.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# Orphan queued\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const d = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    const a = d.strategies.find((s) => s.slug === "dir-a");
+
+    // The order is the attribution reader's own — its artifact walk is path-sorted — and it
+    // is asserted rather than re-sorted here, so a change in that reader's order shows up as
+    // a failure in the consumer that renders it rather than being quietly absorbed.
+    assertEq("the direction names its active missions, in the attribution reader's own order",
+      a.missions.map((m) => [m.slug, m.title]),
+      [["m-one", "M One"], ["m-three", "M Three"], ["m-two", "M Two"]]);
+    assertEq("each mission carries its acceptance progress and its queued count",
+      a.missions.map((m) => [m.checked, m.total, m.queued]), [[1, 2, 2], [0, 0, 0], [0, 1, 1]]);
+    assertEq("a completed grain is readable with no reason, like every other record here",
+      a.missions.map((m) => [m.readable, m.reason]), [[true, ""], [true, ""], [true, ""]]);
+    assertEq("and the repository's whole queue is reported beside the per-mission counts",
+      d.queued_total, 4);
+
+    // THE COMPOSITION IS THE POINT: the digest must agree with the readers it composes,
+    // rather than carrying a second derivation that can drift from them.
+    for (const m of a.missions) {
+      const p = JSON.parse(run(dir, `${PROGRESS} ${m.slug}`).stdout);
+      const q = JSON.parse(run(dir, `${QUEUE} ${m.slug} .workaholic`).stdout);
+      assertEq(`the grain for ${m.slug} is exactly what progress.sh and queue-size.sh answer`,
+        [m.checked, m.total, m.queued], [p.checked, p.total, q.todo]);
+    }
+
+    // ---- the cap applies to the new block too, and every cut is counted ----
+    const capped = JSON.parse(run(dir, `STANDUP_MAX_ITEMS=2 ${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("the mission list is capped and the cut is counted, never silently dropped",
+      [capped.strategies[0].missions.length, capped.strategies[0].missions_omitted], [2, 1]);
+
+    // ---- every existing field survives unchanged in name and meaning ----
+    for (const k of ["slug", "title", "status", "target_date", "days_to_target", "assignees",
+      "stage", "readable", "reason", "count", "active_count", "waiting_count", "empty_reason",
+      "moved", "waiting", "moved_omitted", "waiting_omitted"]) {
+      assertTrue(`the strategy record still carries ${k}`, k in a, JSON.stringify(Object.keys(a)));
+    }
+
+    // ---- no artifact gains a field, and the digest stays a pure read ----
+    assertTrue("no strategy: relation is written onto any mission",
+      !run(dir, "grep -rn '^strategy:' .workaholic/missions || true").stdout.trim(),
+      run(dir, "grep -rn '^strategy:' .workaholic/missions || true").stdout);
+    assertEq("the mission grain leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+    assertEq("and commits nothing", run(dir, "git log --oneline").stdout.trim().split("\n").length, 2);
+
+    // A GRAIN THAT COULD NOT BE READ IS NAMED, NEVER ZEROED. The branch is not reachable
+    // from a fixture — a mission is named here only because the attribution walk just read
+    // its file, so `progress.sh` and `queue-size.sh` cannot fail on it in the same process —
+    // so the rule is pinned where it is written. A zero would read as "nothing left", which
+    // is the opposite of "we could not look".
+    const code = readFileSync(SCRIPTS.standupDigest, "utf8");
+    for (const reason of ["mission_progress_unreadable", "mission_queue_unreadable",
+      "mission_unreadable", "queue_unreadable"]) {
+      assertTrue(`the digest names ${reason} rather than reporting a count it did not read`,
+        code.includes(reason), reason);
+    }
+    assertTrue("and an unreadable grain carries null counts, never zeroed ones",
+      /_sm_checked=null/.test(code) && /_sm_queued=null/.test(code), code.slice(0, 200));
+  } finally { cleanup(dir); }
+}
+
 // ---------- /moderate: the tick's own voice, one root an hour (2026-08-21) ----------
 // WHAT IS PINNED is the gate, not the wording. An hourly root is only admissible here
 // because an idle hour is silent, and the thing that makes it silent is that a "change"
@@ -20856,6 +20959,7 @@ const tests = [
   ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
   ["the run reports name a degraded direction reading", testRunReportsNameADegradedReading],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
+  ["standup/digest.sh reports the mission grain and the whole queue", testStandupDigestMissionGrain],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],
   ["moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline],
@@ -28099,6 +28203,34 @@ function testMissionStrategy() {
     assertEq("no mission gained a strategy field",
       /^strategy:/m.test(readFileSync(join(dir, ".workaholic/missions/active/carried/mission.md"), "utf8")),
       false);
+
+    // THE ANSWER HAS TO REACH A PERSON WHERE THEY MEET A MISSION (2026-09-01, mission
+    // `report-where-the-work-stands-not-only-what-is-wrong`). The ask was "a person opening a
+    // mission file cannot tell which direction it serves", and it proposed the one mechanism
+    // this repository has ruled against by name. The need is met by the RENDER, so what is
+    // pinned is that the render surfaces state the reader and the three-way answer, and that
+    // the ruling is written where the question will be asked again.
+    {
+      const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+      const report = skill.slice(skill.indexOf("## Mission Position Report"));
+      assertTrue("the Mission Position Report derives the direction through the one inverse reader",
+        /mission-strategy\.sh/.test(report.slice(0, 3000)), report.slice(0, 300));
+      assertTrue("and renders no strategy explicitly, so unattributed never reads as absent",
+        /no strategy/.test(report.slice(0, 3000)), report.slice(0, 300));
+      const schema = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/schema.md"), "utf8");
+      assertTrue("the schema records how a mission's direction is read",
+        /mission-strategy\.sh/.test(schema), "missing from mission/reference/schema.md");
+      assertTrue("and why the frontmatter key is not the answer",
+        /no `strategy:` key/.test(schema), "missing from mission/reference/schema.md");
+      const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+      assertTrue("and CLAUDE.md agrees that it is a render rather than a field",
+        /Which direction a mission serves is a render, not a field/.test(claudeMd),
+        "missing from CLAUDE.md");
+    }
+    // NO SCAFFOLD WRITES ONE EITHER. The template is where a re-added key would arrive first.
+    assertTrue("create.sh scaffolds no strategy: key",
+      !/^\s*strategy:/m.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"), "utf8")),
+      "a strategy: key survives in the mission scaffold");
 
     // It is a READER: the roadmap it feeds runs on the operator's own checkout.
     assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:00:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826110016-add-the-dormant-reading-to-the-strategy-survey.md
@@ -83,3 +84,23 @@ at all.
   field rather than a synthetic row — a row with no slug would be a strategy that is not one.
 - The reader answers *what state is this in*. It never answers *what should be done about
   it*: that is the question body, ticket 5.
+
+## Final Report
+
+Development completed as planned — the reader was already present on the base when this
+ticket was driven and was verified here against its own Quality Gate rather than assumed.
+
+`strategy/scripts/direction-state.sh` composes `survey-strategies.sh` and re-derives no
+reading of its own. It answers one state per strategy plus the repository-level `none`, with
+the precedence fixed and stated in the script: `unreadable > arrived > overdue > expiring >
+dormant > live`. A survey that refused answers `readable: false` with a named reason and
+`repository: unreadable` — never `none`, which asserts the opposite. It writes nothing.
+
+### Discovered Insights
+
+- **Insight**: The precedence grew two values (`arrived`, `expiring`) after this ticket was
+  written, and both were inserted without disturbing the ordering the ticket specified.
+  **Context**: The ordering is documented in the script's own header with the argument for
+  each position rather than as a bare list, which is why two later insertions could be
+  argued into place instead of appended. A reader adding a seventh state has the reasoning
+  it must beat already written down.

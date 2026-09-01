@@ -52,3 +52,4 @@ and `/propose`'s gates are unchanged.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-01 — ticket archived — 20260826110016-add-the-overdue-reading-to-the-strategy-survey.md
 - 2026-09-01 — ticket archived — 20260826110016-add-the-dormant-reading-to-the-strategy-survey.md
+- 2026-09-01 — ticket archived — 20260826110016-write-the-one-reader-of-a-direction-s-lifecycle-state.md

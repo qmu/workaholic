@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T12:21:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -73,3 +74,20 @@ its own `event` when it had candidates and delivered none, so the gate carries i
 - It is addressed to nobody, deliberately: it reports that the loop could not reach
   anyone, and naming a person for the loop's own degradation is what `strategy-pace`
   already refuses.
+
+## Final Report
+
+**The work is already on the base**, landed while proposal #688 sat stranded. Verified:
+
+- `step-human-checkin.sh` supplies its own `event` on the `ok` branch when it had candidates
+  and delivered none, so the root's gate carries a delivery failure. The `skipped` and
+  `degraded` paths deliberately supply an empty `event` — a quiet hour and an off day are not
+  delivery failures.
+- The event fires only on `cap_spent` or `cap_unbounded`, and only when that reading
+  **changed** since the previous tick, so it is said once and stops entirely once the channel
+  is delivering. `workaholic:moderate` records it as the **third gate** on the root, beside the
+  question gate and the morning digest, and states that it is not the retired changed-step half.
+- The measured baseline is recorded with it: a tick with 22 candidates and zero delivered
+  posted nothing at all, byte-identical to a quiet hour, over eight consecutive ticks.
+
+Nothing was re-implemented.

@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260901-055834](work-20260901-055834.md)
 * [work-20260901-050906](work-20260901-050906.md) - Make the mergeability reader predict GitHub's merge rather than this checkout's, which a local merge driver had been quietly resolving
 * [work-20260901-034625](work-20260901-034625.md) - Give the clean stranded-publication class an owner — the act, the caller, and a drill that fails when it stops firing
 * [work-20260831-231823](work-20260831-231823.md) - Pin the merged-proposal narrowing — the step spec's fourth copy caught up with the other three, and nine rows hold all four transitions

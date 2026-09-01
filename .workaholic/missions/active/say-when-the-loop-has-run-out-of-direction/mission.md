@@ -2,7 +2,7 @@
 type: Mission
 title: Say when the loop has run out of direction
 slug: say-when-the-loop-has-run-out-of-direction
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T07:19:28+00:00
 author: a@qmu.jp
@@ -57,3 +57,5 @@ and `/propose`'s gates are unchanged.
 - 2026-09-01 — ticket archived — 20260826110016-render-the-direction-reading-on-the-tick-root.md
 - 2026-09-01 — ticket archived — 20260826110016-make-the-direction-question-actionable-in-its-body.md
 - 2026-09-01 — ticket archived — 20260826110016-pin-the-three-refusals-with-a-hermetic-test.md
+- 2026-09-01 — ticket archived — 20260826110017-drill-the-direction-health-chain-with-no-network.md
+- 2026-09-01 — mission achieved — mission.md

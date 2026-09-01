@@ -24,8 +24,9 @@ The notification surface is **this command's**, not the routine's — a routine 
 When the run finds an ask in hand, post one finish line into its reply thread (the `workaholic:notify` lookup):
 
 ```
-🔵 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
-by the [routine](<session URL>)
+🔵 Proposed [#123 [Proposal] PR Title](<repo-url>/pull/123)
+One sentence, max 30 words, what this proposal queues.
+by [web routine](<session URL>)
 ```
 
 If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:

@@ -4,9 +4,66 @@
 # Usage: list-retirable-claims.sh
 # Output: {"ok": bool, "reason": "", "fetched": bool, "shallow": bool,
 #          "candidates": [{"unit": "...", "branch": "work-...",
-#                          "state": "present"|"already_gone"}]}
+#                          "state": "present"|"already_gone",
+#                          "candidate_reason": "superseded_only"|"pull_request_merged"
+#                                              |"pull_request_closed_unmerged",
+#                          "branch_empty": "true"|"false"|"unanswerable"}],
+#          "pull_request_unreadable": [{"branch": "work-...", "reason": "<named>"}]}
 #         Always exit 0 — a degraded read is an answer, and its caller (a workflow step)
 #         reports it rather than failing the job on it.
+#
+# THREE CANDIDATE CLASSES, EACH CARRYING ITS OWN WORD (2026-09-01, mission
+# `leave-only-live-work-in-the-unmerged-branch-list`). `candidate_reason` rides every row so
+# the classes stay told apart at a glance and no caller loses information:
+#
+#   superseded_only                 the claim oracle proved the unit's content reached the base
+#                                   and the branch is empty against it — the original class,
+#                                   unchanged
+#   pull_request_merged             this branch's own pull request MERGED
+#   pull_request_closed_unmerged    a person CLOSED this branch's pull request without merging
+#
+# THE THIRD CLASS IS NEVER FOLDED INTO THE SECOND. They answer different questions — *the loop
+# delivered this* and *a person discarded this* — and one word answering two questions is how
+# two questions drift. Measured 2026-09-01: five branches whose pull requests the operator
+# closed unmerged as superseded (#801, #802, #790 by #800; #520 by #519; #466 by #465), one
+# closing comment reading *"this branch and `main` repaired the same defect twice"*. A
+# hand-closed branch is not empty by construction, so `superseded` can never reach it.
+#
+# `branch_empty` RIDES BOTH PULL-REQUEST CLASSES AS EVIDENCE, NEVER AS A GATE — three-valued,
+# with `unanswerable` named rather than assumed. It matters most on the closed-unmerged class,
+# where the proof is a person's DECISION about the branch rather than a reading of the tree:
+# such a branch may still hold work found on no other ref, and closing its pull request
+# unmerged is the operator saying that work is not wanted. Recording it first means CI's own
+# record answers *how often does that actually happen* from real data, before anything is
+# gated on it. A `superseded_only` row carries no such field: that verdict already asserts the
+# emptiness, and a second copy of one fact is how two copies come to disagree.
+#
+# WHY THE SECOND CLASS EXISTS. Measured 2026-09-01: 30 unmerged branches, 17 of them with a
+# merged pull request. A squash merge never makes the branch an ancestor of the base, so
+# `--no-merged` lists it forever, and `delete_branch_on_merge` — the only cleanup — is
+# FORWARD-ONLY, so every branch merged before that setting was applied stands permanently.
+# `superseded` reaches almost none of them: it is keyed on a UNIT and needs a claim commit,
+# and a publish-tree publication has none. The printed "ready-to-run deletion command" was 17
+# lines long and nobody had run it.
+#
+# A MERGED PULL REQUEST IS A PROOF in this repository's own sense (`../reference/claims.md`,
+# *Proofs and judgements*): the tree established it, and looking again cannot make it false.
+# That is the same standing `superseded` has, and it is why a destructive act may rest on it.
+#
+# A LIVE ROW BEATS IT, ALWAYS. A unit the oracle holds any live row for is never a candidate
+# whatever its pull request says — a run may be driving a fresh claim over a merged
+# predecessor, and the merged pull request is a fact about the OLD work. The rule stays the
+# library's (`claims_unit_resolution`), not a second copy of it.
+#
+# AN UNREADABLE PULL REQUEST IS NOT A MERGED ONE. `branch-pull-request-state.sh` answers
+# `ok: false` with no `state` key at all for every degradation, and such a branch contributes
+# no candidate and lands in `pull_request_unreadable[]` with its reason — never a bare
+# omission, which reads exactly like a branch whose pull request is open.
+#
+# THE COST IS ONE BOUNDED READ PER UNCLAIMED `work-*` BRANCH, and it is spent in CI rather
+# than in the hourly tick: the reader is composed by `claim-retirement.yml`, which already
+# defines a full-history checkout for the scan. A branch already named by the first class is
+# not read again.
 #
 # WHY IT EXISTS (2026-08-28, mission `finish-a-proved-retirement-where-the-write-is-permitted`).
 # Act 2 of the retirement — the remote branch delete — is refused in the container the loop runs
@@ -51,13 +108,16 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/runner-identity.sh"
 
 LISTER="${SCRIPT_DIR}/list-claims.sh"
+PR_STATE="${SCRIPT_DIR}/branch-pull-request-state.sh"
 
 FETCHED=false
 SHALLOW=false
+UNREADABLE=""
+unreadable_sep=""
 
 emit() {
-    printf '{"ok": %s, "reason": "%s", "fetched": %s, "shallow": %s, "candidates": [%s]}\n' \
-        "$1" "$2" "$FETCHED" "$SHALLOW" "${3:-}"
+    printf '{"ok": %s, "reason": "%s", "fetched": %s, "shallow": %s, "candidates": [%s], "pull_request_unreadable": [%s]}\n' \
+        "$1" "$2" "$FETCHED" "$SHALLOW" "${3:-}" "$UNREADABLE"
     exit 0
 }
 
@@ -116,6 +176,7 @@ units=$(printf '%s' "$out" \
 
 candidates=""
 sep=""
+named=""
 for unit in $units; do
     [ -n "$unit" ] || continue
     # THE LIVE ROW WINS. A unit whose claims are not ALL superseded is governed by its live
@@ -131,8 +192,60 @@ for unit in $units; do
     else
         state=already_gone
     fi
-    candidates="${candidates}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"state\": \"${state}\"}"
+    candidates="${candidates}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"state\": \"${state}\", \"candidate_reason\": \"superseded_only\"}"
     sep=", "
+    named="${named}${branch}
+"
 done
+
+# --- The second class: this branch's own pull request merged -------------------------------
+# Enumerated from the REFS rather than from the oracle's rows, because the branches this class
+# exists for have no claim commit at all — a publish-tree publication is exactly that shape.
+# The `work-YYYYMMDD-HHMMSS` pattern is the one `branching/scripts/create.sh` names and
+# `guard-git-branch.sh` enforces; a ref outside it was never minted by this protocol.
+BASE_REF=$(claims_base)
+if [ -f "$PR_STATE" ]; then
+    for ref in $(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/work-*' 2>/dev/null || true); do
+        branch=${ref#origin/}
+        printf '%s' "$branch" | grep -q '^work-[0-9]\{8\}-[0-9]\{6\}$' || continue
+        # Already named by the first class — one read per branch, never two.
+        printf '%s\n' "$named" | grep -qx "$branch" && continue
+
+        # The oracle's own word about this branch's unit, when it has one. A live row governs.
+        unit=$(printf '%s\n' "$rows" | awk -F'\t' -v b="$branch" '$2 == b { print $1; exit }')
+        if [ -n "$unit" ]; then
+            case "$(claims_unit_resolution "$rows" "$unit")" in
+                live | single | ambiguous) continue ;;
+            esac
+        fi
+
+        pr=$(sh "$PR_STATE" "$branch" 2>/dev/null || true)
+        pr_ok=$(printf '%s' "$pr" | jq -r '.ok // false' 2>/dev/null || printf 'false')
+        if [ "$pr_ok" != "true" ]; then
+            why=$(printf '%s' "$pr" | jq -r '.reason // "unreadable"' 2>/dev/null || printf 'unreadable')
+            UNREADABLE="${UNREADABLE}${unreadable_sep}{\"branch\": \"${branch}\", \"reason\": \"${why}\"}"
+            unreadable_sep=", "
+            continue
+        fi
+        case "$(printf '%s' "$pr" | jq -r '.state // ""' 2>/dev/null || printf '')" in
+            merged)          why=pull_request_merged ;;
+            closed_unmerged) why=pull_request_closed_unmerged ;;
+            *)               continue ;;
+        esac
+
+        # THE EMPTINESS READING RIDES EVERY ROW AS EVIDENCE, NEVER AS A GATE. `true` / `false` /
+        # `unanswerable`, the third named rather than assumed. It matters most on the
+        # closed-unmerged class, where the proof is a person's DECISION about the branch rather
+        # than a reading of the tree: such a branch may still hold work found on no other ref,
+        # and closing its pull request unmerged is the operator saying that work is not wanted.
+        # Recording it here means CI's own record answers *how often does that actually happen*
+        # from real data, before anything is gated on it.
+        empty=$(claims_branch_empty_against_base "$BASE_REF" "origin/${branch}")
+        case "$empty" in true|false) ;; *) empty=unanswerable ;; esac
+
+        candidates="${candidates}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"state\": \"present\", \"candidate_reason\": \"${why}\", \"branch_empty\": \"${empty}\"}"
+        sep=", "
+    done
+fi
 
 emit true "" "$candidates"

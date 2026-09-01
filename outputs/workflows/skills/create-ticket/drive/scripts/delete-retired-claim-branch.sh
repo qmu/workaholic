@@ -1,7 +1,14 @@
 #!/bin/sh -eu
 # The CI-side ACT: delete the remote branch of a claim the oracle proves holds nothing.
 #
-# Usage: delete-retired-claim-branch.sh <unit-id>
+# Usage: delete-retired-claim-branch.sh <unit-id> [--branch <branch>] [--reason <candidate_reason>]
+#   --reason  which proof the candidate claims: `superseded_only` (the default, and what every
+#             caller passed before 2026-09-01), `pull_request_merged`, or
+#             `pull_request_closed_unmerged`. Each is RE-DERIVED here; the flag says which
+#             question to re-ask, never what the answer is.
+#   --branch  required for the two pull-request classes, whose candidates may carry NO unit at
+#             all: a publish-tree publication has no `Claim` commit, so the oracle names no
+#             unit for it and `<unit-id>` is empty. Refused `no_branch` when absent.
 # Output: {"deleted": bool, "unit": "...", "branch": "...",
 #          "state": "deleted"|"already_gone"|"failed"|"not_attempted", "reason": ""}
 #         `reason` is a CLOSED VOCABULARY, empty on a delete that happened. Refusals before the
@@ -55,6 +62,45 @@
 # IT ADDS NO VERDICT WORD ANYWHERE. `superseded` gains no new meaning, `lib/claims.sh` emits
 # nothing new, and the *Proofs and judgements* tables are untouched — which executor takes an
 # act is a different axis from what a claim reads, exactly as `branch_delete_failed` already is.
+#
+# TWO FURTHER CANDIDATE CLASSES, EACH RE-DERIVED HERE (2026-09-01, mission
+# `leave-only-live-work-in-the-unmerged-branch-list`). `list-retirable-claims.sh` now also names
+# a branch whose own pull request MERGED, and one a person CLOSED UNMERGED. The re-derivation
+# discipline above is the whole reason those classes are safe to act on at all: the candidate
+# list is an input, and the gap between the list and the act is a queue and a checkout. So each
+# class re-asks ITS OWN question immediately before the delete, through
+# `branch-pull-request-state.sh`, and refuses by its own word:
+#
+#   not_merged:<state>              the candidate claimed merged; the pull request is not
+#   not_closed_unmerged:<state>     the candidate claimed a closure; the pull request is not
+#   pull_request_unreadable:<why>   the re-read failed — an ABSENT reading, which must send a
+#                                   reader to the lookup that failed and never to a delete
+#
+# AND THE CLOSED-UNMERGED CLASS CARRIES ONE TERM THE OTHER TWO DO NOT. `superseded` and
+# `pull_request_merged` both assert the branch's content is on the base — the first by the
+# oracle's own emptiness proof, the second by definition of a merge. A HAND-CLOSED branch
+# asserts nothing of the kind: closing a pull request unmerged is a person's decision about the
+# branch, and the branch may still hold work found on no other ref. That is precisely what
+# issue #788 measured costing ~300 lines and a documentation section, so this term fails
+# **closed**:
+#
+#   branch_holds_work         the emptiness reading says the branch still holds work
+#   emptiness_unanswerable    it could not be read — refuse, never delete on an absence
+#
+# The reading is `claims_branch_empty_against_base`, composed rather than re-derived; the
+# recovery a `superseded` delete offers (*its content is on the base*) is FALSE for a
+# hand-closed branch, and this is the term that keeps the act's own promise honest.
+#
+# WHICH BOUNDS APPLY TO WHICH CLASS, stated rather than left to be inferred. `release_branch`,
+# `not_a_work_branch` and `pull_request_open` apply to every class and are unchanged.
+# `not_on_base` is the `superseded_only` class's own term and stays there: it re-derives
+# `claims_superseded` from the UNIT's artifacts, which a candidate carrying no unit does not
+# have — so for the two pull-request classes the equivalent question is answered by the class's
+# own proof (merged) or by the emptiness term above (closed unmerged), never by a bound that
+# would silently read as satisfied because there was nothing to evaluate.
+#
+# NO NEW TRANSPORT, NO NEW PERMISSION. It is the same REST seam run by the same executor, two
+# candidate classes over.
 
 set -eu
 
@@ -64,10 +110,28 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/runner-identity.sh"
 
 GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+PR_STATE="${SCRIPT_DIR}/branch-pull-request-state.sh"
 
-unit="${1:-}"
-if [ -z "$unit" ]; then
-    echo 'Usage: delete-retired-claim-branch.sh <unit-id>' >&2
+unit=""
+CAND_BRANCH=""
+CAND_REASON=superseded_only
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --branch) CAND_BRANCH="${2:-}"; shift 2 ;;
+        --reason) CAND_REASON="${2:-}"; shift 2 ;;
+        --) shift ;;
+        -*) shift ;;
+        *) [ -n "$unit" ] || unit="$1"; shift ;;
+    esac
+done
+
+case "$CAND_REASON" in
+    superseded_only|pull_request_merged|pull_request_closed_unmerged) ;;
+    *) echo "Unknown --reason: $CAND_REASON" >&2; exit 1 ;;
+esac
+
+if [ -z "$unit" ] && [ -z "$CAND_BRANCH" ]; then
+    echo 'Usage: delete-retired-claim-branch.sh <unit-id> [--branch <branch>] [--reason <candidate_reason>]' >&2
     exit 1
 fi
 
@@ -108,6 +172,82 @@ if [ -n "$UNANSWERED_FILE" ]; then
 fi
 
 BASE=$(claims_base)
+
+# --- The two pull-request classes, re-derived and bounded on their own terms ----------------
+# They take this path INSTEAD OF the claim-row proof gate below, because their candidate may
+# carry no unit at all — and then share the same three bounds and the same transport.
+if [ "$CAND_REASON" != "superseded_only" ]; then
+    [ -n "$CAND_BRANCH" ] || refuse no_branch
+    BRANCH="$CAND_BRANCH"
+
+    case "$BRANCH" in
+        release/*) refuse release_branch ;;
+    esac
+    printf '%s' "$BRANCH" | grep -q '^work-[0-9]\{8\}-[0-9]\{6\}$' || refuse not_a_work_branch
+
+    # A LIVE CLAIM OUTRANKS EVERY PULL-REQUEST READING, exactly as it does at the candidate
+    # reader: a run may be driving a FRESH claim over a discarded predecessor, and the pull
+    # request is a fact about the old work. Re-derived here rather than trusted from the list.
+    ROWS=$(claims_scan "$BASE" 2>/dev/null || true)
+    _dr_unit=$(printf '%s' "$ROWS" | awk -F'\t' -v b="$BRANCH" '$2 == b { print $1; exit }')
+    if [ -n "$_dr_unit" ]; then
+        [ -n "$unit" ] || unit="$_dr_unit"
+        case "$(claims_unit_resolution "$ROWS" "$_dr_unit")" in
+            live | single | ambiguous)
+                refuse "not_superseded:$(printf '%s' "$ROWS" \
+                    | awk -F'\t' -v b="$BRANCH" '$2 == b { print $7; exit }')" ;;
+        esac
+    fi
+
+    [ -f "$PR_STATE" ] || refuse pull_request_unreadable:no_reader_script
+    _dr_pr=$(sh "$PR_STATE" "$BRANCH" 2>/dev/null || true)
+    if [ "$(printf '%s' "$_dr_pr" | jq -r '.ok // false' 2>/dev/null || printf 'false')" != "true" ]; then
+        refuse "pull_request_unreadable:$(printf '%s' "$_dr_pr" \
+            | jq -r '.reason // "unreadable"' 2>/dev/null || printf 'unreadable')"
+    fi
+    _dr_state=$(printf '%s' "$_dr_pr" | jq -r '.state // ""' 2>/dev/null || printf '')
+
+    if [ "$CAND_REASON" = "pull_request_merged" ]; then
+        [ "$_dr_state" = "merged" ] || refuse "not_merged:${_dr_state:-unknown}"
+    else
+        [ "$_dr_state" = "closed_unmerged" ] || refuse "not_closed_unmerged:${_dr_state:-unknown}"
+        # THE TERM THAT FAILS CLOSED. A hand-closed branch asserts nothing about the base, so
+        # the emptiness reading is a GATE here rather than the evidence it is on the candidate
+        # row — and an absence refuses, which is the direction issue #788 turned `superseded`.
+        case "$(claims_branch_empty_against_base "$BASE" "origin/${BRANCH}")" in
+            true)  ;;
+            false) refuse branch_holds_work ;;
+            *)     refuse emptiness_unanswerable ;;
+        esac
+    fi
+
+    # `pull_request_open` cannot be reached from here — an open pull request already refused
+    # above by its own class word — but the bound is re-asserted rather than assumed away,
+    # for the reason the `not_on_base` re-derivation gives: the cost of the redundant check is
+    # a string compare and the cost of its absence is an unattended delete.
+    if [ ! -f "$GH_REST" ] || ! sh "$GH_REST" available 2>/dev/null | grep -q '"ok": true'; then
+        refuse gh_unavailable
+    fi
+    SLUG=$(sh "$GH_REST" slug 2>/dev/null || true)
+    [ -n "$SLUG" ] || refuse slug_unresolved
+    OWNER=${SLUG%%/*}
+    _dr_open=$(sh "$GH_REST" api \
+        "repos/${SLUG}/pulls?head=${OWNER}:${BRANCH}&state=open&per_page=1" 2>/dev/null || true)
+    [ -z "$(printf '%s' "$_dr_open" | jq -r '.[0].number // ""' 2>/dev/null || printf '')" ] \
+        || refuse pull_request_open
+
+    if ! git rev-parse --verify --quiet "refs/remotes/origin/${BRANCH}" >/dev/null 2>&1; then
+        STATE="already_gone"
+        report true ""
+    fi
+    if sh "$GH_REST" api "repos/${SLUG}/git/refs/heads/${BRANCH}" --method DELETE >/dev/null 2>&1; then
+        STATE="deleted"
+        report true ""
+    fi
+    STATE="failed"
+    report false branch_delete_failed
+fi
+
 ROWS=$(claims_scan "$BASE" 2>/dev/null || true)
 [ -n "$ROWS" ] || refuse no_claims
 

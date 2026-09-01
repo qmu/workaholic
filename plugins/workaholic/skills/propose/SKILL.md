@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when a session runs `/propose` or the `[Propose]` routine's clock fires — read the running identity's own active strategies, plan the one mission whose evolutionary move would bring the nearest one closer to its aim, and open that plan as a GitHub issue the next `/specificate` tick will ingest. Defines the mission grain, the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
+description: Use when a session runs `/propose` — by hand, or as the opening half of the `[Propose]` routine's tick — read the running identity's own active strategies, plan the one mission whose evolutionary move would bring the nearest one closer to its aim, and open that plan as a GitHub issue the next `/specificate` tick will ingest. Defines the mission grain, the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -11,10 +11,12 @@ metadata:
 
 # Propose
 
-The third turning routine. `[Specificate]` (`:15`) turns an ask into a record and the work it
-warrants; `[Implement]` (`:30`) drives that work to a pull request; **`[Propose]` (`:40`)
-supplies the ask** — so the loop turns without a person having to write the next ticket, and
-what a person supplies instead is the **direction**.
+The act that supplies the loop's own ask — so the loop turns without a person having to
+write the next ticket, and what a person supplies instead is the **direction**. Since
+2026-09-02 the `[Propose]` routine (`:15`) runs `/propose` then `/specificate` in one
+session: the ask this command supplies is in the inbox `/specificate`'s discovery reads
+seconds later, and `[Implement]` (`:30`) drives what it queued — the loop is
+**Propose → Implement**. The standing `[Specificate]` routine is retired into it.
 
 It reads the running identity's own `status: active` strategies, plans the single **mission**
 whose **evolutionary move** would bring the nearest one closer to its aim before its date, and

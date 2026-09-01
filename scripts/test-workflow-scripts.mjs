@@ -17828,6 +17828,116 @@ function testClaimMergedReader() {
 }
 
 // ---------------------------------------------------------------------------
+// WHAT BECAME OF A BRANCH'S PULL REQUEST (2026-09-01, mission
+// `leave-only-live-work-in-the-unmerged-branch-list`). A second question from
+// `claim-merged.sh`'s, keyed on a BRANCH rather than a unit, because a retirement candidate
+// is proved from the pull request and a branch delete is what a wrong reading costs.
+//
+// WHAT IS PINNED is the four-state vocabulary, that `none` is a FACT the lookup established,
+// and — the load-bearing one — that a degraded read emits NO `state` KEY AT ALL, so no
+// consumer can read a failed transport as *provably no pull request*.
+function testBranchPullRequestState() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/branch-pull-request-state.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-branch-pr-state-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  const plain = join(tmp, "plain");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  mkdirSync(plain, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const read = (cwd = repo, branch = "work-20260101-000000", extra = {}) => {
+    const r = run(cwd, `${POSIX_SH} ${READER} ${branch}`, { env: { ...env, ...extra } });
+    return { ...JSON.parse(r.stdout), status: r.status, raw: r.stdout };
+  };
+  try {
+    // THE FOUR STATES.
+    stub(`echo '[{"number":7,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a branch whose pull request merged reads merged, with its number",
+      [read().ok, read().state, read().number, read().status], [true, "merged", 7, 0]);
+
+    stub(`echo '[{"number":8,"state":"closed","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a branch whose pull request was closed unmerged reads closed_unmerged",
+      [read().ok, read().state, read().number], [true, "closed_unmerged", 8]);
+
+    stub(`echo '[{"number":9,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("an open pull request reads open",
+      [read().ok, read().state, read().number], [true, "open", 9]);
+
+    // `none` IS A FACT THE LOOKUP ESTABLISHED — the autofix branch in the ask's own table.
+    stub("echo '[]'");
+    assertEq("a branch that never had a pull request reads none, with a null number",
+      [read().ok, read().state, read().number], [true, "none", null]);
+
+    // A MERGED ONE WINS OUTRIGHT over anything opened afterwards on the same head; among the
+    // unmerged, the newest wins. Both halves of the order are asserted, because picking
+    // silently is how two runs over one branch come to disagree.
+    stub(`echo '[{"number":5,"state":"open","merged_at":null,"created_at":"2026-08-31T00:00:00Z"},`
+      + `{"number":4,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-01T00:00:00Z"}]'`);
+    assertEq("a merged pull request wins over a later open one on the same head",
+      [read().state, read().number], ["merged", 4]);
+
+    stub(`echo '[{"number":6,"state":"open","merged_at":null,"created_at":"2026-08-31T00:00:00Z"},`
+      + `{"number":3,"state":"closed","merged_at":null,"created_at":"2026-08-01T00:00:00Z"}]'`);
+    assertEq("and among unmerged pull requests the newest wins",
+      [read().state, read().number], ["open", 6]);
+
+    // THE DEGRADED READ, AND THE KEY THAT MUST NOT BE THERE.
+    const degraded = [
+      [`echo "API rate limit exceeded" >&2; exit 1`, "rate_limited"],
+      [`echo "HTTP 403: This GraphQL query is not enabled for this session" >&2; exit 1`, "session_refused"],
+      [`echo "gh is not on PATH" >&2; exit 127`, "gh_unavailable"],
+      [`echo boom >&2; exit 1`, "transport_error"],
+      [`echo 'not json at all'`, "unparseable_response"],
+      [`echo '{"message":"Not Found"}'`, "unparseable_response"],
+    ];
+    for (const [body, reason] of degraded) {
+      stub(body);
+      const r = read();
+      assertEq(`a degraded read is ok:false, named ${reason}, and exits 0`,
+        [r.ok, r.reason, r.status], [false, reason, 0]);
+      assertTrue(`and ${reason} emits no state key at all`,
+        !("state" in r) && !r.raw.includes('"state"'), r.raw);
+    }
+
+    // SKIPPED BY NAME WHENEVER IT CANNOT SUCCEED — and `CLAIMS_FETCH_OK` UNSET is not
+    // evidence of anything, so a direct caller outside a claim scan is never told `offline`.
+    stub("echo '[]'");
+    assertEq("the protocol's own opt-out is reported by name, with no read attempted",
+      [read(repo, "work-x", { WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" }).ok,
+       read(repo, "work-x", { WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" }).reason], [false, "disabled"]);
+    assertEq("a caller whose own fetch failed is reported offline",
+      [read(repo, "work-x", { CLAIMS_FETCH_OK: "false" }).ok,
+       read(repo, "work-x", { CLAIMS_FETCH_OK: "false" }).reason], [false, "offline"]);
+    assertEq("but an unset CLAIMS_FETCH_OK reads the pull request as usual",
+      [read().ok, read().state], [true, "none"]);
+
+    // NEITHER ARGUMENT NOR REPOSITORY IS ASSUMED.
+    assertEq("no branch argument is ok:false, never none",
+      [read(repo, "").ok, read(repo, "").reason], [false, "no_branch"]);
+    assertEq("and a tree with no resolvable remote names that instead of guessing",
+      [read(plain).ok, read(plain).reason], [false, "slug_unresolved"]);
+
+    // IT IS A READER AND NEVER A VERDICT, and it writes nothing.
+    const body = readFileSync(READER, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const f of ["git push", "git commit", "git worktree", "retire-claim", "superseded"]) {
+      assertTrue(`the reader never reaches ${f}`, !body.includes(f), f);
+    }
+    assertTrue("and it reaches GitHub only through the one transport",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+    assertEq("a run leaves the checkout byte-identical",
+      run(repo, "git status --porcelain").stdout.trim(), "");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // THE BASE-CHECKS READER (2026-08-27, mission
 // `read-whether-the-base-survived-what-the-loop-merged`). One question — what did the base's
 // checks say about THIS commit? — answered in three words, with the third one carrying every
@@ -21215,6 +21325,7 @@ const tests = [
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
+  ["drive/branch-pull-request-state.sh: what became of a branch's pull request", testBranchPullRequestState],
   ["drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks],
   ["drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],

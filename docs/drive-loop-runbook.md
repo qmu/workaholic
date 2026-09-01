@@ -264,6 +264,39 @@ not of surveying: a runner without one still reads the whole queue, reports
   reader, because the scan keys on a `Claim a PR-unit` subject / `Unit:` trailer and a
   release branch carries no commits at all.
 
+### Two readers ask GitHub about a pull request, and they ask different questions
+
+`claim-merged.sh` and `branch-pull-request-state.sh` both read the `pulls` collection
+narrowed by `head`, and it is worth knowing which answers what before reaching for either.
+
+| Reader | Keyed on | Answers | Feeds |
+| ------ | -------- | ------- | ----- |
+| `claim-merged.sh` | a **unit's** claim branch | did this unit's **content** reach the base — `merged` / `not_merged` / `unanswerable` | the `superseded` verdict, at the mission grain, where the tree cannot answer |
+| `branch-pull-request-state.sh` | a **branch** | what became of **that branch's pull request** — `merged` / `closed_unmerged` / `open` / `none` | the retirement candidate readings; it feeds no verdict of its own |
+
+The second was added rather than folded into the first (2026-09-01, mission
+`leave-only-live-work-in-the-unmerged-branch-list`) because merging them would give two
+callers one answer: `claim-merged.sh`'s `state` is shaped for *is this unit still in flight*
+and is read by the claim chain, while a retirement asks *may this branch be deleted*. A
+consumer inheriting the wrong one deletes a branch, which is the one act in this loop with no
+recovery path.
+
+**Its failure modes**, all exit 0 and all reported by name:
+
+- `disabled` — `WORKAHOLIC_CLAIM_MERGED_LOOKUP=0`; the protocol's one opt-out covers both
+  readers, so a caller wanting a purely local scan turns off one variable, not two.
+- `offline` — a caller inside a claim scan set `CLAIMS_FETCH_OK=false`, which is proof there
+  is no network. **Unset** means the caller is outside a scan and says nothing, so a direct
+  invocation still reads.
+- `slug_unresolved`, `gh_unavailable`, `rate_limited`, `session_refused`, `transport_error`,
+  `unparseable_response`, `no_branch` — each ours rather than the repository's.
+
+**Every one of them emits `ok: false` and no `state` key at all.** That is the load-bearing
+part: `none` means the lookup *succeeded and found no pull request*, which is a licence to
+treat the branch as never-proposed, and a degraded read must never hand that licence out.
+A caller testing `state == "none"` on a failed transport would be deleting branches on the
+strength of a rate limit.
+
 ## 6. Failure modes
 
 | Symptom | Cause | Fix |

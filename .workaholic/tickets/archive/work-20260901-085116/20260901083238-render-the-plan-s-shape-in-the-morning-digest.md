@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T08:32:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260901083237-read-the-plan-s-shape-at-the-mission-grain.md
@@ -99,3 +100,48 @@ retirements rather than silently declined.
 - A morning root already carries the digest, the change lines and the impairment lines. The
   mission grain is the largest block yet; the caps are what keep it readable, so a raised
   cap is a deliberate edit with its own reason, not a convenience.
+
+## Final Report
+
+Development completed as planned.
+
+The step-1 capture showed what the reproduce step predicted: `step-strategy-digest.sh` hands
+`digest.sh`'s output through whole (`digest: .`), so the mission grain reached the agent the
+moment the previous ticket added it — and the *render bound* named neither a mission nor a
+queued count, so nothing would have been rendered from it. This ticket is therefore the
+specification change the localize step predicted, plus the one string the step passes through.
+
+Extended, in lockstep: the `🔎 Moderation` root's morning-digest line in
+`notify/reference/notifications.md` and `commands/moderate.md` (byte-identical, as the drift
+pin requires), `step-strategy-digest.sh`'s `bound`, `moderate/reference/workflow.md` §14,
+`standup/SKILL.md`'s render rules (a new rule 8, `missions_omitted` on the caps line), and
+`CLAUDE.md`'s `/standup` section.
+
+The ask's own request — post this on every tick — is **answered rather than granted**, with its
+sources, in three places a reader will meet it: the step's header, `workflow.md` §14 and the
+catalog. The sources are the two status roots this repository has already retired for the same
+shape, and the measurement `📦 Release Preparation` left behind. No gate, key, cadence or dedup
+moved, and no second root was added.
+
+### Discovered Insights
+
+- **Insight**: `step-strategy-digest.sh` passes `digest.sh`'s payload through unchanged, so a
+  new field in the digest reaches the agent with no edit to the step — but it is *invisible*
+  until the `bound` string names it, because the bound is the whole render specification the
+  agent is given.
+  **Context**: the bound is the real coupling between the reading and the post, not the
+  payload. A future reading added to `digest.sh` needs a line there or it will be carried and
+  never rendered, silently.
+
+- **Insight**: the `🔎 Moderation` root's shape lives in two files that
+  `test-workflow-scripts.mjs` compares byte-for-byte (`notify/reference/notifications.md` and
+  `commands/moderate.md`), and the command is the ceiling — a routine prompt carries none of it.
+  **Context**: a render change is therefore always a two-file edit, and the suite catches a
+  half-done one rather than the fleet discovering it an hour later.
+
+- **Insight**: `standup/SKILL.md`'s standing rule *no per-strategy progress number* had to be
+  narrowed rather than left alone: a mission's `checked`/`total` is a mission's own checklist,
+  not a percentage over a direction.
+  **Context**: the rule exists because a strategy is not a status board; nesting mission
+  progress under a strategy is close enough to that shape that leaving the rule unqualified
+  would have read as a contradiction to the next person changing this render.

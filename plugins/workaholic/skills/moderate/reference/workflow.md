@@ -859,8 +859,9 @@ the digest belongs in the one thread they read). Once per Asia/Tokyo day, on the
 after 09:00 (both read from the **tick id**, never the wall clock), the step reads
 `standup/scripts/digest.sh` — the same pure read `/standup` uses, one derivation with two
 consumers — and hands the digest to the agent to render at the **top of the Moderation root**, in
-the developer's specified form: numbered strategies, bold title on its own line, headline is
-`commit_count`, honesty line naming tickets and the window. The render is logged
+the developer's specified form: numbered strategies, bold title on its own line, **each
+strategy's missions nested under it with acceptance done/total and queued count**, headline is
+`commit_count`, honesty line naming tickets, **the total queued** and the window. The render is logged
 (`strategy-digest-rendered:<jst-day>`) so a second morning render is impossible; before 09:00 the
 step reports `before_morning`; a no-op digest (`no_strategies` / `no_activity`) rides nothing; an
 unreadable digest is `digest_unreadable`, named rather than rendered as a quiet morning.
@@ -868,6 +869,24 @@ unreadable digest is `digest_unreadable`, named rather than rendered as a quiet 
 **The digest is the root's second gate**: a morning tick with a digest posts its root even with
 zero questions — the day's opening statement, the exception the developer asked for — while every
 other hour the question gate stands alone.
+
+**The plan's shape is daily, not hourly, and that is an answer rather than an omission**
+(2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). The ask that put
+the mission grain here asked for it on **every** tick — "post where the work stands on the
+ordinary tick rather than only when something is wrong". Its first half is granted: the grain,
+the mission counts and `queued_total` now ride this step. Its second half is declined with its
+sources, which are two roots this repository has already retired for exactly the shape being
+asked for. `CLAUDE.md` (`/moderate`): *the two retired status roots stay retired — a status line
+addressed to nobody is noise whatever its dedup key*; `workaholic:notify` records what `📦
+Release Preparation` measured — ten lines in ten consecutive hours for one unchanged request,
+none of them answered. **A plan's shape is an unchanged answer on most hours**, so an hourly copy
+of it is that post returning under a new name; a *daily* one speaks for today even when today
+resembles yesterday, which is the distinction the `standup:<date>` key was chosen for.
+
+**If the operator, having read that, wants an hourly plan post, it is their call and a new ask.**
+This step does not decide it for them and does not pretend the request was met: the gate, the
+key, the cadence and the once-per-JST-day dedup are untouched, and nothing here posts a second
+root.
 
 ## 15. `direction-health` — a direction out of date, with nothing answering it, or with its work all in
 

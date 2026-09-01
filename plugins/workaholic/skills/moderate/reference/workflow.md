@@ -677,14 +677,27 @@ left the routine template on 2026-09-01 — `workaholic:notify`, *The command is
   | ---------- | ----- |
   | `cap_spent` | `max_per_day` questions were asked **on this day**. The mechanism worked; the budget is spent and the rest are held |
   | `cap_unbounded` | the day count could not be bounded. **Our own degradation** — never rendered as `cap_spent`, which is the whole point of the split: one says the budget worked, the other says the loop has stopped |
-  | `all_held` | every candidate is refused by `quiet_hours`, `off_day` or `tick_cap` |
+  | `all_held` | every candidate is refused by `quiet_hours`, `off_day` or `tick_cap`. **Each held entry carries the gate's own refusal word, verbatim** (2026-08-31) — the four call for four different acts, so the aggregate is the summary and the detail sits beneath it |
   | `all_asked_before` | every key that was ever held has since been asked |
   | `no_candidates` | the genuinely quiet hour |
 
-  **Whether the tick could deliver is asked of the gate, not re-derived here**: one
-  `ask-question.sh` probe with a key unique to the tick, recorded nowhere, so the day's
-  arithmetic keeps one home and this step cannot disagree with the gate the agent is about to
-  run. **`ask-question.sh` is not modified by the reading.**
+  **Whether the tick could deliver is asked of the gate, not re-derived here**: an
+  `ask-question.sh` probe **per held candidate** (2026-08-31, superseding the single probe on a
+  key unique to the tick), recorded nowhere, so the day's arithmetic keeps one home and this
+  step cannot disagree with the gate the agent is about to run. **`ask-question.sh` is not
+  modified by the reading** — no key, cap, hold or ledger line moves, and the probe is its
+  read-only mode. Two of the four words (`quiet_hours`, `off_day`) are tick-wide and repeat on
+  every entry; that is the true answer and is reported rather than collapsed, because the cap
+  words are not tick-wide and one shape has to cover both.
+
+  **And the arrears say how deep and how old they are** (2026-08-31, mission
+  `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). `held_oldest_day` is the
+  **minimum** of the first-held day the drain ordering already derives, over the keys **still**
+  held, and `held_days` is the whole-day distance from it to the tick's own day (from the tick
+  id, on `ask-question.sh`'s own axis; the distance is civil-day arithmetic in `awk`, because
+  `date -d` is GNU-only and `date -v` is BSD-only). No second walk of the log, no cursor, no
+  store, and `log-read.sh` is untouched. A degraded read reports **null** for both, never `0` —
+  a zero reads as *this just started* for a reading nobody made.
 
   **What `delivered` honestly is.** The agent asks and records under `human-checkin-ask-<slug>`
   *after* `run.sh` returns, and **there is no post-agent seam in `run.sh`** to move the reading
@@ -705,13 +718,33 @@ left the routine template on 2026-09-01 — `workaholic:notify`, *The command is
   undrivable units all held behind it. A delivery failure **is** the event the root exists to
   carry.
 
-  It is supplied **only** for `cap_spent` and `cap_unbounded` — the two states where the tick
-  was eligible to ask and structurally could not. Every other case supplies none and therefore
-  renders no line: a quiet hour, an off day and the quiet window are the *designed* hold and
-  are already named in the log, and a tick that delivered questions needs no event because the
-  questions are the delivery. `cap_spent` is worth a line even though the budget worked,
-  because a reader has to be able to tell it from `cap_unbounded`. The line names **no dedup
-  key and no mention token**.
+  It is supplied for `cap_spent` and `cap_unbounded` — the two states where the tick was
+  eligible to ask and structurally could not — and, since 2026-08-31 (mission
+  `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`), for an **`all_held` tick whose
+  arrears outlived the designed hold**. That case was excluded on the reasoning that the quiet
+  window and the off day are the *designed* hold and are already named in the log, which is
+  right for one tick and wrong across days: measured, **24 consecutive ticks** reported
+  `all_held` with 13 questions behind them while the roots read `1 question(s)`.
+
+  **The bound.** An `all_held` tick supplies an event once `held_oldest_day` predates the
+  **working-day boundary** — the first hour inside `WORKAHOLIC_WORK_DAYS` at the end of
+  `WORKAHOLIC_QUIET_HOURS`, in `WORKAHOLIC_QUIET_TZ`, exactly as the red-alert cool-down's
+  expiry composes it, and from **no constant of its own**. The event names the **depth** and
+  the **age**; a hold *inside* the boundary supplies none, and a **null** reading (a degraded
+  log) supplies none, because a reading we could not make is never dressed as one we did. It is
+  supplied on the `off_day` and `quiet_hours` branches as well as the `ok` one, because that is
+  where a weekend's and a night's arrears actually sit. **The refused alternative** was an
+  escalation after N ticks: N is a tunable constant this repository refuses by name, while the
+  working-day boundary is a derivation whose three terms were already justified.
+
+  **What did not move**: the question keys, the caps, the holds, `ask-question.sh`, the
+  renderer's diff rule, and which questions are asked and when. Only what the root *says*
+  changed. Every other case still supplies none and therefore renders no line: a genuinely
+  quiet hour, `all_asked_before`, the degraded read, and a tick that delivered questions, which
+  needs no event because the questions are the delivery. `cap_spent` is worth a line even
+  though the budget worked, because a reader has to be able to tell it from `cap_unbounded`.
+  The line names **no dedup key and no mention token**, and it is a function of the reading
+  alone, so two consecutive ticks with the same reading render one line.
 
   **It is the root's third gate**, added beside the morning digest on that gate's own
   precedent: the question gate's expression is untouched and a second condition is OR'd next

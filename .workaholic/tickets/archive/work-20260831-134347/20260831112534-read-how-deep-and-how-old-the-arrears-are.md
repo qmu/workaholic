@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:25:34+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,31 @@ backlog is and says only how large it is. Carry the reading it already made.
   the boundary the age reads one day high rather than one day low, which understates
   nothing and is the direction already accepted for the day cap.
 
+
+## Final Report
+
+Development completed as planned.
+
+`step-human-checkin.sh` now carries the first-held day the drain ordering already derived
+instead of discarding it: the ordered key list emits `day:key` rather than the key alone,
+and the minimum day over the keys **still** held becomes `held_oldest_day`. `held_days` is
+the whole-day distance from that day to the tick's own day, and the tick's day is derived
+from the tick id on exactly the axis `ask-question.sh` uses for its day bound. There is no
+second walk of the log, no cursor, no store, and `log-read.sh` is unmodified.
+
+A degraded read reports both as `null`; a tick with no holds reports `held_count: 0` with
+both `null` and is otherwise byte-identical to the previous output.
+
+### Discovered Insights
+
+- **Insight**: the distance between two `YYYY-MM-DD` strings is computed by civil-day
+  arithmetic in `awk`, never through `date`.
+  **Context**: `date -d` is GNU-only and `date -v` is BSD-only, a refusal
+  `condition-age.sh` already states by name — which is why that reader counts distinct tick
+  ids rather than days. Here a genuine day distance was wanted, so the arithmetic is done
+  in `awk` (portable, pure, no subprocess of a system tool whose flags differ by platform).
+
+- **Insight**: the minimum is taken over the keys that survive the asked-drop, not over
+  every key the log ever held.
+  **Context**: an asked key leaves the arrears — the ask is the resolution of the hold —
+  so letting it go on ageing them would make a drained queue read as an ancient one.

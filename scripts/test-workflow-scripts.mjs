@@ -27185,7 +27185,8 @@ function testProposeCheckIn() {
     // The held question comes back on the next eligible tick, then stops once asked.
     run(repo, `${LOG} --tick 20260817-020000 --step human-checkin-held-q-sizing --status skipped --summary "held q:sizing"`);
     j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14 --weekday 3`).stdout);
-    assertEq("a held question is handed back when the window clears", j.held, ["q-sizing"]);
+    assertEq("a held question is handed back when the window clears",
+      j.held.map((h) => h.key), ["q-sizing"]);
     // THE ASK IS RECORDED UNDER THE ID THE SCRIPT RETURNS, and that is now the whole gate
     // (2026-08-21, ticket `20260819062058`). It used to search the log's SUMMARY text for
     // the raw key, which nothing ever required a writer to put there — so the gate rested
@@ -27344,7 +27345,8 @@ function testCheckInHeldOrder() {
   const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
   const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
   const held = (tick) =>
-    JSON.parse(run(repo, `${STEP} --root . --tick ${tick} --hour 14 --weekday 3`).stdout).held;
+    JSON.parse(run(repo, `${STEP} --root . --tick ${tick} --hour 14 --weekday 3`).stdout)
+      .held.map((h) => h.key);
   try {
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
     // Holds on three different days, written out of order and with the alphabet pointing
@@ -27363,10 +27365,22 @@ function testCheckInHeldOrder() {
     assertEq("and a repeated run over one fixture is byte-identical",
       held("20260828-140000"), ["yak", "zebra", "alpha", "bravo"]);
 
+    // HOW DEEP AND HOW OLD, off the reading the ordering already made (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). The first-held day per key
+    // was derived for the order and then thrown away, so the step knew how old its backlog
+    // was and said only how large it is.
+    let a = JSON.parse(run(repo, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+    assertEq("the arrears name their oldest day and its whole-day distance to the tick's day",
+      [a.held_oldest_day, a.held_days], ["2026-08-25", 3]);
+
     // The ask is still the resolution of the hold.
     run(repo, `${LOG} --tick 20260828-120000 --step human-checkin-ask-yak --status filed --summary "asked yak"`);
     assertEq("a held key that has since been asked still drops out",
       held("20260828-140000"), ["zebra", "alpha", "bravo"]);
+    // ...and stops ageing the arrears with it: the minimum is over what is STILL held.
+    a = JSON.parse(run(repo, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+    assertEq("an asked key no longer ages the arrears",
+      [a.held_oldest_day, a.held_days], ["2026-08-26", 2]);
 
     // THE STEP ORDERS; IT DOES NOT CAP. `max_per_tick` is enforced per candidate by
     // `ask-question.sh`, and `held_count` counts the whole held set rather than a prefix —
@@ -27416,6 +27430,10 @@ function testCheckInDeliveryReading() {
     assertEq("a tick with nothing waiting names the quiet hour",
       [j.delivered, j.held_count, j.candidates, j.delivery], [0, 0, 0, "no_candidates"]);
     assertEq("and supplies no event, so the root renders no line", j.event, "");
+    // NULL, NEVER `0` — a zero here reads as *this just started*, the most reassuring thing
+    // the field can say, for a reading nobody made.
+    assertEq("a tick with no holds reports the arrears as null rather than as zero",
+      [j.held_oldest_day, j.held_days], [null, null]);
 
     run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-a --status skipped --summary "held a"`);
     run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-b --status skipped --summary "held b"`);
@@ -27425,12 +27443,47 @@ function testCheckInDeliveryReading() {
     assertEq("a tick that can still deliver names no failure",
       [j.candidates, j.delivery, j.event], [2, "", ""]);
 
-    // `all_held` — the designed hold. The quiet window and the off day are named, and
-    // neither supplies an event: they are not a delivery failure, they are the gate working.
+    // `all_held` — the designed hold. The quiet window and the off day are named, and while
+    // the hold is INSIDE the window that explains it neither supplies an event: that is not
+    // a delivery failure, it is the gate working. Once the arrears OUTLIVE that window they
+    // earn a line (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`): 24 consecutive ticks
+    // reported `all_held` with 13 questions behind them and the root said nothing.
     j = step("20260828-020000", "--hour 2 --weekday 3");
-    assertEq("the quiet window names the hold", [j.delivery, j.event], ["all_held", ""]);
+    assertEq("the quiet window names the hold", j.delivery, "all_held");
+    assertTrue("and arrears that outlived it name their depth and age",
+      /2 question\(s\) held/.test(j.event) && /since 2026-08-26 \(2 day\(s\)\)/.test(j.event), j.event);
+    assertTrue("naming no dedup key and no mention token",
+      !/tick:|ask:|fb:|<@/.test(j.event), j.event);
+    // AND EACH HELD QUESTION NAMES ITS OWN REFUSAL (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). `all_held` was one token
+    // over four refusals that call for four different acts, so the aggregate is kept as the
+    // summary word and the gate's own word rides each entry, verbatim.
+    assertEq("every held entry carries the gate's own word for that key",
+      j.held.map((h) => h.reason), ["quiet_hours", "quiet_hours"]);
     j = step("20260829-140000", "--hour 14 --weekday 6");
-    assertEq("so does the off day", [j.delivery, j.event], ["all_held", ""]);
+    assertEq("so does the off day", j.delivery, "all_held");
+    assertEq("and the off day's own word rides each entry too",
+      j.held.map((h) => h.reason), ["off_day", "off_day"]);
+    assertTrue("a weekend's outlived arrears earn the line where they actually sit",
+      /since 2026-08-26/.test(j.event), j.event);
+    // TWO CONSECUTIVE TICKS WITH THE SAME READING RENDER ONE LINE, because the event is a
+    // function of the reading alone — no clock, no timestamp, nothing that moves.
+    assertEq("and a second tick with the same reading says exactly the same thing",
+      step("20260829-150000", "--hour 15 --weekday 6").event, j.event);
+
+    // A HOLD INSIDE THE BOUNDARY IS THE DESIGNED HOLD AND SUPPLIES NOTHING. The boundary is
+    // composed from the gate's own three variables: on a Saturday the most recent working
+    // opening is Friday, so a Friday hold is inside it and a Thursday one is not.
+    const fresh = makeRepo();
+    try {
+      mkdirSync(join(fresh, ".workaholic"), { recursive: true });
+      run(fresh, `${LOG} --tick 20260828-100000 --step human-checkin-held-fri --status skipped --summary "held"`);
+      const f = JSON.parse(run(fresh,
+        `${STEP} --root . --tick 20260829-140000 --hour 14 --weekday 6`).stdout);
+      assertEq("a hold inside the working-day boundary supplies no event",
+        [f.delivery, f.event], ["all_held", ""]);
+    } finally { cleanup(fresh); }
 
     // `cap_spent` — the budget worked, and it is still worth one line, because a reader has
     // to be able to tell it from `cap_unbounded`.
@@ -27445,6 +27498,17 @@ function testCheckInDeliveryReading() {
       /none asked/.test(j.event) && /budget is spent/.test(j.event), j.event);
     assertTrue("which names no dedup key and no mention token",
       !/tick:|ask:|fb:|<@/.test(j.event), j.event);
+    // A tick held by quiet hours and one held by a spent day cap are told apart from the
+    // step's output alone — the whole reason the aggregate was not enough.
+    assertEq("a spent day's own word rides each held entry",
+      j.held.map((h) => h.reason), ["day_cap", "day_cap"]);
+    // THE PROBE WRITES NOTHING. Recording an ask is `--record-ask`'s separate mode, so
+    // asking the gate once per held key leaves the ledger exactly as it was.
+    const askLines = () => JSON.parse(run(repo,
+      `${POSIX_SH} ${join(HK, "log-read.sh")} --root . --step-prefix human-checkin-ask`).stdout).count;
+    const before = askLines();
+    step("20260828-140000");
+    assertEq("the per-candidate probe leaves the ledger untouched", askLines(), before);
 
     // `all_asked_before` — everything that was ever held has since been asked. Distinct from
     // `no_candidates`, which is a tick that never held anything.
@@ -27480,6 +27544,8 @@ function testCheckInDeliveryReading() {
         [d.status, d.reason, d.delivery], ["degraded", "no_reader", "unreadable"]);
       assertEq("it asks nothing and supplies no event", [d.needs_agent.length, d.event], [0, ""]);
       assertEq("and it claims no delivery", d.delivered, undefined);
+      assertEq("and reports the arrears as null, never as a backlog that just started",
+        [d.held_oldest_day, d.held_days], [null, null]);
     } finally {
       rmSync(noGate, { recursive: true, force: true });
       rmSync(noReader, { recursive: true, force: true });

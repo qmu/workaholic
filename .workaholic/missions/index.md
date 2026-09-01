@@ -103,6 +103,7 @@
 * [say-how-long-the-loop-has-been-stuck](archive/say-how-long-the-loop-has-been-stuck/mission.md) - Say how long the loop has been stuck
 * [say-what-the-direction-could-not-see-before-calling-it-arrived](archive/say-what-the-direction-could-not-see-before-calling-it-arrived/mission.md) - Say what the direction could not see before calling it arrived
 * [say-when-a-direction-has-arrived](archive/say-when-a-direction-has-arrived/mission.md) - Say when a direction has arrived
+* [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](archive/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
 * [say-when-the-loop-has-run-out-of-direction](archive/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes

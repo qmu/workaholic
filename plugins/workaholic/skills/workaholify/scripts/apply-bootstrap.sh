@@ -12,6 +12,11 @@
 #
 # ONE REPAIR PER NAMED PROBLEM, mapped one-to-one onto the check's vocabulary:
 #
+#   index_merge_union          append `merge=union` for the generated .workaholic/ indexes to
+#                              .gitattributes, so a generated file stops being a conflict
+#                              generator (issue #780). It APPENDS and rewrites nothing: the
+#                              file is the repository's own and may carry rules this plugin
+#                              knows nothing about.
 #   hook_missing / hook_stale  install (or refresh) the canonical copy of
 #                              bootstrap/session-start.sh at .claude/hooks/.
 #   not_registered             add the SessionStart entry that runs it.
@@ -194,6 +199,29 @@ PY
   for p in not_registered matcher timeout enabled_plugin marketplace; do
     if has_problem "$p"; then add_applied "$p"; fi
   done
+fi
+
+# --- the generated indexes stop conflicting -------------------------------------
+# It APPENDS, and it never rewrites a line the repository already has: `.gitattributes` is the
+# repository's own file and may carry rules this plugin knows nothing about. A repository that
+# already union-merges its indexes reports no problem and no byte moves.
+if has_problem index_merge_union; then
+  ATTRS="${ROOT}/.gitattributes"
+  {
+    [ -s "$ATTRS" ] && printf '\n'
+    printf '# The OKF bundle indexes are GENERATED (okf/scripts/refresh-index.sh derives each one\n'
+    printf '# from the tree), so a branch that adds an artifact rewrites the same sorted region and\n'
+    printf '# every open branch then conflicts on it. Measured 2026-08-31: three open proposal pull\n'
+    printf '# requests, every open proposal there was, each carrying exactly one conflict and the same\n'
+    printf '# generated file in all three. `union` is a BUILT-IN driver, so it needs no per-clone git\n'
+    printf '# config -- which matters because the sessions that hit this run in fresh containers. A\n'
+    printf '# conflict here carries no information: it is never a disagreement between two authors,\n'
+    printf '# only a stale regeneration. Cost, stated: until the next refresh-index.sh an index can\n'
+    printf '# carry a duplicated or mis-sorted line, which the generator rewrites from the tree.\n'
+    printf '.workaholic/*/index.md merge=union\n'
+    printf '.workaholic/index.md merge=union\n'
+  } >> "$ATTRS" 2>/dev/null || emit_refusal unwritable
+  add_applied index_merge_union
 fi
 
 # --- the identity mapping -----------------------------------------------------

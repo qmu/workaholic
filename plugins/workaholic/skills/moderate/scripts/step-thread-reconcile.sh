@@ -4,6 +4,28 @@
 # WHY THIS STEP EXISTS (2026-08-28, mission `reconcile-a-stale-thread-with-the-unit-s-real-state`).
 # A finish line is posted by the run that **finishes** a unit (`workaholic:notify`, *Which thread
 # an `/implement` unit's posts land in*), so a pull request a person merges or closes by hand gets
+# MEASURED 2026-08-31 (issue #787), and it is why a merged 🔵 Proposed now posts NOTHING. An
+# operator asked for a change to a prototype index. The thread ran 📥 受理 → 🔵 Proposed →
+# 🟢 Implemented, and the operator read the green circle as their ask being done. It was not:
+# pull request #375 was a PROPOSAL — three files, all under `.workaholic/`, +200 −0, no product
+# code — and the ticket it queued was still sitting in `todo/`. The index was byte-identical to
+# what the operator had complained about.
+#
+# The two transitions are not the same event. 🟡 Handoff → merged IS a finish that a run failed
+# to announce. 🔵 Proposed → merged is the moment the ticket set LANDS: the item becomes queued,
+# and its next true status is a later 🟢 Implemented from the run that drives it. One shape was
+# doing both jobs and asserting the opposite for the second.
+#
+# WORSE THAN A WRONG LABEL: the second line — *no run posted this item's finish* — explains why
+# a completion notice is arriving late, so it gives a reader a reason to believe the first line
+# rather than question it. And this step's whole audience is readers who will not go and check
+# the diff, because it fires on exactly the items nobody was watching.
+#
+# SAYING NOTHING IS STRICTLY BETTER THAN SAYING THE OPPOSITE: the thread keeps its last true
+# status and the real 🟢 Implemented still arrives when the work is driven. Telling the two apart
+# needs no new state — the latest status reply is already read, and it is what distinguishes
+# them.
+#
 # its finish posted by nobody: the item's thread keeps `🔵 Proposed` or `🟡 Handoff` as its last
 # word while the work is long merged. No other step can see it — `stuck-prs` and `merge-conflicts`
 # read **open** pull requests, `handoff-units` reads a standing claim, `stalled-units` a stale tip.
@@ -42,6 +64,7 @@
 #   {"step","status","reason","summary","needs_agent":[...],"event"}
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 CANDIDATES="${SCRIPT_DIR}/reconcile-candidates.sh"
 
@@ -145,9 +168,9 @@ needs=$(printf '%s' "$rows" | jq -c --arg tick "$TICK" '
      tick: $tick,
      bound: "per candidate, find the thread through workaholic:notify stateless lookup — exact-string searches only, AT MOST TWO queries, cases 2 and 3 only, no channel history read anywhere, fuzzy matching prohibited; case 4 does NOT apply, because a lookup that finds no thread means the loop never announced this item and there is nothing stale to correct",
      read_first: "read that thread BEFORE writing anything. Only a thread whose LATEST status reply is 🔵 Proposed or 🟡 Handoff is a candidate; a latest status of 🟢, 🚀, 🔴 or a reconciliation this loop already posted is NOT — and when unsure, post nothing and say what made you unsure",
-     post: "the catalog shape for the state the reader gives: merged reuses 🟢 Implemented with the sentence naming that it merged outside the loop, by whom and when; closed unmerged uses ⚫ Closed. Never invent an author or a time — an unresolved one is STATED as unresolved",
+     post: "the catalog shape for the PAIR of (latest status, pull request state), and there are exactly three: 🟡 Handoff + merged reuses 🟢 Implemented with the sentence naming that it merged outside the loop, by whom and when; 🔵 Proposed + closed-unmerged uses ⚫ Closed; and 🔵 Proposed + MERGED POSTS NOTHING — outcome `proposal_merged_is_not_a_finish`. Merging a proposal lands a feedback record and a ticket set: it is the moment the work becomes QUEUED, the START of the item, and 🟢 Implemented there asserts the opposite of what happened. Never invent an author or a time — an unresolved one is STATED as unresolved",
      record: "one thread-reconcile-filed line per candidate through log-append.sh naming its key and its outcome, then persist-log.sh --tick again — the second persist, without which the line dies with the container",
-     outcomes: "per candidate, exactly one: posted, or a named not-posted reason — no_thread, already_finished, unsure, no_slack_transport, thread_unreadable, post_failed. A candidate handed back with no outcome is non-conformant on its face",
+     outcomes: "per candidate, exactly one: posted, or a named not-posted reason — no_thread, already_finished, proposal_merged_is_not_a_finish, unsure, no_slack_transport, thread_unreadable, post_failed. A candidate handed back with no outcome is non-conformant on its face",
      never: "never merges, closes or reopens anything, never touches a claim, never posts a root, never posts into any thread but the item own, and never posts twice",
      candidates: .candidates,
      beyond_bound: .beyond_bound}' 2>/dev/null || echo '{}')

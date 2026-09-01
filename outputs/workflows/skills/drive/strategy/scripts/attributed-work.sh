@@ -18,6 +18,25 @@
 #                      inside the window — a QUIET strategy, which is a real answer and not
 #                      an error) | "" when work moved
 #
+# …OR, when the WALK ITSELF could not complete (2026-08-29):
+#   {slug, found: true, window, feedback_refs[], readable: false, reason,
+#    count: null, active_count: null, waiting_*: null, artifacts: [],
+#    empty: null, empty_reason: null}
+#
+#   reason           "patterns_unreadable" | "corpus_unreadable"
+#
+# `readable` IS ABSENT ON EVERY COMPLETED WALK, and that is the contract rather than an
+# omission: **absent means the walk completed** — the house convention `merge_policy`
+# (absent means review) and ticket `status:` (absent means queued) already use. So a
+# completed reading is byte-identical to what it was before this field existed, and a
+# consumer that has not been taught the term behaves exactly as it did.
+#
+# READ IT AS `readable == false`, never as `readable // true`: in jq `//` treats `false`
+# itself as empty, so `false // true` is `true` and that spelling reads every degraded walk
+# as a healthy one — silently, which is the failure class this whole reading exists to end.
+#
+# Exit 0 in every case, degraded included.
+#
 # ATTRIBUTION IS TRANSITIVE THROUGH THE FEEDBACK STREAM, AND ADDS NO FIELD (the Open
 # Decision on ticket `20260817115231-resolve-strategy-to-activity-attribution`, resolved
 # 2026-08-17). A strategy already cites the records it grew from — the many-valued
@@ -63,6 +82,16 @@
 # one grep over the corpus for the literal stems/slugs, then confirm each candidate through
 # the relation's own reader. The grep decides only "worth reading"; the reader decides
 # attribution.
+#
+# AND THE PREFILTER MUST NOT DISCARD WHAT IT ALREADY FOUND (2026-08-29, mission
+# `keep-the-closing-link-readable-as-the-corpus-grows`). `xargs` splits the corpus at its
+# own command buffer (131072 bytes on GNU, unrelated to `ARG_MAX`), and a batch matching
+# nothing makes `grep -l` exit 1 and `xargs` exit 123. The shape this replaced —
+# `xargs grep -lFf … > cand || : > cand` — then TRUNCATED the candidates the earlier
+# batches had already written, so the whole walk went silent the moment the corpus outgrew
+# one batch. Measured here 2026-08-29: 1411 corpus paths / 132292 bytes against that
+# buffer, 0 candidates where an appending walk found 26, and `no_citing_artifacts` for a
+# direction with 26 citing artifacts.
 
 set -eu
 
@@ -80,9 +109,98 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
 }
 
+# ─── THE WALK'S OWN OUTCOME ────────────────────────────────────────────────────────
+# (2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`)
+#
+# FOUND NOTHING AND COULD NOT LOOK ARE DIFFERENT ANSWERS. `grep` exiting 1 means *no match
+# in this batch* and is honest; exiting 2 or more means *could not read* and is a failure.
+# Both vanished into one swallowed status, so a corpus the reader could not read was
+# indistinguishable from one that cited nothing — and `empty_reason: no_citing_artifacts`
+# was emitted for both.
+#
+# `WALK_READABLE` / `WALK_REASON` ARE THAT READING, and they are derived in exactly ONE
+# place for both hops: `note_walk_failure`, whose only caller is `prefilter` below. Two
+# derivations of one fact eventually disagree, so no hop keeps its own answer and no
+# consumer re-decides it.
+#
+# The vocabulary is deliberately small enough to enumerate in `workaholic:strategy`, and
+# each reason says WHAT failed rather than that something did:
+#
+#   patterns_unreadable   the pattern set itself could not be read
+#   corpus_unreadable     one or more corpus entries could not be read
+#
+# THE FIRST FAILURE WINS. A second hop failing for the same underlying cause must not
+# overwrite the more specific answer the first hop already gave.
+#
+# It is deliberately NOT folded into `empty_reason`: those three reasons name why a
+# COMPLETED walk found nothing, and reusing one for a walk that did not complete is exactly
+# the conflation this exists to remove.
+WALK_READABLE=true
+WALK_REASON=""
+
+note_walk_failure() {
+    [ "$WALK_READABLE" = true ] || return 0
+    WALK_READABLE=false
+    WALK_REASON="$1"
+}
+
+# prefilter <patterns-file> <corpus-file> <out-file>
+#
+# ONE SHAPE FOR BOTH HOPS, so a repair cannot land on one and miss the other — hop 2 carries
+# every ticket's `via_mission:` attribution, so its loss is the larger one.
+#
+# Three properties, and they are the whole point:
+#   * it APPENDS across batches, so a later batch never discards an earlier batch's finding;
+#   * a batch that matched NOTHING is a SUCCESS (`grep` exit 1), so a walk that completes
+#     over a corpus citing nothing stays `readable: true`;
+#   * a batch that could not be READ (`grep` exit 2 or more, surfacing as `xargs` 123) marks
+#     the walk degraded by name, and what the other batches did find is still kept — a
+#     partial read is reported as partial, never discarded and never dressed as complete.
+# Dropping the tolerance entirely is the tempting one-liner and is the opposite failure:
+# under `set -eu` a no-match batch would abort the whole reader.
+#
+# It stays a prefilter. It answers only "worth reading"; `read-feedback-relation.sh` and
+# `read-relation.sh` still decide attribution, and neither gains a second parser here.
+prefilter() {
+    : > "$3"
+    # Checked before the walk rather than inferred from `grep`'s status afterwards: an
+    # unreadable pattern file and an unreadable corpus entry both exit 2, and a reason that
+    # cannot tell them apart sends the reader to the wrong place.
+    if [ ! -r "$1" ]; then
+        note_walk_failure patterns_unreadable
+        return 0
+    fi
+    if xargs sh -c 'p=$1; shift; grep -lFf "$p" "$@"; s=$?; [ "$s" -le 1 ]' \
+        sh "$1" < "$2" >> "$3" 2>/dev/null
+    then
+        return 0
+    fi
+    note_walk_failure corpus_unreadable
+}
+
 emit_empty() {
     printf '{"slug": "%s", "found": %s, "window": "%s", "feedback_refs": %s, "count": 0, "active_count": 0, "waiting_count": 0, "artifacts": [], "empty": true, "empty_reason": "%s"}\n' \
         "$(json_escape "$SLUG")" "$1" "$(json_escape "$WINDOW")" "$2" "$3"
+}
+
+# emit_unreadable <refs-json> <reason>
+#
+# NULL COUNTS, NEVER ZEROED ONES — `unattributed-work.sh`'s existing shape for exactly this,
+# reused rather than a second vocabulary invented for the same idea. A zero on a read that
+# failed is the whole defect: a consumer skimming the counts reads *nothing is waiting* out
+# of a walk that never looked.
+#
+# NO `empty_reason`, AND NO PARTIAL ARTIFACT LIST. The three `empty_reason` values name why
+# a COMPLETED walk found nothing — `no_citing_artifacts` in particular means *nothing has
+# answered this direction yet* and nothing else — so both it and `empty` are null here: a
+# reading we did not make, rather than one of the three we did not reach. The batches that
+# did read are kept inside the walk so it can finish, and are NOT emitted: a half list
+# rendered as a list is the same collapse one step further on.
+#
+# EXIT 0, as every reader in this layer does. A caller that cannot read is told, not failed.
+emit_unreadable() {
+    printf '{"slug": "%s", "found": true, "window": "%s", "feedback_refs": %s, "readable": false, "reason": "%s", "count": null, "active_count": null, "waiting_count": null, "waiting_kind": null, "waiting_describing": null, "waiting_advancing": null, "waiting_missions": null, "waiting_missions_describing": null, "waiting_missions_advancing": null, "waiting_mission_slugs": null, "artifacts": [], "empty": null, "empty_reason": null}\n' \
+        "$(json_escape "$SLUG")" "$(json_escape "$WINDOW")" "$1" "$(json_escape "$2")"
 }
 
 [ -n "$SLUG" ] || { emit_empty false '[]' no_slug; exit 0; }
@@ -132,7 +250,7 @@ sort -u "${TMP}/corpus" -o "${TMP}/corpus"
 # below has one shape to read rather than two.
 : > "${TMP}/hits"
 : > "${TMP}/direct"
-xargs grep -lFf "${TMP}/patterns" < "${TMP}/corpus" 2>/dev/null > "${TMP}/cand1" || : > "${TMP}/cand1"
+prefilter "${TMP}/patterns" "${TMP}/corpus" "${TMP}/cand1"
 while IFS= read -r f; do
     [ -n "$f" ] || continue
     if sh "$READ_FEEDBACK" "$f" 2>/dev/null | sed -e 's/\.md$//' | grep -qxFf "${TMP}/stems"; then
@@ -151,7 +269,7 @@ done < "${TMP}/direct"
 sort -u "${TMP}/mission-slugs" -o "${TMP}/mission-slugs"
 
 if [ -s "${TMP}/mission-slugs" ]; then
-    xargs grep -lFf "${TMP}/mission-slugs" < "${TMP}/corpus" 2>/dev/null > "${TMP}/cand2" || : > "${TMP}/cand2"
+    prefilter "${TMP}/mission-slugs" "${TMP}/corpus" "${TMP}/cand2"
     while IFS= read -r f; do
         [ -n "$f" ] || continue
         grep -qxF "$f" "${TMP}/direct" && continue
@@ -160,6 +278,11 @@ if [ -s "${TMP}/mission-slugs" ]; then
         printf '%s%s%s\n' "$f" "$US" "$m" >> "${TMP}/hits"
     done < "${TMP}/cand2"
 fi
+
+# --- Did the walk complete? -------------------------------------------------------
+# Asked once, after both hops and before anything is derived from what they found. A
+# degraded walk must never reach `empty_reason`, so this stands ahead of every count.
+[ "$WALK_READABLE" = true ] || { emit_unreadable "$REFS_JSON" "$WALK_REASON"; exit 0; }
 
 # --- Facts per attributed artifact ------------------------------------------------
 # `kind` from the path, `state` from the artifact's own `status:` field with the path as

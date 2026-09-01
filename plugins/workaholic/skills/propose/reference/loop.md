@@ -4,7 +4,8 @@
 
 0. **Sweep the channel** (2026-08-23, the developer's instruction to drop the Claude Tag
    dependency; the full rules are the skill's *The inbound sweep* section). Read
-   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`) through the Slack
+   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`; this repository sets it to
+   `dev-workaholic` in `.claude/settings.json`) through the Slack
    connector over the last `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) hours.
    Fetch the dedup ledger first — `list-swept-slack-refs.sh`; `ok: false` skips the sweep
    as `sweep_dedup_unreadable`, never runs it blind. For each human message that clears
@@ -100,7 +101,23 @@
    and nothing more, because an `arrived` printed without its residue is the same partial
    claim `/moderate`'s arrival question no longer makes. A **degraded** residue read is
    reported as degraded, never as an empty one. Nothing is proposed, withheld or ordered on
-   it. Post nothing.
+   it. **And when that strategy reads `expiring: true`, name `expiring` beside it too**
+   (2026-08-29) — a term beside the strategy, in the same voice, never a warning and never a
+   sentence of advice. A reader otherwise cannot tell a proposal made into a direction with
+   runway from one made into a direction days from being silenced by its own date. A
+   **refused** strategy carries the term on its own row and needs no second surface here: the
+   report names what the tick proposed against. It changes nothing — the direction was
+   eligible, the proposal was made, and no gate, sort, `selected` or token reads it, because
+   silencing, reordering or accelerating the one routine that originates work on a machine's
+   reading of a clock is exactly what `pace` already refuses. The person who must act is
+   reached by `/moderate`'s `direction-expiring:<slug>` question, not by this line.
+   **And name every strategy the survey refused `attribution_unreadable`** (2026-08-29) —
+   the slug and that refusal, which the survey already emitted; no second word, and no line
+   that states a `pace`, a `dormant` or a `quiescent` verdict for it, because the survey
+   emits none and a report implying the tick judged what it could not read is the exact
+   collapse this reading exists to end. It changes nothing here: the brake is the survey's,
+   which refuses such a row and cannot select it.
+   Post nothing.
 
 ## Where it lands in the hour, and why the loop closes across hours
 

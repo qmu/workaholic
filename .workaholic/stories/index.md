@@ -3,6 +3,41 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260901-050906](work-20260901-050906.md) - Make the mergeability reader predict GitHub's merge rather than this checkout's, which a local merge driver had been quietly resolving
+* [work-20260901-034625](work-20260901-034625.md) - Give the clean stranded-publication class an owner — the act, the caller, and a drill that fails when it stops firing
+* [work-20260831-231823](work-20260831-231823.md) - Pin the merged-proposal narrowing — the step spec's fourth copy caught up with the other three, and nine rows hold all four transitions
+* [work-20260831-224412](work-20260831-224412.md) - Give a publish-tree publication a reader, an act and a question, so a collision a generator settles is repaired rather than reported hourly
+* [work-20260831-152743](work-20260831-152743.md) - The heartbeat becomes step 0 of every ticket, so a unit that is one long ticket keeps its own claim
+* [work-20260831-140035](work-20260831-140035.md) - An unattended run never waits for a person, and a tick that stops leaves a record the next tick reads
+* [work-20260831-125156](work-20260831-125156.md) - The tick learns to watch absence — a repository declares what should keep being produced, and one step asks when it stops
+* [work-20260831-114321](work-20260831-114321.md) - The tick's questions gain a composition contract and a voice, and an answer written in a thread now gets one reply saying what came of it.
+* [work-20260831-104307](work-20260831-104307.md) - The moderation tick's root now names the steps that could not read, and a changed impairment earns a root of its own
+* [work-20260831-044223](work-20260831-044223.md) - The two posts whose purpose is to reach a person now ride a bot identity, so their mention fires instead of resolving to the account that posted them
+* [Ask a person about a claim race](work-20260830-094214.md)
+* [work-20260830-084240](work-20260830-084240.md) - A raced loser is now readable as superseded from the tree and cannot write a duplicate; the arbitration that would stop the race is blocked on a measured transport refusal.
+* [work-20260830-055318](work-20260830-055318.md) - An ask with an aim and an owner but no date now drafts a direction on the operator's one-week default instead of dying record-only, with every surface saying on its face that the date is the loop's proposal rather than their word.
+* [work-20260830-044152](work-20260830-044152.md) - The catch-up now reaches every reported claim still mechanical rather than only the ones a transport refused, bounded by a new reviewed-pull-request refusal and by a rule, written once, for when a bounded act may read a judgement.
+* [work-20260830-024048](work-20260830-024048.md) - Four of the tick's questions now name how long their blocker has been standing, read from the question ledger the tick log already writes, and every value is classified a judgement nothing may act on.
+* [work-20260830-004104](work-20260830-004104.md) - A /moderate step whose embedded jq fails to compile now reports degraded instead of ok, and the suite compiles every embedded jq program at build time.
+* [Make a direction's lifecycle a declared stage](work-20260829-212940.md)
+* [Carry the ruling's subject markers into its pull request body](work-20260829-212718.md)
+* [Make the two executors agree about a proved-empty claim](work-20260829-205701.md)
+* [Follow the pull requests the loop opens for a person](work-20260829-194055.md)
+* [work-20260829-175818](work-20260829-175818.md) - Make the shared GitHub transport probe whether REST answers rather than who is calling, so a workflow's own token stops reading as no transport at all
+* [work-20260829-154131](work-20260829-154131.md) - Make the loop read back whether its own acts took effect, so a green CI run stops standing in for a delete that never happened
+* [work-20260829-124120](work-20260829-124120.md) - The loop's thirty drills become one aggregate verb with a machine verdict, run by CI on every push, with a failing drill naming the mission that shipped it and reaching that person through the tick.
+* [work-20260829-113435](work-20260829-113435.md) - A ticket minted mid-run now carries the minting unit's own feedback refs, so the unit that later drives it has a thread to announce its merge in — feedback: rather than mission: alone, because the mission hop cannot rescue a mint from a missionless batch.
+* [work-20260829-111906](work-20260829-111906.md) - Verify that the channel-default assertions are hermetic — the repair landed in #717 before this ticket reached a survey, so this branch checks the gate both ways and records which of the ticket's two open judgments was taken.
+* [work-20260829-104123](work-20260829-104123.md) - Where a routine's environment variables live, established as an absence — a routine selects a cloud environment and carries none of its own — and the hermetic suite stops inheriting the home that rule endorses.
+* [work-20260829-102134](work-20260829-102134.md) - Reach a ticket's feedback refs through the mission that carries them, so a batch unit's finish line lands in the thread its own item is already living in
+* [work-20260829-093646](work-20260829-093646.md) - The tick reads its open pull requests once instead of twice, so two steps cannot disagree about one, and a mergeability GitHub has not computed is named rather than reported as none conflicted.
+* [work-20260829-084119](work-20260829-084119.md) - Aim both inbound readers at the channel this workspace actually has, and give a channel that could not be read its own named outcome and a route to a person
+* [work-20260829-074143](work-20260829-074143.md) - Repair the attribution walk past the xargs batching boundary, and carry a walk that could not complete through every reading composed on it
+* [work-20260829-064113](work-20260829-064113.md) - A finished unit the base moved under is brought back by the loop itself and delivered in the same turn, while the conflict only a person can judge is refused and asked about.
+* [work-20260829-044056](work-20260829-044056.md) - The maintenance tick's repairable findings become GitHub issues the loop drives, while findings needing a human ruling still ask.
+* [work-20260829-024033](work-20260829-024033.md) - A direction is read and its owner asked before its own target_date silences the loop, through a new `expiring` reading that gates nothing.
+* [work-20260828-214118](work-20260828-214118.md) - The two rulings the loop cannot make itself reach the operator as one pull request they merge, instead of an hourly question naming a repair to perform by hand on main.
+* [work-20260828-184133](work-20260828-184133.md) - The check-in's day cap counts today rather than all time, the held arrears drain oldest-first, and a tick that reached nobody says so on the root.
 * [work-20260828-104111](work-20260828-104111.md) - Act 2 of the claim retirement moves to CI, where the write is permitted — re-proved at the act, bounded four ways, and asked about only once CI has also refused
 * [work-20260828-064059](work-20260828-064059.md) - A thread whose last word is `🔵 Proposed` or `🟡 Handoff` after the pull request it names has merged or closed is corrected in that thread, once.
 * [work-20260828-054059](work-20260828-054059.md) - A direction's end becomes a turn of the loop — what it leaves is readable before the decision, and an announced successor inherits its citation.

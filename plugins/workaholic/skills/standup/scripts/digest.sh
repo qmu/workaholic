@@ -9,9 +9,9 @@
 #
 # Output (one JSON object):
 #   {window, date, token, commit_count, strategy_count, active_strategy_count,
-#    due_soon_count, target_horizon_days, noop, noop_reason,
+#    degraded_count, due_soon_count, target_horizon_days, noop, noop_reason,
 #    strategies: [{slug, title, status, target_date, days_to_target, assignees,
-#                  count, active_count, waiting_count, empty_reason,
+#                  readable, reason, count, active_count, waiting_count, empty_reason,
 #                  moved: [{kind, title, state}], waiting: [{kind, title, state}],
 #                  moved_omitted, waiting_omitted}],
 #    strategies_omitted, unattributed: {moved, waiting}, errors: []}
@@ -33,6 +33,21 @@
 # THE HONESTY LINE. Attribution through the feedback stream is transitive and lossy, so the
 # digest reports `unattributed` — work that moved or waits and belongs to no strategy the
 # reader could see. A summary that omitted it would read as exhaustive.
+#
+# A DEGRADED READ IS NOT A QUIET STRATEGY (2026-08-29, mission
+# `keep-the-closing-link-readable-as-the-corpus-grows`). `attributed-work.sh` reports
+# `readable: false` when the walk itself could not complete, and its counts are then NULL. A
+# strategy read that way used to render exactly like one nothing had happened under — same
+# empty `moved`, same empty `waiting`, and it did not count toward `active_strategy_count`,
+# so it fell into the `no_activity` silence. Each record now carries `readable` and its
+# `reason`, `degraded_count` sits beside the other counts, `attribution_unreadable:<slug>`
+# is added to `errors`, and EVERY strategy degraded is its own named no-op
+# (`all_attribution_unreadable`) rather than a digest of nothing.
+#
+# AND THE HONESTY LINE ITSELF GOES NULL when any read was degraded. Its counts are derived
+# by SUBTRACTING what the strategies attributed, so a direction whose walk failed pushes its
+# own work into `unattributed` — the reading would over-report for a reason that has nothing
+# to do with attribution. Null, never a zero and never an inflated number.
 #
 # BOUNDED BY CONSTRUCTION. `STANDUP_MAX_STRATEGIES` (default 8) and `STANDUP_MAX_ITEMS`
 # (default 3) cap the render, and every cut is counted in an `*_omitted` field — the digest
@@ -86,6 +101,7 @@ emit() {
         --argjson commits "$COMMIT_COUNT" \
         --argjson omitted "$2" --argjson noop "$3" --arg reason "$4" \
         --argjson total "$5" --argjson active "$6" --argjson due "$8" \
+        --argjson degraded "${9:-0}" \
         --argjson horizon "$HORIZON" \
         --slurpfile s "${TMP}/strategies.json" \
         --slurpfile u "${TMP}/unattributed.json" \
@@ -93,6 +109,7 @@ emit() {
         {window: $window, date: $date, token: $token,
          commit_count: $commits,
          strategy_count: $total, active_strategy_count: $active,
+         degraded_count: $degraded,
          due_soon_count: $due, target_horizon_days: $horizon,
          noop: $noop, noop_reason: $reason,
          strategies: $s[0], strategies_omitted: $omitted,
@@ -105,13 +122,13 @@ emit() {
 # would be the digest asserting a quiet morning it did not actually read.
 if ! LIST=$(sh "$STRATEGY_LIST" --status active "$ROOT" 2>/dev/null); then
     printf 'strategy_list_unreadable\n' >> "${TMP}/errors"
-    emit '[]' 0 true strategy_list_unreadable 0 0 '{"moved": 0, "waiting": 0}' 0
+    emit '[]' 0 true strategy_list_unreadable 0 0 '{"moved": 0, "waiting": 0}' 0 0
     exit 0
 fi
 TOTAL=$(printf '%s' "$LIST" | jq '.count')
 
 if [ "$TOTAL" -eq 0 ]; then
-    emit '[]' 0 true no_strategies 0 0 '{"moved": 0, "waiting": 0}' 0
+    emit '[]' 0 true no_strategies 0 0 '{"moved": 0, "waiting": 0}' 0 0
     exit 0
 fi
 
@@ -122,6 +139,7 @@ printf '%s' "$LIST" | jq -r '.strategies[] | .slug' > "${TMP}/slugs"
 : > "${TMP}/records"
 KEPT=0
 OMITTED=0
+DEGRADED=0
 while IFS= read -r slug; do
     [ -n "$slug" ] || continue
     if [ "$KEPT" -ge "$MAX_STRATEGIES" ]; then
@@ -131,6 +149,14 @@ while IFS= read -r slug; do
     if ! W=$(sh "$ATTRIBUTED" "$slug" "$WINDOW" "$ROOT" 2>/dev/null); then
         printf 'attribution_unreadable:%s\n' "$slug" >> "${TMP}/errors"
         continue
+    fi
+    # A WALK THAT DID NOT COMPLETE IS NAMED, AND KEPT (2026-08-29). The reader exits 0 and
+    # says `readable: false`, so the non-zero branch above never fires for it — dropping the
+    # record here would delete the strategy from the morning instead of reporting it. The
+    # test is `readable == false`: in jq `//` treats `false` itself as empty.
+    if [ "$(printf '%s' "$W" | jq -r '.readable == false')" = "true" ]; then
+        printf 'attribution_unreadable:%s\n' "$slug" >> "${TMP}/errors"
+        DEGRADED=$((DEGRADED + 1))
     fi
     printf '%s' "$W" | jq -r '.artifacts[].path' >> "${TMP}/attributed-paths"
     printf '%s\n' "$W" >> "${TMP}/records"
@@ -178,6 +204,19 @@ STRATEGIES=$(jq -sc \
         | {slug: $w.slug, title: ($s.title // $w.slug), status: $s.status,
            target_date: $s.target_date, days_to_target: days($s.target_date),
            assignees: $s.assignees,
+           # THE DECLARED STAGE, so the digest names the phase beside the title (2026-08-29,
+           # mission `make-a-direction-s-lifecycle-a-declared-stage`). It rides off `list.sh`,
+           # which resolves the absent-means-進行中 default through `read.sh` — no new read and
+           # no second derivation. A row the list could not match carries "" and the render
+           # says the stage is unreadable rather than printing 進行中, because a default that
+           # hides a failed read is what `readable` exists to prevent.
+           stage: ($s.stage // ""),
+           # A QUIET STRATEGY AND ONE THE READER COULD NOT SEE INTO MUST NOT RENDER ALIKE
+           # (2026-08-29) — the digest already holds itself to exactly that for the
+           # unattributed count. `readable` is ABSENT on a completed walk, by the contract
+           # that reader states, so `== false` is the test and `// true` would be wrong.
+           readable: ($w.readable != false),
+           reason: ($w.reason // ""),
            count: $w.count, active_count: $w.active_count, waiting_count: $w.waiting_count,
            empty_reason: $w.empty_reason,
            moved: ($moved[0:$max_items] | map({kind, title, state})),
@@ -191,6 +230,21 @@ ACTIVE=$(printf '%s' "$STRATEGIES" | jq '[.[] | select(.active_count > 0)] | len
 DUE=$(printf '%s' "$STRATEGIES" | jq --argjson h "$HORIZON" \
     '[.[] | select(.days_to_target != null and .days_to_target <= $h)] | length')
 UNATTRIBUTED=$(printf '{"moved": %s, "waiting": %s}' "$UNATTR_MOVED" "$UNATTR_WAITING")
+# NULL, NOT A NUMBER, WHEN ANY WALK FAILED (2026-08-29). The count is derived by SUBTRACTING
+# what the strategies attributed, so a direction whose walk failed pushes its own work into
+# this figure — it would over-report for a reason that has nothing to do with attribution.
+if [ "$DEGRADED" -gt 0 ]; then
+    UNATTRIBUTED='{"moved": null, "waiting": null}'
+fi
+
+# EVERY STRATEGY DEGRADED IS ITS OWN NAMED NO-OP, never `no_activity` and never a digest of
+# nothing. It sits beside `strategy_list_unreadable`: both say the morning could not be read,
+# rather than asserting a quiet one. A PARTIAL degradation is not a no-op — the strategies
+# that were read still have a morning, and the degraded ones are named in the render.
+if [ "$KEPT" -gt 0 ] && [ "$DEGRADED" -ge "$KEPT" ]; then
+    emit "$STRATEGIES" "$OMITTED" true all_attribution_unreadable "$TOTAL" 0 "$UNATTRIBUTED" "$DUE" "$DEGRADED"
+    exit 0
+fi
 
 # THE SECOND SILENCE, and the one rule that decides whether a morning is news.
 # Something moved under a strategy, or a strategy's own date is inside the horizon
@@ -207,8 +261,8 @@ UNATTRIBUTED=$(printf '{"moved": %s, "waiting": %s}' "$UNATTR_MOVED" "$UNATTR_WA
 #   - `unattributed` work never breaks the silence. A repository-wide changelog is what
 #     this digest is deliberately not; /catch is where that question is asked.
 if [ "$ACTIVE" -eq 0 ] && [ "$DUE" -eq 0 ]; then
-    emit "$STRATEGIES" "$OMITTED" true no_activity "$TOTAL" 0 "$UNATTRIBUTED" "$DUE"
+    emit "$STRATEGIES" "$OMITTED" true no_activity "$TOTAL" 0 "$UNATTRIBUTED" "$DUE" "$DEGRADED"
     exit 0
 fi
 
-emit "$STRATEGIES" "$OMITTED" false "" "$TOTAL" "$ACTIVE" "$UNATTRIBUTED" "$DUE"
+emit "$STRATEGIES" "$OMITTED" false "" "$TOTAL" "$ACTIVE" "$UNATTRIBUTED" "$DUE" "$DEGRADED"

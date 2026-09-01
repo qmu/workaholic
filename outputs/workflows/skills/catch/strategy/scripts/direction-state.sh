@@ -13,10 +13,10 @@
 #   {ok, readable, reason, window, repository, active_count,
 #    strategies: [{slug, state, reason, title, assignees, days_to_target, target_date, landed,
 #                  waiting, residue, leaving?}],
-#    counts: {live, arrived, overdue, dormant, unreadable}}
+#    counts: {live, arrived, overdue, expiring, dormant, unreadable}}
 #
-#   state       "live" | "arrived" | "overdue" | "dormant" | "unreadable", one per active
-#               strategy
+#   state       "live" | "arrived" | "overdue" | "expiring" | "dormant" | "unreadable", one per
+#               active strategy
 #   repository  "ok" | "none" (no `active` strategy exists at all) | "unreadable"
 #   residue     the survey's own {readable, reason, missions: [{slug, queued}], mission_count,
 #               ticket_count} — WHAT NO DIRECTION CLAIMS, carried through unchanged. It is a
@@ -40,10 +40,17 @@
 # no second assembly, and NOT ONE EXTRA READ of the tree or the network. `--with-leaving` is
 # opt-in so a caller that does not need it pays nothing and its output shape does not move.
 #
+# IT IS ATTACHED PER ROW, WHATEVER THE READING (2026-08-29). `arrived` and `overdue` are the two
+# that consume it today and `expiring` is the third, on the same grounds: a person asked to
+# re-date a direction before its date needs the same evidence as one asked to close it after.
+# Nothing about the attachment is keyed on the state, which is what keeps a new rung from
+# costing a second code path — and a row whose leaving could not be composed is NAMED at every
+# reading alike, never emptied.
+#
 # ═══ WHY THIS SCRIPT EXISTS AT ALL ════════════════════════════════════════════════════
 #
-# `survey-strategies.sh` emits three readings — `overdue`, `dormant` and `quiescent` — beside
-# `pace` and the refusal list. A consumer that assembled a lifecycle answer out of them would be A SECOND
+# `survey-strategies.sh` emits four readings — `overdue`, `expiring`, `dormant` and `quiescent` —
+# beside `pace` and the refusal list. A consumer that assembled a lifecycle answer out of them would be A SECOND
 # DERIVATION of a state this repository insists has one reader (the same rule that keeps
 # `attributed-work.sh` the only walker of the attribution, and `read-relation.sh` the only
 # parser of `mission:`). Two consumers would drift the first time a term moved.
@@ -52,12 +59,29 @@
 # walk: every state is a projection of a field the survey emitted, and the only thing this
 # script owns is the PRECEDENCE, which is fixed and stated once:
 #
-#   unreadable  >  arrived  >  overdue  >  dormant  >  live
+#   unreadable  >  arrived  >  overdue  >  expiring  >  dormant  >  live
 #
 # `unreadable` first because a reading we could not make must never be dressed as one we did.
 # `overdue` before `dormant` because a direction past its date is the operator's to re-date or
 # close whatever else is true of it, and reporting the same direction twice under two names
 # would double the question the consumer asks about it.
+#
+# ═══ WHY `expiring` SITS BETWEEN `overdue` AND `dormant` ══════════════════════════════
+#
+# AGAINST `overdue`, ABOVE IT: a date that has GONE is a stronger fact than one approaching, and
+# the two ask the operator for the SAME act with different urgency — *re-date it, end it, or say
+# it still stands*. Where one word must be chosen, the fact that has already happened wins;
+# reporting a direction as *about to expire* when it expired last week would understate what the
+# person is looking at. (Contrast `arrived`, which outranks both because it asks for a DIFFERENT
+# act — that is the block below, and it is why a rung is not just a severity ordering.)
+#
+# AGAINST `dormant`, BELOW IT: a direction near its date and silent is about to be silenced BY
+# THE DATE first, and the date is the fact with a deadline on it. `dormant` says *nothing is
+# answering this*, which stays true tomorrow; `expiring` stops being actionable the moment the
+# date passes, at which point the reading becomes `overdue` and the warning was never given.
+#
+# A rung with no reason recorded is what this header exists to prevent, so both neighbours are
+# argued rather than one.
 #
 # ═══ WHY `arrived` OUTRANKS `overdue` ═════════════════════════════════════════════════
 #
@@ -88,16 +112,18 @@
 # and writing one are different acts; `amend.sh` is reached only from `/specificate`'s
 # announcement route, never from a reader's own judgement that a direction looks stale.
 # It is NOT a second `pace`: `pace` answers *will this arrive*, `overdue` answers *has the date
-# passed*, `dormant` answers *is anything answering this at all*, and `arrived` answers *has its
-# work all come in*. Four questions, four fields; one field answering two is how they drift.
+# passed*, `expiring` answers *is the date about to arrive*, `dormant` answers *is anything
+# answering this at all*, and `arrived` answers *has its work all come in*. Five questions, five
+# fields; one field answering two is how they drift.
 #
 # IT INHERITS THE SURVEY'S LOSSINESS AND REPORTS IT RATHER THAN HIDING IT, the posture
 # `attributed-work.sh` sets in its own header:
 #
 #   * `dormant` and `quiescent` both require `owns == "mine"` in the survey, so a direction
-#     assigned to SOMEBODY ELSE can only ever read `live` or `overdue` here. That is a limit,
-#     not a verdict: this reader can see that another identity's direction has run out of
-#     date, and cannot see whether anything is answering it or whether it has arrived.
+#     assigned to SOMEBODY ELSE can only ever read `live`, `overdue` or `expiring` here. That is
+#     a limit, not a verdict: this reader can see that another identity's direction has run out
+#     of date — or is about to, since `expiring` carries no ownership term either — and cannot
+#     see whether anything is answering it or whether it has arrived.
 #   * A strategy whose attribution could not be read is `unreadable` and is never quietly
 #     folded into `live` — the survey's own per-row reason is carried through verbatim.
 #   * `none` is a REPOSITORY-level answer while the rest are per-strategy. Both live in one
@@ -135,7 +161,7 @@ ROOT="${2:-}"
 
 emit_unreadable() {
   reason="$(printf '%s' "${1:-}" | tr -d '"\\' | tr '\n' ' ' | cut -c1-200)"
-  printf '{"ok": true, "readable": false, "reason": "%s", "window": "%s", "repository": "unreadable", "active_count": null, "strategies": [], "counts": {"live": 0, "arrived": 0, "overdue": 0, "dormant": 0, "unreadable": 0}}\n' \
+  printf '{"ok": true, "readable": false, "reason": "%s", "window": "%s", "repository": "unreadable", "active_count": null, "strategies": [], "counts": {"live": 0, "arrived": 0, "overdue": 0, "expiring": 0, "dormant": 0, "unreadable": 0}}\n' \
     "$reason" "$(printf '%s' "$WINDOW" | tr -d '"\\')"
   exit 0
 }
@@ -170,6 +196,15 @@ RESULT="$(printf '%s' "$OUT" | jq -c '
    | map({slug,
           title: (.title // .slug),
           assignees: (.assignees // ""),
+          # THE DECLARED STAGE RIDES BESIDE THE READING AND NEVER ENTERS IT (2026-08-29,
+          # mission `make-a-direction-s-lifecycle-a-declared-stage`). `state` below is DERIVED
+          # — what the evidence says — and this is DECLARED, what the operator wrote down.
+          # A sixth `state` value was refused for the reason `overdue` was kept out of `pace`
+          # and `expiring` out of both: one field answering two questions is how the two
+          # drift. So it is projected off the survey row, exactly as `target_date` and
+          # `landed` are, and the precedence below is byte-identical across this change.
+          stage: (.stage // ""),
+          stage_declared: (.stage_declared // false),
           days_to_target: .days_to_target,
           # Projected, never derived: `target_date` comes straight off the survey row, and
           # `landed` is the length of the list it emitted (`landed_count` on a refused row,
@@ -188,19 +223,31 @@ RESULT="$(printf '%s' "$OUT" | jq -c '
           # and the survey already read it once per row. A consumer must not call
           # `attributed-work.sh` itself for the same reason it must not call
           # `unattributed-work.sh`: two readings of one fact drift.
-          waiting: {count:         (.waiting_count // 0),
-                    missions:      (.waiting_missions // 0),
-                    mission_slugs: (.waiting_mission_slugs // []),
-                    describing:    (.waiting_describing // 0),
-                    advancing:     (.waiting_advancing // .waiting_count // 0)},
+          #
+          # AND A ROW WHOSE WALK DID NOT COMPLETE CARRIES NULLS THROUGH (2026-08-29, mission
+          # `keep-the-closing-link-readable-as-the-corpus-grows`). The survey emits null
+          # rather than zero for exactly that row, so `// 0` here would put the zeroed
+          # reading back one layer up — the same defect, one consumer further on. The state
+          # is already `unreadable`, and these counts say the same thing rather than
+          # contradicting it.
+          waiting: (if ((.reason // "") == "attribution_unreadable")
+                    then {count: null, missions: null, mission_slugs: null,
+                          describing: null, advancing: null}
+                    else {count:         (.waiting_count // 0),
+                          missions:      (.waiting_missions // 0),
+                          mission_slugs: (.waiting_mission_slugs // []),
+                          describing:    (.waiting_describing // 0),
+                          advancing:     (.waiting_advancing // .waiting_count // 0)} end),
           state: (if ((.reason // "") == "attribution_unreadable") then "unreadable"
                   elif (.quiescent == true) then "arrived"
                   elif (.overdue == true) then "overdue"
+                  elif (.expiring == true) then "expiring"
                   elif (.dormant == true) then "dormant"
                   else "live" end),
           reason: (if ((.reason // "") == "attribution_unreadable") then "attribution_unreadable"
                    elif (.quiescent == true) then "its work has landed and nothing is waiting"
                    elif (.overdue == true) then "the target_date has passed"
+                   elif (.expiring == true) then "the target_date is approaching"
                    elif (.dormant == true) then "nothing landed in the window and nothing is waiting"
                    else "" end)})
    | sort_by(.slug)) as $rows
@@ -214,6 +261,7 @@ RESULT="$(printf '%s' "$OUT" | jq -c '
      counts: {live:       ([$rows[] | select(.state == "live")]       | length),
               arrived:    ([$rows[] | select(.state == "arrived")]    | length),
               overdue:    ([$rows[] | select(.state == "overdue")]    | length),
+              expiring:   ([$rows[] | select(.state == "expiring")]   | length),
               dormant:    ([$rows[] | select(.state == "dormant")]    | length),
               unreadable: ([$rows[] | select(.state == "unreadable")] | length)}}
 ')"

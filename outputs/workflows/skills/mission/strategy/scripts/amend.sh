@@ -24,7 +24,8 @@
 #
 # Usage:
 #   amend.sh <slug> [--target-date <YYYY-MM-DD>] [--schedule <prose>]
-#            [--assignees <a>[,<b>...]] [--aim <prose>|-] [<workaholic-root>]
+#            [--assignees <a>[,<b>...]] [--aim <prose>|-] [--stage <value>]
+#            [<workaholic-root>]
 #
 #   --aim -   reads the Aim prose from stdin (the shape create.sh uses); any
 #             other value is the prose itself. Stdin is read only when asked for.
@@ -36,7 +37,7 @@
 #   {"amended": true,  "path": …, "slug": …, "revised": [], "reason": "already"}
 #   {"amended": false, "reason": "no_slug"|"not_found"|"not_active"|"no_revision"
 #                               |"bad_target_date"|"no_assignees"|"empty_schedule"
-#                               |"empty_aim"|"immutable_field"|"bad_option"
+#                               |"empty_aim"|"bad_stage"|"immutable_field"|"bad_option"
 #                               |"missing_value"|"malformed", …}
 #
 # The four floor refusals reuse create.sh's names VERBATIM (`bad_target_date` /
@@ -56,11 +57,13 @@ NEW_DATE=""
 NEW_SCHEDULE=""
 NEW_ASSIGNEES=""
 NEW_AIM=""
+NEW_STAGE=""
 AIM_FROM_STDIN=0
 have_date=0
 have_schedule=0
 have_assignees=0
 have_aim=0
+have_stage=0
 
 refuse() {
     printf '{"amended": false, "reason": "%s"}\n' "$1"
@@ -81,6 +84,7 @@ while [ "$#" -gt 0 ]; do
         --target-date) need_value "$#"; NEW_DATE="$2"; have_date=1; shift 2 ;;
         --schedule)    need_value "$#"; NEW_SCHEDULE="$2"; have_schedule=1; shift 2 ;;
         --assignees)   need_value "$#"; NEW_ASSIGNEES="$2"; have_assignees=1; shift 2 ;;
+        --stage)       need_value "$#"; NEW_STAGE="$2"; have_stage=1; shift 2 ;;
         --aim)
             need_value "$#"
             case "$2" in
@@ -102,7 +106,7 @@ done
 [ -n "$ROOT" ] || ROOT=".workaholic"
 
 if [ "$have_date" -eq 0 ] && [ "$have_schedule" -eq 0 ] && \
-   [ "$have_assignees" -eq 0 ] && [ "$have_aim" -eq 0 ]; then
+   [ "$have_assignees" -eq 0 ] && [ "$have_aim" -eq 0 ] && [ "$have_stage" -eq 0 ]; then
     refuse no_revision
 fi
 
@@ -117,6 +121,17 @@ if [ "$have_date" -eq 1 ]; then
     case "$NEW_DATE" in
         [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) : ;;
         *) refuse_path bad_target_date "$FILE" ;;
+    esac
+fi
+
+# THE STAGE IS THE FOURTH REVISABLE PART (2026-08-29, mission
+# `make-a-direction-s-lifecycle-a-declared-stage`). It reuses `create.sh`'s refusal name
+# VERBATIM — one artifact must never acquire two names for one refusal — and is checked here,
+# before anything is composed, so a bad value leaves the file and the index byte-identical.
+if [ "$have_stage" -eq 1 ]; then
+    case "$NEW_STAGE" in
+        進行中|改良中|観察中) : ;;
+        *) refuse_path bad_stage "$FILE" ;;
     esac
 fi
 
@@ -188,13 +203,24 @@ trim_blanks() {
     '
 }
 
-# 1. Frontmatter: only target_date and assignees may move.
+# 1. Frontmatter: only target_date, assignees and the stage may move.
+#
+# The stage is the one field that may be ABSENT, because absent means 進行中 and a strategy
+# written before the field existed carries no line at all. So a move onto such a file INSERTS
+# the line, and it inserts it exactly where `create.sh` puts it — after `status:` — so an
+# amended artifact and a created one have the same shape rather than two shapes a reader must
+# learn.
+has_stage=0
+fm_block "$FILE" | grep -q '^stage:' && has_stage=1
 CAND="${WORK}/candidate.md"
-awk -v date="$NEW_DATE" -v hd="$have_date" -v asg="$ASSIGNEE_LIST" -v ha="$have_assignees" '
+awk -v date="$NEW_DATE" -v hd="$have_date" -v asg="$ASSIGNEE_LIST" -v ha="$have_assignees" \
+    -v stage="$NEW_STAGE" -v hs="$have_stage" -v had_stage="$has_stage" '
     NR==1 && $0 == "---" { infm = 1; print; next }
     infm && /^---[ \t]*$/ { infm = 0; print; next }
     infm && hd == "1" && /^target_date:/ { print "target_date: " date; next }
     infm && ha == "1" && /^assignees:/ { print "assignees: [" asg "]"; next }
+    infm && hs == "1" && had_stage == "1" && /^stage:/ { print "stage: " stage; next }
+    infm && hs == "1" && had_stage == "0" && /^status:/ { print; print "stage: " stage; next }
     { print }
 ' "$FILE" > "$CAND"
 
@@ -290,8 +316,14 @@ awk '
 # --- Assert the immutable half, over the candidate ---------------------------
 # Not a re-statement of the interface: the interface is what a caller sees, this
 # is what the file says. The two disagreeing is exactly the failure worth naming.
-fm_block "$FILE" | grep -v '^target_date:' | grep -v '^assignees:' > "${WORK}/fm-before" || true
-fm_block "$CAND" | grep -v '^target_date:' | grep -v '^assignees:' > "${WORK}/fm-after" || true
+# The stage is filtered only when `--stage` was actually passed — deliberately narrower than
+# the two filters beside it. Filtering it unconditionally would let a stage move slip past this
+# assertion on a call that never asked for one, and the stage is the field whose whole point is
+# that nothing moves it but an operator's announcement.
+stage_filter="^stage:"
+[ "$have_stage" -eq 1 ] || stage_filter="^\$a\$b"
+fm_block "$FILE" | grep -v '^target_date:' | grep -v '^assignees:' | grep -v "$stage_filter" > "${WORK}/fm-before" || true
+fm_block "$CAND" | grep -v '^target_date:' | grep -v '^assignees:' | grep -v "$stage_filter" > "${WORK}/fm-after" || true
 if ! cmp -s "${WORK}/fm-before" "${WORK}/fm-after"; then
     refuse_path immutable_field "$FILE"
 fi
@@ -346,6 +378,20 @@ if [ "$have_aim" -eq 1 ]; then add_revised aim; add_word "aim"; fi
 if [ "$have_date" -eq 1 ]; then add_revised target_date; add_word "target date"; fi
 if [ "$have_schedule" -eq 1 ]; then add_revised schedule; add_word "schedule"; fi
 if [ "$have_assignees" -eq 1 ]; then add_revised assignees; add_word "assignee"; fi
+# The stage's line names the MOVE rather than the destination, because a reader scanning the
+# section wants to know what changed. The previous value comes from `read.sh` — the one place
+# the absent-means-進行中 default is resolved — so a move off an unstaged direction reads
+# `進行中 → 改良中` rather than `→ 改良中`, and this script gains no second derivation of it.
+if [ "$have_stage" -eq 1 ]; then
+    add_revised stage
+    OLD_STAGE=$(sh "${SCRIPT_DIR}/read.sh" "$SLUG" "$ROOT" 2>/dev/null \
+        | sed -n 's/.*"stage": "\([^"]*\)".*/\1/p')
+    if [ -n "$OLD_STAGE" ]; then
+        add_word "stage ${OLD_STAGE} → ${NEW_STAGE}"
+    else
+        add_word "stage → ${NEW_STAGE}"
+    fi
+fi
 
 # --- Record what moved, in the Schedule prose --------------------------------
 # A revised direction says on its own face that it was revised — otherwise a reader

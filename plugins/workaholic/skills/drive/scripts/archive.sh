@@ -91,6 +91,55 @@ if ! SUBJECT_REASON=$(sh "${SCRIPT_DIR}/../../commit/scripts/check-subject.sh" "
     exit 1
 fi
 
+# CLAIM RE-CHECK BEFORE ANYTHING MOVES (2026-08-30, mission
+# `stop-two-runs-from-claiming-and-driving-one-unit`). The claim protocol closes the window
+# between two SURVEYS and not the one between a survey and the first WRITE: a runner can hold
+# a claim, begin driving, and only later meet a state its claim no longer covers -- a race, a
+# release, a retirement, or another runner's fresh claim over a branch proved superseded.
+#
+# THIS SEAM, FOR THE SUBJECT GATE'S OWN REASON. `archive.sh` is where a driving run first
+# writes something the base will see: it moves the ticket, commits, and pushes the claim
+# branch. The subject gate directly above already runs BEFORE the move precisely so a refusal
+# leaves the tree byte-identical, and this joins it there on the same reasoning and in the
+# same place -- ahead of the todo-layout migration below, which stages what it converges.
+#
+# IT IS DEFENCE IN DEPTH, NOT THE REPAIR. What stops a race is the claim contending for one
+# ref per unit; this bounds the damage when a claim changes hands for any reason at all.
+#
+# THE BIAS IS TOWARDS PROCEEDING, and it is the opposite of the claim act's on purpose: a
+# wrong refusal strands finished work outside the archive, needing the hand-written `git mv`
+# this seam exists to prevent. So it refuses only on POSITIVE evidence -- `other` (a different
+# live branch now holds this unit) or `ambiguous` (two live claims, which is the race itself)
+# -- and an unreadable scan, an unreachable origin or a branch with no claim row all answer
+# `unknown` and proceed. `claim-holder.sh` composes `lib/claims.sh` and adds no verdict word;
+# the reading is re-derived here, at the moment of the write, rather than handed in.
+HOLDER_SCRIPT="$(dirname "$0")/claim-holder.sh"
+if [ -f "$HOLDER_SCRIPT" ]; then
+    HOLDER_OUT=$(sh "$HOLDER_SCRIPT" "$BRANCH" 2>/dev/null || true)
+    HOLDER=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"holder": "\([a-z_]*\)".*/\1/p')
+    case "$HOLDER" in
+        other)
+            HOLDER_BRANCH=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"holder_branch": "\([^"]*\)".*/\1/p')
+            HOLDER_UNIT=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"unit": "\([^"]*\)".*/\1/p')
+            echo "Error: claim_taken_over — this branch no longer holds unit ${HOLDER_UNIT}."
+            echo "  This branch: ${BRANCH}"
+            echo "  Holder now:  ${HOLDER_BRANCH}"
+            echo ""
+            echo "Nothing was moved, staged or committed. Survey again before driving this unit."
+            exit 1
+            ;;
+        ambiguous)
+            HOLDER_BRANCHES=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"branches": "\([^"]*\)".*/\1/p')
+            HOLDER_UNIT=$(printf '%s' "$HOLDER_OUT" | sed -n 's/.*"unit": "\([^"]*\)".*/\1/p')
+            echo "Error: ambiguous_claim — two or more live claims hold unit ${HOLDER_UNIT}."
+            echo "  Branches: ${HOLDER_BRANCHES}"
+            echo ""
+            echo "Nothing was moved, staged or committed. A human decides which branch is the unit."
+            exit 1
+            ;;
+    esac
+fi
+
 TICKET_DIR=$(dirname "$TICKET")
 # Strip /todo, /icebox, or a legacy per-user form /todo/<user>, /icebox/<user> to
 # find the tickets root. The per-user patterns run first so a trailing user
@@ -285,8 +334,43 @@ elif [ -n "$MISSION_SLUGS" ]; then
         M_TOTAL=$(printf '%s' "$PROG" | sed -n 's/.*"total": *\([0-9][0-9]*\).*/\1/p')
         M_UNLINKED=$(printf '%s' "$PROG" | sed -n 's/.*"unlinked": *\([0-9][0-9]*\).*/\1/p')
         M_TODO=$(printf '%s' "$QSZ" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
+        # A DECLARED HANDOFF REFUSES THE CLOSE, AND THE TICK STAYS (2026-08-31, ticket
+        # `20260831140500`). The arithmetic above cannot see the one fact that makes its
+        # sum a lie: a ticket that declared `verification_handoff` is archived as
+        # implemented — the routing table says so and it is right, the code IS written —
+        # so the acceptance item naming it ticks, and this gate then closed the mission
+        # `achieved` while what that item asserts had been verified by nobody. Measured
+        # on `bring-the-theme-master-onto-the-one-master-seam-so-the-deployed-app-can-write-it`,
+        # whose deployed-round item was ticked by the archive of the very ticket saying
+        # no unattended runner can reach a deployment.
+        #
+        # WHICH OF THE TWO REPAIRS THIS IS, since the ticket left the fork open and asked
+        # for the choice to be stated: the item still TICKS and the close refuses. Not
+        # ticking would say the item is not met, which is false — the code is written and
+        # every acceptance item is a statement about work, not about who looked at it.
+        # Refusing the close says the item is met as far as anything here can tell and a
+        # person still has to look, which is exactly the true statement. It also keeps
+        # `tick-acceptance.sh` idempotent and `progress.sh`'s arithmetic honest; the
+        # alternative would have left a mission permanently reading N-1 of N with nothing
+        # saying why.
+        #
+        # IT IS A CONSUMER, NOT A SECOND DERIVATION. `acceptance-handoffs.sh` resolves the
+        # items' tickets and delegates the declaration itself to
+        # `verification-handoff.sh`, the one reader.
+        HOFF=$(sh "${MISSION_SCRIPTS}/acceptance-handoffs.sh" "$MISSION_FILE" 2>/dev/null || true)
+        HOFF_ANY=$(printf '%s' "$HOFF" | sed -n 's/.*"handoff"[[:space:]]*:[[:space:]]*\(true\|false\).*/\1/p')
+        HOFF_TICKETS=$(printf '%s' "$HOFF" | sed -n 's/.*"tickets"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p')
+
         # An unreadable reader is NOT a proof: a missing number leaves the mission alone.
         if [ -n "$M_CHECKED" ] && [ -n "$M_TOTAL" ] && [ -n "$M_UNLINKED" ] && [ -n "$M_TODO" ] \
+           && [ "$M_TOTAL" -gt 0 ] && [ "$M_CHECKED" -eq "$M_TOTAL" ] \
+           && [ "$M_UNLINKED" -eq 0 ] && [ "$M_TODO" -eq 0 ] \
+           && [ "$HOFF_ANY" = "true" ]; then
+            # Reported where the close would have been reported, and by name, so the
+            # reason is in the run's own output rather than only in a mission file
+            # nobody reopens.
+            echo "    ! mission ${MISSION_SLUG}: ${M_CHECKED}/${M_TOTAL} accepted and queue empty, but NOT closed — an acceptance item is answered only by a declared verification handoff (${HOFF_TICKETS:-unnamed}); a person must verify it and close the mission"
+        elif [ -n "$M_CHECKED" ] && [ -n "$M_TOTAL" ] && [ -n "$M_UNLINKED" ] && [ -n "$M_TODO" ] \
            && [ "$M_TOTAL" -gt 0 ] && [ "$M_CHECKED" -eq "$M_TOTAL" ] \
            && [ "$M_UNLINKED" -eq 0 ] && [ "$M_TODO" -eq 0 ]; then
             CLOSE_OUT=$(sh "${MISSION_SCRIPTS}/close.sh" "$MISSION_FILE" achieved 2>&1) && CLOSE_RC=0 || CLOSE_RC=$?
@@ -299,6 +383,57 @@ elif [ -n "$MISSION_SLUGS" ]; then
                 # Idempotent, like the two mutators above: a mission already ended is a
                 # no-op rather than an error.
                 echo "    ~ mission ${MISSION_SLUG}: already ended; close changed nothing"
+            fi
+
+            # NAME THE MISSION'S OWN DRILL VERDICT BESIDE THE CLOSE — AND GATE NOTHING
+            # (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`). The gate
+            # above closes a mission on ARITHMETIC — every ticket archived, the acceptance
+            # fully checked, the queue empty — and says nothing about whether the mechanism
+            # that mission shipped still works. This reads that mechanism's drill and says
+            # so, as evidence.
+            #
+            # THE CLOSE IS BYTE-IDENTICAL EITHER WAY. It runs AFTER the close (or its
+            # refusal) is decided, and a failing drill neither blocks nor delays it. The
+            # temptation is to hold a close whose drill is red; it is refused by name,
+            # because this gate's proof is *is the acceptance complete*, not *is the work
+            # good*, and a second condition would make an unattended close depend on a
+            # reading designed to become false when re-run (`drive/reference/claims.md`,
+            # *Proofs and judgements*: every value here is a judgement).
+            #
+            # THE READ IS BEST-EFFORT AND ITS DEGRADATION IS REPORTED, exactly as the base
+            # health read already is: it costs one REST call, and a call that fails must
+            # never turn a landed archive into a failure. `no_drill` (the mission ships
+            # none) and `drill_unreadable:<reason>` are each named by their own word rather
+            # than reading as green.
+            DRILL_REG="${SCRIPT_DIR}/drill-register.sh"
+            DRILL_READ="${SCRIPT_DIR}/read-drill-verdicts.sh"
+            if [ -f "$DRILL_REG" ] && [ -f "$DRILL_READ" ]; then
+                DR_OUT=$(sh "$DRILL_REG" mission "$MISSION_SLUG" 2>/dev/null || true)
+                DR_NAMES=$(printf '%s' "$DR_OUT" | tr '{' '\n' | sed -n 's/.*"drill": "\([a-z0-9-]*\)".*/\1/p')
+                if [ -z "$DR_NAMES" ]; then
+                    echo "    mission ${MISSION_SLUG}: drill verdict — no_drill (this mission shipped none)"
+                else
+                    DR_TIP=$(git rev-parse --verify "${WORKAHOLIC_BASE_REF:-origin/main}^{commit}" 2>/dev/null || true)
+                    if [ -z "$DR_TIP" ]; then
+                        echo "    mission ${MISSION_SLUG}: drill verdict — drill_unreadable:no_base_ref"
+                    else
+                        for DR_NAME in $DR_NAMES; do
+                            DR_V=$(sh "$DRILL_READ" "$DR_TIP" --drill "$DR_NAME" 2>/dev/null || true)
+                            DR_VERDICT=$(printf '%s' "$DR_V" | sed -n 's/.*"verdict": "\([a-z_]*\)".*/\1/p')
+                            DR_WHY=$(printf '%s' "$DR_V" | sed -n 's/.*"reason": "\([a-z_:]*\)".*/\1/p')
+                            case "$DR_VERDICT" in
+                                failing)
+                                    echo "    ! mission ${MISSION_SLUG}: drill ${DR_NAME} is FAILING on the base at ${DR_TIP}; the close is unchanged" ;;
+                                no_failing_drill)
+                                    echo "    mission ${MISSION_SLUG}: drill ${DR_NAME} — not failing on the base at ${DR_TIP}" ;;
+                                no_drill)
+                                    echo "    mission ${MISSION_SLUG}: drill verdict — no_drill (${DR_NAME} is not in the register)" ;;
+                                *)
+                                    echo "    mission ${MISSION_SLUG}: drill ${DR_NAME} — drill_unreadable:${DR_WHY:-unreadable}" ;;
+                            esac
+                        done
+                    fi
+                fi
             fi
         fi
     done <<EOF

@@ -14,8 +14,8 @@ Every step returns one JSON line:
 
 `status` is the tick log's closed vocabulary. `reason` is free-form but **stable per cause**, so a
 report can be read by grep: `not_implemented`, `budget`, `requested`, `step_missing`, `step_error`,
-`no_output`, `bad_output`, `no_connector`, `no_credentials`, `no_strategies`, `unreadable_inbox`,
-`quiet_hours`, `already_filed`.
+`no_output`, `bad_output`, `jq_compile_error`, `no_connector`, `no_credentials`, `no_strategies`,
+`unreadable_inbox`, `quiet_hours`, `already_filed`.
 
 **`needs_agent` is the seam between the script and the model.** A step script is non-interactive
 and composes no prose: it probes, it decides, and where the action is mechanical it files through
@@ -130,6 +130,30 @@ is only what a line is allowed to prove.
   Mergeability lives only on the single-pull endpoint, so the per-pull reads are bounded by
   `--limit` (default 10) and the cap is **reported** — a busy repository is never silently
   half-read. GitHub's lazily-computed `mergeable: null` is `unknown`, never `clean`.
+- **Resolved once per tick, used twice — and since 2026-08-29 actually so** (ticket
+  `20260829092043`). That sentence stood under step 6 while both steps called the reader
+  themselves, so a tick made two rounds of per-pull reads. Because `mergeable` is computed
+  lazily and *requesting* the pull request is what schedules the job, the two rounds can
+  disagree: measured on tick `20260829-085055` (issue #710), this step reported `none
+  conflicted` while step 6 named four — #622, #625, #633, #688 — over the same open set, with
+  neither wrong about what it read. `run.sh` now resolves once before the step loop and names
+  the file in `WORKAHOLIC_TICK_PULLS_STATE`, and **`pulls-state.sh` is what consults it**, so
+  both steps stay byte-identical and the property belongs to the one reader rather than to each
+  caller's memory. A step run standalone sees no variable and resolves for itself; the cache is
+  keyed on the `--limit` it was resolved at, so a wider read is never served a truncated answer;
+  and a failed resolution is never cached, because one transport hiccup must not become the
+  tick's answer for every consumer.
+- **A FOURTH outcome, named rather than folded into the zero** (2026-08-29, ticket
+  `20260829092046`): `uncomputed`. This step counted only `conflict` rows, so a tick that could
+  not look and a tick that looked and found nothing both reported `none conflicted`, in the
+  voice of a completed reading — the *found nothing* versus *could not look* collapse repaired
+  by name in `attributed-work.sh`, in the three-valued merged lookup and in
+  `ci-retirement-turn.sh`. A tick with uncomputed rows now names how many, and never says
+  `none conflicted` about them; a tick with neither conflicts nor uncomputed rows keeps the
+  earlier wording byte-identically. It is **`ok`/`mergeability_uncomputed`**, deliberately
+  neither `degraded` (which names a transport this step could not read, and the transport
+  answered) nor `blocked` (which asserts a conflict nobody proved, and would send a claim holder
+  after one). It adds **no `event`**, so the posting behaviour below is unchanged.
 - **Writes**: **nothing to any branch, and no post of its own.** The finding rides step 6's
   reminder; two Slack lines about one pull request in one tick is the noise a gated post exists
   to prevent.
@@ -161,7 +185,9 @@ is only what a line is allowed to prove.
 
 ## 6. `stuck-prs` — what failed to auto-merge, and what it needs
 
-- **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice.
+- **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice, and since
+  2026-08-29 held by the reader rather than by each caller (step 4's entry carries the
+  measurement and the seam).
 - **Every row names the decision, not the colour**: `conflict` → the claim holder must resolve it
   and nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
@@ -181,6 +207,15 @@ is only what a line is allowed to prove.
   `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
   shared key would let either dedup the other away.
 - **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). This step is the one that
+already met it, and the reason is worth naming: `headline` is derived from the *reason* rather
+than from the identifier, so the post opens `conflicting with main` and not `#642`. Heading —
+the `headline` above, then the pull requests it covers. Body — the act that row's `blocked_by`
+already names (resolve the conflict / review it / fix the check / mark it ready / update it /
+re-read). `stuck:<digest>` is a **dedup key and never a heading**: the contract's clause 3 in
+its oldest form.
 
 ## 7. `doc-drift` — the documentation against the current concept
 
@@ -271,6 +306,15 @@ opposite reason: it says nothing precisely when the direction is gated.
 A survey that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`; the contract is
+`workaholic:notify`'s, beside the `🙋 <@U…>` shape). Keyed `strategy-pace:<slug>`.
+
+- **Heading** — *nothing has landed on `<title>` for as long as it has left*, then the slug, the
+  declared stage and `days_to_target`. Never `strategy-pace:<slug>` or the bare word `late`:
+  `late` is this repository's derivation, and its plain fact is the sentence above.
+- **Body** — the one act: *re-plan it, re-date it, or say it is fine as it is.*
+
 ## 11. `stalled-units` — what is claimed, and how long it has not moved
 
 ```bash
@@ -288,6 +332,23 @@ notified nobody. `/implement` cannot ask — no `AskUserQuestion` anywhere, at a
 tick's check-in, the one surface here that names a person, asked only about what its own steps had
 found. **No step read the state of claimed work**, so the surface that could ask never learned
 there was anything to ask about.
+
+
+**And each candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh --key <the key this
+step already composes>` answers `first_seen` / `ticks` / `truncated` / `first_seen_is_floor`, or
+a named `readable: false`, from the question ledger those keys already write. The reading rides
+`needs_agent` **only** and its words are carried **verbatim** — a normalised word sends a reader
+to a string no script printed. An unreadable age is named as unreadable and **never rendered as
+*this just started***, which is the collapse the reading exists to close. **No key moves**, so
+`already_asked` is byte-identical and the changed wording re-asks nothing, and **the summary does
+not move either**, for the correctness reason recorded above.
+
+**Two ages ride this question and they are TWO FACTS.** `stalled_hours` is how long the claim
+**tip** has not moved (`WORKAHOLIC_CLAIM_STALE_HOURS`, the protocol's own threshold); `age` is how
+long we have been **asking**. They are named as two with their sources and never blended into one
+number, and `step-operator-pulls.sh` deliberately keeps reading `created_at` alone —
+`drive/reference/claims.md`'s source table records every row and the pin checks it both ways.
 
 **The coupling is a reader, not a handoff** — the same shape as `strategy-pace`. A `/implement`
 run's container is discarded and it writes nothing into the tree about its own blockers, so it
@@ -356,6 +417,20 @@ with its reason.
 It posts nothing itself and touches no claim: the post is step 13's, through the `🙋 <@U…>` shape
 that already names a person, rides the tick's own thread, carries the session URL and is asked
 once.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`stalled-unit:<unit>`, unchanged.
+
+- **Heading** — *nothing has moved on the work claimed for `<unit>` in `<n>` hours*, then the
+  unit, its branch, and the two ages as **two facts with their sources** (the claim tip's
+  staleness; asked about since `<first_seen>`, `<n>` ticks). The measured pre-contract wording —
+  `a claimed unit has not moved for a day or more`, with the unit id leading — named the
+  mechanism and not the thing: a reader had to know what a claim is before the sentence meant
+  anything.
+- **Body** — the one act: *pick it up again, or release the claim so somebody else can.*
+- **Never alone**: `queue_drained`, `parked_with_pr`, `report_incomplete`. Each may ride the
+  heading beside the plain fact it stands for, and none may stand in for it.
 
 ## 12. `closable-missions` — finished, and still open
 
@@ -522,7 +597,8 @@ is still bounded to one.
 "post when there is at least one question" gate — an hour with nothing to ask stays silent by
 construction — and it goes out as the same `🙋 <@U…>` reply, with its age in the question's own
 sentence (`first_asked` rides the gate's answer). The root's wording does not move, so the copy in
-`notify/reference/notifications.md` and the routine template stay byte-identical.
+`notify/reference/notifications.md` and the copy in `/moderate` stay byte-identical (the shapes
+left the routine template on 2026-09-01 — `workaholic:notify`, *The command is the ceiling*).
 
 ## 13. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
@@ -538,6 +614,30 @@ sentence (`first_asked` rides the gate's answer). The root's wording does not mo
 - **Five gates, each its own refusal**: `off_day` (the working-week gate, `WORKAHOLIC_WORK_DAYS`, default `1-5`), `quiet_hours`, `already_asked`, `tick_cap` (5), `day_cap`
   (10 — the bound the per-tick cap must not aggregate past; five an hour is 120 a day at the
   ceiling, and the cap alone protects nobody's attention).
+- **`day_cap` counts *today*, and a spent day holds** (2026-08-28, mission
+  `deliver-what-the-loop-already-knows-to-the-person-who-can-act`). It counts the
+  `human-checkin-ask` lines on the current **`WORKAHOLIC_QUIET_TZ` day** — derived once in
+  `ask-question.sh`, from the tick id where there is one, and passed to `log-read.sh`'s
+  existing `--since`, so the loop has one notion of a day and there is no second reader and
+  no cursor. A spent cap **holds** rather than drops, and a held question is **re-offered on
+  the next eligible tick, oldest-held first**.
+
+  It counted every day the log had ever held: `asked_today` was the unbounded prefix count,
+  the log is append-only and never pruned, so once the all-time total crossed `max_per_day`
+  every question was refused `day_cap` forever. Measured — `count: 12, days: 5` against a cap
+  of 10, a fresh key at 14:00 on a working weekday refused with `asked_today: 12`, the same
+  reader bounded to the current day answering `count: 0`, and eight consecutive ticks
+  reporting `ok` while posting nothing. **The repair was a bound passed to a reader that
+  already accepted one** — not a raised cap, not a second reader, not a stored cursor, not a
+  second notion of a day. The `outstanding` re-ask branch printed that same unbounded number
+  into **both** `asked_this_tick` and `asked_today`; they are now the tick count and the
+  day-bounded count.
+
+  **The day boundary moves in `WORKAHOLIC_QUIET_TZ` while the log's *files* are keyed by UTC
+  day**, so near the boundary the bound can include a UTC file whose later entries belong to
+  the local next day. That **over-counts rather than under-counts** — it holds a question
+  rather than asking a duplicate — which is the safe direction. Stated rather than repaired
+  with per-entry timestamp filtering, so a later reader does not fix it the other way.
 - **Quiet hours: one gate per tick, in the workspace's timezone** (resolved 2026-08-17), default
   `Asia/Tokyo` 22:00–08:00, both overridable (`WORKAHOLIC_QUIET_TZ`, `WORKAHOLIC_QUIET_HOURS`).
   The per-recipient alternative — each addressee's Slack profile timezone — is more precise and
@@ -546,6 +646,83 @@ sentence (`first_asked` rides the gate's answer). The root's wording does not mo
   dropped**. The gate is one function reading one zone, so it stays swappable.
 - **Held is not dropped**: a suppressed question is recorded as `human-checkin-held-<slug>` and
   handed back by this step on the next eligible tick; it drops out once it has been asked.
+- **And the arrears come back oldest-held first** (2026-08-28, the same mission). The held set
+  was collected with `sort -u` — alphabetical, an arbitrary order over a set whose only
+  meaningful axis is age — which had never mattered while the day cap was jammed and nothing
+  drained. `held` is ordered by the day each key was **first** held (a key held across several
+  ticks is as old as its first hold), tie-broken on the tick id within the day and then on the
+  key, so the order is total and a re-entered tick produces a byte-identical sequence. The day
+  is already in the log this tick keeps, so this adds **no second ledger, no cursor and no
+  field on any artifact**.
+
+  **The step orders; it neither caps nor asks.** `max_per_tick` is enforced per candidate by
+  `ask-question.sh`, `held_count` counts the **whole** held set rather than the ordered prefix
+  (the count is what tells a reader how deep the arrears are), and the order is a **proposal**
+  to the agent: the Recommended-label test still applies per candidate, so an older question
+  that is no longer worth asking is dropped by judgement rather than asked because it sorted
+  first. **Age, not urgency** — a severity ranking across the step vocabularies is a judgement
+  no script can make, and the verdicts call for different acts by different people, which is
+  why one unified "what the loop is blocked on" report was refused. The day grain is coarse
+  (a whole day's holds sort together); the tick id is already the tie-break and carries
+  `HHMMSS` if a finer grain is ever wanted.
+- **It reports what it delivered, not what it was permitted to** (2026-08-28, the same
+  mission). The summary read `up to 5 questions may be asked this tick; 22 held from an
+  earlier tick` with `status: ok` — a **permission**, equally true of a tick that asked five
+  and a tick that asked none, so eight consecutive delivering-nothing ticks were
+  indistinguishable from eight healthy ones in the only record that survives the container.
+  The step now reports `delivered`, `held_count` and `candidates`, and names why a tick
+  delivered nothing:
+
+  | `delivery` | Means |
+  | ---------- | ----- |
+  | `cap_spent` | `max_per_day` questions were asked **on this day**. The mechanism worked; the budget is spent and the rest are held |
+  | `cap_unbounded` | the day count could not be bounded. **Our own degradation** — never rendered as `cap_spent`, which is the whole point of the split: one says the budget worked, the other says the loop has stopped |
+  | `all_held` | every candidate is refused by `quiet_hours`, `off_day` or `tick_cap` |
+  | `all_asked_before` | every key that was ever held has since been asked |
+  | `no_candidates` | the genuinely quiet hour |
+
+  **Whether the tick could deliver is asked of the gate, not re-derived here**: one
+  `ask-question.sh` probe with a key unique to the tick, recorded nowhere, so the day's
+  arithmetic keeps one home and this step cannot disagree with the gate the agent is about to
+  run. **`ask-question.sh` is not modified by the reading.**
+
+  **What `delivered` honestly is.** The agent asks and records under `human-checkin-ask-<slug>`
+  *after* `run.sh` returns, and **there is no post-agent seam in `run.sh`** to move the reading
+  to — the agent's turn happens after the run and only `persist-log.sh` is re-invoked. So the
+  reading is *candidates and holds now, delivery from the log*: on the step's own pass
+  `delivered` is zero by construction, and the reason words are the ones the step can
+  **observe** — the caps and the holds — never a prediction of the agent's judgement. It is
+  read from the log rather than assumed precisely so a second, read-only invocation after the
+  agent's turn reports the real number.
+
+  **A degraded read is named, never rendered as a delivery**: an unreadable log is
+  `status: degraded` with the reader's own reason and **no `delivered` claim**. An *absent* log
+  area is a readable answer — nothing has ever been held — the split `unanswered-asks` draws.
+- **And a tick that reached nobody supplies an `event`** (2026-08-28, the same mission). This
+  step supplied **no `event` field at all**, so a tick with 22 candidates and zero delivered
+  posted nothing and total silence was byte-identical to a quiet hour — eight consecutive
+  ticks, with a red base, a 31-hour declared handoff, three undeletable branches and seven
+  undrivable units all held behind it. A delivery failure **is** the event the root exists to
+  carry.
+
+  It is supplied **only** for `cap_spent` and `cap_unbounded` — the two states where the tick
+  was eligible to ask and structurally could not. Every other case supplies none and therefore
+  renders no line: a quiet hour, an off day and the quiet window are the *designed* hold and
+  are already named in the log, and a tick that delivered questions needs no event because the
+  questions are the delivery. `cap_spent` is worth a line even though the budget worked,
+  because a reader has to be able to tell it from `cap_unbounded`. The line names **no dedup
+  key and no mention token**.
+
+  **It is the root's third gate**, added beside the morning digest on that gate's own
+  precedent: the question gate's expression is untouched and a second condition is OR'd next
+  to it (`render-tick-post.sh`). It is **not** the retired changed-step half, which let *any*
+  changed step earn a question-less root — this fires only when the check-in itself supplied
+  an event, and `delivery_failure` is set **inside the diff loop**, so an unchanged reading an
+  hour later is suppressed by the same derivation that suppresses every other restatement. It
+  stops entirely once the channel is delivering. The renderer's own skip of `human-checkin`
+  was **removed rather than narrowed**, because the guard that replaces it already exists — *a
+  step with no event renders no line* — and the check-in supplies one only on a delivery
+  failure, so every other tick behaves exactly as it did.
 - **Silence is not consent, and it is not a reason to ask again** (resolved 2026-08-17). An
   unanswered question is never re-posted. The red-alert `↳ still failing` precedent covers a
   machine-observable state that persists; a question is a demand on a person's attention, and
@@ -565,15 +742,105 @@ question into the thread of the item it concerns; it posts the tick's own root a
 questions under it.
 
 1. Render the root: `run.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
-   It returns `post`, a `reason`, the `changes[]` it found and the `root_text` to post verbatim.
+   It returns `post`, a `reason`, the `changes[]` it found, the `impaired[]` steps it could not
+   read, and the `root_text` to post verbatim.
 2. `post: false` ⇒ **post nothing**, whatever the reason (`idle`, `no_previous_tick`, `no_log`,
    `no_rows`). Report the reason in the run.
 3. `post: true` ⇒ post `root_text` as a top-level message carrying `` `tick:<tick-id>` `` and the
    session URL, then post each cleared question as a **reply into that root**, carrying the
    person's `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries.
 
+**The root rides the connector; a question whose mention resolves to the poster rides the bot**
+(2026-08-31, mission `notify-the-person-a-directed-question-addresses`). This question is the
+one shape whose entire purpose is to reach a named person, and it is why the `🙋` line keeps
+its `<@U…>` unconditionally where every other shape dropped one. In the single-developer
+configuration — the normal one — that token resolves to the account the post is made as, and
+**Slack notifies nobody of their own message**: the loop's blockers reached the operator only
+when they happened to reread the channel. The carrier rule is `workaholic:notify`'s
+(*Which transport carries which shape, and why*) and is not restated here; what this step owes
+it is the mechanics:
+
+- **The root is always the connector's.** It is a top-level post, it needs no mention, and the
+  connector is the transport this tick already holds. Nothing about step 1 or 2 moves.
+- **The coordinate is already in hand and no query is added.** The connector returns the root's
+  `(channel, ts)` when it posts it — the same fact `--record-ask` has recorded per question
+  since 2026-08-28, which is what proves the timestamp is an *input* here and never a lookup.
+  Hand that `ts` to `notify-slack.sh --thread-ts <ts>` and the bot's reply lands **inside the
+  tick root's thread**, so the two speech acts stay told apart by position exactly as they are
+  now. The two-query lookup bound is untouched: no search happens on this path at all.
+- **With no bot token, post through the connector exactly as today.** `notify-slack.sh` answers
+  `no_token` and exits 0; the question is still asked, still gated, still recorded. This is a
+  fallback, never a drop.
+- **Report the carrying surface per question** in the step's own log line — `bot`, `connector`,
+  or the transport's own refusal word (`no_token`, `no_channel`, `slack_<error>`, …) — so a
+  question that reached nobody is never recorded as one that did. A refusal is reported, never
+  retried: the bot must be a member of the channel and `WORKAHOLIC_SLACK_CHANNEL` must name the
+  channel the root was posted in, and both are **provisioning** rather than code.
+- **The gate does not move, and that is checkable**: `ask-question.sh` is byte-identical, so the
+  key, `already_asked`, `answered`, the per-tick cap, the day cap, the quiet hours, the
+  working-day hold and the one bounded re-ask are exactly what they were. The question's wording
+  does not move either — only the account that speaks it.
+
+The cost is stated rather than absorbed: a person's own thread now carries one bot reply per
+question, changing the thread's author mix. That is the intended trade — a reply nobody is
+notified of is worth less than one that reaches them.
+
+**Every root names the steps that could not read** (2026-08-31, mission
+`name-the-steps-a-tick-could-not-read`). `run.sh` classifies every step
+`ok|filed|skipped|degraded|blocked` with a reason and the renderer read neither, so a tick where
+six steps saw nothing rendered exactly like a tick where everything was read — measured, 24 of 25
+ticks in that state, found four days later by asking. `render-tick-post.sh` derives `impaired[]`
+(the `degraded` and `blocked` rows in `STEPS` order, each with its own status and reason) and
+`impaired_count` **on every exit path, including the silent ones**, and the root carries the count
+in its head and the names in its body:
+
+```
+🔎 Moderation - <N> change(s), <M> question(s)
+<the event lines>
+⚠️ <step> — <status>: <reason>
+```
+
+**`skipped` is not impairment** — a step declining to run for a stated, healthy reason (`budget`,
+an absent precondition) did not fail to see. **`blocked` renders beside `degraded`** under one
+clause: they differ in cause and are identical in consequence to the reader.
+
+**The clause rides OUTSIDE the diff, and that is the load-bearing decision.** A step degraded the
+same way for twenty-four ticks has an unchanged summary, so the diff would call it unchanged and
+the impairment would be said once and then vanish — the defect, not the fix. **It earns no post
+either**: it adds a clause to a root already being posted for a question, a digest or a delivery
+failure, so a tick that would have been silent stays silent and the twice-retired status root is
+not reinstated. The third head term is omitted entirely at `K == 0`, so a healthy tick's root is
+byte-identical to what it always was. The list names at most `WORKAHOLIC_IMPAIRED_MAX` (default 5)
+steps and counts the rest as `and <K> more` — never a silent truncation, and the head always
+carries the full count. No dedup key, no mention token, no session URL on the clause.
+
 **A change is a diff against the previous tick**, read from the log; no step declares its own
-novelty and no cursor is stored. **The gates are `questions >= 1` or `changes >= 1`.**
+novelty and no cursor is stored. **The gate is `questions >= 1`** — the changed-step half was
+retired on 2026-08-22 (issue #569), because with `0 question(s)` the root is a status line
+addressed to nobody. Three narrow conditions sit beside it, each OR'd next to that untouched
+expression: the **morning digest** (2026-08-24), a **check-in that reached nobody**
+(2026-08-28, above), and a **changed impairment** (2026-08-31).
+
+**A changed impairment is the fourth gate**, on the third's precedent. The worst case measured is
+the one where nothing posts at all: with no question, no digest and no delivery failure, a tick
+with six blind steps emitted `post: false` and was byte-identical, to the operator, to a quiet
+hour. **The line is outside the diff and the gate is inside it** — the impairment is *stated* on
+every root and *earns* one only when it moved, so a standing impairment never opens a root of its
+own after the first, which is the property `📦 Release Preparation` lacked. Appearing and clearing
+both break silence; persisting does not. A root earned this way reports `reason: ready_impairment`
+so a machine reading the JSON can tell it from one a question earned, and `root_text` is unchanged
+either way — a clearing renders the same clause in its other state (`✅ every step read this
+tick`), because a root that posts and says nothing about why is the content-free status line this
+repository has retired twice.
+
+**The comparison is a set of `(step, status, stabilized summary)`, and the third term is
+mechanical**: `reason` never reaches the tick log — `log-append.sh` writes
+`- <step>: <status> — <summary>` and nothing more — so the previous tick's reason is not
+recoverable from the only cross-tick memory there is, and a store for it is what this must not
+add. The set is strictly finer than `(step, status)` alone, so it errs toward opening a root; both
+sides are sorted, so row order cannot decide it; and `stabilize` is applied to both, because two
+steps embed a timestamp or a sha in their summary and would otherwise differ every tick by
+construction and fire this gate hourly. It reads no age: no gate in this repository may.
 
 **This step is exempt from `--deadline-seconds`.** The deadline cuts steps in order and this one is
 last, so a slow tick used to read nine things and say nothing — the one step whose absence nobody
@@ -619,11 +886,38 @@ check-in as a question addressed to that direction's assignee:
 | Reading | Question key | Addressed to |
 | ------- | ------------ | ------------ |
 | `arrived` | `direction-arrived:<slug>` | the strategy's `assignees` |
+| `arrived` **declared 進行中** (2026-08-29) | `direction-cutover:<slug>` | the strategy's `assignees` |
 | `overdue` | `direction-overdue:<slug>` | the strategy's `assignees` |
+| `expiring` (2026-08-29) | `direction-expiring:<slug>` | the strategy's `assignees` |
 | `dormant` | `direction-dormant:<slug>` | the strategy's `assignees` |
+| `dormant` **declared 改良中** (2026-08-29) | `direction-settled:<slug>` | the strategy's `assignees` |
 | `none` (repository-level) | `direction-none` | nobody — there is no direction to own |
 | **the last live direction** (repository-level, 2026-08-28) | `direction-last:<slug>` | the strategy's `assignees` |
 | `unreadable` | — | **never asked about** |
+
+**The two transition questions REFINE an existing one rather than adding one** (2026-08-29,
+mission `make-a-direction-s-lifecycle-a-declared-stage`). The ask is that stage transitions —
+*this direction can now cut over*, *this direction has settled into observation* — are worth
+telling a person about rather than only the backwards alarms. They cannot be added **beside**
+the existing readings: `direction-state.sh` projects `quiescent` to `arrived` and `dormant` to
+`dormant` in a fixed precedence, so a 進行中 direction whose work is all in **always** reads
+`arrived` and a quiet 改良中 one **always** reads `dormant` — a question added beside those
+would double-ask one direction (the doubling `handoff-units` and `stalled-units` were split to
+avoid) or never fire at all. So the **stage decides which question the same evidence draws**,
+every other combination is byte-identical, and `direction-state.sh`'s precedence is untouched:
+this is the step choosing its wording, not a sixth lifecycle value.
+
+**The cost is stated**: the key changes for those two combinations, so a direction already
+asked `direction-arrived` may be asked `direction-cutover` once. One extra question, ever, and
+it is the better-aimed one.
+
+**Neither is ever inferred from stuckness.** Both candidate sets are built only from readings
+that describe **work landing** (`quiescent`, `dormant` — attribution terms), never from a
+handoff, a block, a stale claim, an undelivered unit or a queue that will not drain: those
+occur in **any** phase, so none of them is evidence about a stage. And both are **candidates,
+never verdicts** — whether a toggle can be flipped is a fact no script can see, so the question
+describes the evidence and asks; the tick moves no stage, and the artifact keeps its three
+writers.
 
 **Why the step exists** (2026-08-26, mission `say-when-the-loop-has-run-out-of-direction`): three
 states of the direction layer were silent and each was byte-identical to a healthy idle hour — a
@@ -669,6 +963,25 @@ beside **what no direction claimed**. The residue was half of it, and the half t
 to see the work of its **own** that never landed, and `overdue` had neither half. Asking before
 the decision is the whole point: after the close it is a post-mortem, here it is evidence in the
 one place a person is being asked to rule.
+
+**A fifth reading since 2026-08-29** (mission `warn-a-direction-before-its-date-silences-the-loop`):
+a direction whose date is **approaching**. Every reading above answers backwards — has the date
+gone, is anything answering it, has its work come in — so a live, in-date, `on_course` direction
+one day from its `target_date` produced no question at all, and the day after `past_target_date`
+silenced origination with the only signal being `direction-overdue`, asked in **arrears**. The
+precedent is `direction-last:<slug>`, which names the last live direction to its owner *while
+they can still act* rather than announcing silence afterwards to nobody; expiry is that same
+event by a different cause.
+
+**Its heading names the days left and the date**, because a warning that does not say how long
+somebody has is not a warning, and the leaving rides it exactly as it rides `arrived` and
+`overdue`. Its body names the same act `overdue` names — re-date it, announce a successor when
+you end it, or say it still stands — offered while it can still be taken, inside
+`workaholic:notify`'s one-sentence bound. Every gate applies unchanged: the asked-once ledger,
+the per-tick cap, the quiet hours, the working-day hold. **It is never held by an open ruling**,
+for `overdue`'s own reason — a ruling answers which direction a mission belongs to and answers
+nothing about a date. And the step **asks and nothing else**: nothing is re-dated, closed,
+amended or gated, and the artifact keeps its three writers.
 
 **Carried, never composed in the step.** `direction-state.sh --with-leaving` attaches
 `strategy/scripts/closing-residue.sh`'s composition to each row, and the step reads that field —
@@ -745,6 +1058,45 @@ surface.
 A reader that refuses, or a missing script, is `degraded` with the reason named — never an `ok`
 step that found nothing.
 
+**And since 2026-08-28 an `arrived` question can be HELD** (mission
+`put-the-loop-s-standing-rulings-on-one-pull-request`). The `arrived` question exists to name
+the residue the reading could not see; once an open ruling pull request names **every** mission
+in that residue, the diff already carries the whole ask, and the question would send the
+operator to do by hand what they are being asked to merge. **All of it or none of it** — a
+ruling naming one mission must not silence a question about a different one, so a partially
+covered residue still asks, with its full residue named and the partial cover said in words
+(*a ruling pull request is open for some of these; the rest the loop could not judge*).
+`overdue` and `dormant` are **never** held: those are about the date and the silence, which no
+ruling answers. The read is `moderate/scripts/ruling-suppression.sh` — one reader, shared with
+`undrivable-units`, so the two steps cannot disagree — and an **unreadable** read holds nothing
+(`ci-retirement-turn.sh`'s discipline). The suppression is **derived, stored nowhere**: merging
+or closing the ruling makes the question reachable again with no state.
+
+**The seven questions, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Every key, the asked-once
+gate, the addressee, the per-tick cap and the precedence are **byte-identical**; only what the
+sentences lead with moves. The stage, the residue, the leaving, the days left and the date keep
+riding the **heading**, exactly as they did — the body's one sentence is reserved for the act.
+
+| Key | Heading leads with | Body asks for |
+| --- | ------------------ | ------------- |
+| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *is this direction finished — close it, or name what is still missing?* |
+| `direction-cutover:<slug>` | *`<title>`'s work is all in and it is still declared 進行中* — then the slug, what landed, the residue | *can it cut over now, or is something still holding it?* |
+| `direction-settled:<slug>` | *improving `<title>` has gone quiet* — then the slug, 改良中, the window nothing landed in | *is this observation now, or is there still work to do?* |
+| `direction-overdue:<slug>` | *`<title>` went past its date on `<target_date>`* — then the slug, the stage, the leaving | *re-date it, close it, or say it is still running.* |
+| `direction-expiring:<slug>` | *`<title>` reaches its date in `<n>` days, on `<target_date>`* — then the slug, the stage, the leaving | *is the remaining work going to land by then?* |
+| `direction-dormant:<slug>` | *nothing has answered `<title>` since it was set* — then the slug, the stage, the date | *is it still the direction, or should it be re-dated or closed?* |
+| `direction-last:<slug>` | *`<title>` is the last live direction, and the loop originates nothing after it* — then the slug, the stage, the leaving | *close it with a successor, or keep it open?* |
+| `direction-none` | *no live direction remains, so nothing is proposing work* — addressed to nobody, because no owner is left to name | *set one, or leave the loop reactive.* |
+
+**What is refused here**: leading with `arrived`, `dormant`, `quiescent`, `expiring` or
+`overdue`. Those are the loop's readings, not the operator's facts — `quiescent` in particular
+means *cited, landed, nothing waiting, no date term*, which is four conditions no reader can be
+expected to reconstruct from one word. Each may ride the heading **beside** the plain fact; none
+may replace it. A heading is also never *still declared 進行中* for a direction carrying no
+`stage:` line: absent means 進行中 for every reader in the layer and is the wrong thing to quote
+back, which is why only a **declared** stage refines a question.
+
 ## 16. `unanswered-asks` — a message on the channel that nobody has answered
 
 ```bash
@@ -772,7 +1124,7 @@ back in `needs_agent`:
 
 | Half | Owner | What it is |
 | ---- | ----- | ---------- |
-| which channel, which window | the script | `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`), `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) |
+| which channel, which window | the script | `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`; set to `dev-workaholic` here), `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) |
 | which refs an earlier tick asked about | the script | its own `unanswered-asks-filed` lines, read through `log-read.sh` |
 | is this a question, a request, an opinion — and has anything answered it | the agent | the probe returned in `needs_agent` |
 
@@ -781,6 +1133,36 @@ mean the two readings cannot disagree about which messages the loop had a chance
 pair of variables is exactly how they would. The cost is stated rather than hidden: a message
 already older than the window when this step first runs is never asked about, and nothing
 backfills it. Every message arriving afterwards is asked about exactly once.
+
+**A channel it could not read is its own outcome, and it reaches a person** (2026-08-29, mission
+`point-the-inbound-readers-at-the-channel-that-exists`). The agent's read has **three** outcomes
+and they are named apart:
+
+| Outcome | What it means | What follows |
+| ------- | ------------- | ------------ |
+| `asks_found` | candidates nobody has answered | one question each, keyed `unanswered-ask:<channel>:<ts>` |
+| `window_empty` | the channel **was read** and held nothing in the window | an honest quiet hour; no question |
+| `channel_unreadable` | the read **did not happen** | one question, keyed `inbound-channel-unreadable:<channel>` |
+
+**It never claims a channel is absent.** Slack answers *not found* for a channel the calling
+token cannot **see**, so absent and invisible are one response — the distinction
+`check-slack-channel.sh` was written to preserve, and reintroducing it at this seam would send a
+person to create a channel that already exists. The question says *the channel could not be
+read*, names the channel this run resolved and the reason the transport gave, and stops there.
+
+**Quiet while the reading is unchanged, by the route rather than by a suppression list.** The
+escalation goes through `ask-question.sh` on a key naming the **channel**, so the asked-once gate
+answers it: one question per channel, ever, with the per-tick cap, the quiet hours and the
+working-day hold applying unchanged. An hourly restatement of an unchanged reading is what this
+repository retired two roots for, and this cannot produce one by construction. The cost is stated:
+a channel that breaks, is fixed and breaks again is not re-asked — the same property
+`base-red:<commit>` and `stalled-unit:<unit>` already carry; a **different** channel is a
+different key, which is the change that actually matters. `no_slack_transport` asks nothing: it is
+this session holding no connector, not a fact about the channel.
+
+**The resolved channel name rides the summary**, so a divergence between the channel the loop
+posts to and the one it reads is legible from the tick log without anyone re-deriving the default.
+That divergence ran for a day precisely because it was not.
 
 **The ledger is the tick log and there is no second one.** The already-asked refs are an
 optimisation handed to the agent so it does not re-derive them; the **gate** is
@@ -793,7 +1175,9 @@ there is definitively nothing recorded — and yields an empty set. Any other re
 reader, a missing reader, or unparseable output is `degraded` with the reason named and **asks
 nothing**: filing against a ledger that could not be read is how one person is asked the same
 question every hour. The Slack-side degradations belong to the agent and are named by it —
-`no_slack_transport`, `channel_unreadable` — never rendered as a channel with nothing waiting.
+`no_slack_transport`, `channel_unreadable` — never rendered as a channel with nothing waiting,
+and since 2026-08-29 `channel_unreadable` has the keyed question above rather than only a line in
+the log.
 
 **It asks; it never answers, files or captures.** Turning a channel message into an `[FB]` issue
 is the `:40` sweep's job (`workaholic:propose`) and stays there. The two overlap by design — the
@@ -811,6 +1195,19 @@ question, and a question is already a reply inside that root.
 **The ask said "reacted to".** The tick's way of reacting to something is to ask a named person
 about it inside its root; a second status surface would be the line addressed to nobody this
 repository has retired twice.
+
+**The two questions, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keys unchanged.
+
+- **`unanswered-ask:<channel>:<ts>`** — heading: *nobody has answered `<who>`'s message in
+  `#<channel>`*, then when it was written and its first words; the permalink carries the rest.
+  Body: *answer it in the thread, or say it needs nothing.* The channel-and-timestamp pair is a
+  coordinate, never a heading.
+- **`inbound-channel-unreadable:<channel>`** — heading: *the loop could not read `#<channel>`,
+  so nothing written there is reaching it*, then the reason the read gave. Body: *check the
+  connector, the token or the channel name.* It says plainly that the read **did not happen**,
+  never that the channel does not exist: sending somebody to create a channel that already
+  exists is the failure this wording exists to avoid.
 
 ## 17. `undrivable-units` — work the loop wrote and cannot drive
 
@@ -870,6 +1267,47 @@ A tree with no `.workaholic/` is an ordinary `ok`; readers absent from the skill
 `degraded` by name. A queue every owner of which the mapping names supplies **no `event`**,
 so the root renders no line: nothing happened to the repository.
 
+**And each candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh --key <the key this
+step already composes>` answers `first_seen` / `ticks` / `truncated` / `first_seen_is_floor`, or
+a named `readable: false`, from the question ledger those keys already write. The reading rides
+`needs_agent` **only** and its words are carried **verbatim** — a normalised word sends a reader
+to a string no script printed. An unreadable age is named as unreadable and **never rendered as
+*this just started***, which is the collapse the reading exists to close. **No key moves**, so
+`already_asked` is byte-identical and the changed wording re-asks nothing, and **the summary does
+not move either**, for the correctness reason recorded above.
+
+The age is the age of the **question**, not of the condition, so the composed wording says how
+long the artifact has been *asked about* rather than asserting how long it has been undrivable.
+On this candidate the two nearly coincide, and saying the weaker true thing costs nothing.
+
+**And since 2026-08-28 a candidate can be HELD** (mission
+`put-the-loop-s-standing-rulings-on-one-pull-request`). While an open ruling pull request names
+an address, asking a person to complete that same mapping line by hand on `main` is asking them
+to do what they are being asked to merge, so that candidate is **held and counted** rather than
+asked about. Keyed on the **subject**: a ruling naming one address does not silence the question
+about another. A candidate that survives while a ruling is open carries `unjudged: true` and its
+question says so — *the loop could not judge which account this belongs to* — because an unjudged
+subject is exactly the one that most needs a person. The read is
+`moderate/scripts/ruling-suppression.sh`, shared with `direction-health`; an **unreadable** read
+holds nothing; and `ask-question.sh`, the key, the asked-once gate, the caps and the holds are
+byte-identical.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`undrivable-unit:<artifact path>`, unchanged — and the key is exactly the identifier the
+contract forbids leading with, which is what made this step the clearest case for the rule.
+
+- **Heading** — *`<the artifact's title>` is assigned to an address the identity mapping does
+  not name, so no runner can pick it up*, then the address, the path, and *asked about since
+  `<first_seen>`, `<n>` ticks* where the age is readable.
+- **Body** — the one act: *add `<login>=<address>` to `.claude/git-identities`, or reassign the
+  work.* The repair is one line and the question says which line.
+- **An unjudged candidate says so** — *the loop could not judge which account this belongs to* —
+  because that is the fact that makes it a person's, and it is the plain-fact form of
+  `unjudged: true`.
+- **Never alone**: `owner_unresolved`, `identity_unresolved`, `undrivable`.
+
 ## 18. `undelivered-units` — a unit the loop finished and could not deliver
 
 ```sh
@@ -913,12 +1351,43 @@ header records: the root calls a step changed when its summary differs from the 
 hour ago, and an incrementing age would make this step changed hourly by construction. The age
 still reaches the person, in the question that names the unit.
 
+
+**And each candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh --key <the key this
+step already composes>` answers `first_seen` / `ticks` / `truncated` / `first_seen_is_floor`, or
+a named `readable: false`, from the question ledger those keys already write. The reading rides
+`needs_agent` **only** and its words are carried **verbatim** — a normalised word sends a reader
+to a string no script printed. An unreadable age is named as unreadable and **never rendered as
+*this just started***, which is the collapse the reading exists to close. **No key moves**, so
+`already_asked` is byte-identical and the changed wording re-asks nothing, and **the summary does
+not move either**, for the correctness reason recorded above.
+
+**Two ages ride this question and they are TWO FACTS.** `open_hours` is how long the pull request
+has been open, from its own coordinates; `age` is how long the unit has been asked about. This is
+the one step where both are present, and neither may silently replace the other — a pull request
+opened an hour ago that nobody has been told about, and one open a week that a person was asked
+about on day one, call for different acts. `drive/reference/claims.md`'s source table records
+which question reads which, and the rule it exists for: **nothing derives an age twice**.
+
 **It asks and nothing else.** It never merges, never retries, never drives and never resolves the
 blocker itself. Each question is keyed `undelivered-unit:<unit>` through `ask-question.sh`, so
 the asked-once gate, the per-tick cap, the quiet hours and the working-day hold all apply
 unchanged and no second ledger exists. A degraded read (`no_claim_reader`, `claims_unreadable`,
 `claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing — a scan
 that could not reach the remote has not found *nothing undelivered*, it has found nothing at all.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`undelivered-unit:<unit>`, unchanged.
+
+- **Heading** — *the loop finished `<unit>` and could not merge it*, then the pull request, its
+  age, and the two ages as **two facts with their sources** (the pull request's own
+  `created_at`; asked about since `<first_seen>`, `<n>` ticks).
+- **Body** — the one act: *merge it, or say what should happen to it.*
+- **Never alone**: `report_undelivered` and the recorded `merge_outcome` word
+  (`session_type_cannot_merge`, `merge_not_allowed`, `head_moved`, …). The refusal word is worth
+  carrying because it says *where to look* — but beside *the merge was refused*, never instead
+  of it, since none of those words means anything to a reader outside this repository.
 
 ## 19. `retire-claims` — a claim proved empty, taken off the table
 
@@ -956,11 +1425,34 @@ reported `0 retired` hour after hour with nobody told. The unit is then exactly 
 `undelivered-units` and `handoff-units` exist for: a reading the machine cannot act on, addressed
 to one person.
 
-One question per blocked unit, keyed **`retire-blocked:<unit>`** so `ask-question.sh`'s
-asked-once ledger holds it to exactly one ask, naming the unit, the **exact branch** left on
-origin, the refusal, and the acts that already stand — a question that does not name the branch
-does not say what to delete. Which half moved and which did not: a retirement that **worked**
-still asks nothing at all.
+One question per blocked unit, keyed **`retire-blocked:<unit>:<refusal word>`** so
+`ask-question.sh`'s asked-once ledger holds it to exactly one ask **per (unit, refusal word)**,
+naming the unit, the **exact branch** left on origin, the refusal that is blocking the delete
+now, and the acts that already stand — a question that does not name the branch does not say what
+to delete. Which half moved and which did not: a retirement that **worked** still asks nothing at
+all.
+
+**Asked once per (unit, refusal word), never per unit** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). Asked-once-per-unit is right for an
+unchanging block — an hourly restatement of the same refusal is the noise two keyed roots were
+retired for — and wrong the moment the **word** changes: a unit first blocked on
+`branch_delete_failed` and later on `pull_request_open` is a different fact needing a different
+act, and the second reached nobody. **An unchanged word is held forever**, which is the
+discipline this preserves rather than drops.
+
+**The gate itself did not change, and that is the property the shape was chosen for.** The
+narrowing lives in what the **key is made of**, so `ask-question.sh` stays one mechanism that
+cannot drift from itself, and every existing hold — quiet hours, working days, the per-tick cap
+and the day cap — applies to a re-ask unchanged, because a re-ask is simply one more question.
+Re-asking on a **timer** was refused by name: it reintroduces exactly the hourly restatement the
+asked-once gate exists to prevent, and a word that has not changed carries no new information for
+the person.
+
+**The word is the one a person must act on**: CI's refusal where the effect reading
+(`drive/scripts/ci-retirement-turn.sh`) names one, because that is the executor that was going to
+take the delete, and the container's own refusal otherwise. One word, and it is the same word the
+question names. A word that **oscillates** between two values would re-ask on each flip; whether
+that needs its own bound is worth measuring before one is added, and none is added on speculation.
 
 **Whose question it is**: the **claim holder**'s, following `stalled-units` and
 `undelivered-units` — a real person who drove the unit and can delete its branch. The **running
@@ -975,6 +1467,22 @@ already filters out of its own candidates and counts as a finding instead — so
 already honest and nothing new had to be filtered; the other two claim-reading steps key on
 `report_undelivered` and `awaiting_verification`, which no `superseded` row can also be.
 
+**And each blocked candidate carries how long it has been ASKED ABOUT** (2026-08-30, mission
+`say-how-long-the-loop-has-been-stuck`). `moderate/scripts/condition-age.sh` is read with the key
+this step composes — `retire-blocked:<unit>:<refusal word>` — **after** the key is settled and
+after both suppressions, since an age read under any earlier key would answer about a different
+question. The reading rides `needs_agent` only, its words are carried verbatim, and the summary
+does not move, for the stability reason above.
+
+**A changed refusal word resets the age, and that is correct.** The key carries the word, so a
+unit whose block changes cause starts a new question and reads `first_seen: null` on its first
+tick. The composer must not read that reset as the block having cleared: the branch has been
+standing all along, and only what is blocking its delete has moved.
+
+**The age is attached after the act, never before it.** This step is the one age consumer that
+also *acts* — `retire-claim.sh`, on a proof — and the age is a **judgement**, so it must never
+sit in front of the proof the act reads. The suite pins the ordering.
+
 **It asks and nothing else**: no claim released, no pull request reopened, no delete re-run on the
 strength of an answer, and the `superseded` proof gate and the retirement's other two acts are
 exactly what they were.
@@ -985,29 +1493,72 @@ exactly what they were.
 branch a workflow is about to delete must draw **no** question: asking a person, once per unit and
 forever, for an act CI was about to perform is not merely noisy — the ask is wrong.
 
-The reading is `drive/scripts/ci-retirement-turn.sh` and it is **store-free**, which is the
-constraint that shaped it. CI *deletes* the branch when it succeeds, and unmerged remote branches
-are the only claim oracle, so a successful turn removes the claim row and the candidate with it. A
-**completed run at the base tip this tick is reading** therefore means CI saw exactly this tree and
-the branch survived it — the matching is on `head_sha`, which needs no clock, no timezone and no
-date parsing, and answers the question actually being asked rather than a proxy for it. Three
-values, each with its own consequence:
+The reading is `drive/scripts/ci-retirement-turn.sh`. **It answered from a completed run's
+EXISTENCE until 2026-08-29, and that premise was the design rather than the behaviour** (mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It read: *CI deletes the branch when it
+succeeds, so a successful turn removes the claim row and the candidate with it; a completed run
+at the base tip therefore means CI saw exactly this tree and the branch survived it.* The
+inference holds only if every completed turn actually reached its act — and measured the same
+day, `claim-retirement.yml` was green on every run while three proved candidates stood, because
+the CI-side act refuses `gh_unavailable` before its proof gate. The sentence is corrected in
+place in `drive/reference/claims.md`, *When an act of the retirement is refused*, with the
+measurement that retired it.
+
+**What replaced it**: the turn **records** what it attempted and what each act answered, and the
+reading answers **per unit** from that record — `taken` only on the act's own success word. It
+remains **store-free** (no cursor, no queue, no ledger, no field on any artifact); only which
+part of the run is consulted moved. Matching is still on `head_sha`, which needs no clock, no
+timezone and no date parsing. Five values, each with its own consequence:
 
 | Reading | What it means | What the tick does |
 | ------- | ------------- | ------------------ |
-| `taken` | a completed run at this tip left the branch standing | ask — the unit is blocked at **both** executors |
-| `pending` | no completed run at this tip yet | ask nobody **this tick**; the asked-once ledger keys on the unit, so a branch that outlives CI's turn is still asked about later |
+| `taken` | the act **succeeded** for this unit (`deleted`, or `already_gone`) | ask nobody — nothing is owed |
+| `refused:<word>` | the act was refused, carrying its own word — or the turn's candidate reading was degraded and named its reason | ask — this is precisely what a person must hear about |
+| `pending` | no completed run at this tip yet | ask nobody **this tick**; the asked-once ledger keys on the unit and its word, so a branch that outlives CI's turn is still asked about later |
 | `unavailable` | the workflow is not present in this repository | ask — CI will never take the act here |
+| `unreadable` | a run completed and we cannot say what it did | ask — a reading we could not make must never suppress a question |
 
 A read the step could not make leaves the question exactly where it was, on the same rule: an
 over-eager question is better than a silently dropped one, and this repository has measured the
 cost of a blocked act nobody was told about.
 
-**Everything else about the question is byte-identical** — the key `retire-blocked:<unit>`, the
-asked-once gate, the addressee, the per-tick cap, the quiet hours and the working-day hold. Only
-the candidate set narrows, and the **summary carries no CI term**, deliberately: every term of it
-stays a function of the claim set and the act states, so a held block keeps rendering identically
-tick after tick and a newly blocked unit still moves it. The narrowing is not a suppression list.
+**Everything else about the question is byte-identical** — the asked-once gate, the addressee,
+the per-tick cap, the quiet hours and the working-day hold (the key gained the refusal word in
+2026-08-29's narrowing above, and nothing else about it moved). Only the candidate set narrows,
+and the **summary carries no CI term**, deliberately: every term of it stays a function of the
+claim set and the act states, so a held block keeps rendering identically tick after tick and a
+newly blocked unit still moves it. The narrowing is not a suppression list.
+
+**The effect reading is deliberately kept out of the summary**, and the reason is measured rather
+than stylistic: CI runs on every merge to `main`, so between a merge and its run completing the
+reading genuinely oscillates `pending` → `refused:<word>` hour to hour. In the summary that would
+move the diff most hours and render a root line for a block that had not changed — exactly what
+the stability rule exists to prevent. The **key** is safe from the same oscillation by
+construction, because a `pending` unit is suppressed before any key is composed.
+
+**The suppression is per unit, not per turn** (2026-08-29). It was one run-level word applied to
+every blocked unit at once; a unit is now held only on **its own** answer, and only on `taken`
+(the act succeeded, so nothing is owed) or `pending` (CI may still take it, this tick only).
+`refused:<word>`, `unavailable` and `unreadable` all hold nothing — and a unit the reading never
+answered keeps its question **by construction**, because only named units are removed.
+
+**A blocked retirement supplies an `event`, and which guard holds which case moved with it**
+(2026-08-29, mission `read-back-whether-the-loop-s-own-act-took-effect`). An act the loop
+believed it took and did not is a repository fact a person should see the hour it appears, so the
+step's `event` now names those units — where before only a *successful* retirement supplied one.
+There were two independent guards against an hourly restatement, an unchanged summary **and** an
+empty event; a standing block now has one:
+
+| Case | What holds the root line |
+| ---- | ------------------------ |
+| a tick whose acts all took | **no event** — the *a step with no event renders no line* guard |
+| a **standing** blocked unit | **the summary diff** — identical string, so the step is not "changed" |
+| a **newly** blocked unit | neither: the unit set moves, so the summary moves and the line renders |
+
+That is the whole reason the summary must carry no CI term: on the standing-block path it is the
+only guard left. Re-implementing the renderer's diff inside the step to suppress a repeated event
+was refused — the renderer already owns that comparison, and a second copy is how the two would
+disagree.
 
 **And which executor took a delete is now rendered, from two states that already exist.**
 `deleted` means this tick performed the delete; `already_gone` means the ref was not on origin
@@ -1086,6 +1637,20 @@ done is undone, and that the summary is stable across two ticks. Its breaker row
 that was **retired** and one **refused on another act** in the same tick, so a candidate set
 widened either way fails the drill.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`retire-blocked:<unit>:<refusal word>`, unchanged — the word stays **in the key**, which is
+where it belongs, and never leads the heading.
+
+- **Heading** — *`<unit>`'s work is all on `main` and its branch could not be deleted*, then the
+  **exact branch** left on origin, the refusal, the acts that already stand, and *asked about
+  since `<first_seen>`, `<n>` ticks*. A question that does not name the branch does not say what
+  to delete, so that detail rides the heading and is not compressed away.
+- **Body** — the one act: *delete `<branch>` on origin.*
+- **Never alone**: `superseded`, `branch_delete_failed`, `gh_unavailable`. `superseded` in
+  particular reads as a problem and means the opposite — the content already landed — so its
+  plain fact leads and the word rides behind it.
+
 ## 20. `base-health` — did the base survive what the loop merged?
 
 ```sh
@@ -1156,6 +1721,18 @@ tick has at least one question, and on a red tick this step has already supplied
 is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
 and an absent remote degrades to the bare short sha rather than to a broken link.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `base-red:<commit>`,
+unchanged — a commit sha is the least readable identifier the tick holds, and it leads nothing.
+
+- **Heading** — *`main` is failing its own checks*, then the failing check names, the merge the
+  walk attributed (its pull request and title) and the commit.
+- **Body** — the one act: *fix it or say it is expected.* Never *re-run it*: a re-run is an act,
+  and this step takes none.
+- **`unattributable` still asks, and says so in plain words** — *`main` is failing and the walk
+  could not name the merge that broke it*, keyed on the tip, so nobody is sent after a merge the
+  step did not identify.
+
 ## 23. `thread-reconcile` — a finished item whose thread still calls it in flight
 
 ```bash
@@ -1210,16 +1787,37 @@ contract is *writes nothing*.
    `🔴`, or a reconciliation this loop already posted, is **not**. **When unsure, post nothing and
    say what made you unsure** — the standing bar, and here it costs one tick rather than a duplicate
    announcement in a person's thread.
-3. **Post the catalog's shape** for the state the reader gave: `🟢 Implemented` with the sentence
-   naming that it merged outside the loop, **by whom and when**, for a merge; `⚫ Closed` for a pull
-   request closed without merging. **Never invent an author or a time** — an unresolved one is
-   *stated* as unresolved, never omitted silently and never guessed.
+3. **Post the catalog's shape** for the **pair** of (latest status, pull request state), and there
+   are exactly three: `🟡 Handoff` + merged reuses `🟢 Implemented` with the sentence naming that it
+   merged outside the loop, **by whom and when**; `🔵 Proposed` + closed-unmerged uses `⚫ Closed`;
+   and `🔵 Proposed` + **merged posts nothing**, reported `proposal_merged_is_not_a_finish`.
+   **Never invent an author or a time** — an unresolved one is *stated* as unresolved, never
+   omitted silently and never guessed.
+
+   **A merged proposal is the item's START, not its finish** (2026-09-01, issue #787). Merging a
+   proposal lands a feedback record and a ticket set, which is the moment the work becomes
+   **queued**; `🟢 Implemented` there asserts the opposite of what happened. Measured on a
+   consuming repository: an operator read the green circle as their ask being done while the
+   ticket was still in `todo/` and the thing they complained about was byte-identical. The two
+   cases were already distinguishable with no new state — the latest status reply is read anyway,
+   and it is what tells them apart. **Saying nothing is strictly better than saying the opposite**:
+   the thread keeps its last true status, and the real `🟢 Implemented` still arrives when the work
+   is driven. **No fifth finish emoji was introduced** — a shape of its own saying *the tickets are
+   queued* is additive, can follow, and is the operator's to ask for; the catalog already reasons
+   against growing the finish vocabulary.
+
+   **The stated cost**: a queued item whose ticket is never driven now has a thread that simply
+   stops at `🔵 Proposed`. That is a **true** last word rather than a false one, but it is still a
+   silence, and it was chosen rather than overlooked. `[Consent]`'s retirement is untouched: this
+   **narrows** what the step corrects and announces no human merge it did not already announce.
 4. **Record one `thread-reconcile-filed` line per candidate** through `log-append.sh`, naming the
    key and the outcome, then persist again through `persist-log.sh --tick` — the **second** persist,
    without which the line dies with the container.
 5. **One outcome per candidate, or the other**: `posted`, or a named not-posted reason —
-   `no_thread`, `already_finished`, `unsure`, `no_slack_transport`, `thread_unreadable`,
-   `post_failed`. **A candidate handed back with no outcome is non-conformant on its face**: this is
+   `no_thread`, `already_finished`, `proposal_merged_is_not_a_finish`, `unsure`,
+   `no_slack_transport`, `thread_unreadable`, `post_failed`. The third is **counted rather than
+   dropped silently**, so a merged proposal reaching no reply is visible as a decision rather than
+   as a step that found nothing. **A candidate handed back with no outcome is non-conformant on its face**: this is
    a prose contract, not a script gate — no mechanical check tells a real thread read from a claimed
    one — and what it buys is that a report naming no outcome is visibly wrong.
 
@@ -1309,7 +1907,7 @@ and it is **never** spent on a candidate the tree already answered.
 10, with `truncated` and `beyond_bound`); the list itself is read in
 `WORKAHOLIC_RECONCILE_PAGES` pages of 50 (default 3) and **`list_capped` says when that bound, rather
 than the repository, ended the read** — one page cannot serve the window on a repository closing
-twenty-five pull requests a day, and a single page would have answered "nothing merged" for anything
+twenty-six pull requests a day, and a single page would have answered "nothing merged" for anything
 older than yesterday.
 
 **A candidate whose artifacts resolve to no feedback stem is reported in `unresolved` under
@@ -1321,12 +1919,275 @@ an item with no feedback record has no thread to reconcile at all.
 candidate list at all** — never an empty one, which would render our own blindness as "nothing to
 reconcile".
 
+## 25. `file-findings` — a repairable finding, filed as work
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-file-findings.sh --tick <id> [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/list-finding-issues.sh
+```
+
+- **Reads**: the classification table below (its one home), the run's own step reports,
+  named by `run.sh` in `WORKAHOLIC_TICK_REPORTS`, and `list-finding-issues.sh` (the ledger,
+  one REST call). **Never `plan-units.sh`** —
+  `undrivable-units`' rule, first recorded by `closable-missions`: the survey runs the living
+  migrations and **stages** what they converge, and a step whose contract is *writes nothing*
+  may not reach it through something that writes.
+- **Writes**: nothing, not even its own tick-log line (`run.sh` writes that). The act is the
+  agent's, through `propose/scripts/file-inbound-ask.sh` — still the **one** filer — assigned to
+  the running identity so the next `[Specificate]` at `:15` ingests it, carrying the direction
+  through `feedback/scripts/ask-feedback-line.sh`, still the one writer of that line.
+- **Its `event` is always empty**, `standing-rulings`' rule for `standing-rulings`' reason: at
+  the moment `run.sh` reads this step's line nothing has been filed, because the agent acts only
+  after `run.sh` returns. An event here would announce an act the step has not taken.
+
+**Why it exists** (2026-08-29, mission `let-the-tick-s-own-findings-become-the-loop-s-work`).
+The tick had two destinations for a finding — a **question** to a person, or a **feedback
+record** — and neither becomes work, because `[Specificate]`'s unattended entrance reads GitHub
+**issues**. So the loop's own debt accumulated where nothing could drive it, while the only
+in-tick caller of the filer acted on a *person's* answer and never on a finding of its own.
+
+**What counts as a finding.** A step in the `repairable` set that supplied an **`event`** — its
+own statement that a repository event happened — or that reported **`degraded`** or
+**`blocked`**, because our own machinery failing is the loop's debt as surely as a stuck pull
+request is. Everything else the tick found is **`left`**, a count and never a list: those
+findings reach a person through their own questions, and re-listing them here is the report
+addressed to nobody this repository has twice retired posts for.
+
+**The issue is composed, never pasted.** A step's `summary` is written for a maintainer
+diagnosing the tick and reads badly as an issue body; the agent writes it for the person and for
+the `[Specificate]` run that will read it — what the tick found, which step found it, and the
+repair the finding names.
+
+**The brake: at most one open finding issue in flight.** An hourly step that filed whatever it
+found would put the tick's whole debt into the inbox in a day. The bound is read off the
+open-issue ledger with **no cursor and no stored state**, in the exact shape `open_proposal`
+already uses: the two states hand off with no window, because a merged repair closes its own
+issue and the finding leaves the candidate set with it. **A per-day cap is refused by name** —
+the ask is for an *hourly* loop, and a daily bound on the only path from the tick's debt to the
+work queue would cap that path at one turn a day. One in flight is deliberately strict; if it
+measurably starves the queue that is a finding for a later ask, not a number to raise here.
+
+**An unreadable ledger files nothing, and says so distinctly.** A brake that cannot be read is
+not a brake. `brake_held` (one is in flight, named by number) and `brake_<reason>` (we could not
+look) are **different facts about the loop**, and collapsing them is how a broken gate reads as
+a working one.
+
+**The dedup is structural and keyed on the step id.** The key comes from `lib/question-id.sh` —
+the one derivation of a question's identity — so the filing and the asking cannot disagree about
+what "the same finding" is, which is what lets the suppression hold exactly the question a
+filing answers. It is keyed on the **step id** and nothing else: a finding's summary moves as
+the world moves, and keying on it would re-file the same finding whenever its wording changed.
+A candidate whose id is already on an issue is dropped and **counted**, never silently.
+
+**The marker rides the issue, visibly.** `file-inbound-ask.sh` — still the one writer of a
+marker — takes `--finding <step id>:<finding id>` beside its `--slack-ref` and writes one
+`finding: <step id> / id: <finding id>` line into the body, with `source: moderate`. Exactly one
+of the two markers is allowed: an issue claiming to be both a channel message and a tick finding
+would be matched by two dedups. It is in the **body**, not the title, so it survives a person
+retitling the issue.
+
+**Filed, held and left never render alike.** Each is a different fact about the loop and asks
+the reader for a different thing — work the loop took on, the brake doing its job, and what only
+a person can settle — and collapsing them is exactly what made the tick's debt invisible
+(`0 retired` hour after hour with nobody told). The step carries `needs_agent` (to file),
+**`held`** (each candidate with the open issue that held it), **`already_filed`** (each dropped
+candidate with the issue that already carries it) and **`left`** as a **count, never a list**:
+those findings reach a person through their own questions, and re-listing them here is the
+report addressed to nobody this repository has twice retired posts for.
+
+**A tick that filed nothing names why, from a closed set of four**: `no_candidates`,
+`brake_held`, `all_already_filed`, `brake_unreadable` — never one word for all four. The
+ledger's own reason rides the summary rather than the reason word, so a reader keying on the
+word never has to enumerate whatever a transport happened to say this hour.
+
+**The summary is stable**: every term is a function of the candidate set and the ledger state
+alone — no timestamp, no clock, no count that moves for a reason the reader cannot see. That is
+what lets the tick's own diff suppress an unchanged hour; `inbound-sweep`'s embedded timestamp
+is the measured failure here, which made its line "changed" on every tick by construction.
+
+**A run that names a candidate and reports no outcome for it is non-conformant on its face** —
+the connector retry's enforcement, for the same reason: no mechanical check tells a real filing
+from a claimed one, and what this buys is that a report naming no outcome is visibly wrong.
+
+**And the question a filing answers is held.** A finding that has become work must not also ask
+a person — the same person, in the same hour, about the thing the loop is already driving.
+`finding-suppression.sh` is the one reader: a **sibling** of `ruling-suppression.sh`, in the
+same shape and under all four of its rules, but not an extension of it, because the sources
+differ (a ruling is an open **pull request**, a finding an open **issue**) and folding them
+would put two unrelated network reads behind one call. Every consulting step reads it and none
+reads `list-finding-issues.sh` itself: two readings of one fact drift.
+
+- **Keyed on the subject, never on the existence of a filing.** A filing naming one step's
+  finding must not silence a different step's question — suppressing on `any_open` would
+  silence the whole question queue behind one filing, the bug `ruling-suppression.sh` names in
+  its own header.
+- **An unreadable read holds nothing** (`ci-retirement-turn.sh`'s discipline).
+- **A `needs_ruling` finding still asks, byte-identically** — no filing can ever name it,
+  because it is never a candidate. `ask-question.sh` is **untouched**: the gate, the day cap,
+  the per-tick cap, the quiet hours, the working-day hold and the one bounded re-ask do not move,
+  and the gate never learns what a finding is.
+- **It holds the question, never an act.** `retire-claims` still retires what it proved; only
+  its `retire-blocked` question is withheld. The consulting steps are the ones that put a
+  **question to a person** and are in the repairable set: `retire-claims`, `stuck-prs`,
+  `undelivered-units`. `merge-conflicts`, `inbound-sweep`, `doc-drift` and `note-cadence` hand
+  the agent an **act** rather than a question, so there is nothing there to suppress and wiring
+  them would hold work instead — the opposite of the intent.
+- **The suppression is derived and stored nowhere**: merging the repair (which auto-closes its
+  issue) or closing it by hand makes the question reachable again. `held` is projected from the
+  **open** issues only; the dedup uses the closed ones too, because *has this been filed*
+  outlives *is it in flight*.
+- **It bites from the next tick.** `file-findings` runs after the steps whose reports are its
+  candidates, and the agent files after `run.sh` returns. Reordering the run to close that
+  window would put the filing before its own inputs.
+
+**No store, anywhere.** The issues are the memory, so a tick log that died with its container
+changes nothing — `filed-records.sh`'s rule, that a `<step>-filed` line is never itself the proof
+of a filing, holds here by construction because nothing reads such a line. The ledger's window is
+the most recent `WORKAHOLIC_FINDING_ISSUE_LIMIT` issues (default 100, `state=all`, newest first)
+rather than a date: `date -d` is GNU-only and `date -v` BSD-only, and a reader that answers
+differently on a laptop and in a container is worse than one bounded by a number both can read.
+`list_capped` reports when the page bound rather than the repository ended the read.
+
+---
+
+## Repairable, or needing a ruling — which findings may become work
+
+A finding has three destinations, and until 2026-08-29 it had only two: a **question** to a
+person, or a **feedback record**. Neither becomes work, because `[Specificate]`'s unattended
+entrance reads GitHub **issues** — so the tick's own debt accumulated where nothing could drive
+it. The third destination is an `[FB]` issue, filed by `file-findings` (§25), and this table is
+the gate on it: **only a `repairable` finding may become work with no person asked.**
+
+**Keyed on the step id, because that is the closed vocabulary the tick already has.** `run.sh`'s
+`STEPS` is the whole domain; the table is read from there rather than restating it, and the pin
+in `scripts/test-workflow-scripts.mjs` fails in **both** directions — a `STEPS` entry missing
+from the table, and a table row `STEPS` does not name — so the two cannot drift. No artifact
+gains a field, no second vocabulary is created, and no store is added. **There is no
+`classify.sh`**: a function returning the answer would be the second derivation of one fact this
+table exists to prevent, exactly as `drive/reference/claims.md`'s *Proofs and judgements* is
+prose plus a pin and not a classifier.
+
+**An unclassified step id is `needs_ruling`.** Mislabelling a ruling as mechanical is the
+failure the classification exists to prevent, so the default is the safe side and a new step is
+**silent** until somebody classifies it deliberately.
+
+**The question is who must act, never how severe the finding is.** A severe mechanical repair is
+still mechanical, and a trivial ruling is still a ruling. `repairable` means *a change to this
+repository fixes it, and no human owes a decision first*; `needs_ruling` means *a person must
+decide something before any change is the right one*.
+
+| Step id | Classification | Why |
+| ------- | -------------- | --- |
+| `open-log` | `needs_ruling` | Bookkeeping; it produces no finding to file. |
+| `inbound-sweep` | **`repairable`** | A diverged channel default or a broken transport config is a change to this repository. |
+| `workload-logs` | `needs_ruling` | An unreachable environment is somebody's credentials, not our code. |
+| `merge-conflicts` | **`repairable`** | A pull request conflicting with the base names a seam that keeps colliding; the filing yields a **plan**, never a push onto a claimed branch. |
+| `stuck-prs` | **`repairable`** | What failed to auto-merge names a gate or a transport that a change can fix. |
+| `issue-triage` | `needs_ruling` | Whether a stale issue is still wanted is the filer's call. |
+| `doc-drift` | **`repairable`** | Documentation that no longer matches the code it describes is this repository's own debt. |
+| `release-status` | `needs_ruling` | A target's confirmation method is a human declaration; deploying is a human instruction. |
+| `note-cadence` | **`repairable`** | A draft note that stopped refreshing is a defect in the workflow that writes it. |
+| `strategy-pace` | `needs_ruling` | Whether a direction is still the right one is the operator's. |
+| `direction-health` | `needs_ruling` | Re-dating, closing or declaring a direction arrived is the operator's, by that step's own contract — and since 2026-08-29 so is **moving its declared stage**, which is precisely what a machine may not decide: `direction-cutover:<slug>` and `direction-settled:<slug>` are asked, never filed as repairable work. |
+| `stalled-units` | `needs_ruling` | Whether a stalled claim is taken over or abandoned is the holder's. |
+| `raced-units` | `needs_ruling` | **Which of two live branches keeps driving the unit is the claim holders'**, and picking between them is the one act `ambiguous_claim` refuses everywhere in the protocol — filing it as work would be the loop deciding what it refuses to decide. Its readings are besides that **judgements** (`drive/reference/claims.md`, *Whether a unit is being driven twice*). The repair that would stop races happening at all is a **different** finding, already recorded on its own mission: it rests on an arbitration this container's transport refuses. |
+| `undrivable-units` | `needs_ruling` | Which account an address belongs to is a human's ruling, by that step's own contract. |
+| `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |
+| `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
+| `catchup-blocked` | `needs_ruling` | Which side of a content conflict keeps its behaviour is the claim holder's, by that step's own contract — the loop refused it precisely because it must not decide. |
+| `stranded-publications` | `needs_ruling` | `catchup-blocked`'s row, for `catchup-blocked`'s reason, and the decision is made here explicitly rather than left to the unclassified default: which side of a content collision keeps its meaning is the publication author's, and the loop refused it precisely because it must not decide. The half that **is** repairable — a collision a generator settles, and (since 2026-09-01) a publication that collides with nothing at all — is not a finding at all: `/implement` settles both classes through `settle-stranded-publication.sh`, so filing either would ask for work already in flight. |
+| `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
+| `operator-pulls` | `needs_ruling` | The publication exists **because** merging it is the operator's ruling and closing it is their refusal; the seam refused to auto-merge it for exactly that reason. Filing it as work would be the loop asking itself to settle what it opened a diff to have settled. Every reading it carries is besides that a **judgement** (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*). |
+| `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
+| `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
+| `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
+| `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
+| `drill-health` | `needs_ruling` | `base-health`'s row, for `base-health`'s reason: it composes the same check-run reader, so every value it carries is a judgement a re-run can turn green. The finding reaches the person who shipped the mechanism as that step's own keyed question, which is the delivery the mission asked for. |
+| `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
+| `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
+| `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. |
+| `blocked-tick` | `needs_ruling` | The reading says a tick **stopped** and cannot say why — the record that would carry the reason is the one the stop prevented — so filing it as work would have the loop repairing a cause it never established (`cadence-lapse`'s row, for `cadence-lapse`'s reason). The repair is besides that routinely a person's: answering or removing a prompt, or reading the run in the session list. |
+| `cadence-lapse` | `needs_ruling` | The reading says an artifact **stopped** and cannot say **why** — a routine switched off, a credential that expired, a producer that moved, or a declaration that is now wrong — and which of those it is decides whether any change is the right one. `note-cadence` is the row worth arguing against and it loses on exactly that: it names one workflow **this repository owns and can fix**, while a declared cadence names an artifact whose producer the declaration does not identify. Filing it as work would have the loop repairing a cause it never established. |
+| `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |
+| `human-checkin` | `needs_ruling` | The asking step itself. |
+
+**`merge-conflicts` is the row worth arguing about**, and it is `repairable` deliberately.
+`workaholic:drive` said resolving a conflict on a claimed branch is nobody's job here, and
+**that rule was narrowed on 2026-08-29** (mission
+`land-the-loop-s-own-work-when-the-base-moves-under-it`) rather than dropped: a run may now
+merge the base into **its own** claim branch when the conflict is one the shared classification
+rule settles without a judgement, and a **`content`** conflict is still nobody's job here —
+refused, the branch left byte-identical, the claim holder asked by `catchup-blocked` (§26).
+What is untouched is exactly what this row rests on: the filing produces an issue, then a plan,
+then a `review`-policy unit on a **fresh** claim — never an unattended push onto somebody
+else's branch. Were the reading ever to be that the repair is not mechanical, the row moves to
+`needs_ruling` and the default is already on that side.
+
+---
+
+## A refused action is reported, never silently skipped
+
+`rules/interaction.md`, *An unattended run never waits for a person*, admits two outcomes and
+refuses a third. Its second — *refuse the single action and carry on, recording what was refused
+and why* — is only admissible if the record reaches somebody: without one a refusal is
+indistinguishable from an action that silently did nothing, which is the shape this whole tick
+exists to remove one level up.
+
+**Three facts and no more**: the action refused, the reason, and that the rest of the run
+continued. A refusal is not a stack trace, and a fourth fact is how a refusal line becomes
+something nobody reads.
+
+**It uses the surfaces and the vocabulary that already exist.** A step that refuses an action
+reports **`blocked`** — already in `run.sh`'s closed status vocabulary and already accepted by
+`log-append.sh` — with its own `reason` and a `summary` naming those three facts. That puts it in
+the tick log line and the run report a person already reads, keeps it out of `ok`, and carries it
+into the root's impairment clause beside a `degraded` read, which renders the two under one clause
+because *they differ in cause and are identical in consequence to the reader*. **No new status, no
+new store, no field on any artifact, and no new surface**: everything a refusal needs was already
+there and unsaid.
+
+**The agent's own refusals** — taken after `run.sh` returns, acting on `needs_agent` — are recorded
+the same way, through `log-append.sh` under `<step>-refused`, which is the `<step>-filed`
+convention applied to the other outcome.
+
+**It moves no token and gates nothing.** A refused action is a fact about one step, not a verdict
+on the run; no route, gate, hold, claim or sort reads it, and the person who must act is reached by
+the tick's own questions.
+
+**What it records, and what it cannot see.** This covers a refusal **this repository's own code
+decides to make**. A permission prompt denied by the harness is not observable from inside a script
+at all — a script has no notion of having been refused one — and the documented routine model says
+such prompts should not arise in the first place (`workaholic:workaholify`, *Where an unattended
+run's prompt policy is configured*, which also records that the measured behaviour diverges from
+it). Where one does arise it surfaces, if at all, as an ordinary `step_error`. **The limit is
+stated rather than glossed**: a reader must not take this contract as evidence that every refusal
+in a tick is visible.
+
 ## What `run.sh` guarantees around the steps
 
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
   non-zero exit → `degraded`/`step_error`; empty or unparseable output → `degraded`/`no_output` or
   `bad_output`; a status outside the log vocabulary → `degraded`/`bad_output`. A step never
   disappears from the report.
+- **A step that could not compile its own reading is `degraded`, and that is derived in one
+  place** (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every reader here
+  carries `… | jq -c '…' 2>/dev/null || echo '[]'` — a fallback that is right for a **data**
+  problem and catastrophic for our own, because a jq program that does not **compile** discards
+  identically: the step emits an empty finding and reports `ok`. Measured on
+  `step-direction-health.sh`, which reported `1 expiring … 1 to ask` with the expiring direction's
+  own question silently gone, one missing parenthesis inside the embedded program. The two cases
+  are told apart by **jq's own exit status** — 3 is a compile error (our defect, the step cannot
+  run at all); 5 is a runtime or data error and keeps every existing fallback exactly as it was.
+  `scripts/lib/jq-guard.sh`, sourced by every script here that embeds a jq program, **records**
+  the fact and decides nothing; this loop **reads** the record and reclassifies →
+  `degraded`/`jq_compile_error`, beside the four causes above. `needs_agent` is deliberately left
+  alone rather than zeroed: a step's other readings may have compiled fine, and dropping a
+  question a person is owed to punish a defect elsewhere in the same script trades one silence for
+  another. The `2>/dev/null` is **not** removed — the stderr of a legitimately degraded read is
+  noise on an hourly unattended run, and the fix is to classify, not to shout. The build-time half
+  is the suite's `every embedded jq program compiles` row, which names the exact program and jq's
+  own words before a tick ever runs; the scripts *outside* this skill are covered by that row
+  alone, because they report no step status for anything to reclassify.
 - **One writer.** Step scripts write no log line; `run.sh` does. Two writers would race on
   `(tick, step)` and make idempotence a property of caller discipline instead of of the code.
 - **`--only` / `--skip` are for the operator and the tests**, and a skipped step is still a
@@ -1450,6 +2311,17 @@ same verdict out of its own candidates and counts it instead, so one unit never 
 questions in two vocabularies. A degraded read (`no_claim_reader`, `claims_unreadable`,
 `claims_unparseable`, `origin_unreachable`, `shallow_history`) is named and asks nothing.
 
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `handoff-unit:<unit>`,
+unchanged.
+
+- **Heading** — *`<unit>` is finished and waiting on a check this environment cannot run*, then
+  the **declared reason verbatim** (which is the whole point of the step and is never
+  paraphrased) and the open pull request.
+- **Body** — the one act: *run that verification where the credentials are, then merge.*
+- **Never alone**: `awaiting_verification`, `verification_handoff`. Both are this repository's
+  field names; the reader's fact is that the work is done and one human check is outstanding.
+
 ## 22. `question-answers` — the answer a person wrote in a question's own thread
 
 ```bash
@@ -1542,11 +2414,16 @@ answer **this run recorded** is stamped, and it is never load-bearing: the answe
 any issue filed before the stamp is attempted, and a failure is reported `ack_failed: <reason>`
 and changes nothing else. Three facts, three reports: the recording's, the filing's, the stamp's.
 
-**What it never does.** It never posts a reply for this event, never re-asks or confirms anything
-(`answered` is already its own refusal at the gate, and `✅ 解消を確認` keys on `settled`, not on
-`answered` — both paths untouched), never opens an issue except through `file-inbound-ask.sh`,
-never adds an edit path for a correction (a person who answers twice appends a later line and the
-newest wins), and never reads a channel. The overlap with `unanswered-asks` is deliberate and must
+**What it never does, as it stands after 2026-08-31** (mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). It never re-asks or confirms
+anything (`answered` is already its own refusal at the gate, and `✅ 解消を確認` keys on `settled`,
+not on `answered` — both paths untouched), never opens an issue except through
+`file-inbound-ask.sh`, never adds an edit path for a correction (a person who answers twice
+appends a later line and the newest wins), and never reads a channel. **It posts exactly one
+reply, after the act** — `🧾 対応結果`, once ever per question, and only on a `settled:` reading —
+and no reply at all for the *recording* event, which is where the no-reply rule was written and
+where it still holds. That sentence used to read *never posts a reply for this event*, full stop;
+the narrowing and its bounds live in `workaholic:notify`'s catalog beside the shape. The overlap with `unanswered-asks` is deliberate and must
 not be collapsed: that step asks about a **channel message nobody answered**; this files an
 **answer to the tick's own question**. One is a question, the other is work.
 
@@ -1554,3 +2431,649 @@ not be collapsed: that step asks about a **channel message nobody answered**; th
 log — `no_log_area` is a readable answer meaning nothing has been asked), `candidates_underivable`
 from the step; `no_slack_transport` and `thread_unreadable` from the agent's read. An unread
 thread is never reported as a thread nobody answered.
+
+### The second candidate set: what became of the answers we already have
+
+(2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`.) The
+reaction says *received*, which is not *acted on*, and nothing said the second thing at all: from
+the thread, an answer that became a merged mission and one that was read and dropped looked
+identical.
+
+**The candidates.** A question reading `answered`, **with a recorded coordinate**, whose
+`answer-outcome.sh` reading is `settled:`, and with **no `human-checkin-outcome-<slug>` line**
+already in the log. All four terms are load-bearing and none is a cursor.
+
+**One pass, two sets.** The answered slugs were already derived here, to *exclude* them from the
+thread reads; naming them as their own set costs **no second walk of the log and no second
+reader**, which is why this step owns both halves rather than a new step owning one. The
+person's own words ride the same pass — the newest `human-checkin-answered-<slug>` summary — so
+the reply carries **the answer as recorded** rather than a paraphrase.
+
+**Only `settled:` posts.** `pending` (the filed issue is still open, or the agent has not written
+a filing line yet) and `unreadable:<reason>` post nothing and are **counted** in the summary: an
+unread outcome rendered as a settled one would tell somebody their answer was acted on when
+nobody knows.
+
+**The bound is the step's own.** The pool is capped by the same `WORKAHOLIC_ANSWER_READ_MAX` the
+thread reads use — one constant for one step, because the two sets grow the same way and a
+second bound would be a second thing to keep current — and the remainder is reported rather than
+dropped. The reader spends **one bounded issue read per *filed* candidate and none for the
+rest**; the step itself still makes no call of its own.
+
+**The holds are `✅ 解消を確認`'s, applied the same way**: the off-day and quiet-hours holds
+apply, stated in the bound rather than recomputed here, because a third copy of the clock gate
+is how three copies start disagreeing. **Held is not dropped** — a held candidate simply
+re-derives on the next eligible tick, since the dedup is the ledger line and not a cursor.
+
+**A candidate with no recorded coordinate is named, never searched for**, exactly as on the read
+half: the alternative (find the thread by searching the channel) is what the recorded coordinate
+exists to keep out.
+
+**The reply, the record, and what is never load-bearing.** One `🧾 対応結果` per candidate into
+that question's own thread, on the coordinate already in hand — no lookup, no search, no mention
+token, once ever. Each post is logged under `human-checkin-outcome-<slug>` through
+`log-append.sh`, then `persist-log.sh --tick` runs again — **the second persist**, without which
+the line dies with the container and the reply is posted a second time next tick. A failed post
+is `outcome_post_failed: <reason>` and changes **nothing** about the recording, the filing, the
+stamp, the question's state or the reading; every one of those happened in an earlier tick.
+
+**Its `event` stays empty**, for the step's existing reason: the agent acts after `run.sh`
+returns, so an event here would be a claim about a post not yet made.
+
+**Report per candidate**: posted, held, or the named reason it was not. A candidate handed back
+with no outcome is non-conformant on its face — the enforcement the read half already carries.
+
+## 24. `standing-rulings` — the rulings the loop cannot make, drafted instead of asked
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-standing-rulings.sh --tick <id> [--root <repo-root>]
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/list-standing-rulings.sh [--root <.workaholic>] [--judgement <subject>=<answer>]...
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/list-open-rulings.sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/draft-standing-rulings.sh [--judgement <subject>=<answer>]...
+```
+
+- **Reads**: `list-open-rulings.sh` (the brake, one REST call) and `list-standing-rulings.sh`
+  (the candidate set, a pure local read composing `strategy/scripts/unattributed-work.sh` and
+  `workaholify/scripts/audit-identity-coverage.sh`). **Never `plan-units.sh`** —
+  `undrivable-units`' rule, first recorded by `closable-missions`: the survey reaches the
+  mission readers, which carry the living migrations and **stage** what they converge.
+- **Writes**: nothing. The act is the agent's, through `draft-standing-rulings.sh`, and every
+  artifact write there happens in a publish tree.
+- **Its `event` is always empty**, deliberately and for `unanswered-asks`' reason: when
+  `run.sh` reads this step's line nothing has been drafted, because the agent acts only after
+  `run.sh` returns. A tick that drafted nothing therefore renders no root line — which is what
+  the requirement asks for — and the drafted pull request reaches the operator as a pull
+  request, the surface it is addressed to.
+
+**Why it exists** (2026-08-28, mission `put-the-loop-s-standing-rulings-on-one-pull-request`).
+Two rulings stand that the loop cannot make itself, and both were surfaced as an hourly
+**question**: `direction-arrived:<slug>` names an unattributed mission, `undrivable-unit:<path>`
+names an address no mapping entry covers. Each question names a repair the operator must
+perform **by hand on `main`** — editing a mission's `feedback:` line, completing a line in
+`.claude/git-identities` — which is the one act this repository still left to a person editing
+the base directly, and exactly what `amend.sh` was admitted to remove for the strategy
+artifact. Drafted as a diff instead, **merging is the ruling and closing is the refusal**.
+
+**The judgement is the run's, and no script derives one.** Which direction a mission answers
+and which account an address belongs to are readings only a person or a run can make — a script
+that guessed either would be **authoring** the operator's ruling, which `carry-attribution.sh`'s
+header forbids and on which this whole path rests. `list-standing-rulings.sh` therefore takes
+one `--judgement <subject>=<answer>` per candidate in `survey-strategies.sh --aim-kind`'s shape,
+stores the answer it was handed, and **derives none**; an unjudged candidate reads `undecided`
+and reaches no writer, keeping its own hourly question. A judgement naming a subject the reader
+did not surface is refused `subject_not_surfaced` — the reader's own candidate set is the
+domain, and an answer outside it means the run and the tree disagree about what is standing.
+
+**One open ruling at a time, with no cursor.** The brake is the open pull request itself, in
+`list-open-proposals.sh`'s shape: from the moment a ruling opens until the operator rules on it
+the gate holds, and the moment they merge it the subject leaves the candidate set by itself,
+because it is no longer unattributed or uncovered. So the bound is enforced continuously with
+nothing stored anywhere — a cursor is a second source of truth about what is in flight, and
+this repository has refused one at every equivalent seam. **An unreadable brake drafts nothing**:
+a brake that cannot be read is not a brake, and handing the operator two competing diffs about
+the same subjects is the failure it exists to prevent.
+
+**What the act may write.** `draft-standing-rulings.sh` opens a publish tree, reads the
+candidate set **inside** it (so the rulings are derived from the base the pull request will be
+opened against), and then:
+
+- runs `carry-attribution.sh <strategy> <mission>` per judged mission — **unmodified**, still
+  the one writer of that line, still appending only refs the named strategy already cites,
+  still touching no strategy file. Its refusals (`strategy_not_found`, `mission_not_found`,
+  `not_active`, `no_revision`, `immutable_field`) are reported by name and write nothing;
+  `already` is a success, not a refusal;
+- appends the completed `<login>=<address>` line to `.claude/git-identities` as a **live** line
+  — `apply-bootstrap.sh` writes a comment because it proposes without deciding, and here the
+  ruling has been made — stating in the body the **git history that supports it**. An address a
+  login already names live is a no-op; a login the mapping already names gains the address as
+  another of its own, because `identity.sh` takes the first row a login matches and a second
+  row would resolve the address to *itself* as canonical. Every write is asserted **append-only**
+  (every address named before is still named, exactly one is new) and reverted from the
+  pre-image otherwise. `login_ambiguous` and `no_mapping_file` refuse by name — the file's
+  absence is a **bootstrap** repair, and `apply-bootstrap.sh` owns the header it scaffolds;
+- lands it through `publish-tree-pr.sh`, which **refuses to auto-merge it** (`ruling_touching`,
+  derived from the tree rather than from the caller) whatever `WORKAHOLIC_AUTO_MERGE` says.
+
+**The pull request names what it rules on, visibly**: one `ruling: <kind> / subject: <subject>`
+line per drafted subject in the body, in the shape `/propose` puts `strategy: … / move: …` on an
+issue. A hidden marker would be a fact the loop depends on that no human reading the pull
+request can see.
+
+**Degradations, named one by one**: `jq_unavailable`, `no_rulings_reader`, `no_brake_reader`,
+`brake_unreadable`, `brake_<reason>` from the brake, and the candidate reader's own
+`unattributed_unreadable:<reason>` / `identity_unreadable:<reason>`. Each drafts nothing.
+
+## 26. `catchup-blocked` — the conflict the loop looked at and must not resolve
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-catchup-blocked.sh --tick <id> [--root <repo-root>]
+```
+
+Added 2026-08-29 (mission `land-the-loop-s-own-work-when-the-base-moves-under-it`), beside
+`undelivered-units`. `catch-up-claim.sh` brings a finished unit back onto a base that moved
+under it and refuses `content_conflict` when the collision is one only a person can judge.
+That refusal reached nobody: `/implement` may not ask, and no step of this tick saw the shape.
+
+**A branch nothing has attempted is not this question, and that is the whole point of the
+split.** `merge-conflicts` (step 4) reports a pull request GitHub calls conflicted — *nobody
+has looked yet*. This asks about a branch the shared classification rule
+(`ship/scripts/lib/conflict-class.sh`) examined and declared a person's — *the loop looked and
+only you can decide*. Those tell somebody different things, and one word for both is how four
+conflicted pull requests went unread for three days (measured 2026-08-29). So the candidate set
+is the **reading** (`mergeability: content` on the claim row), never the pull request's own
+`mergeable: false`.
+
+**Which sibling it follows, on each axis.** Whose question: `undelivered-units`' — the claim
+**holder** drove this unit and knows which side of the conflict keeps its behaviour, which is
+the same reason `step-merge-conflicts.sh` gives for reporting to the holder rather than
+rebasing. The running identity: `undrivable-units`' — never consulted, because a branch the
+base no longer accepts is a fact about the repository and an hourly question that depended on
+which container asked it would answer differently per account. What it may read:
+`undrivable-units`' — `list-claims.sh`, never `plan-units.sh`, which stages what its living
+migrations converge.
+
+**One unit never draws two questions.** The candidates are bounded to a unit that is **finished
+and waiting** — `report_undelivered` or `queue_drained` — the set nothing else will move: its
+queue is drained, its pull request is open, and a merge retry cannot help a branch the base no
+longer accepts. Everything else is somebody's question already — `claim_active` and
+`heartbeat_lapsed` belong to the run driving or resuming the unit, `parked_with_pr` has work
+left whose own drive meets the conflict, `awaiting_verification` draws `handoff-unit`, and
+`superseded` holds nothing. Beside it, **two steps count what this one asks about**:
+`undelivered-units` filters a `content` row out of its own candidates, and `merge-conflicts`
+drops a pull request whose head branch is asked about here. One step asks and the others count,
+exactly as `handoff-units` and `stalled-units` divide — either half alone is a defect, because
+*retry your merge* is the wrong instruction for a branch that no longer merges.
+
+**The conflicted files ride the claim row.** A question that cannot name what collided does not
+say what to look at, and reading the mergeability a second time here would be a second
+derivation of one fact — so `list-claims.sh` renders `mergeability_content_files` and this
+reads it.
+
+**Degradation is toward over-reporting, in both directions.** A scan that could not reach the
+remote is `degraded` by name and asks nothing (a reading we could not make is not a finding);
+and in `merge-conflicts`, a claim read this step could not make leaves **every** conflicted
+pull request in the reported set, exactly as before the split existed. Silently dropping a row
+on a read we could not make is the one direction that loses a finding.
+
+**The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
+header records: an incrementing summary makes the step "changed" hourly by construction.
+
+**It asks and nothing else**: no merge, no rebase, no close, no claim touched, no gate lifted,
+and nothing written anywhere but its own tick-log line.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`catchup-blocked:<unit>`, unchanged.
+
+- **Heading** — *`<unit>` is finished, `main` has moved under it, and both sides changed the
+  same files*, then the branch, the pull request, and the colliding files by name.
+- **Body** — the one act: *decide which side keeps its behaviour and merge `main` in.*
+- **Never alone**: `content_conflict`, `mechanical`, `clean`. The distinction this question
+  rests on — *the loop looked and only you can decide*, against `merge-conflicts`' *nobody has
+  looked yet* — has to be in the sentence, because the two questions are otherwise about the
+  same pull request and a reader cannot tell them apart from the identifier.
+
+## 27. `drill-health` — a proof the loop already made that stopped holding
+
+```sh
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-drill-health.sh --tick <id> [--root <repo-root>]
+```
+
+The base's own **drill run**, read once per tick through `drive/scripts/read-drill-verdicts.sh`
+— which composes `drive/scripts/read-base-checks.sh`, still the one derivation of a commit's
+check state, and the drill register in `docs/loop-drill-runbook.md` §9. Every failing drill is
+handed to the check-in as **one question addressed to the mission that shipped it**.
+
+**Why it exists** (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`). Thirty
+`verify-*` drills, one per mechanism an earlier turn of the loop built, and until that mission
+none of them ran anywhere: CI executed two of them indirectly and related to eight more by a
+regex proving a drill *exists*, never that it *passes*. Once `Loop Drills` runs them on every
+push, a broken proof is a red check — and a red check reaches whoever happens to look at the
+merge. This tick is the one surface that reaches a **named person**.
+
+**Which sibling it follows, on each axis:**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | its own | the **shipping mission's assignee** built the mechanism and knows what it was for. It is a judgement, and stated as one: a drill can outlive its author's involvement, so the question **names the mission** and whoever reads it can redirect |
+| the running identity | `undrivable-units` | never consulted — a failing drill is a fact about the **repository** |
+| what it may read | `base-health` | the verdict reader and nothing else; **`plan-units.sh` is refused** for the reason `closable-missions` records |
+
+**The key is the drill, not the commit.** `drill-failing:<drill>` asks once per broken proof
+however many ticks see it; keying on the commit would re-ask on every merge that followed the
+break, which is the hourly restatement two roots were retired for.
+
+**A green run produces no question, no event and no root line** — the standing rule, held by
+the same mechanism `base-health` uses: a step with no `event` renders no line. A **degraded**
+read asks nothing and is named (`drill_run_unreadable:<reason>`), and a repository shipping no
+`Loop Drills` workflow reads `unavailable` and asks nothing at all. It reads the **last
+completed** run: a pending one lands as `checks_pending`, a named degradation, because a
+pending run is not a verdict.
+
+**It asks and nothing else.** No leg is re-run ("flake" is not a root cause and a re-run is an
+*act*), nothing is reverted, merged, held or gated, no claim is touched, and it writes nothing
+anywhere but its own tick-log line. Every value it composes is a **judgement**
+(`drive/reference/claims.md`, *Proofs and judgements*): a re-run can turn a red check green.
+
+---
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`drill-failing:<drill>`, unchanged.
+
+- **Heading** — *the drill that proves `<what it proves>` is failing on `main`*, then the drill
+  name and the mission that shipped it, so whoever reads it can redirect.
+- **Body** — the one act: *fix the mechanism or the drill, whichever stopped being true.* Never
+  *re-run it*: this step takes no act, and a red drill is a proof that stopped holding rather
+  than a flake.
+- **Never alone**: the drill's own verb (`verify-catch-up`, `verify-retire`, …). It is how the
+  reader finds the check run — the check run is named after it — and it is not what the drill
+  is about, so the plain fact leads.
+
+## 28. `operator-pulls` — a pull request the loop opened for a person, still unanswered
+
+**What it does.** Names every open pull request that is **the operator's** — the ones
+`publish-tree-pr.sh` refused to auto-merge — reads whether each has been acted on, and hands
+every un-acted one to the check-in as a question addressed to the operator, keyed
+`operator-pull:<number>` so one pull request costs exactly one question however many ticks see
+it. It **asks and nothing else**.
+
+**Why it exists** (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`).
+The seam refuses to merge a ruling or a strategy publication precisely because *merging is the
+ruling and closing is the refusal*. Having opened the diff, the loop then stopped following it.
+Measured: #694 sat 18 hours unanswered.
+
+**No other step could see it.** `stuck-prs` and `merge-conflicts` read the open pull requests
+and find this one perfectly healthy — it is not stuck, it is **waiting**, which is what it was
+opened to do. Every claim-side verdict (`undelivered-units`, `handoff-units`, `catchup-blocked`,
+`stalled-units`) is bounded to a **claim**, and a publication carries none: `publish-tree-pr.sh`
+pushes `publish-main` to a `work-*` name with no `Claim` commit in it, which is exactly what
+keeps a publication invisible to the claim protocol.
+
+**Membership is the seam's refusal word, never a title.** `list-operator-facing-pulls.sh`
+derives it through the same `branching/scripts/lib/publication-refusal.sh` the seam itself
+reads, from the **shape of the change**: a path under `.workaholic/strategies/`
+(`strategy_touching`), a touch of `.claude/git-identities`, or a mission that already existed on
+the base whose `feedback:` line the diff moves (`ruling_touching`). A pull request the operator
+retitled or opened by hand is still theirs; an ordinary `[Proposal]` that auto-merged never
+appears, whatever its title says.
+
+**`list-open-rulings.sh` is untouched and is a different question.** That one is a **brake** —
+*at most one open ruling at a time* — and its header records why the **title** decides its
+membership: for a brake, over-inclusion is the safe direction. Two consumers, two questions, one
+derivation each.
+
+**Which sibling it follows, on each axis:**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `direction-health` | the **operator**, resolved from the active directions' assignees — the one place this repository records a person as owning a direction (`validate-strategy.sh` floors `assignees` non-empty for exactly that reason). An unresolved address leaves the question addressed to **nobody** rather than stamping one nobody verified (`base-health`'s rule) |
+| the running identity | `undrivable-units` | never consulted — an unanswered publication is a fact about the **repository**, so an hourly question that depended on which container asked it would answer differently per account |
+| what it may read | `undrivable-units` | the two readers and `ruling-suppression.sh`; **`plan-units.sh` is refused** — that survey reaches the mission readers, which carry the living migrations and **stage** what they converge, and a step whose contract is *writes nothing* may not reach it through something that writes |
+
+**What merging it would unblock comes from the hold's own reader.** `ruling-suppression.sh` is
+the one script that knows which subjects an open ruling holds, and this step **composes** it
+rather than re-deriving the subject list — the rule that reader's header already states for its
+own two consumers. **This question is what breaks the silence**: the hold stays exactly as it
+is, and the person who can end it is now told, once, that a pull request waits on them and what
+it holds. Releasing the hold *as well* would ask one person twice, in two vocabularies, about
+one pull request — the doubling `handoff-units` and `stalled-units` were split to avoid.
+
+**`merged` and `closed` are settled and draw nothing.** An **`unreadable`** reading draws **no
+question** and is counted in the summary — `strategy-pace`'s rule that a person's attention is
+not spent on our own degradation. A tick with no candidate supplies **no `event`** and renders
+no root line.
+
+**The summary carries no age and no timestamp**, for the correctness reason
+`undelivered-units`' header records: `open 18h` increments every tick, so it would make this
+step changed **hourly** by construction and the root would restate the same pull request all
+day. The age still reaches the person, in the question that names it.
+
+**It asks and nothing else.** No merge, no close, no comment, no gate, no hold of work, no
+lifted gate, and nothing written anywhere but its own tick-log line (`run.sh` writes that).
+Every reading it carries is a **judgement** (`drive/reference/claims.md`, *Whether an
+operator-facing pull request was acted on*).
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed
+`operator-pull:<number>`, unchanged, and this is the one question whose age comes from the pull
+request's own `created_at` and the tick log not at all.
+
+- **Heading** — *a change only you can approve has been waiting `<n>` hours*, then the pull
+  request's number and title, the refusal that made it yours, and what merging it would unblock.
+- **Body** — the one act, and it genuinely has two options, so both are named: *merge it to
+  make the ruling, or close it to refuse.*
+- **Never alone**: `ruling_touching`, `strategy_touching`. Those are the publish seam's words
+  and they say *why this one is yours*, which is worth carrying beside the fact — but a reader
+  who has not read `publish-tree-pr.sh` learns nothing from either on its own.
+
+## 29. `raced-units` — a unit two runs are driving at once
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-raced-units.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-30, mission `stop-two-runs-from-claiming-and-driving-one-unit`).
+`ambiguous_claim` — two or more **live** claims for one unit — is refused by every writer that
+meets it and was **asked about by nobody**. Measured 2026-08-30: `work-20260830-055314` and
+`work-20260830-055318` were both claimed for one unit four seconds apart and each drove the same
+four tickets for over an hour; the run that lost reported an ordinary undelivered unit, and the
+duplicated hour reached no person at all. `/implement` may not ask, so without this step there
+was no path from *the loop is doing one job twice* to *a person is told*.
+
+**No other step could see the shape.** `stalled-units` finds one claim that has not moved,
+`undelivered-units` finds one refused merge, `catchup-blocked` finds one conflicted branch —
+each a *consequence* whose question hides the cause, because each of the two rows is
+individually healthy and what is wrong is that both exist.
+
+**Which sibling it follows, on each axis**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | `stalled-units` | the **claim holders** drove the unit and are the people who can decide which branch keeps going; both claims' `author` values are the addressees |
+| running identity | `undrivable-units` | never consulted — a race is a fact about the unit, and an hourly question that answered differently per account would be asked once per runner rather than once per unit |
+| what it may read | `undrivable-units` | `list-claims.sh` is a pure read, composed through `drive/scripts/list-raced-units.sh`; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge |
+
+**This step owns the raced unit's question; three siblings filter and count.** That is the
+`handoff-units`/`stalled-units` division — one step asks, the others filter, and either half
+alone is a defect — and all four candidates are settled explicitly rather than left to whichever
+runs first. `stalled-units`, `undelivered-units` and `catchup-blocked` filter and count;
+**`retire-claims` needs no change and gets none**, because its candidates are `superseded` rows
+and a unit resolving `ambiguous` has none by definition (every one of its claims is live), so
+the two sets are disjoint by construction. The full table, with each reason, is
+`drive/reference/claims.md`, *Whether a unit is being driven twice*.
+
+**The filter is one helper, not three copies.** `lib/raced-units.sh` reads the library's own
+`claims_unit_resolution` over the scan each step has **already** made — no second walk of the
+refs, and no second definition of a race, which is how a filtering step would start disagreeing
+with the step that asks and drop a finding entirely. A step whose claims payload is unreadable
+filters **nothing**, the safe direction: an over-eager question beats a silently dropped one.
+
+**The aftermath is deliberately not a candidate.** One live claim beside a `superseded` one is
+byte-identical to the *sanctioned* recovery in which a superseded claim's work is resurveyed and
+taken on a fresh claim (`plan-units.sh`'s `resurveyed[]`); telling them apart would need a clock
+threshold between the two claims' creation times or a field stored on an artifact, and this
+repository refuses both by name. The aftermath is already handled — the loser reads
+`superseded`, `retire-claims` retires it, `stalled-units` counts it.
+
+**The question names both branches and picks between neither**, which is `ambiguous_claim`'s
+standing everywhere in the protocol: choosing one of two live claims silently is how a runner
+would discard work another run is still driving. Keyed `raced-unit:<unit>`, so one unit costs
+exactly one question however many ticks see it; `ask-question.sh` gains nothing — no key, cap or
+hold moves.
+
+**The summary carries no age and no timestamp**, for the correctness reason
+`step-stalled-units.sh`'s header records: the root calls a step changed when its summary differs
+from the same step's an hour ago, and an age increments every tick, which would make this step
+changed hourly by construction. A degraded read is named by its reason and asks nothing — a scan
+that could not be read has not found *no unit is being driven twice*, it has found nothing.
+
+**It asks and nothing else.** No claim released, no branch deleted or picked, no pull request
+merged or closed, no worktree touched, no gate lifted, and nothing written anywhere but its own
+tick-log line (`run.sh` writes that). Every reading it carries is a **judgement**
+(`drive/reference/claims.md`, *Whether a unit is being driven twice*): a race resolves the
+moment one of the two branches merges.
+
+**The question, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `raced-unit:<unit>`,
+unchanged.
+
+- **Heading** — *two runs are implementing `<unit>` at the same time*, then **both** branches by
+  name and their claim times. Both branches ride the heading because the question is
+  unanswerable without them.
+- **Body** — the one act: *decide which branch keeps going.* It never proposes one — that is
+  `ambiguous_claim`'s standing everywhere in the protocol.
+- **Never alone**: `ambiguous_claim`. It is the only word in this vocabulary that names two
+  things at once, which is exactly why the sentence has to spell it out.
+
+---
+
+## 30. `cadence-lapse` — a periodic artifact that stopped being produced
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-cadence-lapse.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-31, mission `notice-a-periodic-artifact-that-stopped-being-produced`).
+Every other step of this tick is driven by an object that **exists** — an open pull request, a
+commit, a claim, a ticket, a record — so a producer that dies produces nothing and no step has
+anything to find. Measured: a daily record stopped for four days while hourly ticks ran
+throughout, and not one of them reported it. The tick watches presence; this is the step that
+watches **absence**. `/implement` may not ask and a run report is read by nobody on the day it
+matters, so without it there is no path from *something stopped being produced* to *a person is
+told*.
+
+**What it reads.** `cadence-state.sh`, the one reader, and nothing else. That script owns the
+declaration's parse, the age and the three states; this step reads its answer and decides only
+who hears about it. A second parse of the declaration here is how the offer and the reading
+would start disagreeing. **Where the declaration lives and what it says** is stated once in
+`workaholic:moderate`, *Where a cadence is declared, and what it says*, with the two rejected
+homes and their costs — it is not restated here or in the reader.
+
+**What it asks.** One question per `lapsed` cadence, keyed `cadence-lapsed:<name>` through the
+existing gate, so one lapse costs one question however many ticks see it; `ask-question.sh` is
+byte-identical and no key, cap or hold moved. The question names the cadence, its pattern, its
+period, when its newest artifact was last produced and how long ago — and says plainly that the
+loop can see the artifact stopped and **cannot see why**.
+
+**Which sibling it follows, on each axis**
+
+| Axis | Follows | Why |
+| ---- | ------- | --- |
+| whose question | *nobody* | the declaration names a cadence, a pattern and a period and **no person**, so there is no addressee to name and the step will not stamp one nothing verified (`base-health`'s rule for an unmapped login). The question is still visible on the root, which is where a person scanning the channel meets it |
+| running identity | `undrivable-units` | never consulted — a lapsed cadence is lapsed for every account, and a repository-scoped question that answered differently per container would be asked once per runner rather than once per repository |
+| what it may read | `undrivable-units` | one pure reader; **`plan-units.sh` is refused**, because that survey reaches the mission readers, which carry the living migrations and **stage** what they converge |
+
+**An unreadable cadence is named and asked about by nobody.** A pattern that resolves to
+nothing, a malformed entry and a bad period are **our** degradation rather than a lapse, and
+spending a person's attention on a reading we could not make is what `strategy-pace` already
+refuses. The step reports `degraded` with reason `cadence_unreadable`, so the root's impairment
+clause names it (`name-the-steps-a-tick-could-not-read`) — and it **still hands over any cadence
+that did read `lapsed`**, because losing a question because a *different* cadence was unreadable
+trades one silence for another, the trade `run.sh` refuses when it declines to zero
+`needs_agent` on a jq compile error.
+
+**A repository declaring nothing is `skipped`, not `degraded`.** It is a step declining to run
+for a stated, healthy reason — the `no_log_source` split §3 draws — and `skipped` is
+deliberately not impairment, so such a repository is byte-identical to one before this step
+existed: no candidate, no event, no root line.
+
+**It carries no question-ledger age, deliberately.** The four steps that compose
+`condition-age.sh` do so because their own readings are instantaneous and they borrow the age of
+the *question* as a lower bound. This reading answers the condition's **own** age directly, off
+the newest commit that produced the artifact, which is the stronger fact; attaching the ledger
+age beside it would put two numbers for one question in front of a person and add a fifth
+consumer to a table pinned at four (`drive/reference/claims.md`, *Which question reads which
+age*).
+
+**The summary carries no age and no timestamp**, for the correctness reason
+`step-stalled-units.sh`'s header records: the root calls a step changed when its summary differs
+from the same step's an hour ago, and an age increments every tick, which would mark this step
+changed hourly by construction — the retired `📦 Release Preparation` shape. The summary is
+counts only, so a standing lapse renders no new line while a **new** one moves it the hour it
+appears.
+
+**Abort reasons**: `reader_missing` (the reader is not present beside this skill),
+`cadence_unreadable` (the reader answered nothing parseable, or at least one cadence read
+`unreadable`), and the reader's own `reason` when the declaration set could not be read at all.
+
+**It asks and nothing else.** It re-runs no routine, writes no artifact to satisfy a cadence,
+repairs or rewrites no declaration, touches no claim, lifts no gate, and writes nothing anywhere
+but its own tick-log line, which `run.sh` writes. Drilled offline by `verify-cadence-lapse`.
+
+## 31. `blocked-tick` — a tick that opened and never closed
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-blocked-tick.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-31, mission `stop-an-unattended-tick-from-waiting-on-a-person`). An
+opening on the base with no closing is the signature of a tick that **stopped**, and nothing read
+for it. Measured: three consecutive ticks sat at `requires_action` waiting on a permission prompt
+raised by two reads of a plugin script — a routine has nobody to answer one — and the base carried
+no trace of any of them, because `persist-log.sh` was the tick's *closing* act and the record that
+would show the stop is the record the stop prevents. `run.sh`'s **opening persist** puts the
+opening there; this step reads for it. Without both halves neither is worth anything.
+
+**What it reads.** `log-read.sh`, the log's one parser, bounded to the newest **two** day files
+(enough to hold the previous two ticks across a UTC midnight rollover; the log grows forever, so an
+unbounded walk gets more expensive every day). It groups the entries by the tick id that reader
+already returns — no second parser, no cursor, no store, no field on any artifact.
+
+**What "closed" means, and why it is not the persist.** The tempting signal is the closing
+persist's own `persist-log` line, and it is **wrong**: `run.sh` writes that line *after* the push,
+so it never reaches the base on the tick that wrote it — it arrives only if the agent persists
+again, which a tick with an empty `needs_agent` has no reason to do, and a healthy tick would
+therefore read as stopped. The signal is a **`human-checkin` line**: it is the last member of
+`STEPS` and is deliberately exempt from `--deadline-seconds`, so a tick that reached the end of its
+run always logged it. The coupling is **stated** in the step's header rather than derived, because
+a step that read `run.sh`'s `STEPS` to find the last one would be inspecting a plugin script to
+find something out (`rules/shell.md`), and a second definition of *the tick's closing step* is
+exactly what would drift.
+
+**Which tick, and why not the previous one.** A tick still **running** when the next one starts
+also has an opening and no closing, and the two are distinguishable only by time. Rather than tune
+a threshold, the bound is structural: it reads **the tick before last** — the second-newest tick
+other than this one — which has had a full extra hour to finish. A merely slow run is not
+reported; one that has outlived a whole further tick is. **The cost is stated rather than hidden**:
+a stopped tick is named one hour later than the earliest possible moment, and the measured failure
+lasted hours.
+
+**What it asks.** One question per stopped tick, keyed `blocked-tick:<tick-id>` through the
+existing gate, so a stopped hour costs exactly one question however many later ticks see it;
+`ask-question.sh` is untouched. **Addressed to nobody** — a stopped tick is a fact about the
+repository, and the running identity is never consulted (`undrivable-units`' axis). The question
+names the tick, how many steps it recorded and the last one it reached, and **says plainly that the
+reason is not recoverable from the base**, so nobody is sent after a cause the step did not
+establish; it points at `rules/interaction.md`, *An unattended run never waits for a person*, as
+the likeliest shape on record and at the session list as where the run itself is readable.
+
+**Abort reasons**: `no_log_reader` (the parser is not present beside this skill), `no_log_area` /
+`no_log_area` on an empty log area (a repository that keeps no tick log is `skipped`, not
+`degraded` — a step declining to run for a stated, healthy reason did not fail to see),
+`log_unreadable`, and the reader's own `reason` when the log exists and could not be read. An
+`event` is supplied **only** when a stopped tick is found, so a healthy hour renders no root line.
+
+**It asks and nothing else.** It re-runs no tick, writes nothing anywhere but its own tick-log line
+(which `run.sh` writes), touches no claim, lifts no gate and never reaches `plan-units.sh`.
+Drilled offline by `verify-blocked-tick`.
+
+## 32. `stranded-publications` — a publication the loop opened and only a person can settle
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-stranded-publications.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-08-31, mission
+`repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`). A publish-tree publication
+is not a claim — `publish-tree-pr.sh` pushes onto a `work-…` name and carries no `Claim …` commit
+— so the oracle gives it no row, `catchup-blocked` (§26) cannot see it, and a proposal whose
+auto-merge was refused reached **no question at all**. Measured on a consuming repository: three
+open proposals colliding on `.workaholic/feedbacks/index.md` and nothing else, the repair
+mechanical and total, the tick reporting the blockage hourly to nobody in particular for a day.
+
+**What it reads.** `branching/scripts/list-stranded-publications.sh` — a pure read that composes
+`list-claims.sh` (a branch the oracle owns is a claim, not a publication) and
+`claim-mergeability.sh` (the one derivation of the class, carried through verbatim).
+`plan-units.sh` is **refused**, on `undrivable-units`' axis: the survey reaches the mission
+readers, which carry the living migrations and stage what they converge.
+
+**Only `content` draws a question.** `mechanical` **and `clean`** are the loop's own work —
+`/implement` settles both through `settle-stranded-publication.sh` (a `mechanical` one after a
+catch-up, a `clean` one with no catch-up at all), and asking about either would ask a person for
+the act the machinery is about to take. `unanswerable` is the **absence** of a reading, never
+actable; it is **counted** in the summary so it stays visible rather than vanishing.
+
+**The candidate set did not move when `clean` became settleable** (2026-09-01, mission
+`deliver-a-stranded-publication-that-needs-nothing-but-a-merge`). `content` is still the whole of
+it, for its own unchanged reason: only a person can judge a collision. What moved is the
+**`settleable` count** in the summary, which is a reader-facing number rather than a candidate
+set — left at `mechanical` it would have understated by four on the morning the class was widened,
+and a count that understates what the loop owns is how a reader stops trusting it. **No question,
+key, cap, addressee or gate moved with it.**
+
+**One publication never draws two questions, and no filter was added.** The ticket asked for the
+`retire-claims` / `stalled-units` division; it does not apply, and the reason is recorded rather
+than a counter that could only ever be zero. `catchup-blocked`'s candidates are `list-claims.sh`
+rows, which a publication can never be, and this step's own reader drops any branch the oracle
+names — so the sets are disjoint **from both sides**. `merge-conflicts` (step 4) may still report
+the same pull request and that is deliberate, on its own recorded reasoning: it **asks nobody
+anything**, so the only question a person receives about such a publication is this one.
+`scripts/test-workflow-scripts.mjs` pins the disjointness rather than leaving it to a reading of
+two headers.
+
+**Degradation is named, never rendered as quiet.** The reader answers `ok: false` with its own
+reason and a **null** count; this step repeats that word as its own `degraded` reason rather than
+inventing one, because *nothing is stranded* and *we could not look* are opposite facts.
+
+**The summary carries no age and no timestamp**, for the correctness reason `stalled-units`'
+header records: an incrementing summary makes the step "changed" hourly by construction.
+
+**It asks and nothing else**: no merge, no catch-up, no push, no close, no claim touched, no gate
+lifted, and nothing written anywhere but its own tick-log line. Drilled offline by
+`verify-stranded-publication`.
+
+**The question, under the composition contract.** Keyed `stranded-publication:<number>`, so one
+pull request costs one question however many ticks see it.
+
+- **Heading** — *an artifact the loop published is waiting because its change and the base
+  changed the same lines*, then the pull request, then the colliding files by name.
+- **Body** — the one act: *resolve it on the pull request.*
+- **Addressed to** the publication's author. An operator-facing publication
+  (`strategy_touching`, `ruling_touching`) is `operator-pulls`' subject and is excluded by the
+  reader, so it is never asked about twice.
+- **Never alone**: `content_conflict`, `mechanical`, `unanswerable`, a branch name, a number.
+- **The age** rides `lib/read-age.sh`, keyed on the key the step already composes, the reader's
+  words verbatim; an unreadable age is named as unreadable and an absent one is not mentioned.
+
+---
+
+## What did not move with any of this wording
+
+Ticket `20260831200959-rewrite-each-step-s-question-to-that-contract` (2026-08-31) rewrote the
+specs above and **touched no script**. Every question key expression, the per-tick cap, the
+daily bound, the quiet-hours window, the working-day gate, each question's addressee derivation
+and each question's age reading are byte-identical, and **changing a body never re-asks**:
+`already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text.
+That is what made a sweep of thirteen steps' wording safe to make in one change, and it is the
+reason the contract is stated in `workaholic:notify`'s catalog rather than enforced by a gate —
+nothing mechanical tells a self-explanatory question from a cryptic one. What it buys is that a
+question leading with an identifier is **visibly non-conformant**, the enforcement the connector
+retry and the Open Decisions floor already rest on.
+
+**A step added after the sweep is held to the same contract.** `cadence-lapse` (§30) landed in
+parallel with this one, so its spec was not rewritten here; the contract is the catalog's and
+applies to every question-asking step, whenever it was written. A new step's question is
+conformant or it is not, and nothing about the order in which two missions merged changes that.
+
+**The steps that ask nothing were not given a voice.** `merge-conflicts`, `issue-triage`,
+`doc-drift`, `release-status`, `note-cadence`, `closable-missions`, `thread-reconcile`,
+`file-findings` and `standing-rulings` reach a person through some other seam or through no
+seam at all, and the contract governs the `🙋` reply only.
+
+**One case could not be made self-contained inside the bound, and is named rather than
+stretched**: `direction-arrived` carries the residue — up to three mission slugs then `and N
+more` — because the operator is being asked to *close a direction* and cannot rule on that
+without seeing what the reading could not attribute. It rides the **heading**, where the named
+details already ride, and the body keeps its one sentence. The bound was not raised for it: the
+measured failure was a question that said the wrong things, not one that said too few.

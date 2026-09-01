@@ -168,7 +168,51 @@ not write a second story generator.
   (2026-08-27) made it visible and left it unreachable — measured 2026-08-26, four green pull
   requests still open a day later.
 
-  For each entry the survey put in **`undelivered[]`**, once per run:
+  **AND THE BASE MAY HAVE MOVED UNDER IT** (2026-08-29, mission
+  `land-the-loop-s-own-work-when-the-base-moves-under-it`). The retry re-attempts the *merge*,
+  which is the right act for a refused transport and no act at all for a base that has moved:
+  GitHub refuses the same merge every hour, forever, and no other reader looked either —
+  `/moderate`'s `merge-conflicts` step reports the pull request and says in its own header that
+  it never rebases. Measured 2026-08-29: 4 of 7 open pull requests conflicting with `main`,
+  three of them units recorded `report_undelivered` two days earlier, with 4 active missions and
+  10 queued tickets behind them.
+
+  So each entry gets a catch-up **first**, once, never a loop:
+
+  ```bash
+  bash ../drive/scripts/catch-up-claim.sh <unit-id>
+  ```
+
+  It merges the base into the claim branch **in the unit's own worktree** — never a rebase, an
+  amend or a force-push, because a merge commit keeps the claim holder's checkout valid — then
+  regenerates the derived files with the repository's own tooling, runs its fast checks and
+  pushes. Three outcomes: `caught_up`, `already_current` (the branch already contains the base;
+  no worktree, no merge, no ref touched) and `catch_up_refused: <word>`. Every refusal writes
+  nothing and leaves the branch byte-identical, and each has its own word — `content_conflict`,
+  `not_my_claim`, `foreign_identity`, `identity_unresolved`, `claim_active`, `dirty_worktree`,
+  `scan_held:<tier>`, `not_a_work_branch`, `ambiguous_claim`,
+  `mergeability_unanswerable:<reason>`, `validation_failed:<check>`, `push_failed`.
+
+  **It overrides no gate and resolves no judgement.** A `content` conflict is a person's, and
+  reaches its claim holder through `/moderate`'s `catchup-blocked:<unit>` question; a scan-held
+  pull request is refused by name; a colleague's claim is untouchable at any age; a branch a run
+  is still committing to is left alone. This **narrows** the standing rule that resolving a
+  conflict on a claimed branch is nobody's job here — to the mechanical case, on this identity's
+  own claim, with the contested case still a person's ([claims.md](claims.md)).
+
+  Then, and **only on `caught_up`**, the delivery — a refused catch-up produces no retry, because
+  the refusal is the outcome:
+
+  ```bash
+  bash ../drive/scripts/retry-undelivered.sh <unit-id> --own-tip
+  ```
+
+  `--own-tip` is passed **only** immediately after this run's own `caught_up`. The catch-up's
+  push makes the tip fresh, so the next verdict reads `claim_active` and the delivery the
+  catch-up exists to unblock would be refused by the act that unblocked it. The flag relaxes
+  that **one term**, by re-asking the same oracle with `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0`
+  — every other term stays the oracle's own answer, computed in one place, and the scan-held
+  refusal is untouched. Without the flag the script is byte-identical to what it always was:
 
   ```bash
   bash ../drive/scripts/retry-undelivered.sh <unit-id>
@@ -209,6 +253,45 @@ not write a second story generator.
   with more moving parts. **A merge through the connector is measured only in an interactive
   session** — a routine container is measured only for the connector's *read* tools — which is
   why step 3 reports both outcomes by name rather than assuming the retry succeeds.
+- **AND EVERY OTHER REPORTED CLAIM THIS RUN CAN STILL CATCH UP** (2026-08-30, mission
+  `catch-a-reported-claim-up-before-its-conflict-hardens`). The block above walks
+  `undelivered[]`, which is a **delivery** verdict — so the catch-up, whose whole subject is
+  whether the *base* still accepts a branch, ran only on units the *transport* had refused. A
+  `queue_drained` claim is the other half of the same shape: finished, pushed, at an open pull
+  request, waiting on a person — and its conflict hardens from `mechanical` to `content` while
+  nothing looks. `/moderate`'s `catchup-blocked` step already **asks** about both verdicts; only
+  the acting side was narrow. Measured live: one claim mechanical for four days, another content
+  for twelve.
+
+  ```bash
+  bash ../drive/scripts/list-catchable-claims.sh
+  ```
+
+  It composes `list-claims.sh` — one walk of the refs, never a second oracle — and answers this
+  identity's **reported** claims (`report_undelivered` **or** `queue_drained`) whose
+  `mergeability` is **`mechanical`**, resolved through the live-row rule. `clean` is
+  deliberately not a candidate (nothing to catch up), `content` is a person's, and
+  `unanswerable` is the absence of a reading. A **degraded** scan yields no candidates, its
+  reason and **null** counts — never a bare empty set, which is byte-identical to a healthy
+  quiet run.
+
+  Run `catch-up-claim.sh <unit-id>` **once per candidate**, never batched and never retried
+  inside the run: a refusal is reported, not worked around. **A unit in both sets is caught up
+  once** — the `undelivered[]` loop takes it, because that loop must catch up *before* its
+  retry, and the outcome is reported there; this walk skips any unit that loop already named. A
+  second run over the same unit would answer `already_current` and cost a worktree for nothing.
+
+  **Both entry points walk it.** The Unified Run shares every step below §2, the act asks
+  nothing and needs no ruling, and a `content` conflict is refused rather than put to the
+  operator — so an attended `/drive` run behaves identically here and simply reports the
+  outcomes in the session.
+
+  **The writer is untouched by this.** `catch-up-claim.sh` re-derives its own verdict at the
+  moment of the act and applies its own bounds, which is exactly why widening the *caller* is
+  safe — the rule that makes it safe is written down once in [claims.md](claims.md), *When a
+  bounded act may read a judgement*. Nothing about the survey, the claim oracle, any gate or any
+  token moves: **no route, demotion, claim, merge, survey, refusal or sort reads this set**, and
+  a run with no candidates behaves byte-identically to one before the widening existed.
 - **`auto` → ship** through `ship`'s Ship Flow with no prompts (its *Unattended
   routing* section factors each interactive seam): catch up with `main`, prove the deploy
   contract, confirm in production, record the evidence, **then** merge, then release and extract
@@ -254,7 +337,7 @@ the same reason `auto` has never meant "no gate applies":
 | Tickets | Archived as `implemented` as usual — the work *is* done. |
 | Claim | **Left standing**, so the unit is still owned while it waits. |
 | PR body | `## Handoff`, non-droppable, naming the verification verbatim. |
-| Finish line | `🟡 Handoff` naming the assignee, never `🟢 Implemented`. |
+| Finish line | `🟡 Handoff` naming the assignee, never `🟢 Implemented`. The name is a **resolved `<@U…>`** since 2026-08-31 (mission `notify-the-person-a-directed-question-addresses`) — from the unit's own `assignees` through `gather/scripts/identity.sh`, **omitted rather than guessed** when the address does not resolve — and it rides the **bot** when that addressee is the posting identity, per `notify`, *Which transport carries which shape, and why*. This row has read *naming the assignee* since 2026-08-14; between 2026-08-23 and then the shape carried no token at all, so the line named nobody. |
 | Token | `pending` (`../SKILL.md` §7 — `handoff` already forces it). |
 
 **Why this widened `handoff` instead of adding a fourth route** (the ticket's Open Decision,
@@ -331,6 +414,29 @@ moments.
   unit, and it is read **once per run**: one fact about the repository, where a per-unit read
   would spend N calls to say the same thing. A degraded read is reported as degraded and **never
   as green**. **It moves no token and gates nothing** — see §7's table row and §1.
+- **How long each standing blocker has been standing, once** (2026-08-30, mission
+  `say-how-long-the-loop-has-been-stuck`): for each subject this report already names — an
+  undelivered unit, a stalled claim, a blocked retirement, a queued artifact nothing can drive —
+  `moderate/scripts/condition-age.sh --key <subject-key>` answers `age.ticks` ticks since
+  `age.first_seen`, *at least* that when `age.first_seen_is_floor`. Read **once per run**, on the
+  ground the base's reading above stands on. What it answers is the age of the **question**, a
+  lower bound on the age of the condition, so the report says *asked about since* and never
+  asserts how long the subject itself has been stuck. A subject nobody has been asked about yet
+  reads `first_seen: null` and nothing is said about its age — an ordinary absence. A
+  `readable: false` reading is named **as unreadable, by its reason**, and never as *nothing
+  standing*. **It moves no token and gates nothing** — §7's table gains no row for it, and no
+  route, demotion, claim, merge, survey, refusal or sort reads it.
+- **A race this run met, with BOTH branches** (2026-08-30, mission
+  `stop-two-runs-from-claiming-and-driving-one-unit`): a run whose `archive.sh` refused
+  `claim_taken_over` or `ambiguous_claim` at the first write the base would see has lost a race,
+  and names the unit, both branches and the refusal it got — rather than reporting it as one
+  ordinary refusal among others, which is how the measured hour of duplicated implementation
+  went unrecorded. **Neither branch is picked**: that is `ambiguous_claim`'s standing everywhere
+  in the protocol. The loss is detected at the archive re-check rather than at the claim push
+  because a fresh claim's push arbitrates nothing and the arbitration that would fix it is
+  refused by this container's transport (`claims.md`, *What the claim contends for*). **It moves
+  no token and gates nothing** — the run wrote nothing and the protocol worked; the claim
+  holders are reached by `/moderate`'s `raced-unit:<unit>` question.
 - Per unit: members, effective policy, route taken, ticket outcomes reconciling to the queue it
   was handed, and the commits.
 - PR per unit — the URL, or the `pr_error` if creation failed.
@@ -341,6 +447,49 @@ moments.
   alone made those two identical at the only surface that records the run. An `auto` unit reports
   `shipped` or its demotion exactly as before; this row is the `review` route's equivalent and
   adds nothing to that one.
+- **Catch-up outcome per `undelivered[]` entry** (2026-08-29, mission
+  `land-the-loop-s-own-work-when-the-base-moves-under-it`): one of three words — `caught_up`,
+  `already_current`, `catch_up_refused: <word>` — **beside** the delivery outcome below rather
+  than inside it. A catch-up and a merge are different acts: one moves the branch, the other
+  moves the pull request, and collapsing them would leave a reader unable to tell a unit the
+  loop could not reconcile from one the transport would not merge. A **fourth** word for
+  *caught up and then delivered* is refused for the opposite reason — that is two facts, and
+  two vocabularies already report them. **A run that names an entry and reports no catch-up
+  outcome for it is non-conformant on its face**, the retry row's enforcement for its reason.
+  **No artifact gains a `caught_up` field**: the branch carries the merge commit and this report
+  carries the reading, so a field would be a third store of a fact two places already hold.
+  **`catch_up_refused: content_conflict` moves no token** — the `claimed_awaiting_verification`
+  precedent, written down here so it is not re-derived: a unit waiting on a person's judgement
+  is the gate working, and making it `pending` would put `ok` out of reach on exactly the runs
+  where the machinery did its job. Every other refusal moves no token by itself either; what
+  withholds `ok` is the unit's *delivery* outcome, which a refused catch-up leaves unchanged.
+- **And the same three words per `list-catchable-claims.sh` candidate** (2026-08-30, mission
+  `catch-a-reported-claim-up-before-its-conflict-hardens`): one line each — the unit, and one of
+  `caught_up` / `already_current` / `catch_up_refused: <word>`, the word being
+  `catch-up-claim.sh`'s own, **verbatim**. A normalised word sends a reader to a string no
+  script printed. **The same three words, never a second set**: the outcome of a catch-up on a
+  `queue_drained` claim and on a `report_undelivered` one are the same kind of fact, and two
+  vocabularies for one fact is how the two drift. **A run that names a candidate and reports no
+  outcome for it is non-conformant on its face** — the retry row's enforcement, for its reason:
+  no mechanical check tells a real attempt from a claimed one, and what the rule buys is that a
+  silent report is visibly wrong. One line per candidate and no per-claim block: the steady
+  state is zero candidates and the interesting case is one or two. **It moves no token and gates
+  nothing** — the `content_conflict` reasoning above applies unchanged, and every other refusal
+  leaves the unit's *delivery* outcome exactly where it was. **No artifact gains a field.** A run
+  with no candidates reports nothing new.
+- **Each reported claim's `mergeability`, off the row the oracle already renders** (2026-08-30,
+  the same mission): one word per **reported** claim — `clean`, `mechanical`, `content`, or
+  `unanswerable` **as unanswerable, by its reason**. A claim decaying from `mechanical` to
+  `content` is the moment the loop's own work becomes a person's, and until this it was visible
+  only *after* the decay, when `/moderate`'s question fired. Naming the class makes the decay
+  visible the hour it happens. **Nothing is derived**: `list-claims.sh` renders `mergeability`
+  and `mergeability_reason` on every row and the run has already made that scan, so this costs
+  no network call and no second walk. Rendering `unanswerable` as `clean` is the one collapse
+  that must not happen — it makes a decaying claim look healthy. Bounded to **reported** claims:
+  naming the class for every claim on every tick turns the report into a claim table, and the
+  fact is actionable only where the unit is finished and waiting. **Evidence, never a verdict**
+  — no gate, sort, claim, route, demotion or token reads it, the standing this repository gives
+  `pace`, `overdue`, `expiring`, `arrived` and the base's own health.
 - **Retry outcome per `undelivered[]` entry** (2026-08-27, mission
   `deliver-and-retire-what-the-loop-already-proved-finished`): the unit, the **recorded refusal it
   was retrying**, and the **new outcome** in §6's existing three words — `merged` when the retry
@@ -364,6 +513,18 @@ moments.
   **A post that did not happen is stated, never omitted**: silence in this list read as success is
   the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
   `{"notified": false, "reason": "no_token"}` and nothing downstream said so).
+- **And a `🟡 Handoff` line names its carrying surface and its mention outcome beside that**
+  (2026-08-31, mission `notify-the-person-a-directed-question-addresses`), because it is the one
+  finish shape whose whole purpose is to reach a person. Two facts, never blended into one:
+  **which account spoke** — `bot` (the tokened transport, because the addressee resolved to the
+  posting identity) or `connector` (every other case, including no bot token, which is the
+  fallback and not a failure) — and **whom it named**: the resolved address, or
+  `mention_unresolved: <address>` when `identity.sh` could not resolve it and the token was
+  therefore **omitted rather than guessed**. A line that named nobody and a line that reached its
+  person must not read alike, which is precisely how three units sat waiting on operator input
+  since 2026-08-18, 2026-08-19 and 2026-08-26 with the run reporting the post as sent. Both ride
+  the notification outcome above rather than replacing it: *posted*, *by whom*, and *at whom* are
+  three questions. **No artifact gains a field** — the report is the surface.
 - **Missions closed at the archive gate** (2026-08-23), one line each: the slug, the accepted count,
   and that the queue was empty. `archive.sh` closes a mission `achieved` — through `close.sh`, the
   only writer of an end state — when archiving a ticket leaves its acceptance fully checked

@@ -304,29 +304,83 @@ fi
 merged=false
 merge_reason="not_requested"
 if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
-  touches_strategy=$( cd "$publish_path" && \
-    { git diff --name-only "origin/${base}" HEAD 2>/dev/null \
-      || git show --name-only --format='' HEAD 2>/dev/null; } \
-    | grep -c '^\.workaholic/strategies/' 2>/dev/null || true )
-  case "${touches_strategy:-0}" in
-    ''|0) : ;;
-    *)
-      printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s", "merged": false, "merge_reason": "strategy_touching"}\n' \
-        "$after_sha" "$work_branch" "$pr_url" "$base"
-      exit 0
-      ;;
-  esac
+  # THE TEST ITSELF LIVES IN `lib/publication-refusal.sh` (2026-08-29, mission
+  # `follow-the-pull-requests-the-loop-opens-for-a-person`). What this script owns is the
+  # ADAPTER — turning its own git diff into the normalised stream — and the act it takes on
+  # the answer. The rule moved out because a SECOND consumer now asks the same question of a
+  # pull request that is already open, long after this output is gone: which publications are
+  # the operator's. Two copies of that test is how a reader starts calling ordinary what the
+  # seam refused, or the reverse. Behaviour here is unchanged in every case.
+  #
+  # A RULING-TOUCHING PUBLICATION NEVER MERGES EITHER, AND FOR THE SAME REASON
+  # (2026-08-28, mission `put-the-loop-s-standing-rulings-on-one-pull-request`).
+  # A ruling merged by a machine is not a ruling: which direction an unattributed
+  # mission answers, and which account an unmapped address belongs to, are the
+  # operator's to settle, and the whole point of drafting them is that MERGING is
+  # the ruling and CLOSING is the refusal. The exemption lives in the seam for the
+  # reason `strategy_touching` moved here on 2026-08-27: a caller leaving a variable
+  # unset is a judgement a future caller can forget, and forgetting merges an
+  # operator's ruling with nobody having ruled.
+  #
+  # IT IS ITS OWN WORD, NOT A WIDENED `strategy_touching`. The two name different
+  # trees and ask for different operator acts — authoring a direction versus ruling
+  # on an attribution — and one word answering two questions is how the two drift.
+  #
+  # THE TEST IS ON THE SHAPE OF THE CHANGE, NOT THE DIRECTORY. A carried attribution
+  # and a brand-new mission both live under `.workaholic/missions/`, and every
+  # `/specificate` proposal writes one of the second kind — catching those would stop
+  # the loop's ordinary publications from merging at all. So a mission counts only
+  # when it ALREADY EXISTED on the base (`M`) and the diff moves its `feedback:`
+  # line, which is exactly and only what `carry-attribution.sh` writes. The mapping
+  # has no such ambiguity: nothing but a ruling writes `.claude/git-identities` here.
+  . "${SCRIPT_DIR}/lib/publication-refusal.sh"
+
+  changed_status=$( cd "$publish_path" && \
+    { git diff --name-status "origin/${base}" HEAD 2>/dev/null \
+      || git show --name-status --format='' HEAD 2>/dev/null; } )
+
+  # The adapter: one line per changed file, `<status><TAB><path><TAB><feedback_line_moved>`.
+  # The per-file `git diff` is asked only of the paths whose shape could possibly matter, which
+  # is what the old inline test did too.
+  refusal_stream=$( cd "$publish_path" && \
+    printf '%s\n' "$changed_status" \
+    | while IFS="$(printf '\t')" read -r st path rest; do
+        [ -n "${path:-}" ] || continue
+        moved=0
+        case "$st:$path" in
+          M:.workaholic/missions/*)
+            if git diff "origin/${base}" HEAD -- "$path" 2>/dev/null | grep -q '^[+-]feedback:'; then
+              moved=1
+            fi
+            ;;
+        esac
+        printf '%s\t%s\t%s\n' "$st" "$path" "$moved"
+        # A rename/copy carries two paths and the old `--name-only` read saw both, so both are
+        # emitted. The destination is what an `R`/`C` status means, and dropping it would let a
+        # strategy file renamed into place slip past a test the old code passed.
+        [ -z "${rest:-}" ] || printf '%s\t%s\t0\n' "$st" "$rest"
+      done )
+
+  refusal_word=$(printf '%s\n' "$refusal_stream" | publication_refusal_word)
+
+  if [ -n "$refusal_word" ]; then
+    printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s", "merged": false, "merge_reason": "%s"}\n' \
+      "$after_sha" "$work_branch" "$pr_url" "$base" "$refusal_word"
+    exit 0
+  fi
+
   scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
   case "$scan_json" in
     *'"verdict": "pass"'*)
-      # `PUT .../merge` with merge_method "merge" — the REST equivalent of the
-      # `gh pr merge --merge` this replaces, for the same GraphQL reason as the create
-      # above. merge_reason stays HONEST rather than collapsing every non-200 into
+      # `PUT .../merge` — the REST equivalent of the `gh pr merge` this replaces, for the
+      # same GraphQL reason as the create above. The METHOD is read from
+      # `gather/scripts/merge-method.sh`, the one derivation (2026-09-01), never spelled here.
+      # merge_reason stays HONEST rather than collapsing every non-200 into
       # merge_failed: 405 is GitHub refusing the merge itself (conflict, or a required
       # check not satisfied), 409 is the head moving under us, and those are different
       # next actions for whoever reads the line.
       if merge_resp=$( cd "$publish_path" && sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-          "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f merge_method=merge 2>&1 ); then
+          "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=$(sh "${GATHER_SCRIPTS}/merge-method.sh")" 2>&1 ); then
         merged=true
         merge_reason="merged"
       else

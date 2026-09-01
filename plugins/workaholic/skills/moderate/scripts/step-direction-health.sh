@@ -42,6 +42,25 @@
 # ASKING BEFORE THE DECISION IS THE WHOLE POINT. After the close it is a post-mortem; here it
 # is evidence, in the one place a person is being asked to rule.
 #
+# A FIFTH READING SINCE 2026-08-29 (mission `warn-a-direction-before-its-date-silences-the-loop`):
+# a direction whose date is APPROACHING, keyed `direction-expiring:<slug>`. Every reading above
+# answers backwards — has the date gone, is anything answering it, has its work come in — so a
+# live, in-date, `on_course` direction one day from its `target_date` produced NO question at
+# all, and the day after, `past_target_date` silenced origination with the only signal being
+# `direction-overdue`, asked in ARREARS. The precedent is `direction-last:<slug>`, which names
+# the last live direction to its owner WHILE THEY CAN STILL ACT rather than announcing silence
+# afterwards to nobody; expiry is that same event by a different cause.
+#
+# ITS HEADING NAMES THE DATE AND THE DAYS LEFT, because a warning that does not say how long
+# somebody has is not a warning, and the leaving rides it exactly as it rides `arrived` and
+# `overdue`. Its body names the same act `overdue` names, offered while it can still be taken,
+# and names the successor besides — ending the LAST direction leaves the loop originating
+# nothing.
+#
+# EVERY GATE APPLIES UNCHANGED: the asked-once ledger, the per-tick cap, the quiet hours, the
+# working-day hold. It is NOT suppressed by an open ruling either, for `overdue`'s own reason —
+# a ruling answers which direction a mission belongs to, and answers nothing about a date.
+#
 # CARRIED, NEVER COMPOSED HERE. `direction-state.sh --with-leaving` attaches
 # `closing-residue.sh`'s composition to the row; this step reads that field and calls none of
 # the three readers itself. It costs no extra read of the tree and no extra network call,
@@ -125,6 +144,7 @@
 #   {"step","status","reason","summary","needs_agent":[...],"event"}
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
 
 TICK=""
@@ -173,9 +193,33 @@ fi
 repository=$(printf '%s' "$out" | jq -r '.repository // ""' 2>/dev/null || echo "")
 n_arrived=$(printf '%s' "$out" | jq -r '.counts.arrived // 0' 2>/dev/null || echo 0)
 n_overdue=$(printf '%s' "$out" | jq -r '.counts.overdue // 0' 2>/dev/null || echo 0)
+n_expiring=$(printf '%s' "$out" | jq -r '.counts.expiring // 0' 2>/dev/null || echo 0)
 n_dormant=$(printf '%s' "$out" | jq -r '.counts.dormant // 0' 2>/dev/null || echo 0)
 n_unreadable=$(printf '%s' "$out" | jq -r '.counts.unreadable // 0' 2>/dev/null || echo 0)
 n_live=$(printf '%s' "$out" | jq -r '.counts.live // 0' 2>/dev/null || echo 0)
+
+# THE QUESTION A RULING DIFF ALREADY CARRIES IS HELD (2026-08-28, mission
+# `put-the-loop-s-standing-rulings-on-one-pull-request`). The `arrived` question exists to name
+# the residue the reading could not see; once an open ruling pull request names EVERY mission
+# in that residue, the diff already carries the whole ask and the question would send the
+# operator to do by hand what they are being asked to merge.
+#
+# ALL OF IT OR NONE OF IT, and that bound is the safety property: a ruling naming ONE mission
+# must not silence a question about a DIFFERENT one, so a partially covered residue still asks,
+# with its full residue named and the partial cover said in words. An `overdue` or `dormant`
+# reading is never held — those are about the DATE and the SILENCE, which no ruling answers.
+# An UNREADABLE read holds nothing (`ci-retirement-turn.sh`'s discipline), and the suppression
+# is DERIVED: merging or closing the ruling makes the question reachable again with no state.
+held_missions='[]'
+any_ruling_open=false
+SUPPRESSION="${SCRIPT_DIR}/ruling-suppression.sh"
+if [ -f "$SUPPRESSION" ]; then
+    supp=$( ( cd "$ROOT" && sh "$SUPPRESSION" ) 2>/dev/null || true )
+    if [ -n "$supp" ] && printf '%s' "$supp" | jq -e '.readable // false' >/dev/null 2>&1; then
+        held_missions=$(printf '%s' "$supp" | jq -c '.held.attribution // []' 2>/dev/null || printf '[]')
+        any_ruling_open=$(printf '%s' "$supp" | jq -r '.any_open // false' 2>/dev/null || printf false)
+    fi
+fi
 
 # THE SUBJECTS. One per non-`live` reading, each carrying the content key `ask-question.sh`'s
 # already-asked ledger keys on. `unreadable` rows are deliberately absent from this list.
@@ -199,9 +243,15 @@ n_live=$(printf '%s' "$out" | jq -r '.counts.live // 0' 2>/dev/null || echo 0)
 #
 # NOTHING PARSES THE ANSWER. It is prose, recorded by `record-answer.sh` exactly as every other
 # answer is; acting on it stays the next run's judgement. No button, no automation.
-subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
+subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
+    --argjson held "$held_missions" --arg anyruling "$any_ruling_open" '
     [ .strategies[]
-      | select(.state == "overdue" or .state == "dormant" or .state == "arrived")
+      | select(.state == "overdue" or .state == "expiring" or .state == "dormant" or .state == "arrived")
+      # HELD: an `arrived` reading whose whole residue an open ruling already names.
+      | select((.state != "arrived")
+               or (((.residue // {}) | (.readable // false)) | not)
+               or (((.residue.missions // []) | length) == 0)
+               or (((.residue.missions // []) | map(.slug) | map(. as $m | $held | index($m)) | any(. == null))))
       | . as $s
       # THE RESIDUE, RENDERED FOR THE ARRIVAL QUESTION (2026-08-28, mission
       # `say-what-the-direction-could-not-see-before-calling-it-arrived`). A count alone costs
@@ -249,15 +299,106 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
            then "It would leave " + (((.waiting.count // 0) + (.waiting.missions // 0)) | tostring)
                 + " unreached and " + ((.residue.mission_count // 0) | tostring) + " unclaimed. "
            else "" end) as $leaving_clause
-      | {key: ("direction-" + .state + ":" + .slug),
+      # WHY THIS ONE STILL ASKS while a ruling is open: some of its residue the loop could not
+      # judge, and an unjudged subject is exactly the one that most needs a person.
+      | (if ($anyruling == "true" and .state == "arrived"
+             and (((.residue // {}) | (.readable // false)))
+             and (((.residue.missions // []) | length) > 0))
+         then " — a ruling pull request is open for some of these; the rest the loop could not judge"
+         else "" end) as $ruling_phrase
+      # THE DECLARED STAGE, NAMED IN THE HEADING (2026-08-29, mission
+      # `make-a-direction-s-lifecycle-a-declared-stage`). Every one of these questions names a
+      # READING (`arrived`, `overdue`, `expiring`, `dormant`) and none of them named the phase
+      # the operator declared, so the person was asked about a direction without being told
+      # which phase they had put it in. It rides the HEADING and not the body, where the
+      # residue and the leaving already ride, because `workaholic:notify` bounds the body to
+      # one sentence of 25 words reserved for the act the operator must take.
+      #
+      # An UNREADABLE stage renders as unreadable rather than as 進行中 — the rule the
+      # explicit `no strategy` rendering already holds one surface over: a default that hides
+      # a failed read is worse than saying nothing. It changes NO key, so no question is
+      # re-asked by this: the ledger matches the step id, never the body or the heading.
+      # The generic phrase is suppressed for the two transition readings below, whose own
+      # sentences already name the stage: saying it twice in one heading is noise on a line a
+      # person scans.
+      | (if ((.stage // "") == "") then " — stage unreadable"
+         elif (.stage_declared != true) then " — no stage declared"
+         elif (.state == "arrived" and .stage == "進行中") then ""
+         elif (.state == "dormant" and .stage == "改良中") then ""
+         else " — declared " + .stage end) as $stage_phrase
+      # THE TWO TRANSITION READINGS (2026-08-29, mission
+      # `make-a-direction-s-lifecycle-a-declared-stage`). The ask: stage transitions are the
+      # moments worth telling a person about — THIS DIRECTION CAN NOW CUT OVER (1 to 2) and
+      # THIS DIRECTION HAS SETTLED INTO OBSERVATION (2 to 3) — rather than only the backwards
+      # alarms.
+      #
+      # THEY REFINE AN EXISTING QUESTION RATHER THAN ADDING ONE, and that is forced rather
+      # than chosen. `direction-state.sh` projects `quiescent` to `arrived` and `dormant` to
+      # `dormant` in a fixed precedence, so a 進行中 direction whose work is all in ALWAYS
+      # reads `arrived` and a quiet 改良中 one ALWAYS reads `dormant`. A transition question
+      # added beside those would either double-ask one direction — the doubling `handoff-units`
+      # and `stalled-units` were split to avoid — or never fire at all. So the STAGE decides
+      # WHICH question the same evidence draws:
+      #
+      #   arrived + 進行中  ->  cutover   your work is in; can this be cut over now?
+      #   dormant + 改良中  ->  settled   improving has gone quiet; is this observation now?
+      #
+      # Every other combination is byte-identical, and the precedence in `direction-state.sh`
+      # is untouched — this is the STEP choosing its wording, not a sixth lifecycle value.
+      #
+      # THE COST IS STATED: the key changes for those two combinations, so a direction already
+      # asked `direction-arrived` may be asked `direction-cutover` once. That is one extra
+      # question ever, and it is the better-aimed one — which is the whole ask.
+      #
+      # THE STAGE IS NEVER INFERRED FROM STUCKNESS. Both candidate sets are built only from
+      # readings that describe WORK LANDING (`quiescent`, `dormant` — attribution terms), and
+      # never from a handoff, a block, a stale claim, an undelivered unit or a queue that will
+      # not drain: those occur in ANY phase, so none of them is evidence about a stage.
+      #
+      # AND IT IS A CANDIDATE, NEVER A VERDICT — `arrived`s own standing rule. Whether a
+      # toggle can be flipped is a fact no script can see, so the question describes the
+      # evidence and asks; the operator announcement is what moves the field, and this tick
+      # moves nothing.
+      # ONLY A DECLARED STAGE REFINES A QUESTION. `absent means 進行中` is the right reading
+      # everywhere, and the wrong thing to QUOTE BACK: a heading saying "still declared 進行中"
+      # of a direction nobody staged asserts a declaration that does not exist, which is the
+      # same class of error as rendering an unreadable stage as the default. So a repository
+      # that has not adopted the vocabulary keeps every question it had, byte for byte, and the
+      # refinement arrives only once an operator has actually declared a phase.
+      | (if (.stage_declared != true) then .state
+         elif (.state == "arrived" and .stage == "進行中") then "cutover"
+         elif (.state == "dormant" and .stage == "改良中") then "settled"
+         else .state end) as $reading
+      | {key: ("direction-" + $reading + ":" + .slug),
          slug: .slug, title: .title, assignees: .assignees,
-         reading: .state, days_to_target: .days_to_target,
+         reading: $reading, days_to_target: .days_to_target,
          residue: (.residue // {}),
          leaving: (.leaving // {}),
-         heading: (if .state == "overdue"
+         heading: ((if $reading == "cutover"
+                   then "the direction `" + .slug + "` has its work in and is still declared 進行中"
+                        + (if ((.landed // 0) > 0)
+                           then " (" + ((.landed) | tostring) + " item(s) landed)" else "" end)
+                        + $waiting_phrase + $residue_phrase
+                   elif $reading == "settled"
+                   then "the direction `" + .slug + "` has been quiet for " + $window
+                        + " while declared 改良中"
+                        + $waiting_phrase + $residue_phrase
+                   elif .state == "overdue"
                    then "the direction `" + .slug + "` has run past its target date"
                         + (if (.days_to_target != null)
                            then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
+                        + $waiting_phrase + $residue_phrase
+                   # EXPIRING (2026-08-29). The heading names the DATE and the DAYS LEFT, because
+                   # the whole point of asking early is that the person can still act, and a
+                   # warning that does not say how long they have is not a warning. The leaving
+                   # rides it exactly as it rides the other two.
+                   elif .state == "expiring"
+                   then "the direction `" + .slug + "` reaches its target date"
+                        + (if (.days_to_target != null)
+                           then (if (.days_to_target == 0) then " today"
+                                 else " in " + ((.days_to_target) | tostring) + " day(s)" end)
+                           else "" end)
+                        + (if (.target_date != "") then " (" + .target_date + ")" else "" end)
                         + $waiting_phrase + $residue_phrase
                    elif .state == "arrived"
                    then "the direction `" + .slug + "` has its work in"
@@ -265,11 +406,20 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" '
                            then " (" + ((.landed) | tostring) + " item(s) landed" +
                                 (if (.target_date != "") then ", dated " + .target_date else "" end) + ")"
                            else "" end)
-                        + $waiting_phrase + $residue_phrase
+                        + $waiting_phrase + $residue_phrase + $ruling_phrase
                    else "nothing has answered the direction `" + .slug + "` in the last " + $window
-                   end),
-         body: (if .state == "overdue"
+                   end) + $stage_phrase),
+         body: (if $reading == "cutover"
+                then $leaving_clause + "The evidence cannot see whether it can be cut over — only you can. Move it to 改良中, or say it still stands."
+                elif $reading == "settled"
+                then $leaving_clause + "Improving looks finished. Move it to 観察中 and the loop stops originating for it, or say it still stands."
+                elif .state == "overdue"
                 then $leaving_clause + "Re-date it, announce that it ended, or say it still stands — the loop carries what you announce and never decides either for you."
+                # The act is the same one `overdue` names, offered while it can still be taken —
+                # and the successor is named because ending the LAST direction leaves the loop
+                # originating nothing, which is what `direction-last` says one reading earlier.
+                elif .state == "expiring"
+                then $leaving_clause + "Re-date it, announce a successor when you end it, or say it still stands — the loop carries what you announce and decides nothing."
                 elif .state == "arrived"
                 then $leaving_clause + "Everything attributed to it has landed. Announce that it ended, or say it still stands — the loop closes nothing."
                 else "File its next move, or say it still stands — the loop will not close or change it either way."
@@ -316,7 +466,13 @@ if [ "$repository" != "none" ] && [ "$active_count" -eq 1 ]; then
                   slug: .slug, title: .title, assignees: .assignees,
                   reading: "last_live", days_to_target: .days_to_target,
                   residue: (.residue // {}), leaving: (.leaving // {}),
-                  heading: ("`" + .slug + "` is the only live direction left" + $leaving_phrase),
+                  # The declared stage rides this heading too (2026-08-29) — it names a
+                  # direction, so it names the phase the operator put that direction in, on
+                  # the same terms as every other heading in this step.
+                  heading: ("`" + .slug + "` is the only live direction left" + $leaving_phrase
+                            + (if ((.stage // "") == "") then " — stage unreadable"
+                               elif (.stage_declared != true) then " — no stage declared"
+                               else " — declared " + .stage end)),
                   body: "Once no live direction remains the loop originates nothing. Announce a successor when you end it, or say it still stands."}) ]
           end' 2>/dev/null || printf '%s' "$subjects")
     n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)
@@ -338,7 +494,7 @@ n_leaving_degraded=$(printf '%s' "$subjects" | jq '[.[] | select(has("leaving"))
 
 n_last_live=$(printf '%s' "$subjects" | jq '[.[] | select(.reading == "last_live")] | length' 2>/dev/null || echo 0)
 
-summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_last_live} last-live; ${n_subjects} to ask; ${n_leaving_degraded} leaving unreadable"
+summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_expiring} expiring, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_last_live} last-live; ${n_subjects} to ask; ${n_leaving_degraded} leaving unreadable"
 
 if [ "$n_subjects" -eq 0 ]; then
     emit ok "" "$summary"
@@ -375,6 +531,14 @@ if [ "$n_overdue" -gt 0 ]; then
     if [ "$n_overdue" -eq 1 ]; then ophrase="a direction has run past its date"
     else ophrase="${n_overdue} directions have run past their date"; fi
     phrase="${phrase:+${phrase}; }${ophrase}"
+fi
+# EXPIRING FOLLOWS `overdue` IN THE PHRASE, in the reader's own precedence order: a date that
+# has gone is read before one that is coming, so a reader meets the two facts in the order the
+# lifecycle ranks them.
+if [ "$n_expiring" -gt 0 ]; then
+    if [ "$n_expiring" -eq 1 ]; then ephrase="a direction is about to reach its date"
+    else ephrase="${n_expiring} directions are about to reach their dates"; fi
+    phrase="${phrase:+${phrase}; }${ephrase}"
 fi
 if [ "$n_dormant" -gt 0 ]; then
     if [ "$n_dormant" -eq 1 ]; then dphrase="a direction has nothing answering it"

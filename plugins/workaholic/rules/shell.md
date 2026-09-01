@@ -12,6 +12,35 @@ paths:
 - Use `set -eu` explicitly as fallback
   - Some environments may strip shebang flags
 
+## An embedded jq program's fallback covers the data, never our own defect
+
+The shape is everywhere in these scripts and it is correct as far as it goes:
+
+```sh
+subjects=$(printf '%s' "$STATE" | jq -c '…' 2>/dev/null || echo '[]')
+```
+
+`|| echo '[]'` is right for a **data** problem — an absent key, an empty array, a reader that
+answered nothing. It is catastrophic for **ours**: a jq program that does not *compile* — a
+missing parenthesis, an apostrophe inside a jq comment, a renamed `--arg` — discards through the
+same fallback, so the caller reads an empty answer and reports success. `sh -n` cannot see it
+(the shell parses fine; it is the embedded jq that does not), which is what made the measured
+case invisible until it was hunted down by hand.
+
+- **Keep the fallback and keep the `2>/dev/null`.** The stderr of a legitimately degraded read is
+  noise on an hourly unattended run; the fix is to classify, not to shout.
+- **jq's own exit status is the classifier**: **3** is a compile error (our defect — the program
+  cannot run at all), 5 is a runtime or input error, 1 is `-e` with a null/false result.
+- **A caller that reports a status must not report success on a 3.** Inside `workaholic:moderate`
+  that is already automatic: `skills/moderate/scripts/lib/jq-guard.sh` records the fact and
+  `run.sh` reclassifies the step `degraded`/`jq_compile_error`, in one place. Elsewhere, a script
+  that answers a caller's question owes the same distinction by hand.
+- **Every extractable embedded program is compiled by the suite** (`every embedded jq program
+  compiles`), so a compile error fails the commit that introduced it rather than a tick at 03:00.
+  A program built by string interpolation cannot be extracted without evaluating the shell; those
+  are counted and named, never silently skipped — so a program assembled from variables is worth
+  avoiding where a `--arg` would do.
+
 ## Enforcement
 
 This convention is machine-checked, so it cannot silently regress:
@@ -26,10 +55,65 @@ This convention is machine-checked, so it cannot silently regress:
   reports zero findings against the real tree — so a developer and CI run the identical
   check, and a reintroduced bashism fails the suite instead of passing under a permissive bash.
 
+## Reading a plugin script: a read tool, never a Bash text pipeline
+
+**An unattended run reads a file to find something out with a read tool — never through a Bash
+`sed` / `grep` / `head` / `cat` / `awk` pipeline** (2026-08-31, mission
+`stop-an-unattended-tick-from-waiting-on-a-person`).
+
+**Measured**: three consecutive `[Moderate]` ticks sat at `requires_action`, each waiting on a
+permission prompt raised by a **read** — `sed -n '/^# Usage/,/^$/p' … | head -30` and
+`grep -n … ask-question.sh`, neither of which writes anything. The harness classified them as an
+edit of a sensitive file. **That classification is the harness's and this repository does not own
+it**; what this repository owns is whether the tick reaches for that shape at all, and a read tool
+over the same file raises no such prompt. A routine has nobody to answer one, so the run waits
+forever and never reaches `persist-log` — the record that would show it stopped is the one the stop
+prevents.
+
+**The scope is the agent's own inspection reads, and only those.** A workflow script that
+legitimately *processes* text — `sed` inside `archive.sh`, `awk` parsing frontmatter, a `grep` that
+is part of a reading a script performs — is untouched and always was. The distinction is
+**why the text is being read**: to find something out for the agent (use a read tool), or as a step
+of the work a script exists to do (shell is correct). A script cannot call a read tool at all,
+which is what makes the line unambiguous.
+
+**It applies to the documented examples too.** A command, routine or skill markdown that shows
+`grep -n … ${CLAUDE_PLUGIN_ROOT}/skills/…` teaches exactly the shape that hung the tick, and an
+unattended run following its own instructions is the measured path. Quoting a pipeline as the
+*subject* of prose (this section, `posix-lint.sh`'s own description) is not modelling it.
+
+**It removes this repository's exposure, not the underlying classification** — which is the
+harness's, and is not claimed to be fixed here. The wider policy that an unattended run never
+blocks on **any** prompt lives in `rules/interaction.md`, *An unattended run never waits for a
+person*; this rule is the one instance of it this repository can hold by construction.
+
+**A mechanical row is deliberately not added, and the reason is measured rather than deferred.**
+The obvious precedent is the row that fails on `gh issue|pr|repo`, and it does not carry: that
+check keys on a **command whose every use is wrong**, while `grep`, `sed` and `head` are correct
+in the majority of their uses in this tree and are quoted throughout its prose — including in the
+paragraph you are reading. A row keying on the command would fire on `posix-lint.sh`'s own
+description; one keying on "a pipeline whose target is under `plugins/`" cannot tell an inspection
+read from a script's own processing without knowing why the text is being read, which is precisely
+the judgement the rule is made of. So the enforcement here is a human reading it, stated plainly
+rather than dressed as a check — and the honest mechanical half is the configuration question
+`workaholic:workaholify` answers, not a grep.
+
 ## Reaching GitHub: REST only, never GraphQL
 
 Every workflow script talks to GitHub through **one transport**,
 `gather/scripts/gh-rest.sh` (`slug` / `api` / `available`), which is `gh api` — REST.
+
+**`available` asks whether REST answers here, and nothing else** (2026-08-29, mission
+`read-back-whether-the-loop-s-own-act-took-effect`). It probes `GET /rate_limit`, which every
+token type can call — a GitHub App **installation token** included, which is what `GITHUB_TOKEN`
+is inside a workflow. It probed `GET /user` until then, measuring *identity* and calling it
+*reachability*: `GET /user` is not accessible to an installation token, so every script guarded
+by it refused `gh_unavailable` in CI whatever its own operation's permissions were — measured on
+`claim-retirement.yml`, which holds `contents: write` and had deleted nothing since it shipped.
+A caller that genuinely needs a **person** calls `gh api user` itself and answers
+`identity_unresolved` in its own vocabulary (`open-proposal.sh`, `list-open-proposals.sh`,
+`list-inbound-issues.sh`, the web bootstrap); `available`'s `login` field is vestigial, always
+empty, and kept only so the output shape does not move.
 
 **Never `gh issue …`, `gh pr …`, or `gh repo …`.** Those subcommand families are
 GraphQL-backed, and a Claude Code Web session is *not guaranteed to serve that surface*:

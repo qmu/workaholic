@@ -41,8 +41,16 @@ only writer of an end state and re-opening is offered nowhere. `/drive` still ne
 strategy. Matching is still by explicit slug only. The citation still runs strategy → feedback one
 way, and the retired `strategy:` relation stays retired.
 
-**The third writer is bounded, and the bounds are the reason it is admissible.** Only the three
-parts this model calls revisable are reachable from its interface; `slug`, `type`, `status`,
+**The third writer is bounded, and the bounds are the reason it is admissible.** Only the four
+parts this model calls revisable are reachable from its interface — the **stage** joined them on
+2026-08-29 (mission `make-a-direction-s-lifecycle-a-declared-stage`) and nothing else moved: no
+fourth writer, no new route, and no new refusal vocabulary, since `--stage` reuses `create.sh`'s
+`bad_stage` verbatim. A move onto a direction carrying no `stage:` line **inserts** it where
+`create.sh` puts it, and the dated `## Schedule` line names the **move** (`進行中 → 改良中`)
+rather than the destination, reading the previous value through `read.sh` so the
+absent-means-進行中 default still has exactly one derivation. The stage is revisable in **both**
+directions: nothing treats the three as a ratchet, because a direction that reopens is the
+operator's call to state. `slug`, `type`, `status`, `slug`, `type`, `status`,
 `created_at`, `author` and `feedback:` are asserted immutable over its own candidate before it
 writes. A closed direction is refused `not_active`. Every floor breach is refused with **nothing
 written** — no partial write, no staged half, no write-then-revert. And each revision appends one
@@ -55,6 +63,40 @@ dated line to `## Schedule` saying what moved, so the artifact carries its own h
 | **Aim** | `## Aim` body section | The direction's substance, in the operator's words. What is being pursued and what "pursued" means here. |
 | **Schedule** | `target_date:` frontmatter + `## Schedule` body section | The dated bound. `target_date` is a single `YYYY-MM-DD` — the date by which the aim is meant to hold. `## Schedule` carries the shape around it (a start, milestones, a cadence) in prose. |
 | **Assignee** | `assignees:` frontmatter | Who carries it. Plural like every other artifact, resolved through the one ownership oracle (`gather/scripts/owners.sh`), but — unlike everywhere else — **it may not be empty**: an unowned direction is not a strategy. |
+| **Stage** | `stage:` frontmatter | The operator's **declared** phase, from the closed set `進行中 | 改良中 | 観察中` — not yet cut over / cut over and still improving / settled, the loop reactive only. Their own vocabulary, kept verbatim. **Absent means 進行中.** |
+
+**改良中 reads as *competing*.** It is the one stage that says a direction can absorb a
+proposal now, so among eligible directions it **sorts first** in `/propose`'s survey — an order,
+never a gate, with the existing late-first and nearest-date terms unchanged beneath it.
+
+**The stage's other consequence is 観察中's**: `/propose` is refused
+`observing` and originates nothing for that direction (`workaholic:propose`). It stops
+**origination only** — inbound work still reaches a settled direction through `/specificate`
+unchanged — and it is the **first declared gate** on a list of derived ones, which is what makes
+it admissible where a derived silence was refused: a machine's guess must not silence the one
+routine that originates work, and the operator's own word is not a guess.
+
+**The stage is DECLARED; the lifecycle state is DERIVED, and neither becomes the other**
+(2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every other reading in
+this layer — `pace`, `overdue`, `expiring`, `dormant`, `quiescent`, and the one answer
+`direction-state.sh` composes from them — is evidence the loop computed. This one is a word the
+operator wrote down, and **no reading anywhere may compute it, move it, or infer it**: a
+reading may *suggest* a transition and the person's announcement is what performs one. A
+**sixth `direction-state.sh` value** was refused for the reason `overdue` was kept out of `pace`
+and `expiring` out of both — one field answering two questions is how the two drift — so the
+stage rides **beside** that answer and never enters its precedence.
+
+**Absent means 進行中, and that is what makes this a field addition with no migration**: the
+convention `merge_policy` (absent means review), a ticket's `status:` (absent means queued) and
+`attributed-work.sh`'s `readable` (absent means the walk completed) already use. Every strategy
+already on `main` stays valid and byte-identical, and the default is resolved in **exactly one
+place** — `read.sh` — so `list.sh` composes that reader rather than parsing the field a second
+time. An ASCII alias set was refused: it would give one field two spellings, which is the drift
+the closed set exists to prevent.
+
+**Stuckness is orthogonal to the stage.** A handoff, a blocked run, a stale claim or a queue
+that will not drain occurs in **any** phase, so none of them may ever be read as a stage or as
+evidence for a transition.
 
 `status:` is a single axis, `active | achieved | abandoned`. `close.sh` is the only writer of an
 end state; nothing else edits the field. There is no separate `archive/` area — a closed strategy
@@ -119,7 +161,9 @@ invisible to hop 1 and hop 2 alike. Every artifact therefore carries the `attrib
 it, and a consumer states what it could not attribute rather than implying the digest is exhaustive.
 A quiet strategy is a real answer, not an error: `empty_reason` is `no_feedback_refs` (it cites
 nothing), `no_citing_artifacts` (nothing cites it back) or `no_activity_in_window` (attributable work
-exists, none of it moved) — never an empty result with no reason, and never a guess.
+exists, none of it moved) — never an empty result with no reason, and never a guess. All three name
+why a **completed** walk found nothing; a walk that did not complete answers below instead, and is
+never folded into this vocabulary.
 
 **It reports the mission grain beside the ticket grain** (2026-08-26). `waiting_missions`,
 `waiting_missions_advancing`, `waiting_missions_describing` and `waiting_mission_slugs` sit
@@ -130,6 +174,51 @@ at a pull request with the queue drained is not finished. A mission is classifie
 queued tickets, and one with none is `unknown` — which counts toward advancing, the same rule an
 unknown ticket follows. This adds no relation and no artifact field: the mission set is the
 attributed artifacts already walked, filtered on the lifecycle field `close.sh` writes.
+
+**And it says when it could not look at all** (2026-08-29, mission
+`keep-the-closing-link-readable-as-the-corpus-grows`). Both hops prefilter the corpus with one
+`grep` per `xargs` batch. A batch matching nothing is honest and leaves the walk complete; a batch
+the reader **could not read** is a failure, and until now both vanished into one swallowed status —
+so a corpus nobody could read was emitted as `no_citing_artifacts`, the reading that means the exact
+opposite. A walk that did not complete now reports:
+
+| Field | On a degraded walk |
+| ----- | ------------------ |
+| `readable` | `false` |
+| `reason` | `patterns_unreadable` (the pattern set) or `corpus_unreadable` (one or more corpus entries) |
+| `count`, `active_count`, every `waiting_*` | **`null`**, never `0` — `unattributed-work.sh`'s existing shape, because a zero on a read that failed is the whole defect |
+| `artifacts` | `[]` — the batches that *did* read are kept inside the walk so it can finish, and are deliberately not emitted: a half list rendered as a list is the same collapse one step on |
+| `empty`, `empty_reason` | **`null`** — a reading we did not make, never one of the three we did not reach |
+
+**`readable` is absent on every completed walk, and that is the contract rather than an omission**:
+*absent means the walk completed*, the convention `merge_policy` (absent means review) and a ticket's
+`status:` (absent means queued) already use here. A completed reading is therefore byte-identical to
+what it was before the field existed, and a consumer not yet taught the term behaves exactly as it
+did. **Test it as `readable == false`**, never as `readable // true`: in jq `//` treats `false`
+itself as empty, so `false // true` is `true` and that spelling reads every degraded walk as a
+healthy one. It is derived in exactly one place inside the script, for both hops; the reader still
+exits 0, degraded included.
+
+**Two sibling terms sit beside each other and must not be folded together.** `quiescent` reads
+`false` when the **residue** read was degraded (2026-08-28, `workaholic:propose`); a survey row is
+refused `attribution_unreadable` when the **attribution** read was degraded (2026-08-29, the
+paragraph above). Different reads, different consequences: the first withholds one reading, the
+second refuses the whole row and every reading composed on it.
+
+**And the residue refuses it too** (2026-08-29, the same mission). `mission-strategy.sh` names a
+direction whose walk did not complete in `unreadable` rather than answering *no strategy* from a
+blind read — `attributed: false` means *no strategy could be attributed*, and a walk nobody could
+complete cannot say even that. `unattributed-work.sh` then reports `readable: false` with **null**
+counts and names nothing, under **`strategy_unreadable`** when at least one active direction failed
+and the pre-existing `all_strategies_unreadable` when every one did. The partial case is the point:
+a mission attributed *only* to the direction that failed is named as residue in exactly the same
+way, and which missions those are is precisely what the failed walk cannot say. `closing-residue.sh`
+carries that block's reason to its own top-level `readable` through its existing contract, and both
+consumers already behave — `quiescent` reads the residue's flag, so a degraded read yields no
+`arrived` and therefore no `direction-arrived:<slug>` question, and the standing-rulings draft
+reaches no writer with a candidate it could not attribute. **A non-degraded, non-empty residue is
+untouched**: an unattributed mission is still an unattributed mission, and suppressing those would
+be a different defect of the same shape.
 
 **`no_citing_artifacts` is bounded, and the bound is stated rather than implied** (2026-08-26). After `/specificate`'s carry floor it means *nothing has answered this direction yet* — for work the loop emitted from an ask filed by `/propose`, by the inbound Slack sweep, or by `/fb`'s in-repo path, whose refs resolved. It says nothing about work a run never emitted, an ask judged to answer no direction, a ref that did not resolve, or an artifact written by hand outside `/specificate`. A hermetic test walks ask → reader → scaffold → floor for each writer's header shape and fails when the ref is dropped, so the reading is a fact a change can lose rather than a claim.
 
@@ -278,12 +367,28 @@ assignee list, a non-`YYYY-MM-DD` target date, and an existing slug — the same
 
 ## The lifecycle state of a direction — one reader, composed, never re-derived
 
+**The declared stage rides beside this reading and never enters it** (2026-08-29, mission
+`make-a-direction-s-lifecycle-a-declared-stage`). Two questions that look alike and are not:
+*what phase has the operator declared* (`stage:`, their word) and *what is the evidence saying*
+(`state`, this reader's answer). A **sixth `state` value** was refused for the reason `overdue`
+was kept out of `pace` and `expiring` out of both — one field answering two questions is how
+the two drift — so `stage` is **projected** onto every row exactly as `target_date` and
+`landed` are, the precedence is byte-identical across the change, and no gate, sort, refusal or
+`selected` value anywhere reads it.
+
+A reading may **suggest** a transition and may never perform one: the artifact keeps its three
+writers, and only an announcement the operator makes by explicit slug moves the field. **A
+degraded row still carries its stage** — the degradation belongs to the attribution walk and
+the stage is read off the artifact, so `attribution_unreadable` says nothing about whether a
+phase was declared.
+
+
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/direction-state.sh [--open-proposals <file>] [window] [workaholic-root]
 ```
 
-`propose/scripts/survey-strategies.sh` emits three readings — `overdue`, `dormant` and
-`quiescent` — beside
+`propose/scripts/survey-strategies.sh` emits four readings — `overdue`, `expiring`, `dormant`
+and `quiescent` — beside
 `pace` and the refusal list. A consumer assembling a lifecycle answer out of them would be a
 **second derivation** of a state this repository insists has one reader, exactly as
 `attributed-work.sh` is the only walker of the attribution. So `direction-state.sh` **composes**
@@ -295,12 +400,13 @@ projection of a field the survey emitted.
 | `live` | active, in date, and something is happening against it |
 | `arrived` | live, legible — and **its work has landed** with nothing waiting (`survey-strategies.sh`'s `quiescent`) |
 | `overdue` | the `target_date` has passed (`survey-strategies.sh`'s `overdue`) |
+| `expiring` | the `target_date` is **approaching** — inside the survey's own window (`survey-strategies.sh`'s `expiring`) |
 | `dormant` | live, in date, legible — and nothing landed, nothing waiting, no proposal open |
 | `unreadable` | the attribution could not be read; **never** folded into any other answer |
 | `none` | **repository-level**: no `status: active` strategy exists at all |
 
 **The precedence is the only thing this script owns**, and it is fixed: `unreadable` > `arrived` >
-`overdue` >
+`overdue` > `expiring` >
 `dormant` > `live`. `unreadable` first because a reading we could not make must never be dressed
 as one we did; `overdue` before `dormant` because a direction past its date is the operator's to
 re-date or close whatever else is true of it, and one direction reported twice under two names
@@ -315,6 +421,19 @@ as lateness is naming a success as a failure — the defect the reading was adde
 Ranking `overdue` first would make `arrived` unreachable for the one case it exists to serve,
 since a finished direction is very often a late one.
 
+**`expiring` sits between `overdue` and `dormant`, and both neighbours are argued** (2026-08-29,
+mission `warn-a-direction-before-its-date-silences-the-loop`). Against `overdue`, below it: a
+date that has **gone** is a stronger fact than one approaching, and the two ask for the *same*
+act with different urgency, so where one word must be chosen the fact that has already happened
+wins. Against `dormant`, above it: a direction near its date and silent is about to be silenced
+**by the date** first, and the date is the fact with a deadline on it — `dormant` stays true
+tomorrow, while `expiring` stops being actionable the moment the date passes, at which point the
+reading becomes `overdue` and the warning was never given. (`arrived` outranks both for the
+reason above: it asks for a *different* act, which is why a rung is not a severity ordering.)
+The leaving rides an `expiring` row exactly as it rides `arrived` and `overdue`, at no extra
+read — a person asked to re-date a direction **before** its date needs the same evidence as one
+asked to close it after.
+
 **`arrived` is a candidate, never a verdict.** A strategy's "Reached when" is prose no script
 reads, so nothing can know the aim was met — only that everything attributed to the direction has
 landed and nothing is queued. The reading says *this looks finished*; the operator's answer
@@ -328,10 +447,11 @@ the direction layer doing* must not have to call twice to learn that it is empty
 and writes nothing — reading a direction's state and writing one are different acts, and
 `amend.sh` is reached only from `/specificate`'s announcement route. It is not a second `pace`: `pace` answers
 *will this arrive*, `overdue` answers *has the date passed*, `dormant` answers *is anything
-answering this at all*, and `arrived` answers *has its work all come in*. It inherits the survey's
+answering this at all*, `expiring` answers *is the date about to arrive*, and `arrived` answers
+*has its work all come in*. It inherits the survey's
 lossiness and reports it: `dormant` **and `quiescent`** require
-`owns == "mine"` upstream, so **another identity's direction can only ever read `live` or
-`overdue` here** — that limit is stated in the script's header rather than left to be discovered.
+`owns == "mine"` upstream, so **another identity's direction can only ever read `live`,
+`overdue` or `expiring` here** — that limit is stated in the script's header rather than left to be discovered.
 
 **It makes no second network call.** The survey's one call is the open-proposal gate; a caller
 already holding that read passes `--open-proposals` through. A survey that refuses yields

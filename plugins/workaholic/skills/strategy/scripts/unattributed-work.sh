@@ -60,6 +60,11 @@
 #
 # A repository with no `active` strategy is READABLE, not degraded: the honest answer there is
 # that no direction claims anything, which is a reading and not a failure.
+#
+#   all_strategies_unreadable   every active strategy's walk failed
+#   strategy_unreadable         at least one did (2026-08-29) — a mission attributed only to
+#                               that direction would be named as residue, and which missions
+#                               those are is exactly what the failed walk cannot say
 
 set -eu
 
@@ -95,14 +100,28 @@ OUT="$(sh "$READER" --root "$ROOT" 2>/dev/null || true)"
 printf '%s' "$OUT" | jq -e . >/dev/null 2>&1 || emit_unreadable "reader_unparseable"
 [ "$(printf '%s' "$OUT" | jq -r '.ok // false')" = "true" ] || emit_unreadable "reader_refused"
 
-# EVERY STRATEGY UNREADABLE IS NOT AN EMPTY RESIDUE. `strategies_read` counts the `active`
-# strategies the reader tried; when all of them failed, nothing could have been attributed and
-# every mission would read as residue for the wrong reason. Zero strategies read is a
-# different fact and stays readable.
+# EVEN ONE STRATEGY UNREADABLE IS NOT AN EMPTY RESIDUE (widened 2026-08-29, mission
+# `keep-the-closing-link-readable-as-the-corpus-grows`). `strategies_read` counts the `active`
+# strategies the reader tried; when ALL of them failed, nothing could have been attributed and
+# every mission would read as residue for the wrong reason — that was the original rule and it
+# keeps its own name.
+#
+# THE PARTIAL CASE IS THE SAME DEFECT AND WAS NOT COVERED. A mission attributed ONLY to the
+# strategy whose walk failed reads `attributed: false` and is named in the residue — as work no
+# direction claims, when in truth the tree attributes it and nobody could see the attribution.
+# Which missions those are is exactly what the failed walk cannot say, so the residue as a
+# whole is unsound and says so rather than naming anything. A residue that over-reports into
+# `direction-arrived:<slug>` asks the operator to rule on attributions that already exist.
+#
+# Zero strategies read is a different fact and stays readable: no direction claiming anything
+# is a reading, not a failure.
 READ_N="$(printf '%s' "$OUT" | jq -r '.strategies_read // 0')"
 UNREAD_N="$(printf '%s' "$OUT" | jq -r '(.unreadable // []) | length')"
 if [ "$READ_N" -gt 0 ] && [ "$UNREAD_N" -ge "$READ_N" ]; then
   emit_unreadable "all_strategies_unreadable"
+fi
+if [ "$UNREAD_N" -gt 0 ]; then
+  emit_unreadable "strategy_unreadable"
 fi
 
 TMP=$(mktemp -d)

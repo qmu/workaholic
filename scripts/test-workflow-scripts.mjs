@@ -20815,6 +20815,64 @@ function testTickThreadKeyNamesTheDay() {
     !/date [^|)]*\+%/.test(keyCode.replace(/date -d /g, "date_of ")), "tick-thread-key.sh");
 }
 
+// ---------- an hour's changes are a DELTA REPLY, not another root (2026-09-01) ---------------
+// The day key made the standing root findable; nothing yet posted into it, so every speaking
+// tick still rendered a full root — head and all — and a reader met a new top-level post every
+// hour. The two forms come off ONE reading: the body is built once, the root is that body under
+// a head, and the reply is the body. Two compositions would be two voices for one hour.
+function testTickRendersARootAndADeltaReply() {
+  const dir = makeRepo("main");
+  const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
+  const R = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  const render = (summary, args) => {
+    writeFileSync(join(dir, "rows.json"), JSON.stringify({
+      rows: [{ step: "doc-drift", status: "ok", summary, event: `doc-drift: ${summary}` }],
+    }));
+    return JSON.parse(run(dir, `${R} ${args} --root . < rows.json`).stdout);
+  };
+  try {
+    mkdirSync(join(dir, ".workaholic", "moderations"), { recursive: true });
+    run(dir, `${LOG} --tick 20260901-010000 --step doc-drift --status ok --summary "a" --root .`);
+
+    const speaking = render("c", "--tick 20260901-110000 --questions 1 --hour 11 --weekday 3");
+
+    // 1. BOTH FORMS COME OFF ONE INPUT, and the root is the reply under a head.
+    assertEq("the root carries the head and the body",
+      speaking.root_text, "🔎 Moderation - 1 change(s), 1 question(s)\ndoc-drift: c");
+    assertEq("and the reply carries the body alone — no restated head",
+      speaking.reply_text, "doc-drift: c");
+    assertTrue("the root is exactly the reply under the head",
+      speaking.root_text.endsWith(`\n${speaking.reply_text}`), speaking.root_text);
+    assertTrue("so the reply restates no day summary",
+      !/🔎 Moderation/.test(speaking.reply_text), speaking.reply_text);
+
+    // 2. A TICK THE GATES HOLD POSTS NEITHER. `reply_text` is not a way around the window:
+    //    the delta is the same silence the root is, rendered empty on every held path.
+    for (const [label, args] of [
+      ["inside the quiet window", "--tick 20260901-030000 --questions 1 --hour 3 --weekday 3"],
+      ["on an off day", "--tick 20260901-030000 --questions 1 --hour 10 --weekday 7"],
+      ["with nothing to say", "--tick 20260901-110000 --questions 0 --hour 11 --weekday 3"],
+    ]) {
+      const held = render("c", args);
+      assertEq(`a tick held ${label} renders neither a root nor a reply`,
+        [held.post, held.root_text, held.reply_text], [false, "", ""]);
+    }
+
+    // 3. THE MENTION STAYS ON THE QUESTION. A delta addressed to nobody is orientation; a delta
+    //    that mentioned somebody would wake the channel for it, which is the retired shape.
+    assertTrue("and the delta carries no mention token", !/<@U/.test(speaking.reply_text),
+      speaking.reply_text);
+  } finally { cleanup(dir); }
+
+  // 4. THE POSTING RULE LIVES AT THE COMMAND CEILING, not in a routine prompt and not in the
+  //    renderer, which posts nothing at all.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
+  assertTrue("the command says a found thread takes the delta reply",
+    /reply_text/.test(cmd) && /tick-day:/.test(cmd), "commands/moderate.md");
+  assertTrue("and that no thread found means the root",
+    /root_text/.test(cmd), "commands/moderate.md");
+}
+
 // ---------- the tick log lives on its own branch, not on `main` (2026-09-01, issue #782) ------
 // MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
 // touched only `.workaholic/` and FIVE touched only the product. After squash-merging removed
@@ -21364,6 +21422,7 @@ const tests = [
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
   ["the tick root's thread key names the day", testTickThreadKeyNamesTheDay],
+  ["the tick renders a root and a delta reply", testTickRendersARootAndADeltaReply],
   ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
   ["the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],

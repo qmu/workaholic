@@ -19,7 +19,12 @@
 # it identifies the tick to any machine consumer that wants it; what left is the line at a
 # person. The developer said it plainly and more than once: stop mixing strange ids into Slack.
 #    "changes": [{"step","summary","event"}], "change_count": N, "questions": N,
-#    "previous_tick": "<id>|", "root_text": "..."}
+#    "previous_tick": "<id>|", "root_text": "...", "reply_text": "..."}
+#
+# TWO FORMS, ONE READING (2026-09-01). `root_text` is the day's FIRST speaking tick's post;
+# `reply_text` is every later one's — the same body without the head, posted into the thread the
+# day key resolved. Which one goes out is the caller's decision and is written in one place,
+# `plugins/workaholic/commands/moderate.md`; this script renders both and posts neither.
 #
 # ═══ WHY THE TICK NEEDED A VOICE OF ITS OWN ═══════════════════════════════════════
 #
@@ -186,9 +191,17 @@ tick_thread_key "$TICK"
 TOKEN="$TTK_KEY"
 TOKEN_REASON="$TTK_REASON"
 
+# TWO FORMS OFF ONE READING (2026-09-01). `root_text` is what a day's FIRST speaking tick
+# posts — head plus body, unchanged. `reply_text` is what every later speaking tick that day
+# posts INTO it: the same body with NO HEAD, because the head restates the day and a reader
+# following one thread has already read it. They are not two compositions — the body is built
+# once and the root is that body under a head — so the two cannot drift into two voices.
+#
+# `reply_text` IS EMPTY ON EVERY SILENT PATH, exactly as `root_text` is: a tick the gates hold
+# posts neither, and an empty string is what "nothing to say" has always looked like here.
 emit() {
-    printf '{"post": %s, "reason": "%s", "tick": "%s", "token": "%s", "token_reason": "%s", "changes": [%s], "change_count": %s, "questions": %s, "previous_tick": "%s", "root_text": "%s", "impaired": [%s], "impaired_count": %s}\n' \
-        "$1" "$2" "$(json_escape "$TICK")" "$(json_escape "$TOKEN")" "$(json_escape "$TOKEN_REASON")" "$3" "$4" "$QUESTIONS" "$(json_escape "$5")" "$(json_escape "$6")" "$IMPAIRED" "$IMPAIRED_COUNT"
+    printf '{"post": %s, "reason": "%s", "tick": "%s", "token": "%s", "token_reason": "%s", "changes": [%s], "change_count": %s, "questions": %s, "previous_tick": "%s", "root_text": "%s", "reply_text": "%s", "impaired": [%s], "impaired_count": %s}\n' \
+        "$1" "$2" "$(json_escape "$TICK")" "$(json_escape "$TOKEN")" "$(json_escape "$TOKEN_REASON")" "$3" "$4" "$QUESTIONS" "$(json_escape "$5")" "$(json_escape "$6")" "$(json_escape "${7:-}")" "$IMPAIRED" "$IMPAIRED_COUNT"
     exit 0
 }
 
@@ -568,4 +581,6 @@ fi
 
 HEAD="🔎 Moderation - ${count} change(s), ${QUESTIONS} question(s)${IMPAIRED_HEAD}"
 BODY=$(printf '%s%s' "$lines" "$IMPAIRED_BODY")
-emit true "$READY_REASON" "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")"
+# The root is the body under a head; the reply is the body. One composition, two renderings —
+# the caller picks by whether the day key resolved a thread, and never by re-deriving either.
+emit true "$READY_REASON" "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")" "$BODY"

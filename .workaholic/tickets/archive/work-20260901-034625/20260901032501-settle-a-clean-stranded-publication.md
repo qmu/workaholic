@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T03:25:01+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -139,3 +140,51 @@ they have: `mechanical` catches up first, `content` refuses and waits on a perso
   half "is not a finding at all". Asking a person to press merge on five green pull requests is
   the noise this repository has twice retired status roots for. Recorded here as the rejected
   alternative rather than left implicit.
+
+## Final Report
+
+Development completed as planned.
+
+The gap was reproduced before anything changed: `settle-stranded-publication.sh 813` against a
+publication `list-stranded-publications.sh` classified `clean` returned
+`{"outcome": "settle_refused", "reason": "not_mechanical:clean", "delivery": "not_attempted"}`.
+After the change the same publication returned
+`{"outcome": "settled", "class": "clean", "merged": false, "regenerated": false,
+"validated": false, "pushed": false, "delivery": "merge_refused: merge_not_allowed"}` — settled,
+no catch-up taken, no ref written, and the delivery reported in the merge vocabulary.
+
+The class gate now sets one variable (`NEEDS_CATCHUP`) and nothing else: `clean` skips the merge,
+the regeneration, the regeneration commit, the fast checks and the push, because each of them has
+nothing to do on a branch that collides with nothing and is pushed nowhere. `content`,
+`unanswerable` and an unreadable class keep `not_mechanical:<class>` verbatim, and `mechanical`
+runs the identical code path it ran before.
+
+Where the gate scan gets its checkout: candidate (a) — the worktree is attached for both classes.
+The scan is not part of the catch-up, and `scan-branch-safety.sh` diffs a checkout of the branch
+against the base, so it needs one. Scanning against the remote refs without a worktree would be
+cheaper per act but would give the gate a second invocation shape; one worktree, attached and torn
+down by machinery that already exists, keeps the gate's refusals byte-identical on both paths.
+
+`validated` reports `false` on the `clean` path. The fast checks are stated in their own comment
+as the guard on the push, and a `clean` settlement pushes nothing: the branch is byte-identical to
+the one its own CI already ran on, so re-running the suite would assert nothing new.
+
+### Discovered Insights
+
+- **Insight**: The suite's idempotency row for this act was resting on the class gate rather than
+  on the pull request's state. After a `mechanical` settlement the branch contains the base, so
+  the reader reclassifies it `clean` — which used to refuse, and now does not. The row was
+  asserting `not_mechanical:` where the real guard is that a merged pull request is no longer
+  open and the reader never names it.
+  **Context**: The fixture's `gh` stub kept the merged pull request in its open list, which GitHub
+  never does. The row now re-issues the stub without it — modelling the merge — and asserts
+  `not_a_stranded_publication` with the branch tip unmoved. Any future widening of the accepted
+  classes is now checked against the guard that actually holds in production.
+- **Insight**: A local `clean` and GitHub's own `mergeable` can disagree, and the disagreement is
+  not rare here. `#813` read `clean` from `git merge-tree` against a freshly fetched `origin/main`
+  while the API answered `mergeable: false, mergeable_state: "dirty"`, so the delivery came back
+  `merge_refused: merge_not_allowed`.
+  **Context**: The ticket anticipated exactly this and the contract held — one attempt, the
+  refusal reported in the merge vocabulary, no loop and no escalation. It does mean the act can
+  settle a publication the remote still declines, which is a fact about GitHub's cached
+  mergeability rather than about this script.

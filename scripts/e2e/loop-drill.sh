@@ -9201,9 +9201,21 @@ cmd_verify_cadence_lapse() {
 # one is refused with its branch BYTE-IDENTICAL; a re-run of either moves no ref. A drill
 # satisfied by the JSON keys would go on passing through the regression it exists to catch.
 #
-# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR, and it runs BEFORE anything is settled: strip
-# the generated-region proof out of the shared classification rule and the settleable collision
-# must read `content` — reported rather than repaired, which is precisely the measured incident.
+# AND A PUBLICATION THAT COLLIDES WITH NOTHING AT ALL (2026-09-01, mission
+# `deliver-a-stranded-publication-that-needs-nothing-but-a-merge`). The rows above are every one
+# about a COLLISION — `content` refused, `mechanical` settled — so the class that needs nothing
+# but a merge appeared in none of them, and a regression putting `clean` back to
+# `not_mechanical:clean` would have passed the whole drill set. Measured on the morning the class
+# was given an owner: five of six open publications read `clean`, the oldest six days old, every
+# one green and delivered by nothing. Two rows close it: the act settles such a publication and
+# takes NO catch-up, and a re-run over the delivered one moves no ref.
+#
+# THE BREAKERS ARE WRITTEN AGAINST THE BEHAVIOUR, and both run BEFORE anything is settled —
+# afterwards the settleable branch contains the base and the delivered one is closed, so there is
+# nothing left to misclassify or refuse. Strip the generated-region proof out of the shared
+# classification rule and the settleable collision must read `content`; narrow the act's class
+# gate back to `mechanical` alone and the clean publication must be refused `not_mechanical:clean`
+# and delivered by nothing. Each is precisely the measured incident, reproduced on demand.
 #
 # WHAT THIS DRILL DOES NOT PROVE: that the consuming repository's own incident is gone. That
 # repository may be on a different plugin version; this exercises this checkout's scripts only.
@@ -9234,6 +9246,9 @@ cmd_verify_stranded_publication() {
         _idx 20260101000000-a 20260102000000-b > .workaholic/feedbacks/index.md
     }
     _write_content() { printf 'alpha\nbeta-branch\ngamma\n' > src/app.txt; }
+    # A publication that touches a path NOTHING else touches: no collision to classify, so the
+    # class is `clean` and the branch is mergeable exactly as it stands.
+    _write_clean() { printf 'untouched-by-the-base\n' > src/other.txt; }
 
     # One publication: an ordinary commit on a `work-*` branch and NO claim commit, which is
     # exactly what `publish-tree-pr.sh` pushes.
@@ -9266,10 +9281,13 @@ cmd_verify_stranded_publication() {
 
     _mech=work-20260831-100000
     _content=work-20260831-100001
+    _clean=work-20260831-100002
     _pub "$_mech" _write_mech \
         || emit_err "stranded_publication_fixture" 4 "could not publish the settleable branch"
     _pub "$_content" _write_content \
         || emit_err "stranded_publication_fixture" 4 "could not publish the content branch"
+    _pub "$_clean" _write_clean \
+        || emit_err "stranded_publication_fixture" 4 "could not publish the clean branch"
 
     # The base moves the way a merged sibling proposal moves it: another record, the index
     # regenerated around it, and the same source line the content branch touched.
@@ -9285,30 +9303,41 @@ cmd_verify_stranded_publication() {
     # The transport, stubbed: the list endpoint answers the TSV projection the reader asks for,
     # each pull's `files` answers what the publication-refusal rule reads, and the one `PUT
     # .../merge` succeeds.
-    cat > "${_bin}/gh" <<STUB
-#!/bin/sh
-case "\$*" in
-  *rate_limit*) printf '5000\n'; exit 0 ;;
-  *"/merge"*) printf '{"merged": true}\n'; exit 0 ;;
-  *"pulls/41/files"*) printf '[{"status":"added","filename":".workaholic/feedbacks/20260102000000-b.md","patch":"+x"},{"status":"modified","filename":".workaholic/feedbacks/index.md","patch":"+x"}]\n'; exit 0 ;;
-  *"pulls/42/files"*) printf '[{"status":"modified","filename":"src/app.txt","patch":"+x"}]\n'; exit 0 ;;
-  *"pulls?state=open"*)
-    printf '41\thttps://example.invalid/pr/41\t[Proposal] b\t2026-08-31T10:00:00Z\tclaude[bot]\t${_mech}\n'
-    printf '42\thttps://example.invalid/pr/42\t[Proposal] app\t2026-08-31T10:00:01Z\tclaude[bot]\t${_content}\n'
-    exit 0 ;;
-esac
-printf '[]\n'
-STUB
-    chmod +x "${_bin}/gh"
+# `_write_gh_stub <open-pull-number>...` re-issues it with exactly the pull requests named still
+# open. A merge CLOSES a pull request, so after a delivery the reader must stop naming it — that
+# is the act's real idempotency guard, and modelling it is what lets row 10 assert a refusal
+# rather than a second settlement of a publication it would now be right to deliver.
+    _write_gh_stub() {
+        {
+            printf '#!/bin/sh\ncase "$*" in\n'
+            printf "  *rate_limit*) printf '5000\\\\n'; exit 0 ;;\n"
+            printf "  *\"/merge\"*) printf '{\"merged\": true}\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/41/files\"*) printf '[{\"status\":\"added\",\"filename\":\".workaholic/feedbacks/20260102000000-b.md\",\"patch\":\"+x\"},{\"status\":\"modified\",\"filename\":\".workaholic/feedbacks/index.md\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/42/files\"*) printf '[{\"status\":\"modified\",\"filename\":\"src/app.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/43/files\"*) printf '[{\"status\":\"added\",\"filename\":\"src/other.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf '  *"pulls?state=open"*)\n'
+            for _n in "$@"; do
+                case "$_n" in
+                    41) printf "    printf '41\\\\thttps://example.invalid/pr/41\\\\t[Proposal] b\\\\t2026-08-31T10:00:00Z\\\\tclaude[bot]\\\\t%s\\\\n'\n" "$_mech" ;;
+                    42) printf "    printf '42\\\\thttps://example.invalid/pr/42\\\\t[Proposal] app\\\\t2026-08-31T10:00:01Z\\\\tclaude[bot]\\\\t%s\\\\n'\n" "$_content" ;;
+                    43) printf "    printf '43\\\\thttps://example.invalid/pr/43\\\\t[Proposal] other\\\\t2026-08-31T10:00:02Z\\\\tclaude[bot]\\\\t%s\\\\n'\n" "$_clean" ;;
+                esac
+            done
+            printf '    exit 0 ;;\nesac\n'
+            printf "printf '[]\\\\n'\n"
+        } > "${_bin}/gh"
+        chmod +x "${_bin}/gh"
+    }
+    _write_gh_stub 41 42 43
 
     _tip() { git -C "$_wt" rev-parse "origin/$1" 2>/dev/null || printf ''; }
 
     # 1. THE READER SEES A PUBLICATION AT ALL — the seam that had no reader before this mission.
     _r=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_reader" 2>&1 || true)
-    if printf '%s' "$_r" | jq -e '(.ok == true) and ([.publications[] | select(.number == 41 and .mergeability == "mechanical")] | length == 1) and ([.publications[] | select(.number == 42 and .mergeability == "content")] | length == 1)' >/dev/null 2>&1; then
-        add_row "stranded_reader_sees_a_publication" true "a publication with no claim commit is read, with its collision classified" load
+    if printf '%s' "$_r" | jq -e '(.ok == true) and ([.publications[] | select(.number == 41 and .mergeability == "mechanical")] | length == 1) and ([.publications[] | select(.number == 42 and .mergeability == "content")] | length == 1) and ([.publications[] | select(.number == 43 and .mergeability == "clean")] | length == 1)' >/dev/null 2>&1; then
+        add_row "stranded_reader_sees_a_publication" true "a publication with no claim commit is read, with each of the three classes derived" load
     else
-        add_row "stranded_reader_sees_a_publication" false "the reader did not classify both publications: $(one_line "$_r")" load
+        add_row "stranded_reader_sees_a_publication" false "the reader did not classify all three publications: $(one_line "$_r")" load
     fi
 
     # 2. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE, and run BEFORE anything is settled —
@@ -9326,6 +9355,27 @@ STUB
         add_row "stranded_breaker" true "with the generated-region proof removed the settleable collision reads content, so it would be reported rather than repaired (this drill can fail)" breaker
     else
         add_row "stranded_breaker" false "the breaker did not break: the settleable collision still read mechanical without the proof ($(one_line "$_b")), so rows 1 and 4 prove nothing" breaker
+    fi
+
+    # 2b. THE SECOND BREAKER, against the behaviour the 2026-09-01 mission added and under the
+    #     same ordering constraint: narrow the act's class gate back to `mechanical` alone and the
+    #     clean publication must be refused `not_mechanical:clean` with nothing attempted — the
+    #     measured incident, in which five green publications were read, named and delivered by
+    #     nothing. It is a SEPARATE broken copy: the first breaker's tree has the classification
+    #     rule stripped, which would confound what this one is asserting.
+    _broken2="${_tmp}/broken2"
+    mkdir -p "$_broken2"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/." "${_broken2}/"
+    sed '/clean) NEEDS_CATCHUP=false ;;/d' \
+        "${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh" \
+        > "${_broken2}/branching/scripts/settle-stranded-publication.sh"
+    _cl_before=$(_tip "$_clean")
+    _b2=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "${_broken2}/branching/scripts/settle-stranded-publication.sh" 43 2>&1 || true)
+    if printf '%s' "$_b2" | jq -e '(.outcome == "settle_refused") and (.reason == "not_mechanical:clean") and (.delivery == "not_attempted")' >/dev/null 2>&1 \
+       && [ "$_cl_before" = "$(_tip "$_clean")" ]; then
+        add_row "stranded_clean_breaker" true "with the class gate narrowed back to mechanical the clean publication is refused not_mechanical:clean and delivered by nothing (this drill can fail)" breaker
+    else
+        add_row "stranded_clean_breaker" false "the breaker did not break: the clean publication was still acted on with the gate narrowed ($(one_line "$_b2")), so rows 9 and 10 prove nothing" breaker
     fi
 
     # 3. A COLLISION ONLY A PERSON CAN SETTLE IS REFUSED, BRANCH BYTE-IDENTICAL.
@@ -9377,6 +9427,37 @@ STUB
         add_row "stranded_rerun_is_a_noop" true "a second run over either publication pushes nothing and moves no ref" load
     else
         add_row "stranded_rerun_is_a_noop" false "a re-run was not a no-op: $(one_line "$_again_m") / $(one_line "$_again_c")" load
+    fi
+
+    # 6b. A PUBLICATION THAT NEEDS NOTHING BUT A MERGE IS SETTLED AND DELIVERED, AND TAKES NO
+    #    CATCH-UP AT ALL (2026-09-01). The behaviour, not the return shape: nothing was merged,
+    #    regenerated, validated or pushed, the branch is byte-identical after the act, and the
+    #    delivery is reported in the merge vocabulary. A regression that puts the class back to
+    #    `not_mechanical:clean` fails here.
+    _cl_before=$(_tip "$_clean")
+    _cl=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 43 2>&1 || true)
+    ( cd "$_wt" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    if printf '%s' "$_cl" | jq -e '(.outcome == "settled") and (.class == "clean") and (.merged == false) and (.regenerated == false) and (.validated == false) and (.pushed == false) and (.delivery == "merged")' >/dev/null 2>&1 \
+       && [ "$_cl_before" = "$(_tip "$_clean")" ] \
+       && [ ! -d "${_wt}/.worktrees/publication-43" ]; then
+        add_row "stranded_clean_is_settled" true "a publication that collides with nothing is delivered with no catch-up, no ref written and no worktree left behind" load
+    else
+        add_row "stranded_clean_is_settled" false "the clean publication was not settled and delivered without a catch-up: $(one_line "$_cl")" load
+    fi
+
+    # 6c. AND A RE-RUN OVER THE DELIVERED ONE REFUSES BY NAME AND MOVES NO REF. The merge closed
+    #     the pull request, so the reader stops naming it — the guard that actually holds in
+    #     production, and the only one that survives `clean` being an accepted class: a branch
+    #     that already contains the base reads `clean`, so a fixture keeping the merged pull
+    #     request open would be asserting a refusal of work the act is now right to do.
+    _write_gh_stub 41 42
+    _cl_before=$(_tip "$_clean")
+    _cl_again=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" 43 2>&1 || true)
+    if printf '%s' "$_cl_again" | jq -e '(.outcome == "settle_refused") and (.reason == "not_a_stranded_publication") and (.pushed == false) and (.delivery == "not_attempted")' >/dev/null 2>&1 \
+       && [ "$_cl_before" = "$(_tip "$_clean")" ]; then
+        add_row "stranded_clean_rerun_is_a_noop" true "a second run over the delivered publication refuses by name, attempts no delivery and moves no ref" load
+    else
+        add_row "stranded_clean_rerun_is_a_noop" false "a re-run over the delivered publication was not a refusing no-op: $(one_line "$_cl_again")" load
     fi
 
     # 7. THE PERSON IS TOLD ABOUT WHAT THE LOOP MUST NOT SETTLE, exactly once and keyed.

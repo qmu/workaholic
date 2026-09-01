@@ -26718,7 +26718,28 @@ function testModerateRun() {
     // A tick only makes sense in a repository the loop already writes to; step 1 is the
     // probe that says so, and it never creates the tree behind the layout gate's back.
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
-    const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`).stdout);
+    // THE TICK IS GIVEN ITS WINDOW, because otherwise this row is a clock (2026-09-01).
+    // `step-human-checkin.sh` reads the speaking window off the WALL CLOCK and reports
+    // `skipped`/`quiet_hours` inside it, and `question-liveness.sh` answers `settled` only for a
+    // step that reported `ok` -- `step_skipped` is `unknown`. So `a subject no step raised reads
+    // settled` below passed by day and failed every night between 22:00 and 08:00 JST, and all
+    // weekend (`WORKAHOLIC_WORK_DAYS` defaults to `1-5`, and an off day reports `skipped`/
+    // `off_day` by the same path).
+    //
+    // MEASURED on an untouched `origin/main` (detached at 1ac1548a): `5841 passed, 1 failed`,
+    // `expected "settled", got "unknown"`, at 22:1x JST -- against `5852 passed, 0 failed` on the
+    // same tree at 21:44. The step's own reading flips with the window and with nothing else:
+    // `skipped`/`quiet_hours` at 22:08 JST, `ok` with the window moved off the hour.
+    //
+    // Nothing about the ASSERTION is time-dependent; only the fixture was. Naming the window is
+    // the convention the sibling rows already follow by passing `--hour`/`--weekday` -- *a drill
+    // that could not name an hour could only be run during one* -- reached here through the
+    // environment, because `run.sh` takes no such flag. The startup scrub above strips every
+    // `WORKAHOLIC_*` before this spread, so these two are the only ones the tick sees.
+    const OPEN_WINDOW = {
+      env: { ...process.env, WORKAHOLIC_QUIET_HOURS: "02-03", WORKAHOLIC_WORK_DAYS: "1-7" },
+    };
+    const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`, OPEN_WINDOW).stdout);
     assertEq("every step of the ask is run and reported", j.steps.map((s) => s.step), STEPS);
     assertEq("the tick writes its log", j.log, "./.workaholic/moderations/2026-08-17.md");
     const log = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");

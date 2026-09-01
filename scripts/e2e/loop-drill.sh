@@ -7206,7 +7206,18 @@ cmd_verify_checkin_delivery() {
     _when="--hour 14 --weekday 3"
     _append() { sh "$_log" --root "$_fx" --tick "$1" --step "$2" --status "$3" --summary "$4" >/dev/null 2>&1 || true; }
     _reason() { printf '%s' "$1" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p' | head -1; }
-    _held() { printf '%s' "$1" | sed -n 's/.*"held": \[\([^]]*\)\].*/\1/p' | tr -d '" ' ; }
+    # Each held entry is `{"key": …, "reason": …}` — the gate's own refusal word per key.
+    # The keys are what the drain order is asserted on; the words have their own rows below.
+    _held() {
+        printf '%s' "$1" | sed -n 's/.*"held": \[\([^]]*\)\].*/\1/p' |
+            tr '{' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' |
+            tr '\n' ',' | sed 's/,$//'
+    }
+    _held_reasons() {
+        printf '%s' "$1" | sed -n 's/.*"held": \[\([^]]*\)\].*/\1/p' |
+            tr '{' '\n' | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p' |
+            tr '\n' ',' | sed 's/,$//'
+    }
 
     # 1. THE FIXTURE: `max_per_day` asks on EARLIER days, holds first recorded on three
     #    different days, and nothing of either on the tick's own day.
@@ -7340,6 +7351,75 @@ cmd_verify_checkin_delivery() {
             add_row "checkin_quiet_hour_silent" false "a quiet hour posted: $(one_line "$_qpost")" load ;;
     esac
 
+    # 6b. THE ARREARS: HOW DEEP, HOW OLD, WHY EACH ONE IS HELD, AND WHEN THAT EARNS A LINE
+    #     (2026-08-31, mission `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`).
+    #     Extended here rather than given a drill of its own: this arm already walks gate →
+    #     ordering → step → event → root, which is exactly the path the mission changes, and
+    #     a second fixture over one mechanism is how two fixtures start disagreeing.
+    _at() { sh "$_log" --root "$1" --tick "$2" --step "$3" --status "$4" --summary "$5" >/dev/null 2>&1 || true; }
+    _field() { printf '%s' "$2" | sed -n "s/.*\"$1\": *\\([^,}]*\\).*/\\1/p" | head -1 | tr -d '" '; }
+    _arr="${_tmp}/arrears"
+    mkdir -p "${_arr}/.workaholic"
+    _at "$_arr" 20260826-100000 human-checkin-held-old-a skipped "held old a"
+    _at "$_arr" 20260827-100000 human-checkin-held-old-b skipped "held old b"
+    # A Saturday: the most recent working opening is Friday, so both holds are past it.
+    _out=$(sh "$_step" --root "$_arr" --tick 20260829-140000 --hour 14 --weekday 6 2>&1 || true)
+    if [ "$(_field held_oldest_day "$_out")" = "2026-08-26" ] && [ "$(_field held_days "$_out")" = "3" ]; then
+        add_row "checkin_arrears_depth_and_age" true "the arrears name their oldest day and its whole-day distance to the tick's day" load
+    else
+        add_row "checkin_arrears_depth_and_age" false "expected 2026-08-26 / 3, got: $(one_line "$_out")" load
+    fi
+    if [ "$(_held_reasons "$_out")" = "off_day,off_day" ]; then
+        add_row "checkin_held_names_its_refusal" true "every held entry carries the gate's own refusal word, verbatim" load
+    else
+        add_row "checkin_held_names_its_refusal" false "expected off_day per entry, got: $(_held_reasons "$_out")" load
+    fi
+    _oev=$(printf '%s' "$_out" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p' | head -1)
+    case "$_oev" in
+        *'2 question(s) held'*'2026-08-26'*'3 day(s)'*)
+            add_row "checkin_outlived_hold_is_an_event" true "an all_held tick past the working-day boundary names its depth and age: ${_oev}" load ;;
+        *)
+            add_row "checkin_outlived_hold_is_an_event" false "expected depth and age in the event, got: '${_oev}'" load ;;
+    esac
+    # A hold INSIDE the boundary is the designed hold and stays silent — the property that
+    # keeps this from becoming the status line `📦 Release Preparation` was retired for.
+    _ins="${_tmp}/inside"
+    mkdir -p "${_ins}/.workaholic"
+    _at "$_ins" 20260828-100000 human-checkin-held-fri skipped "held fri"
+    _iout=$(sh "$_step" --root "$_ins" --tick 20260829-140000 --hour 14 --weekday 6 2>&1 || true)
+    _iev=$(printf '%s' "$_iout" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p' | head -1)
+    if [ "$(_field delivery "$_iout")" = "all_held" ] && [ -z "$_iev" ]; then
+        add_row "checkin_hold_inside_the_window_is_silent" true "a hold inside the working-day boundary supplies no event" load
+    else
+        add_row "checkin_hold_inside_the_window_is_silent" false "a hold inside the window spoke: '${_iev}'" load
+    fi
+    # A DEGRADED READ SUPPLIES NEITHER A COUNT NOR AN EVENT: null, never `0`, because a zero
+    # reads as *this just started* for a reading nobody made.
+    _nolog="${_tmp}/nolog"
+    mkdir -p "$_nolog"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/." "$_nolog/"
+    rm -f "${_nolog}/log-read.sh"
+    _dout=$(sh "${_nolog}/step-human-checkin.sh" --root "$_arr" --tick 20260829-140000 --hour 14 --weekday 6 2>&1 || true)
+    _dev=$(printf '%s' "$_dout" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p' | head -1)
+    if [ "$(_field held_oldest_day "$_dout")" = "null" ] && [ "$(_field held_days "$_dout")" = "null" ] && [ -z "$_dev" ]; then
+        add_row "checkin_degraded_arrears_are_null" true "a degraded read reports null counts and supplies no event" load
+    else
+        add_row "checkin_degraded_arrears_are_null" false "a read we could not make was dressed as one we did: $(one_line "$_dout")" load
+    fi
+    # TWO CONSECUTIVE TICKS WITH THE SAME READING RENDER ONE LINE. The root's diff rule is
+    # exercised rather than assumed: the summary is a function of the reading alone.
+    _osum=$(printf '%s' "$_out" | sed -n 's/.*"summary": *"\([^"]*\)".*/\1/p' | head -1)
+    _at "$_arr" 20260829-130000 human-checkin "$(_field status "$_out")" "$_osum"
+    _same="{\"rows\": [{\"step\": \"human-checkin\", \"status\": \"skipped\", \"summary\": \"$(json_escape "$_osum")\", \"event\": \"$(json_escape "$_oev")\"}]}"
+    _sp2=$(printf '%s' "$_same" | sh "$_render" --tick 20260829-140000 --root "$_arr" 2>&1 || true)
+    _diff="{\"rows\": [{\"step\": \"human-checkin\", \"status\": \"skipped\", \"summary\": \"$(json_escape "$_osum") and one more\", \"event\": \"$(json_escape "$_oev")\"}]}"
+    _dp2=$(printf '%s' "$_diff" | sh "$_render" --tick 20260829-140000 --root "$_arr" 2>&1 || true)
+    if [ "$(_field change_count "$_sp2")" = "0" ] && [ "$(_field change_count "$_dp2")" = "1" ]; then
+        add_row "checkin_unchanged_reading_renders_once" true "an unchanged reading renders no second line, and a changed one does" load
+    else
+        add_row "checkin_unchanged_reading_renders_once" false "the diff rule did not hold: same=$(one_line "$_sp2") changed=$(one_line "$_dp2")" load
+    fi
+
     # 7. THE BREAKER ROW, LABELLED AS THE INTENTIONAL FAILURE. Written against the COUNT and
     #    not against the gate's output shape, so a future refactor that keeps the shape and
     #    loses the bound still fires it: point `asked_today` back at the unbounded reader and
@@ -7364,6 +7444,27 @@ cmd_verify_checkin_delivery() {
         add_row "checkin_breaker" true "with the day count unbounded again the held question is refused day_cap (this drill can fail)" breaker
     else
         add_row "checkin_breaker" false "the breaker did not break: an unbounded count still asked the question, so row 2 proves nothing ($(one_line "$_b"))" breaker
+    fi
+
+    # 7b. THE SECOND BREAKER, WRITTEN AGAINST THE BEHAVIOUR AND NOT THE RETURN SHAPE
+    #     (2026-08-31, the same mission). The boundary is composed from the gate's own three
+    #     variables and from no constant of its own; wire it at a fresh constant instead and
+    #     the outlived reading must VANISH. A breaker a refactor can satisfy by keeping the
+    #     JSON shape proves nothing, so this one changes no field and no key: the same run
+    #     over the same fixture simply stops earning its line.
+    _bconst="${_tmp}/bconst"
+    mkdir -p "$_bconst"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/." "$_bconst/"
+    sed -e 's/boundary_back=0$/boundary_back=30/' \
+        -e 's/boundary_back="\$_n"/boundary_back=30/' \
+        "$_step" > "${_bconst}/step-human-checkin.sh"
+    chmod +x "${_bconst}/step-human-checkin.sh"
+    _bout=$(sh "${_bconst}/step-human-checkin.sh" --root "$_arr" --tick 20260829-140000 --hour 14 --weekday 6 2>&1 || true)
+    _bev=$(printf '%s' "$_bout" | sed -n 's/.*"event": *"\([^"]*\)".*/\1/p' | head -1)
+    if [ -z "$_bev" ] && [ -n "$_oev" ]; then
+        add_row "checkin_boundary_breaker" true "with the boundary wired at a constant the outlived arrears earn no line (this drill can fail)" breaker
+    else
+        add_row "checkin_boundary_breaker" false "the breaker did not break: a constant boundary still spoke ('${_bev}'), so the outlived row proves nothing" breaker
     fi
 
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE, AND NOTHING WAS POSTED.

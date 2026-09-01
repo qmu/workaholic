@@ -90,3 +90,64 @@ rather than by the clock.
   a workaround to invent here.
 - A leaked ref is worse than the race: it makes a unit permanently unclaimable. Step 5 is not
   optional, and ticket 8 should assert the release.
+
+## Drive Findings — 2026-08-31 (blocked)
+
+**The named mechanism is not buildable in the environment the loop runs in.** Step 2 requires a
+unit-keyed ref pushed with a create-only refspec; step 5 requires that ref to be released wherever
+the claim is released. Measured here, in a routine-shaped container, over **both** sanctioned
+transports.
+
+**This is the fourth independent reading, not the first, and re-reading it is the mistake to
+avoid.** The finding already lives in
+`plugins/workaholic/skills/drive/reference/claims.md` (*What the claim contends for*) with the
+`refs/claims/*`, `refs/tags/*` and `refs/heads/*` probes and the `ls-remote` confirmations, and
+the branch story for `work-20260830-124234` records two earlier re-confirmations. **Read it; do
+not re-probe it.** Every permitted probe leaks a `refs/heads/*` ref this container cannot delete —
+two now stand on origin (residue note below). This run's own probe was that mistake, and it is
+recorded here so the next reader stops at this paragraph. What is new below is only the
+`refs/notes/*` row, which no earlier reading had covered.
+
+| Ref namespace | `git push` create | REST create | delete |
+| ------------- | ----------------- | ----------- | ------ |
+| `refs/claims/*` | `HTTP 403` | `403` | — |
+| `refs/tags/*` | `HTTP 403` | — | — |
+| `refs/notes/*` | `HTTP 403` | — | — |
+| `refs/heads/*` | **permitted** | `403` | **`HTTP 403`** |
+
+Raw output, `git push origin <origin/main sha>:<ref>`:
+
+```
+error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+send-pack: unexpected disconnect while reading sideband packet
+fatal: the remote end hung up unexpectedly
+```
+
+`refs/heads/*` took the create (`* [new branch] 5b642765 -> wh-probe-20260831194543`) and refused
+the delete with the same 403. REST, through `gather/scripts/gh-rest.sh`, refused both create and
+delete with `{"message":"Write access to this GitHub API path is not permitted through this proxy."}`.
+
+**Why that blocks rather than re-scopes.** The one writable namespace cannot be released, and this
+ticket's own step 5 and Considerations rule that out by name — *a leaked ref is worse than the
+race: it makes a unit permanently unclaimable.* Deriving the **`work-*` branch itself** from the
+unit id would contend and would be released by `delete_branch_on_merge`, but the mission's Scope
+excludes `work-*` naming and this ticket's Overview holds it fixed; that is a re-scope, which the
+Considerations reserve to the operator (*"say so and re-scope rather than forcing the named
+mechanism"*). No workaround was invented here, per the same paragraph.
+
+**What already stands in its place.** The race is not unhandled: `archive.sh` re-derives the claim
+immediately before the ticket moves and refuses `claim_taken_over` / `ambiguous_claim` with the
+tree byte-identical, and a live race reaches a person through `list-raced-units.sh` and
+`/moderate`'s `raced-units` step. Mission acceptance items 2 and 3 are checked on that work;
+this item is the one the transport forbids.
+
+**Residue the measurements have left.** Two undeletable branches on origin, neither matching
+`work-*` nor `release/*` (so no claim scan sees them), neither removable from this container —
+a human, or the CI job that holds `contents: write`, must delete both:
+
+- `wk-transport-probe-1788104778` → `304652b2` (left by the earlier reading)
+- `wh-probe-20260831194543` → `5b6427654b3c3ad955755e446a3474c81e22cfe8` (left by this one)
+
+**The ruling this needs.** Re-scope acceptance item 1 to a mechanism `refs/heads/*` can express,
+or move the arbitration to where the write is permitted (`.github/workflows/`, which holds
+`contents: write`), or abandon the item on the bounded-later repair already landed.

@@ -84,3 +84,32 @@ reaches it → the person is told once, with both branches named.
   and show the red, rather than reasoning that it would.
 - The drill is hermetic by requirement, not by preference — `loop-drills.yml` runs with no credential
   and no permission beyond the default read, so any `gh` reach must be stubbed.
+
+## Drive Findings — 2026-08-31 (blocked)
+
+**Step 7 was already satisfied before this run; steps 1-6 are blocked upstream.**
+
+*Step 7 — already done.* `verify-claim-race` is registered in `docs/loop-drill-runbook.md` §9
+(`hermetic`, breaker `yes`, mission `stop-two-runs-from-claiming-and-driving-one-unit`),
+`drill-register.sh drill verify-claim-race` resolves it, and the drill is **not** `unproved`:
+
+```
+{"ok": true, "stage": "claim-race", "verdict": "pass",
+ "load_bearing": {"passed": 13, "failed": 0}, "advisory": 0, "breakers": 1, "rows": []}
+```
+
+It came in with ticket `20260830082251-reproduce-the-claim-race-offline-in-a-drill.md`, so
+`verify-all` already counts it in the passing total.
+
+*Steps 1-6 — blocked.* Every one asserts the **post-repair** form: one winner branch on origin
+with the loser holding none, the loser's refusal **word**, and the contended ref **released** on
+claim release. None of those exist — the mechanism ticket
+`20260830082251-make-the-claim-contend-for-one-ref-per-unit.md` is blocked because this
+container's transport refuses ref creation outside `refs/heads/*` and refuses the delete inside
+it (full measurement recorded there), and the refusal-word ticket is blocked behind it. Inverting
+the drill's assertions now would make a passing drill red against behaviour the repository does
+not have, which is a broken mechanism rather than the coverage gap this ticket exists to close.
+
+Unblocked by: a ruling on the mechanism ticket's re-scope. The drill as it stands proves the
+repair that **did** land (the `archive.sh` re-check and the `raced-units` question) and its
+breaker row is written against that behaviour.

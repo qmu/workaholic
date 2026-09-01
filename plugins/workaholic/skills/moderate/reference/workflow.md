@@ -83,6 +83,20 @@ is only what a line is allowed to prove.
   recorded an `inbound-sweep` line, read out of the tick log; with no such tick, this tick's own UTC
   day start. Anchoring to a fact in the log avoids `date -d`/`date -v`, which differ between the
   developer's laptop and the routine's container.
+- **And the conversion validates** (2026-08-26, `lib/tick-iso.sh`, shared with step 7). The log is
+  append-only and carries whatever any tick ever wrote, so the tick id it hands back is an input,
+  not a guarantee. Measured: a sentinel section `## 20260819-999999` sat on the base; `999999`
+  sorts last, so it won every window from that day, the unvalidated substitution produced
+  `2026-08-19T99:99:99Z`, and GitHub answered `422 The since parameter needs to be in ISO 8601
+  format` for **seven days** while this step reported itself `ok`. An id that does not validate now
+  widens the window to the tick's own day start and **names the widening in the summary** — one wide
+  window instead of seven silent days. Nothing prunes the log to fix it: it is append-only, and a
+  machine deleting a line it disliked is a worse failure than the one it would cure.
+- **A failed read is not an empty one, and never a finding** (same change). The transport's exit
+  status was swallowed by `|| true`, and the error body reaching stdout was parsed as a row — so the
+  422 document was handed to the agent as an inbound ask "to judge", with itself as the reference.
+  The status now decides whether the read happened, and a row whose issue number is not a number
+  means the response was not the issues list: both are `degraded`/`gh_read_failed`, by name.
 - **Writes**: nothing. The agent applies the **materiality bar** — a genuine problem or improvement
   idea, or something that must not be overlooked; a passing remark is not filed — and writes what
   passes as a **feedback record** (`feedback/scripts/create.sh`, `--subject` naming *whose* opinion
@@ -102,7 +116,9 @@ is only what a line is allowed to prove.
 - **Slack's bound is not advice**: exact-string search, at most two queries, **no channel history
   read at any point** (`workaholic:notify`).
 - **Aborts**: `gh_unavailable` (GitHub named as unreadable while the three connector surfaces are
-  still handed over — three of four working is not "nothing found").
+  still handed over — three of four working is not "nothing found"), `gh_read_failed` (the endpoint
+  did not answer, or did not answer with issues), `bad_window` (neither the previous tick nor this
+  one is a timestamp — the one case where no window can be derived at all).
 - **Dedup**: an issue a feedback record already names, or one an earlier tick logged under
   `inbound-sweep-filed`, is skipped and counted in the summary.
 
@@ -130,6 +146,19 @@ is only what a line is allowed to prove.
   Mergeability lives only on the single-pull endpoint, so the per-pull reads are bounded by
   `--limit` (default 10) and the cap is **reported** — a busy repository is never silently
   half-read. GitHub's lazily-computed `mergeable: null` is `unknown`, never `clean`.
+- **And a `null` gets ONE second look before either step sees it** (2026-09-01, ticket
+  `20260901082631`). Requesting the pull request is what *schedules* the background merge job,
+  so the tick's own first per-pull read is systematically the one most likely to answer `null`:
+  measured (issue #838), four pull requests reported `unknown` hour after hour and a hand read
+  settled all four on the first try, because the hand read was the **second** read. The reader
+  waits once (`WORKAHOLIC_PULLS_STATE_REREAD_WAIT`, default 2s) and re-reads the `null` rows
+  **once** — never a retry loop — bounded by `WORKAHOLIC_PULLS_STATE_REREAD_MAX` (default 5
+  rows) and `WORKAHOLIC_PULLS_STATE_REREAD_BUDGET_SECONDS` (default 10s in total), and reports
+  the spend as `reread_attempted` / `reread_settled` / `reread_capped` so a tick that spent the
+  budget and learned nothing says so. It lives in **`pulls-state.sh` alone**, so both steps
+  inherit the settled answer and **neither gains a network call of its own** — a step-level
+  re-read would re-open exactly the drift the per-tick cache below exists to close. A row still
+  `null` after the second look is still `unknown`, and `uncomputed` still counts it.
 - **Resolved once per tick, used twice — and since 2026-08-29 actually so** (ticket
   `20260829092043`). That sentence stood under step 6 while both steps called the reader
   themselves, so a tick made two rounds of per-pull reads. Because `mergeable` is computed
@@ -188,8 +217,9 @@ is only what a line is allowed to prove.
 - **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice, and since
   2026-08-29 held by the reader rather than by each caller (step 4's entry carries the
   measurement and the seam).
-- **Every row names the decision, not the colour**: `conflict` → the claim holder must resolve it
-  and nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
+- **Every row names the decision, not the colour**: `conflict` → the next `[Implement]` tick's
+  catch-up clears a generated-index conflict, a real content collision is the claim holder's and
+  nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
   close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
   mergeability yet, re-read before acting.
@@ -207,15 +237,28 @@ is only what a line is allowed to prove.
   `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
   shared key would let either dedup the other away.
 - **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
+- **The `conflict` row names which actor clears it** (2026-09-01, ticket `20260901082633`). It
+  read *the claim holder must resolve the conflict* for **every** conflict, so the one class the
+  loop repairs itself — a collision confined to the generated OKF indexes, settled by
+  `catch-up-claim.sh` from `/implement` and by `settle-stranded-publication.sh` for a
+  publication — was announced to a person as theirs, and queued behind a budget of ten questions
+  a day. Measured: four conflicting pull requests, all four colliding on
+  `.workaholic/stories/index.md`, two of them on nothing else. The correction is **generic
+  rather than per-row, by constraint**: the class lives in `claim-mergeability.sh`, which needs
+  the branch ref, and this step reads GitHub over REST through `pulls-state.sh`, which carries
+  no class — a per-branch judgement here would need the fetch step 4's header refuses. The
+  per-branch judgement therefore stays with `catchup-blocked` (§26), which reads the class off a
+  claim row that already has it. **Wording only**: `stuck:<digest>`, the `blocked_by` set,
+  `headline` and the `needs_agent` shape are byte-identical.
 
 **The question, under the composition contract** (2026-08-31, mission
 `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). This step is the one that
 already met it, and the reason is worth naming: `headline` is derived from the *reason* rather
 than from the identifier, so the post opens `conflicting with main` and not `#642`. Heading —
 the `headline` above, then the pull requests it covers. Body — the act that row's `blocked_by`
-already names (resolve the conflict / review it / fix the check / mark it ready / update it /
-re-read). `stuck:<digest>` is a **dedup key and never a heading**: the contract's clause 3 in
-its oldest form.
+already names (the catch-up clears a generated-index conflict and a content collision is the
+holder's / review it / fix the check / mark it ready / update it / re-read). `stuck:<digest>`
+is a **dedup key and never a heading**: the contract's clause 3 in its oldest form.
 
 ## 7. `doc-drift` — the documentation against the current concept
 
@@ -225,13 +268,20 @@ its oldest form.
 - **The window is a git question**: the base is `git rev-list -1 --before=<the previous doc-drift
   tick, as ISO> HEAD`, so no `date -d`/`date -v` arithmetic is involved. `no_baseline` when nothing
   precedes that boundary — comparing against nothing would report every document as drifted.
+- **The conversion is `lib/tick-iso.sh`'s, shared with step 2** (2026-08-26). The same sentinel tick
+  id blinded this step too, and more quietly: the sweep at least got a 422, while `git rev-list
+  --before=2026-08-19T99:99:99Z` simply matched nothing, so this step answered `no_baseline` — a
+  legitimate answer on a young repository — for seven days without one document being checked.
+  Sharing the derivation is the point: two copies of an unvalidated substitution is how one poisoned
+  log entry took out both steps. An unusable previous tick widens to the day start and says so;
+  `bad_window` is the abort when even that is not a date.
 - **Writes**: nothing. Drift becomes a **ticket**, because fixing documentation is work and work
   has a queue; an hourly agent rewriting `main`'s documents is the unattended-write class this
   project has refused twice.
 - **Dedup is not optional here.** `terms/retired-terms.md` is a glossary *of* retired terms, so it
   names retired terms by construction and `area-freshness.sh` reports it truthfully and forever.
   A finding an earlier tick logged under `doc-drift-filed` is counted and dropped.
-- **Aborts**: `no_repo`, `no_baseline`, `drift_unreadable`.
+- **Aborts**: `no_repo`, `no_baseline`, `bad_window`, `drift_unreadable`.
 
 ## 8. `release-status` — what is waiting to reach a deployment target
 
@@ -677,14 +727,27 @@ left the routine template on 2026-09-01 — `workaholic:notify`, *The command is
   | ---------- | ----- |
   | `cap_spent` | `max_per_day` questions were asked **on this day**. The mechanism worked; the budget is spent and the rest are held |
   | `cap_unbounded` | the day count could not be bounded. **Our own degradation** — never rendered as `cap_spent`, which is the whole point of the split: one says the budget worked, the other says the loop has stopped |
-  | `all_held` | every candidate is refused by `quiet_hours`, `off_day` or `tick_cap` |
+  | `all_held` | every candidate is refused by `quiet_hours`, `off_day` or `tick_cap`. **Each held entry carries the gate's own refusal word, verbatim** (2026-08-31) — the four call for four different acts, so the aggregate is the summary and the detail sits beneath it |
   | `all_asked_before` | every key that was ever held has since been asked |
   | `no_candidates` | the genuinely quiet hour |
 
-  **Whether the tick could deliver is asked of the gate, not re-derived here**: one
-  `ask-question.sh` probe with a key unique to the tick, recorded nowhere, so the day's
-  arithmetic keeps one home and this step cannot disagree with the gate the agent is about to
-  run. **`ask-question.sh` is not modified by the reading.**
+  **Whether the tick could deliver is asked of the gate, not re-derived here**: an
+  `ask-question.sh` probe **per held candidate** (2026-08-31, superseding the single probe on a
+  key unique to the tick), recorded nowhere, so the day's arithmetic keeps one home and this
+  step cannot disagree with the gate the agent is about to run. **`ask-question.sh` is not
+  modified by the reading** — no key, cap, hold or ledger line moves, and the probe is its
+  read-only mode. Two of the four words (`quiet_hours`, `off_day`) are tick-wide and repeat on
+  every entry; that is the true answer and is reported rather than collapsed, because the cap
+  words are not tick-wide and one shape has to cover both.
+
+  **And the arrears say how deep and how old they are** (2026-08-31, mission
+  `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). `held_oldest_day` is the
+  **minimum** of the first-held day the drain ordering already derives, over the keys **still**
+  held, and `held_days` is the whole-day distance from it to the tick's own day (from the tick
+  id, on `ask-question.sh`'s own axis; the distance is civil-day arithmetic in `awk`, because
+  `date -d` is GNU-only and `date -v` is BSD-only). No second walk of the log, no cursor, no
+  store, and `log-read.sh` is untouched. A degraded read reports **null** for both, never `0` —
+  a zero reads as *this just started* for a reading nobody made.
 
   **What `delivered` honestly is.** The agent asks and records under `human-checkin-ask-<slug>`
   *after* `run.sh` returns, and **there is no post-agent seam in `run.sh`** to move the reading
@@ -705,13 +768,33 @@ left the routine template on 2026-09-01 — `workaholic:notify`, *The command is
   undrivable units all held behind it. A delivery failure **is** the event the root exists to
   carry.
 
-  It is supplied **only** for `cap_spent` and `cap_unbounded` — the two states where the tick
-  was eligible to ask and structurally could not. Every other case supplies none and therefore
-  renders no line: a quiet hour, an off day and the quiet window are the *designed* hold and
-  are already named in the log, and a tick that delivered questions needs no event because the
-  questions are the delivery. `cap_spent` is worth a line even though the budget worked,
-  because a reader has to be able to tell it from `cap_unbounded`. The line names **no dedup
-  key and no mention token**.
+  It is supplied for `cap_spent` and `cap_unbounded` — the two states where the tick was
+  eligible to ask and structurally could not — and, since 2026-08-31 (mission
+  `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`), for an **`all_held` tick whose
+  arrears outlived the designed hold**. That case was excluded on the reasoning that the quiet
+  window and the off day are the *designed* hold and are already named in the log, which is
+  right for one tick and wrong across days: measured, **24 consecutive ticks** reported
+  `all_held` with 13 questions behind them while the roots read `1 question(s)`.
+
+  **The bound.** An `all_held` tick supplies an event once `held_oldest_day` predates the
+  **working-day boundary** — the first hour inside `WORKAHOLIC_WORK_DAYS` at the end of
+  `WORKAHOLIC_QUIET_HOURS`, in `WORKAHOLIC_QUIET_TZ`, exactly as the red-alert cool-down's
+  expiry composes it, and from **no constant of its own**. The event names the **depth** and
+  the **age**; a hold *inside* the boundary supplies none, and a **null** reading (a degraded
+  log) supplies none, because a reading we could not make is never dressed as one we did. It is
+  supplied on the `off_day` and `quiet_hours` branches as well as the `ok` one, because that is
+  where a weekend's and a night's arrears actually sit. **The refused alternative** was an
+  escalation after N ticks: N is a tunable constant this repository refuses by name, while the
+  working-day boundary is a derivation whose three terms were already justified.
+
+  **What did not move**: the question keys, the caps, the holds, `ask-question.sh`, the
+  renderer's diff rule, and which questions are asked and when. Only what the root *says*
+  changed. Every other case still supplies none and therefore renders no line: a genuinely
+  quiet hour, `all_asked_before`, the degraded read, and a tick that delivered questions, which
+  needs no event because the questions are the delivery. `cap_spent` is worth a line even
+  though the budget worked, because a reader has to be able to tell it from `cap_unbounded`.
+  The line names **no dedup key and no mention token**, and it is a function of the reading
+  alone, so two consecutive ticks with the same reading render one line.
 
   **It is the root's third gate**, added beside the morning digest on that gate's own
   precedent: the question gate's expression is untouched and a second condition is OR'd next
@@ -859,8 +942,9 @@ the digest belongs in the one thread they read). Once per Asia/Tokyo day, on the
 after 09:00 (both read from the **tick id**, never the wall clock), the step reads
 `standup/scripts/digest.sh` — the same pure read `/standup` uses, one derivation with two
 consumers — and hands the digest to the agent to render at the **top of the Moderation root**, in
-the developer's specified form: numbered strategies, bold title on its own line, headline is
-`commit_count`, honesty line naming tickets and the window. The render is logged
+the developer's specified form: numbered strategies, bold title on its own line, **each
+strategy's missions nested under it with acceptance done/total and queued count**, headline is
+`commit_count`, honesty line naming tickets, **the total queued** and the window. The render is logged
 (`strategy-digest-rendered:<jst-day>`) so a second morning render is impossible; before 09:00 the
 step reports `before_morning`; a no-op digest (`no_strategies` / `no_activity`) rides nothing; an
 unreadable digest is `digest_unreadable`, named rather than rendered as a quiet morning.
@@ -868,6 +952,24 @@ unreadable digest is `digest_unreadable`, named rather than rendered as a quiet 
 **The digest is the root's second gate**: a morning tick with a digest posts its root even with
 zero questions — the day's opening statement, the exception the developer asked for — while every
 other hour the question gate stands alone.
+
+**The plan's shape is daily, not hourly, and that is an answer rather than an omission**
+(2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). The ask that put
+the mission grain here asked for it on **every** tick — "post where the work stands on the
+ordinary tick rather than only when something is wrong". Its first half is granted: the grain,
+the mission counts and `queued_total` now ride this step. Its second half is declined with its
+sources, which are two roots this repository has already retired for exactly the shape being
+asked for. `CLAUDE.md` (`/moderate`): *the two retired status roots stay retired — a status line
+addressed to nobody is noise whatever its dedup key*; `workaholic:notify` records what `📦
+Release Preparation` measured — ten lines in ten consecutive hours for one unchanged request,
+none of them answered. **A plan's shape is an unchanged answer on most hours**, so an hourly copy
+of it is that post returning under a new name; a *daily* one speaks for today even when today
+resembles yesterday, which is the distinction the `standup:<date>` key was chosen for.
+
+**If the operator, having read that, wants an hourly plan post, it is their call and a new ask.**
+This step does not decide it for them and does not pretend the request was met: the gate, the
+key, the cadence and the once-per-JST-day dedup are untouched, and nothing here posts a second
+root.
 
 ## 15. `direction-health` — a direction out of date, with nothing answering it, or with its work all in
 
@@ -2165,6 +2267,16 @@ in a tick is visible.
 
 ## What `run.sh` guarantees around the steps
 
+- **The report carries each step's `needs_agent` array, with `needs_agent_count` beside it**
+  (2026-08-26). It carried the count alone, against this file's own stated shape, on the reasoning
+  that the report only needed the length — and two readers needed the payload.
+  `question-liveness.sh` matches a question's key as a string **inside** `needs_agent`, so against a
+  counted report it answered `settled` for every key by construction: the bounded re-ask could never
+  fire, and the `✅ 解消を確認` confirmation would fire on every open question, every tick. The agent
+  hit the same wall from the other side — acting on `needs_agent` after the run returns, it had to
+  re-invoke every step to see what the tick had found, which is extra network and clock in a
+  container nobody is watching, and a second reading of steps whose window moves between
+  invocations. One defect, two symptoms: a report that named how much there was and not what it was.
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
   non-zero exit → `degraded`/`step_error`; empty or unparseable output → `degraded`/`no_output` or
   `bad_output`; a status outside the log vocabulary → `degraded`/`bad_output`. A step never
@@ -2628,6 +2740,11 @@ and nothing written anywhere but its own tick-log line.
 - **Heading** — *`<unit>` is finished, `main` has moved under it, and both sides changed the
   same files*, then the branch, the pull request, and the colliding files by name.
 - **Body** — the one act: *decide which side keeps its behaviour and merge `main` in.*
+- **And it says why this one is yours** (2026-09-01, ticket `20260901082633`): the loop clears
+  the other class itself — `catch-up-claim.sh` on a claim, `settle-stranded-publication.sh` on a
+  publication, both from `/implement` — so this question is the residue that reaches a person,
+  not the whole of what conflicts. Step 6's `conflict` row now names both actors generically,
+  and this one names the class it read. One voice, two grains.
 - **Never alone**: `content_conflict`, `mechanical`, `clean`. The distinction this question
   rests on — *the loop looked and only you can decide*, against `merge-conflicts`' *nobody has
   looked yet* — has to be in the sentence, because the two questions are otherwise about the
@@ -3045,6 +3162,39 @@ pull request costs one question however many ticks see it.
 - **Never alone**: `content_conflict`, `mechanical`, `unanswerable`, a branch name, a number.
 - **The age** rides `lib/read-age.sh`, keyed on the key the step already composes, the reader's
   words verbatim; an unreadable age is named as unreadable and an absent one is not mentioned.
+
+**A second question: a publication old enough that its plan may be stale** (2026-09-01, ticket
+`20260901062000-check-a-stranded-proposal-is-still-worth-landing.md`). Keyed
+`stranded-publication-stale:<number>`.
+
+`publish-tree-pr.sh` auto-merges on opening, so a proposal is normally written and landed minutes
+apart and its age says nothing; only one the **transport** refused stays open long enough for the
+plan it carries to go stale. **Measured 2026-09-01**: five of six open publications read `clean`,
+the oldest six days old, and landing them queued roughly fifteen tickets for work the loop had
+already finished — two whole missions of it, one of them a second plan of an ask that had already
+been driven.
+
+- **Candidates** — `mergeability` of `mechanical` or `clean` whose `age_hours` is at least
+  `WORKAHOLIC_PUBLICATION_STALE_HOURS` (default 48). **Disjoint from the `content` set by
+  construction**, so no publication ever draws both questions — the `retire-claims` /
+  `stalled-units` division applied to one reader's rows. An **unreadable** age is not a candidate:
+  asking on an absence is what the three-valued readings exist to avoid.
+- **Heading** — *something the loop wrote days ago is about to be published, and what it plans may
+  already be done*, then the pull request and how long it has been open.
+- **Body** — the one act: *say whether that plan is still wanted, or close the pull request.*
+- **Addressed to** the publication's author.
+- **It holds nothing, and that is the design.** `/implement` settles a `clean` or `mechanical`
+  publication unconditionally, exactly as before this question existed — an age threshold on the
+  **act** would strand precisely the publications the `clean` widening exists to deliver, and this
+  repository has paid repeatedly for a reading that stops something and tells nobody. So the two
+  run independently: usually the act wins the hour and the question is the record that nothing was
+  landed silently; when a person gets there first, they can close it. **The rejected alternatives**
+  are the act refusing on an age (it strands the deliverable set) and a survey-side test for a
+  queued ticket whose work already exists (*already implemented* is a judgement about behaviour,
+  not a file test — measured the same day, five of eight queued tickets had exact-title archived
+  twins while three had none and their work existed anyway).
+- **Two ages, never conflated**: `open_hours` is how long the **pull request** has been open;
+  `age` is how long the **question** has been asked, through `lib/read-age.sh` as above.
 
 ---
 

@@ -9,12 +9,38 @@
 #
 # Output (one JSON object):
 #   {window, date, token, commit_count, strategy_count, active_strategy_count,
-#    degraded_count, due_soon_count, target_horizon_days, noop, noop_reason,
+#    degraded_count, due_soon_count, target_horizon_days, queued_total, noop, noop_reason,
 #    strategies: [{slug, title, status, target_date, days_to_target, assignees,
 #                  readable, reason, count, active_count, waiting_count, empty_reason,
 #                  moved: [{kind, title, state}], waiting: [{kind, title, state}],
-#                  moved_omitted, waiting_omitted}],
+#                  moved_omitted, waiting_omitted,
+#                  missions: [{slug, title, path, readable, reason,
+#                              checked, total, queued}], missions_omitted}],
 #    strategies_omitted, unattributed: {moved, waiting}, errors: []}
+#
+# THE MISSION GRAIN (2026-09-01, ticket `20260901083237`). The operator's ordinary
+# question — "so how many todos are left?" — was answered by no reading this loop had,
+# and by four ad-hoc git commands by hand. Every part of the answer already existed and
+# none of them was composed at the grain the question asks, so `missions[]` and
+# `queued_total` are a COMPOSITION and not a new walker: `attributed-work.sh` says which
+# missions belong to the direction (`waiting_mission_slugs`) and carries each one's title
+# and path in `artifacts[]`, `mission/scripts/progress.sh` computes `checked`/`total`,
+# `mission/scripts/queue-size.sh` counts what is queued under it, and
+# `drive/scripts/list-todo.sh` is the repository's queue. No relation is parsed here, no
+# second attribution reader is introduced, and NO ARTIFACT GAINS A FIELD — which is the
+# standing rule for this layer (`CLAUDE.md`, *The strategy layer*).
+#
+# IT IS A SIBLING BLOCK, NOT A RESHAPE. `waiting_count` and `waiting[]` each already have
+# consumers and a render; adding the mission grain beside them leaves every existing field
+# unchanged in name and meaning, which is what lets `/standup` and `/moderate`'s
+# `strategy-digest` adopt it independently.
+#
+# A MISSION GRAIN THAT COULD NOT BE READ IS NAMED, NEVER ZEROED. `progress.sh` or
+# `queue-size.sh` failing gives that one entry `readable: false`, its own reason
+# (`mission_progress_unreadable` / `mission_queue_unreadable` / `mission_unreadable`) and
+# NULL counts — the rule the honesty line and the strategy record already hold themselves
+# to. A zero would read as "this mission has nothing left", which is the opposite.
+# `queued_total` is null for the same reason when the queue itself could not be read.
 #
 # ZERO STRATEGIES IS A CLEAN NO-OP, NOT AN EMPTY DIGEST (`noop: true`,
 # `noop_reason: "no_strategies"`). This repository is in that state today, so it is the
@@ -64,6 +90,9 @@ set -eu
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 STRATEGY_LIST="${SCRIPT_DIR}/../../strategy/scripts/list.sh"
 ATTRIBUTED="${SCRIPT_DIR}/../../strategy/scripts/attributed-work.sh"
+PROGRESS="${SCRIPT_DIR}/../../mission/scripts/progress.sh"
+QUEUE_SIZE="${SCRIPT_DIR}/../../mission/scripts/queue-size.sh"
+LIST_TODO="${SCRIPT_DIR}/../../drive/scripts/list-todo.sh"
 
 WINDOW="${1:-1 day ago}"
 ROOT="${2:-.workaholic}"
@@ -90,6 +119,18 @@ trap 'rm -rf "$TMP"; exit 129' HUP
 
 : > "${TMP}/errors"
 
+# THE REPOSITORY'S OWN QUEUE, read once and through the queue's one reader. It is
+# computed here — before the first `emit`, including the ones that exit early — because
+# "how much is left" is an answer the operator wants even from a morning that turned out
+# to be a no-op: a digest that could not read the strategy set still knows the queue.
+# NULL, NEVER ZERO, when the read failed: zero is the answer "nothing is left".
+if QUEUED_LIST=$(sh "$LIST_TODO" "$ROOT" 2>/dev/null); then
+    QUEUED_TOTAL=$(printf '%s\n' "$QUEUED_LIST" | awk 'NF { n++ } END { print n + 0 }')
+else
+    QUEUED_TOTAL=null
+    printf 'queue_unreadable\n' >> "${TMP}/errors"
+fi
+
 emit() {
     # $1 = strategies JSON array, $2 = strategies_omitted, $3 = noop, $4 = noop_reason,
     # $5 = total strategy count, $6 = active strategy count, $7 = unattributed JSON,
@@ -103,6 +144,7 @@ emit() {
         --argjson total "$5" --argjson active "$6" --argjson due "$8" \
         --argjson degraded "${9:-0}" \
         --argjson horizon "$HORIZON" \
+        --argjson queued_total "$QUEUED_TOTAL" \
         --slurpfile s "${TMP}/strategies.json" \
         --slurpfile u "${TMP}/unattributed.json" \
         --rawfile errs "${TMP}/errors" '
@@ -111,6 +153,7 @@ emit() {
          strategy_count: $total, active_strategy_count: $active,
          degraded_count: $degraded,
          due_soon_count: $due, target_horizon_days: $horizon,
+         queued_total: $queued_total,
          noop: $noop, noop_reason: $reason,
          strategies: $s[0], strategies_omitted: $omitted,
          unattributed: $u[0],
@@ -131,6 +174,62 @@ if [ "$TOTAL" -eq 0 ]; then
     emit '[]' 0 true no_strategies 0 0 '{"moved": 0, "waiting": 0}' 0 0
     exit 0
 fi
+
+# --- The mission grain, composed from readers that already exist -------------------
+# One entry per mission the direction has queued work under, in `waiting_mission_slugs`'
+# own order. The title and the path ride `artifacts[]`, which the reader already
+# populated for exactly these missions, so naming a mission costs no frontmatter parse
+# here; a mission the artifact list cannot match falls back to its slug as its title and
+# to its slug as `progress.sh`'s argument, which resolves against the repository.
+# Passing the PATH when there is one is deliberate: `progress.sh` derives its root from
+# the artifact's own location, so a worktree's mission is never read out of a sibling.
+strategy_missions() {
+    _sm_w="$1"
+    : > "${TMP}/mission-records"
+    printf '%s' "$_sm_w" | jq -r '.waiting_mission_slugs[]? // empty' > "${TMP}/mission-slugs" \
+        2>/dev/null || : > "${TMP}/mission-slugs"
+    while IFS= read -r _sm_slug; do
+        [ -n "$_sm_slug" ] || continue
+        _sm_meta=$(printf '%s' "$_sm_w" | jq -c --arg s "$_sm_slug" \
+            '[.artifacts[]? | select(.kind == "mission" and ((.path | split("/"))[-2]) == $s)][0] // {}' \
+            2>/dev/null || printf '{}')
+        _sm_path=$(printf '%s' "$_sm_meta" | jq -r '.path // ""')
+        _sm_title=$(printf '%s' "$_sm_meta" | jq -r '.title // ""')
+        [ -n "$_sm_title" ] || _sm_title="$_sm_slug"
+        _sm_target="$_sm_slug"
+        if [ -n "$_sm_path" ] && [ -f "$_sm_path" ]; then _sm_target="$_sm_path"; fi
+
+        _sm_checked=null
+        _sm_total=null
+        _sm_queued=null
+        _sm_reason=""
+        if _sm_prog=$(sh "$PROGRESS" "$_sm_target" 2>/dev/null); then
+            _sm_checked=$(printf '%s' "$_sm_prog" | jq -r '.checked')
+            _sm_total=$(printf '%s' "$_sm_prog" | jq -r '.total')
+        else
+            _sm_reason="mission_progress_unreadable"
+        fi
+        if _sm_q=$(sh "$QUEUE_SIZE" "$_sm_slug" "$ROOT" 2>/dev/null); then
+            _sm_queued=$(printf '%s' "$_sm_q" | jq -r '.todo')
+        elif [ -n "$_sm_reason" ]; then
+            _sm_reason="mission_unreadable"
+        else
+            _sm_reason="mission_queue_unreadable"
+        fi
+        case "$_sm_checked" in ''|*[!0-9]*) _sm_checked=null ;; esac
+        case "$_sm_total" in ''|*[!0-9]*) _sm_total=null ;; esac
+        case "$_sm_queued" in ''|*[!0-9]*) _sm_queued=null ;; esac
+
+        jq -nc --arg slug "$_sm_slug" --arg title "$_sm_title" --arg path "$_sm_path" \
+            --arg reason "$_sm_reason" \
+            --argjson checked "$_sm_checked" --argjson total "$_sm_total" \
+            --argjson queued "$_sm_queued" '
+            {slug: $slug, title: $title, path: $path,
+             readable: ($reason == ""), reason: $reason,
+             checked: $checked, total: $total, queued: $queued}' >> "${TMP}/mission-records"
+    done < "${TMP}/mission-slugs"
+    jq -sc '.' < "${TMP}/mission-records"
+}
 
 # --- Per strategy, through the one attribution reader ------------------------------
 printf '%s' "$LIST" | jq -r '.strategies[] | .slug' > "${TMP}/slugs"
@@ -159,6 +258,15 @@ while IFS= read -r slug; do
         DEGRADED=$((DEGRADED + 1))
     fi
     printf '%s' "$W" | jq -r '.artifacts[].path' >> "${TMP}/attributed-paths"
+    # A DEGRADED WALK GETS NO MISSION GRAIN, and that is not a second silence: its
+    # `waiting_mission_slugs` is empty for the same reason its counts are null, so
+    # composing over it would render "no missions" for a direction nobody could read.
+    # The record already says `readable: false`, which is where a consumer looks.
+    MISSIONS='[]'
+    if [ "$(printf '%s' "$W" | jq -r '.readable == false')" != "true" ]; then
+        MISSIONS=$(strategy_missions "$W")
+    fi
+    W=$(printf '%s' "$W" | jq -c --argjson m "$MISSIONS" '. + {_missions: $m}')
     printf '%s\n' "$W" >> "${TMP}/records"
     KEPT=$((KEPT + 1))
 done < "${TMP}/slugs"
@@ -222,7 +330,12 @@ STRATEGIES=$(jq -sc \
            moved: ($moved[0:$max_items] | map({kind, title, state})),
            waiting: ($waiting[0:$max_items] | map({kind, title, state})),
            moved_omitted: ([($moved | length) - $max_items, 0] | max),
-           waiting_omitted: ([($waiting | length) - $max_items, 0] | max)} ]' \
+           waiting_omitted: ([($waiting | length) - $max_items, 0] | max),
+           # THE SAME CAP AND THE SAME OMISSION COUNT the two lists above carry: the
+           # mission grain is the largest block the digest emits, so it is bounded by
+           # construction and every cut is counted rather than silently dropped.
+           missions: (($w._missions // [])[0:$max_items]),
+           missions_omitted: ([(($w._missions // []) | length) - $max_items, 0] | max)} ]' \
     < "${TMP}/records")
 [ -n "$STRATEGIES" ] || STRATEGIES='[]'
 

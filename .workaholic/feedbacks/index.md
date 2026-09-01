@@ -619,6 +619,7 @@
 * [An unattended tick can be stopped forever by a permission prompt](20260831113507-an-unattended-tick-can-be-stopped-forever-by-a-permission-prompt.md)
 * [A routine must never ask a human anything](20260831113845-a-routine-must-never-ask-a-human-anything.md)
 * [Take the moderation tick's log off main](20260831181658-take-the-moderation-tick-s-log-off-main.md)
+* [Move the autonomous-loop direction's date two weeks out](20260831184541-move-the-autonomous-loop-direction-s-date-two-weeks-out.md)
 * [Make the tick's Slack questions self-explanatory and close the loop in the thread](20260831200350-make-the-tick-s-slack-questions-self-explanatory-and-close-the-loop-in-the-thread.md)
 * [Every open proposal conflicts on the generated feedbacks index](20260831201820-every-open-proposal-conflicts-on-the-generated-feedbacks-index.md)
 * [base-health never reads a base whose tip is a bookkeeping commit](20260831202854-base-health-never-reads-a-base-whose-tip-is-a-bookkeeping-commit.md)
@@ -634,4 +635,7 @@
 * [A captured ask is re-offered while its proposal waits on a branch](20260901042106-a-captured-ask-is-re-offered-while-its-proposal-waits-on-a-branch.md)
 * [A fifth moderation hour reached nobody and its held questions went stale](20260901042623-a-fifth-moderation-hour-reached-nobody-and-its-held-questions-went-stale.md)
 * [Specificate published a duplicate ticket set for an already-driven mission](20260901072508-specificate-published-a-duplicate-ticket-set-for-an-already-driven-mission.md)
+* [Moderation reports unknown mergeability and defers a conflict it could clear itself](20260901081927-moderation-reports-unknown-mergeability-and-defers-a-conflict-it-could-clear-itself.md)
+* [Moderation never reports the shape of the plan, only its anomalies](20260901083125-moderation-never-reports-the-shape-of-the-plan-only-its-anomalies.md)
+* [A plugin-path read composed with an assignment prefix cannot be allowlisted, so it stalls the unattended tick](20260901101811-a-plugin-path-read-composed-with-an-assignment-prefix-cannot-be-allowlisted-so-it-stalls-the-unattended-tick.md)
 <!-- okf:generated:end -->

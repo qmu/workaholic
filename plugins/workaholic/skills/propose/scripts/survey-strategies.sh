@@ -12,12 +12,12 @@
 # Output (one JSON object):
 #   {ok, identity, window, cap, active_count,
 #    eligible: [{slug, title, target_date, days_to_target, assignees, feedback_refs[],
-#                empty_reason, count, active_count, waiting_count, pace, overdue, dormant,
-#                quiescent, residue,
+#                empty_reason, count, active_count, waiting_count, pace, overdue, expiring,
+#                dormant, quiescent, residue,
 #                landed: [{kind, title, state, attribution, last_change}],
 #                path}],
-#    refused: [{slug, reason, pace, overdue, dormant, quiescent, residue, title, assignees,
-#               days_to_target, target_date, landed_count}],
+#    refused: [{slug, reason, pace, overdue, expiring, dormant, quiescent, residue, title,
+#               assignees, days_to_target, target_date, landed_count}],
 #    errors: [], selected: [<slug>...]}
 #
 #   residue  {readable, reason, missions: [{slug, queued}], mission_count, ticket_count} —
@@ -26,6 +26,14 @@
 #            degraded read carries `readable: false` with its reason and NULL counts, never a
 #            zeroed residue. It gates nothing except `quiescent` (see that block).
 #   or {ok: false, reason, detail} when a gate could not be read at all.
+#
+# A ROW WHOSE ATTRIBUTION WALK DID NOT COMPLETE (2026-08-29): refused
+# `attribution_unreadable` — the word this condition has always had, never a second one — with
+# `pace: unknown`, `dormant: false`, `quiescent: false` and NULL `count` / `active_count` /
+# `waiting_*`. `work_waiting` cannot stand open on it, because the refusal ladder answers
+# first: a degraded walk cannot prove the brake is clear, and a gate that cannot be read is
+# not a gate. The DATE terms are untouched — `days_to_target`, `overdue` and `expiring` come
+# from the strategy's own `target_date` and never from the walk.
 #
 # ═══ THE GATES ARE THE BRAKE, AND THE BRAKE IS THE WHOLE DESIGN ═══════════════════════
 #
@@ -42,6 +50,22 @@
 #                     OWN assigned strategies"; a strategy is the one artifact where empty
 #                     `assignees` is a refusal rather than team ownership, so `unowned`
 #                     cannot occur and `other`/`unresolved` are both refusals here.
+#   observing         the operator DECLARED this direction 観察中 — settled, the loop
+#                     reactive only. It is the FIRST DECLARED gate on this list, and that is
+#                     exactly what makes it safe: every other gate is derived, and a derived
+#                     silence was refused by name (`pace` gates nothing, because a machine's
+#                     guess must not silence the one routine that originates work). The
+#                     operator's own word is not a guess.
+#                     PLACED AFTER `not_active` AND `not_mine`: a closed or foreign direction
+#                     is not this repository's question at all, and answering `observing` for
+#                     one would send a reader to the wrong fact. PLACED BEFORE
+#                     `past_target_date`: an observing direction that is also overdue should
+#                     read as observing, because that is the fact a person acts on, and
+#                     lateness on a settled direction is not a failure.
+#                     IT STOPS ORIGINATION AND NOTHING ELSE. An inbound ask — a swept channel
+#                     message, an issue somebody files, an error reported — still becomes an
+#                     `[FB]` issue, still reaches `/specificate`, and still lands as work
+#                     carrying this direction's refs. That asymmetry is the whole stage.
 #   past_target_date  the date has passed. A dated direction that ran out of date is the
 #                     operator's to re-date or close; proposing into it forever is the
 #                     runaway this gate exists to stop.
@@ -284,30 +308,67 @@ jq -sc \
   | [ .[]
       | . as $w
       | (($list.strategies[] | select(.slug == $w.slug)) // {}) as $s
+      # A WALK THAT DID NOT COMPLETE IS A ROW WE COULD NOT READ (2026-08-29, mission
+      # `keep-the-closing-link-readable-as-the-corpus-grows`). `attributed-work.sh` produced
+      # NO OUTPUT AT ALL was already `unreadable`; since that reader learned to say so,
+      # `readable: false` is the same fact reported properly instead of by silence, and it
+      # joins the same term rather than getting one of its own. That is what makes every
+      # derivation below correct with NO further change: `pace` reads `unknown`, `dormant`
+      # and `quiescent` read `false`, and `refusal` answers `attribution_unreadable` — the
+      # word this condition has always had — before `work_waiting` is ever evaluated.
+      #
+      # `work_waiting` MUST NOT STAND OPEN on such a row, and the ladder is what guarantees
+      # it: a degraded walk cannot prove the brake is clear, and A GATE THAT CANNOT BE READ
+      # IS NOT A GATE — the rule `no_feedback_refs` and `inbox_unreadable` already hold
+      # themselves to. This is the failure the ask measured: a tick selecting a direction on
+      # `waiting_count: 0` while two active missions and ten queued tickets cited it.
+      #
+      # `readable` is ABSENT on a completed walk, by the contract that reader states, so the
+      # test is `== false` and NOT `(.readable // true) | not`: in jq `//` treats `false`
+      # itself as empty, so `false // true` is `true` and that spelling would read every
+      # degraded walk as a healthy one — silently, which is the whole failure class again.
+      | (($w.unreadable // false) or ($w.readable == false)) as $blind
       | {slug: $w.slug, title: ($s.title // $w.slug), status: ($s.status // ""),
+         # THE DECLARED STAGE THE OPERATOR WROTE DOWN, on every row (2026-08-29, mission
+         # `make-a-direction-s-lifecycle-a-declared-stage`). It rides BESIDE the derived
+         # readings and enters no derivation here: this survey gains no gate, no sort term and
+         # no refusal from it in this change. It comes straight off `list.sh`, which resolves
+         # the absent-means-進行中 default through `read.sh` — the ONE place that default
+         # lives — so an empty string here means only that the listed row could not be matched,
+         # which the sanctioned path (these slugs come from that same list) cannot produce.
+         #
+         # A DEGRADED ROW STILL CARRIES ITS STAGE. The stage is read off the artifact and the
+         # degradation is a property of the ATTRIBUTION WALK, so `attribution_unreadable` says
+         # nothing about whether the operator declared a phase — nulling it here would be the
+         # collapse the null counts beside it exist to prevent, in reverse.
+         stage: ($s.stage // ""),
+         # Whether that value was DECLARED or defaulted. Carried for the one consumer that
+         # speaks in the operator voice and must not quote a declaration nobody made; no gate,
+         # sort or refusal here reads it.
+         stage_declared: ($s.stage_declared // false),
          target_date: ($s.target_date // ""), days_to_target: days($s.target_date // ""),
          assignees: ($s.assignees // ""), owns: $w.owns, path: $w.path,
          feedback_refs: ($w.feedback_refs // []),
          empty_reason: ($w.empty_reason // ""),
-         count: ($w.count // 0), active_count: ($w.active_count // 0),
-         waiting_count: ($w.waiting_count // 0),
-         # WHICH KIND OF WORK THE GATE SAW, on every row, gated or not: a strategy
-         # suppressed — or not suppressed — says why.
-         waiting_kind: ($w.waiting_kind // "unknown"),
-         waiting_describing: ($w.waiting_describing // 0),
-         waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
+         # NULL, NEVER ZERO, ON A ROW WE COULD NOT READ. A zero here is the whole defect one
+         # layer up: a consumer skimming the counts reads *nothing is waiting* out of a walk
+         # that never looked. Nothing arithmetic reaches these — every derivation below tests
+         # `.unreadable` first — so the null is read by consumers and by nothing else.
+         count: (if $blind then null else ($w.count // 0) end),
+         active_count: (if $blind then null else ($w.active_count // 0) end),
+         waiting_count: (if $blind then null else ($w.waiting_count // 0) end),
          # WHICH KIND OF WORK THE GATE SAW (2026-08-23), on every row, gated or not: a
          # strategy suppressed — or not suppressed — says why.
-         waiting_kind: ($w.waiting_kind // "unknown"),
-         waiting_describing: ($w.waiting_describing // 0),
-         waiting_advancing: ($w.waiting_advancing // $w.waiting_count // 0),
+         waiting_kind: (if $blind then null else ($w.waiting_kind // "unknown") end),
+         waiting_describing: (if $blind then null else ($w.waiting_describing // 0) end),
+         waiting_advancing: (if $blind then null else ($w.waiting_advancing // $w.waiting_count // 0) end),
          # THE MISSION GRAIN (2026-08-26), reported on every row for the same reason: the
          # brake now asks whether a mission is in flight, so a reader must be able to see
          # which one held it. Named, never a bare count.
-         waiting_missions: ($w.waiting_missions // 0),
-         waiting_missions_describing: ($w.waiting_missions_describing // 0),
-         waiting_missions_advancing: ($w.waiting_missions_advancing // $w.waiting_missions // 0),
-         waiting_mission_slugs: ($w.waiting_mission_slugs // []),
+         waiting_missions: (if $blind then null else ($w.waiting_missions // 0) end),
+         waiting_missions_describing: (if $blind then null else ($w.waiting_missions_describing // 0) end),
+         waiting_missions_advancing: (if $blind then null else ($w.waiting_missions_advancing // $w.waiting_missions // 0) end),
+         waiting_mission_slugs: (if $blind then null else ($w.waiting_mission_slugs // []) end),
          landed: (($w.artifacts // []) | map(select(.changed_in_window))
                   | map({kind, title, state, attribution, last_change})),
          queued: (($w.artifacts // []) | map(select(.kind == "ticket" and .state == "queued"))
@@ -322,7 +383,7 @@ jq -sc \
          # for itself -- and this answers a question about the REPOSITORY while every field
          # beside it answers one about the direction.
          residue: $residue,
-         unreadable: ($w.unreadable // false)}
+         unreadable: $blind}
       | . + {pace:
           # PACE -- WILL THIS DIRECTION ARRIVE? (2026-08-22.) Every other gate here is a
           # brake. None of them asked this, so a strategy could be perfectly gated (every
@@ -353,6 +414,43 @@ jq -sc \
           # is computed against a UTC `$today`, so a direction expiring TODAY reads `0`
           # and is not yet overdue. That is the correct boundary, stated rather than tuned.
           ((.days_to_target != null) and (.days_to_target < 0))}
+      | . + {expiring:
+          # EXPIRING -- IS THE DATE ABOUT TO ARRIVE? (2026-08-29.) Every reading beside this one
+          # answers BACKWARDS: `late` asks whether nothing has landed, `overdue` whether the date
+          # has GONE, `dormant` whether anything is answering it, `quiescent` whether its work is
+          # all in. None answers *this direction is about to stop originating work*, so a live,
+          # in-date, `on_course` direction one day from its date produced NO READING AND NO
+          # QUESTION anywhere in the layer -- and the day after, `past_target_date` silenced
+          # `/propose` with the only signal being `direction-overdue`, asked in ARREARS.
+          #
+          # Measured on `an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask
+          # was written: `days_to_target: 2`, `pace: on_course`, `overdue: false`,
+          # `dormant: false` -- every reading healthy, two days from silence.
+          #
+          # IT INTRODUCES NO NEW THRESHOLD, which is what makes it defensible rather than tuned.
+          # Both terms are already on the row and already justified there: `$window_days` is the
+          # evidence window the judgment is made against (the same term `pace` is derived
+          # against, out of the same `$WINDOW`), and the remaining days are the date the strategy
+          # itself declares. So the reading means *less runway remains than the window the
+          # judgment can see* -- precisely the point at which `pace` stops being able to tell
+          # whether the direction will arrive. A fresh constant here would be a number nobody
+          # could defend.
+          #
+          # IT IS ITS OWN FIELD, NEVER A FOURTH `pace` VALUE, for the reason `overdue` records
+          # for itself one block up: one field answering two questions is how the two drift.
+          #
+          # THE BOUNDARIES ARE EXHAUSTIVE AND DISJOINT WITH `overdue`, and stated rather than
+          # tuned. `days_to_target < 0` is the answer `overdue` gives and never this one; a
+          # direction whose date is TODAY reads `0` and IS expiring, not overdue; and a row with
+          # no resolvable `target_date` has a `null` `days_to_target` and is never expiring --
+          # malformed is not near, exactly as malformed is not late.
+          #
+          # It is emitted on EVERY row, eligible and refused alike, and computed BEFORE
+          # `refusal` so that expression, `pace`, `overdue`, `dormant`, `quiescent`, the sort and
+          # `selected` stay byte-identical. The refused case is the point: a direction refused
+          # `work_waiting` still has a date coming, and it is the one whose warning matters.
+          ((.days_to_target != null) and (.days_to_target >= 0)
+           and (.days_to_target <= $window_days))}
       | . + {dormant:
           # DORMANT -- A LIVE DIRECTION NOTHING IS ANSWERING (2026-08-26). `/propose` reports
           # `no_evolutionary_move` when it cannot name a move against an eligible direction --
@@ -446,6 +544,7 @@ jq -sc \
           (if .unreadable then "attribution_unreadable"
            elif .status != "active" then "not_active"
            elif .owns != "mine" then "not_mine"
+           elif (.stage == "観察中") then "observing"
            elif ((.days_to_target != null) and (.days_to_target < 0)) then "past_target_date"
            elif ((.feedback_refs | length) == 0) then "no_feedback_refs"
            # WORK_WAITING AT THE MISSION GRAIN (2026-08-26). A proposal is a whole mission,
@@ -461,11 +560,36 @@ jq -sc \
                   else (.waiting_missions // 0) + (.waiting_count // 0) end) > 0) then "work_waiting"
            elif ($held | index($w.slug)) then "open_proposal"
            else "" end)} ]
-  # LATE FIRST, then nearest date. A tick that dies partway must have advanced the
-  # direction least likely to arrive, not merely the one with the nearest deadline.
-  # `unknown` orders exactly where it ordered before this existed: a pace that could not
-  # be read must neither promote nor demote a direction on a guess.
-  | sort_by([(if .pace == "late" then 0 else 1 end),
+  # THE WHOLE ORDERING, STATED HERE AND NOWHERE ELSE, so no consumer re-derives it:
+  #
+  #   1. 改良中 FIRST, then every other stage (2026-08-29, mission
+  #      `make-a-direction-s-lifecycle-a-declared-stage`).
+  #   2. LATE FIRST, then
+  #   3. NEAREST DATE.
+  #
+  # A tick that dies partway must have advanced the direction least likely to arrive, not
+  # merely the one with the nearest deadline. `unknown` orders exactly where it ordered
+  # before that existed: a pace that could not be read must neither promote nor demote a
+  # direction on a guess.
+  #
+  # WHY THE STAGE LEADS, AND WHY 改良中 RATHER THAN 進行中. The operator runs several
+  # directions that reference each other and improve as a blend, and 改良中 is the stage
+  # they declared to mean CUT OVER AND STILL IMPROVING — the one that can absorb a proposal
+  # and convert it into shipped behaviour. The counter-argument is recorded rather than
+  # dismissed: work that cannot be cut over yet is the riskiest, so 進行中 might deserve
+  # attention first. It lost because a blend has to put its PROPOSING energy where proposals
+  # land, and a direction still building is advanced by the work already queued against it.
+  # 観察中 never reaches this sort at all — it is refused `observing` one step above.
+  #
+  # IT IS A SORT AND NOT A GATE, which is what makes it cheap and reversible. `refused[]`,
+  # every gate, the membership of `eligible[]` and `selected[]` and every reading are
+  # untouched; only the ORDER moves, and only between directions of different stages. Since
+  # `over_cap` was retired a tick proposes against EVERY eligible direction, so the order
+  # decides only which one a tick that dies partway has advanced — which bounds the blast
+  # radius of this whole change. NO weight, NO score, NO tunable constant and NO
+  # cross-direction arithmetic: the key is lexicographic over fields already on the row.
+  | sort_by([(if .stage == "改良中" then 0 else 1 end),
+             (if .pace == "late" then 0 else 1 end),
              (if .days_to_target == null then 99999 else .days_to_target end)])
   | (map(select(.refusal == "")) ) as $ok
   | (if $cap < 0 then $ok else $ok[0:$cap] end) as $take
@@ -485,7 +609,7 @@ jq -sc \
      # rather than the list, because the list is the evidence a proposal is judged against
      # and a refused row is not being proposed against.
      refused: ((map(select(.refusal != ""))
-                | map({slug, reason: .refusal, pace, overdue, dormant, quiescent, title, assignees,
+                | map({slug, reason: .refusal, pace, overdue, expiring, dormant, quiescent, title, assignees, stage, stage_declared,
                        days_to_target, target_date, landed_count: ((.landed // []) | length),
                        # `residue` rides the refused rows for the same reason `landed_count`
                        # and `target_date` do (2026-08-27): an ARRIVED direction past its date

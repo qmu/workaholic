@@ -1,7 +1,7 @@
 #!/bin/sh -eu
 # Re-attempt the merge of a unit the loop finished and the transport refused.
 #
-# Usage: retry-undelivered.sh <unit-id>
+# Usage: retry-undelivered.sh <unit-id> [--own-tip]
 # Output: {"attempted": bool, "unit": "...", "branch": "...", "pull_request": "...",
 #          "outcome": "...", "merge_reason": "...", "recorded": bool, "reason": "..."}
 #         Always exit 0. `outcome` is §6's vocabulary verbatim: `merged` or
@@ -60,6 +60,20 @@
 #
 # RECORDING IS NEVER LOAD-BEARING. The merge is the deliverable; a failed record is reported
 # (`recorded: false` with the reason in `reason`) and never turns a landed merge into a failure.
+#
+# `--own-tip` RELAXES EXACTLY ONE TERM, AND ONLY BY RE-ASKING THE SAME ORACLE (2026-08-29,
+# mission `land-the-loop-s-own-work-when-the-base-moves-under-it`). `catch-up-claim.sh` merges
+# the base into a stranded unit's branch and pushes -- which makes the tip fresh, so the very
+# next read of the verdict answers `claim_active` and this script refuses
+# `not_undelivered:claim_active`. The delivery the catch-up exists to unblock was therefore
+# blocked by the catch-up itself; the fixture proved it, which is why this script changed at
+# all. The flag says *this run made that tip*, and its whole effect is to re-run
+# `claims_scan` with `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0`: identity, ancestry,
+# supersession, the drained fork and the recorded refusal are all still the ORACLE'S OWN
+# answers, unchanged and computed in one place. Nothing is re-derived here, no verdict is
+# widened, and every refusal below is untouched -- a unit that is genuinely mid-drive has work
+# left, so the chain answers `parked_with_pr` or `heartbeat_lapsed` and this still refuses it
+# by name. Without the flag the behaviour is byte-identical to what it always was.
 
 set -eu
 
@@ -71,9 +85,16 @@ GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
 MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts//merge-reason.sh"
 RECORD_OUTCOME="${SCRIPT_DIR}/../../story/scripts//record-merge-outcome.sh"
 
-unit="${1:-}"
+unit=""
+own_tip=false
+for arg in "$@"; do
+    case "$arg" in
+        --own-tip) own_tip=true ;;
+        *) [ -n "$unit" ] || unit="$arg" ;;
+    esac
+done
 if [ -z "$unit" ]; then
-    echo 'Usage: retry-undelivered.sh <unit-id>' >&2
+    echo 'Usage: retry-undelivered.sh <unit-id> [--own-tip]' >&2
     exit 1
 fi
 
@@ -119,6 +140,21 @@ row=$(claims_unit_row "$ROWS" "$unit")
 BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
 verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
 
+# THE ONE RELAXED TERM (see the header): a tip this run made is not a run in progress. The
+# oracle is asked again with its liveness window collapsed, so every other term of the verdict
+# is still computed in exactly one place.
+if [ "$own_tip" = true ] && [ "$verdict" = "claim_active" ]; then
+    ROWS=$(WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 claims_scan "$BASE" 2>/dev/null || true)
+    [ -n "$ROWS" ] || report false no_claims
+    case "$(claims_unit_resolution "$ROWS" "$unit")" in
+        none)      report false no_such_claim ;;
+        ambiguous) report false ambiguous_claim ;;
+    esac
+    row=$(claims_unit_row "$ROWS" "$unit")
+    [ -n "$row" ] || report false no_such_claim
+    verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
+fi
+
 # GATE 1: THE VERDICT. Only the proof reaches the merge.
 [ "$verdict" = "report_undelivered" ] || report false "not_undelivered:${verdict}"
 
@@ -147,8 +183,10 @@ pr_json=$(sh "$GH_REST" api "repos/${SLUG}/pulls?head=${OWNER}:${BRANCH}&state=o
 PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf '')
 [ -n "$PR" ] || report false no_open_pull_request
 
-# THE ONE OUTWARD ACT. REST, exactly as the original attempt made it.
-if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT -f merge_method=merge 2>&1); then
+# THE ONE OUTWARD ACT. REST, exactly as the original attempt made it -- including the method,
+# which is read from the one derivation rather than spelled here (2026-09-01).
+if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT \
+        -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts//merge-method.sh")" 2>&1); then
     OUTCOME="merged"
     report true ""
 fi

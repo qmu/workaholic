@@ -1,0 +1,82 @@
+---
+type: Mission
+title: Stop two runs from claiming and driving one unit
+slug: stop-two-runs-from-claiming-and-driving-one-unit
+status: active
+merge_policy:
+created_at: 2026-08-30T08:20:09+00:00
+author: a@qmu.jp
+assignees: [a@qmu.jp]
+assignee:
+predicted_hours:
+actual_hours: 6.9
+feedback: [20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
+tickets: []
+stories: []
+gate_type:
+gate_target:
+gate_assert:
+claim: work-20260901-121939
+---
+
+# Stop two runs from claiming and driving one unit
+
+## Goal
+
+Two runs claimed and drove one unit on 2026-08-30, four seconds apart. `claims.md` says
+the protocol settles a race by the push — false for a fresh claim, named from the clock,
+so two runners surveying before either pushes contend for nothing. The loser then reads
+`report_undelivered`, not `superseded`, and nothing says it was driven twice.
+
+## Scope
+
+`claim.sh`, `create.sh`, `lib/claims.sh`, `claim-merged.sh`, `archive.sh`, the run
+report, one `/moderate` question, one drill. Not the verdict vocabulary or `work-*`
+naming.
+
+## Experience
+
+A runner that loses a claim race stops within its survey, having written nothing — no
+branch, no worktree, no archive, no duplicated implementation. A unit whose content
+reached the base through another branch reads `superseded` at either grain, so the loser
+is retired by existing machinery rather than left as a person's conflict. When a race
+happens, one person is told once, both branches named.
+
+## Acceptance
+
+- [ ] The claim contends for one ref per unit: the first push wins, the second is refused
+      by its own word, and the loser holds no branch, worktree or commit. (#20260830082251-make-the-claim-contend-for-one-ref-per-unit.md)
+- [x] A unit whose content landed through a racing twin reads `superseded` at the mission
+      grain from the tree, so the existing retirement path reaches it. (#20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md)
+- [x] A lost race is named where a person reads it — the run report and one `/moderate`
+      question naming both branches — proved by a drill with a breaker row. (#20260830082251-report-a-lost-race-where-a-person-reads-it.md)
+
+## Changelog
+- 2026-08-30 — ticket archived — 20260830082251-correct-the-settled-by-the-push-premise.md
+- 2026-08-30 — ticket archived — 20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md
+- 2026-08-30 — ticket archived — 20260830082251-re-check-the-claim-before-the-first-archive-write.md
+- 2026-08-30 — ticket archived — 20260830082251-reproduce-the-claim-race-offline-in-a-drill.md
+- 2026-08-30 — run recorded (+0.9h) — session_01W6TxsNWDVy4A7CZSg3wKqx
+- 2026-08-30 — run recorded (+0.3h) — cse_01DzM3RauLKBVSvjwNV1W4zw
+- 2026-08-30 — ticket archived — 20260830082251-report-a-lost-race-where-a-person-reads-it.md
+- 2026-08-30 — story reported — work-20260830-094214
+- 2026-08-30 — run recorded (+1.4h) — session_01AHkLmCxmwvGBfkrAc24vRk
+- 2026-08-30 — run recorded (+0.3h) — session_01LZbHJ2uC4hSHFnzTZbjzgN
+- 2026-08-30 — run recorded (+0.2h) — cse_0167AkW7JAXdU8UHH5MigseZ
+- 2026-08-30 — run recorded (+0.2h) — cse_01JKUuQLvXWd8UsA4rn5jBvR
+- 2026-08-30 — story reported — work-20260830-124234
+- 2026-08-30 — run recorded (+0.4h) — cse_01VUsXysHTXFuzVGiD8kyh6A
+- 2026-08-30 — run recorded (+0.2h) — cse_019NRDwn1ExjNJRX6EiwKHZb
+- 2026-08-31 — run recorded (+0.4h) — cse_01PZPe1gEfrxmdvWmeBUGbER
+- 2026-08-31 — run recorded (+0.3h) — cse-implement-20260831-0244
+- 2026-08-31 — run recorded (+0.2h) — session_01LsDDBDKuDCKBXAhUDNiZaL
+- 2026-08-31 — ticket archived — 20260831024448-stop-re-resuming-a-handoff-blocked-on-a-ruling.md
+- 2026-08-31 — run recorded (+0.3h) — implement-20260831-1545
+- 2026-08-31 — run recorded (+0.3h) — implement-20260831-1645
+- 2026-08-31 — run recorded (+0.3h) — implement-20260831-1743
+- 2026-08-31 — run recorded (+0.4h) — implement-20260831-1943
+- 2026-09-01 — ticket archived — 20260831235425-beat-the-heartbeat-from-where-the-workflow-says-to-work.md
+- 2026-09-01 — run recorded (+0.2h) — cse_0121b11BdHR33Ufh9h4eZMYP
+- 2026-09-01 — story reported — work-20260901-105657
+- 2026-09-01 — run recorded (+0.6h) — cse_012LjmkqXe5bhzNL5W1UW794
+- 2026-09-01 — story reported — work-20260901-121939

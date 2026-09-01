@@ -109,7 +109,14 @@
 #   {"step","status","reason","summary","needs_agent":[...]}
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
+. "${SCRIPT_DIR}/lib/read-age.sh"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
+# The claim library, for `claims_unit_resolution` alone — the raced-unit filter below reads the
+# library's own single derivation rather than a second implementation of "two live claims".
+CLAIMS_LIB_DIR="${DRIVE_SCRIPTS}/lib"
+[ -f "${CLAIMS_LIB_DIR}/claims.sh" ] && . "${CLAIMS_LIB_DIR}/claims.sh"
+. "${SCRIPT_DIR}/lib/raced-units.sh"
 
 TICK=""
 ROOT="."
@@ -213,12 +220,29 @@ with_pr=$(printf '%s' "$rows" | jq '[.[] | select(.has_pull_request)] | length')
 # It was DECLARED unverifiable here at creation, so the honest question names the declared act,
 # which `handoff-units` asks. Filtered in the SAME expression as `superseded` — one rule with two
 # verdicts, not two mechanisms — and counted here, so nothing is dropped from the reading.
+# AND A RACED UNIT IS A FACT WITH ANOTHER STEP'S QUESTION ON IT (2026-08-30, mission
+# `stop-two-runs-from-claiming-and-driving-one-unit`). A unit held by two live claims is not a
+# unit that has stopped — it is one two runs are driving at once — so "a claimed unit has not
+# moved for a day or more" sends a person to look at one claim when the honest question names
+# both. `raced-units` asks it; this step filters and COUNTS, the same half of the same rule
+# `superseded` and `awaiting_verification` already follow. The set comes from the library's own
+# `claims_unit_resolution` over the scan this step already made, so no second walk and no second
+# definition of a race exists; an unreadable claims payload yields an empty set and filters
+# nothing, which is the safe direction.
+raced_set=$(raced_units "$out" 2>/dev/null || true)
+
 finished=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "superseded")]')
 n_finished=$(printf '%s' "$finished" | jq 'length')
 declared=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "awaiting_verification")]')
 n_declared=$(printf '%s' "$declared" | jq 'length')
 stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale)
     | select(.resume_reason != "superseded" and .resume_reason != "awaiting_verification")]')
+n_raced=0
+if [ -n "$raced_set" ]; then
+    raced_json=$(printf '%s\n' "$raced_set" | jq -Rsc 'split("\n") | map(select(length > 0))')
+    n_raced=$(printf '%s' "$stalled" | jq --argjson r "$raced_json" '[.[] | select(.unit as $u | $r | index($u))] | length')
+    stalled=$(printf '%s' "$stalled" | jq -c --argjson r "$raced_json" '[.[] | select(.unit as $u | ($r | index($u)) | not)]')
+fi
 n_stalled=$(printf '%s' "$stalled" | jq 'length')
 
 # THE AGE IS DELIBERATELY ABSENT FROM THE SUMMARY (2026-08-26). The moderation root calls a
@@ -229,7 +253,7 @@ n_stalled=$(printf '%s' "$stalled" | jq 'length')
 # exactly the shape `📦 Release Preparation` was retired for. What the maintainer needs from
 # the age is in the question, which names the unit; what the diff needs is a summary that
 # moves only when the finding does.
-summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_declared} awaiting a declared verification, ${n_stalled} past the claim protocol's staleness threshold"
+summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_declared} awaiting a declared verification, ${n_raced} held by two live claims, ${n_stalled} past the claim protocol's staleness threshold"
 
 if [ "$n_stalled" -eq 0 ]; then
     # A finished claim never earns a root line either, and neither does a declared handoff:
@@ -238,9 +262,28 @@ if [ "$n_stalled" -eq 0 ]; then
     emit ok "" "$summary"
 fi
 
+# HOW LONG THIS UNIT HAS BEEN ASKED ABOUT, beside the claim tip's own staleness (2026-08-30,
+# mission `say-how-long-the-loop-has-been-stuck`). TWO AGES, TWO SOURCES, NEVER BLENDED: the tip
+# answers *how long has this not moved*, the question ledger answers *how long have we been
+# asking*, and a unit stalled for a day that nobody has been told about is a different situation
+# from one a person was asked about a week ago. `drive/reference/claims.md`'s source table records
+# which question reads which, and the rule it exists for — NOTHING DERIVES AN AGE TWICE.
+#
+# Keyed on the `stalled-unit:<unit>` key the row already carries, so no key moves and
+# `already_asked` is byte-identical. The SUMMARY is untouched, for the reason this file's own
+# header records at length.
+stalled=$(
+    printf '%s' "$stalled" | jq -c '.[]?' 2>/dev/null | while IFS= read -r row; do
+        [ -n "$row" ] || continue
+        key=$(printf '%s' "$row" | jq -r '.key // ""' 2>/dev/null || printf '')
+        age=$(read_age "$key" "$ROOT")
+        printf '%s' "$row" | jq -c --argjson a "$age" '. + {age: $a}' 2>/dev/null || printf '%s' "$row"
+    done | jq -sc '.' 2>/dev/null || printf '%s' "$stalled"
+)
+
 needs=$(printf '%s' "$stalled" | jq -c '{action: "ask_the_owner_whether_this_stalled_unit_still_needs_them",
     bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never claims, drives, or resolves the blocker itself",
-    compose: "name what is stuck and what the run could not decide — a signature is not a problem — and say the answer is given in this session, through the link on the question",
+    compose: "name what is stuck and what the run could not decide — a signature is not a problem — and say the answer is given in this session, through the link on the question. TWO AGES ride this candidate and they are two facts with two sources: `stalled_hours` is how long the CLAIM TIP has not moved, `age` is how long the unit has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`). Name them as two, never blended into one number, and say nothing about the log age when `age.first_seen` is null and the reading is readable — that is the first time anybody is being asked. When `age.readable` is false, name it as an age we could not read, by its `age.reason`, never as a condition that just started.",
     stalled: .}' 2>/dev/null || echo '{}')
 
 # THE EVENT NAMES THE REPOSITORY EVENT AND CARRIES NO AGE, for the reason above: the root is

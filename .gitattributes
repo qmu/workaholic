@@ -3,3 +3,37 @@
 # exempts them from release-scan's per-commit changed-lines gate (a bulk regeneration
 # is not a granularity problem). Source lives under plugins/; never hand-edit outputs/.
 outputs/** linguist-generated
+
+# The OKF bundle indexes are GENERATED, and a generated file stored as bytes is a conflict
+# generator (2026-09-01, issue #780). `okf/scripts/refresh-index.sh` derives each index from what
+# is on disk, so every branch that adds an artifact rewrites the same sorted region — and each
+# new artifact reaching the base then conflicts with every open branch that has one of its own.
+#
+# MEASURED on a consuming repository, 2026-08-31: three open proposal pull requests, every open
+# proposal there was, each carrying exactly ONE conflict, and it was `.workaholic/feedbacks/index.md`
+# in all three. Nothing about the three asks disagreed. The loop reported the blockage hourly and
+# filed two tickets about it while the work behind them sat stranded.
+#
+# `union` TAKES BOTH SIDES INSTEAD OF CONFLICTING. It is a built-in driver, so it needs no
+# per-clone `git config` — which matters here because the sessions that hit this run in fresh
+# containers that configure nothing. A conflict in a generated index carries no information: it
+# is never a disagreement between two authors, only a stale regeneration, so there is nothing for
+# a resolution to weigh.
+#
+# THE STATED COST: between a union merge and the next `refresh-index.sh`, an index can carry a
+# duplicated or mis-sorted line. That is self-healing — the generator rewrites the whole region
+# from the tree and runs before every knowledge commit — and it is a strictly better failure than
+# a pull request nobody can merge. `conflict-class.sh` keeps its `mechanical` classification for
+# the branches that still meet one; this removes the occasion rather than replacing the reader.
+#
+# AND GITHUB APPLIES NONE OF IT (2026-09-01, ticket `20260901082635`). A `.gitattributes` merge
+# driver is a property of a working tree, and GitHub reads none when it computes a pull request's
+# `mergeable` or when the merge button runs. So this driver resolves the conflict for every LOCAL
+# merge and for none of the remote's: such a branch still shows as conflicting and still has to be
+# caught up and pushed before GitHub will merge it. Measured on the same two commits, same git:
+# `git merge-tree --write-tree` exits 0 from this checkout and 1 from an empty directory with
+# `GIT_DIR` set, and the API answers `mergeable_state: "dirty"`. The full record is in
+# `plugins/workaholic/skills/drive/scripts/claim-mergeability.sh`, which predicts the remote's
+# answer by computing with these attributes deliberately out of reach.
+.workaholic/*/index.md merge=union
+.workaholic/index.md merge=union

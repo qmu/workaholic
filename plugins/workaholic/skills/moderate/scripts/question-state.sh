@@ -44,6 +44,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 . "${SCRIPT_DIR}/lib/question-id.sh"
 . "${SCRIPT_DIR}/lib/question-coordinate.sh"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"

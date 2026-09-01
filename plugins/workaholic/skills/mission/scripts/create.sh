@@ -76,6 +76,71 @@ if [ -f "$EXISTING" ]; then
     exit 1
 fi
 
+# ═══ AND THE CHECK ABOVE READS THE TREE IT IS WRITING INTO ═══════════════════════════
+# (2026-09-01, ticket `20260901072600`.) That tree is a publish tree cut from the base, so
+# the check is correct when the tree is BUILT and arbitrarily stale by the time it MERGES.
+# MEASURED on this repository: two records with the slug `say-when-the-loop-has-run-out-of-
+# direction` are both on `main`. Record A was created 2026-08-26 07:19:28 and record B
+# 2026-08-26 08:19:15, each in its own publish tree, and the check above was RIGHT both
+# times — the base carried no such mission at either moment. Record B merged at 08:25:18;
+# record A merged six days later (PR #625, 2026-09-01 06:22:15) and landed a second record
+# beside the first. Git raised no conflict because B had been archived by then, so the two
+# occupy different paths and nothing collided.
+#
+# NEITHER `create.sh`'s AREA COVERAGE NOR `close.sh` IS THE DEFECT, and both were read in
+# full before this was written: the check above already covers `active/` and `archive/`
+# (that is what `mission_resolve` does), and `close.sh` already answers
+# `archive_slug_conflict` and leaves the mission where it is. The seam is the staleness.
+#
+# SO THE SECOND READING IS THE UNMERGED BRANCHES — the same oracle the claim protocol rests
+# on, through the one walk `/specificate` already uses. No API call, no auth, nothing new
+# derived.
+#
+# AN AMBIGUOUS OR DEGRADED WALK REPORTS AND PROCEEDS, NEVER REFUSES. The walk over-reads on
+# every ambiguity BY DESIGN, which is right for a dedup and wrong for a gate: an over-read
+# here would refuse to create a legitimate mission. A shallow clone cannot reduce
+# `rev-list --count` across a graft and so counts long-merged branches as ahead, so shallow
+# is treated as degraded even when it finds a hit. Only a walk that completed may refuse.
+#
+# THE REPORT GOES TO STDERR, so stdout stays exactly the machine-readable line every caller
+# parses — the walk's own convention, and the reason a degraded read here can never be
+# mistaken for a refusal.
+BRANCH_TAKEN_REF=""
+BRANCH_CHECK_DEGRADED=""
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    UNMERGED_BRANCHES_LABEL="mission/create.sh"
+    . "${SCRIPT_DIR}/../../specificate/scripts/lib/unmerged-branches.sh"
+    SLUG_CHECK_BASE=$(unmerged_branches_base)
+    if [ -z "$SLUG_CHECK_BASE" ]; then
+        BRANCH_CHECK_DEGRADED="no_base_ref"
+    else
+        [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ] \
+            && BRANCH_CHECK_DEGRADED="shallow"
+        # ONE pathspec covers both areas, because a git pathspec's `*` crosses `/`. It is
+        # not the cost that matters: measured over 302 remote branches here, two pathspecs
+        # took 11s and this one 10s — the branch COUNT dominates, exactly as the walk's own
+        # header records. What one pathspec buys is that the two areas cannot drift apart.
+        BRANCH_TAKEN_REF=$(unmerged_branches_added_paths "$SLUG_CHECK_BASE" \
+            ".workaholic/missions/*/${SLUG}/mission.md" \
+            2>/dev/null | head -n 1 | cut -f1 || true)
+    fi
+else
+    BRANCH_CHECK_DEGRADED="not_a_git_repository"
+fi
+
+if [ -n "$BRANCH_TAKEN_REF" ] && [ -z "$BRANCH_CHECK_DEGRADED" ]; then
+    printf '{"created": false, "reason": "exists_on_branch", "slug": "%s", "ref": "%s"}\n' \
+        "$SLUG" "${BRANCH_TAKEN_REF#refs/remotes/}"
+    exit 1
+fi
+if [ -n "$BRANCH_CHECK_DEGRADED" ]; then
+    if [ -n "$BRANCH_TAKEN_REF" ]; then
+        echo "mission/create.sh: slug ${SLUG} is already taken on unmerged ${BRANCH_TAKEN_REF#refs/remotes/}, but the branch walk was ${BRANCH_CHECK_DEGRADED} — creating anyway rather than refusing on a reading we could not complete" >&2
+    else
+        echo "mission/create.sh: the unmerged-branch slug check was ${BRANCH_CHECK_DEGRADED}; a slug taken only on an open publication would not be seen" >&2
+    fi
+fi
+
 # created_at / author from the single canonical gather script (one line per field).
 META=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')

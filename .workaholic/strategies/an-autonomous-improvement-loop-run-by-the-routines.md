@@ -3,7 +3,7 @@ type: Strategy
 title: An autonomous improvement loop run by the routines
 slug: an-autonomous-improvement-loop-run-by-the-routines
 status: active
-target_date: 2026-08-31
+target_date: 2026-09-14
 assignees: [a@qmu.jp]
 feedback: [20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 created_at: 2026-08-21T16:25:23+09:00
@@ -54,6 +54,8 @@ added to any artifact and no second inbox created.
 
 ## Schedule
 
-Target: 2026-08-31
+Target: 2026-09-14
 
 Filed 2026-08-21 from issue #555. Target 2026-08-31. The first turn is the routine itself: /propose ships with its skill, its command and its developer-scoped [Propose] template at :40, and the loop is proved end to end on this repository before the date. Each subsequent turn is a proposal this strategy's own routine opens, ingested at the next :15 and driven at the next :30 — so progress after the first turn is measured in turns of the loop, not in scheduled milestones.
+
+Revised 2026-08-31: target date.

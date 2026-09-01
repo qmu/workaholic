@@ -48,6 +48,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
+. "${SCRIPT_DIR}/lib/runner-identity.sh"
 
 LISTER="${SCRIPT_DIR}/list-claims.sh"
 
@@ -71,6 +72,38 @@ SHALLOW=$(printf '%s' "$out" | jq -r '.shallow // false')
 
 [ "$FETCHED" = "true" ] || emit false origin_unreachable
 [ "$SHALLOW" = "true" ] && emit false shallow_history
+
+# WHERE THIS EXECUTOR HAS NO IDENTITY OF ITS OWN, RE-DERIVE PER MAPPED AUTHOR (2026-08-29,
+# mission `make-the-two-executors-agree-about-a-proved-empty-claim`). `actions/checkout@v4`
+# configures no `user.email`, so every row above reads `identity_unresolved` and `superseded`
+# — the proof this reader exists to find — is never reached. The scan is re-run once per
+# DISTINCT author the committed mapping names, and only that author's own rows are taken from
+# each pass, so no claim is ever read under somebody else's identity.
+#
+# It is bounded three ways and each one is load-bearing: it is reachable ONLY with no configured
+# identity (a container is byte-identical), it scans only as an author `identity.sh` resolves
+# (an unmapped address stays `identity_unresolved` and is never impersonated), and it changes no
+# gate — `claim_active` still outranks `superseded`, so a live claim reads live under every
+# identity. The cost is one extra scan per distinct mapped author, and none at all otherwise.
+if runner_identity_absent; then
+    authors=$(printf '%s' "$out"         | jq -r '[.claims[]? | select(.resume_reason == "identity_unresolved") | .author // ""]
+                 | map(select(. != "")) | unique | .[]' 2>/dev/null || true)
+    for author in $authors; do
+        [ -n "$author" ] || continue
+        scan_as=$(runner_identity_for_author "$author")
+        [ -n "$scan_as" ] || continue
+        as_out=$(WORKAHOLIC_CLAIM_IDENTITY="$scan_as" sh "$LISTER" 2>/dev/null || true)
+        [ -n "$as_out" ] || continue
+        printf '%s' "$as_out" | jq -e . >/dev/null 2>&1 || continue
+        out=$(printf '%s
+%s' "$out" "$as_out" | jq -s --arg a "$author" '
+            (.[1].claims // []) as $re
+            | .[0]
+            | .claims = [ .claims[]? as $c
+                          | ( [ $re[] | select(.branch == $c.branch and (.author // "") == $a) ] | first )
+                            // $c ]' 2>/dev/null || printf '%s' "$out")
+    done
+fi
 
 # The TSV projection the library's resolver reads: field 1 the unit, field 2 the branch, field 7
 # the verdict. The intervening columns are the scan's own and are not consulted by the resolver,

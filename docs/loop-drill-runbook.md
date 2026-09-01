@@ -23,6 +23,7 @@ Run every command from the repository root, on a clean `main`.
 
 | # | Stage | Command | Reads |
 | - | ----- | ------- | ----- |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-all --json` | **the whole classified set at once** (§9), one verdict per drill — `pass` / `fail` / `skipped:<reason>` — plus totals, exiting non-zero only when something actually failed. `--only <drill>` narrows it, `--kind hermetic` is what CI runs, `--list` answers the set without invoking any of it |
 | 1 | Seed | `sh scripts/e2e/loop-drill.sh seed` | preflight (inbox + claims), then mints the issue and the `dev-workaholic` Slack root |
 | 2 | Fire `[Specificate]` | run the `[Specificate]` routine by its trigger id | — |
 | 3 | Verify propose | `sh scripts/e2e/loop-drill.sh verify-specificate <issue> --json` | `origin/main`, REST issue + pull requests |
@@ -34,22 +35,28 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-moderate --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction, one dormant one and one carrying no date at all — proves the four lifecycle readings, the question keys, the asked-once gate, and that nothing was written, with one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-corpus-boundary --json` | a throwaway **git** strategy tree whose corpus is grown past the `xargs` batching boundary — the boundary derived by probing `xargs` rather than hard-coded — proves both hops attribute across it, that the survey brakes on a real reading, that the residue excludes the citing mission and no arrival question is asked over work the tree attributes, and, beside it, the degraded direction: a named reason, a refused row, a residue that lists nothing and no question at all, with no network and **two** rows that deliberately break the seam, one per hop |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-expiry --json` | a throwaway **git** strategy tree of five directions differing only in their dates and their work — proves `expiring` inside the window, `live` outside it, `overdue` past the date and `arrived` above both, that the window is the survey's own rather than a constant, the `direction-expiring:<slug>` question naming the date, the days left and the leaving, its asked-once gate, and that no reading re-dates, closes or amends a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-rulings --json` | a throwaway **git** repository holding exactly one unattributed active mission and exactly one unmapped address, with a bare local origin and `gh` stubbed — proves the set is read with its evidence and repair and **nothing judged**, that a judged set lands as one pull request the seam refuses to merge, that a second tick is a no-op while it is open, that a subject the ruling does not name still asks and says why, that every refusal writes nothing, with no network and a breaker in two halves |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-succession --json` | a throwaway **git** tree carrying one dated direction, its landed work and an unattributed mission — walks close → read the leaving → announce a successor by explicit slug → the carried refs land → `attributed-work.sh` attributes the predecessor's work to it → `/propose` proposes against it, and proves nothing closed, authored or auto-merged a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) **and that the work a `superseded` claim frees can actually be claimed**, with the transport stubbed, so no `gh` call is made, and **one row that deliberately breaks the seam** |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, the refused conflict reaching its claim holder exactly once, and — since 2026-08-30 — the widened trigger: a `queue_drained` claim still `mechanical` offered and caught up, a reviewed pull request refused, and a degraded scan answering null counts; with the transport stubbed and two rows that deliberately break the identity bound and the widening |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-ci-retirement --json` | a throwaway repository whose bare origin refuses the container's branch delete and permits CI's — proves the act the container is refused is taken where the write is permitted, re-proved at the moment of it, bounded four ways, and asked about only once CI has also refused, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding one asked question with its coordinate recorded — walks ask → reply → record → file → stamp, proves the read is bounded to the question's own thread, that a second tick files and stamps nothing, and that the stamp is never load-bearing, with the transport stubbed and one row that deliberately breaks the seam |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json` | a throwaway tick log spanning several days, with the day's asks all on **earlier** days — walks the whole path from a machine finding to a person (gate → ordering → step → event → root), proving a held question lands, that it is not re-asked, that the drain honours `max_per_tick` oldest-held first, that a genuinely spent day still holds, and that a tick which reached nobody supplies its event while a quiet hour stays silent, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding two asked questions with their coordinates recorded — walks ask → reply → record → file → stamp → **outcome reply**, proves the read is bounded to the question's own thread, that a second tick files, stamps and replies nothing, that only a settled outcome earns a reply, and that neither the stamp nor the reply is load-bearing, with the transport stubbed and **two** rows that deliberately break the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json` | a throwaway tick log spanning several days, with the day's asks all on **earlier** days — walks the whole path from a machine finding to a person (gate → ordering → step → event → root), proving a held question lands, that it is not re-asked, that the drain honours `max_per_tick` oldest-held first, that a genuinely spent day still holds, and that a tick which reached nobody supplies its event while a quiet hour stays silent, that the arrears name their depth, their age and the gate's own refusal word per held question, and that an `all_held` tick past the working-day boundary earns a root line while one inside it stays silent, with no network and two rows that deliberately break the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-findings-to-work --json` | a throwaway git repository and a stubbed `gh` — walks the whole path from a tick finding to the work queue (classification → brake → filing → dedup → suppression), proving a `needs_ruling` finding never reaches the filer, that one open finding issue holds the rest, that a second tick files nothing, and that the filed step's question is held while every other step's still asks, with no network and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-operator-pulls --json` | a bare local origin and a stubbed `gh` — the pull requests the loop opens FOR A PERSON: membership derived from the publish seam's own refusal word (so a retitled ruling is still named and an auto-merged `[Proposal]` never is), the reader's four values with the null age on `unreadable`, the question reaching its person exactly once over two ticks, the settled case asking nobody, and that nothing merges, closes or gates — with no network and one row that deliberately breaks the seam by keying membership on the title |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-stage --json` | a throwaway git repository holding four directions — one per declared stage plus one carrying **no** `stage:` line — walks the staged lifecycle end to end (declare → move → read → gate → order → render → ask), proving the closed set is floored with nothing written on a refusal, that an absent field reads 進行中 and says it was not declared, that a move appends one dated line naming both ends and re-runs as a no-op, that the derived lifecycle state is identical across all three stages, that 観察中 originates nothing while staying visible, that 改良中 sorts first, that the digest and the question name the stage, that the transition question is asked exactly once, and that no reading moved a stage or reached a writer — with no network and one row that deliberately breaks the seam by wiring the gate at a derived reading |
 | — | Any time | `sh scripts/e2e/loop-drill.sh status` | the drill's residue: issues, claim branches, tickets |
 | — | After an abort | `sh scripts/e2e/loop-drill.sh reset` | closes/deletes **drill-minted** residue only |
 
@@ -168,7 +175,8 @@ The reasons themselves are defined in `plugins/workaholic/skills/specificate/SKI
 | `gh_unavailable` | `skills/gather/scripts/gh-rest.sh` — no `gh` on the runner's PATH |
 | `identity_unresolved` | `skills/gather/scripts/gh-rest.sh` — `gh api user` returned nothing; the session's credential is the problem |
 | `list_failed` | `skills/gather/scripts/gh-rest.sh` — REST itself failed; the `detail` carries the API's own message |
-| `already_captured` | `skills/specificate/scripts/list-inbound-issues.sh` — a feedback record already names `/issues/<N>`; the ask is in flight, not new |
+| `already_captured` | `skills/specificate/scripts/list-inbound-issues.sh` — a feedback record on the base already names `/issues/<N>`; the ask is settled, not new |
+| `captured_on_branch` | `skills/specificate/scripts/list-inbound-issues.sh` — a record on an unmerged remote branch names `/issues/<N>`; the ask is in flight behind an open proposal's pull request |
 | `no_publish_tree` / `nothing_to_commit` | `skills/branching/scripts/open-publish-tree.sh` — the publish tree was never opened, or the run wrote nothing into it |
 | `commit_failed` | `skills/commit/scripts/check-subject.sh` — the commit subject failed the gate (present tense, ≤50 chars, no prefix) |
 | `branch_collision` | `skills/branching/scripts/publish-tree-pr.sh` — two publishers minted the same second's branch name; nothing was published and a re-run succeeds |
@@ -389,9 +397,18 @@ that gets worse every hour it runs.
 ## 5h. The direction layer's own health (the `direction-health` step)
 
 `verify-direction-health` needs no seed, no fire, no issue number and **no network**: it
-builds a throwaway strategy tree — one direction **past its date while carrying landed
-work**, one live and unanswered — hands the survey a synthetic open-proposal list through
-`--open-proposals`, and reads `direction-state.sh` and `step-direction-health.sh` over it.
+builds a throwaway strategy tree — one direction **past its date**, one live and unanswered,
+and one carrying **no `target_date` at all** — hands the survey a synthetic open-proposal
+list through `--open-proposals`, and reads `direction-state.sh` and
+`step-direction-health.sh` over it.
+
+The undated direction is the drill's **breaker**, and it is there because the boundary it
+pins is one jq will silently invert: `overdue` is `days_to_target < 0` **and the date
+resolves**, and an undated direction's `days_to_target` is `null` — which jq answers `null
+< 0` with `true`. Drop the null guard and an undated direction earns an hourly
+`direction-overdue` question about a date it never had. Neither other fixture can notice:
+one has a past date and one a future date, so both read the same with the guard or without
+it.
 
 The overdue fixture is the one that matters: it is the case `pace` *cannot* carry, because
 `late` requires nothing to have landed, so a direction that sailed past its date while
@@ -409,6 +426,7 @@ does not exist.
 | `direction_state_quiet` | a live, in-date, legible direction with nothing landed and nothing waiting does not read `dormant` | the `dormant` conjunction in `survey-strategies.sh` — one term of it stopped holding |
 | `direction_state_none` | a tree with no `active` strategy does not read `none` at the repository level | `direction-state.sh`'s repository field, which reads the survey's `active_count` |
 | `direction_state_unreadable` | a survey that refused was not reported `unreadable` | `direction-state.sh`'s degrade path — a reader that could not read must never render as quiet |
+| `direction_health_undated_is_never_overdue` (**breaker**) | a direction with no `target_date` reads anything but `dormant` — `overdue` above all | the `overdue` derivation in `survey-strategies.sh`: its `(.days_to_target != null)` guard has gone, and jq answers `null < 0` with `true` |
 | `direction_health_keys` | the step's question keys are not exactly `direction-overdue:<slug>` and `direction-dormant:<slug>` | `step-direction-health.sh`; the keys are what the asked-once ledger keys on, so a drifted key is a question asked twice or never |
 | `direction_health_key_none` | an empty tree does not ask `direction-none` | the repository-level branch of the same step |
 | `direction_health_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger, not this step — the step supplies subjects and the check-in owns the gate |
@@ -513,6 +531,112 @@ term under test.
 operator's half; `testResidueGatesNothing`, `testResidueOnSurveyRows` and
 `testCarryAttribution` in the hermetic suite are CI's.
 
+## 5j-bis. The closing link past the corpus boundary (`verify-corpus-boundary`)
+
+`verify-corpus-boundary` needs no seed, no fire, no issue number and **no network**: it builds
+a throwaway **git** strategy tree — git-backed for `verify-arrival`'s reason, since `landed[]`
+is a `git log --since` read — carrying one `active` direction, the mission that cites it and
+the ticket naming that mission, then grows filler until the corpus **path list** spans more
+than one `xargs` batch.
+
+The failure it exists for is the closing link going **silent** as the corpus grows. Both hops
+of `attributed-work.sh` prefilter with one `grep` per batch, and the shape that shipped —
+`xargs grep -lFf … > cand || : > cand` — truncated everything the earlier batches had already
+found whenever a later batch matched nothing. Measured on this repository 2026-08-29: 1411
+corpus paths / 132292 bytes against a 131072-byte buffer, 0 candidates where an appending walk
+found 26, and `no_citing_artifacts` for a direction with 26 citing artifacts.
+
+**The boundary is derived from the running system, never hard-coded.** `xargs`'s command
+buffer is a property of the machine (~128 KiB on GNU, unrelated to `ARG_MAX` — 2 MiB here), so
+a filler count pinned at "1400 files" would quietly stop exercising the split on a machine with
+a different limit and the row would pass while proving nothing. The probe counts how many times
+`xargs` invokes its command over exactly the corpus the reader builds, and the filler grows
+until that count exceeds one. What must be large is the **path list**; the file bodies stay
+three lines.
+
+The **deliberately broken seam** is in **two halves, one per hop**, and both are written
+against **behaviour** rather than a return shape: each runs a copy of the reader with the
+truncating `||` restored on one hop and requires the citation to be **lost**. A breaker keyed
+on a field would pass a refactor that keeps the output shape and reintroduces the bug, which is
+exactly the failure mode this row exists to catch. The two halves are separate because
+reverting hop 1 hides hop 2 behind it — with no attributed mission there is nothing for the
+second hop to walk — and hop 2 carries every ticket's `via_mission:` attribution, so its loss
+is the larger one.
+
+The degraded direction is built from a corpus entry the walk genuinely **cannot consume**: a
+filename containing a space, which `xargs` splits into two non-existent paths so `grep` exits
+2. A permission bit is not usable here and the ticket's own considerations said so — this drill
+routinely runs as uid 0, where `chmod 000` still reads fine (measured: `grep -lFf` over a
+000-mode file exits 1, not 2).
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `corpus_spans_more_than_one_batch` | the fixture never crossed the boundary, so every row below proves nothing | the probe, and `|| :` on each `find` in it — under `set -e` a missing area aborts the group before the second `find` runs |
+| `corpus_both_hops_attribute` | a citation in an early batch is lost to a later batch that matched nothing | `attributed-work.sh`'s `prefilter` — it appends across batches and a no-match batch is a success |
+| `corpus_batching_tolerance_holds` | restoring the truncating branch on **hop 1** does not lose the citation | **the broken seam**, half one — if this passes, the row above proves nothing |
+| `corpus_batching_tolerance_holds_on_hop_2` | restoring it on **hop 2** does not lose the `via_mission:` attribution | **the broken seam**, half two — hop 1 must survive it, which is what makes the halves independent |
+| `corpus_survey_row_is_real` | the survey row is not derived from a completed walk | `survey-strategies.sh` — a real `work_waiting` brake, never `attribution_unreadable` |
+| `corpus_residue_excludes_the_citing_mission` | the residue names a mission the tree attributes | `mission-strategy.sh`'s `attributed`, over the same walk |
+| `corpus_no_arrival_over_attributed_work` | an arrival question is asked about work the tree attributes | `step-direction-health.sh`, over `quiescent` |
+| `corpus_degraded_names_its_reason` | a walk that could not read reports `no_citing_artifacts` instead of its own reason | `note_walk_failure` and `emit_unreadable` — `readable: false`, `reason: corpus_unreadable` |
+| `corpus_degraded_refuses_the_row` | the survey derives a reading from a walk it could not complete, or selects it | the `$blind` term and the `attribution_unreadable` rung, ahead of `work_waiting` |
+| `corpus_degraded_residue_lists_nothing` | the residue is rendered off a blind walk | `unattributed-work.sh`'s `strategy_unreadable` / `all_strategies_unreadable`, with null counts |
+| `corpus_degraded_asks_no_arrival` | an arrival question is produced from a walk that did not complete | the same `quiescent` chain, one degradation earlier |
+| `corpus_writes_nothing` | the drill changed the checkout | every reader here is pure and every fixture lives outside the checkout |
+
+**Two proofs, and they are not the same one**, as everywhere else here: this drill is the
+operator's half; `testStrategyAttributedWorkPastBatchBoundary`, `testAttributedWorkWalkOutcome`,
+`testSurveyRefusesADegradedWalk`, `testResidueRefusesADegradedWalk` and
+`testRunReportsNameADegradedReading` in the hermetic suite are CI's.
+
+## 5j-ter. The direction warned before its date (`verify-expiry`)
+
+`verify-expiry` needs no seed, no fire, no issue number and **no network**: it builds a
+throwaway **git** strategy tree — git-backed for `verify-arrival`'s reason, since `landed[]`
+is a `git log --since` read — carrying five directions whose only differences are their dates
+and their work: one inside the window with work in flight, one with runway left, one past its
+date, one inside the window whose work is all in, and one a week out for the breaker row.
+
+**Its dates come from the run clock, never from literals.** This is the one drill whose whole
+subject is a date, so a fixture with hard-coded dates would rot the moment they passed.
+
+The failure it exists for is a direction silenced by its **own date, unwarned**. Every reading
+in the layer answers backwards — `late`, `overdue`, `dormant`, `arrived` — so a live, in-date,
+`on_course` direction one day from its `target_date` produced no reading and no question
+anywhere; the day after, `past_target_date` refused the proposal and the only signal was
+`direction-overdue`, asked in arrears. Measured on
+`an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask was written:
+`days_to_target: 2`, `pace: on_course`, `overdue: false`, `dormant: false`.
+
+The **deliberately broken seam** is `expiry_window_is_the_surveys_own`. It reads the same
+fixture through a **narrower** window and requires the reading to narrow with it. Wire the
+window to a fresh constant — the one shortcut the design exists to refuse, because a new number
+is one nobody can defend — and that row fails while every other row here stays green. Break it
+by replacing `$window_days` with `14` in the `expiring` block and this row reports
+*the window did not move the reading*.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `expiry_fixture` | no attributed work landed in the window | without it every direction reads `dormant` and every row below passes for the wrong reason |
+| `expiry_state_soon` | a direction inside the window does not read `expiring` | `survey-strategies.sh`'s `expiring` block, then `direction-state.sh`'s precedence |
+| `expiry_state_later` | a direction with runway left stopped reading `live` | the boundary is `0 <= days <= window`, not *has a date* |
+| `expiry_state_gone` | a direction past its date stopped reading `overdue` | `overdue` outranks `expiring`, and `expiring` is `false` past the date anyway |
+| `expiry_state_finished` | a quiescent direction inside the window does not read `arrived` | the precedence pair a severity ordering would invert — the two ask for **different acts** |
+| `expiry_window_is_the_surveys_own` | a narrower window does not narrow the reading | **the broken seam** — the window has become a constant |
+| `expiry_question_keys` | the step asks the wrong set of keys | `step-direction-health.sh`'s subject `select`; a key that drifts is a question asked twice or never |
+| `expiry_question_names_the_date` | the heading omits the days left or the date, or the act exceeds 25 words | a warning that does not say how long somebody has is not a warning (`workaholic:notify`'s body bound) |
+| `expiry_names_the_leaving` | the question does not name what the direction never reached | `direction-state.sh --with-leaving`; the step carries it and composes nothing |
+| `expiry_event` | the reading does not reach the root, or links no direction | the step's `event` phrase, which follows the reader's own precedence |
+| `expiry_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger — every existing gate applies unchanged |
+| `expiry_writes_no_direction` | the step or the reader can reach a strategy writer | the artifact keeps its three writers; a reading that a direction is about to expire is one step from a routine that re-dates it |
+| `expiry_fixtures_intact` | the seeded strategies area changed | both are pure reads |
+| `expiry_writes_nothing` | the drill changed the checkout | every fixture lives outside it |
+
+**Two proofs, and they are not the same one**, as everywhere else here: this drill is the
+operator's half; `testExpiringDirectionIsRead`, `testExpiringBoundary`,
+`testExpiringPrecedence`, `testExpiringCarriesTheLeaving`, `testExpiringQuestion` and
+`testExpiringGatesNothing` in the hermetic suite are CI's.
+
 ## 5j-bis. The standing rulings, drafted rather than asked (`verify-rulings`)
 
 `verify-rulings` needs no seed, no fire, no issue number and **no network**: it builds a
@@ -612,7 +736,7 @@ keeps `🔵 Proposed` or `🟡 Handoff` while the work is long merged. No other 
 | `reconcile_no_network` | `gh` resolves to anything but the drill's stub | the drill is reaching the network, so every row below it proves nothing about the offline contract |
 | `reconcile_merged_named` | the hand-merged unit is not a candidate, or loses its stems, its pull request or who merged it when | the reply's sentence is built from exactly those facts; a candidate that cannot name them cannot be posted without inventing one |
 | `reconcile_closed_is_its_own_state` | a pull request closed without merging reads `merged` | the two states get two shapes because they ask a reader for different things. **A tab is IFS whitespace**, so an empty `merged_at` used to collapse and shift `closed_at` into it — the jq sentinel is what keeps the distinction |
-| `reconcile_both_shapes_named` | the catalog stops naming either reply, or the template's copy diverges | the prompt is the ceiling: a shape the template does not name may not be posted, and a second wording is a drift to fix |
+| `reconcile_both_shapes_named` | the catalog stops naming either reply, or `/moderate`'s copy diverges | the command is the ceiling: a shape the command does not name may not be posted, and a second wording is a drift to fix |
 | `reconcile_thread_bar` | the stated bar misclassifies one of the four fixture threads | the bar is the whole narrowing — only `🔵`/`🟡` is stale-able, a `🟢`-ended thread and one this loop already reconciled are never touched, and no thread means nothing to correct |
 | `reconcile_two_queries` | the handed-back bound stops forbidding a channel-history read, or names a window | a window is a channel read wearing the step's name, and `workaholic:notify` forbids a full-channel read at any point |
 | `reconcile_case4_refused` | case 4's description root stops being refused by name | posting a root would announce a merge nobody was ever told about — `[Consent]`'s retired job |
@@ -655,13 +779,57 @@ the step, and a root with no event to carry the failure. This walks gate → ord
 | `checkin_failure_is_an_event` | a tick with candidates and none delivered names no reason, or supplies no event | `step-human-checkin.sh`'s delivery reading; `cap_spent` and `cap_unbounded` are the two states that earn an event |
 | `checkin_root_carries_it` | the root stays silent about a tick that reached nobody | `moderate/scripts/render-tick-post.sh` — the third gate beside the question gate and the digest, or the removed `human-checkin` skip |
 | `checkin_quiet_hour_silent` | a tick with no event posts anyway | the guard that keeps the gate from becoming a status line: *a step with no event renders no line* |
+| `checkin_arrears_depth_and_age` | the arrears report no oldest day, or the wrong whole-day distance | `step-human-checkin.sh` — `held_oldest_day` is the **minimum** of the first-held day the drain ordering already derives, over the keys **still** held; `held_days` is civil-day arithmetic in `awk` against the tick's own day |
+| `checkin_held_names_its_refusal` | a held entry carries no refusal word, or a re-worded one | the per-candidate probe of `ask-question.sh`. The word is the gate's own, **verbatim** — a normalised one sends a reader to a string no script printed |
+| `checkin_outlived_hold_is_an_event` | an `all_held` tick past the working-day boundary says nothing | `step-human-checkin.sh`'s `all_held` arm. This is the measured failure the mission exists to close: 24 consecutive ticks, 13 questions, a silent root |
+| `checkin_hold_inside_the_window_is_silent` | a hold **inside** the boundary earns a line | the boundary composition. A designed hold is not news, and a line every tick is what `📦 Release Preparation` was retired for |
+| `checkin_degraded_arrears_are_null` | a degraded read reports `0` rather than `null`, or supplies an event | `unattributed-work.sh`'s rule applied here: a zero reads as *this just started* for a reading nobody made |
+| `checkin_unchanged_reading_renders_once` | two consecutive ticks with the same reading render two lines | `render-tick-post.sh`'s diff rule, or a summary that stopped being a function of the reading alone (a clock, a timestamp, an age in the **summary**) |
 | `checkin_breaker` | an unbounded day count still asks the held question | **the deliberately broken row, and the one to look at first on a red drill.** It is written against the **count**, not the gate's output shape, so a refactor that keeps the shape and loses the bound still fires it |
+| `checkin_boundary_breaker` | a boundary wired at a fresh constant still earns the outlived line | **the second deliberately broken row.** Written against the **behaviour**: it changes no field and no key, so a refactor that keeps the JSON shape and loses the composition still fires it |
 | `checkin_writes_nothing` | the drill changed the checkout | every fixture lives outside it, and the drill posts nothing anywhere |
 
 **Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
 suite's `testCheckInDayCapIsToday`, `testCheckInHeldOrder` and `testCheckInDeliveryReading`, plus
 the root-gate cases inside `testModerateTickPost`, are what **CI** enforces on every change. The
 drill ships to no other agent and CI never runs it.
+
+## 5t. The tick's findings, turned into work (does the loop drive its own debt?)
+
+`verify-findings-to-work` needs no seed, no fire, no issue number and **no network**. Everything
+is a throwaway git repository under the OS temp dir with `gh` stubbed: the stub serves the issues
+listing, applies `--jq` with real jq so the reader's own parse is what is exercised, records the
+one POST the filing makes, and **exits non-zero on any other call** — a drill that silently
+reached the network would prove nothing about an offline container.
+
+**Why the path and not the parts.** The gap this closes lived entirely in the seams: every part
+was internally consistent while a finding had two destinations and neither became work. The drill
+walks classification → brake → filing → dedup → suppression over one fixture, with one repairable
+finding carrying an `event`, one repairable finding that **degraded**, one repairable step that
+found nothing, and one `needs_ruling` step shouting as loudly as it can.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `findings_classified` | a repairable finding is not a candidate, or a step that found nothing is | `moderate/reference/workflow.md`'s classification table, and `step-file-findings.sh`'s read of it |
+| `findings_ruling_never_filed` | a `needs_ruling` finding reaches the filing act | **the mission's whole safety property.** The table's default is `needs_ruling`, so this fails only if a row moved or the filter inverted |
+| `findings_brake_holds` | a second finding is filed while one issue is open | `moderate/scripts/list-finding-issues.sh` (`any_open`) and the step's brake |
+| `findings_brake_releases` | closing the issue does not release the brake, or the dedup forgets the finding it carried | `held` projects from the **open** issues, `filed_ids` from open **and** closed — two questions, one walk |
+| `findings_brake_unreadable` | an unreadable ledger files anyway, or reports `brake_held` | a brake that cannot be read is not a brake, and *in flight* versus *could not look* are different facts |
+| `findings_marker_written` | the filed body carries no `finding:` line | `propose/scripts/file-inbound-ask.sh` — still the one writer of a marker. Without it the next tick re-files every hour |
+| `findings_direction_carried` | the body carries no `feedback:` line or the wrong `source:` | `feedback/scripts/ask-feedback-line.sh` stays the one writer of that line; `source: moderate` is what the finding route means |
+| `findings_second_tick_files_nothing` | the same finding is offered again | the dedup is **structural**: the issues are the memory and no cursor exists to forget |
+| `findings_question_held` | a filing silences a step it does not name, or silences nothing | `moderate/scripts/finding-suppression.sh` — keyed on the **subject**. Suppressing on `any_open` silences the whole question queue behind one filing |
+| `findings_unreadable_holds_nothing` | an unreadable suppression read suppresses something | an over-eager question is better than a silently dropped one |
+| `findings_reported_three_ways` | filed, held and left collapse into one reading | `step-file-findings.sh`'s `held`, `already_filed` and `left` |
+| `findings_event_empty` | the step supplies an event | the agent files **after** `run.sh` returns, so an event here announces an act not taken |
+| `findings_breaker` | widening the classification to every finding changes nothing | **the deliberately broken row, and the one to look at first on a red drill.** It is written against the **behaviour** — a `needs_ruling` finding reaching the filer — not against a return shape, so a refactor that keeps the shape and loses the bound still fires it. The whole plugin tree is copied, because the step reaches its ledger which reaches `gather/scripts/gh-rest.sh` |
+| `findings_writes_nothing` | the drill changed the checkout | every fixture lives outside it |
+| `findings_touches_no_claim` | a branch, worktree or publish tree appeared | the tick creates none of them; its only outward act is one issue |
+
+**Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
+suite's `testFindingToWorkGap`, `testFindingClassification`, `testFileFindingsStep`,
+`testFindingBrakeAndDedup` and `testFindingSuppression` are what **CI** enforces on every change.
+The drill ships to no other agent and CI never runs it.
 
 ## 6. Abort playbook
 
@@ -738,6 +906,19 @@ claim is answered from the tree (its tickets are archived on the base), so it ne
 transport at all; a mission claim stamps only `mission.md`, which driving never archives, so
 only a merged pull request can answer — and that is the one network read, stubbed here.
 
+**And the reading is not the point — the claim is** (2026-09-01, ticket `20260826144228`).
+The four readings above prove the oracle can *see* a superseded claim; not one of them proves
+the work it frees can be *taken*. `plan-units.sh` resurveys that work and `workaholic:drive`
+§1 says in as many words *a fresh claim drives them, because the old branch cannot land* — so
+a drill stopping at the reading passes while the unit is reachable by no path at all. Measured
+2026-08-27: mission `make-workaholify-converge-the-account-s-routines` was offered and named
+in `resurveyed[]` while a fresh claim answered `already_claimed` and `claim.sh resume`
+answered `superseded`, both refusals by design. `merged_claim_live_refuses` and
+`merged_claim_fresh_claim` differ in **one fact** — whether the stubbed lookup answers
+`merged` — with the fixture, the identity and the collapsed heartbeat window held constant, so
+what the breaker breaks is the behaviour rather than a return shape. A `claim.sh` that had
+lost the reason test entirely would pass the second row and fail the first.
+
 | Row | Fails when | Read |
 | --- | ---------- | ---- |
 | `merged_claim_fixture` | the claim branch is not still ahead of the base | the fixture is not a squash merge; every row below it would prove nothing |
@@ -746,6 +927,9 @@ only a merged pull request can answer — and that is the one network read, stub
 | `merged_claim_mission` | a merged pull request does not make a mission claim `superseded` | `claim-merged.sh` and the non-ticket branch of `claims_superseded` — the behaviour this mission exists for |
 | `merged_claim_unanswerable` | a refused lookup changed the verdict | the degradation contract: a wrong `merged` releases work still in flight, a wrong `in flight` only delays a claim, so an unread answer must change nothing |
 | `merged_claim_named` | the claim the lookup could not answer for is not named with its reason | `list-claims.sh`'s `merged_lookup_unanswered`, fed by `claims_note_unanswered` |
+| `merged_claim_live_refuses` (breaker) | a fresh claim over a **live** claim is not refused `already_claimed` | `claim.sh` §3's refusal loop lost the reason test and now steps over every row, not only the one proved empty |
+| `merged_claim_fresh_claim` | a fresh claim over a **superseded** claim is refused | `claim.sh` §3's `superseded` skip — the claim half of the 2026-08-26 change; without it the resurveyed work is reachable by no path |
+| `merged_claim_branch_untouched` | the superseded branch is gone from the origin | something acted on a verdict that is only ever *reported*: the fresh claim frees the work, never the branch |
 | `merged_claim_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout; the oracle is a pure read |
 
 **Two proofs, and they are not the same one** — the same split as §5h. This drill is the
@@ -786,6 +970,44 @@ walks the happy path would have passed throughout the days those four pull reque
 and would have converted an unproven claim into a believed one. Breaking any seam this mission
 touched turns `close_refused_is_undelivered` and `close_asks_about_the_refused_one` red together
 — verified by removing the `merge_refused*` branch from `lib/claims.sh` and watching both fail.
+
+## 5k-bis. The catch-up (does a unit the base moved under come back?)
+
+`verify-catch-up` needs no seed, no fire, no issue number and **no network**: a local bare origin
+and a `gh` stubbed on `PATH`. It drills the act that repairs the shape measured on 2026-08-29 —
+4 of 7 open pull requests conflicting with `main`, three of them units recorded
+`report_undelivered` two days earlier, with 4 active missions and 10 queued tickets behind them.
+`retry-undelivered.sh` re-attempts the **merge**, which is the right act for a refused transport
+and no act at all for a base that has moved.
+
+**It drills a writer that pushes onto a claim branch**, which is exactly the act the claim
+protocol's standing rule refuses for a third party. What makes it safe is that the claim is
+**this identity's own**, that a live one is refused `claim_active`, and that the act is a
+**merge** rather than a history rewrite — and the drill's job is to show that nothing but those
+gets through.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `catch_up_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
+| `catch_up_fixture` | the reader does not answer `mechanical` and `content` over the two branches | the fixture is not the shape under test; every row below it would prove nothing |
+| `catch_up_offers_a_drained_claim` | `list-catchable-claims.sh` does not offer the `queue_drained` + `mechanical` unit | **the second deliberately broken seam** (2026-08-30), written against the behaviour: wire the candidate reader back at the delivery verdict alone — `report_undelivered` only, the pre-widening set — and `batch-drained` disappears from the offer while every other row stays green. Verified red, then reverted. Asserting a return shape would survive exactly that narrowing, which is why the assertion is on the **unit being named** |
+| `catch_up_offer_is_bounded` | a `content` conflict or a colleague's claim is offered | the reader offers only what the act may take. `content` is a person's and a foreign claim is untouchable at any age; neither may reach a writer that pushes |
+| `catch_up_degraded_reads_null` | a scan that could not be made yields an empty candidate list with a **zeroed** count | a healthy quiet run and a scan that could not reach the remote would otherwise be byte-identical, and the second has not found "nothing to catch up" — it has found nothing at all |
+| `catch_up_drained_caught_up` | a `queue_drained` unit still `mechanical` and unreviewed is not caught up and pushed | the widening's own subject: before 2026-08-30 no run would touch it, because `catch-up-claim.sh`'s only caller was the `undelivered[]` loop |
+| `catch_up_reviewed_refused` | a pull request carrying a submitted **human** review is caught up, or the branch tip moves | the one bound the widening added: an `undelivered` unit's pull request was refused by a transport and nobody is looking at it, while a `queue_drained` unit's may be one a person is mid-review on — and a push resets an approval. A **bot's** review is not a person's, which row 1's own pull request proves by being caught up with one |
+| `catch_up_mechanical_delivered` | a mechanical conflict is not merged, validated and pushed, or the manifest does not converge on the **higher** semver | `catch-up-claim.sh` over `catchup-main.sh --resolve-mechanical` — taking one side of a version collision wholesale silently drops the other side's edits, so both sides are raised to the higher version and merged normally |
+| `catch_up_content_refused` | a `content` conflict is not refused by its own word, or the branch tip moves | the contested case stays a person's; a refusal that writes anything is not a refusal |
+| `catch_up_scan_held_refused` | a `merge_not_attempted: <tier>` unit is caught up | the catch-up is **not a route around a gate**: a `hard`/`confirm` finding holding a pull request open is the gate working |
+| `catch_up_second_run_noop` | a branch that already contains the base does not report `already_current`, or a ref moves | idempotence, and the reason `already_current` is checked before liveness: reporting a no-op protects nothing |
+| `catch_up_blocked_asks_once` | the refused conflict does not reach its claim holder keyed once with the files named, or the **caught-up** unit also draws a question | `step-catchup-blocked.sh` — the split the mission rests on: *nobody has looked yet* and *the loop looked and only you can decide* tell somebody different things |
+| `catch_up_refuses_a_foreign_claim` | a colleague's claim branch tip **moves**, or the refusal is not named | **the deliberately broken seam**, written against the behaviour rather than a return shape. Verified by dropping `foreign_identity` from the verdict gate and neutering the `not_my_claim` comparison: the drill merged into `work-20260101-000004` and pushed it, failing exactly this row while the other eight stayed green — and restoring both turned it green again |
+| `catch_up_checkout_untouched` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**One fixture trap is worth naming**, because it silently turns every row into a different test:
+`.workaholic/stories/` holds only the previous unit's story, so checking `main` out removes the
+file and git prunes the empty directory. Without an explicit `mkdir -p` the redirect fails
+silently, the branch carries no story, and every claim reads `report_incomplete` rather than the
+drained state the rows are about.
 
 ## 5l. The retirement (does a claim proved empty leave the table?)
 
@@ -866,6 +1088,48 @@ and pretending otherwise would drill a fiction.
 | `ci_retirement_asked_once` | the same key is asked on a later tick | `ask-question.sh`'s asked-once ledger, exercised with `retire-blocked:<unit>` — unchanged by the narrowing, which touches only the candidate set |
 | `ci_retirement_breaker` | removing the re-proof changes nothing | **the deliberately broken seam.** The act with **both** halves of its re-proof removed must delete a live claim's branch. Written against the verdict gate alone this row did **not** break — `not_on_base` caught the live claim on its own — so the two guards are independent rather than one written twice, and the drill says so by needing both removed |
 | `ci_retirement_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+## 5l-quater. The act's effect (did what the loop did actually happen?)
+
+`verify-act-effect` needs no seed, no fire, no issue number and **no network**: a local bare
+origin, a `gh` stubbed on `PATH`, and a record served out of a control file so each row can put
+the turn in one state without rebuilding the fixture.
+
+**Every reading in this repository answered *what did I find*; none answered *did what I did
+happen*.** Measured 2026-08-29: `claim-retirement.yml` was green on every run while three
+proved-`superseded` claims stood on origin, and the tick log recorded, hour after hour,
+*"ci_turn: taken so CI could not take the delete either"* — an assertion about a second executor
+that nothing established. The turn now **records** what it attempted and each act's answer, and
+the reading answers from that record instead of from a run's existence.
+
+**The reported symptom and the measured one differ, and the drill is written against the
+reading.** The report assumed the question was suppressed; it was not — the step suppressed on
+`pending` and asked on `taken`, and what held the three units was the working-day hold, the gate
+working. What was wrong was the **sentence**, in the one durable audit trail the tick keeps.
+
+**The live cause was localized rather than assumed.** Under an Actions-style credential (`gh api
+user` refused, which is what a `GITHUB_TOKEN` installation token answers for `GET /user`), the
+two executors' candidate readers **agree** — both name all three units — while
+`delete-retired-claim-branch.sh` refuses `gh_unavailable` before its proof gate. The
+candidate-divergence cause is drilled beside it anyway: it is the one the report assumed, and a
+drill covering only the live cause would pass a repository where the other one is.
+
+| Row | Fails when | Read |
+| --- | ---------- | ---- |
+| `act_effect_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
+| `act_effect_unnamed_candidate` | a turn whose candidate reading named this unit nothing reads `taken` | the cause the report assumed. The reading carries the candidate reader's **own** reason through rather than inventing one |
+| `act_effect_refused_act` | a refused act does not read `refused:<its own word>` | the cause measured live here. `gh_unavailable` must reach the reading verbatim — a reader sent to a translated word is sent to a string no script printed |
+| `act_effect_never_taken_from_existence` | a completed run that recorded **nothing** reads `taken` | the measured failure itself: a reading that cannot be made must never be dressed as one that was |
+| `act_effect_record_names_the_reading` | the turn's candidate reading is not recorded, degraded one included | a turn that found nothing and a turn that found three and was refused are different facts; the first is the one the report assumed |
+| `act_effect_record_names_each_act` | a candidate's entry drops its unit, branch, `state` or `reason` | `record-ci-retirement-turn.sh` copies the act's words and owns no vocabulary |
+| `act_effect_record_bounded` | a truncated record does not say it truncated | the candidate set is unbounded in principle and GitHub caps annotations; a truncated record must never read as a short one |
+| `act_effect_workflow_records` | the workflow does not reach the recorder on every path | the degraded branch used to `exit 0` **before** recording — precisely the turn whose silence was measured |
+| `act_effect_one_reader_retirement` | the composition and the act's own source disagree | `act-effect.sh` owns the assembly and no act's vocabulary; it must be visibly unable to answer on its own |
+| `act_effect_one_reader_delivery` | the retry's recorded word is not carried verbatim, or an unattempted branch does not read `pending` | the delivery half is read off the branch story blob the claim scan already fetched — no network call, no second derivation |
+| `act_effect_changed_word_reasks` | an unchanged word re-asks, or a changed word does not | asked once per **(unit, refusal word)**. The gate is untouched: the narrowing lives in what the key is made of, so one mechanism cannot drift from itself |
+| `act_effect_event_names_the_units` | a blocked tick names no units, a tick whose acts took supplies an `event`, or the summary moves | the root's two guards, split: the empty event holds the healthy hour, the summary diff holds a standing block — which is why the summary carries no CI term |
+| `act_effect_breaker` | restoring the run-existence inference changes nothing | **the deliberately broken seam.** Answering `taken` from a completed run's existence must drop the question for a unit CI refused `gh_unavailable`. Written against the return shape this would pass a refactor that keeps the JSON and loses the reading, so it asserts the **damage** instead |
+| `act_effect_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
 
 ## 5l-bis. The revision (can the operator revise a live direction through the loop?)
 
@@ -1056,9 +1320,283 @@ own questions by rule.
 | `return_path_stamp_is_a_reaction` | the catalog stops naming the emoji exactly once, the template stops authorizing it, or a reply creeps back in | a reply into a thread the person is already reading is the hourly restatement this repository has retired posts for twice |
 | `return_path_stamp_not_load_bearing` | the recording depends on the stamp having landed | the answer is recorded and any issue filed **before** the stamp is attempted; `ack_failed` changes nothing else |
 | `return_path_breaker` | a step wired at the **channel** still passes the bound check | **the deliberately broken row, and the one to look at first on a red drill.** Wiring the read at the channel is the mistake that silently reintroduces the history read this design avoids; a drill that cannot catch it would convert an unproven claim into a believed one |
+| `return_path_outcome_pending_silent` | an answer whose outcome is not known yet yields a reply | *received* is not *acted on*: replying before the outcome is known tells somebody their answer was acted on when nobody knows |
+| `return_path_outcome_named` | a settled outcome does not reach the agent carrying the recorded words and the coordinate | the reply says what **the person actually wrote** and lands on a coordinate already in hand — a paraphrase, or a lookup, is a different post |
+| `return_path_outcome_bounded` | the handed-back bound stops forbidding a lookup, or admits a mention token | it closes a loop rather than demanding attention, exactly as `✅ 解消を確認` does |
+| `return_path_outcome_once` | a later tick would post the outcome reply again | the dedup is the `human-checkin-outcome-<slug>` ledger line **plus** the reading — never a cursor |
+| `return_path_outcome_shape_single_sourced` | the catalog stops naming `🧾 対応結果`, the template stops authorizing it, or it gains a mention | one shape, one home, and it is deliberately **not** the stamp's emoji: *received* and *acted on* are two events |
+| `return_path_outcome_changes_nothing` | the outcome half moves the question's state | it re-asks nothing, confirms nothing and merges nothing; the recording, the filing and the stamp all happened in earlier ticks |
+| `return_path_outcome_breaker` | a step keyed on the answer's **existence** rather than its outcome still stays silent over an unknown one | **the second deliberately broken row.** Written against the *behaviour*, so a refactor that keeps the return shape and loses the outcome gate still fires it |
 | `return_path_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout |
+
+**The outcome rows were added by widening this drill rather than staging a second one**
+(2026-08-31, mission `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). The
+fixture already reaches recording and filing, which is exactly what the outcome half needs, so
+the whole addition is **one filing line and one extra question** — *one fixture, two questions*.
+A near-identical second repository would have been a second thing to keep in step with the first.
 
 **Two proofs, and they are not the same one.** This drill is the **operator's**; the hermetic
 suite's `testAnswerReturnPath` and the catalog↔template drift pin inside
 `testModerateRoutineTemplate` are what **CI** enforces on every change. The drill ships to no
 other agent and CI never runs it.
+
+## 5r. The condition age (how long has this been standing?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-condition-age [--json]
+```
+
+Walks log → reader → bound → question → report for the age of a standing blocker (2026-08-30,
+mission `say-how-long-the-loop-has-been-stuck`). It needs **no seed, no fire, no issue number
+and no network**: it builds a throwaway tick log, drives the real ledger writer over it, and
+runs the one step that is fully local.
+
+**What it proves.** A key first named days ago reads that tick with a count above one; a key
+nobody has asked about is an ordinary absence carrying **no** `readable` field; a log that
+exists and cannot be read is named with **null** counts, never zeroed ones. A walk cut by
+`WORKAHOLIC_CONDITION_AGE_MAX_DAYS` reports a **floor** with real counts and no degradation,
+while an uncut one is byte-identical to an unbounded walk. `step-undrivable-units.sh` attaches
+the age with its **summary and its candidate keys byte-identical**, so no question is re-asked
+by the changed wording and the root renders no new line. And no gate, no driving survey and no
+proposing survey reaches the reader.
+
+**Why the ledger lines are written by the real writer.** `ask-question.sh --record-ask` is
+driven rather than hand-authored, so the drill cannot pass against a line shape the writer never
+produces — `verify-ci-retirement`'s measured lesson, where a fixture that configured for itself
+the one term production lacked stayed green while production was silent.
+
+**Why only one step runs end to end.** The other three age consumers read the claim oracle,
+which fetches; standing up a bare origin per step would drill the oracle rather than the age, so
+for those the drill asserts the **composition** and `scripts/test-workflow-scripts.mjs` carries
+the acting-call-site bans.
+
+**Its breaker** is written against the **behaviour**: the walk wired at a single tick, so every
+age must collapse to `1` — not merely return a different shape. That is the exact regression
+that would make an eleven-day blocker read as one that just started.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `age_reads_the_earliest_tick` | `condition-age.sh` or `log-read.sh` — the walk is not finding the ledger line the writer produced |
+| `age_absent_is_readable` | `condition-age.sh` — an absent key is being reported as a degradation |
+| `age_unreadable_is_named` | `condition-age.sh` — a read we could not make is rendering as one we did |
+| `age_bound_is_not_a_degradation` / `age_uncut_is_byte_identical` | `condition-age.sh`'s bound |
+| `age_rides_the_question` / `age_key_did_not_move` | `step-undrivable-units.sh` |
+| `age_stays_out_of_the_summary` / `age_summary_is_stable` | a step summary gained an age, which marks it changed hourly by construction |
+| `age_reaches_every_consumer` | one of the four question steps stopped composing the reader |
+| `age_gates_nothing` | a gate or a survey now reads the age — a judgement has become a gate |
+| `age_breaker` | the drill can no longer fail, so every row above proves nothing |
+
+## 5s. The directed notification (does the question reach a person?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-directed-notification [--json]
+```
+
+Walks transport → rule → call site → template for the two posts whose whole purpose is to
+**reach** somebody (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). It
+needs **no seed, no fire, no issue number, no credential and no network**: `curl` is stubbed on
+`PATH`, so what is asserted is the **bytes that would have gone out**.
+
+**What it proves.** The tokened transport carries a coordinate verbatim, so a bot can reply
+*into* the thread the connector resolved; a post with no flag is byte-identical to the
+pre-repair builder's, compared against that builder **re-run**, never against a literal typed
+into the drill; a malformed coordinate is refused `bad_thread_ts` with **nothing posted**,
+because a root sent silently where a reply was asked for is invisible from the caller's side;
+and with no bot token the directed post is a reported `no_token` no-op at exit 0 — the
+connector fallback, never a drop. The rule **enumerates** its directed set, names both shapes
+and makes extending it a deliberate edit; both call sites and both routine templates state the
+same rule, the addressee and what an unresolved address does.
+
+**The gate's immunity is proved by execution, not by reading a diff.** The same key on the same
+fixture must answer **byte-identically** with a bot token and without one, and `ask-question.sh`
+must name no transport at all — the structural half, so a future gate cannot start branching on
+a token while still answering identically today.
+
+**What no drill can prove** is that a human's phone buzzed. That half is the mission's handoff
+ticket, deliberately separate so the mechanical proof is not held hostage to a credential.
+
+**Its breaker is in two halves, each written against the behaviour.** One restores the
+pre-repair **transport** (`--thread-ts` removed, so the bot can only ever post a root — and the
+broken copy still posts successfully, so the row catches a regression rather than a crash); one
+restores the pre-repair **rule** (the enumerated directed set removed, so availability alone
+decides the carrier). Either alone would leave the other half unproved.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `directed_reply_carries_the_thread` | `notify-slack.sh` — the bot can no longer reply into a resolved thread |
+| `undirected_post_is_unchanged` | `notify-slack.sh` — every caller that passes no flag has silently changed what it sends |
+| `malformed_coordinate_posts_nothing` | `notify-slack.sh` — a bad coordinate is being dropped into a root instead of refused |
+| `no_token_falls_back_and_is_reported` | `notify-slack.sh` — a missing token stopped being a reported no-op |
+| `rule_enumerates_the_directed_set` / `rule_keeps_every_other_shape_on_the_connector` | `notify/SKILL.md` — the carrier became a post-time judgement |
+| `call_sites_state_the_same_rule` | `moderate/reference/workflow.md` or `drive/reference/routing.md` — two consumers reading one rule differently |
+| `templates_name_shape_and_carrier` | `/moderate` or `/implement` — the command is the ceiling, so a shape it does not name cannot be posted (the shapes lived in the routine templates until 2026-09-01) |
+| `gate_is_transport_blind` / `gate_never_reads_the_transport` | `ask-question.sh` — which questions are asked started depending on which surface would carry them |
+| `directed_notification_breaker_transport` / `directed_notification_breaker_rule` | the drill can no longer fail, so every row above proves nothing |
+
+## 5t. The stranded publication (does the loop repair what a generator can settle?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-stranded-publication [--json]
+```
+
+Walks reader → act → delivery → re-run → question for a **publish-tree publication** the loop
+opened and could not merge (2026-08-31, mission
+`repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`). It needs **no seed, no
+issue number, no credential and no network**: the origin is a bare local repository and the
+GitHub transport is a stub on `PATH`, so the fixture is a real collision on a real generated
+index rather than a shape that resembles one.
+
+**What it proves.** A publication — a `work-*` branch with **no claim commit**, which is exactly
+what `publish-tree-pr.sh` pushes — is read at all, with each of the three classes derived through
+the one derivation; a collision only a person can settle is refused by its own word with its
+branch **byte-identical**; a collision a generator settles is caught up, **regenerated so both
+sides' records survive**, pushed and delivered with no person; **a publication that collides with
+nothing is delivered with no catch-up at all** — nothing merged, regenerated, validated or
+pushed, and no ref written before the merge; no path leaves a worktree behind; a re-run moves no
+ref, and a re-run over the *delivered* publication refuses by name because the merge closed its
+pull request; and the content one reaches a person as exactly one keyed question.
+
+**Its two breakers both run before anything is settled**, deliberately: afterwards the settleable
+branch contains the base and the delivered one is closed, so there is nothing left to misclassify
+or refuse. The first strips the generated-region proof out of
+`ship/scripts/lib/conflict-class.sh` and asserts the settleable collision then reads `content` —
+reported rather than repaired. The second (2026-09-01, mission
+`deliver-a-stranded-publication-that-needs-nothing-but-a-merge`) narrows the act's class gate back
+to `mechanical` alone and asserts the clean publication is then refused `not_mechanical:clean`
+with nothing attempted — five green publications read, named and delivered by nothing. Each is the
+measured incident reproduced on demand, and each runs against its **own** broken copy of the
+skills tree so neither confounds what the other asserts.
+
+**What this drill does not prove** is that the consuming repository's own incident is gone. That
+repository may be on a different plugin version; this exercises this checkout's scripts only.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `stranded_reader_sees_a_publication` | `list-stranded-publications.sh` — a publication is invisible again, or its class is no longer the one derivation's |
+| `stranded_content_is_refused` | `settle-stranded-publication.sh` — the act is resolving a collision only a person may, or it moved a branch it refused |
+| `stranded_mechanical_is_settled` | `settle-stranded-publication.sh` or `catchup-main.sh` — the repair stopped firing, or the regeneration stopped re-deriving the index from the merged source |
+| `stranded_leaves_no_worktree` | `settle-stranded-publication.sh` — the teardown stopped running |
+| `stranded_rerun_is_a_noop` | `settle-stranded-publication.sh` — the act is no longer idempotent |
+| `stranded_clean_is_settled` | `settle-stranded-publication.sh` — the class gate narrowed back to `mechanical`, or the `clean` path started taking a catch-up it has nothing to do |
+| `stranded_clean_rerun_is_a_noop` | `settle-stranded-publication.sh` or `list-stranded-publications.sh` — a delivered publication is being acted on a second time, or the reader started naming a pull request nobody has open |
+| `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
+| `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
+
+## 9. The drill register
+
+**One table, three columns, one reader** (2026-08-29, mission
+`run-the-loop-s-own-proofs-on-every-turn`). Every question the drill set is asked about
+itself is answered here: *can this drill run with no server?* (`Kind`), *can this drill
+fail?* (`Breaker`), *which earlier turn does a failure belong to?* (`Mission`). It is read
+by exactly one script —
+`plugins/workaholic/skills/drive/scripts/drill-register.sh` — which `verify-all`, the
+`/moderate` tick's `drill-health` step and the archive gate all compose rather than
+re-parse. A second parser is how two readings of one fact start to disagree.
+
+**`Kind` was measured, not read off a header.** Every `verify-*` command the dispatcher
+names was run on 2026-08-29 with **no `gh` on `PATH`, no `qfs`, no `ANTHROPIC_API_KEY` and
+no proxy** (so no outbound HTTPS), twice, and classified from its **exit code and reason
+word** rather than from what its own comment claims. The drill file's header said the whole
+of it *assumes the server's full `gh` and `qfs`*; that turned out to be true of two rows out
+of thirty. The three kinds are distinguished by name and **`reads_checkout` is never
+recorded as `hermetic`**:
+
+| Kind | What it means | What `verify-all` does with it |
+| ---- | ------------- | ------------------------------ |
+| `hermetic` | builds its own throwaway fixture and exits 0 with no network, no `gh` and no credential | runs it |
+| `reads_checkout` | needs no network either, but its verdict depends on **this working tree** (its deployment targets, its strategies, its commit range) rather than on a fixture it built | runs it |
+| `needs_server` | reads the real issue and the real remote, and takes an issue number no fixture can mint | **`skipped:needs_server`**, never invoked |
+
+**`Breaker` is recorded here for a person and derived by the machine.** A breaker row
+asserts that a *deliberately broken copy* of the seam fails; the machine finds them by the
+`bearing: "breaker"` field the rows themselves carry, never by this column. A drill with no
+breaker is **`unproved`** — a gap in coverage rather than a broken mechanism — and
+`verify-all` counts it separately, outside the passing total.
+
+**`Mission` is resolved, never invented.** Each row was resolved by `git log -S
+'cmd_verify_<x>()' -- scripts/e2e/loop-drill.sh` → the adding commit → the tickets that
+commit's branch archived → their `mission:` relation, read through
+`mission/scripts/read-relation.sh`. Two rows are hand-corrected with their evidence because
+a **rename** defeats that derivation (`verify-propose` → `verify-specificate` and
+`verify-housekeep` → `verify-moderate`, 2026-08-19), and one is left unresolved on purpose
+rather than guessed. **No artifact gained a field**: the slug lives here and nowhere else.
+
+| Drill | Kind | Breaker | Mission |
+| ----- | ---- | ------- | ------- |
+| `verify-specificate` | `needs_server` | no | `make-the-propose-implement-loop-drillable-on-demand` |
+| `verify-implement` | `needs_server` | no | `make-the-propose-implement-loop-drillable-on-demand` |
+| `verify-plan` | `reads_checkout` | no | `draft-deployment-plans-in-the-release-note-before-deploying` |
+| `verify-status` | `reads_checkout` | no | `split-routine-setup-into-developer-and-repository-scopes` |
+| `verify-cadence` | `reads_checkout` | no | `correct-the-release-note-automation-to-its-intended-design` |
+| `verify-planner` | `reads_checkout` | no | `make-the-draft-release-note-an-agent-s-release-plan` |
+| `verify-standup` | `reads_checkout` | no | `add-the-standup-daily-per-strategy-summary` |
+| `verify-moderate` | `reads_checkout` | no | `add-the-housekeep-hourly-operations-routine` |
+| `verify-propose` | `hermetic` | no | — |
+| `verify-direction-health` | `hermetic` | no | `say-when-the-loop-has-run-out-of-direction` |
+| `verify-arrival` | `hermetic` | yes | `say-when-a-direction-has-arrived` |
+| `verify-residue` | `hermetic` | yes | `say-what-the-direction-could-not-see-before-calling-it-arrived` |
+| `verify-corpus-boundary` | `hermetic` | yes | `keep-the-closing-link-readable-as-the-corpus-grows` |
+| `verify-expiry` | `hermetic` | yes | `warn-a-direction-before-its-date-silences-the-loop` |
+| `verify-rulings` | `hermetic` | yes | `put-the-loop-s-standing-rulings-on-one-pull-request` |
+| `verify-succession` | `hermetic` | yes | `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop` |
+| `verify-revision` | `hermetic` | yes | `let-the-operator-revise-a-live-direction-through-the-loop` |
+| `verify-merged-claim` | `hermetic` | yes | `tell-a-merged-claim-from-a-live-one-at-both-grains` |
+| `verify-identity-handoff` | `hermetic` | yes | `drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is` |
+| `verify-close` | `hermetic` | yes | `close-the-units-the-loop-already-finished` |
+| `verify-catch-up` | `hermetic` | yes | `land-the-loop-s-own-work-when-the-base-moves-under-it` |
+| `verify-retire` | `hermetic` | yes | `deliver-and-retire-what-the-loop-already-proved-finished` |
+| `verify-ci-retirement` | `hermetic` | yes | `finish-a-proved-retirement-where-the-write-is-permitted` |
+| `verify-delivery-retry` | `hermetic` | yes | `deliver-and-retire-what-the-loop-already-proved-finished` |
+| `verify-handoff-question` | `hermetic` | yes | `ask-for-the-one-act-a-declared-handoff-is-waiting-on` |
+| `verify-base-health` | `hermetic` | yes | `read-whether-the-base-survived-what-the-loop-merged` |
+| `verify-return-path` | `hermetic` | yes | `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work` |
+| `verify-reconcile` | `hermetic` | yes | `reconcile-a-stale-thread-with-the-unit-s-real-state` |
+| `verify-log-branch` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |
+| `verify-checkin-delivery` | `hermetic` | yes | `deliver-what-the-loop-already-knows-to-the-person-who-can-act` |
+| `verify-findings-to-work` | `hermetic` | yes | `let-the-tick-s-own-findings-become-the-loop-s-work` |
+| `verify-act-effect` | `hermetic` | yes | `read-back-whether-the-loop-s-own-act-took-effect` |
+| `verify-operator-pulls` | `hermetic` | yes | `follow-the-pull-requests-the-loop-opens-for-a-person` |
+| `verify-stage` | `hermetic` | yes | `make-a-direction-s-lifecycle-a-declared-stage` |
+| `verify-condition-age` | `hermetic` | yes | `say-how-long-the-loop-has-been-stuck` |
+| `verify-claim-race` | `hermetic` | yes | `stop-two-runs-from-claiming-and-driving-one-unit` |
+| `verify-directed-notification` | `hermetic` | yes | `notify-the-person-a-directed-question-addresses` |
+| `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
+| `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
+| `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
+| `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
+
+### The evidence behind the classification
+
+Measured 2026-08-29 over `bb9196c6`, twice, with the environment named above. **No row was
+unstable across the two runs.** Every row not named below exited `0` against its own
+throwaway fixture and is `hermetic`.
+
+- `verify-specificate` / `verify-implement` — exit `2` (`usage`): each takes an issue number
+  that only `seed` can mint against the real remote. **`needs_server`**, and the only two
+  rows for which the drill file's original header claim still holds.
+- `verify-plan`, `verify-status`, `verify-cadence`, `verify-planner`, `verify-standup`,
+  `verify-moderate` — exit `0` with no network, but each reads **this checkout**: its
+  declared deployment targets, its strategies, its commit range against `origin/main`. They
+  pass offline and their verdict is a fact about the tree they were run in, so they are
+  `reads_checkout` rather than `hermetic`. `verify-status` reports `refs: stale` offline and
+  passes; `verify-cadence` reports `gh_unavailable` and passes, which is the row asserting
+  that an unreachable transport is a named refusal rather than a silent write.
+- `verify-planner` — exited **`1`** on the first measurement, on the unmodified tree, and
+  had done so since the row shipped: the drill's own stub planner was written by a `printf`
+  of an escaped one-liner that put the awk program inside double quotes, so awk answered
+  `runaway string constant` and no plan was ever authored. `planner_authors` and
+  `planner_arranges` were `false` on every run nobody made. The stub is now a quoted
+  heredoc, which cannot regress the same way, and the row passes. **This is the mission's
+  own premise measured on its first day**: a drill nothing runs is a drill nothing believes.
+
+### Two rows are unresolved, and both say why
+
+- `verify-propose` — added by `0aa4cd79` (*Drill the brake and record the thirteenth
+  round*, 2026-08-21), a hand-typed commit on a branch that archived no ticket, so there is
+  no `mission:` relation to read. Recorded as unresolved rather than attributed to the
+  mission that happened to be in flight that day; `drill-register.sh` answers
+  `mission_unresolved` for it and every consumer names that word.
+- `verify-moderate` — the same commit renamed `verify-housekeep`, whose own origin is the
+  mission that shipped the maintenance tick. Hand-corrected to
+  `add-the-housekeep-hourly-operations-routine` with that evidence, because the derivation
+  stops at the rename.

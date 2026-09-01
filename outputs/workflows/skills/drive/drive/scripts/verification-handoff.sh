@@ -28,6 +28,31 @@
 # effective-policy.sh: the unit is one merge. Half a pull request cannot be handed
 # to a person while the other half merges.
 #
+# AND A MISSION'S MEMBERS ARE ITS TICKETS, NOT JUST ITS mission.md (2026-09-01, ticket
+# `20260826135100`). `mission` mode read the mission file and nothing else, so the rule
+# above could not fire for the artifact that most often carries the declaration — the
+# ticket. MEASURED while driving `deploy-the-docs-site-on-merge-to-main`, verbatim:
+# `verification-handoff.sh mission <slug>` answered `handoff: false` with `members` holding
+# the mission alone, while `… tickets <the same mission's three archived tickets>` answered
+# `handoff: true` naming the Cloudflare account nobody here holds. The consequence is the one
+# this axis exists to prevent: an `auto` mission whose ticket declared work nobody can verify
+# here would merge unattended. That run escaped it only because the mission's `merge_policy`
+# was absent, and because the driving session read the axis a second time by hand.
+#
+# THE MEMBER SET IS PREFILTERED BY TEXT AND DECIDED BY THE ONE READER. The relation is
+# many-valued and `mission/scripts/read-relation.sh` is its only parser (CLAUDE.md, *Mission
+# rolling*), so the expansion asks that script about each candidate rather than growing a
+# second parser. `grep -rlF` over `tickets/` supplies the candidates — a text search that
+# decides nothing — because this runs per unit AT ROUTE TIME and a whole-archive walk is what
+# the ticket's Considerations refuse by name: 1202 archived tickets here, one `awk` each.
+#
+# BOTH AREAS, BECAUSE OF WHEN IT IS READ. A unit reaches the route step with its tickets
+# already ARCHIVED, which is exactly when this answer decides a merge; reading `todo/` alone
+# would answer `false` for every unit that got as far as being routed.
+#
+# THE MISSION FILE IS STILL CLASSIFIED FIRST, so a mission-level declaration keeps winning and
+# the pre-2026-09-01 behaviour is a strict subset of this one.
+#
 # THIS SCRIPT ANSWERS "CAN ITS VERIFICATION RUN HERE", NEVER "MAY IT MERGE".
 # effective-policy.sh answers the merge-policy axis and this one answers the
 # verification axis; they are read together at route time and deliberately not
@@ -73,6 +98,49 @@ fm_field() {
     ' "$1" 2>/dev/null || true
 }
 
+# A HANDOFF THE TICKET DID NOT HAVE TO DECLARE, BECAUSE THE CONTAINER ALREADY KNOWS
+# (2026-09-01, issue #793). `verification_handoff:` names what an unattended run cannot VERIFY;
+# this names what it cannot DO — the same class one step earlier, and it was fatal in a way the
+# declared one is not, because nothing reported it.
+#
+# MEASURED on a consuming repository, 2026-08-31: every `[Implement]` run from 13:37Z onward read
+# `requires_action` — frozen, not idle — each one ending at the same line:
+#
+#   permission prompt Edit: Claude requested permissions to edit
+#     …/.worktrees/batch-20260831094838/.claude/hooks/session-start.sh
+#     which is a sensitive file.
+#
+# Claude Code classifies `.claude/**` as sensitive and asks a human before editing it, and an
+# unattended container has no human. **Seven runs, five hours, nothing landed** — while `/propose`
+# and `/specificate`, which only read and open issues, kept producing proposals every hour. The
+# freeze was SILENT: no Slack post, no finding, no `needs_agent`; `stalled-units` counted the unit
+# as healthy because the resume beats the heartbeat before the edit, and `catchup-blocked` read 0.
+# The operator found it by asking why proposals were piling up.
+#
+# THE FIELD ALREADY ROUTES THIS CORRECTLY, which is why it is reused rather than duplicated: the
+# unit takes the `handoff` route, its pull request opens and stays open, the claim stays standing,
+# the finish line is `🟡 Handoff` and a person is asked. Nothing about that route changes.
+#
+# DERIVED, NOT DECLARED, AND DELIBERATELY SO. A declaration would only ever cover tickets written
+# after this change; the ticket that froze the loop was already in `todo/`, and so is every other
+# one like it in every consuming repository. A DECLARED value always wins — an author who named a
+# different reason is not overridden by this.
+#
+# THE TEST IS SYNTACTIC AND NARROW: a `## Key Files` entry naming `.claude/`. Prose elsewhere in
+# the ticket is not read, because a ticket that MENTIONS `.claude/` while editing something else
+# is common and stopping it would be worse than the defect. A repository that widens what an
+# unattended agent may edit (a `permissions.allow` entry) is making its own decision and is not a
+# substitute for the loop knowing — this reads the ticket, not the permission.
+derived_handoff() {
+    _dh_f="$1"
+    awk '
+        /^##[ \t]/ { inside = ($0 ~ /^##[ \t]+Key Files/) ; next }
+        inside && /\.claude\// { found = 1 }
+        END { exit found ? 0 : 1 }
+    ' "$_dh_f" 2>/dev/null \
+        && printf 'editing .claude/ needs a person: Claude Code classifies it as sensitive and an unattended run has no one to answer the prompt'
+}
+
 MEMBERS=""
 sep=""
 MISSING=""
@@ -106,7 +174,33 @@ classify() {
         consider "$_id" ""
         return 0
     fi
-    consider "$_id" "$(fm_field "$_f" verification_handoff)"
+    _declared=$(fm_field "$_f" verification_handoff)
+    if [ -n "$_declared" ]; then
+        consider "$_id" "$_declared"
+        return 0
+    fi
+    consider "$_id" "$(derived_handoff "$_f")"
+}
+
+# Every ticket whose `mission:` relation names this slug, in `todo/` and under
+# `archive/<branch>/`. One `grep` narrows the candidates; `read-relation.sh` decides each one.
+mission_member_tickets() {
+    _mmt_root="$1"
+    _mmt_slug="$2"
+    _mmt_dirs=""
+    for _mmt_d in "${_mmt_root}/tickets/todo" "${_mmt_root}/tickets/archive"; do
+        [ -d "$_mmt_d" ] && _mmt_dirs="${_mmt_dirs} ${_mmt_d}"
+    done
+    [ -n "$_mmt_dirs" ] || return 0
+    # shellcheck disable=SC2086
+    grep -rlF --include='*.md' -- "$_mmt_slug" $_mmt_dirs 2>/dev/null | sort | while IFS= read -r _mmt_f
+    do
+        [ -n "$_mmt_f" ] || continue
+        if sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$_mmt_f" 2>/dev/null \
+            | grep -qxF -- "$_mmt_slug"; then
+            printf '%s\n' "$_mmt_f"
+        fi
+    done
 }
 
 case "$KIND" in
@@ -119,6 +213,22 @@ case "$KIND" in
             */mission.md) UNIT=$(basename "$(dirname "$FILE")") ;;
         esac
         classify "$FILE" "$UNIT"
+        # `classify` sets globals, so the members are collected first and iterated in this
+        # shell — a `while read` fed by a pipeline would classify inside a subshell and lose
+        # every declaration it found.
+        MEMBER_TICKETS=$(mission_member_tickets "$ROOT" "$UNIT")
+        if [ -n "$MEMBER_TICKETS" ]; then
+            OLDIFS=$IFS
+            IFS='
+'
+            for m in $MEMBER_TICKETS; do
+                IFS=$OLDIFS
+                classify "$m" "$m"
+                IFS='
+'
+            done
+            IFS=$OLDIFS
+        fi
         ;;
     tickets)
         # A batch's unit id is minted by claim.sh, not here -- like effective-policy.sh,

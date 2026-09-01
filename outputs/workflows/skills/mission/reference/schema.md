@@ -33,6 +33,8 @@ gate_assert:            # one line: what must hold
 ---
 ```
 
+**There is no `strategy:` key, and the direction is read rather than stored** (2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). *Which direction does this mission serve* is answered by `strategy/scripts/mission-strategy.sh <slug>` — the inverse of `attributed-work.sh`'s citation walk over `strategy.feedback[] ∩ artifact.feedback[]` — and rendered by the surfaces where a person meets a mission: the bare `/mission` roadmap, the Mission Position Report ([`../SKILL.md`](../SKILL.md)) and `/standup`'s per-strategy digest. The frontmatter key is **not** the answer and is not to be re-added: it was retired with the strategy layer on 2026-07-28, stayed retired when the artifact returned on 2026-08-13, and a legacy key in an old mission is tolerated history read by nothing ([`../SKILL.md`](../SKILL.md), *The strategy layer: retired, then redefined*). Two reasons it is the wrong home, both still standing — a mission's owner is on the mission and a strategy's owner is on the strategy, so the relation drags an ownership hop behind it; and the citation already runs one way (strategy → feedback), so a field on the mission would be a second, hand-maintained copy of a derived fact, wrong the moment a strategy's `feedback:` line moves. The reading is **transitive and lossy** (`exhaustive: false`): a mission no direction claims answers *no strategy*, which is an ordinary answer, and a walk that could not complete says so rather than answering either way. An operator who wants the field anyway is reversing a standing ruling, and that belongs in a new ask naming the retirement it reverses.
+
 ### Quality gate — optional, and normally empty
 
 **The mission's substance is `## Experience` plus the ticket plan, not these fields.** `gate_*` is an *optional* declaration for the rare mission whose outcome has a stable, objective check that is knowable at kickoff. **Empty is the normal case, not a defect**, and nothing treats an absent gate as an error.
@@ -73,11 +75,11 @@ Read a mission's owner(s) **only** through `gather/scripts/owners.sh` — never 
 
 Prints one owner per line; **empty output means unowned** — unclaimed work, surfaced to everyone as claimable. A mission may be **co-owned**; "mine" means the caller is **among** the owners, not the sole one.
 
-**Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/drive`'s survey all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `gather/scripts/owners.sh`, so the gate is defined once.
+**Not somebody else's, not exactly mine.** `summary.sh`, `list.sh`'s `relation`, and `/drive`'s survey all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All three read through `gather/scripts/owners.sh`, so the gate is defined once.
 
 **Claiming a mission = a one-line edit to that mission** — add yourself to its `assignees`. The claim is mission-local: it commits you to this plan and nothing else.
 
-This is per-worktree by construction — each worktree checks out its own `.workaholic/`, so the lens that fires there reflects the missions that are the business of whoever is working that tree.
+This is per-worktree by construction — each worktree checks out its own `.workaholic/`, so a survey run there reflects the missions that are the business of whoever is working that tree.
 
 ### Duration (predicted / actual)
 

@@ -211,7 +211,7 @@ missions_migrate_status() {
 # Resolve a mission argument -- a path to a mission.md, or a bare slug -- to an
 # ABSOLUTE mission.md path under <root>: an existing path is absolutized and returned
 # as-is (the absolute-safe fast path, which is why an absolute-path caller like
-# hooks/mission-lens.sh was never cwd-dependent); a slug is tried active/ then
+# drive/scripts/plan-units.sh was never cwd-dependent); a slug is tried active/ then
 # archive/ then the legacy flat location (a mission the migration could not move), and
 # finally defaults to the active-area path (which need not exist). ALWAYS echoes a
 # path so callers keep their own `[ -f ]` not-found handling; create.sh DEPENDS on

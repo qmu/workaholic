@@ -4,8 +4,8 @@
 # section with the same convention as progress.sh (a checklist item is a line whose
 # first non-blank content is "- [ ]"/"- [x]"/"- [X]"; any "## " heading ends the
 # section). The trailing "(#<filename>)" marker is stripped so the text reads as a
-# plain next-step line for the mission lens. Prints nothing when every item is
-# checked or the section is empty.
+# plain next-step line for its consumers (list.sh, summary.sh, drive's plan-units.sh).
+# Prints nothing when every item is checked or the section is empty.
 #
 # Usage: next-acceptance.sh <mission-file-or-slug>
 # Output: the next unchecked item's text on stdout (empty when none)

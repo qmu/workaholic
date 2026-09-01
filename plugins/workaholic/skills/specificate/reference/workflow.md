@@ -11,7 +11,9 @@ and every abort reports a machine-readable reason.
    (SKILL.md, *Clock-fired discovery*):
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/list-inbound-issues.sh`
    — the open GitHub issues assigned to this session's own identity, oldest-first,
-   minus those a feedback record already names (reported as `already_captured`). Each
+   minus those a feedback record already names, on the base (`already_captured`) or on
+   an unmerged remote branch (`captured_on_branch` — an ask whose proposal is open as a
+   pull request is in flight, not new). Each
    returned issue is an ask in hand: run steps 2–13 **once per issue**, in the order
    returned, its URL carried into step 3's record (the exclusion's contract) and its
    number into step 10's `Closes #<N>`. An empty list is
@@ -49,8 +51,10 @@ and every abort reports a machine-readable reason.
    silences its own proposal. The record is written **whatever step 7 concludes**.
    When the ask came from a GitHub issue, the body **must name the issue's URL** (a
    `Source:` line carrying its `/issues/<N>` form) — that line is what
-   `list-inbound-issues.sh` keys its `already_captured` exclusion on, so omitting it
-   re-proposes the same open issue every tick until its pull request merges.
+   `list-inbound-issues.sh` keys its capture exclusion on, so omitting it re-proposes
+   the same open issue every tick, forever. Carrying it is enough from the moment the
+   record is **committed**: the exclusion reads unmerged proposal branches as well as
+   the base, so the ask stops being re-offered while its pull request is still open.
 
 3b. **Carry the ask's own feedback refs forward**, when it names any. An ask whose body
    carries a `feedback: <ref>, <ref>` line names records that already exist in this
@@ -149,17 +153,24 @@ and every abort reports a machine-readable reason.
    collapse into `unattributed` here.
 
    **First, is it a lifecycle announcement?** An ask that names an explicit strategy
-   slug and announces that it was created, changed or ended takes step 9c instead of
-   the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent from
-   step 5b's set is record-only with `strategy_not_found` and the slug named; an
+   slug and announces that it was created, changed or ended — or that names a strategy slug
+   **and** a mission slug and rules that the mission *answers* that direction (step 9e,
+   2026-08-28) — or that announces a new direction as the **successor of a named
+   predecessor slug** (step 9b's carry, 2026-08-28) — takes step 9b, 9c, 9d or 9e
+   instead of the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent
+   from step 5b's set is record-only with `strategy_not_found` and the slug named; an
    *ended* announcement that does not say achieved or abandoned is record-only with
-   `no_end_state`; a *changed* announcement about a slug already in the set is
-   record-only with `strategy_exists_no_update_writer`. An ask naming no slug is not
-   an announcement — judge it through the forms below.
+   `no_end_state`; a *changed* announcement about a slug already in the set **reaches
+   `amend.sh` at step 9d** (2026-08-27), and is record-only with `not_active` when the
+   named direction is closed or `no_revision` when it names nothing revisable. An ask
+   naming no slug is not an announcement — judge it through the forms below.
+   **Every recognition rule above is unchanged**: matching is by **explicit slug only**, a
+   title or a paraphrase never matches, and this run never amends on its own reading.
 
    Otherwise, in this precedence: two or more units → a mission with its ticket set
    (steps 8–9); atomic → one loose ticket (step 9's loose form, no mission); a
-   **date + an owner + an aim with no decomposable plan** → one strategy (step 9b);
+   **an owner + an aim with no decomposable plan, with a date stated or defaulted** → one
+   strategy (step 9b);
    none of those → record-only. **An ask that already names a mission —
    a title, the experience it demands and an ordered ticket set, the shape `/propose`
    writes since 2026-08-26 — takes row 1 and is emitted as *that* plan, in that order**
@@ -174,10 +185,17 @@ and every abort reports a machine-readable reason.
    `## Experience` and acceptance sketch come from the ask rather than from a fresh reading
    of it — the run fills the scaffold with the plan it was handed, and reports
    `precedence:mission` naming the ask as its source:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-draft.sh "<title>" --assignee <the triggering issue's assignee> <feedback-filename>...`
+   - **Resolve the assignee through the mapping first, and pass only what resolved**:
+     `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/identity.sh <the triggering issue's assignee>`
+     — `resolved: true` means pass its `canonical` address to `--assignee`; `resolved: false`
+     means pass **no** `--assignee` at all and report `assignee_unmapped: <the login>`
+     (SKILL.md, *Act only on an ask that is yours*). Resolve once, here, and reuse the same
+     answer for every scaffold call in step 9.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-draft.sh "<title>" --assignee <the resolved canonical address> <feedback-filename>...`
      — the filename from step 3, **followed by any refs step 3b carried forward**. Omit
-     `--assignee` when no person was assigned (the mission is then team-owned); never
-     substitute the running identity.
+     `--assignee` when no person was assigned (the mission is then team-owned) **and when
+     the assignee did not resolve**; never substitute the running identity and never stamp
+     an address the mapping does not name.
    - Fill `## Goal` / `## Scope` / `## Experience` and a **proposed** `## Acceptance`
      sketch from the ask (Edit on the scaffold; clearly provisional — the PR's reviewer
      interrogates it to drive-ready via `/mission <instruction>`). Never touch `status`
@@ -194,8 +212,9 @@ and every abort reports a machine-readable reason.
    the work. **Report which of the two you judged**, either way.
 
    For a **mission** proposal, emit its whole set — two or more, always:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same assignee>`,
-     once per ticket, in the order they would be driven.
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" <mission-slug> [type] [layer] --assignee <the same resolved address>`,
+     once per ticket, in the order they would be driven — the address step 8 resolved, or
+     no `--assignee` at all when it did not resolve.
    - Stamp the links: `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/link-acceptance.sh <slug> <item-selector> <ticket-filename>`
      once per acceptance item the set satisfies — the pairing decided in step 7, never
      inferred.
@@ -204,7 +223,8 @@ and every abort reports a machine-readable reason.
      ticket or record-only, and report the script's `alternative`.
 
    For an **atomic** direction, emit exactly one loose ticket — no mission, no wrapper:
-   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same assignee>`
+   - `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/scaffold-proposed-ticket.sh "<title>" --loose [type] [layer] --feedback <record>... --assignee <the same resolved address>`
+     — omitted entirely when the assignee did not resolve, exactly as in step 8.
    - The `--feedback` refs are **mandatory** here (`no_feedback` otherwise), and they are
      step 3's record **plus** anything step 3b carried forward.
 
@@ -256,22 +276,89 @@ and every abort reports a machine-readable reason.
 9b. **Emit the strategy** (strategy form only), in the publish tree — instead of
    step 9, never alongside it:
 
+   **The date first, because it may now be derived** (2026-08-30, mission
+   `draft-a-dateless-direction-with-the-operator-s-one-week-default`). When the ask states a
+   date resolvable to a single `YYYY-MM-DD`, that is the date and nothing below is called.
+   When it states **none at all**, take the operator's one-week default:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/default-target-date.sh \
+       <the triggering issue's created_at date, YYYY-MM-DD>
+   ```
+
+   It is counted from the **ask's own date** rather than this tick's clock, so a tick that
+   ingests a week-old issue does not date the direction from the hour it happened to run;
+   pass no argument only when the ask carries no date of its own. A `bad_ask_date` refusal
+   is record-only naming it — never a silent fall back to today. **An ask that states a date
+   this run cannot resolve is record-only, `no_target_date`**, which is now that reason's
+   only case: defaulting over the operator's own words is the failure this must not
+   introduce.
+
    ```sh
    printf '%s\n' "<aim prose, in the ask's own terms>" \
      | bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/create.sh \
-         "<title>" <YYYY-MM-DD from the ask> "<the triggering issue's assignee>" \
+         "<title>" <YYYY-MM-DD, stated or defaulted> "<the triggering issue's assignee>" \
          "<schedule prose>" "<the step-3 record's filename>"
    ```
 
-   The three parts come from the **ask**, never from this session: the date is one the
-   ask states (no date → record-only, `no_target_date`), and the assignee is the
-   triggering issue's, never the running identity (unassigned → record-only,
-   `no_assignee`) — `create.sh` refuses an empty assignee list outright, which is the
-   floor, not a thing to work around. Any refusal it emits (`bad_target_date`,
+   **`create.sh` is unchanged and learns nothing about where the date came from** — it takes
+   a `YYYY-MM-DD` exactly as it always has, and no frontmatter key is added to the artifact.
+
+   **A defaulted date says so in the `## Schedule` prose**, in one sentence, because the
+   exemption's whole premise is that the operator's merge is the authorship and a merge is
+   only an authorship if the person merging can see what they are being asked to author.
+   Name the date as the one-week default, what it was counted from, and that editing it
+   before merging is how they set their own — for example:
+
+   > Target 2026-09-06 — the one-week default, counted from the ask of 2026-08-30 rather
+   > than stated by the operator. Edit the date before merging to set your own.
+
+   A strategy whose date the **ask stated** carries none of that wording: its `## Schedule`
+   is composed exactly as it always was.
+
+   The owner and the aim come from the **ask**, never from this session: the assignee is the
+   triggering issue's **resolved through `gather/scripts/identity.sh`**, never the running
+   identity (unassigned → record-only, `no_assignee`; **assigned to a login the mapping
+   does not name → record-only, `assignee_unmapped` with the login**) — `create.sh` refuses
+   an empty assignee list outright, which is the floor, not a thing to work around, and it
+   is why an unmapped assignee cannot produce a team-owned strategy the way it produces a
+   team-owned mission: this is the one artifact where empty is a refusal. Any refusal it emits (`bad_target_date`,
    `no_assignees`, `empty_schedule`, `empty_aim`, `exists`) **falls back to record-only
    naming that reason**; never retry with a substituted value. The `feedback:` ref is
    the record from step 3 — the citation runs strategy → feedback only, and nothing is
    ever written back onto the record.
+
+   **A successor carries its predecessor's own refs, by explicit slug only** (2026-08-28,
+   mission `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`). When the ask
+   announces the new direction as the **successor of a named predecessor**:
+
+   1. Recognise it only on an **explicit predecessor slug**. A title or a paraphrase
+      never matches — the same rule every lifecycle announcement already holds. Nothing
+      explicit named → the ordinary strategy form, reported `no_predecessor`.
+   2. Confirm the named predecessor against **step 5b's set** (`strategy/scripts/list.sh`,
+      never a remembered one). Absent → record-only, `strategy_not_found` with the slug.
+      Still `active` → record-only, **`predecessor_active`**: a live direction is not a
+      predecessor, and carrying its refs onto a second live direction would attribute one
+      body of work to two.
+   3. Read the predecessor's own refs through the reader that already reads them —
+      `strategy/scripts/read.sh <predecessor-slug>` → `feedback_refs` — and compose the
+      successor's set through the one writer of that set:
+
+      ```sh
+      bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/ask-feedback-line.sh --refs-only \
+        "<the step-3 record's filename>" "<the predecessor's feedback_refs>"
+      ```
+
+      Hand that to `create.sh` as its fifth argument. **`create.sh` is unchanged and learns
+      nothing about succession** — the carry is wired at the ask line, and the suite fails
+      if it ever moves inside the writer.
+   4. Report the succession in the run report and the pull-request body: **which
+      predecessor, and how many refs were carried.**
+
+   Every other rule stands: the three-part bar, the assignee resolution, and the
+   never-auto-merge rule for a strategy-touching publish. The successor's **Aim, Schedule
+   and Assignee stay the operator's own words** — only the citation is carried, no artifact
+   gains a field, and the retired `strategy:` relation stays retired.
 
 9c. **End the announced strategy** (an *ended* announcement only), in the publish
    tree — instead of steps 8, 9 and 9b, never alongside them:
@@ -288,13 +375,125 @@ and every abort reports a machine-readable reason.
    refusal (`not_found`, `already_ended`, `bad_status`) **falls back to record-only
    naming it**.
 
+   **Then read what the direction is leaving, and say it where the close is read**
+   (2026-08-28, mission `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop`).
+   After `close.sh` returns:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/closing-residue.sh <slug>
+   ```
+
+   Name that reading in the pull-request body composed at step 10 and in step 13's
+   one-line run report: **what it never reached** (`waiting` — its own missions and
+   queued tickets), **what no direction claimed** (`residue` — each unattributed
+   mission by slug with its queued count, bounded to three names then `and N more`,
+   plus the loose-ticket count) and **its last lifecycle reading** (`lifecycle.state`).
+   A closed direction reads `not_active` there, which is the true answer and not a
+   degradation.
+
+   **A degraded read is named as degraded, by its own reason, never as an empty
+   leaving** — `readable: false` carries the source it failed on
+   (`waiting_unreadable:<reason>` and so on) and null counts, and a block that could
+   not be read is reported as unread rather than rendered as nothing outstanding.
+
+   The route is otherwise untouched: `close.sh` stays the only writer of an end
+   state, the reading writes nothing anywhere, every refusal above still falls back
+   to record-only naming it, and the pull request still **does not auto-merge**
+   (`publish-tree-pr.sh` derives `strategy_touching` from the path this route wrote).
+   The reading is **evidence for the operator, never an assertion that closing was
+   correct**.
+
+9d. **Revise the announced strategy** (a *changed* announcement only), in the publish
+   tree — instead of steps 8, 9, 9b and 9c, never alongside them:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/amend.sh <slug> \
+     [--target-date <YYYY-MM-DD>] [--schedule "<prose>"] [--assignees "<a>[,<b>...]"] [--aim -] \\
+     [--stage <進行中|改良中|観察中>]
+   ```
+
+   The slug is the one the ask named and step 5b confirmed; the revised values are the ones
+   the ask states, never this session's reading. Only the four revisable parts are
+   reachable — `## Aim`, the Schedule (`target_date:` and its prose), `assignees:` and the
+   declared **stage** (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`) — and
+   `amend.sh` asserts the immutable half over its own candidate, so `slug`, `type`,
+   `status`, `created_at`, `author` and `feedback:` cannot move here. This is the **only**
+   thing the run writes for an announcement — no mission, no ticket, no second artifact, and
+   nothing written back onto the feedback record (the citation runs strategy → feedback only;
+   the pull request is what connects the revision to its ask).
+
+   **Two record-only outcomes are the announcement's own**, each reported by name:
+   `not_active` when the named direction is closed (a closed strategy is history and
+   `close.sh` stays the only writer of an end state), and `no_revision` when the ask names
+   the slug but nothing revisable — an announcement that says only "this is going well" is
+   not a revision. Every other `amend.sh` refusal (`bad_target_date`, `no_assignees`,
+   `empty_schedule`, `empty_aim`, `bad_stage`, `immutable_field`, `not_found`) **falls back to
+   record-only naming that reason**; never retry with a substituted value, exactly as 9b and 9c
+   require.
+
+   **A stage the ask names is carried verbatim and judged by nobody here.** The value is the
+   operator's own word out of the closed set; a run **never** moves a stage on its own reading
+   of how a direction is going, which is the same bound the rest of this route already carries
+   and the reason the stage was admissible as a revisable part at all.
+
+   **A run never amends on its own judgement.** The route fires on an explicit announcement
+   and on nothing else — never on this run's own reading that a direction looks stale,
+   mis-dated or unanswered. Reading a direction's state is `/moderate`'s `direction-health`
+   step, which asks a person and writes nothing.
+
+9e. **Carry an attribution the operator ruled** (an *answers* announcement only — the ask
+   names a strategy slug **and** a mission slug and says that mission answers that
+   direction), in the publish tree — instead of steps 8, 9, 9b, 9c and 9d, never alongside
+   them:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/carry-attribution.sh <strategy> <mission>
+   ```
+
+   Both slugs are the ones the ask named; the strategy is confirmed against step 5b's set and
+   the mission must be in the active area. It appends that strategy's **own existing**
+   `feedback:` refs to that mission and writes nothing else — no new ref is authored, none is
+   removed, the strategy file is never touched, and nothing is written back onto a feedback
+   record. This is the **only** thing the run writes for such an announcement.
+
+   Record-only, by name, on every refusal: `strategy_not_found`, `mission_not_found`,
+   `not_active` (a closed direction acquires no new work), `no_revision` (the named strategy
+   cites nothing to carry) and `immutable_field`. A re-run leaves the mission byte-identical
+   and reports `already`, which is a success and not a refusal.
+
+   **A run never carries an attribution on its own reading.** The route fires on an explicit
+   announcement naming both slugs and on nothing else — never on this run's own judgement
+   that an unattributed mission looks like it belongs to a direction. That reading is
+   `strategy/scripts/unattributed-work.sh`, which reports and decides nothing, and reaches a
+   person through `/moderate`'s `direction-arrived:<slug>` question.
+
+   **Leave `WORKAHOLIC_AUTO_MERGE` unset for this form.** It carries an operator's ruling, so
+   the operator's merge is the authorship — the strategy exemption's reason. But the seam
+   **cannot** enforce it here: `publish-tree-pr.sh` derives `strategy_touching` from a path
+   under `.workaholic/strategies/`, and this route writes `.workaholic/missions/`, which is
+   byte-indistinguishable from any other mission write. So this one is the caller's rule,
+   stated here and pinned by a test over this step's own text — a weaker guarantee than
+   step 9b/9c/9d's, and recorded as such rather than implied to be the same.
+
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
    **The body names step 3b's two sets**, in `<changes>`, per emitted artifact: the refs
    **carried** onto it, and every ref **dropped** with its reason. **And the direction** —
    `direction:<slug>` with how it was decided (`line`, `slug` or `aim`), or
-   `direction:unattributed`. Keep it to what is true —
+   `direction:unattributed`. **And, on the strategy form, whether the `target_date` was
+   stated or defaulted** (2026-08-30, mission
+   `draft-a-dateless-direction-with-the-operator-s-one-week-default`): a defaulted date is
+   named here once, with what it was counted from and that editing it before merging is how
+   the operator sets their own. This is the surface the exemption actually rests on — the
+   merge is the authorship, so the person merging must be able to see that the date is the
+   loop's proposal rather than their own word. A **stated** date is named as stated, in the
+   same clause, so the two never read alike; neither adds a field to any artifact.
+   **And, when the ask's assignee did not resolve through the
+   mapping, `assignee_unmapped: <the login>` with the artifacts left team-owned** — a
+   team-owned artifact is a real outcome, but one nobody was told about reads like a
+   decision somebody made, and the repair (a line in `.claude/git-identities`) is an
+   operator's act nobody can take without being told. Keep it to what is true —
    a proposal that carried nothing because the ask named nothing says so in one clause, not
    as a warning. **A record-only outcome names the refs it *would* have carried and that
    nothing was emitted**, so a dropped link and an unproposed ask do not look alike here
@@ -313,11 +512,15 @@ and every abort reports a machine-readable reason.
    **once**, and report both outcomes by name: merged through the connector, or the
    pull request left open with the REST refusal and the connector's own. Every other
    `merge_reason` is reported as-is and never retried; a scan finding least of all. **Whenever this run
-   wrote under `.workaholic/strategies/` — step 9b's create or step 9c's close —
-   leave `WORKAHOLIC_AUTO_MERGE` unset**: a strategy-touching proposal is the one
+   wrote under `.workaholic/strategies/` — step 9b's create, step 9c's close or step 9d's
+   amendment — leave `WORKAHOLIC_AUTO_MERGE` unset**: a strategy-touching proposal is the one
    kind this run deliberately does not merge, because the operator's merge is what
-   authors that artifact and what ends it (SKILL.md, *The strategy form, and the one
-   rule it widens*). Report the open PR as that form's outcome, never as a
+   authors that artifact, what revises it and what ends it (SKILL.md, *The strategy form, and
+   the one rule it widens*). **Belt and seam** (2026-08-27): the caller leaving it unset is a
+   judgement, and `publish-tree-pr.sh` now **refuses regardless** — it derives from the tree it
+   is publishing whether any path under `.workaholic/strategies/` is touched, and reports
+   `merged: false`, `merge_reason: strategy_touching` with the pull request left open. That is
+   the exemption working, not a failure. Report the open PR as that form's outcome, never as a
    merge failure, and never merge it by hand in the same run. Name the commit
    subject for what it carries — `Propose mission <slug>`, `Propose ticket <slug>`,
    `Propose strategy <slug>`, `Close strategy <slug>`, or
@@ -341,7 +544,9 @@ and every abort reports a machine-readable reason.
 12. **Notify** on the transport `workaholic:notify` selects (*The transport*): the
     account's Slack connector where the session has one, and
     `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/notify-slack.sh "<message>"` as the
-    machine fallback for a caller with no connector (keyed root only — it cannot thread).
+    machine fallback for a caller with no connector (keyed root only here — it cannot
+    *search*, so on the one path that reaches it the lookup never ran and there is no
+    thread coordinate to reply into).
     The message carries the title, this repo's label
     (`bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/project-label.sh`), the **PR URL**,
     and how to pick it up once merged (`/mission <slug>` for a mission; a loose ticket
@@ -361,11 +566,25 @@ and every abort reports a machine-readable reason.
     `precedence:record_only` is a claim a reader can argue with; one that says nothing is
     indistinguishable from a run that never reached the rule. Then the form chosen
     (mission with N tickets / loose ticket /
-    **strategy `<slug>`, PR left open for the operator** / **strategy `<slug>` closed
-    `achieved|abandoned`, PR left open for the operator** / record-only, and for
+    **strategy `<slug>`, PR left open for the operator** — with
+    **`target_date:default`** or **`target_date:stated`** (2026-08-30, mission
+    `draft-a-dateless-direction-with-the-operator-s-one-week-default`), so a date the loop
+    derived and a date the operator wrote are told apart in the report without a new field
+    anywhere, and with
+    `successor_of:<predecessor>:<n refs carried>` when the ask announced one, or the
+    refusal that stopped it (`strategy_not_found` / `predecessor_active` /
+    `no_predecessor`) (2026-08-28) — / **strategy `<slug>` closed
+    `achieved|abandoned`, PR left open for the operator, leaving `<w>` unreached and
+    `<r>` unclaimed, last read `<state>`** — step 9c's `closing-residue.sh` reading,
+    or `leaving:unreadable:<reason>` when it could not be made, never an empty
+    leaving (2026-08-28) — / **strategy `<slug>` revised
+    (`<parts>`), PR left open for the operator** / record-only, and for
     record-only reached by a failed strategy bar or an unmatched announcement, the
-    part that was missing — `no_target_date` / `no_assignee` / `strategy_not_found`
-    with the slug / `no_end_state` / `strategy_exists_no_update_writer`) with its
+    part that was missing — `no_target_date` (since 2026-08-30 only when the ask **stated**
+    a date this run could not resolve; an ask stating none takes the default and is no
+    longer record-only) / `no_assignee` / `assignee_unmapped` with
+    the login / `strategy_not_found`
+    with the slug / `no_end_state` / `not_active` / `no_revision`) with its
     reason, the record's filename, **the carry** —
     `carried:<artifact>:<n>` per emitted artifact and `dropped:<ref>:<reason>` per drop,
     taken from step 3b's script output and never re-read by eye — and **the direction**,

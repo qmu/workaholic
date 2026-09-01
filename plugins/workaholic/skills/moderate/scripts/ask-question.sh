@@ -17,6 +17,35 @@
 #   tick_cap      five per tick, the ask's own ceiling
 #   day_cap       the bound the per-tick cap must not aggregate past (default 10)
 #
+# WHICH DAY `day_cap` COUNTS, AND WHY IT HAD TO BE SAID (2026-08-28, mission
+# `deliver-what-the-loop-already-knows-to-the-person-who-can-act`). It counts the
+# `human-checkin-ask` lines on **the current `WORKAHOLIC_QUIET_TZ` day** — the same day the
+# `quiet_hours` and working-day gates above are read in, derived ONCE below and passed to
+# `log-read.sh`'s existing `--since`. A spent cap **holds** the question rather than dropping
+# it, and a held question is **re-offered on the next eligible tick, oldest-held first**
+# (`step-human-checkin.sh`).
+#
+# It counted every day the log had ever held. `asked_today` was `count_log_prefix
+# human-checkin-ask ""` — the reader with no day bound — and the log is append-only and
+# never pruned by a machine, so the count only ever grew: once the ALL-TIME total crossed
+# `max_per_day`, every question was refused `day_cap` forever. Measured on the live tree:
+# `count: 12, days: 5` against a cap of 10, a fresh key on a working weekday at 14:00
+# refused `day_cap` with `asked_today: 12`, and the same reader bounded to the current
+# `Asia/Tokyo` day answering `count: 0`. Eight consecutive ticks reported `ok` and posted
+# nothing while a red base, a 31-hour declared handoff, three undeletable branches and seven
+# undrivable units sat held behind it.
+#
+# THE REPAIR IS A BOUND PASSED TO A READER THAT ALREADY ACCEPTED ONE, and deliberately NOT:
+# a raised cap (the cap is kept; only its arithmetic was wrong), a second reader, a stored
+# cursor, or a second notion of a day.
+#
+# THE DAY BOUNDARY MOVES IN `WORKAHOLIC_QUIET_TZ` WHILE THE LOG'S FILES ARE KEYED BY UTC DAY.
+# Near the boundary a `--since` of the local day can therefore include a UTC file whose later
+# entries belong to the local next day. That OVER-counts rather than under-counts — it holds
+# a question rather than asking a duplicate — which is the safe direction; it is stated here
+# rather than repaired with per-entry timestamp filtering, so a later reader does not "fix"
+# it the other way.
+#
 # QUIET HOURS ARE ONE GATE PER TICK, IN THE WORKSPACE'S TIMEZONE (resolved
 # 2026-08-17, the ticket's first Open Decision). Default `Asia/Tokyo`, 22:00–08:00,
 # both overridable — `WORKAHOLIC_QUIET_TZ`, `WORKAHOLIC_QUIET_HOURS=<start>-<end>`.
@@ -35,11 +64,30 @@
 # already look — the tick log and the run report — and the post itself is still
 # sitting in its thread.
 #
+# THE SCRIPT IS THE GATE **AND THE LEDGER** (2026-08-28, mission
+# `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`). `--record-ask` is the second
+# mode: after the agent has posted, it hands back the `(channel, ts)` it posted at and this
+# writes the `human-checkin-ask-<slug>` line — the line the gate reads — through
+# `log-append.sh`. Recording the ask was already the caller's job; what moves here is the
+# LINE'S SHAPE, so the coordinate and the content key have one writer and one reader
+# (`lib/question-coordinate.sh`, `question-state.sh`) instead of a free-text summary a later
+# tick would have to guess at.
+#
+# THE GATE IS UNTOUCHED BY IT. `--record-ask` returns before any gate runs and writes only a
+# log line; the questions asked, the caps, the holds and every refusal are byte-identical, and
+# a caller that logs the ask itself as before still works — such a line reads a NAMED ABSENCE
+# of a coordinate rather than an error. A coordinate is never load-bearing: a question posted
+# without one recorded is still asked and still gated; only the return path is unavailable
+# for it, which is a state the reader names.
+#
 # Usage:
 #   ask-question.sh --tick <id> --key <content-key> [--root <repo-root>]
 #                   [--to <email>] [--hour <0-23>] [--weekday <1-7>]
 #                   [--max-per-tick 5] [--max-per-day 10]
 #                   [--run <run-report.json>] [--asked-step <owning-step-id>]
+#   ask-question.sh --record-ask --tick <id> --key <content-key>
+#                   [--log-step <the step the gate returned>]
+#                   [--coordinate <channel>:<ts>] [--summary "<prose>"] [--root <repo-root>]
 #
 # Output: one JSON line
 #   {"ask": true, "key": "...", "log_step": "human-checkin-ask-<slug>",
@@ -49,6 +97,9 @@
 #    "mention_email": "...", "asked_this_tick": n, "asked_today": n}
 #   {"ask": false, "reason": "answered|off_day|quiet_hours|already_asked|tick_cap|day_cap|no_key",
 #    "hold": true|false, "window": "22-08 Asia/Tokyo", ...}
+#   --record-ask:
+#   {"recorded": true, "key": "...", "log_step": "...", "coordinate": "<channel>:<ts>|"}
+#   {"recorded": false, "reason": "no_key|no_writer|bad_coordinate|log_refused"}
 #
 # `mention_email` is what the CALLER resolves to a `<@U…>` mention: a bare `@name`
 # pings nobody, and a Claude mention token on a routine's own post re-triggers the
@@ -57,10 +108,13 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 . "${SCRIPT_DIR}/lib/question-id.sh"
+. "${SCRIPT_DIR}/lib/question-coordinate.sh"
 QUESTION_STATE="${SCRIPT_DIR}/question-state.sh"
 LIVENESS="${SCRIPT_DIR}/question-liveness.sh"
+LOG_APPEND="${SCRIPT_DIR}/log-append.sh"
 
 TICK=''
 KEY=''
@@ -72,6 +126,10 @@ RUN_REPORT=''
 ASKED_STEP=''
 MAX_TICK=5
 MAX_DAY=10
+RECORD_ASK=0
+COORDINATE=''
+LOG_STEP_IN=''
+SUMMARY_IN=''
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -79,6 +137,10 @@ while [ $# -gt 0 ]; do
         --key)          KEY="${2:-}"; shift 2 ;;
         --root)         ROOT="${2:-}"; shift 2 ;;
         --to)           TO="${2:-}"; shift 2 ;;
+        --record-ask)   RECORD_ASK=1; shift ;;
+        --coordinate)   COORDINATE="${2:-}"; shift 2 ;;
+        --log-step)     LOG_STEP_IN="${2:-}"; shift 2 ;;
+        --summary)      SUMMARY_IN="${2:-}"; shift 2 ;;
         --run)  RUN_REPORT="${2:-}"; shift 2 ;;
         --asked-step) ASKED_STEP="${2:-}"; shift 2 ;;
         --hour)         HOUR="${2:-}"; shift 2 ;;
@@ -89,6 +151,34 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+if [ "$RECORD_ASK" -eq 1 ]; then
+    # --- The ledger half: record the ask, and where it was posted -------------
+    # It returns BEFORE every gate below, so nothing about which questions are asked, how
+    # often, or under what holds can be reached from here.
+    record_refuse() { printf '{"recorded": false, "reason": "%s"}\n' "$1"; exit 0; }
+    [ -n "$KEY" ] || record_refuse no_key
+    [ -f "$LOG_APPEND" ] || record_refuse no_writer
+    # A COORDINATE IS ACCEPTED OR NAMED, NEVER GUESSED. Absent is an ordinary state (the
+    # post succeeded, nothing handed one back); malformed is a refusal, because a bad
+    # coordinate recorded here reads a tick later as a thread with nothing in it, which is
+    # indistinguishable from a question nobody answered.
+    if [ -n "$COORDINATE" ] && ! qc_valid "$COORDINATE"; then
+        record_refuse bad_coordinate
+    fi
+    RECORD_STEP="$LOG_STEP_IN"
+    [ -n "$RECORD_STEP" ] || RECORD_STEP="human-checkin-ask-$(question_slug "$KEY")"
+    RECORD_SUMMARY=$(qc_line "$SUMMARY_IN" "$COORDINATE" "$KEY")
+    out=$(sh "$LOG_APPEND" --root "$ROOT" --tick "$TICK" --step "$RECORD_STEP" \
+            --status filed --summary "$RECORD_SUMMARY" 2>/dev/null || true)
+    case "$out" in
+        *'"logged": true'*|*'"duplicate": true'*) ;;
+        *) record_refuse log_refused ;;
+    esac
+    printf '{"recorded": true, "key": "%s", "log_step": "%s", "coordinate": "%s"}\n' \
+        "$KEY" "$RECORD_STEP" "$COORDINATE"
+    exit 0
+fi
+
 [ -n "$KEY" ] || { echo '{"ask": false, "reason": "no_key", "hold": false}'; exit 1; }
 
 # WORKING TIME IS A DAY AND AN HOUR, NOT AN HOUR ALONE (2026-08-21, the developer's
@@ -97,44 +187,58 @@ done
 # ensured it was never posted again on a day somebody was. Held is not dropped, so a
 # weekend finding waits for Monday and is asked then. `WORKAHOLIC_WORK_DAYS` is a
 # `%u` range (1 = Monday), so `1-5` is the working week and `1-7` opts the gate out.
-ZONE="${WORKAHOLIC_QUIET_TZ:-Asia/Tokyo}"
-WINDOW="${WORKAHOLIC_QUIET_HOURS:-22-08}"
-WORK_DAYS="${WORKAHOLIC_WORK_DAYS:-1-5}"
-START=$(printf '%s' "$WINDOW" | cut -d- -f1)
-END=$(printf '%s' "$WINDOW" | cut -d- -f2)
+# THE WINDOW IS ONE DERIVATION, SOURCED (2026-09-01). It was computed here and nowhere else,
+# which is exactly why `render-tick-post.sh` posted a root at 04:01 JST while this gate held
+# seventeen questions in the same tick: the two halves of one tick had no shared answer to *is
+# anyone listening*. `lib/speaking-window.sh` is now that answer and both read it.
+. "${SCRIPT_DIR}/lib/speaking-window.sh"
+speaking_window "$HOUR" "$WEEKDAY" "$TICK"
+ZONE="$SW_ZONE"
+WINDOW="$SW_WINDOW"
+WORK_DAYS="$SW_WORK_DAYS"
+HOUR="$SW_HOUR"
+WEEKDAY="$SW_WEEKDAY"
+offday="$SW_OFFDAY"
 
-if [ -z "$HOUR" ]; then
-    HOUR=$(TZ="$ZONE" date +%H)
-fi
-HOUR=$(printf '%s' "$HOUR" | sed 's/^0//')
-[ -n "$HOUR" ] || HOUR=0
-
-DAY_START=$(printf '%s' "$WORK_DAYS" | cut -d- -f1)
-DAY_END=$(printf '%s' "$WORK_DAYS" | cut -d- -f2)
-if [ -z "$WEEKDAY" ]; then
-    WEEKDAY=$(TZ="$ZONE" date +%u)
-fi
-case "$WEEKDAY" in ''|*[!0-9]*) WEEKDAY=1 ;; esac
-
-offday=false
-if [ "$WEEKDAY" -lt "$DAY_START" ] || [ "$WEEKDAY" -gt "$DAY_END" ]; then offday=true; fi
-
-quiet=false
-if [ "$START" -gt "$END" ]; then
-    # The window crosses midnight, which is the normal case for "late night".
-    if [ "$HOUR" -ge "$START" ] || [ "$HOUR" -lt "$END" ]; then quiet=true; fi
-else
-    if [ "$HOUR" -ge "$START" ] && [ "$HOUR" -lt "$END" ]; then quiet=true; fi
-fi
+# THE DAY, DERIVED ONCE, BESIDE THE GATES THAT ALREADY DERIVE THE HOUR AND THE WEEKDAY. It
+# is the bound `day_cap` counts within, in `log-read.sh`'s own `YYYY-MM-DD` form.
+#
+# THE TICK ID SUPPLIES IT WHERE THERE IS ONE, exactly as the `outstanding` branch below
+# already reads its day from the tick, and for the same stated reason: both sides are then
+# ids minted by the same script on the same axis, a re-entered tick answers the same way
+# twice, and the arithmetic is testable at all — reading the wall clock made a tick dated
+# yesterday answer for today. The `date` fallback covers a caller that passed no tick.
+TODAY="$SW_TODAY"
+quiet="$SW_QUIET"
 
 count_log_prefix() {
-    # $1 step-id prefix, $2 needle ("" for all) -> count, 0 when the log is unreadable
+    # $1 step-id prefix, $2 needle ("" for all), $3 --since day ("" for no day bound)
+    # -> count, 0 when the log is unreadable
+    #
+    # THE BOUND IS A PARAMETER, NOT A GLOBAL, so each call site stays explicit about
+    # whether it is asking about a day or about all time.
     if [ ! -f "$LOG_READ" ]; then printf '0'; return 0; fi
-    if [ -n "$2" ]; then
+    set -- "$1" "${2:-}" "${3:-}"
+    if [ -n "$2" ] && [ -n "$3" ]; then
+        out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" --contains "$2" --since "$3" 2>/dev/null || true)
+    elif [ -n "$2" ]; then
         out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" --contains "$2" 2>/dev/null || true)
+    elif [ -n "$3" ]; then
+        out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" --since "$3" 2>/dev/null || true)
     else
         out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" 2>/dev/null || true)
     fi
+    n=$(printf '%s' "$out" | sed 's/.*"count": //; s/,.*//')
+    case "$n" in ''|*[!0-9]*) n=0 ;; esac
+    printf '%s' "$n"
+}
+
+count_log_tick() {
+    # $1 step-id prefix, bounded to THIS tick -> count, 0 when the log is unreadable
+    # Lifted out of the inline block below so the `outstanding` branch can report the tick
+    # count without re-deriving it: the two values it prints were the same unbounded number.
+    if [ ! -f "$LOG_READ" ]; then printf '0'; return 0; fi
+    out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "$1" --tick "$TICK" 2>/dev/null || true)
     n=$(printf '%s' "$out" | sed 's/.*"count": //; s/,.*//')
     case "$n" in ''|*[!0-9]*) n=0 ;; esac
     printf '%s' "$n"
@@ -246,8 +350,12 @@ if [ "$already" != "0" ]; then
         # waits for the next eligible tick and is still bounded to one.
         if [ "$offday" != "true" ] && [ "$quiet" != "true" ] \
            && [ -n "$asked_day" ] && [ "$asked_day" -lt "$today" ] 2>/dev/null; then
+            # TWO DIFFERENT NUMBERS, WHICH THEY WERE NOT (2026-08-28). Both fields printed
+            # the same unbounded prefix count, so `asked_this_tick` reported an all-time
+            # total and `asked_today` reported it a second time — the day-cap defect twice
+            # in one `printf`. They are now the tick count and the day-bounded count.
             printf '{"ask": true, "reason": "outstanding", "key": "%s", "log_step": "%s", "mention_email": "%s", "liveness": "live", "first_asked": "%s", "asked_this_tick": %s, "asked_today": %s, "window": "%s %s"}\n' \
-                "$KEY" "$REASK_STEP" "$TO" "$asked_day" "$(count_log_prefix human-checkin-ask "")" "$(count_log_prefix human-checkin-ask "")" "$WINDOW" "$ZONE"
+                "$KEY" "$REASK_STEP" "$TO" "$asked_day" "$(count_log_tick human-checkin-ask)" "$(count_log_prefix human-checkin-ask "" "$TODAY")" "$WINDOW" "$ZONE"
             exit 0
         fi
     fi
@@ -257,13 +365,8 @@ if [ "$already" != "0" ]; then
     exit 0
 fi
 
-asked_today=$(count_log_prefix human-checkin-ask "")
-asked_tick=0
-if [ -f "$LOG_READ" ]; then
-    out=$(sh "$LOG_READ" --root "$ROOT" --step-prefix human-checkin-ask --tick "$TICK" 2>/dev/null || true)
-    asked_tick=$(printf '%s' "$out" | sed 's/.*"count": //; s/,.*//')
-    case "$asked_tick" in ''|*[!0-9]*) asked_tick=0 ;; esac
-fi
+asked_today=$(count_log_prefix human-checkin-ask "" "$TODAY")
+asked_tick=$(count_log_tick human-checkin-ask)
 
 if [ "$offday" = "true" ]; then
     printf '{"ask": false, "reason": "off_day", "hold": true, "key": "%s", "work_days": "%s", "weekday": %s, "tz": "%s"}\n' \

@@ -4,14 +4,27 @@
 
 0. **Sweep the channel** (2026-08-23, the developer's instruction to drop the Claude Tag
    dependency; the full rules are the skill's *The inbound sweep* section). Read
-   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `dev-<repo_name>`) through the Slack
+   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`; this repository sets it to
+   `dev-workaholic` in `.claude/settings.json`) through the Slack
    connector over the last `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) hours.
    Fetch the dedup ledger first — `list-swept-slack-refs.sh`; `ok: false` skips the sweep
    as `sweep_dedup_unreadable`, never runs it blind. For each human message that clears
    the feedback skill's filing bar and is not the loop's own post, not already in the
    ledger, and not an answer to a tick's question: file it with `file-inbound-ask.sh`
    (`--slack-ref <channel>:<ts>`, `--subject person:<author>`, `--assignee` the running
-   identity). No mention is required — that is the point. Report each filed URL and each
+   identity). No mention is required — that is the point.
+
+   **Then acknowledge it where it was written** (2026-08-26): for each message this run
+   filed, post the `📥 受理` shape as a reply into that message's own thread **and add the
+   catalog's reaction to the message itself** — both coordinates are the `slack-ref` just
+   written, so no lookup runs (`workaholic:notify`, *The inbound sweep's receipt*). The
+   reply carries the issue link for whoever opens the thread; the reaction says the same
+   thing to whoever is only scrolling the channel. Only a message this run filed: an
+   already-swept one, an exclusion and a degradation get neither. Neither is ever
+   load-bearing — the issue is already open, and a failure of either is reported per
+   message as `ack_failed`.
+
+   Report each filed URL **and whether its receipt landed** (reply and reaction each), and each
    named exclusion; a missing connector is `no_slack_transport`, an unreadable channel
    `channel_unreadable`, and **every sweep outcome leaves steps 1-5 untouched**.
 
@@ -78,7 +91,33 @@
    one that moves the direction now.
    ```
 
-   Report the URL, the move, and the assignment outcome. Post nothing.
+   Report the URL, the move, and the assignment outcome. **And, when the strategy this
+   proposal was made against reads `quiescent: true` on its survey row, report `arrived`
+   beside it** — as *evidence*, in the same voice `pace` uses, never as a refusal: the
+   direction was still eligible, the proposal was still made, and the report says so
+   because a reader otherwise cannot tell a direction whose work is all in from one that
+   is mid-flight. **Name that strategy's residue beside the `arrived`** (2026-08-28) — the
+   unattributed mission slugs from its `residue` field and the two counts, slugs and counts
+   and nothing more, because an `arrived` printed without its residue is the same partial
+   claim `/moderate`'s arrival question no longer makes. A **degraded** residue read is
+   reported as degraded, never as an empty one. Nothing is proposed, withheld or ordered on
+   it. **And when that strategy reads `expiring: true`, name `expiring` beside it too**
+   (2026-08-29) — a term beside the strategy, in the same voice, never a warning and never a
+   sentence of advice. A reader otherwise cannot tell a proposal made into a direction with
+   runway from one made into a direction days from being silenced by its own date. A
+   **refused** strategy carries the term on its own row and needs no second surface here: the
+   report names what the tick proposed against. It changes nothing — the direction was
+   eligible, the proposal was made, and no gate, sort, `selected` or token reads it, because
+   silencing, reordering or accelerating the one routine that originates work on a machine's
+   reading of a clock is exactly what `pace` already refuses. The person who must act is
+   reached by `/moderate`'s `direction-expiring:<slug>` question, not by this line.
+   **And name every strategy the survey refused `attribution_unreadable`** (2026-08-29) —
+   the slug and that refusal, which the survey already emitted; no second word, and no line
+   that states a `pace`, a `dormant` or a `quiescent` verdict for it, because the survey
+   emits none and a report implying the tick judged what it could not read is the exact
+   collapse this reading exists to end. It changes nothing here: the brake is the survey's,
+   which refuses such a row and cannot select it.
+   Post nothing.
 
 ## Where it lands in the hour, and why the loop closes across hours
 

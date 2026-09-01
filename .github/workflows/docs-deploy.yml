@@ -1,0 +1,87 @@
+name: Docs Deploy
+
+# Builds the VitePress site under docs/ and publishes it to the Cloudflare Worker that
+# serves https://workaholic.qmu.co.jp, so the site follows the base with no human step in
+# the build path. The Worker itself is defined by docs/wrangler.jsonc; this workflow
+# consumes that file and changes nothing about it.
+#
+# WHY IT SKIPS RATHER THAN FAILS WITHOUT THE SECRETS. The build half needs no credential
+# and always runs; only the deploy touches Cloudflare. A fork, or this repository before
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID exist, must not see a permanently red
+# workflow — so the deploy step is gated on the secrets' presence and the job summary
+# NAMES the skip. An absent credential is thereby never mistaken for a successful deploy,
+# which is the one thing a silent skip would cost. This is the shape
+# release-note-draft.yml already uses for its own optional credential, kept rather than
+# reinvented: the secret is read into job-level `env` so a step can gate on its presence
+# (`env.X != ''` is unavailable for a secret referenced only at step level).
+#
+# WHY THE paths: FILTER. A merge that touches no documentation should not redeploy. The
+# stated cost is that a change altering the rendered site without touching docs/** will
+# not redeploy on its own; workflow_dispatch is the escape hatch, and it is cheaper than
+# rebuilding on every merge to main. workflow_dispatch is also how the operator runs the
+# FIRST deploy by hand once the secrets exist, without waiting for a documentation merge.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # Job-level so the deploy step can gate on the secrets' PRESENCE.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Wrangler phones home with anonymous usage telemetry by default; CI opts out.
+      WRANGLER_SEND_METRICS: 'false'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The lockfile decides both vitepress and wrangler; npm ci fails rather than
+      # resolving anything fresh, so CI builds and deploys with the versions the
+      # dry run was proved against.
+      - name: Install docs dependencies
+        working-directory: docs
+        run: npm ci
+
+      - name: Build the docs site
+        working-directory: docs
+        run: npm run docs:build
+
+      - name: Deploy the Worker
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
+        working-directory: docs
+        run: |
+          npx wrangler deploy
+          echo "Deployed docs/.vitepress/dist to the workaholic-docs Worker." \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report the skipped deploy
+        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
+        run: |
+          {
+            echo "### Deploy skipped — no Cloudflare credential"
+            echo ""
+            echo "The site was **built but not deployed**: this repository has no"
+            echo "\`CLOUDFLARE_API_TOKEN\` and/or \`CLOUDFLARE_ACCOUNT_ID\` secret."
+            echo "Nothing on https://workaholic.qmu.co.jp changed as a result of this run."
+          } >> "$GITHUB_STEP_SUMMARY"

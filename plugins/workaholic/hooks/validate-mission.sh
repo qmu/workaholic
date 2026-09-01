@@ -6,8 +6,8 @@
 # Why: a mission in the active area is the one artifact that can authorize
 # UNATTENDED work — /drive's survey offers it as a claimable PR-unit and drives its
 # whole ticket queue. Nothing else validates it (validate-ticket.sh sees only
-# tickets), so a mission with no Experience and an empty Acceptance could both drive
-# unattended and stay invisible to the mission lens (the 0/0 signal gate hides it).
+# tickets), so a mission with no Experience and an empty Acceptance could drive
+# unattended while rendering as an empty 0/0 board on every roadmap view.
 # This hook gives mission.md the same write-time floor tickets have.
 #
 # Scope: active/<slug>/mission.md and a legacy flat missions/<slug>/mission.md.
@@ -27,7 +27,7 @@
 #     this hook says it at write time, where the author can still fix it.
 #   - OWNERSHIP IS NOT REQUIRED (K2). It used to be, because an unattended run
 #     "needs an owner"; it does not — an unowned mission on `main` is claimable by
-#     anyone, which is already how list.sh, summary.sh and the mission lens treat
+#     anyone, which is already how list.sh and summary.sh treat
 #     it (`relation: unassigned`), and /specificate writes unowned proposals by design.
 #     A legacy `strategy:` key from the retired strategy layer (B3) is likewise
 #     tolerated and never required.

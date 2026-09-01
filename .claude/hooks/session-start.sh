@@ -126,13 +126,22 @@
 # very ticket it existed to drive. The session pushes and merges AS the developer's GitHub
 # account, yet git did not know who it was. Step 0b closes that at the provisioning seam:
 # it resolves the session's GitHub login (`gh api user`) through the committed repo-root
-# `.claude/git-identities` mapping (`<login>=<email>`, one per line, `#` comments
-# tolerated; the emails are already public in git history, so the file discloses nothing
-# new) and sets the REPO-LOCAL `git config user.email` and `user.name`. It acts ONLY when
-# the current email is empty or an @anthropic.com default -- a developer's real local
+# `.claude/git-identities` mapping (`<login>=<canonical>[,<alias>...]`, one per line, `#`
+# comments tolerated; the emails are already public in git history, so the file discloses
+# nothing new) and sets the REPO-LOCAL `git config user.email` and `user.name`. It acts ONLY
+# when the current email is empty or an @anthropic.com default -- a developer's real local
 # identity is never overwritten -- and, like the `gh` step, every branch is non-fatal with
 # one legible log line: an absent mapping file, a missing `gh`, or a failed API call is
 # the status quo, not a regression.
+#
+# THIS HOOK PARSES THE MAPPING ITSELF, AND THAT IS THE ONE SANCTIONED EXCEPTION
+# (2026-08-26). `gather/scripts/identity.sh` is the mapping's one reader everywhere else.
+# This hook cannot call it: the file is copied to `.claude/hooks/` and runs at SessionStart,
+# BEFORE the plugin is installed, so at the moment step 0b executes there is no plugin tree
+# to reach. It takes the CANONICAL field with a `cut -d, -f1` on the value it already
+# extracted -- the identity function on a line with no comma, which is why the format's
+# second field could be added without touching what this hook does to an existing file. A
+# later reader finding the second parse should read it as this decision, not as a bug.
 #
 # THE NAME HALF WAS SHIPPED DEAD (2026-08-18). The `user.name` line above was guarded by
 # `[ -z "$(git config user.name)" ]` -- the EFFECTIVE scope, which in a web container is
@@ -228,7 +237,13 @@ case "$GIT_EMAIL" in
       log "git identity: unexpected login '${LOGIN}'; keeping '${GIT_EMAIL:-unset}'"
       ;;
     *)
-      MAPPED=$(sed -n "s/^${LOGIN}=//p" "$IDMAP" | head -n 1)
+      # The value may carry a person's other addresses after the canonical one
+      # (`<login>=<canonical>[,<alias>...]`). Take the canonical field: `cut -d, -f1`
+      # is the identity function on a line with no comma, so this is a no-op on every
+      # file written before the format gained its second field. The header states why
+      # this one place parses the mapping instead of calling identity.sh.
+      MAPPED=$(sed -n "s/^${LOGIN}=//p" "$IDMAP" | head -n 1 | cut -d, -f1)
+      MAPPED=$(printf '%s' "$MAPPED" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
       if [ -z "$MAPPED" ]; then
         log "git identity: no entry for '${LOGIN}' in ${IDMAP}; keeping '${GIT_EMAIL:-unset}'"
       elif git config user.email "$MAPPED" 2>>"$LOG"; then
@@ -264,6 +279,49 @@ case "$GIT_EMAIL" in
   log "git identity: real local identity '${GIT_EMAIL}' kept"
   ;;
 esac
+
+# 0c) Repoint an origin naming a slug GitHub no longer serves (2026-09-01, issue #792).
+# The third provisioning defect of the same class as 0 and 0b, and the one that stops a whole
+# LOOP rather than one run. Every script in this plugin derives its API slug from
+# `remote.origin.url` (`gather/scripts/gh-rest.sh`'s `repo_slug()`), so a container cloned under
+# a name the repository has since been renamed away from makes every REST call against a name the
+# session's grant does not cover.
+#
+# **`git push` is unaffected** — GitHub redirects pushes — so a loop in that state claims and
+# pushes all day while opening no pull request, and the fault reads as a transport problem rather
+# than a naming one. Measured on a consuming repository over 2026-08-30/31: `merge-conflicts`,
+# `stuck-prs`, `standing-rulings`, `operator-pulls` and `file-findings` all reported degraded for
+# two days, across two contradicting diagnoses, before the cause was found.
+#
+# THE SERVED NAME IS ASKED FOR, NEVER WRITTEN DOWN. GitHub's own `full_name` for the slug
+# `origin` already carries is the answer, so a later rename needs no edit here. A container
+# already naming the served slug costs one API read and is left alone — this is a guard against
+# the next rename, not a standing repair.
+#
+# NON-FATAL ON EVERY BRANCH, one log line each way, idempotent across a resume/clear/compact
+# refire, and it repoints THIS SESSION'S clone only — it writes nothing to the repository.
+ORIGIN_URL=$(git config --get remote.origin.url 2>/dev/null || true)
+ORIGIN_SLUG=$(printf '%s' "$ORIGIN_URL" | sed -e 's#\.git$##' -e 's#^.*[:/]\([^/][^/]*\)/\([^/][^/]*\)$#\1/\2#')
+if [ -z "$ORIGIN_URL" ]; then
+  log "origin slug: no remote.origin.url; nothing to check"
+elif ! command -v gh >/dev/null 2>&1; then
+  log "origin slug: gh unavailable; keeping '${ORIGIN_SLUG}' unchecked"
+elif [ "$ORIGIN_SLUG" = "$ORIGIN_URL" ]; then
+  log "origin slug: could not parse a slug out of '${ORIGIN_URL}'; leaving origin alone"
+else
+  SERVED=$(gh api "repos/${ORIGIN_SLUG}" --jq .full_name 2>>"$LOG") || SERVED=""
+  case "$SERVED" in
+  "")             log "origin slug: GitHub did not answer for '${ORIGIN_SLUG}'; origin left as it is" ;;
+  "$ORIGIN_SLUG") log "origin slug: origin already names the served slug '${ORIGIN_SLUG}'; unchanged" ;;
+  */*)
+    if git remote set-url origin "https://github.com/${SERVED}.git" 2>>"$LOG"; then
+      log "origin slug: '${ORIGIN_SLUG}' is served as '${SERVED}'; origin repointed for this session only"
+    else
+      log "origin slug: '${ORIGIN_SLUG}' is served as '${SERVED}' but set-url failed; origin left as it is"
+    fi ;;
+  *)              log "origin slug: unexpected full_name '${SERVED}' for '${ORIGIN_SLUG}'; origin left as it is" ;;
+  esac
+fi
 
 # Already installed at the version this checkout wants: skip the network round-trip.
 # Presence alone never skips -- see the header on the version gate.

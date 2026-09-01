@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.1
 feedback: [20260826081729-say-when-the-loop-has-run-out-of-direction.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ lifts no gate.
 - 2026-08-26 — ticket archived — 20260826082029-drill-direction-health-with-no-network.md
 - 2026-08-26 — mission achieved — mission.md
 - 2026-08-26 — story reported — work-20260826-084111
+- 2026-08-26 — run recorded (+1.1h) — implement-20260826-084111

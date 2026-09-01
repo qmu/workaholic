@@ -20,6 +20,16 @@
 # retro-blocked; only an UNTRACKED (freshly written) file is held to the floor.
 # Outside a git repo the hook fails open, exactly like validate-feedback.sh.
 #
+# THIS HOOK DOES NOT COVER AN AMENDMENT, AND THE WRITER CARRIES THE FLOOR INSTEAD
+# (2026-08-27). Every strategy `strategy/scripts/amend.sh` revises is by definition
+# already git-tracked, so the grandfathering above makes this hook silent on exactly
+# that class of write — the one class where the file was NOT freshly authored by a
+# human looking at it. Do not read "the hook validates strategies" as covering it.
+# `amend.sh` therefore evaluates the three properties below over its POST-REVISION
+# candidate before touching the artifact, using create.sh's refusal names verbatim
+# (`bad_target_date` / `no_assignees` / `empty_schedule` / `empty_aim`), so a breach
+# is refused with nothing written rather than written and reverted.
+#
 # Scope: *.workaholic/strategies/*.md, excluding the reserved index.md and README*.
 
 set -eu
@@ -97,6 +107,24 @@ case "$target_date" in
     exit 2
     ;;
 esac
+
+# The declared stage, when one is present. PRESENCE IS NEVER REQUIRED (2026-08-29, mission
+# `make-a-direction-s-lifecycle-a-declared-stage`): an absent field means 進行中, so absence is
+# a valid and meaningful state and every strategy written before the field existed still
+# passes. What is checked is only that a value, if written, is in the closed set — the
+# operator's own three words, kept verbatim.
+stage=$(fm_value stage)
+if [ -n "$stage" ]; then
+  case "$stage" in
+    進行中|改良中|観察中) : ;;
+    *)
+      echo "Error: strategy stage must be one of: 進行中, 改良中, 観察中 (absent means 進行中); got '${stage}'" >&2
+      echo "Got: $file_path" >&2
+      print_skill_reference
+      exit 2
+      ;;
+  esac
+fi
 
 # The Assignee. Empty means team-owned on every OTHER artifact; on a strategy it
 # is a refusal — an unowned direction is not a strategy.

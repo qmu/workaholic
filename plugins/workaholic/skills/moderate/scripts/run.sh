@@ -57,7 +57,17 @@
 #
 # `status` is the tick log's closed vocabulary: ok | filed | skipped | degraded | blocked.
 # `reason` is free-form but stable per cause (`not_implemented`, `budget`,
-# `step_missing`, `step_error`, `no_output`, `bad_output`, ...).
+# `step_missing`, `step_error`, `no_output`, `bad_output`, `jq_compile_error`, ...).
+#
+# A STEP THAT COULD NOT COMPILE ITS OWN READING IS `degraded` HERE, IN ONE PLACE
+# (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every reader in
+# this skill carries `… | jq -c '…' 2>/dev/null || echo '[]'`, a fallback that is right for
+# a data problem and catastrophic for our own: a jq program that does not COMPILE discards
+# identically, so the step emits an empty finding and reports `ok`. `lib/jq-guard.sh`
+# records the fact (jq's own exit status 3) and decides nothing; this loop is the one place
+# that reads the record and reclassifies, beside the `step_missing` / `step_error` /
+# `no_output` / `bad_output` it already owns — the same single derivation of "this step
+# could not read".
 
 set -eu
 
@@ -68,7 +78,7 @@ PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 # The step list IS the contract (reference/workflow.md states each one's inputs,
 # what it may write, and its abort reasons). Order is the ask's order, which is
 # also cheapest-first: the log, then the reads, then the writes, then the ask.
-STEPS='open-log inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units closable-missions strategy-digest human-checkin'
+STEPS='open-log blocked-tick inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units raced-units undrivable-units standing-rulings undelivered-units catchup-blocked handoff-units thread-reconcile stranded-publications operator-pulls retire-claims closable-missions base-health drill-health cadence-lapse strategy-digest question-answers unanswered-asks file-findings human-checkin'
 
 TICK=''
 ROOT='.'
@@ -190,6 +200,87 @@ json_array_raw() {
 }
 
 rows=''
+# WHERE A STEP'S jq COMPILE ERRORS LAND (2026-08-29, mission
+# `make-a-direction-s-lifecycle-a-declared-stage`). `lib/jq-guard.sh`, sourced by every
+# script here that embeds a jq program, appends one line per compile error; this loop
+# truncates the file before each step and reads it after, so what it holds is always
+# exactly the step that just ran. The same seam as the two files below — an environment
+# variable rather than a fourth flag, so the step invocation stays uniform, and a mktemp
+# path outside the repository, so the tick still writes nothing into the tree but its own
+# log line. Unset (mktemp refused) means the guard is inert and the tick behaves exactly as
+# it did before this existed.
+JQERR_FILE=$(mktemp 2>/dev/null || printf '')
+if [ -n "$JQERR_FILE" ]; then
+    trap 'rm -f "$JQERR_FILE"' EXIT
+    export WORKAHOLIC_JQ_COMPILE_ERRORS="$JQERR_FILE"
+fi
+
+# THE RUN'S OWN STEP REPORTS, READABLE BY A LATER STEP (2026-08-29). `file-findings` turns a
+# REPAIRABLE finding into work, and its candidates are what the earlier steps of THIS tick
+# reported — including each step's `event`, which is the honest "a repository event happened
+# here" signal and is the one field the tick log does not carry (the log keeps `status` and the
+# log-facing `summary`, by design). So the accumulated rows are written to a temp file and named
+# in the environment every step inherits.
+#
+# AN ENVIRONMENT VARIABLE RATHER THAN AN ARGUMENT, deliberately: `run.sh` invokes every step
+# with the same two flags, and a third passed to one step only would make the invocation
+# non-uniform for one consumer. A step that does not read the variable is unaffected by it.
+# The file lives outside the repository (mktemp), so the tick still writes nothing into the
+# tree but its own log line.
+REPORTS_FILE=$(mktemp 2>/dev/null || printf '')
+if [ -n "$REPORTS_FILE" ]; then
+    trap 'rm -f "$JQERR_FILE" "$REPORTS_FILE"' EXIT
+    # Seeded EMPTY rather than left zero-length: a step that runs before any row exists —
+    # `--only file-findings`, or the first step of a tick — must read "no rows yet" and not
+    # "the reports could not be parsed". A degradation reported for an ordinary state is the
+    # collapse every reader in this skill is written against.
+    printf '{"steps": []}\n' > "$REPORTS_FILE"
+    export WORKAHOLIC_TICK_REPORTS="$REPORTS_FILE"
+fi
+
+# THE OPEN PULL REQUESTS, RESOLVED ONCE FOR THE WHOLE TICK (2026-08-29, ticket
+# `20260829092043`). `reference/workflow.md` has said "resolved once per tick, used twice" of
+# step 6 since the reader shipped, and the implementation did not hold it: steps 4 and 6 each
+# called `pulls-state.sh`, so a tick made two rounds of per-pull reads. Because GitHub computes
+# `mergeable` LAZILY, the two rounds can disagree — measured on tick `20260829-085055` (issue
+# #710), `merge-conflicts` reported `none conflicted` while `stuck-prs` named four conflicted
+# pull requests over the same open set, with neither wrong about what it read.
+#
+# THE SAME SEAM AS THE REPORTS FILE, and for the same reason: an environment variable rather
+# than a third flag, so the step invocation stays uniform and a step that does not read it is
+# unaffected. `pulls-state.sh` — the ONE reader — is what consults it, so both steps stay
+# byte-identical and "resolved once per tick" is a property of the reader rather than a
+# sentence each caller must remember. The file lives outside the repository, so the tick still
+# writes nothing into the tree but its own log line.
+#
+# A FAILED RESOLUTION IS NOT CACHED. `pulls-state.sh` reports its own degradation (`ok: false`
+# with a reason), and serving that from a cache would make one transport hiccup the tick's
+# answer for every consumer; an unset variable simply means each step resolves for itself,
+# which is exactly the behaviour that existed before this.
+#
+# AND ONLY WHEN A CONSUMER WILL RUN. A tick narrowed with `--only` to a step that never reads
+# the open pull requests must not pay for a read nobody uses, so the resolution is gated on the
+# same `--only`/`--skip` arithmetic the loop below applies.
+PULLS_WANTED=0
+for _pw in merge-conflicts stuck-prs; do
+    if [ -n "$ONLY" ] && ! in_list "$_pw" "$ONLY"; then continue; fi
+    if [ -n "$SKIP" ] && in_list "$_pw" "$SKIP"; then continue; fi
+    PULLS_WANTED=1
+done
+
+PULLS_FILE=''
+if [ "$PULLS_WANTED" -eq 1 ]; then
+    PULLS_FILE=$(mktemp 2>/dev/null || printf '')
+fi
+if [ -n "$PULLS_FILE" ]; then
+    trap 'rm -f "$JQERR_FILE" "$REPORTS_FILE" "$PULLS_FILE"' EXIT
+    if sh "${SCRIPT_DIR}/pulls-state.sh" > "$PULLS_FILE" 2>/dev/null \
+       && grep -q '"ok": true' "$PULLS_FILE" 2>/dev/null; then
+        export WORKAHOLIC_TICK_PULLS_STATE="$PULLS_FILE"
+    else
+        rm -f "$PULLS_FILE"
+    fi
+fi
 # Derived, not parsed back out of the writer: `log_step` runs in a command
 # substitution, so anything it assigned would be lost with its subshell.
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)
@@ -214,6 +305,10 @@ emit_row() {
         blocked)  blocked=$((blocked + 1)) ;;
     esac
     needs_total=$((needs_total + ${8:-0}))
+    # Refreshed after every row so a later step reads exactly what the steps before it
+    # reported — never a stale snapshot, and never the rows of a step that has not run.
+    [ -n "$REPORTS_FILE" ] && printf '{"steps": [%s]}\n' "$rows" > "$REPORTS_FILE"
+    return 0
 }
 
 log_step() {
@@ -228,6 +323,57 @@ log_step() {
         *) printf 'false' ;;
     esac
 }
+
+# One persist, parsed one way. Both the opening and the closing call land here, so a
+# persist that missed the base is named the same way whichever of the two made it.
+# Sets: p_status / p_reason / p_summary / p_persisted.
+run_persist() {
+    p_status=degraded
+    p_reason=no_output
+    p_summary='the persist printed nothing'
+    p_persisted=false
+    pout=$(sh "$PERSIST_LOG" --tick "$TICK" --root "$ROOT" 2>/dev/null || true)
+    pout=$(printf '%s' "$pout" | tail -n 1)
+    [ -n "$pout" ] || return 0
+    p_status=$(json_field status "$pout")
+    p_reason=$(json_field reason "$pout")
+    p_summary=$(json_field summary "$pout")
+    case "$pout" in *'"persisted": true'*) p_persisted=true ;; *) p_persisted=false ;; esac
+    case "$p_status" in
+        ok|filed|skipped|degraded|blocked) ;;
+        *) p_status=degraded; p_reason=bad_output; p_summary="the persist's status was not in the log vocabulary" ;;
+    esac
+    [ -n "$p_summary" ] || p_summary='(the persist reported no summary)'
+}
+
+# --- The opening act: put the tick's opening on the base before any step ------
+# WHY (2026-08-31, mission `stop-an-unattended-tick-from-waiting-on-a-person`). The
+# persist below is the tick's CLOSING act, so a tick that dies mid-run leaves nothing on
+# the base at all: the record that would show it stopped is the record the stop prevents.
+# Measured — three consecutive ticks sat at `requires_action` and the base carried no
+# trace of any of them. One persist immediately after the log is opened makes a dead tick
+# visible, and `step-blocked-tick.sh` is what reads for it.
+#
+# IT NEEDS NO CHANGE TO THE WRITER'S CONTRACT. `persist-log.sh` is already idempotent and
+# already unions by `(tick, step)`, so the closing persist adds every later line into the
+# same section without rewriting this one. Every prohibition holds unchanged: no `work-*`
+# branch, no claim, no pull request, no merge, and the caller's checkout byte-identical.
+#
+# IT IS NEVER FATAL. A miss is reported `degraded` by name under its own `opening_persist`
+# key and its own log step id, exactly as the closing one reports itself, and the tick runs
+# on — a tick that could not put its opening on the base has still got nineteen steps to do.
+#
+# NOT PER STEP. Thirty commits an hour for a log is the noise the pull-request-per-tick
+# design was refused for. Two bound the loss to whatever a dead tick had done since it
+# opened, which is the fact that matters. The stated price is two commits an hour instead
+# of one on an active repository, which is small beside thirty.
+#
+# A TICK KILLED **BEFORE** ITS FIRST STEP STILL LEAVES NOTHING, and that case is genuinely
+# outside this seam rather than papered over: there is no opening to persist yet.
+open_persist_status=skipped
+open_persist_reason=disabled
+open_persist_summary='the caller kept the log local'
+open_persist_persisted=false
 
 for step in $STEPS; do
     if [ -n "$ONLY" ] && ! in_list "$step" "$ONLY"; then
@@ -259,6 +405,9 @@ for step in $STEPS; do
         emit_row "$step" degraded step_missing "$summary" "" "$logged" "" 0
         continue
     fi
+
+    # Emptied before the step, read after it, so the record names this step and no other.
+    if [ -n "$JQERR_FILE" ]; then : > "$JQERR_FILE"; fi
 
     if ! out=$(sh "$script" --tick "$TICK" --root "$ROOT" 2>/dev/null); then
         summary="the step exited non-zero"
@@ -294,8 +443,39 @@ for step in $STEPS; do
     esac
     [ -n "$summary" ] || summary="(the step reported no summary)"
 
+    # A COMPILE ERROR OUTRANKS WHATEVER THE STEP SAID ABOUT ITSELF. The step cannot know:
+    # its fallback already turned the failure into an empty answer, which is precisely why
+    # it reported `ok`. `needs_agent` is deliberately LEFT ALONE rather than zeroed like
+    # `bad_output` does — a step's other readings may have compiled fine, and dropping a
+    # question a person is owed to punish a defect elsewhere in the same script trades one
+    # silence for another. What the reclassification buys is that the tick log, the report
+    # and `file-findings` all name the step as degraded instead of counting it `ok`.
+    if [ -n "$JQERR_FILE" ] && [ -s "$JQERR_FILE" ]; then
+        n_jqerr=$(grep -c '' "$JQERR_FILE" 2>/dev/null || printf 0)
+        jqerr_in=$(sed -n '1p' "$JQERR_FILE" 2>/dev/null || printf '')
+        status=degraded
+        reason=jq_compile_error
+        summary="${n_jqerr} embedded jq program(s) did not compile (first in ${jqerr_in:-the step}); this step's reading is not a reading"
+    fi
+
     logged=$(log_step "$step" "$status" "$summary")
     emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event" "$needs_n"
+
+    # The opening is on the base before anything else runs. Keyed on the first step in
+    # `STEPS` rather than on a loop counter, so a caller that narrowed the run with
+    # `--only`/`--skip` and never opened a log does not persist an opening it does not have.
+    if [ "$step" = open-log ] && [ "$DO_LOG" -eq 1 ] && [ "$DO_PERSIST" -eq 1 ]; then
+        run_persist
+        open_persist_status="$p_status"
+        open_persist_reason="$p_reason"
+        open_persist_summary="$p_summary"
+        open_persist_persisted="$p_persisted"
+        # Logged under its own step id: the log is idempotent per `(tick, step)`, so
+        # sharing `persist-log` with the closing act would make the second a duplicate and
+        # lose its outcome. This line reaches the base on the closing persist, like every
+        # other line written after the opening one.
+        log_step persist-log-opening "$open_persist_status" "$open_persist_summary" >/dev/null
+    fi
 done
 
 if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/moderations/$DAY.md" ]; then
@@ -319,27 +499,16 @@ if [ "$DO_LOG" -eq 1 ] && [ "$DO_PERSIST" -eq 1 ]; then
         persist_reason=no_log
         persist_summary='the tick wrote no log, so there is nothing to persist'
     else
-        pout=$(sh "$PERSIST_LOG" --tick "$TICK" --root "$ROOT" 2>/dev/null || true)
-        pout=$(printf '%s' "$pout" | tail -n 1)
-        if [ -z "$pout" ]; then
-            persist_status=degraded
-            persist_reason=no_output
-            persist_summary='the persist printed nothing'
-        else
-            persist_status=$(json_field status "$pout")
-            persist_reason=$(json_field reason "$pout")
-            persist_summary=$(json_field summary "$pout")
-            case "$pout" in *'"persisted": true'*) persist_persisted=true ;; *) persist_persisted=false ;; esac
-            case "$persist_status" in
-                ok|filed|skipped|degraded|blocked) ;;
-                *) persist_status=degraded; persist_reason=bad_output; persist_summary="the persist's status was not in the log vocabulary" ;;
-            esac
-            [ -n "$persist_summary" ] || persist_summary='(the persist reported no summary)'
-        fi
+        run_persist
+        persist_status="$p_status"
+        persist_reason="$p_reason"
+        persist_summary="$p_summary"
+        persist_persisted="$p_persisted"
     fi
     persist_logged=$(log_step persist-log "$persist_status" "$persist_summary")
 fi
 
-printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s, "persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s, "logged": %s}}\n' \
+printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s, "opening_persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s}, "persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s, "logged": %s}}\n' \
     "$TICK" "$(json_escape "$log_file")" "$rows" "$ok" "$filed" "$skipped" "$degraded" "$blocked" "$needs_total" \
+    "$open_persist_status" "$(json_escape "$open_persist_reason")" "$(json_escape "$open_persist_summary")" "$open_persist_persisted" \
     "$persist_status" "$(json_escape "$persist_reason")" "$(json_escape "$persist_summary")" "$persist_persisted" "$persist_logged"

@@ -75,18 +75,48 @@ confidently (decision J3). Each `ok: false` is a reported decision, never a prom
 ## The survey (`drive/scripts/plan-units.sh`)
 
 Emits `{fetched, shallow, base, surveyed_sha, base_sha, current, user_slug, backlog_error,
-backlog_size, owner_unresolved, claimed[], resumable[], missions[], backlog[], excluded[]}`,
+backlog_size, owner_unresolved, claimed[], resumable[], resurveyed[], missions[], backlog[],
+excluded[], backlog_all_excluded}`,
 each backlog row `{path, title, merge_policy, depends_on, mission_closed}` —
 the unclaimed active missions this runner may take and the unclaimed todo tickets, with
 everything a claim already holds subtracted through the shared claim reader.
 
 **`excluded[]` names every drop and why**: `claimed_active`, `claimed_reported`,
+`claimed_undelivered`, `claimed_awaiting_verification`,
 `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`, `no_plan`,
-`no_tickets`, `queue_drained`, `mission_member`. **`claimed_superseded`** (2026-08-26) names a
-claim with nothing in it: the unit's tickets are already archived on the base, delivered by
-another route, so the branch is unmerged forever and holds no work. It is reported and never
-acted on — nothing deletes the branch or closes its pull request — and it does **not** forbid
-`ok`. It does not read `status` for the offer — a mission on `main`
+`no_tickets`, `queue_drained`, `mission_member`.
+
+**`claimed_awaiting_verification`** (2026-08-27) names a unit **waiting on a person, by design**:
+the work still queued behind its claim was *declared* unverifiable in an unattended environment
+at creation (`verification_handoff:`), so the run routed it to the **handoff** route — its pull
+request is open on purpose and its claim stands on purpose. It read `claimed_resumable` until
+then, so the survey offered a takeover that could drive nothing, on every tick forever (measured
+on PR #647: routed at 02:14 UTC, taken over again at 06:43). It appears in `claimed[]` and here,
+and in **neither** `resumable[]`, `undelivered[]` nor `resurveyed[]` — it is not a takeover, not
+a merge retry and not work that came back. It does **not** forbid `ok`, on the scan-held pull
+request's own reasoning: a unit waiting on a declared human verification is the gate *working*.
+The reading releases itself — the declaration is taken from the still-queued work, so driving
+that ticket returns the unit to `claimed_resumable` with nothing stored anywhere.
+
+**`claimed_superseded`** (2026-08-26) names a
+claim with nothing in it: the unit's work already reached the base — every one of its tickets
+archived there, or (at the mission grain) a merged pull request with that branch as its head —
+so the branch is unmerged forever and holds no work. It is reported and never acted on —
+nothing deletes the branch or closes its pull request — and it does **not** forbid `ok`.
+
+**`resurveyed[]` is what the survey stepped OVER, and it has its own field for a reason**
+(2026-08-26). A claim proved empty must not hold its work either, so the queued tickets behind
+a `superseded` claim — and the mission they belong to — are offered again as ordinary backlog.
+`excluded[]` is the wrong home by its own definition (it names what the survey saw and
+*dropped*), so each freed unit is reported as `{kind, id, claim}` instead, naming the dead claim
+branch: **a unit that came back is never mistaken for one that was never claimed.** This frees
+the work and does not revive the branch — the claim row stays `superseded` and
+`resumable: false`, and a run takes the freed tickets on a **fresh** claim, because the old
+branch cannot land. Every other reason still excludes: `claimed_active` is being driven now,
+`claimed_by_other` is not this runner's, `claimed_reported` waits on a human, and
+`claimed_resumable` is taken over rather than re-claimed. Measured: a mission sat `active` at
+2/3 acceptance with queued tickets behind a claim whose pull request had merged five days
+earlier, and no survey would offer any of it. It does not read `status` for the offer — a mission on `main`
 was accepted when its pull request merged (K1); the area is the authority. `no_plan`,
 `no_tickets`, and `queue_drained` are deliberately distinct because each names a different next
 action: write the acceptance criteria, emit the ticket set, or decide the close — a mission whose
@@ -127,6 +157,7 @@ not `excluded[]` entries, because `excluded[]` names items the survey saw and dr
 | `shallow` | `true` = the claim scan ran over truncated history (a shallow clone whose origin was unreachable, so it could not deepen). **Forbids `ok`** on a different axis from `current`: "can I tell which branches reached the base at all". See [`claims.md`](claims.md). |
 | `backlog_error` | `""` when the queue was read; `unreadable` otherwise. **Forbids `ok`** — a run that never learned the queue's contents has established nothing about it. |
 | `backlog_size` | ticket count before filtering — what makes *nothing for me* and *nothing at all* distinguishable from outside. |
+| `backlog_all_excluded` | `{excluded, backlog_size, reasons[{reason, count}]}` — a **derived reading** over the fields above: the queue holds tickets, the survey offers none of them, and something was excluded. Reported by both entry points' run reports so *the queue is empty* and *the queue is full and I can offer none of it* never render alike. The **per-reason counts** are what make it actionable — a queue emptied by claims is the protocol working, one emptied by `owned_by_other` is work nothing can drive. A genuinely empty queue (`backlog_size: 0`) and a survey offering some of its backlog both read `excluded: false`. It is a top-level key rather than an `excluded[]` entry for the reason `resurveyed[]` is: `excluded[]` names what the survey saw and *dropped*, and this drops nothing of its own. **It moves no token** — whether it forbids `ok` belongs to the mission that owns §7's table, and two missions editing one table is how a table stops meaning one thing. Measured 2026-08-26: `backlog_size: 10`, `backlog: []`, `owned_by_other` x7, reported `ok` hourly for five days. |
 | `owner_unresolved` | the queue **was** read but this runner has no identity to judge ownership against: unowned artifacts are still offered, owned ones excluded as `owner_unresolved`. **Forbids `ok`** but does not terminate the run. (`identity_unresolved` left this vocabulary with the per-user directory layout, P2.) |
 
 `fetched: false` means origin was unreachable and the claim set is the last-known one — survey
@@ -146,8 +177,10 @@ so a takeover (`claim.sh resume <unit-id>`) skips steps 2-3. Read each row's `re
   told the work exists. Enters at **step 5**, with an empty queue: write the story, run the scan,
   open the pull request, route normally at step 6. It re-drives no archived ticket.
 - **`parked_with_pr`** — a unit that reached its PR and has follow-up work on its branch (its
-  story file is committed at the tip). Legitimately resumable but **reportable rather than
-  mandatory**: it does not outrank fresh work and does not forbid `ok` when left untaken. (The
+  story file is committed at the tip) **that nothing declared unverifiable here**; when the
+  remaining work *is* declared, the row reads `awaiting_verification` instead, is `resumable:
+  false`, and appears in no tier of this offer at all. Legitimately resumable but **reportable
+  rather than mandatory**: it does not outrank fresh work and does not forbid `ok` when left untaken. (The
   mandatory reading was measured humanly wrong — an attended run spent ~40 minutes reopening a
   PR the developer considered parked while their actual WIP waited, 2026-08-05.) Enters at
   **step 4** for the follow-up tickets.

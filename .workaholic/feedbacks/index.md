@@ -552,6 +552,7 @@
 * [Attribute an inbound ask to the direction it answers](20260826041650-attribute-an-inbound-ask-to-the-direction-it-answers.md)
 * [Give a mission claim the superseded reading a batch claim already has](20260826065623-give-a-mission-claim-the-superseded-reading-a-batch-claim-already-has.md)
 * [question-liveness reads an array run.sh never emits, so every asked question reads settled](20260826065731-question-liveness-reads-an-array-run-sh-never-emits-so-every-asked-question-reads-settled.md)
+* [Say when the loop has run out of direction](20260826071745-say-when-the-loop-has-run-out-of-direction.md)
 * [Say when the loop has run out of direction](20260826081729-say-when-the-loop-has-run-out-of-direction.md)
 * [The stuck-prs ask key moves with GitHub's uncomputed mergeability so one pull request can be asked twice](20260826095437-the-stuck-prs-ask-key-moves-with-github-s-uncomputed-mergeability-so-one-pull-request-can-be-asked-twice.md)
 * [A question asked before lib/question-id.sh reads never_asked so the asked-once ledger can be bypassed](20260826095604-a-question-asked-before-lib-question-id-sh-reads-never-asked-so-the-asked-once-ledger-can-be-bypassed.md)

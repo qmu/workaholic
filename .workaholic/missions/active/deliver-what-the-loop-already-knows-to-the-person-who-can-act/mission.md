@@ -51,3 +51,4 @@ of looking like a quiet hour.
 - 2026-09-01 — ticket archived — 20260828122109-reproduce-the-check-in-day-cap-jam-and-pin-it.md
 - 2026-09-01 — ticket archived — 20260828122110-bound-the-check-in-day-count-to-one-derived-day.md
 - 2026-09-01 — ticket archived — 20260828122110-drain-a-multi-day-question-backlog-oldest-held-first.md
+- 2026-09-01 — ticket archived — 20260828122110-read-back-what-the-check-in-delivered-and-held.md

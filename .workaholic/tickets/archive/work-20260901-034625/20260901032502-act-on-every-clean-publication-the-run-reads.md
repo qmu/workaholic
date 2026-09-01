@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T03:25:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -123,3 +124,50 @@ repository requires.
 - **This ticket depends on the mission's first ticket.** Directing the run to act on `clean`
   before the act accepts it would produce a `not_mechanical:clean` refusal on every tick — noise
   in place of a gap. Drive them in order.
+
+## Final Report
+
+Development completed as planned.
+
+The gap was read before it was closed. `workaholic:drive` §5 said the run acts "for each entry §1's
+reading gave whose `mergeability` is **`mechanical`**", and §7 said it reports the act's word "for
+each `mechanical` one it acted on"; `CLAUDE.md` said the same in two places. Against this
+repository's own reading that morning — six open publications, five of them `clean` — the caller
+read five entries, named all five in the report and acted on none.
+
+What changed, and nothing else did:
+
+- `workaholic:drive` §5 now triggers on `mechanical` **or** `clean`, still once per entry, never
+  a loop and never batched, and names what a `clean` settlement skips (the merge, the
+  regeneration, the fast checks, the push) and what it does not (the gate, the delivery seam).
+  A new paragraph records why the class had no owner, with the measured five.
+- §7's per-publication line keeps its shape for both classes — the class is already the second
+  thing on it, so no second vocabulary was needed — and the non-conformance rule now covers both.
+- The token rows moved in wording only: a settled publication whose delivery reports
+  `merge_refused` still forbids `ok`, a delivered one stops withholding it, and a refusal that
+  waits on a person still moves no token. The `pending` row's prose no longer asserts that the
+  loop pushed, because a `clean` settlement pushes nothing.
+- `CLAUDE.md` states both classes in both places.
+- `moderate/reference/workflow.md` and `step-stranded-publications.sh` keep `content` as the whole
+  candidate set, for its own unchanged reason.
+
+The one judgement call, stated rather than silently edited: the step's **`settleable` count** now
+includes `clean`. It is a reader-facing number, not a candidate set, so widening it changes no
+question, key, cap, addressee or gate — and leaving it at `mechanical` would have reported `1
+settleable by the loop itself` on a morning when the loop owned five. A count that understates
+what the loop owns is how a reader stops trusting the summary.
+
+`/moderate`'s `stranded-publication:<number>` question still fires on `content` alone; the suite's
+existing rows pin that and pass unchanged.
+
+### Discovered Insights
+
+- **Insight**: The class boundary was written down in five places and the act in one, so widening
+  the act alone would have left the caller reading `clean` entries it was documented never to
+  touch — and every one of those five documents is what a later session consults to decide what
+  the loop owns.
+  **Context**: `drive/SKILL.md` (§5 trigger, §7 report line, two token rows), `CLAUDE.md` (the
+  act's contract and the run-report bullet), `moderate/reference/workflow.md` (the step section
+  and the `needs_ruling` row) and the step script's own header. The count in
+  `step-stranded-publications.sh` was the only one that was a number rather than a sentence,
+  which is exactly why it needed a stated decision rather than a reflex.

@@ -38,11 +38,20 @@
 # of two headers.
 #
 # ═══ ONLY `content` DRAWS A QUESTION ═════════════════════════════════════════════════
-# `mechanical` is the loop's own work — `/implement` settles it, and asking about it would ask
-# a person for the act the machinery is about to take. `clean` needs no catch-up at all.
-# `unanswerable` is the ABSENCE of a reading, never actable and never a question addressed to
-# somebody who can do nothing with it; it is COUNTED in the summary instead, so a reading that
-# could not be made stays visible in the log rather than vanishing.
+# `mechanical` and `clean` are the loop's own work — `/implement` settles both through
+# `settle-stranded-publication.sh`, and asking about either would ask a person for the act the
+# machinery is about to take. `unanswerable` is the ABSENCE of a reading, never actable and
+# never a question addressed to somebody who can do nothing with it; it is COUNTED in the
+# summary instead, so a reading that could not be made stays visible in the log rather than
+# vanishing.
+#
+# THE CANDIDATE SET DID NOT MOVE WHEN `clean` BECAME SETTLEABLE (2026-09-01, mission
+# `deliver-a-stranded-publication-that-needs-nothing-but-a-merge`). `content` is still the whole
+# of it, and for its own unchanged reason: only a person can judge a collision. What moved is
+# the `settleable` COUNT below, which is a reader-facing number rather than a candidate set —
+# leaving it at `mechanical` would have understated by four on the morning the class was
+# widened, and a count that understates what the loop owns is how a reader stops trusting it.
+# No question, key, cap, addressee or gate moved with it.
 #
 # THE COLLIDED FILES RIDE THE HEADING. A question that cannot name what collided does not say
 # what to look at, and the reader already carries `mergeability_content_files` verbatim from
@@ -105,7 +114,7 @@ fi
 total=$(printf '%s' "$out" | jq '.count // 0')
 candidates=$(printf '%s' "$out" | jq -c '[.publications[]? | select(.mergeability == "content")]')
 unreadable=$(printf '%s' "$out" | jq '[.publications[]? | select(.mergeability == "unanswerable")] | length')
-settleable=$(printf '%s' "$out" | jq '[.publications[]? | select(.mergeability == "mechanical")] | length')
+settleable=$(printf '%s' "$out" | jq '[.publications[]? | select(.mergeability == "mechanical" or .mergeability == "clean")] | length')
 n=$(printf '%s' "$candidates" | jq 'length')
 
 summary="${total} open publication(s); ${n} colliding on content"

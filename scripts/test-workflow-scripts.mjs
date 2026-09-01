@@ -31677,14 +31677,27 @@ function testSettleStrandedPublication() {
     assertEq("no worktree is left behind", existsSync(join(fx.A, ".worktrees/publication-21")),
       false);
 
-    // 3. A SECOND RUN IS A NO-OP REPORTING ITS OWN WORD. The branch now contains the base, so
-    //    the reader no longer calls it `mechanical` and the act refuses by name rather than
-    //    merging a second time.
+    // 3. A SECOND RUN IS A NO-OP REPORTING ITS OWN WORD. The delivery merged the pull request,
+    //    so GitHub no longer lists it open and the reader does not name it — which is the
+    //    idempotency guard, and the only one that survives `clean` becoming an accepted class
+    //    (2026-09-01): a branch that already contains the base reads `clean`, so a fixture that
+    //    kept the merged pull request open would be asserting that the act refuses a
+    //    publication it is now right to deliver. The stub is re-issued without #21 because that
+    //    is what the merge did.
+    const tipBeforeRerun = tipOf(mech);
+    publicationGhStub(fx.binDir, {
+      pulls: [
+        { number: 22, url: "https://example.test/pr/22", title: "[Proposal] app",
+          created: "2026-08-31T12:00:01Z", author: "claude[bot]", head: content },
+      ],
+      files: { 22: pubFiles(["src/app.txt"]) },
+    });
     const again = settle(21);
     assertEq("a re-run over a settled publication is a no-op with its own word",
-      [again.outcome, again.merged, again.pushed], ["settle_refused", false, false]);
-    assertTrue("and it names why rather than repeating the act",
-      /^not_mechanical:/.test(again.reason), again.reason);
+      [again.outcome, again.reason, again.merged, again.pushed],
+      ["settle_refused", "not_a_stranded_publication", false, false]);
+    assertEq("and it moves no ref", tipOf(mech), tipBeforeRerun);
+    stub();
 
     // 4. A PULL REQUEST THE READER DOES NOT NAME IS REFUSED, never searched for.
     const unknown = settle(99);
@@ -31719,6 +31732,32 @@ function testSettleStrandedPublication() {
     assertEq("a refused delivery is reported in the merge vocabulary, settlement intact",
       [undelivered.outcome, undelivered.pushed, undelivered.delivery],
       ["settled", true, "merge_refused: merge_not_allowed"]);
+
+    // 6. A PUBLICATION THAT NEEDS NOTHING BUT A MERGE IS DELIVERED, AND TAKES NO CATCH-UP
+    //    (2026-09-01, mission `deliver-a-stranded-publication-that-needs-nothing-but-a-merge`).
+    //    It collides with nothing, so `merged`, `regenerated`, `validated` and `pushed` are all
+    //    false and the branch is byte-identical after the act — the whole difference between
+    //    the two accepted classes, asserted as behaviour rather than as a return shape.
+    const clean = publishBranch(fx.A, "work-20260831-140000", (wt) => {
+      writeFileSync(join(wt, "src/other.txt"), "untouched-by-the-base\n");
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    publicationGhStub(fx.binDir, {
+      pulls: [{ number: 24, url: "https://example.test/pr/24", title: "[Proposal] other",
+                created: "2026-08-31T14:00:00Z", author: "claude[bot]", head: clean }],
+      files: { 24: pubFiles(["src/other.txt"]) },
+    });
+    const cleanTip = tipOf(clean);
+    const delivered = settle(24);
+    assertEq("a publication needing nothing but a merge is settled and delivered",
+      [delivered.outcome, delivered.class, delivered.delivery],
+      ["settled", "clean", "merged"]);
+    assertEq("and it takes no catch-up: nothing merged, regenerated, validated or pushed",
+      [delivered.merged, delivered.regenerated, delivered.validated, delivered.pushed],
+      [false, false, false, false]);
+    assertEq("its branch is byte-identical after the act", tipOf(clean), cleanTip);
+    assertEq("and no worktree is left behind",
+      existsSync(join(fx.A, ".worktrees/publication-24")), false);
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 

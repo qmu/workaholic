@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T11:25:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,41 @@ moves. The two tickets after it consume this answer.
   proof and the act in one script, which is the shape `retire-claim.sh`'s own header refuses.
 - `state: none` is the autofix branch in the ask's table; it earns no candidate and no question
   in this mission — recorded here so a later reader does not treat the silence as an oversight.
+
+## Final Report
+
+Development completed as planned.
+
+`drive/scripts/branch-pull-request-state.sh <branch>` is added and consumed by nothing yet:
+no candidate widens, no act fires, no claim verdict moves. It makes one repository-scoped
+REST read through `gh-rest.sh` (`GET /repos/{slug}/pulls?state=all&head={owner}:{branch}`,
+filtered locally because a bound session refuses `search/*`) and answers four states —
+`merged`, `closed_unmerged`, `open`, `none` — with `none` reserved for a lookup that
+**succeeded** and found nothing.
+
+A read it could not make emits `{"ok": false, …, "reason": "<named>"}` and **no `state` key at
+all**, which the suite asserts on the raw output rather than on the parsed object. Bounds are
+`claim-merged.sh`'s own: `WORKAHOLIC_CLAIM_MERGED_LOOKUP=0` is `disabled`, a caller whose own
+fetch failed (`CLAIMS_FETCH_OK` set and not `true`) is `offline`, one read per invocation, no
+ref, worktree, cursor or field, exit 0 in every case. Ordering when a head carries several
+pull requests is written into the header: a merged one wins outright, then the newest
+unmerged.
+
+`docs/drive-loop-runbook.md` gains *Two readers ask GitHub about a pull request, and they ask
+different questions* — a two-row table and the reason they are not one reader.
+
+### Discovered Insights
+
+- **Insight**: `CLAIMS_FETCH_OK` cannot be read as a plain boolean by a script that also runs
+  standalone. Unset means *no caller has an opinion*; set-and-not-`true` means *a caller
+  proved there is no network*. Collapsing the two would make every direct invocation answer
+  `offline`.
+  **Context**: `lib/claims.sh` can treat unset as false because nothing calls it from outside
+  a scan. A reader that is both a library input and a command has to tell the two apart, and
+  `[ -n "${VAR+x}" ]` is the test that does it.
+- **Insight**: the honest way to say *I could not read* in a JSON line is to omit the answer
+  key, not to add a sentinel value to it.
+  **Context**: `claim-merged.sh` carries `unanswerable` inside its `state` enum, which works
+  because every consumer of that field is inside the claim chain. Here the consumer is a
+  branch delete, so an absent key makes a careless `state == "none"` test fail closed instead
+  of deleting on the strength of a rate limit.

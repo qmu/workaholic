@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T11:25:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260901112558-name-a-closed-unmerged-branch-as-its-own-candidate.md
@@ -86,3 +87,56 @@ their own refusal words; without them the act would either refuse every new cand
   direction issue #788 turned `superseded` in.
 - The act gains no new transport. It is the same REST seam run by an executor where the write is
   permitted, one candidate class over.
+
+## Final Report
+
+Development completed as planned.
+
+`delete-retired-claim-branch.sh` now takes `--branch` and `--reason` beside its positional
+unit, defaulting to `--reason superseded_only` so every caller that passed a unit alone before
+this change behaves exactly as it did. `--branch` is **required** for the two pull-request
+classes and refused `no_branch` when absent, because their candidates may carry no unit at all
+— a publish-tree publication has no `Claim` commit, so the oracle names none, and the
+workflow's old `unit`-keyed loop skipped precisely the branches those classes exist for.
+
+Each class re-asks **its own** question immediately before the delete, through
+`branch-pull-request-state.sh`, and refuses by its own word rather than through
+`not_superseded:<verdict>` — which would send a reader to the claim oracle for a candidate the
+oracle never named: `not_merged:<state>`, `not_closed_unmerged:<state>`,
+`pull_request_unreadable:<reason>`.
+
+**Step 4's deferred question is ruled and it fails closed.** A `pull_request_closed_unmerged`
+candidate is refused `branch_holds_work` when `claims_branch_empty_against_base` says the
+branch still holds work found on no other ref, and `emptiness_unanswerable` when that reading
+cannot be made — the direction issue #788 turned `superseded`, applied to the one class whose
+proof is **authorship** rather than emptiness. A merged branch takes no such term: its content
+is on the base by definition.
+
+`release_branch`, `not_a_work_branch` and `pull_request_open` apply to every class, unchanged.
+`not_on_base` stays the `superseded_only` class's own term, and the header **says why** rather
+than leaving it to be inferred: it re-derives `claims_superseded` from the unit's artifacts,
+which a candidate with no unit does not have, so applying it to the new classes would produce a
+bound that reads as satisfied because there was nothing to evaluate. A live claim row outranks
+every pull-request reading and is re-derived at the act too.
+
+`record-ci-retirement-turn.sh` and `read-ci-retirement-record.sh` needed **no change**: the
+recorder copies `state`/`reason` verbatim, so every new word reaches the annotation and
+`/moderate`'s `retire-blocked:<unit>:<word>` question by construction. The workflow gained no
+permission — the assertion pins `contents: write` and nothing wider — and no new transport.
+
+Verified: `node scripts/test-workflow-scripts.mjs` — 5903 passed, the only failure the
+pre-existing clock-dependent row (`expected "settled", got "unknown"`, exactly the symptom
+`20260901132500` predicts). `sh scripts/e2e/loop-drill.sh verify-all` — `ok: true`, 41 drills,
+0 failed, `verify-ci-retirement` among the passes.
+
+### Discovered Insights
+
+- **Insight**: the act's arguments had to become a *question selector*, not an answer. `--reason`
+  names which proof to re-derive and carries none of its content.
+  **Context**: the tempting shape is a `--proved` flag that lets CI tell the act what the reader
+  concluded, which would delete the re-derivation discipline in one line while looking like a
+  refactor. The distinction is worth stating in a review of any later change to this file.
+- **Insight**: a test that builds a branch with `git add -A` inside a fixture whose transport is
+  an untracked stub deletes that transport on the way back to `main`.
+  **Context**: cost a full suite run to find. Name the file in `git add` inside any fixture that
+  carries an untracked stub on `PATH`.

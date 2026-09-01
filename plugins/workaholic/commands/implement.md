@@ -22,14 +22,15 @@ The notification surface is **this command's**, not the routine's — a routine 
 Post one finish line per claimed PR-unit into its reply thread (the `workaholic:notify` lookup) — one line per unit, never one per feedback stem:
 
 ```
-🟢 Implemented - [#123 Title](<repo-url>/pull/123)
-by the [routine](<session URL>)
+🟢 Implemented [#123 Title](<repo-url>/pull/123)
+One sentence, max 30 words, what the unit changed.
+by [web routine](<session URL>)
 ```
 
 When a unit ends in **handoff** its finish line is this one instead — never `🟢 Implemented`, and never a second post beside it — naming the person who must run what this environment could not:
 
 ```
-🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
+🟡 Handoff <@U…> [#123 Issue Title](<repo-url>/pull/123)
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 ```

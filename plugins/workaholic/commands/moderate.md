@@ -74,12 +74,12 @@ For each candidate the `thread-reconcile` step hands back, find the item's threa
 **`🟡 Handoff` + merged** — the work is done and a run failed to say so:
 
 ```
-🟢 Implemented - [#123 Title](<repo-url>/pull/123)
+🟢 Implemented [#123 Title](<repo-url>/pull/123)
 Merged outside the loop by <who> on <when> — no run posted this item's finish.
 ```
 
 ```
-⚫ Closed - [#123 Title](<repo-url>/pull/123)
+⚫ Closed [#123 Title](<repo-url>/pull/123)
 Closed without merging outside the loop on <when> — no run posted this item's finish.
 ```
 

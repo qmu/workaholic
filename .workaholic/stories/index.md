@@ -3,6 +3,11 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260901-121939](work-20260901-121939.md) - Decided the probe-branch cleanup is a person's two commands rather than a standing branch-deleting CI capability, and named them where a person reads
+* [work-20260901-112108](work-20260901-112108.md) - A mission slug is now checked against the unmerged branches as well as the local tree, so a publish tree stranded for days can no longer mint a slug a second time in silence.
+* [work-20260901-105941](work-20260901-105941.md) - A mission unit's verification axis now reads its tickets, so a mission whose member ticket declared work nobody can verify here can no longer merge unattended.
+* [work-20260901-105657](work-20260901-105657.md) - Re-verified the claim-contention block by reading rather than re-probing, and lifted the probe-branch cleanup out of the blocked ticket into one of its own
+* [work-20260901-104910](work-20260901-104910.md) - State the plugin-path Bash-call rule, put it where every session loads it, and name the allowlist axis the no-prompt promise rests on
 * [work-20260901-094857](work-20260901-094857.md) - A mergeability reading is settled before it becomes a question — an uncomputed one is re-read once, a conflicted pull request names which actor clears it, and the shipped union-merge record says GitHub applies no merge driver.
 * [work-20260901-085116](work-20260901-085116.md) - The digest reports where the work stands — each direction's missions with acceptance progress and queued counts, the repository's whole queue, and which direction a mission serves
 * [work-20260901-074324](work-20260901-074324.md) - Diagnoses the two-missions-one-slug collision on main to a stranded publication's stale collision check, and corrects the ticket that had blamed two seams that already work.

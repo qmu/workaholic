@@ -9,14 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 6.1
+actual_hours: 6.9
 feedback: [20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260830-124234
+claim: work-20260901-121939
 ---
 
 # Stop two runs from claiming and driving one unit
@@ -76,3 +76,7 @@ happens, one person is told once, both branches named.
 - 2026-08-31 — run recorded (+0.3h) — implement-20260831-1743
 - 2026-08-31 — run recorded (+0.4h) — implement-20260831-1943
 - 2026-09-01 — ticket archived — 20260831235425-beat-the-heartbeat-from-where-the-workflow-says-to-work.md
+- 2026-09-01 — run recorded (+0.2h) — cse_0121b11BdHR33Ufh9h4eZMYP
+- 2026-09-01 — story reported — work-20260901-105657
+- 2026-09-01 — run recorded (+0.6h) — cse_012LjmkqXe5bhzNL5W1UW794
+- 2026-09-01 — story reported — work-20260901-121939

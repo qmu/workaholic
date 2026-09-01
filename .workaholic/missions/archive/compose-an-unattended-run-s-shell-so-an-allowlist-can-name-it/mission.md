@@ -2,7 +2,7 @@
 type: Mission
 title: Compose an unattended run's shell so an allowlist can name it
 slug: compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T10:22:05+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-104910
 ---
 
 # Compose an unattended run's shell so an allowlist can name it
@@ -39,11 +40,16 @@ is in its context.
 
 <!-- PROPOSED criteria - a sketch for discussion, not a plan. -->
 
-- [ ] The plugin-path Bash-call rule is stated with its measured evidence and why no
+- [x] The plugin-path Bash-call rule is stated with its measured evidence and why no
       allowlist can cover an assignment-prefixed command (#20260901102255-write-a-plugin-path-out-in-full-in-a-bash-call.md)
-- [ ] A session that has loaded no `.sh` file still reads the rule (#20260901102255-put-the-shell-rule-where-every-session-loads-it.md)
-- [ ] The no-prompt promise names unallowlistable shell as one of the ways it breaks (#20260901102255-forbid-unallowlistable-shell-in-a-no-prompt-run.md)
+- [x] A session that has loaded no `.sh` file still reads the rule (#20260901102255-put-the-shell-rule-where-every-session-loads-it.md)
+- [x] The no-prompt promise names unallowlistable shell as one of the ways it breaks (#20260901102255-forbid-unallowlistable-shell-in-a-no-prompt-run.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260901102255-write-a-plugin-path-out-in-full-in-a-bash-call.md
+- 2026-09-01 — ticket archived — 20260901102255-put-the-shell-rule-where-every-session-loads-it.md
+- 2026-09-01 — ticket archived — 20260901102255-forbid-unallowlistable-shell-in-a-no-prompt-run.md
+- 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — story — work-20260901-104910.md

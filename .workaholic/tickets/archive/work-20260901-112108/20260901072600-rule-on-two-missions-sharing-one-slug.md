@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T07:26:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -7,7 +8,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: 20260826071745-say-when-the-loop-has-run-out-of-direction.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md
-claim: work-20260901-074324
+claim: work-20260901-112108
 ---
 
 # Rule on two missions sharing one slug
@@ -143,3 +144,57 @@ A publication stranded for six days carries a six-day-old collision check.
 **Gate** — what must pass before approval:
 
 - The suite passes; the duplicate check is clean; the Open Decision carries a recorded ruling
+
+## Final Report
+
+Development completed as planned, with step 5 scoped out by name and the Open Decision left
+to the operator.
+
+**Step 1, the diagnosis re-read against git — confirmed, nothing changed on its account.**
+`create.sh` line 75 already refuses a slug `mission_resolve` finds in either area, and
+`close.sh` lines 287-291 already answer `archive_slug_conflict` and leave the mission where
+it is. Both were read in full; neither was touched. The duplicate-slug check the Quality
+Gate names still reports the two known pairs on `main`
+(`deliver-what-the-loop-already-knows-…`, `say-when-the-loop-has-run-out-of-direction`) —
+history, and the Open Decision's subject.
+
+**Step 2, the ruling.** The stale check is caught at **build time**, in `create.sh`, by
+consulting the unmerged branches through `/specificate`'s existing
+`lib/unmerged-branches.sh` — the same oracle the claim protocol rests on, git-native, with
+no API call and no second walk. Merge time was the other real candidate and was not taken:
+no writer looks there, so closing it would mean adding one, and a check that fires at merge
+finds the collision after both records exist rather than before the second is written.
+
+**Step 3, the honest cost — and it decided the shape.** The walk over-reads on every
+ambiguity by design. So only a walk that **completed** may refuse (`exists_on_branch`,
+naming the ref, nothing written); a shallow clone, a missing base ref or a non-repository
+reports on **stderr** and creates anyway. Stdout stays exactly the machine-readable line
+every caller parses, which is why a degraded read here can never be mistaken for a refusal.
+
+**Step 4 is recorded in the Overview and needed no code**: `/specificate`'s ask-dedup keys
+on feedback refs, and these two proposals carried different refs for one topic, so a slug
+check is not reachable from a ref check.
+
+**Step 5, `mission_resolve`'s two-match answer — deliberately out of scope.** Changing its
+return shape touches every reader that composes it, no acceptance criterion names it, and
+the reporting need it would serve is already met: `layout-doctor.sh` reports each pair as
+an advisory. Recorded rather than done, as the step's own "scope it deliberately" asks.
+
+**Step 6 and the Open Decision — untouched.** Neither record was deleted, merged, renamed
+or re-slugged. Which is authoritative is the operator's ruling and remains open.
+
+### Discovered Insights
+
+- **Insight**: The refusal fires against branches that are merely *unmerged*, which
+  includes abandoned publications. Measured here: eight mission paths live on unmerged
+  branches, some from 2026-08-14, and each now holds its slug until that branch is deleted.
+  **Context**: That is the walk's own stated semantic — *deleting the branch is the act that
+  frees its artifacts* — and it is the same invariant the claim protocol uses. The operator's
+  lever is deleting a dead branch, and `delete_branch_on_merge` already covers the merged case.
+
+- **Insight**: The walk costs one ancestry test per remote branch plus one tree diff per
+  unmerged branch, so the **branch count** dominates, not the pathspec count: measured over
+  302 remote branches here, two pathspecs took 11s and one took 10s.
+  **Context**: One pathspec (`missions/*/<slug>/mission.md`, whose `*` crosses `/` in a git
+  pathspec) was kept for a different reason — the two areas cannot drift apart — and the
+  place to look if this ever gets slow is the branch count, per the walk's own header.

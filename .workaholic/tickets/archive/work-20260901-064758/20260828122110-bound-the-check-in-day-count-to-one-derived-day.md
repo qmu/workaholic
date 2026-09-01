@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T12:21:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -70,3 +71,20 @@ reader, no new field, no stored cursor.
   state in the code which day is counted — ticket 6 documents it.
 - The one-off cost is visible and acceptable: bounding the count re-opens questions the
   jam had been refusing, which is the point. Ticket 3 orders that drain.
+
+## Final Report
+
+**The work is already on the base**, landed by another route while proposal #688 sat
+stranded for four days. Verified behaviourally:
+
+- `ask-question.sh` derives `TODAY` once from the tick id in the `WORKAHOLIC_QUIET_TZ` zone
+  and passes it to `log-read.sh`'s existing `--since`; `asked_today` is
+  `count_log_prefix human-checkin-ask "" "$TODAY"`. One derivation, the reader that already
+  accepted a day bound, no second reader, no new field, no stored cursor — exactly the
+  constraints this ticket set.
+- The over-count direction is stated rather than left to be rediscovered: the log's files are
+  keyed by UTC day while the boundary moves in the quiet-hours zone, so near the boundary the
+  bound can include a UTC file whose later entries belong to the local next day. It
+  over-counts, holding a question rather than asking a duplicate, and the header says so.
+
+Nothing was re-implemented.

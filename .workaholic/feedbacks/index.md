@@ -633,4 +633,5 @@
 * [A fourth moderation hour reached nobody and compounded with an undelivered proposal](20260901032838-a-fourth-moderation-hour-reached-nobody-and-compounded-with-an-undelivered-proposal.md)
 * [A captured ask is re-offered while its proposal waits on a branch](20260901042106-a-captured-ask-is-re-offered-while-its-proposal-waits-on-a-branch.md)
 * [A fifth moderation hour reached nobody and its held questions went stale](20260901042623-a-fifth-moderation-hour-reached-nobody-and-its-held-questions-went-stale.md)
+* [Specificate published a duplicate ticket set for an already-driven mission](20260901072508-specificate-published-a-duplicate-ticket-set-for-an-already-driven-mission.md)
 <!-- okf:generated:end -->

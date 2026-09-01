@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T12:21:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -68,3 +69,20 @@ genuinely spent today from a mechanism that has stopped.
   normalized out for `inbound-sweep` and `doc-drift`.
 - Hold counts are per tick, not cumulative; a running total would be the status line
   addressed to nobody this repository has twice retired.
+
+## Final Report
+
+**The work is already on the base**, landed while proposal #688 sat stranded. Verified:
+
+- `step-human-checkin.sh` reports `delivered`, `held_count`, `candidates` and a `delivery`
+  reason word on every exit path, replacing the capacity statement this ticket objected to.
+- The reason words make the distinction the ticket asked for: **`cap_spent`** (the day's
+  budget was spent — the mechanism worked) is split from **`cap_unbounded`** (the day count
+  could not be bounded — our own degradation), and the header states that the second must
+  never render as the first. `all_held`, `all_asked_before` and `no_candidates` complete the set.
+- An unreadable log is `status: degraded` with the reader's own reason and **no `delivered`
+  claim**; an absent log area is a readable answer, not a degradation.
+- What `delivered` honestly is, is recorded too: the agent asks after `run.sh` returns, so on
+  the step's own pass it is zero by construction and the words are ones the step can observe.
+
+Nothing was re-implemented.

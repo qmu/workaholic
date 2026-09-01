@@ -27419,6 +27419,68 @@ esac
       cleanup(binR);
     }
 
+    // THE COMPARED SUMMARY CARRIES NO PER-PULL STATE LIST (2026-09-01, ticket
+    // `20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate`).
+    // `render-tick-post.sh` compares `(step, status, stabilized summary)` verbatim, and the
+    // stabilizer strips only a timestamp, a bare hex object name and a clock time — so the
+    // `<number>:<blocked_by>` pair list this summary used to carry made the gate open a root
+    // whenever GitHub reassigned a class between two pull requests, with the repository
+    // unmoved. Both directions are pinned: the re-shuffle must be silent, and the SET moving
+    // must still speak.
+    const many = (rows) => {
+      const d = mkdtempSync(join(tmpdir(), "wh-ghN-"));
+      const detail = rows.map(([n, mergeable, state]) =>
+        `  repos/*/pulls/${n}) emit '${JSON.stringify({ number: n, html_url: `https://x/${n}`, head: { ref: "work-20260817-030303" }, draft: false, mergeable, mergeable_state: state, title: "One" })}' ;;`).join("\n");
+      writeFileSync(join(d, "gh"), `#!/bin/sh
+path=""; jqexpr=""; seen=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    api) seen=1 ;;
+    --jq) jqexpr="$2"; shift ;;
+    -*) ;;
+    *) if [ "$seen" = 1 ] && [ -z "$path" ]; then path="$1"; fi ;;
+  esac
+  shift
+done
+emit() { if [ -n "$jqexpr" ]; then printf '%s' "$1" | jq -r "$jqexpr"; else printf '%s' "$1"; fi; }
+case "$path" in
+  repos/*/pulls\\?*) emit '${JSON.stringify(rows.map(([n]) => ({ number: n })))}' ;;
+${detail}
+  *) emit '[]' ;;
+esac
+`);
+      chmodSync(join(d, "gh"), 0o755);
+      return d;
+    };
+    // Same two pull requests, same two classes — only which one holds which has moved.
+    const binSwapA = many([[41, false, "dirty"], [42, true, "blocked"]]);
+    const binSwapB = many([[41, true, "blocked"], [42, false, "dirty"]]);
+    // The set itself moves: a third pull request joins.
+    const binGrew = many([[41, false, "dirty"], [42, true, "blocked"], [43, true, "unstable"]]);
+    const stuck = (b) => JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-150000 --root .`,
+      { env: { ...process.env, PATH: `${b}:${process.env.PATH}` } }).stdout);
+    try {
+      const a = stuck(binSwapA);
+      const b = stuck(binSwapB);
+      const grew = stuck(binGrew);
+      assertTrue("the compared summary carries no <number>:<blocked_by> list",
+        !/\d+:(conflict|review|checks|draft|behind|unknown)/.test(a.summary), a.summary);
+      assertEq("so a re-shuffle at an unchanged count and class set opens no root",
+        a.summary, b.summary);
+      assertTrue("while the question still names each pull request and why it is stuck",
+        a.needs_agent.length === 2 && a.needs_agent.every((n) => n.blocked_by && n.decision),
+        JSON.stringify(a.needs_agent));
+      assertTrue("and the ask key still moves with the per-pull state, so the ledger sees it",
+        a.ask_key !== b.ask_key, `${a.ask_key} ${b.ask_key}`);
+      assertTrue("a pull request entering the stuck set still opens a root",
+        grew.summary !== a.summary, `${grew.summary} :: ${a.summary}`);
+      assertEq("the headline is untouched by the coarsening", a.headline, "2 pull requests stuck: conflict, review");
+    } finally {
+      cleanup(binSwapA);
+      cleanup(binSwapB);
+      cleanup(binGrew);
+    }
+
     // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
     mkdirSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101"), { recursive: true });
     writeFileSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101/t.md"),

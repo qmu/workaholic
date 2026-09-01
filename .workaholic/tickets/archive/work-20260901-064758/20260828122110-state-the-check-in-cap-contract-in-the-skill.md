@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T12:21:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -65,3 +66,18 @@ contract where the step is documented, so the next reader can check the code aga
   status roots for spending a person's attention on restatement, and a later reader who
   knows only the mechanism will eventually remove the bound rather than fix its arithmetic.
 - Regenerate `outputs/` if the skill text moved — the `Outputs Freshness` CI fails on drift.
+
+## Final Report
+
+**The work is already on the base**, landed while proposal #688 sat stranded. Verified:
+
+`workaholic:moderate`'s SKILL.md states the contract where the step is documented — the
+per-tick cap and the daily bound and which day the daily bound counts, that a spent cap
+**holds** rather than drops, the working-day gate, the measured jam with its numbers
+(`count: 12, days: 5` against a cap of 10), the repair as *a bound passed to a reader that
+already accepted one*, and the four alternatives it was deliberately not (a raised cap, a
+second reader, a stored cursor, a second notion of a day). The over-count direction at the
+day boundary is stated so a later reader does not "fix" it the other way.
+
+That is what this ticket asked for: the next reader can now check the code against a written
+contract rather than infer one from a variable name. Nothing was re-implemented.

@@ -52,3 +52,4 @@ is in its context.
 - 2026-09-01 — ticket archived — 20260901102255-put-the-shell-rule-where-every-session-loads-it.md
 - 2026-09-01 — ticket archived — 20260901102255-forbid-unallowlistable-shell-in-a-no-prompt-run.md
 - 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — story — work-20260901-104910.md

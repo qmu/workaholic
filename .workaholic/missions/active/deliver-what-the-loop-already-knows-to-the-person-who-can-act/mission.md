@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.4
 feedback: [20260828121729-deliver-what-the-loop-already-knows-to-the-person-who-can-act.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -56,3 +56,4 @@ of looking like a quiet hour.
 - 2026-09-01 — ticket archived — 20260828122110-drill-the-check-in-delivery-path-with-no-network.md
 - 2026-09-01 — ticket archived — 20260828122110-state-the-check-in-cap-contract-in-the-skill.md
 - 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — run recorded (+0.4h) — implement-20260901-064758

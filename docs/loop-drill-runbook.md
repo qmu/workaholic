@@ -175,7 +175,8 @@ The reasons themselves are defined in `plugins/workaholic/skills/specificate/SKI
 | `gh_unavailable` | `skills/gather/scripts/gh-rest.sh` — no `gh` on the runner's PATH |
 | `identity_unresolved` | `skills/gather/scripts/gh-rest.sh` — `gh api user` returned nothing; the session's credential is the problem |
 | `list_failed` | `skills/gather/scripts/gh-rest.sh` — REST itself failed; the `detail` carries the API's own message |
-| `already_captured` | `skills/specificate/scripts/list-inbound-issues.sh` — a feedback record already names `/issues/<N>`; the ask is in flight, not new |
+| `already_captured` | `skills/specificate/scripts/list-inbound-issues.sh` — a feedback record on the base already names `/issues/<N>`; the ask is settled, not new |
+| `captured_on_branch` | `skills/specificate/scripts/list-inbound-issues.sh` — a record on an unmerged remote branch names `/issues/<N>`; the ask is in flight behind an open proposal's pull request |
 | `no_publish_tree` / `nothing_to_commit` | `skills/branching/scripts/open-publish-tree.sh` — the publish tree was never opened, or the run wrote nothing into it |
 | `commit_failed` | `skills/commit/scripts/check-subject.sh` — the commit subject failed the gate (present tense, ≤50 chars, no prefix) |
 | `branch_collision` | `skills/branching/scripts/publish-tree-pr.sh` — two publishers minted the same second's branch name; nothing was published and a re-run succeeds |

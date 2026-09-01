@@ -5,6 +5,7 @@ assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy:
+claim: work-20260901-055834
 ---
 
 # Let a fresh claim take a superseded claim's work

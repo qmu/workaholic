@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T14:42:28+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -190,3 +191,68 @@ is not a one-off shape.
 - **The blocked mission's own ticket declares `verification_handoff:`**, so the
   unit it unblocks will take the handoff route rather than merge. That does not
   reduce the defect: the unit cannot reach the handoff route either.
+
+## Final Report
+
+Development completed as planned, with one finding that changed what the work was.
+
+**Steps 2-6 had already landed on 2026-08-27**, while this ticket was queued behind a
+stranded publication (PR #635, opened 2026-08-26, delivered by this run five days later).
+`claim.sh` §3 already carries the `superseded` skip **before** both grains — the unit-id
+match and the artifact overlap — reading `_held_reason` from `claims_scan`'s existing row
+rather than re-deriving anything, and `reference/claims.md` and `CLAUDE.md` already state
+it. So this run verified those steps rather than re-implementing them, and did the one
+step that was genuinely outstanding: **step 7, the drill**.
+
+**Step 1, the reproduction, verbatim.** `verify-merged-claim` proved the four *readings*
+and never the **claim**, so it would have passed over a fully reverted fix. Confirmed by
+deleting the `superseded` skip from `claim.sh` and re-running the extended drill:
+
+```json
+{"claimed": false, "reason": "already_claimed", "unit": "drilled",
+ "holder_branch": "work-20260101-000000", "holder_unit": "drilled"}
+```
+
+That is the defect verbatim — the survey names the unit in `resurveyed[]` and the fresh
+claim the survey's own comment prescribes is refused as though the dead branch were in
+flight. With the skip restored the same row reads `"claimed": true`. The breaker row stayed
+**true** across both runs, which is what makes it a breaker rather than a second copy of the
+behaviour row: only `merged_claim_fresh_claim` moved.
+
+**Step 7.** Three rows added to `cmd_verify_merged_claim`, still hermetic — no network, no
+credential, the same stubbed transport, and the checkout byte-identical:
+
+- `merged_claim_live_refuses` (`bearing: breaker`) — with no merged pull request the claim
+  is not superseded and the fresh claim is still refused `already_claimed`.
+- `merged_claim_fresh_claim` — with the lookup answering `merged` the claim goes through.
+- `merged_claim_branch_untouched` — the superseded branch is still on the origin afterwards.
+
+The two claim rows differ in **one fact** — whether the stubbed lookup answers `merged` —
+with the fixture, the identity and the collapsed heartbeat window held constant, so what
+the breaker breaks is the behaviour and not a return shape.
+
+**Step 5 needed no work.** `claims_unit_resolution` already resolves a unit held by a live
+claim and a superseded one to the live row, and the suite already pins the two-branch shape.
+
+**Step 8.** `drive/SKILL.md` §3 gained the exception (it said only "`already_claimed` → drop
+the unit and continue (the protocol working)", which is what made the defect invisible to a
+reader); `docs/loop-drill-runbook.md` gained the three blame-table rows, the §5i paragraph
+and the register flip to `Breaker: yes`. `CLAUDE.md` and `reference/claims.md` already
+agreed and were left alone.
+
+### Discovered Insights
+
+- **Insight**: `verify-merged-claim` carried **no** `bearing: "breaker"` row before this
+  change, so the drill register classified it `unproved` — a gap counted outside the passing
+  total. The drill reported `verdict: pass, breakers: 0` the whole time.
+  **Context**: `unproved` is the register's word for *this drill has never been shown able to
+  fail*, and it is easy to miss precisely because the drill is green. The three rows added
+  here close it as a side effect of proving the claim: `verify-all` now reports 30 proved
+  where it reported 29, with the same 0 failures.
+
+- **Insight**: A ticket can outlive its own defect. This one was written 2026-08-26, the fix
+  landed 2026-08-27, and the ticket reached `todo/` on 2026-09-01 because the publication
+  carrying it sat `clean` and undelivered for five days.
+  **Context**: A driving run must verify a ticket's premise against the tree before
+  implementing it — re-applying an already-landed change would have been the failure mode
+  here. The queue's arrival order is not evidence about the code's current state.

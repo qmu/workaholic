@@ -43,7 +43,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-rulings --json` | a throwaway **git** repository holding exactly one unattributed active mission and exactly one unmapped address, with a bare local origin and `gh` stubbed — proves the set is read with its evidence and repair and **nothing judged**, that a judged set lands as one pull request the seam refuses to merge, that a second tick is a no-op while it is open, that a subject the ruling does not name still asks and says why, that every refusal writes nothing, with no network and a breaker in two halves |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-succession --json` | a throwaway **git** tree carrying one dated direction, its landed work and an unattributed mission — walks close → read the leaving → announce a successor by explicit slug → the carried refs land → `attributed-work.sh` attributes the predecessor's work to it → `/propose` proposes against it, and proves nothing closed, authored or auto-merged a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-revision --json` | a throwaway strategy tree and a local bare origin — proves the three revisions land, that every refusal leaves the artifact byte-identical, and that a strategy-touching publish never auto-merges, with the transport stubbed and one row that deliberately breaks the seam |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) with the transport stubbed, so no `gh` call is made |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) **and that the work a `superseded` claim frees can actually be claimed**, with the transport stubbed, so no `gh` call is made, and **one row that deliberately breaks the seam** |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, the refused conflict reaching its claim holder exactly once, and — since 2026-08-30 — the widened trigger: a `queue_drained` claim still `mechanical` offered and caught up, a reviewed pull request refused, and a degraded scan answering null counts; with the transport stubbed and two rows that deliberately break the identity bound and the widening |
@@ -888,6 +888,19 @@ claim is answered from the tree (its tickets are archived on the base), so it ne
 transport at all; a mission claim stamps only `mission.md`, which driving never archives, so
 only a merged pull request can answer — and that is the one network read, stubbed here.
 
+**And the reading is not the point — the claim is** (2026-09-01, ticket `20260826144228`).
+The four readings above prove the oracle can *see* a superseded claim; not one of them proves
+the work it frees can be *taken*. `plan-units.sh` resurveys that work and `workaholic:drive`
+§1 says in as many words *a fresh claim drives them, because the old branch cannot land* — so
+a drill stopping at the reading passes while the unit is reachable by no path at all. Measured
+2026-08-27: mission `make-workaholify-converge-the-account-s-routines` was offered and named
+in `resurveyed[]` while a fresh claim answered `already_claimed` and `claim.sh resume`
+answered `superseded`, both refusals by design. `merged_claim_live_refuses` and
+`merged_claim_fresh_claim` differ in **one fact** — whether the stubbed lookup answers
+`merged` — with the fixture, the identity and the collapsed heartbeat window held constant, so
+what the breaker breaks is the behaviour rather than a return shape. A `claim.sh` that had
+lost the reason test entirely would pass the second row and fail the first.
+
 | Row | Fails when | Read |
 | --- | ---------- | ---- |
 | `merged_claim_fixture` | the claim branch is not still ahead of the base | the fixture is not a squash merge; every row below it would prove nothing |
@@ -896,6 +909,9 @@ only a merged pull request can answer — and that is the one network read, stub
 | `merged_claim_mission` | a merged pull request does not make a mission claim `superseded` | `claim-merged.sh` and the non-ticket branch of `claims_superseded` — the behaviour this mission exists for |
 | `merged_claim_unanswerable` | a refused lookup changed the verdict | the degradation contract: a wrong `merged` releases work still in flight, a wrong `in flight` only delays a claim, so an unread answer must change nothing |
 | `merged_claim_named` | the claim the lookup could not answer for is not named with its reason | `list-claims.sh`'s `merged_lookup_unanswered`, fed by `claims_note_unanswered` |
+| `merged_claim_live_refuses` (breaker) | a fresh claim over a **live** claim is not refused `already_claimed` | `claim.sh` §3's refusal loop lost the reason test and now steps over every row, not only the one proved empty |
+| `merged_claim_fresh_claim` | a fresh claim over a **superseded** claim is refused | `claim.sh` §3's `superseded` skip — the claim half of the 2026-08-26 change; without it the resurveyed work is reachable by no path |
+| `merged_claim_branch_untouched` | the superseded branch is gone from the origin | something acted on a verdict that is only ever *reported*: the fresh claim frees the work, never the branch |
 | `merged_claim_writes_nothing` | the drill changed the checkout | every fixture lives outside the checkout; the oracle is a pure read |
 
 **Two proofs, and they are not the same one** — the same split as §5h. This drill is the
@@ -1506,7 +1522,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-rulings` | `hermetic` | yes | `put-the-loop-s-standing-rulings-on-one-pull-request` |
 | `verify-succession` | `hermetic` | yes | `make-a-direction-s-end-a-turn-of-the-loop-not-its-stop` |
 | `verify-revision` | `hermetic` | yes | `let-the-operator-revise-a-live-direction-through-the-loop` |
-| `verify-merged-claim` | `hermetic` | no | `tell-a-merged-claim-from-a-live-one-at-both-grains` |
+| `verify-merged-claim` | `hermetic` | yes | `tell-a-merged-claim-from-a-live-one-at-both-grains` |
 | `verify-identity-handoff` | `hermetic` | yes | `drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is` |
 | `verify-close` | `hermetic` | yes | `close-the-units-the-loop-already-finished` |
 | `verify-catch-up` | `hermetic` | yes | `land-the-loop-s-own-work-when-the-base-moves-under-it` |

@@ -337,7 +337,7 @@ the same reason `auto` has never meant "no gate applies":
 | Tickets | Archived as `implemented` as usual — the work *is* done. |
 | Claim | **Left standing**, so the unit is still owned while it waits. |
 | PR body | `## Handoff`, non-droppable, naming the verification verbatim. |
-| Finish line | `🟡 Handoff` naming the assignee, never `🟢 Implemented`. |
+| Finish line | `🟡 Handoff` naming the assignee, never `🟢 Implemented`. The name is a **resolved `<@U…>`** since 2026-08-31 (mission `notify-the-person-a-directed-question-addresses`) — from the unit's own `assignees` through `gather/scripts/identity.sh`, **omitted rather than guessed** when the address does not resolve — and it rides the **bot** when that addressee is the posting identity, per `notify`, *Which transport carries which shape, and why*. This row has read *naming the assignee* since 2026-08-14; between 2026-08-23 and then the shape carried no token at all, so the line named nobody. |
 | Token | `pending` (`../SKILL.md` §7 — `handoff` already forces it). |
 
 **Why this widened `handoff` instead of adding a fourth route** (the ticket's Open Decision,
@@ -513,6 +513,18 @@ moments.
   **A post that did not happen is stated, never omitted**: silence in this list read as success is
   the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
   `{"notified": false, "reason": "no_token"}` and nothing downstream said so).
+- **And a `🟡 Handoff` line names its carrying surface and its mention outcome beside that**
+  (2026-08-31, mission `notify-the-person-a-directed-question-addresses`), because it is the one
+  finish shape whose whole purpose is to reach a person. Two facts, never blended into one:
+  **which account spoke** — `bot` (the tokened transport, because the addressee resolved to the
+  posting identity) or `connector` (every other case, including no bot token, which is the
+  fallback and not a failure) — and **whom it named**: the resolved address, or
+  `mention_unresolved: <address>` when `identity.sh` could not resolve it and the token was
+  therefore **omitted rather than guessed**. A line that named nobody and a line that reached its
+  person must not read alike, which is precisely how three units sat waiting on operator input
+  since 2026-08-18, 2026-08-19 and 2026-08-26 with the run reporting the post as sent. Both ride
+  the notification outcome above rather than replacing it: *posted*, *by whom*, and *at whom* are
+  three questions. **No artifact gains a field** — the report is the surface.
 - **Missions closed at the archive gate** (2026-08-23), one line each: the slug, the accepted count,
   and that the queue was empty. `archive.sh` closes a mission `achieved` — through `close.sh`, the
   only writer of an end state — when archiving a ticket leaves its acceptance fully checked

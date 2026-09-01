@@ -177,10 +177,21 @@ shallow=$(printf '%s' "$out" | jq -r '.shallow // false')
 total=$(printf '%s' "$out" | jq '[.claims[]?] | length')
 units=$(printf '%s' "$out" | jq -r '[.claims[]? | select(.resume_reason == "superseded") | .unit] | unique | .[]' 2>/dev/null || true)
 
+# STRANDED UNITS ARE THIS STEP'S TOO, AND THEY ARE ASKED ABOUT, NEVER ACTED ON (2026-09-01,
+# issue #788). A `stranded` row is a claim whose tickets are archived on the base while its
+# branch still holds content found on no other ref — measured as two branches carrying ~300
+# lines of code and a documentation section that the tick was asking to delete. It is not a
+# retirement candidate by construction (`retire-claim.sh` refuses anything but `superseded`),
+# and it is the same shape of finding this step already owns: *a claim that looks finished and
+# is not*. So it is asked here rather than growing a step of its own.
+stranded=$(printf '%s' "$out" | jq -r '[.claims[]? | select(.resume_reason == "stranded") | .unit] | unique | .[]' 2>/dev/null || true)
+sn=0
+for _ in $stranded; do sn=$((sn + 1)); done
+
 n=0
 for _ in $units; do n=$((n + 1)); done
 
-if [ "$n" -eq 0 ]; then
+if [ "$n" -eq 0 ] && [ "$sn" -eq 0 ]; then
     emit ok "" "${total} claimed unit(s); none proved superseded"
 fi
 
@@ -269,6 +280,13 @@ summary="${total} claimed unit(s); ${n} proved superseded, ${retired} retired, $
 # line at all — the independent guard against a nothing-happened line reaching the root. A tick
 # that only refused is in that same class: a refusal is this step's bookkeeping, and the row is
 # in the log for whoever diagnoses the tick.
+# THE EVENT NAMES NO IDENTIFIER (2026-09-01, the developer's instruction). It used to paste the
+# unit slugs into the root -- two of them, sixty characters each, unlinked -- and the developer's
+# answer was *まるまるいらない*. A root line is addressed to nobody and is read at a glance; a
+# slug is addressed to whoever can act on it, and that is the QUESTION's job
+# (`retire-blocked:<unit>:<word>`), which names the unit, its branch and its refusal word to the
+# claim holder. Saying it in both places puts the identifier where it cannot be acted on and
+# lengthens the one line everybody reads. The count stays: *how many* is news, *which* is a task.
 event=""
 if [ "$retired" -eq 1 ]; then
     event="a claim proved finished was retired — its pull request closed and its branch deleted"
@@ -423,10 +441,10 @@ fi
 # finding is already in flight as work, are not things to announce.
 if [ "$blocked" -eq 1 ]; then
     ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
-    event="a claim proved finished is still standing — neither the container nor CI could delete its branch (${ev_units})"
+    event="a claim proved finished is still standing — neither the container nor CI could delete its branch"
 elif [ "$blocked" -gt 1 ]; then
     ev_units=$(printf '%s' "$rows" | jq -r '[.[]? | .unit] | join(", ")' 2>/dev/null || printf '')
-    event="${blocked} claims proved finished are still standing — neither the container nor CI could delete their branches (${ev_units})"
+    event="${blocked} claims proved finished are still standing — neither the container nor CI could delete their branches"
 fi
 
 # HOW LONG THIS BLOCK HAS BEEN ASKED ABOUT (2026-08-30, mission
@@ -450,6 +468,20 @@ if [ "$blocked" -gt 0 ]; then
     )
 fi
 
+# THE STRANDED SET, ASKED SEPARATELY BECAUSE IT IS A DIFFERENT QUESTION (2026-09-01, issue
+# #788). A blocked retirement asks *please delete this branch*; a stranded claim asks the
+# opposite -- *do not delete this, it holds work nothing else has*. One `needs_agent` payload
+# carrying both would be one instruction with two contradictory actions.
+stranded_needs=""
+if [ "$sn" -gt 0 ]; then
+    stranded_rows=$(printf '%s\n' "$stranded" | jq -R 'select(length > 0)' | jq -sc \
+        '[.[] | {unit: ., key: ("stranded-unit:" + .)}]' 2>/dev/null || printf '[]')
+    stranded_needs=$(printf '%s' "$stranded_rows" | jq -c '{action: "tell_the_claim_holder_their_branch_holds_work_nothing_else_has",
+        bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once. The tick asks and does nothing else: it never deletes the branch, never merges it, never releases the claim and never re-drives a ticket. THIS UNIT IS NOT A RETIREMENT CANDIDATE and must never be offered as one.",
+        compose: "say that this unit'"'"'s tickets are archived on the base while its branch still carries content found on no other ref, name the unit and the exact branch, and say plainly that deleting it would lose that work. Ask what should happen to it -- landed on the base, or discarded deliberately. Never suggest deleting the branch.",
+        stranded_claims: .}' 2>/dev/null || echo '')
+fi
+
 needs=""
 if [ "$blocked" -gt 0 ]; then
     needs=$(printf '%s' "$rows" | jq -c --arg turn "$ci_turn" '{action: "ask_the_claim_holder_to_delete_the_branch_neither_the_container_nor_ci_could",
@@ -457,6 +489,23 @@ if [ "$blocked" -gt 0 ]; then
         compose: "name the unit, the exact branch left on origin, the refusal in `blocking_refusal` that is blocking the delete now, and the acts that already stand -- a question that does not name the branch does not say what to delete. When `age.first_seen` is set, say how long this block has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`); the key carries the refusal word, so a null age on a unit whose word just changed means a NEW question rather than a block that cleared -- never say the block just started. When `age.readable` is false, name it as an age we could not read, by its `age.reason`.",
         ci_turn: $turn,
         blocked_retirements: .}' 2>/dev/null || echo '')
+fi
+
+# BOTH PAYLOADS RIDE, and a run that has only one sends only that one.
+if [ -n "$stranded_needs" ]; then
+    if [ -n "$needs" ]; then
+        needs="${needs}, ${stranded_needs}"
+    else
+        needs="$stranded_needs"
+    fi
+fi
+if [ "$sn" -gt 0 ]; then
+    summary="${summary}; ${sn} claim(s) stranded — tickets archived, branch still holds work"
+    if [ -n "$event" ]; then
+        event="${event}; ${sn} claim(s) look finished but their branches still hold work nothing else has"
+    else
+        event="${sn} claim(s) look finished but their branches still hold work nothing else has"
+    fi
 fi
 
 emit ok "" "$summary" "$needs" "$event"

@@ -334,8 +334,43 @@ elif [ -n "$MISSION_SLUGS" ]; then
         M_TOTAL=$(printf '%s' "$PROG" | sed -n 's/.*"total": *\([0-9][0-9]*\).*/\1/p')
         M_UNLINKED=$(printf '%s' "$PROG" | sed -n 's/.*"unlinked": *\([0-9][0-9]*\).*/\1/p')
         M_TODO=$(printf '%s' "$QSZ" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
+        # A DECLARED HANDOFF REFUSES THE CLOSE, AND THE TICK STAYS (2026-08-31, ticket
+        # `20260831140500`). The arithmetic above cannot see the one fact that makes its
+        # sum a lie: a ticket that declared `verification_handoff` is archived as
+        # implemented — the routing table says so and it is right, the code IS written —
+        # so the acceptance item naming it ticks, and this gate then closed the mission
+        # `achieved` while what that item asserts had been verified by nobody. Measured
+        # on `bring-the-theme-master-onto-the-one-master-seam-so-the-deployed-app-can-write-it`,
+        # whose deployed-round item was ticked by the archive of the very ticket saying
+        # no unattended runner can reach a deployment.
+        #
+        # WHICH OF THE TWO REPAIRS THIS IS, since the ticket left the fork open and asked
+        # for the choice to be stated: the item still TICKS and the close refuses. Not
+        # ticking would say the item is not met, which is false — the code is written and
+        # every acceptance item is a statement about work, not about who looked at it.
+        # Refusing the close says the item is met as far as anything here can tell and a
+        # person still has to look, which is exactly the true statement. It also keeps
+        # `tick-acceptance.sh` idempotent and `progress.sh`'s arithmetic honest; the
+        # alternative would have left a mission permanently reading N-1 of N with nothing
+        # saying why.
+        #
+        # IT IS A CONSUMER, NOT A SECOND DERIVATION. `acceptance-handoffs.sh` resolves the
+        # items' tickets and delegates the declaration itself to
+        # `verification-handoff.sh`, the one reader.
+        HOFF=$(sh "${MISSION_SCRIPTS}/acceptance-handoffs.sh" "$MISSION_FILE" 2>/dev/null || true)
+        HOFF_ANY=$(printf '%s' "$HOFF" | sed -n 's/.*"handoff"[[:space:]]*:[[:space:]]*\(true\|false\).*/\1/p')
+        HOFF_TICKETS=$(printf '%s' "$HOFF" | sed -n 's/.*"tickets"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p')
+
         # An unreadable reader is NOT a proof: a missing number leaves the mission alone.
         if [ -n "$M_CHECKED" ] && [ -n "$M_TOTAL" ] && [ -n "$M_UNLINKED" ] && [ -n "$M_TODO" ] \
+           && [ "$M_TOTAL" -gt 0 ] && [ "$M_CHECKED" -eq "$M_TOTAL" ] \
+           && [ "$M_UNLINKED" -eq 0 ] && [ "$M_TODO" -eq 0 ] \
+           && [ "$HOFF_ANY" = "true" ]; then
+            # Reported where the close would have been reported, and by name, so the
+            # reason is in the run's own output rather than only in a mission file
+            # nobody reopens.
+            echo "    ! mission ${MISSION_SLUG}: ${M_CHECKED}/${M_TOTAL} accepted and queue empty, but NOT closed — an acceptance item is answered only by a declared verification handoff (${HOFF_TICKETS:-unnamed}); a person must verify it and close the mission"
+        elif [ -n "$M_CHECKED" ] && [ -n "$M_TOTAL" ] && [ -n "$M_UNLINKED" ] && [ -n "$M_TODO" ] \
            && [ "$M_TOTAL" -gt 0 ] && [ "$M_CHECKED" -eq "$M_TOTAL" ] \
            && [ "$M_UNLINKED" -eq 0 ] && [ "$M_TODO" -eq 0 ]; then
             CLOSE_OUT=$(sh "${MISSION_SCRIPTS}/close.sh" "$MISSION_FILE" achieved 2>&1) && CLOSE_RC=0 || CLOSE_RC=$?

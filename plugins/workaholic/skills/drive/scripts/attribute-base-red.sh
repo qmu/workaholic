@@ -72,11 +72,21 @@ WALKED=0
 LAST_GREEN=""
 
 # $1 state, $2 reason, $3 attributed (JSON object or `null`).
+# `checked_at` / `checked_behind` name WHICH commit actually carried the checks this verdict
+# rests on, and how far behind the tip it was (2026-09-01, issue #785). They are empty and 0 for
+# the ordinary case where the tip itself carried them, so a reader that ignores them sees exactly
+# what it always saw. When they are set, the verdict is about an ANCESTOR and the reader must be
+# able to say so: *green at <sha>, n commits behind the tip* is a different and more useful
+# sentence than silence, and pretending it was the tip's own reading would be the guess this
+# whole three-valued reader exists to prevent.
+CHECKED_AT=""
+CHECKED_BEHIND=0
+
 emit() {
     _ok=true
     case "$1" in unanswerable) _ok=false ;; esac
-    printf '{"ok": %s, "state": "%s", "tip": "%s", "attributed": %s, "last_green": "%s", "walked": %s, "bound": {"max_commits": %s}, "reason": "%s"}\n' \
-        "$_ok" "$1" "$TIP" "${3:-null}" "$LAST_GREEN" "$WALKED" "$MAX" "${2:-}"
+    printf '{"ok": %s, "state": "%s", "tip": "%s", "attributed": %s, "last_green": "%s", "walked": %s, "bound": {"max_commits": %s}, "reason": "%s", "checked_at": "%s", "checked_behind": %s}\n' \
+        "$_ok" "$1" "$TIP" "${3:-null}" "$LAST_GREEN" "$WALKED" "$MAX" "${2:-}" "$CHECKED_AT" "$CHECKED_BEHIND"
     exit 0
 }
 
@@ -146,14 +156,84 @@ read_commit "$TIP"
 WALKED=1
 case "$RC_STATE" in
     green) LAST_GREEN="$TIP"; emit green ;;
-    unanswerable) emit unanswerable "tip_${RC_REASON}" ;;
+    unanswerable)
+        # TWO DIFFERENT JOBS WERE COLLAPSED INTO ONE `unanswerable`, AND ONLY ONE OF THEM IS
+        # TERMINAL (2026-09-01, issue #785).
+        #
+        #   `no_checks` is a fact about the COMMIT: nothing ran on it and nothing ever will. It
+        #   has a defined answer one step back — the newest ancestor that does carry checks —
+        #   and the walk that finds it is already in this file.
+        #
+        #   `reader_failed`, a rate limit, a refused transport are facts about US. Walking past
+        #   those would report an older commit's colour as though it were the tip's, which is
+        #   exactly what the three-valued reader exists to prevent. They stay terminal.
+        #
+        # MEASURED 2026-08-31 into 2026-09-01 on a consuming repository: every tick reported
+        # `base_unreadable:tip_no_checks` while the base was green throughout. The loop commits
+        # to its base constantly and most of those commits touch only `.workaholic/`; every
+        # workflow there carries a path filter that deliberately excludes it, because rebuilding
+        # a byte-identical artifact spends Actions minutes to change nothing. That filter is
+        # right, and its consequence is that the tip is usually a commit no workflow ran on. So
+        # the step that exists to notice a broken base was dark exactly when it was busiest.
+        case "$RC_REASON" in
+            no_checks) ;;
+            *) emit unanswerable "tip_${RC_REASON}" ;;
+        esac
+        ;;
 esac
 
-# From here the tip is red. `oldest_red` walks backwards with the loop; when a green commit
-# turns up, whatever `oldest_red` holds is the first commit that broke the base.
-oldest_red="$TIP"
+# THE NEWEST CHECKED ANCESTOR, under the bound that is already here. A base where the walk runs
+# out of room reports `bound_exhausted` rather than guessing, exactly as the red case does.
+EFFECTIVE_TIP="$TIP"
+if [ "$RC_STATE" = "unanswerable" ]; then
+    for sha in $commits; do
+        if [ "$sha" = "$TIP" ]; then continue; fi
+        if [ "$WALKED" -ge "$MAX" ]; then emit unanswerable tip_no_checks; fi
+        WALKED=$((WALKED + 1))
+        CHECKED_BEHIND=$((CHECKED_BEHIND + 1))
+        read_commit "$sha"
+        case "$RC_STATE" in
+            green)
+                CHECKED_AT="$sha"
+                LAST_GREEN="$sha"
+                emit green
+                ;;
+            red)
+                CHECKED_AT="$sha"
+                EFFECTIVE_TIP="$sha"
+                break
+                ;;
+            *)
+                case "$RC_REASON" in
+                    # Another bookkeeping commit: keep walking, which is the whole point.
+                    no_checks) ;;
+                    # A fact about us, met mid-walk. Terminal for the same reason it is at the
+                    # tip, and named as the walk's rather than the tip's so a reader can tell
+                    # where it happened.
+                    *) emit unanswerable "walk_${RC_REASON}" ;;
+                esac
+                ;;
+        esac
+    done
+    # The candidate list ran out with no checked ancestor at all.
+    if [ "$EFFECTIVE_TIP" = "$TIP" ]; then
+        if [ "$WALKED" -ge "$MAX" ]; then emit unanswerable tip_no_checks; fi
+        emit unanswerable tip_no_checks
+    fi
+fi
+
+# From here the effective tip is red. `oldest_red` walks backwards with the loop; when a green
+# commit turns up, whatever `oldest_red` holds is the first commit that broke the base.
+oldest_red="$EFFECTIVE_TIP"
+started=false
 for sha in $commits; do
-    if [ "$sha" = "$TIP" ]; then continue; fi
+    # Resume after the effective tip: with a checked ancestor the commits between it and the
+    # real tip have already been read and are all `no_checks`, so re-reading them would spend a
+    # network call each to learn what this walk just established.
+    if [ "$started" = "false" ]; then
+        if [ "$sha" = "$EFFECTIVE_TIP" ]; then started=true; fi
+        continue
+    fi
     if [ "$WALKED" -ge "$MAX" ]; then emit unattributable bound_exhausted; fi
     WALKED=$((WALKED + 1))
     read_commit "$sha"

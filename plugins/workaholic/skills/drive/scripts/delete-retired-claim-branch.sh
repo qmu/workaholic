@@ -181,7 +181,11 @@ fi
 # second time it is asked. Asking it again immediately before the delete is what makes "the proof
 # is re-taken where the act happens" true of both grains rather than only of the cheap one. The
 # cost is one tree listing or one bounded call; the cost of its absence is an unattended delete.
-if [ "$(claims_superseded "$BASE" "$artifacts" "$BRANCH" "origin/${BRANCH}")" != "true" ]; then
+# THE WORD IS `superseded`, NOT `true` (2026-09-01, issue #788). The verdict became three-valued
+# so that a branch whose tickets landed while it still holds work of its own reads `stranded` and
+# never reaches this delete: the proof this act rests on is *the branch is empty against the
+# base*, and only `superseded` now asserts it.
+if [ "$(claims_superseded "$BASE" "$artifacts" "$BRANCH" "origin/${BRANCH}")" != "superseded" ]; then
     refuse not_on_base
 fi
 

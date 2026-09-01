@@ -183,8 +183,10 @@ pr_json=$(sh "$GH_REST" api "repos/${SLUG}/pulls?head=${OWNER}:${BRANCH}&state=o
 PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf '')
 [ -n "$PR" ] || report false no_open_pull_request
 
-# THE ONE OUTWARD ACT. REST, exactly as the original attempt made it.
-if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT -f merge_method=merge 2>&1); then
+# THE ONE OUTWARD ACT. REST, exactly as the original attempt made it -- including the method,
+# which is read from the one derivation rather than spelled here (2026-09-01).
+if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT \
+        -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts//merge-method.sh")" 2>&1); then
     OUTCOME="merged"
     report true ""
 fi

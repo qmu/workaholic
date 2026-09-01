@@ -55,6 +55,49 @@ This convention is machine-checked, so it cannot silently regress:
   reports zero findings against the real tree — so a developer and CI run the identical
   check, and a reintroduced bashism fails the suite instead of passing under a permissive bash.
 
+## Reading a plugin script: a read tool, never a Bash text pipeline
+
+**An unattended run reads a file to find something out with a read tool — never through a Bash
+`sed` / `grep` / `head` / `cat` / `awk` pipeline** (2026-08-31, mission
+`stop-an-unattended-tick-from-waiting-on-a-person`).
+
+**Measured**: three consecutive `[Moderate]` ticks sat at `requires_action`, each waiting on a
+permission prompt raised by a **read** — `sed -n '/^# Usage/,/^$/p' … | head -30` and
+`grep -n … ask-question.sh`, neither of which writes anything. The harness classified them as an
+edit of a sensitive file. **That classification is the harness's and this repository does not own
+it**; what this repository owns is whether the tick reaches for that shape at all, and a read tool
+over the same file raises no such prompt. A routine has nobody to answer one, so the run waits
+forever and never reaches `persist-log` — the record that would show it stopped is the one the stop
+prevents.
+
+**The scope is the agent's own inspection reads, and only those.** A workflow script that
+legitimately *processes* text — `sed` inside `archive.sh`, `awk` parsing frontmatter, a `grep` that
+is part of a reading a script performs — is untouched and always was. The distinction is
+**why the text is being read**: to find something out for the agent (use a read tool), or as a step
+of the work a script exists to do (shell is correct). A script cannot call a read tool at all,
+which is what makes the line unambiguous.
+
+**It applies to the documented examples too.** A command, routine or skill markdown that shows
+`grep -n … ${CLAUDE_PLUGIN_ROOT}/skills/…` teaches exactly the shape that hung the tick, and an
+unattended run following its own instructions is the measured path. Quoting a pipeline as the
+*subject* of prose (this section, `posix-lint.sh`'s own description) is not modelling it.
+
+**It removes this repository's exposure, not the underlying classification** — which is the
+harness's, and is not claimed to be fixed here. The wider policy that an unattended run never
+blocks on **any** prompt lives in `rules/interaction.md`, *An unattended run never waits for a
+person*; this rule is the one instance of it this repository can hold by construction.
+
+**A mechanical row is deliberately not added, and the reason is measured rather than deferred.**
+The obvious precedent is the row that fails on `gh issue|pr|repo`, and it does not carry: that
+check keys on a **command whose every use is wrong**, while `grep`, `sed` and `head` are correct
+in the majority of their uses in this tree and are quoted throughout its prose — including in the
+paragraph you are reading. A row keying on the command would fire on `posix-lint.sh`'s own
+description; one keying on "a pipeline whose target is under `plugins/`" cannot tell an inspection
+read from a script's own processing without knowing why the text is being read, which is precisely
+the judgement the rule is made of. So the enforcement here is a human reading it, stated plainly
+rather than dressed as a check — and the honest mechanical half is the configuration question
+`workaholic:workaholify` answers, not a grep.
+
 ## Reaching GitHub: REST only, never GraphQL
 
 Every workflow script talks to GitHub through **one transport**,

@@ -2,11 +2,18 @@
 
 ## active
 
+* [compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it](active/compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it/mission.md) - Compose an unattended run's shell so an allowlist can name it
+* [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [deploy-the-docs-site-on-merge-to-main](active/deploy-the-docs-site-on-merge-to-main/mission.md) - Deploy the docs site on merge to main
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
+* [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
+* [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
+* [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
+* [settle-a-mergeability-reading-before-it-becomes-a-question](active/settle-a-mergeability-reading-before-it-becomes-a-question/mission.md) - Settle a mergeability reading before it becomes a question
 * [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
+* [take-the-moderation-tick-s-log-off-main](active/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 
 ## archive
 
@@ -25,6 +32,7 @@
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [correct-the-release-note-automation-to-its-intended-design](archive/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
+* [deliver-a-stranded-publication-that-needs-nothing-but-a-merge](archive/deliver-a-stranded-publication-that-needs-nothing-but-a-merge/mission.md) - Deliver a stranded publication that needs nothing but a merge
 * [deliver-and-retire-what-the-loop-already-proved-finished](archive/deliver-and-retire-what-the-loop-already-proved-finished/mission.md) - Deliver and retire what the loop already proved finished
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](archive/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [draft-a-dateless-direction-with-the-operator-s-one-week-default](archive/draft-a-dateless-direction-with-the-operator-s-one-week-default/mission.md) - Draft a dateless direction with the operator's one-week default
@@ -60,12 +68,16 @@
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](archive/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 * [make-the-propose-implement-loop-drillable-on-demand](archive/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
+* [make-the-tick-s-questions-readable-and-close-them-in-the-thread](archive/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-the-tick-s-root-earn-its-hour](archive/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-the-two-executors-agree-about-a-proved-empty-claim](archive/make-the-two-executors-agree-about-a-proved-empty-claim/mission.md) - Make the two executors agree about a proved-empty claim
 * [make-the-workflow-scripts-survive-a-graphql-restricted-gh](archive/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh
 * [make-workaholify-converge-the-repository-state](archive/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [name-the-session-type-that-cannot-merge](archive/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
+* [name-the-steps-a-tick-could-not-read](archive/name-the-steps-a-tick-could-not-read/mission.md) - Name the steps a tick could not read
+* [notice-a-periodic-artifact-that-stopped-being-produced](archive/notice-a-periodic-artifact-that-stopped-being-produced/mission.md) - Notice a periodic artifact that stopped being produced
+* [notify-the-person-a-directed-question-addresses](archive/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
 * [point-the-inbound-readers-at-the-channel-that-exists](archive/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
 * [prove-the-loop-s-closing-link](archive/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
@@ -81,6 +93,8 @@
 * [register-every-fb-as-an-issue](archive/register-every-fb-as-an-issue/mission.md) - Register every /fb as an issue
 * [rename-the-routine-pair-and-add-a-per-user-updater](archive/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies
+* [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](archive/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
+* [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity
@@ -89,10 +103,12 @@
 * [say-how-long-the-loop-has-been-stuck](archive/say-how-long-the-loop-has-been-stuck/mission.md) - Say how long the loop has been stuck
 * [say-what-the-direction-could-not-see-before-calling-it-arrived](archive/say-what-the-direction-could-not-see-before-calling-it-arrived/mission.md) - Say what the direction could not see before calling it arrived
 * [say-when-a-direction-has-arrived](archive/say-when-a-direction-has-arrived/mission.md) - Say when a direction has arrived
+* [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](archive/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
 * [say-when-the-loop-has-run-out-of-direction](archive/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
+* [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post

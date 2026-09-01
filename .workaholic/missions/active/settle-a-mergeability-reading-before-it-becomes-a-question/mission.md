@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-094857
 ---
 
 # Settle a mergeability reading before it becomes a question

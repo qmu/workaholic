@@ -21346,6 +21346,7 @@ const tests = [
   ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
+  ["drive claim protocol: a merged pull request is its own retirement candidate", testRetirementCandidatePullRequestMerged],
   ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate: the gap between a tick finding and the work queue", testFindingToWorkGap],
@@ -29535,6 +29536,95 @@ function testCiRetirementCandidateSetAndAct() {
       "the act reaches GitHub outside gather/scripts/gh-rest.sh");
     assertEq("an unknown unit is refused, and exits 0",
       run(fx.B, `${POSIX_SH} ${ACT} no-such-unit`, withStub).status, 0);
+  } finally { cleanup(fx.A); cleanup(fx.B); }
+}
+
+// ---------- the second candidate class: this branch's own pull request merged ----------
+//
+// (2026-09-01, mission `leave-only-live-work-in-the-unmerged-branch-list`.) Measured: 30
+// unmerged branches, 17 with a merged pull request, and `superseded` reaching almost none of
+// them — it is keyed on a UNIT and needs a claim commit, which a publish-tree publication never
+// has. What is pinned here is the four conditions the ticket's own gate names: the new class
+// appears with its word, a live row beats it, an unreadable read yields no candidate AND its
+// reason, and the existing class is untouched apart from the added field.
+function testRetirementCandidatePullRequestMerged() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  const read = () => JSON.parse(run(fx.B, `${POSIX_SH} ${READER}`, withStub).stdout);
+  try {
+    // A `work-*` BRANCH THE ORACLE HOLDS NO ROW FOR AT ALL — the publish-tree shape. It carries
+    // no `Claim` commit, so nothing in the claim protocol has ever been able to name it.
+    const orphan = "work-20260715-101010";
+    execSync(`git checkout -q -B ${orphan} origin/main && git commit -q --allow-empty -m "A publication"`
+      + ` && git push -q origin ${orphan} && git checkout -q main`, { cwd: fx.B });
+
+    // A LIVE CLAIM, whose heartbeat is this second's — the shape a run is actively driving.
+    tickSecond();
+    const live = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission ${LONG_SLUG}`).stdout);
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    // EVERY pull request reads merged. The existing class is derived from the tree and is
+    // unaffected; the new class picks up the orphan.
+    stub(`echo '[{"number":1,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-19T00:00:00Z"}]'`);
+    const merged = read();
+    const byBranch = Object.fromEntries((merged.candidates || []).map((c) => [c.branch, c]));
+
+    assertEq("the superseded unit is still a candidate, now carrying its own word",
+      [byBranch[fx.batch.branch].unit, byBranch[fx.batch.branch].state,
+       byBranch[fx.batch.branch].candidate_reason],
+      [fx.batch.unit, "present", "superseded_only"]);
+
+    assertEq("a work-* branch with a merged pull request and no claim row is a candidate",
+      [!!byBranch[orphan], byBranch[orphan] && byBranch[orphan].candidate_reason],
+      [true, "pull_request_merged"]);
+
+    // A LIVE ROW BEATS A MERGED PULL REQUEST. This claim's heartbeat is fresh, so the oracle
+    // reads it live — and it must stay off the list even though the stub says its pull request
+    // merged. A run may be driving a FRESH claim over a merged predecessor, and the merged pull
+    // request is a fact about the OLD work.
+    assertTrue("a branch whose unit has a live claim row is never a candidate",
+      !byBranch[live.branch], JSON.stringify(Object.keys(byBranch)));
+
+    // AN UNREADABLE PULL REQUEST IS NOT A MERGED ONE — and its reason is carried, never dropped.
+    // A bare omission reads exactly like a branch whose pull request is open.
+    stub(`echo "API rate limit exceeded" >&2; exit 1`);
+    const degraded = read();
+    const unreadable = Object.fromEntries(
+      (degraded.pull_request_unreadable || []).map((u) => [u.branch, u.reason]));
+    assertEq("a degraded pull-request read yields no candidate for that branch",
+      (degraded.candidates || []).some((c) => c.branch === orphan), false);
+    assertEq("...and names its reason rather than dropping it",
+      unreadable[orphan], "rate_limited");
+    assertEq("while the tree-derived class is untouched by the transport",
+      (degraded.candidates || []).filter((c) => c.candidate_reason === "superseded_only")
+        .map((c) => c.branch), [fx.batch.branch]);
+    assertEq("and the whole read still answers ok, exit 0", [degraded.ok, degraded.reason],
+      [true, ""]);
+
+    // A LOOKUP THAT SUCCEEDED AND FOUND NO PULL REQUEST IS NOT A CANDIDATE EITHER — which is
+    // the pre-change behaviour for every branch, so nothing widened by accident.
+    stub("echo '[]'");
+    const none = read();
+    assertEq("no pull request at all leaves the candidate set exactly what it was",
+      (none.candidates || []).map((c) => `${c.branch}:${c.candidate_reason}`),
+      [`${fx.batch.branch}:superseded_only`]);
+    assertEq("...with nothing recorded as unreadable", (none.pull_request_unreadable || []).length, 0);
+
+    // THE WORD IS CLASSIFIED WHERE EVERY OTHER CLAIM WORD IS, and as a PROOF — the suite fails
+    // on a word no table classifies, and this one licenses a branch delete.
+    const claimsDoc = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+    for (const word of ["superseded_only", "pull_request_merged"]) {
+      assertTrue(`claims.md classifies \`${word}\` as a candidate reason`,
+        new RegExp(`\\\`${word}\\\`\\s*\\|\\s*\\*\\*proof\\*\\*`).test(claimsDoc), word);
+    }
   } finally { cleanup(fx.A); cleanup(fx.B); }
 }
 

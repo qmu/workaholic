@@ -1038,7 +1038,8 @@ bash ../drive/scripts/delete-retired-claim-branch.sh <unit-id>
 ```
 
 The reader composes `list-claims.sh` — one walk of the refs, never a second oracle — resolves
-each unit through the live-row rule, and answers only `superseded_only` units. A degraded scan
+each unit through the live-row rule, and answers `superseded_only` units **and branches whose
+own pull request merged** (below). A degraded scan
 yields **no candidates and its reason**, never a bare empty set: a proof that could not be read
 is not a proof. The act re-runs the scan and re-derives the verdict **at the moment of the
 delete** rather than trusting the list it was handed — the writer's existing discipline applied
@@ -1053,6 +1054,40 @@ differently the second time it is asked), and `pull_request_open`. Every path ex
 the *Proofs and judgements* tables above are unchanged, and nothing keys a takeover or a survey
 on any of this. Which executor takes an act is a different axis from what a claim reads — exactly
 as `branch_delete_failed` already is.
+
+#### What made a branch a retirement candidate (`candidate_reason`)
+
+A **third keyed vocabulary in this home** (2026-09-01, mission
+`leave-only-live-work-in-the-unmerged-branch-list`), emitted by `list-retirable-claims.sh` on
+every candidate row. It is not a claim verdict and enters no precedence: it says **which proof
+put this branch on the list**, so a reader of the list, and the act that consumes it, can tell
+the classes apart without inferring them.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `superseded_only` | **proof** | Every claim for this unit reads `superseded` — the content reached the base and the branch is empty against it. The original class, unchanged; the act's `not_on_base` gate re-derives it. |
+| `pull_request_merged` | **proof** | This branch's own pull request has a non-null `merged_at`, read through `branch-pull-request-state.sh`. The tree established it and looking again cannot make it false, which is the same standing `superseded` has and the reason a destructive act may rest on it. |
+
+**Measured, and why the second class was needed** (2026-09-01): 30 unmerged branches, 17 with a
+merged pull request. A squash merge never makes the branch an ancestor of the base, so
+`--no-merged` lists it forever; `delete_branch_on_merge` is **forward-only**, so every branch
+merged before it was applied stands permanently; and `superseded` reaches almost none of them,
+because it is keyed on a **unit** and needs a claim commit, which a publish-tree publication
+never has. The printed deletion command was 17 lines long and nobody had run it.
+
+**A live row beats a merged pull request, always.** A unit the oracle holds any live row for is
+never a candidate whatever its pull request says: a run may be driving a **fresh** claim over a
+merged predecessor, and the merged pull request is a fact about the old work. The rule stays
+`claims_unit_resolution`'s, read rather than restated.
+
+**An unreadable pull request is not a merged one.** `branch-pull-request-state.sh` emits no
+`state` key at all on a degraded read, and such a branch contributes no candidate and is named
+in `pull_request_unreadable[]` with its reason — never a bare omission, which reads exactly
+like a branch whose pull request is open.
+
+**`superseded` was NOT widened to cover this**, deliberately: the emptiness proof that verdict
+now carries (2026-09-01, issue #788) is what makes `stranded` meaningful, and a merged branch
+that still holds unlanded work is a real shape that must not be swept into the same word.
 
 **And which executor took a delete is derived, never stored.** `deleted` means the tick that
 reported it performed the delete; `already_gone` means the ref was not on origin when it looked,

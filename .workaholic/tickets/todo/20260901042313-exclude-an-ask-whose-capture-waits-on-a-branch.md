@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260901042106-a-captured-ask-is-re-offered-while-its-proposal-waits-on-a-branch.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260901-044913
 ---
 
 # Exclude an ask whose capture waits on a branch

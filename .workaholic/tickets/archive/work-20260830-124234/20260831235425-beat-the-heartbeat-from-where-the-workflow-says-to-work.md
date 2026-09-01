@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T23:54:25+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -111,3 +112,41 @@ step 0 from inside the worktree gets that same outcome back with the step visibl
   is out of scope — the repository fixes `.worktrees/<unit-id>/` in `claims.md`.
 - Adjacent but **not** this ticket: whether a `beat: false` should be surfaced more loudly in the
   run report. The never-load-bearing contract is deliberate and is not reopened here.
+
+## Final Report
+
+Development completed as planned.
+
+Reproduced first, from the two working directories in the same minute on the same unit:
+`heartbeat.sh <unit>` answered `{"beat": false, "reason": "no_worktree"}` from inside
+`.worktrees/<unit>/` and `{"beat": true, "branch": "work-20260830-124234"}` from the main
+checkout. `heartbeat.sh` now resolves the **main checkout's** root through
+`git rev-parse --git-common-dir` — `cd` into it and take its parent, rather than parsing the
+string, because git answers relatively from the main checkout (`.git`, or `../../../.git`
+from a subdirectory) and absolutely from a linked worktree — falling back to
+`--show-toplevel` when the common dir cannot be resolved. The beat is still pushed from the
+unit's own worktree, every refusal word is unchanged, and a genuinely absent worktree still
+answers `no_worktree` / `beat: false` / exit 0 from either directory.
+
+`scripts/test-workflow-scripts.mjs`'s `testHeartbeat` gained four rows asserting the beat
+from inside `.worktrees/<unit>/`: that it lands, that it reports the same branch the main
+checkout reports, that it advanced the tip, and that the absent-worktree refusal is
+byte-identical from there.
+
+### Discovered Insights
+
+- **Insight**: The check that proves this must be written against the **working directory**,
+  not against the return shape. Pre-repair, `heartbeat.sh` returned a perfectly well-formed
+  JSON object with `beat: false` and a real refusal word from inside the worktree, so every
+  existing assertion about its shape, its refusal vocabulary and its exit code passed.
+  **Context**: The breaker was run rather than reasoned about — restoring
+  `git rev-parse --show-toplevel` on the repaired tree turns the three new rows red and
+  leaves the other 5424 green. A row asserting only "it returns `beat`/`branch`/`reason`"
+  would have survived the defect for the whole of its life.
+- **Insight**: `--git-common-dir` is relative from the main checkout (`.git`, or a `../`
+  chain from a subdirectory) and absolute from a linked worktree, so string manipulation of
+  its value is wrong in one of the two cases; `cd` into it and take the parent is correct in
+  both, from any depth.
+  **Context**: Any other script here that must reach the main checkout from inside a claim
+  worktree faces the same fork — `--show-toplevel` answers the *current* tree, which is the
+  right answer almost everywhere and the wrong one for `.worktrees/<unit>/` composition.

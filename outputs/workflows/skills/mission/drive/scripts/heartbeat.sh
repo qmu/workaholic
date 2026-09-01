@@ -46,7 +46,21 @@ report() {
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     report false "" not_a_repository
 fi
-repo_root="$(git rev-parse --show-toplevel)"
+# RESOLVE THE MAIN CHECKOUT'S ROOT, not the current tree's. `drive/SKILL.md` §4 tells a run
+# to stand INSIDE the unit's worktree and to beat as step 0 of every ticket, and there
+# `--show-toplevel` answers the worktree's own root -- composing
+# `.worktrees/<unit>/.worktrees/<unit>`, which never exists, so the beat silently did
+# nothing in exactly the directory the workflow names. `--git-common-dir` names the shared
+# git directory from either tree (relative from the main checkout, absolute from a
+# worktree), so cd into it and take its parent rather than parsing the string.
+repo_root=""
+git_common_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+if [ -n "$git_common_dir" ]; then
+    repo_root="$(cd -- "$git_common_dir" 2>/dev/null && cd .. && pwd)" || repo_root=""
+fi
+if [ -z "$repo_root" ]; then
+    repo_root="$(git rev-parse --show-toplevel)"
+fi
 worktree_path="${repo_root}/.worktrees/${unit}"
 
 # The beat is pushed FROM THE UNIT'S OWN WORKTREE. Beating from anywhere else would

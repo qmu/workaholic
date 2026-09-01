@@ -75,5 +75,9 @@ Closed without merging outside the loop on <when> — no run posted this item's 
 
 If the rendered post says not to post, post nothing at all — no root, no question, ever. An hour with nothing changed and nothing to ask is silent.
 
+**A root the tick could not deliver is filed, not lost** (2026-09-01, issue #806). When the rendered post says to post and **no transport reaches the channel** — the connector answers `channel_not_found` or resolves no matching channel, and `notify-slack.sh` answers `no_token` — file the rendered root as **one** `[FB]` issue through `file-inbound-ask.sh`, the same filer every other finding uses, carrying the root text verbatim, the counts it names and the reason each transport was out. Measured: a tick rendered `post: true` with 7 change lines and 2 impairment lines, held 18 questions including a stranded claim and three blocked retirements, and every one of them existed only in a tick log inside a container that was then discarded.
+
+**One issue for the hour, not one per line**, and **the ledger is untouched**: a question that reached nobody is never recorded as asked, so every held question stays held and is offered again the moment a transport returns. Restoring the transport is **provisioning, not code** — re-authorize the connector against the workspace holding the channel, or set `SLACK_BOT_TOKEN` and `WORKAHOLIC_SLACK_CHANNEL` on the cloud environment the routines select — so the issue names it and asks for it rather than pretending the tick can fix it.
+
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or guess retired namespaces.

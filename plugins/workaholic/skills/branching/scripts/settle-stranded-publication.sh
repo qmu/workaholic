@@ -36,8 +36,10 @@
 #                               operator-facing publication, closed, or not a publication
 #   reader_unreadable:<reason>  the reader degraded; an absence it could not establish is never
 #                               read as *nothing to settle*
-#   not_mechanical:<class>      `content` needs a person, `clean` needs no catch-up at all, and
-#                               `unanswerable` is the ABSENCE of a reading — never actable
+#   not_mechanical:<class>      `content` needs a person and `unanswerable` is the ABSENCE of a
+#                               reading — never actable. `clean` and `mechanical` are the two
+#                               accepted classes; the word is kept as it is because every report
+#                               surface quotes it.
 #   content_conflict            the writer met a content conflict the reader did not predict
 #   has_claim_commit            the branch is a claim; the catch-up owns it, not this
 #   not_a_work_branch           the publish seam mints exactly one branch shape
@@ -48,9 +50,31 @@
 #   validation_failed:<check>   the repository's own fast checks went red
 #   push_failed / no_open_pull_request / gh_unavailable / no_worktree / catchup_<class>
 #
+# ═══ THE TWO ACCEPTED CLASSES (2026-09-01, mission ═══════════════════════════════════
+# `deliver-a-stranded-publication-that-needs-nothing-but-a-merge`). `mechanical` and `clean`,
+# and the difference between them is only how much has to happen BEFORE the one merge:
+#
+#   mechanical  the base has moved and a generator settles the collision — attach the
+#               worktree, merge the base in, regenerate, run the fast checks, push, THEN the
+#               gate, THEN the merge. `merged`/`regenerated`/`pushed` report true.
+#   clean       nothing collides, so there is nothing to catch up: the branch is mergeable as
+#               it stands and every one of those steps has nothing to do. The worktree is
+#               still attached (the GATE needs a checkout of the branch to scan), and
+#               `merged`, `regenerated`, `validated` and `pushed` all report FALSE, which is
+#               the truth and is how a reader tells the two paths apart in the report. The
+#               fast checks go with the push they guard: this branch is byte-identical to the
+#               one its own CI already ran, so re-running the suite would assert nothing new.
+#
+# Measured 2026-09-01: five of six open publications read `clean` (#813, #799, #688, #635,
+# #625), the oldest opened 2026-08-26, every one green and stranded by a race with its own CI
+# — `publish-tree-pr.sh` opens the pull request and attempts the merge in the same breath,
+# GitHub answers 405 before any check has started, and `merge_not_allowed` is not a word the
+# caller retries. The class was read, named in the report and delivered by nothing.
+#
 # ═══ WHAT IT COSTS, SAID RATHER THAN LEFT TO BE NOTICED ══════════════════════════════
-# The publication's pull request gains a MERGE COMMIT from the base. That is exactly what
-# `catch-up-claim.sh` already does for a claim branch, so it is consistent rather than new.
+# On the `mechanical` path the publication's pull request gains a MERGE COMMIT from the base.
+# That is exactly what `catch-up-claim.sh` already does for a claim branch, so it is consistent
+# rather than new. On the `clean` path no ref is written at all before the merge attempt.
 #
 # ═══ NO GATE IS EVER OVERRIDDEN ══════════════════════════════════════════════════════
 # The scan runs before the merge attempt and a finding refuses by its own word. A publication
@@ -162,12 +186,24 @@ if git log --format='%s%x09%(trailers:key=Unit,valueonly,separator=%x20)' \
     refuse has_claim_commit
 fi
 
+# TWO CLASSES ARE ACCEPTED AND EVERY OTHER ONE IS REFUSED BY ITS OWN WORD. `NEEDS_CATCHUP`
+# is the only thing the class decides below: `clean` skips the merge, the regeneration and the
+# push because each of them has nothing to do, and skips NOTHING else — the gate, the delivery
+# seam, the refusal words and the teardown are one code path for both classes.
+NEEDS_CATCHUP=true
 case "$CLASS" in
     mechanical) ;;
+    clean) NEEDS_CATCHUP=false ;;
     *) refuse "not_mechanical:${CLASS:-unreadable}" ;;
 esac
 
 # ── THE WORKTREE: attach to the published branch, never mint one ─────────────────────
+# ATTACHED FOR BOTH CLASSES, DELIBERATELY. A `clean` publication needs no catch-up, but the
+# GATE below is not part of the catch-up: `scan-branch-safety.sh` diffs a checkout of the
+# branch against the base, so it needs one. The alternative — scanning without a worktree,
+# against the remote refs — is cheaper per act and would give the gate a second way of being
+# invoked; one worktree, attached and torn down by machinery that already exists, is the
+# smaller change and keeps the gate's refusals byte-identical on both paths.
 WORKTREE="${REPO_ROOT}/.worktrees/${WORKTREE_ID}"
 if [ ! -d "$WORKTREE" ]; then
     [ -f "$MAKE_WORKTREE" ] || refuse no_worktree_script
@@ -179,51 +215,54 @@ on_branch=$(git -C "$WORKTREE" rev-parse --abbrev-ref HEAD 2>/dev/null || printf
 [ "$on_branch" = "$BRANCH" ] || refuse worktree_on_other_branch
 [ -z "$(git -C "$WORKTREE" status --porcelain 2>/dev/null || printf 'x')" ] || refuse dirty_worktree
 
-# ── THE MERGE, COMPOSED AND NEVER RE-DERIVED ─────────────────────────────────────────
-[ -f "$CATCHUP" ] || refuse no_catchup_script
-catchup_out=$( ( cd "$WORKTREE" && sh "$CATCHUP" "$BASE_BRANCH" --resolve-mechanical ) 2>/dev/null || printf '')
-case "$catchup_out" in
-    *'"already_current": true'*) report already_current "" ;;
-    *'"caught_up": true'*) MERGED=true ;;
-    *'"conflict_class": "content"'*) refuse content_conflict ;;
-    *'"conflict_class": "mechanical"'*) refuse catchup_mechanical_unresolved ;;
-    *'"reason": "merge_failed"'*) refuse catchup_merge_failed ;;
-    *) refuse catchup_unreadable ;;
-esac
+if [ "$NEEDS_CATCHUP" = true ]; then
+    # ── THE MERGE, COMPOSED AND NEVER RE-DERIVED ─────────────────────────────────────
+    [ -f "$CATCHUP" ] || refuse no_catchup_script
+    catchup_out=$( ( cd "$WORKTREE" && sh "$CATCHUP" "$BASE_BRANCH" --resolve-mechanical ) 2>/dev/null || printf '')
+    case "$catchup_out" in
+        *'"already_current": true'*) report already_current "" ;;
+        *'"caught_up": true'*) MERGED=true ;;
+        *'"conflict_class": "content"'*) refuse content_conflict ;;
+        *'"conflict_class": "mechanical"'*) refuse catchup_mechanical_unresolved ;;
+        *'"reason": "merge_failed"'*) refuse catchup_merge_failed ;;
+        *) refuse catchup_unreadable ;;
+    esac
 
-# ── REGENERATE WITH THE REPOSITORY'S OWN TOOLING, NEVER BY HAND ──────────────────────
-# This is the obligation `--resolve-mechanical` put on the caller, and it is the whole repair:
-# every generated path the merge resolved by taking a side is re-derived from the MERGED
-# source. Absent tooling is not a failure — a consuming repository has no `outputs/` to build.
-REFRESH_INDEX="${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh"
-if [ -f "$REFRESH_INDEX" ] && [ -d "${WORKTREE}/.workaholic" ]; then
-    ( cd "$WORKTREE" && sh "$REFRESH_INDEX" ) >/dev/null 2>&1 || refuse index_refresh_failed
-    REGENERATED=true
-fi
-if [ -f "${WORKTREE}/scripts/build-plugins/build.mjs" ] && command -v node >/dev/null 2>&1; then
-    ( cd "$WORKTREE" && node scripts/build-plugins/build.mjs ) >/dev/null 2>&1 \
-        || refuse regeneration_failed
-    REGENERATED=true
-fi
-if [ "$REGENERATED" = true ] \
-   && [ -n "$(git -C "$WORKTREE" status --porcelain 2>/dev/null || printf '')" ]; then
-    git -C "$WORKTREE" add -A >/dev/null 2>&1 || refuse regeneration_stage_failed
-    git -C "$WORKTREE" commit -q -m "Regenerate the derived files" >/dev/null 2>&1 \
-        || refuse regeneration_commit_failed
-fi
+    # ── REGENERATE WITH THE REPOSITORY'S OWN TOOLING, NEVER BY HAND ──────────────────
+    # This is the obligation `--resolve-mechanical` put on the caller, and it is the whole
+    # repair: every generated path the merge resolved by taking a side is re-derived from the
+    # MERGED source. Absent tooling is not a failure — a consuming repository has no
+    # `outputs/` to build.
+    REFRESH_INDEX="${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh"
+    if [ -f "$REFRESH_INDEX" ] && [ -d "${WORKTREE}/.workaholic" ]; then
+        ( cd "$WORKTREE" && sh "$REFRESH_INDEX" ) >/dev/null 2>&1 || refuse index_refresh_failed
+        REGENERATED=true
+    fi
+    if [ -f "${WORKTREE}/scripts/build-plugins/build.mjs" ] && command -v node >/dev/null 2>&1; then
+        ( cd "$WORKTREE" && node scripts/build-plugins/build.mjs ) >/dev/null 2>&1 \
+            || refuse regeneration_failed
+        REGENERATED=true
+    fi
+    if [ "$REGENERATED" = true ] \
+       && [ -n "$(git -C "$WORKTREE" status --porcelain 2>/dev/null || printf '')" ]; then
+        git -C "$WORKTREE" add -A >/dev/null 2>&1 || refuse regeneration_stage_failed
+        git -C "$WORKTREE" commit -q -m "Regenerate the derived files" >/dev/null 2>&1 \
+            || refuse regeneration_commit_failed
+    fi
 
-# ── THE REPOSITORY'S OWN FAST CHECKS, BEFORE THE PUSH ────────────────────────────────
-# A push that turns CI red costs a cycle and the reviewers' trust, and this one lands on a
-# branch behind an open pull request. Each check is named in its own refusal.
-if command -v node >/dev/null 2>&1; then
-    for check in build-plugins/verify.mjs build-plugins/validate-metadata.mjs \
-                 test-workflow-scripts.mjs; do
-        [ -f "${WORKTREE}/scripts/${check}" ] || continue
-        ( cd "$WORKTREE" && node "scripts/${check}" ) >/dev/null 2>&1 \
-            || refuse "validation_failed:${check##*/}"
-    done
+    # ── THE REPOSITORY'S OWN FAST CHECKS, BEFORE THE PUSH ────────────────────────────
+    # A push that turns CI red costs a cycle and the reviewers' trust, and this one lands on a
+    # branch behind an open pull request. Each check is named in its own refusal.
+    if command -v node >/dev/null 2>&1; then
+        for check in build-plugins/verify.mjs build-plugins/validate-metadata.mjs \
+                     test-workflow-scripts.mjs; do
+            [ -f "${WORKTREE}/scripts/${check}" ] || continue
+            ( cd "$WORKTREE" && node "scripts/${check}" ) >/dev/null 2>&1 \
+                || refuse "validation_failed:${check##*/}"
+        done
+    fi
+    VALIDATED=true
 fi
-VALIDATED=true
 
 # ── THE GATE, READ BEFORE ANYTHING IS PUSHED OR MERGED ───────────────────────────────
 # `secret` is never overridable and `leak` needs a human ruling; only `override_only` findings
@@ -243,9 +282,13 @@ if [ -f "$SCAN" ] && [ -f "$GATE" ]; then
 fi
 
 # ── PUSH. Never a force, never an amend, never a rebase ──────────────────────────────
-git -C "$WORKTREE" push --quiet origin "HEAD:refs/heads/${BRANCH}" >/dev/null 2>&1 \
-    || refuse push_failed
-PUSHED=true
+# Only the catch-up wrote anything to push. A `clean` settlement's branch is byte-identical to
+# the published one, so there is no ref to move and `pushed` stays false.
+if [ "$NEEDS_CATCHUP" = true ]; then
+    git -C "$WORKTREE" push --quiet origin "HEAD:refs/heads/${BRANCH}" >/dev/null 2>&1 \
+        || refuse push_failed
+    PUSHED=true
+fi
 
 # ── DELIVER: one merge attempt, through the seam every other caller uses ─────────────
 # The merge vocabulary is `merge-reason.sh`'s own and is never a second set; the method is

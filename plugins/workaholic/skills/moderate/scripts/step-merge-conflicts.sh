@@ -109,6 +109,22 @@ case "$uncomputed" in ''|*[!0-9]*) uncomputed=0 ;; esac
 UNKNOWN_NOTE=""
 [ "$uncomputed" -eq 0 ] || UNKNOWN_NOTE=", ${uncomputed} not yet computed by GitHub"
 
+# THE UNCOMPUTED COUNT IS TRANSPORT-DERIVED AND NO LONGER RIDES THE COMPARED SUMMARY
+# (2026-09-01, ticket `20260901122448-name-every-step-summary-carrying-transport-derived-
+# volatility`). `render-tick-post.sh` compares `(step, status, stabilized summary)` for the
+# change diff and again for the impairment diff, and this step's blocked row is in both. A
+# row reads `uncomputed` purely because GitHub has not finished computing `mergeable` yet —
+# `pulls-state.sh`'s own header records four pull requests reading `unknown` hour after hour
+# and a single re-read settling all four — so the count moves with nothing in the repository
+# moving, and every time it moved this step opened a root.
+#
+# WHAT STAYS IS THE REPOSITORY FACT: how many of how many open pull requests conflict, and
+# which. A pull request whose mergeability finally computes as `false` still changes that
+# count and still speaks. The `uncomputed` FIELD is untouched, so every reader that wants the
+# number still has it; only the compared string is coarsened, and `reason` never reaches the
+# tick log so `mergeability_uncomputed` cannot enter the comparison either. `UNKNOWN_NOTE`
+# survives on the `event` — a change line is rendered only when the summary already moved,
+# so it can add detail without earning a root of its own.
 if [ "$count" -eq 0 ]; then
     # A tick with neither conflicts nor uncomputed rows keeps today's wording byte-identically;
     # one with uncomputed rows never claims `none conflicted` about them.
@@ -116,15 +132,15 @@ if [ "$count" -eq 0 ]; then
         printf '{"step": "merge-conflicts", "status": "ok", "reason": "", "summary": "%s open pull request(s), none conflicted (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "uncomputed": 0}\n' \
             "$total" "$LIMIT" "$truncated"
     else
-        printf '{"step": "merge-conflicts", "status": "ok", "reason": "mergeability_uncomputed", "summary": "%s open pull request(s), none of the %s read as conflicted, %s not yet computed by GitHub (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "uncomputed": %s}\n' \
-            "$total" "$((total - uncomputed))" "$uncomputed" "$LIMIT" "$truncated" "$uncomputed"
+        printf '{"step": "merge-conflicts", "status": "ok", "reason": "mergeability_uncomputed", "summary": "%s open pull request(s), none read as conflicted, some not yet computed by GitHub (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "uncomputed": %s}\n' \
+            "$total" "$LIMIT" "$truncated" "$uncomputed"
     fi
     exit 0
 fi
 
 numbers=$(printf '%s' "$conflicted" | sed 's/.*"number": //; s/,.*//' | tr '\n' ' ' | sed 's/ $//')
-printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s)%s — never rebased here: the catch-up clears what a generator settles, a content collision belongs to the claim holder", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
-    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" "$UNKNOWN_NOTE" \
+printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s) — never rebased here: the catch-up clears what a generator settles, a content collision belongs to the claim holder", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)%s"}\n' \
+    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" \
     "$(printf '%s' "$numbers" | tr ' ' '\n' | awk 'NF { printf "%s%s", (n++ ? ", " : ""), $0 }')" \
     "$uncomputed" \
-    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')"
+    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" "$UNKNOWN_NOTE"

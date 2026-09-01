@@ -2,7 +2,7 @@
 type: Mission
 title: Let the tick add to a standing thread instead of restating itself
 slug: let-the-tick-add-to-a-standing-thread-instead-of-restating-itself
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T12:24:08+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-123859
 ---
 
 # Let the tick add to a standing thread instead of restating itself
@@ -35,13 +36,22 @@ what the tick repairs and who repairs the rest.
 
 ## Acceptance
 
-- [ ] A day's first speaking tick opens the root; every later one replies into it, still by
+- [x] A day's first speaking tick opens the root; every later one replies into it, still by
       exact-string key. (#20260901122448-reply-an-hour-s-changes-into-the-day-s-standing-root.md)
-- [ ] A summary that moved only because a transport answered differently opens no
+- [x] A summary that moved only because a transport answered differently opens no
       root. (#20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate.md)
-- [ ] `workaholic:moderate` says what the tick may repair and who does the
+- [x] `workaholic:moderate` says what the tick may repair and who does the
       rest. (#20260901122448-say-what-the-tick-repairs-on-what-proof-and-who-does-the-rest.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260901122448-derive-the-tick-s-thread-key-from-the-day-not-the-tick.md
+- 2026-09-01 — ticket archived — 20260901122448-reply-an-hour-s-changes-into-the-day-s-standing-root.md
+- 2026-09-01 — ticket archived — 20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate.md
+- 2026-09-01 — ticket archived — 20260901122448-name-every-step-summary-carrying-transport-derived-volatility.md
+- 2026-09-01 — ticket archived — 20260901122448-say-the-tick-s-root-is-day-keyed-beside-the-exact-string-rule.md
+- 2026-09-01 — ticket archived — 20260901122448-say-what-the-tick-repairs-on-what-proof-and-who-does-the-rest.md
+- 2026-09-01 — ticket archived — 20260901122448-drill-the-day-keyed-root-and-the-stabilized-post-gate-offline.md
+- 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — story written — work-20260901-123859.md

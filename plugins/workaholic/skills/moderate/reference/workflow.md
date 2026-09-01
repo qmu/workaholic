@@ -25,6 +25,57 @@ seam this file names for that step — recording what it actually did under the 
 
 ---
 
+## What a `summary` may carry — the rule, and the audit behind it
+
+**A summary is compared, so it carries what moved in the repository; a transport's answer belongs
+on the `headline` or in `needs_agent`.** That is the whole rule, and it is here rather than in one
+step's header because it binds every step written after it.
+
+`render-tick-post.sh` compares `(step, status, stabilized summary)` against the previous tick's —
+twice: once for the change diff that decides whether an hour has anything to say, and again over
+the `degraded` and `blocked` rows for the impairment diff. `stabilize()` strips an ISO timestamp,
+a bare hex object name of seven characters or more, and a clock time, and **nothing else** — its
+own header explains why that list is short and named rather than a general scrub. So any other
+value a summary interpolates is compared verbatim, and a value an API recomputes between two
+identical reads makes the gate built to stop hourly noise the thing producing it.
+
+The distinction is **where the number comes from**, not what type it is:
+
+- a **repository** fact is one the tree, the log, the claim scan or a local `git` derivation owns
+  — a count of queued tickets, a mission slug, a pull request's open/closed state, a conflict
+  class computed by `merge-tree`. It moves when the repository moves, and it *should* speak.
+- a **transport** fact is one a remote service recomputes on its own schedule — GitHub's lazily
+  computed `mergeable` above all, and whether a bounded fetch happened to succeed. It moves with
+  the repository standing still.
+
+### The audit (2026-09-01, ticket `20260901122448-name-every-step-summary-carrying-transport-derived-volatility`)
+
+Every one of the thirty-two `step-*.sh` summary compositions was read. Each is a literal format
+string over named shell variables, so **none is unauditable** — there is no step whose summary is
+built by interpolation this audit could not follow, and none is recorded as unaudited.
+
+Three carried a transport-derived term. All three are repaired; every other step is cleared.
+
+| Step | Verdict |
+| ---- | ------- |
+| `stuck-prs` | **repaired** — carried the `<number>:<blocked_by>` pair list. Now the count and class set only (ticket `20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate`). |
+| `merge-conflicts` | **repaired** — carried `N not yet computed by GitHub`, which is `mergeable == null` and nothing else. The count stays on the `uncomputed` field and the note moved to the `event`. |
+| `release-status` | **repaired** — its `blocked` row carried `(refs: fresh\|stale)`, a word set by whether one bounded fetch succeeded. A doubtful read already has its own `degraded` row, which is where a reader learns it. |
+| `base-health`, `drill-health` | cleared — a check-run *conclusion*, not a lazily computed field: it does not flip between two identical reads, and when it does flip a check really was re-run. |
+| `catchup-blocked`, `stranded-publications`, `stalled-units`, `undelivered-units`, `handoff-units`, `raced-units`, `retire-claims` | cleared — every count comes from the claim scan and `claim-mergeability.sh`, which is a local `merge-tree` with no network. |
+| `closable-missions`, `undrivable-units`, `direction-health`, `strategy-pace`, `doc-drift`, `thread-reconcile`, `standing-rulings`, `file-findings`, `question-answers`, `unanswered-asks`, `blocked-tick`, `cadence-lapse`, `human-checkin` | cleared — tree, tick log, or this loop's own gate words. |
+| `issue-triage`, `operator-pulls` | cleared — an issue's or pull request's open/closed state is a repository fact GitHub stores rather than recomputes. |
+| `inbound-sweep`, `strategy-digest` | cleared, with a caveat named rather than repaired: both are **window-relative**, so their counts move as the window slides. That is clock-derived, not transport-derived, and in both cases the movement tracks activity that really happened. |
+| `note-cadence`, `workload-logs` | cleared, with the term to watch named: `note-cadence`'s *due* is a JST-day boundary over a draft release CI alone writes, and `workload-logs`'s `readable` is an environment capability. Neither recomputes remotely today; a target whose log endpoint flaked would make `readable` the fourth finding. |
+| `open-log` | not compared at all — `render-tick-post.sh` skips it by name, so its day-file path cannot open a root. |
+
+**What the audit did not do**: it invented no repair to justify itself, and it left `merge-conflicts`'
+`(#12, #13)` list and `stuck-prs`' `headline` exactly where they are — those name which pull request,
+which is a repository fact. Whether a change *line* may name an identifier is a separate rule
+(`CLAUDE.md`, an event names no identifier) and a separate ask.
+
+---
+
 ## 1. `open-log` — open the tick's log
 
 - **Reads**: the layout allowlist; `.workaholic/moderations/`.
@@ -824,14 +875,31 @@ left the routine template on 2026-09-01 — `workaholic:notify`, *The command is
 question into the thread of the item it concerns; it posts the tick's own root and hangs its
 questions under it.
 
-1. Render the root: `run.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
+1. Render the post: `run.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
    It returns `post`, a `reason`, the `changes[]` it found, the `impaired[]` steps it could not
-   read, and the `root_text` to post verbatim.
+   read, the `token` the lookup searches, and **two forms off one body** — `root_text` (head plus
+   body) and `reply_text` (the body alone, no head).
 2. `post: false` ⇒ **post nothing**, whatever the reason (`idle`, `no_previous_tick`, `no_log`,
-   `no_rows`). Report the reason in the run.
-3. `post: true` ⇒ post `root_text` as a top-level message carrying `` `tick:<tick-id>` `` and the
-   session URL, then post each cleared question as a **reply into that root**, carrying the
-   person's `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries.
+   `no_rows`). Report the reason in the run. `reply_text` is empty on every silent path exactly
+   as `root_text` is.
+3. `post: true` ⇒ **resolve the day's standing root first**, by the stateless exact-string lookup
+   in `workaholic:notify`, searching the rendered `token` (`` `tick-day:<YYYYMMDD>` ``) and nothing
+   else. It names the **day**, not the tick, so every speaking tick of one day resolves one thread.
+   - **found** ⇒ post `reply_text` as a reply into it, and no root. The head restates the day and a
+     reader following one thread has already read it.
+   - **not found** ⇒ the day's first speaking tick, or a channel whose history the search cannot
+     reach: post `root_text` as a top-level message carrying the token and the session URL.
+   - **`token` empty** (an unreadable tick id, named in `token_reason`) ⇒ post the root, unthreaded.
+     A key derived from a date the tick could not read would thread an hour into the wrong day.
+
+   Either way, post each cleared question as a **reply into that thread**, carrying the person's
+   `<@U…>` and `` `ask:<key>` `` — and no session URL, which the root already carries. Report per
+   tick which it did (`root` / `reply`) and the surface that carried it, so a tick that fell back
+   to a root is visible in the run report rather than inferred from the channel.
+
+   **The delta reply carries no mention token**, exactly as the root does not: a change line names
+   a repository event and asks nobody for anything, and the mention belongs on the question, which
+   now sits in the same thread.
 
 **The root rides the connector; a question whose mention resolves to the poster rides the bot**
 (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). This question is the

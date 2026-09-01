@@ -20753,6 +20753,126 @@ function testModerationRootIsHeldByTheSpeakingWindow() {
   }
 }
 
+// ---------- the tick root's thread key names the DAY, not the tick (2026-09-01) -------------
+// The root was keyed `tick:<tick-id>`, which is that tick's own timestamp, so the stateless
+// exact-string lookup could never match the previous hour and took case 4 -- OPEN A NEW ROOT --
+// every hour, BY CONSTRUCTION. Measured on a consuming repository: 14 roots in one window, 12
+// carrying no questions. Nothing was broken; the key named the hour rather than the conversation.
+//
+// What is pinned is the PROPERTY, not the string: same local day => one key, either side of the
+// boundary => two, an unreadable id => a named refusal and NO key. The last is the one that
+// matters most -- a key derived from a date the tick could not read would thread an hour into
+// the WRONG day's root, which is worse than opening a new one.
+function testTickThreadKeyNamesTheDay() {
+  const KEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/tick-thread-key.sh")}`;
+  const dir = makeRepo("main");
+  const key = (tick) => JSON.parse(run(dir, `${KEY} ${tick}`).stdout);
+  try {
+    // 1. ONE HOUR APART ON THE SAME LOCAL DAY IS ONE CONVERSATION. This is the whole repair:
+    //    before it, these two differed and the lookup could only ever open a second root.
+    assertEq("two ticks an hour apart on the same day derive one key",
+      [key("20260901-050000").key, key("20260901-060000").key],
+      ["tick-day:20260901", "tick-day:20260901"]);
+
+    // 2. THE DAY IS THE OPERATOR'S, NOT UTC. 14:59Z and 15:01Z are the same UTC day and
+    //    different Asia/Tokyo days, so a UTC key would break a root at midnight UTC -- the
+    //    middle of a JST reader's evening.
+    assertTrue("two ticks either side of the operator's day boundary derive different keys",
+      key("20260901-145900").key !== key("20260901-150100").key,
+      `${key("20260901-145900").key} vs ${key("20260901-150100").key}`);
+    assertEq("and the later one names the next local day",
+      key("20260901-150100").key, "tick-day:20260902");
+
+    // 3. AN UNREADABLE ID REFUSES BY NAME. `20260819-999999` is the sentinel that cost seven
+    //    days of blind windows (`lib/tick-iso.sh`); it must yield no key at all.
+    assertEq("the sentinel tick id answers a named refusal and no key",
+      [key("20260819-999999").key, key("20260819-999999").reason],
+      ["", "tick_not_a_timestamp"]);
+    assertEq("and so does no id at all", [key("").key, key("").reason], ["", "no_tick"]);
+  } finally { cleanup(dir); }
+
+  // 4. THE KEY IS COMPOSED IN EXACTLY ONE FILE. A renderer that spelled `tick:<id>` beside the
+  //    derivation is how the two would drift back apart.
+  const render = readFileSync(SCRIPTS.renderTickPost, "utf8");
+  const code = render.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("render-tick-post.sh reads the shared key derivation",
+    /lib\/tick-thread-key\.sh/.test(code), "render-tick-post.sh");
+  assertTrue("and composes no tick key of its own",
+    !/"tick:/.test(code) && !/tick-day:/.test(code), "render-tick-post.sh");
+
+  // 5. THE ZONE IS ONE READ. `speaking_zone` is where it lives; the key derivation must not
+  //    reach past it to the environment, or a root and a question could disagree about the day.
+  const keyBody = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/tick-thread-key.sh"), "utf8");
+  const keyCode = keyBody.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("the key derivation reads the zone through speaking_zone",
+    /speaking_zone/.test(keyCode), "tick-thread-key.sh");
+  assertTrue("and never reads WORKAHOLIC_QUIET_TZ itself",
+    !/WORKAHOLIC_QUIET_TZ/.test(keyCode), "tick-thread-key.sh");
+  // AND IT READS NO CLOCK OF ITS OWN: a `date` with no `-d` is *now*, which would thread an
+  // hour into whichever day the container happened to wake in.
+  assertTrue("and derives the day from the tick id rather than from now",
+    !/date [^|)]*\+%/.test(keyCode.replace(/date -d /g, "date_of ")), "tick-thread-key.sh");
+}
+
+// ---------- an hour's changes are a DELTA REPLY, not another root (2026-09-01) ---------------
+// The day key made the standing root findable; nothing yet posted into it, so every speaking
+// tick still rendered a full root — head and all — and a reader met a new top-level post every
+// hour. The two forms come off ONE reading: the body is built once, the root is that body under
+// a head, and the reply is the body. Two compositions would be two voices for one hour.
+function testTickRendersARootAndADeltaReply() {
+  const dir = makeRepo("main");
+  const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
+  const R = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  const render = (summary, args) => {
+    writeFileSync(join(dir, "rows.json"), JSON.stringify({
+      rows: [{ step: "doc-drift", status: "ok", summary, event: `doc-drift: ${summary}` }],
+    }));
+    return JSON.parse(run(dir, `${R} ${args} --root . < rows.json`).stdout);
+  };
+  try {
+    mkdirSync(join(dir, ".workaholic", "moderations"), { recursive: true });
+    run(dir, `${LOG} --tick 20260901-010000 --step doc-drift --status ok --summary "a" --root .`);
+
+    const speaking = render("c", "--tick 20260901-110000 --questions 1 --hour 11 --weekday 3");
+
+    // 1. BOTH FORMS COME OFF ONE INPUT, and the root is the reply under a head.
+    assertEq("the root carries the head and the body",
+      speaking.root_text, "🔎 Moderation - 1 change(s), 1 question(s)\ndoc-drift: c");
+    assertEq("and the reply carries the body alone — no restated head",
+      speaking.reply_text, "doc-drift: c");
+    assertTrue("the root is exactly the reply under the head",
+      speaking.root_text.endsWith(`\n${speaking.reply_text}`), speaking.root_text);
+    assertTrue("so the reply restates no day summary",
+      !/🔎 Moderation/.test(speaking.reply_text), speaking.reply_text);
+
+    // 2. A TICK THE GATES HOLD POSTS NEITHER. `reply_text` is not a way around the window:
+    //    the delta is the same silence the root is, rendered empty on every held path.
+    for (const [label, args] of [
+      ["inside the quiet window", "--tick 20260901-030000 --questions 1 --hour 3 --weekday 3"],
+      ["on an off day", "--tick 20260901-030000 --questions 1 --hour 10 --weekday 7"],
+      ["with nothing to say", "--tick 20260901-110000 --questions 0 --hour 11 --weekday 3"],
+    ]) {
+      const held = render("c", args);
+      assertEq(`a tick held ${label} renders neither a root nor a reply`,
+        [held.post, held.root_text, held.reply_text], [false, "", ""]);
+    }
+
+    // 3. THE MENTION STAYS ON THE QUESTION. A delta addressed to nobody is orientation; a delta
+    //    that mentioned somebody would wake the channel for it, which is the retired shape.
+    assertTrue("and the delta carries no mention token", !/<@U/.test(speaking.reply_text),
+      speaking.reply_text);
+  } finally { cleanup(dir); }
+
+  // 4. THE POSTING RULE LIVES AT THE COMMAND CEILING, not in a routine prompt and not in the
+  //    renderer, which posts nothing at all.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
+  assertTrue("the command says a found thread takes the delta reply",
+    /reply_text/.test(cmd) && /tick-day:/.test(cmd), "commands/moderate.md");
+  assertTrue("and that no thread found means the root",
+    /root_text/.test(cmd), "commands/moderate.md");
+}
+
 // ---------- the tick log lives on its own branch, not on `main` (2026-09-01, issue #782) ------
 // MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
 // touched only `.workaholic/` and FIVE touched only the product. After squash-merging removed
@@ -21301,6 +21421,8 @@ const tests = [
   ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
+  ["the tick root's thread key names the day", testTickThreadKeyNamesTheDay],
+  ["the tick renders a root and a delta reply", testTickRendersARootAndADeltaReply],
   ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
   ["the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -27316,6 +27438,68 @@ esac
     } finally {
       cleanup(binC);
       cleanup(binR);
+    }
+
+    // THE COMPARED SUMMARY CARRIES NO PER-PULL STATE LIST (2026-09-01, ticket
+    // `20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate`).
+    // `render-tick-post.sh` compares `(step, status, stabilized summary)` verbatim, and the
+    // stabilizer strips only a timestamp, a bare hex object name and a clock time — so the
+    // `<number>:<blocked_by>` pair list this summary used to carry made the gate open a root
+    // whenever GitHub reassigned a class between two pull requests, with the repository
+    // unmoved. Both directions are pinned: the re-shuffle must be silent, and the SET moving
+    // must still speak.
+    const many = (rows) => {
+      const d = mkdtempSync(join(tmpdir(), "wh-ghN-"));
+      const detail = rows.map(([n, mergeable, state]) =>
+        `  repos/*/pulls/${n}) emit '${JSON.stringify({ number: n, html_url: `https://x/${n}`, head: { ref: "work-20260817-030303" }, draft: false, mergeable, mergeable_state: state, title: "One" })}' ;;`).join("\n");
+      writeFileSync(join(d, "gh"), `#!/bin/sh
+path=""; jqexpr=""; seen=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    api) seen=1 ;;
+    --jq) jqexpr="$2"; shift ;;
+    -*) ;;
+    *) if [ "$seen" = 1 ] && [ -z "$path" ]; then path="$1"; fi ;;
+  esac
+  shift
+done
+emit() { if [ -n "$jqexpr" ]; then printf '%s' "$1" | jq -r "$jqexpr"; else printf '%s' "$1"; fi; }
+case "$path" in
+  repos/*/pulls\\?*) emit '${JSON.stringify(rows.map(([n]) => ({ number: n })))}' ;;
+${detail}
+  *) emit '[]' ;;
+esac
+`);
+      chmodSync(join(d, "gh"), 0o755);
+      return d;
+    };
+    // Same two pull requests, same two classes — only which one holds which has moved.
+    const binSwapA = many([[41, false, "dirty"], [42, true, "blocked"]]);
+    const binSwapB = many([[41, true, "blocked"], [42, false, "dirty"]]);
+    // The set itself moves: a third pull request joins.
+    const binGrew = many([[41, false, "dirty"], [42, true, "blocked"], [43, true, "unstable"]]);
+    const stuck = (b) => JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-150000 --root .`,
+      { env: { ...process.env, PATH: `${b}:${process.env.PATH}` } }).stdout);
+    try {
+      const a = stuck(binSwapA);
+      const b = stuck(binSwapB);
+      const grew = stuck(binGrew);
+      assertTrue("the compared summary carries no <number>:<blocked_by> list",
+        !/\d+:(conflict|review|checks|draft|behind|unknown)/.test(a.summary), a.summary);
+      assertEq("so a re-shuffle at an unchanged count and class set opens no root",
+        a.summary, b.summary);
+      assertTrue("while the question still names each pull request and why it is stuck",
+        a.needs_agent.length === 2 && a.needs_agent.every((n) => n.blocked_by && n.decision),
+        JSON.stringify(a.needs_agent));
+      assertTrue("and the ask key still moves with the per-pull state, so the ledger sees it",
+        a.ask_key !== b.ask_key, `${a.ask_key} ${b.ask_key}`);
+      assertTrue("a pull request entering the stuck set still opens a root",
+        grew.summary !== a.summary, `${grew.summary} :: ${a.summary}`);
+      assertEq("the headline is untouched by the coarsening", a.headline, "2 pull requests stuck: conflict, review");
+    } finally {
+      cleanup(binSwapA);
+      cleanup(binSwapB);
+      cleanup(binGrew);
     }
 
     // Step 5: an open issue an archived ticket names is drift, and nothing is closed.

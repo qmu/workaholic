@@ -187,6 +187,46 @@ on another machine coordinates through exactly the same artifact.
     archived work, so driving that ticket makes the same reader answer `false` and the unit reads
     `parked_with_pr` or `queue_drained` again — no stored state, no cursor to reset. `superseded`
     keeps its precedence over it: a claim proved empty is still superseded, whatever it declares.
+  - **A handoff blocked on an operator RULING has the same cost and no signal to read, and that
+    is a finding rather than a repair** (2026-08-31, ticket
+    `20260831024448-stop-re-resuming-a-handoff-blocked-on-a-ruling`). A unit that took the
+    **half-driven** handoff route because its remaining work waits on a ruling reads
+    `parked_with_pr`, `resumable: true`, and is offered as a takeover by every later survey. The
+    takeover can drive nothing — the ruling is the blocker and `/implement` may neither ask for
+    it nor make it — so each run pushes one empty `Resume a PR-unit` commit onto a branch whose
+    pull request is already open and reports the unit blocked again. **Measured** on
+    `work-20260830-124234` (PR #755, mission `stop-two-runs-from-claiming-and-driving-one-unit`):
+    **eight** consecutive takeovers between 2026-08-30 13:42 and 2026-08-31 15:5x UTC, zero lines
+    of implementation across all of them. It is `claimed_awaiting_verification`'s shape one state
+    over, with no declaration for the oracle to read.
+    **No existing signal carries both halves of what a sibling word would need**, and the halves
+    are the pre-drive property (`awaiting_verification` is safe because the declaration is on the
+    artifact *before* the drive, so a run can never write it for its own unit) and the meaning:
+    - The branch story's **`## Handoff`** section is present by construction on exactly this
+      route, and is written by the run *about its own unit* — the self-certifying evidence the
+      2026-08-23 Open Decisions rule refuses by name. It is also present on **every** half-driven
+      handoff, including one another session could legitimately continue, so a verdict keyed on
+      it would withhold takeovers from drivable units.
+    - A **`blocked` stamp** on the remaining queued tickets does not exist, and minting one is
+      the field on an artifact this repository refuses by name.
+    - An **`## Open Decisions`** item does carry the pre-drive property — `/specificate` writes
+      it at creation, `/ticket` never writes one, and no driving run writes one — but it does not
+      *mean* the work is blocked: the driving floor (`reference/ticket-workflow.md` §1) requires
+      a run to **resolve** each item, so a ticket carrying one is ordinarily drivable. Keying on
+      it would withhold the takeover from exactly the units a run is supposed to drive, and the
+      measured unit carries none, so the reading would not reach the case it was written for.
+    So the ticket's own step 3 fires — *record that finding and stop* — and **the verdict is left
+    alone**: no word added, no verdict widened, no field on any artifact, `claim.sh resume` and
+    `plan-units.sh` byte-identical. The cost of the status quo is bounded and visible (one empty
+    commit an hour, no work lost, no gate overridden), and a repair that stranded a genuinely
+    drivable `parked_with_pr` unit would be worse than the defect.
+    **What would carry both halves already exists, at the writing seam rather than the oracle**:
+    `verification_handoff:`, which `/specificate` declares for an **unresolved operator-only fork
+    that survived the operator-record check** (2026-08-23, issue #83). A ticket whose completion
+    waits on an operator's ruling *is* that case, and declared at creation it reads
+    `awaiting_verification` through the reader that already exists — no new word, no new signal,
+    nothing stored. The repair for this class is therefore a writer's, and a run may never make
+    it for its own unit, which is the whole reason the property is worth keeping.
   - **A drained queue is two states, split on the same story signal.** "Finished" covers a unit
     that **reported** — story committed at the tip, pull request open, waiting on a human — and a
     run that died **after** archiving its last ticket and **before** opening anything, whose work
@@ -747,13 +787,67 @@ repository's own origin:
   the refusal is the **namespace**, not the lease: the proxy permits writes to `refs/heads/*`
   and to nothing else.
 
+**Re-probed 2026-08-30 from a second routine-fired container, and the two clauses that were
+inferred are now measured.** *And to nothing else* rested on two namespaces; *a ref there
+could never be released either* rested on `retire-claim.sh`'s branch-delete precedent. Both
+were re-run directly, create-only rather than under a lease, against this repository's own
+origin:
+
+- `refs/claims/*` — `git push origin <sha>:refs/claims/<x>` → `error: RPC failed; HTTP 403`,
+  and `git ls-remote origin 'refs/claims/*'` returns **empty**. The REST second transport
+  agrees: `POST /repos/{o}/{r}/git/refs` → `403 "Write access to this GitHub API path is not
+  permitted through this proxy."`
+- `refs/tags/*` — the **last candidate namespace**, and it is refused in **both** directions:
+  create → 403 with `ls-remote` empty, delete → the identical 403. Probing it is what turns
+  *and to nothing else* from an inference over two namespaces into a reading.
+- `refs/heads/*` — **create succeeds** (`* [new branch]`, confirmed by `ls-remote`), and its
+  **delete is refused by both transports**: `git push origin :refs/heads/<x>` → 403, `DELETE
+  /repos/{o}/{r}/git/refs/heads/{branch}` → the same proxy refusal, with `ls-remote`
+  confirming the ref **survives** both. So the release is refused in the one namespace whose
+  create is permitted, measured here rather than carried over from the branch-delete row.
+
 So the only writable namespace is the one the branch-name gate holds to two literal patterns,
-and a ref there could never be released either (the delete is the same 403), which is the
-condition the repair must not create: *a ref nothing deletes makes every unit claimable
-exactly once, forever*. Recorded here as a finding for the mission rather than worked around;
+and a ref there could never be released either (the delete is the same 403, now measured on
+both transports), which is the condition the repair must not create: *a ref nothing deletes
+makes every unit claimable exactly once, forever*. **An asynchronous CI-side release does not
+rescue it**, which is why the executor precedent is named and refused twice over: between the
+merge that releases a claim and CI's delete there is a window in which the unit's own
+follow-up re-claim — the routine path a `parked_with_pr` mission takes every time — would be
+refused by a ref that no longer stands for anything. That is the same regression the
+condition names, narrowed to a window rather than removed. Recorded here as a finding for the
+mission rather than worked around;
 `.github/workflows/claim-retirement.yml` is the precedent for moving a refused write to
 another **executor**, and it does not apply, because an arbitration must be decided
 synchronously, in the container, before the run drives anything.
+
+**And the named mechanism reaches one grain, not two — a second reason to re-scope rather
+than force it** (2026-08-31, the same mission). *A ref derived from the unit id* arbitrates
+only where two racers **name the same unit**, and they do so at exactly one grain:
+
+- **Mission grain — one ref.** The unit id is the mission slug, which both runners read off
+  the same artifact, so two claimants for one mission name one ref. This is the grain the
+  2026-08-30 race was measured at, and the mechanism would close it.
+- **Batch grain — two refs, and the ref arbitrates nothing.** `claim.sh` step 2 mints
+  `unit="batch-$(date +%Y%m%d%H%M%S)"` **inside the claim act itself**, so two runners
+  surveying the same unclaimed tickets mint two different unit ids and therefore push two
+  different unit-keyed refs. Both creates succeed, and the loser is refused by nothing —
+  the same both-win outcome, one grain over.
+
+The batch grain is raceable for the same reason and in the same window. Step 3 already
+carries an **artifact-overlap** check beside the unit-id check, precisely so *a batch that
+scoops up a ticket another branch already took under a different batch id* is refused — but
+it reads `claims_scan`, so it closes the **sequential** case and not the race: two runners
+that both survey before either pushes see no claim, both pass, and both publish.
+
+So arbitrating the batch grain needs a ref keyed on **each artifact** rather than on the
+unit — N create-only pushes with **no atomicity across them**, where a partial acquire must
+be released before the runner surveys again, in a container whose ref deletes are refused.
+That is a materially larger mechanism than *one ref per unit*, and it is recorded here as a
+finding rather than designed, on ticket 3's own instruction: *if the reproduction shows the
+contention must sit earlier than the push, say so and re-scope rather than forcing the named
+mechanism*. It is **independent of the transport** — it would hold in an environment where
+every namespace were writable — so an operator ruling that unblocks the transport does not
+by itself deliver the mission's first acceptance item at the batch grain.
 
 **Two things follow, and both are shipped.** `ambiguous_claim` keeps its behaviour exactly —
 reported, never picked between — and its justification becomes *this can arise from the

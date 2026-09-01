@@ -85,3 +85,27 @@ handed-in reading.
 - The teardown is the risky half: a partial removal leaves a shadow worktree that
   `ensure-worktree.sh` will later refuse. Prove the empty state rather than asserting the refusal
   alone.
+
+## Drive Findings — 2026-08-31 (blocked)
+
+**Step 1's audit ran and found no gap; steps 2-6 are blocked upstream.**
+
+*Step 1, the existing teardown — completed.* `abort_claim` (`claim.sh` §4) reverts this script's
+own stamps by targeted path, then calls `cleanup-mission-worktree.sh`, which runs
+`git worktree remove` and then `git branch -d || git branch -D`. So the worktree, the local
+`work-*` branch and — with it — the claim commit all go, in every order the loser can be in, and
+the pre-commit and post-commit call sites (`commit_failed`, `push_failed`) share that one path.
+**There is no second teardown to write and no gap to extend**; a lost-race refusal would reuse
+this path unchanged.
+
+*Steps 2-6 — blocked.* The refusal word must be emitted "only when the contended ref's create was
+refused **because it already exists**". No contended ref can exist: this container's transport
+refuses ref creation everywhere except `refs/heads/*`, and refuses the delete there, so the
+mechanism ticket `20260830082251-make-the-claim-contend-for-one-ref-per-unit.md` is blocked with
+the full measurement (four `git push` probes and two REST calls, raw output recorded there).
+Without that ref there is no losing push to name, and inventing a word for a condition nothing can
+produce would put an unreachable refusal in `claims.md` — the opposite of this ticket's own point
+that one word answering two next actions is what makes a state invisible.
+
+Unblocked by: a ruling on that ticket's re-scope. Nothing here needs re-deriving — the teardown
+audit above is the answer to step 1 and stands whatever the ruling.

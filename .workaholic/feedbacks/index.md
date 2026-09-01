@@ -629,4 +629,5 @@
 * [A clean stranded publication is delivered by nothing](20260901032409-a-clean-stranded-publication-is-delivered-by-nothing.md)
 * [A fourth moderation hour reached nobody and compounded with an undelivered proposal](20260901032838-a-fourth-moderation-hour-reached-nobody-and-compounded-with-an-undelivered-proposal.md)
 * [A captured ask is re-offered while its proposal waits on a branch](20260901042106-a-captured-ask-is-re-offered-while-its-proposal-waits-on-a-branch.md)
+* [A fifth moderation hour reached nobody and its held questions went stale](20260901042623-a-fifth-moderation-hour-reached-nobody-and-its-held-questions-went-stale.md)
 <!-- okf:generated:end -->

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T08:26:35+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -97,3 +98,55 @@ recorded outcome stays true only off GitHub.
 - `apply-bootstrap.sh` is the surface with the widest reach: a consuming repository's
   `.gitattributes` is written from it, so a clause added only to this repository's own file
   reaches nobody.
+
+## Final Report
+
+Development completed as planned.
+
+The reproduction ran first, on PR #832 (`work-20260901-074324`), whose only conflict is
+`.workaholic/stories/index.md` — a generated OKF index. All three readings, same git, same
+two commits:
+
+1. `git merge-tree --write-tree origin/main FETCH_HEAD` from this checkout, with the
+   attributes **in** reach — **exit 0**. The `merge=union` driver resolved it.
+2. The same command from an empty directory with `GIT_DIR` set, attributes **out** of
+   reach — **exit 1**, `CONFLICT (content): Merge conflict in .workaholic/stories/index.md`.
+3. `GET /repos/qmu/workaholic/pulls/832` for the same pull request —
+   `mergeable: false`, `mergeable_state: "dirty"`.
+
+GitHub agrees with case 2, which is the whole finding: a `.gitattributes` merge driver is a
+property of a **working tree**, and the remote reads none.
+
+Four surfaces were localized before any was edited, and each got **one clause** in its own
+voice — the driver resolves the conflict for every local merge and for none of the
+remote's, so such a branch still has to be caught up and pushed before GitHub will merge
+it: `.gitattributes`'s own header, the text `apply-bootstrap.sh` appends into every
+consuming repository, `check-bootstrap.sh`'s `index_merge_union` problem string, and
+`workaholify/SKILL.md` — which turned out not to name `index_merge_union` in its
+one-repair-per-problem list at all, so the repair itself was added there beside the clause.
+The full measurement stays in `claim-mergeability.sh` and `CLAUDE.md`; a third copy is how
+three copies drift.
+
+The union attribute was **not** removed. `catchup-main.sh` still resolves such a path with
+no judgement, which is why `mechanical` is the honest class and why the existing catch-up
+settles these branches.
+
+`CLAUDE.md`'s `/workaholify` §1 clause was left alone: the reproduction confirms it rather
+than contradicting it.
+
+### Discovered Insights
+
+- **Insight**: `check-bootstrap.sh`'s existence test is `"index.md merge=union" not in
+  attrs`, so extending the comment block `apply-bootstrap.sh` appends cannot break
+  idempotency — verified by running the applier twice in a throwaway clone and comparing
+  the file's checksum, which did not move.
+  **Context**: The corollary is that a repository bootstrapped **before** this change keeps
+  the older comment block forever, because the applier never rewrites a line the repository
+  already has. The clause reaches those repositories through `CLAUDE.md` and
+  `workaholify/SKILL.md`, not through their own `.gitattributes`.
+
+- **Insight**: The API answered `mergeable: null` / `mergeable_state: "unknown"` on the
+  first read of #832 during this reproduction and `false` / `dirty` seconds later — the
+  same lazy computation ticket `20260901082631` addressed one commit earlier in this unit.
+  **Context**: Any measurement that reads `mergeable` needs a second look before it records
+  an answer, whether it is a script or a person at a terminal.

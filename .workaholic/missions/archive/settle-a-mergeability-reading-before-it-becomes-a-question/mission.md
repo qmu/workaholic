@@ -2,7 +2,7 @@
 type: Mission
 title: Settle a mergeability reading before it becomes a question
 slug: settle-a-mergeability-reading-before-it-becomes-a-question
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T08:25:31+00:00
 author: a@qmu.jp
@@ -41,10 +41,12 @@ on its face that GitHub applies none of it.
 
 - [x] An uncomputed mergeability is re-read once before it reaches a finding or a question (#20260901082631-re-read-an-uncomputed-mergeability-before-reporting-it.md)
 - [x] A conflicted pull request's reported decision distinguishes the loop's own repair from its holder's (#20260901082633-name-the-loop-s-own-repair-on-a-conflicted-pull-request.md)
-- [ ] The shipped `merge=union` record states that GitHub applies no merge driver (#20260901082635-state-that-github-applies-no-merge-driver.md)
+- [x] The shipped `merge=union` record states that GitHub applies no merge driver (#20260901082635-state-that-github-applies-no-merge-driver.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-01 — ticket archived — 20260901082631-re-read-an-uncomputed-mergeability-before-reporting-it.md
 - 2026-09-01 — ticket archived — 20260901082633-name-the-loop-s-own-repair-on-a-conflicted-pull-request.md
+- 2026-09-01 — ticket archived — 20260901082635-state-that-github-applies-no-merge-driver.md
+- 2026-09-01 — mission achieved — mission.md

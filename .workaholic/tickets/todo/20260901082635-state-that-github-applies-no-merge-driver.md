@@ -29,9 +29,9 @@ recorded outcome stays true only off GitHub.
 
 ## Policies
 
-- `workaholic:development` / `policies/change-history.md` — a record that overstates an outcome is a defect
-- `workaholic:operation` / `policies/external-dependency.md` — state where a third party's behaviour differs from local git
-- `workaholic:implementation` / `policies/coding-standards.md` — style and structure conventions
+- `workaholic:implementation` / `policies/objective-documentation.md` — a record that overstates an outcome is a defect
+- `workaholic:development` / `policies/commit-change-history.md` — the correction ships with what it corrects
+- `workaholic:implementation` / `policies/command-scripts.md` — the bootstrap writes one text into every consuming repository
 
 ## Key Files
 

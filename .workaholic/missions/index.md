@@ -9,6 +9,7 @@
 * [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
 * [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
+* [report-where-the-work-stands-not-only-what-is-wrong](active/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
 * [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](active/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [settle-a-mergeability-reading-before-it-becomes-a-question](active/settle-a-mergeability-reading-before-it-becomes-a-question/mission.md) - Settle a mergeability reading before it becomes a question

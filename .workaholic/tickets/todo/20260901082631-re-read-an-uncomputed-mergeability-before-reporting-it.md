@@ -30,7 +30,7 @@ inherit it and neither gains a network call of its own.
 
 - `workaholic:implementation` / `policies/coding-standards.md` — style and structure conventions
 - `workaholic:implementation` / `policies/observability.md` — a reading we could not make is never dressed as one we did
-- `workaholic:operation` / `policies/external-dependency.md` — a third party's lazy answer is not a fact about us
+- `workaholic:implementation` / `policies/command-scripts.md` — the reading lives in the one script, not in its callers
 
 ## Key Files
 

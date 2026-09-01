@@ -31,8 +31,8 @@ wording and nothing else.
 ## Policies
 
 - `workaholic:implementation` / `policies/observability.md` — a report names the decision, not the colour
-- `workaholic:operation` / `policies/runtime-recovery.md` — say which repair is already in flight
-- `workaholic:implementation` / `policies/coding-standards.md` — style and structure conventions
+- `workaholic:implementation` / `policies/objective-documentation.md` — the spec and the step say the same thing
+- `workaholic:implementation` / `policies/command-scripts.md` — wording changes, keys do not
 
 ## Key Files
 

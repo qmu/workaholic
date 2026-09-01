@@ -2,7 +2,7 @@
 type: Mission
 title: Let the tick add to a standing thread instead of restating itself
 slug: let-the-tick-add-to-a-standing-thread-instead-of-restating-itself
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T12:24:08+00:00
 author: a@qmu.jp
@@ -52,3 +52,5 @@ what the tick repairs and who repairs the rest.
 - 2026-09-01 — ticket archived — 20260901122448-name-every-step-summary-carrying-transport-derived-volatility.md
 - 2026-09-01 — ticket archived — 20260901122448-say-the-tick-s-root-is-day-keyed-beside-the-exact-string-rule.md
 - 2026-09-01 — ticket archived — 20260901122448-say-what-the-tick-repairs-on-what-proof-and-who-does-the-rest.md
+- 2026-09-01 — ticket archived — 20260901122448-drill-the-day-keyed-root-and-the-stabilized-post-gate-offline.md
+- 2026-09-01 — mission achieved — mission.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T12:21:10+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -67,3 +68,20 @@ person has none.
 - Keep the breaker row targeting the **cause** (an unbounded count), not the symptom (a
   particular refusal string), or a later refactor renames the symptom and the row passes
   over a live defect.
+
+## Final Report
+
+**The work is already on the base**, landed while proposal #688 sat stranded. Verified by
+running it, not by finding the file:
+
+```
+sh scripts/e2e/loop-drill.sh verify-all
+  → verify-checkin-delivery  verdict: pass  breaker: present  kind: hermetic
+     mission: deliver-what-the-loop-already-knows-to-the-person-who-can-act
+```
+
+The drill is registered in `docs/loop-drill-runbook.md` §9 against this mission's own slug,
+runs in the hermetic matrix with no credential, and carries a breaker row — so it is `proved`
+rather than `unproved`, which is the standard this repository holds a drill to.
+
+Nothing was re-implemented.

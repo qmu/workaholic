@@ -53,3 +53,4 @@ of looking like a quiet hour.
 - 2026-09-01 — ticket archived — 20260828122110-drain-a-multi-day-question-backlog-oldest-held-first.md
 - 2026-09-01 — ticket archived — 20260828122110-read-back-what-the-check-in-delivered-and-held.md
 - 2026-09-01 — ticket archived — 20260828122110-make-a-tick-that-reached-nobody-a-visible-event.md
+- 2026-09-01 — ticket archived — 20260828122110-drill-the-check-in-delivery-path-with-no-network.md

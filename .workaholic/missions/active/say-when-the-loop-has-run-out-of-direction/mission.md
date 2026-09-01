@@ -2,7 +2,7 @@
 type: Mission
 title: Say when the loop has run out of direction
 slug: say-when-the-loop-has-run-out-of-direction
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-26T07:19:28+00:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-065202
 ---
 
 # Say when the loop has run out of direction
@@ -39,13 +40,23 @@ and `/propose`'s gates are unchanged.
 
 <!-- PROPOSED - a sketch the reviewer replans drive-ready. -->
 
-- [ ] `overdue`, `dormant` and a repository-level `none` are readings composed from
+- [x] `overdue`, `dormant` and a repository-level `none` are readings composed from
       `survey-strategies.sh`; `unreadable` never collapses into them (#20260826110016-add-the-overdue-reading-to-the-strategy-survey.md)
-- [ ] `/moderate`'s `direction-health` asks each non-`live` reading's assignee
+- [x] `/moderate`'s `direction-health` asks each non-`live` reading's assignee
       once and renders its event (#20260826110016-add-the-moderate-step-direction-health.md)
-- [ ] A test and a drill prove the step writes nothing under `strategies/`,
+- [x] A test and a drill prove the step writes nothing under `strategies/`,
       never closes and never lifts a gate (#20260826110016-pin-the-three-refusals-with-a-hermetic-test.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260826110016-add-the-overdue-reading-to-the-strategy-survey.md
+- 2026-09-01 — ticket archived — 20260826110016-add-the-dormant-reading-to-the-strategy-survey.md
+- 2026-09-01 — ticket archived — 20260826110016-write-the-one-reader-of-a-direction-s-lifecycle-state.md
+- 2026-09-01 — ticket archived — 20260826110016-add-the-moderate-step-direction-health.md
+- 2026-09-01 — ticket archived — 20260826110016-render-the-direction-reading-on-the-tick-root.md
+- 2026-09-01 — ticket archived — 20260826110016-make-the-direction-question-actionable-in-its-body.md
+- 2026-09-01 — ticket archived — 20260826110016-pin-the-three-refusals-with-a-hermetic-test.md
+- 2026-09-01 — ticket archived — 20260826110017-drill-the-direction-health-chain-with-no-network.md
+- 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — reported — work-20260901-065202.md

@@ -1824,6 +1824,33 @@ EOF
     # through the same feedback ref, which is what `attributed-work.sh` walks.
     _mk gone "$_gone"
     _mk quiet "$_far"
+    # THE DELIBERATELY BROKEN SEAM: A DIRECTION WITH NO DATE AT ALL. `overdue` is
+    # `days_to_target < 0` AND the date resolves, and the second half is not decoration --
+    # `days_to_target` is `null` for an undated direction and **jq answers `null < 0` with
+    # `true`**, so the guard is the only thing standing between an undated direction and an
+    # hourly `direction-overdue` question about a date it never had. Neither other fixture can
+    # notice it going: `gone` has a past date and `quiet` a future one, so both read the same
+    # with the guard or without it. This row is what fails.
+    cat > "${_root}/.workaholic/strategies/undated.md" <<EOF
+---
+type: Strategy
+title: T undated
+slug: undated
+status: active
+assignees: [${_me}]
+feedback: [20260101000000-a.md]
+---
+
+# undated
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
     mkdir -p "${_root}/.workaholic/missions/archive/landed"
     printf -- '---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\nfeedback: [20260101000000-a.md]\n---\n\n# Landed\n' \
         > "${_root}/.workaholic/missions/archive/landed/mission.md"
@@ -1852,6 +1879,16 @@ EOF
         fi
     done
 
+    # A DIRECTION WITH NO DATE IS NEVER OVERDUE -- the boundary the readings state in words,
+    # asserted here because jq's `null < 0` is `true` and would assert the opposite for free.
+    # An undated direction still answers every other term, so it reads `dormant`: what is
+    # pinned is that the DATE reading stays out of it, not that the row falls silent.
+    if [ "$(_stateof undated)" = "dormant" ]; then
+        add_row "direction_health_undated_is_never_overdue" true "a direction with no target_date reads dormant, never overdue -- this drill can fail" breaker
+    else
+        add_row "direction_health_undated_is_never_overdue" false "an undated direction read '$(_stateof undated)'; a date it never had is being reported as passed: $(one_line "$_state")" breaker
+    fi
+
     # `none` is the REPOSITORY-level reading: no active strategy at all.
     _empty=$(mktemp -d); mkdir -p "${_empty}/.workaholic"
     _none=$(cd "$REPO_ROOT" && sh "$_reader" --open-proposals "$_open" "14 days ago" "${_empty}/.workaholic" 2>&1) || true
@@ -1874,8 +1911,8 @@ EOF
     # key that drifts is a question asked twice or never.
     _out=$(cd "$REPO_ROOT" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
     _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-dormant:quiet direction-overdue:gone " ]; then
-        add_row "direction_health_keys" true "the step asks exactly direction-overdue:gone and direction-dormant:quiet" load
+    if [ "$_keys" = "direction-dormant:quiet direction-dormant:undated direction-overdue:gone " ]; then
+        add_row "direction_health_keys" true "the step asks exactly direction-overdue:gone, direction-dormant:quiet and direction-dormant:undated" load
     else
         add_row "direction_health_keys" false "unexpected question keys: '${_keys}'" load
     fi
@@ -1938,7 +1975,7 @@ EOF
         add_row "direction_health_writes_nothing" false "the drill changed the working tree" load
     fi
     _seeded=$(ls "${_root}/.workaholic/strategies" | sort | tr '\n' ' ')
-    if [ "$_seeded" = "gone.md quiet.md " ]; then
+    if [ "$_seeded" = "gone.md quiet.md undated.md " ]; then
         add_row "direction_health_fixtures_intact" true "the seeded strategies area is untouched by the reader and the step" load
     else
         add_row "direction_health_fixtures_intact" false "the fixture strategies area changed: '${_seeded}'" load

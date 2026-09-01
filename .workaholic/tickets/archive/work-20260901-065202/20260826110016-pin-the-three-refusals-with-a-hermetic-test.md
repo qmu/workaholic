@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:00:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826110016-render-the-direction-reading-on-the-tick-root.md
@@ -76,3 +77,24 @@ three times; a test is what stops a fourth.
 - Proving a negative ("never calls X") is partly a closure read, which a rewrite can evade.
   Where an assertion is structural rather than behavioural, say so in the test's own comment
   so a later reader knows what it does and does not guarantee.
+
+## Final Report
+
+Development completed as planned — the assertions were already present on the base when this
+ticket was driven and were verified here against its own Quality Gate rather than assumed.
+
+`test-workflow-scripts.mjs` carries the three refusals as named, independently-failing rows:
+`direction-health` writes nothing under `.workaholic/strategies/` (asserted over a seeded
+tree, before and after), it calls no writer, and it lifts no `/propose` gate — a strategy
+that is `dormant` and refused stays refused after the step has run. The strategy artifact's
+writer count is asserted at exactly three (`create.sh`, `amend.sh`, `close.sh`); the ticket
+said two, and `amend.sh` was admitted deliberately afterwards, with `carry-attribution.sh`
+excluded by name because it writes on a mission rather than on the strategy.
+
+### Discovered Insights
+
+- **Insight**: The writer-count assertion is what forced `amend.sh` to be argued for rather
+  than added — the suite failed the moment a third writer appeared.
+  **Context**: This is the pin working as intended rather than an obstacle: the rule the
+  ticket set out to protect has been re-decided at least once since, and the test is what
+  made that a decision with a record instead of a drift.

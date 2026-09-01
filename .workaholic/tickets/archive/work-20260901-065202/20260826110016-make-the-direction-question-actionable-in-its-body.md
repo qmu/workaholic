@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:00:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826110016-add-the-moderate-step-direction-health.md
@@ -76,3 +77,24 @@ judgement.
 - The three acts are the operator's, not the loop's. Where the honest answer is "the
   direction still stands", that is a real answer and the body must say so, or the question
   reads as a demand to close something.
+
+## Final Report
+
+Development completed as planned — the bodies were already present on the base when this
+ticket was driven and were verified here against its own Quality Gate rather than assumed.
+
+Each `direction-health` question names its reading, its slug (the repository, for `none`) and
+one concrete next act in the operator's own vocabulary — *re-date it*, *announce that it
+ended*, *say it still stands* — never a script name, and never a suggestion that the loop
+will close anything. The post shape is byte-identical to the existing question reply; only
+what is written inside it moved. The drill asserts the `overdue` body names the revision act
+inside notify's 25-word ceiling and that the `dormant` body was not widened by reflex.
+
+### Discovered Insights
+
+- **Insight**: What a question must carry became a contract of its own in
+  `workaholic:notify`'s catalog, and it is prose that nothing mechanical checks.
+  **Context**: The ceiling is ≤25 words and is a ceiling rather than a target — a question
+  that will not fit is aimed at the wrong reader, and the repair is self-containment rather
+  than more text. The drill's word count is the only mechanical part; the rest holds because
+  a question leading with an identifier is visibly non-conformant.

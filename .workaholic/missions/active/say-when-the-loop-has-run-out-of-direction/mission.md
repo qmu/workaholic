@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-065202
 ---
 
 # Say when the loop has run out of direction

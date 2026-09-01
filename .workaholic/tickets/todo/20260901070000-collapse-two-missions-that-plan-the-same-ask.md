@@ -7,6 +7,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: 20260828121729-deliver-what-the-loop-already-knows-to-the-person-who-can-act.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md
+claim: work-20260901-070504
 ---
 
 # Collapse two missions that plan the same ask

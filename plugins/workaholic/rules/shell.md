@@ -98,6 +98,47 @@ the judgement the rule is made of. So the enforcement here is a human reading it
 rather than dressed as a check — and the honest mechanical half is the configuration question
 `workaholic:workaholify` answers, not a grep.
 
+## Composing the call: the path in full, the reader first, no assignment prefix
+
+**A Bash call naming a plugin path writes that path out in full — one command per call, the
+reader or interpreter as the first token, and no `VAR=…;` or `env VAR=… <cmd>` prefix**
+(2026-09-01, mission `compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it`).
+
+**Measured**: a `/moderate` tick stalled on a read of a skill's own documentation, composed as
+`export CLAUDE_PLUGIN_ROOT=<root>; sed -n '…' $CLAUDE_PLUGIN_ROOT/skills/notify/SKILL.md | head -80`.
+Permission rules match on the command, and that command's first token is `export` — so
+`Bash(sed:*)`, `Bash(bash:*)` and every other per-tool rule miss it, and the only rule that
+matches is `Bash(export:*)`, which permits whatever follows the semicolon. The operator is then
+choosing between a routine that stalls and an allowlist that permits anything, which is not a
+choice an allowlist should ever have to present.
+
+**Why the shape is reached for at all**: the skills document their commands as
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/<area>/scripts/<script>.sh` — correct for the markdown — and
+that variable is **not set in the Bash tool's environment**, so a session has two ways to name
+the path and the export is one of them. Shell state does not persist between tool calls either,
+so an export is never carried forward; it buys nothing and costs the allowlist.
+
+- **`${CLAUDE_PLUGIN_ROOT}` stays the correct notation in markdown.** This is not a licence to
+  inline absolute paths into skill documentation: what changes is only how a session spells the
+  call it actually runs. The session expands the variable when it composes the call
+  (`plugin-src.sh`'s `src` is what an unattended run expands it to — `workaholic:check-deps`).
+- **`env VAR=… <cmd>` is refused for the same reason.** It moves the problem rather than
+  removing it: the first token is `env`, so `Bash(env:*)` is again the only matching rule and it
+  permits everything after it.
+- **A one-command `VAR=value <reader>` prefix has the same first-token problem**, and some seams
+  are documented with no other form — `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="…" bash …/publish-tree-pr.sh …`
+  (`specificate/reference/workflow.md` step 10) is the live one. **Carry the values as flags
+  where the script takes them**; where it does not, the prefix is a **named exception** — the
+  seam's own documentation is where it is named, and the allowlist cost is that such a call is
+  covered only by a rule naming the variable's own token. Do not forbid a shape the loop still
+  has to run, and do not widen the exception past the seams that state it.
+
+**Enforcement is a human reading this**, exactly as its sibling section above says of itself, and
+here more strongly: the plugin's markdown never showed the export — the composition happens at
+run time — so a mechanical row over this tree would find nothing to fail on. Do not dress it as
+a check. The honest mechanical half is the configuration question `workaholic:workaholify`
+answers (which tool an operator's allowlist should then name), not a grep.
+
 ## Reaching GitHub: REST only, never GraphQL
 
 Every workflow script talks to GitHub through **one transport**,

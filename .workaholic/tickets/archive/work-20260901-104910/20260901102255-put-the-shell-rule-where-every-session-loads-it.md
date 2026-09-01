@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T10:22:55+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -96,3 +97,41 @@ Diagnosis first — this ticket exists because an existing rule did not reach it
   markdown session too. The split above is the narrower repair.
 - This ticket depends on the wording landed by *Write a plugin path out in full in a Bash
   call*; drive it after that one.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced the gap** (step 1): `rules/shell.md` carries `paths: ['**/*.sh']`; `rules/general.md`
+and `rules/interaction.md` carry `paths: ['**/*']`; `diagrams.md` is `'**/*.md'`, `typescript.md`
+is `'**/*.ts(x)'`, `workaholic.md` is `'.workaholic/**/*'`. So the two always-on files are
+`general.md` and `interaction.md`, and a session whose working set is a `SKILL.md` loads neither
+`shell.md` nor any other file carrying the rule.
+
+**Localized the boundary** (step 2): the POSIX conventions, the shebang rule and the jq-fallback
+rule are about `.sh` files and stay scoped to them. Only the two rules about *how a session
+composes a Bash call* — the read-tool rule and the new plugin-path rule — are mis-scoped, and
+only the second is lifted here as a ceiling; the read-tool rule is reached through the no-prompt
+clause the sibling ticket writes into `rules/interaction.md`.
+
+**Checked the rest of the reach** (step 5): a sweep of `plugins/`, `.claude/` and `docs/` for
+`export CLAUDE_PLUGIN_ROOT`, `env CLAUDE_PLUGIN_ROOT` and any `CLAUDE_PLUGIN_ROOT=` assignment
+found **no occurrence outside `rules/shell.md`'s own prose** — confirming the diagnosis that the
+markdown never modelled the export and the composition happens at run time. A sweep for a
+documented `VAR=value bash …` invocation found exactly one live seam,
+`specificate/reference/workflow.md` step 10's `publish-tree-pr.sh` call, which is the named
+exception `rules/shell.md` already records. Nothing was silently widened.
+
+### Discovered Insights
+
+- **Insight**: `rules/general.md` is where a rule about the *session* belongs, and
+  `rules/shell.md` is where a rule about *shell files* belongs — the split is by subject, not by
+  topic, and `paths:` is what makes that split load-bearing rather than editorial.
+  **Context**: a future rule about how an agent composes a command (a tool choice, a quoting
+  convention, an invocation shape) faces the same question and has the same answer. Widening
+  `shell.md`'s own `paths:` to `'**/*'` was the obvious alternative and is worse: it would load
+  the POSIX shebang conventions and the jq-fallback rule into every markdown session too.
+- **Insight**: the always-on rule files are read on every turn of every session, so their cost is
+  paid continuously.
+  **Context**: that is why the addition here is one bullet pointing at the full statement rather
+  than a copy of it — the story stays in one place and only the ceiling is paid for hourly.

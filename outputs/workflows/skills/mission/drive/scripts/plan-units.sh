@@ -59,6 +59,7 @@
 #
 # NOTHING IS EXCLUDED SILENTLY. Every mission and ticket the survey drops is reported
 # in `excluded` with its reason (`claimed_active`, `claimed_reported`,
+# `claimed_undelivered`, `claimed_awaiting_verification`,
 # `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`,
 # `no_plan`, `no_tickets`,
 # `queue_drained`, `mission_member`; `not_approved` was retired with the draft gate --
@@ -104,6 +105,53 @@
 # scan, which is `resumable: true`, so it lands in `claimed_resumable` and in the offer.
 # No branch here changed: the classification below already keys on `resumable` first.
 #
+# `claimed_undelivered` IS THE SAME SPLIT, ONE STATE LATER (2026-08-27, mission
+# `close-the-units-the-loop-already-finished`). `claimed_reported` was still covering two
+# next actions: a pull request a scan finding holds is a PERSON'S business, and a pull
+# request the transport refused to merge is the LOOP'S OWN undelivered work -- offered by
+# nothing, told to nobody, and reported `ok` over. Measured 2026-08-27: four such pull
+# requests green and unmerged. The shared scan tells them apart from the merge outcome the
+# run that tried recorded in the branch story, so this maps one more reason and re-derives
+# nothing. It is `resumable: false` like `queue_drained` -- the next action is a merge
+# retry, not a takeover -- and it forbids `ok` (drive/SKILL.md §7), which `queue_drained`
+# deliberately does not.
+#
+# `claimed_awaiting_verification` IS THE SEVENTH, AND IT NAMES A UNIT WAITING ON A PERSON
+# (2026-08-27, mission `stop-re-resuming-a-declared-handoff-unit`). The work still queued behind
+# the claim was DECLARED unverifiable in an unattended environment at creation, so §6 routed the
+# unit to the handoff route and its pull request is open, and its claim standing, by design. It
+# read `claimed_resumable` until then -- the survey offered the takeover on every tick and the
+# takeover could drive nothing, measured on PR #647: routed at 02:14 UTC, taken over again at
+# 06:43. Its next action is a person running the declared verification, which is neither
+# `claimed_reported`'s merge nor `claimed_active`'s wait.
+#
+# IT MUST NOT FORBID `ok` (drive/SKILL.md §7). A unit waiting on a declared human verification is
+# the gate WORKING, exactly like a pull request a scan finding holds open; making it `pending`
+# would put `ok` out of reach on precisely the runs where the machinery did its job -- and, since
+# the claim stands until a person acts, out of reach for as long as that takes.
+#
+# `undelivered[]` IS WHERE THAT RETRY IS OFFERED (2026-08-27, mission
+# `deliver-and-retire-what-the-loop-already-proved-finished`). Naming the state was half the
+# repair: the unit was excluded honestly and still offered to nothing, so it was delivered by
+# nobody until a person happened to open the pull request. `[{unit, branch, merge_outcome}]`,
+# one entry per `report_undelivered` claim, carrying the refusal the run that made the attempt
+# recorded on its own branch.
+#
+# A FIELD, NOT A LOOSENED EXCLUSION -- the choice this script makes and states. Loosening
+# `claimed_undelivered` would return the unit's ARCHIVED tickets to `backlog[]`, where a run
+# would claim them fresh and re-drive work already written, pushed and sitting in an open pull
+# request. The offer here is a merge attempt on an existing branch and nothing else: no
+# takeover, no worktree, no ticket. It sits beside `resurveyed[]` for that field's own reason
+# -- `excluded[]` names what the survey saw and DROPPED, and neither of these is dropped -- and
+# `claimed_undelivered` stays in `excluded[]` unchanged, because the unit is still not
+# claimable and the count that says so still means what it said.
+#
+# ONLY A PROOF REACHES IT. `report_undelivered` is one of the two verdicts the claim protocol
+# classifies as a proof (`drive/reference/claims.md`, *Proofs and judgements*): the refusal is
+# recorded, not inferred. `queue_drained` is a judgement meaning *waiting on a person* and is
+# never widened into this, and a scan-held pull request never reaches the verdict at all --
+# its recorded outcome is `merge_not_attempted: …`, which the chain routes to `queue_drained`.
+#
 # `resumable[]` is a THIRD offer alongside `missions`/`backlog`, not a fourth kind of
 # exclusion: those two are claimed fresh from the base, a resumable unit is taken over
 # at its pushed branch tip. A resumable unit left untaken is claimable work outstanding
@@ -137,6 +185,7 @@
 #                       them (`backlog[]` empty), and something was excluded. It carries
 #                       a count PER EXCLUSION REASON, because `owned_by_other` is one
 #                       reason among several (`claimed_active`, `claimed_reported`,
+#                       `claimed_undelivered`, `claimed_awaiting_verification`,
 #                       `claimed_superseded`, `mission_member`, `owner_unresolved`, ...)
 #                       and the answers differ: a queue emptied by claims is the protocol
 #                       working, a queue emptied by ownership is work nothing can drive.
@@ -254,10 +303,14 @@ RESUMABLE=""
 CLAIM_REASONS=""
 # The branch each claimed unit/artifact sits on, for the resurveyed report line.
 CLAIM_BRANCHES=""
+# The units this run may re-attempt a MERGE on -- never a drive. See the `report_undelivered`
+# branch below for why this is a field of its own rather than a loosened exclusion.
+UNDELIVERED=""
+u_sep=""
 if [ -n "$ROWS" ]; then
     sep=""
     r_sep=""
-    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_arts; do
+    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_handoff c_arts; do
         [ -n "$c_unit" ] || continue
 
         # A DEAD BRANCH BESIDE A LIVE ONE GOVERNS NOTHING (2026-08-27). Since a fresh claim
@@ -292,8 +345,68 @@ if [ -n "$ROWS" ]; then
             c_exc=claimed_by_other
         elif [ "$c_reason" = "queue_drained" ]; then
             c_exc=claimed_reported
+        elif [ "$c_reason" = "report_undelivered" ]; then
+            # AND IT IS OFFERED FOR A MERGE RETRY, IN A FIELD OF ITS OWN (2026-08-27, mission
+            # `deliver-and-retire-what-the-loop-already-proved-finished`). The exclusion above
+            # is correct and does not move: the queue is drained and every ticket is archived,
+            # so there is nothing to DRIVE and a takeover would push an empty `Resume` commit
+            # onto a branch whose pull request is open (the 2026-08-01 gate). What was missing
+            # is that no path offered the one action this unit does need -- re-attempting the
+            # merge the transport refused -- so a finished, green, undelivered unit was
+            # delivered by nobody.
+            #
+            # A NAMED FIELD, NOT A LOOSENED EXCLUSION. Loosening `claimed_undelivered` would
+            # put the unit's archived tickets back into `backlog[]`, where a run would claim
+            # them fresh and re-drive work that is already written and pushed. The field says
+            # exactly what it offers -- a merge attempt on an existing branch -- and says it
+            # beside `resurveyed[]`, which is the same shape for the same reason: `excluded[]`
+            # by its own definition names what the survey saw and DROPPED, and this is not
+            # dropped.
+            #
+            # THE RECORDED OUTCOME RIDES ALONG so the retry gates on a refusal rather than
+            # re-deriving one. It is one `git cat-file` over a blob the scan already fetched,
+            # spent only on rows already reading `report_undelivered`, and it is the answer of
+            # the run that MADE the attempt -- which is why the retry may not go looking for a
+            # fresher one. A scan-held pull request never reaches here at all (its recorded
+            # outcome is `merge_not_attempted: …`, which the verdict chain routes to
+            # `queue_drained`), and the retry still refuses it by name: a gate holding a pull
+            # request open is the gate working, and this run has no human to override it.
+            c_outcome=$(claims_merge_outcome "origin/${c_branch}" "$c_branch")
+            UNDELIVERED="${UNDELIVERED}${u_sep}{\"unit\": \"$(json_escape "$c_unit")\", \"branch\": \"$(json_escape "$c_branch")\", \"merge_outcome\": \"$(json_escape "$c_outcome")\"}"
+            u_sep=", "
+            # THE LOOP'S OWN UNDELIVERED WORK, not a human's business (2026-08-27, mission
+            # `close-the-units-the-loop-already-finished`). `claimed_reported` said *waiting on
+            # a person* and was covering this too: a unit the loop finished whose merge the
+            # transport refused, excluded at every later survey, offered by nothing, told to
+            # nobody. Its own reason, because its next action is its own -- a merge retry, not
+            # a review -- and because a completion token must not cover it (`drive/SKILL.md`
+            # §7).
+            c_exc=claimed_undelivered
+        elif [ "$c_reason" = "awaiting_verification" ]; then
+            # A UNIT WAITING ON A DECLARED HUMAN VERIFICATION (2026-08-27, mission
+            # `stop-re-resuming-a-declared-handoff-unit`). Its remaining queued work carries
+            # `verification_handoff:`, so §6 routed it to the handoff route: the pull request is
+            # open on purpose, the claim stands on purpose, and the next action belongs to a
+            # PERSON running the verification this environment cannot. `resumable: false` already
+            # keeps it out of `resumable[]`; what this adds is a reason a cron log can act on,
+            # because `claimed_reported` would say a merge is what it waits for and
+            # `claimed_active` would say a run is on it. Neither is true.
+            #
+            # NOTHING ELSE IS OFFERED FOR IT EITHER: it is not a takeover, not a merge retry
+            # (`undelivered[]` takes only `report_undelivered`, a proof), and not work that came
+            # back (`resurveyed[]` takes only `superseded`). One exclusion, one next action.
+            c_exc=claimed_awaiting_verification
         elif [ "$c_reason" = "superseded" ]; then
             c_exc=claimed_superseded
+        elif [ "$c_reason" = "stranded" ]; then
+            # THE TICKETS LANDED AND THE BRANCH STILL HOLDS WORK (2026-09-01, issue #788). It is
+            # NOT `claimed_superseded`: that exclusion feeds `resurveyed[]`, which says the work
+            # came back and may be claimed afresh, and here the branch's own content is on no
+            # other ref — re-surveying it would offer the tickets again while the orphaned work
+            # sits where nobody is looking. It is not `claimed_active` either, which would say a
+            # run is on it. One exclusion, and its next action is a person: `/moderate`'s
+            # `retire-claims` step asks the holder.
+            c_exc=claimed_stranded
         else
             c_exc=claimed_active
         fi
@@ -360,6 +473,7 @@ is_claimed_artifact() {
 #
 # AND IT IS NARROW BY CONSTRUCTION. Every other reason still excludes: `claimed_active` is being
 # driven now, `claimed_by_other` is not this runner's, `claimed_reported` is waiting on a human,
+# `claimed_undelivered` is finished work no merge landed,
 # `claimed_resumable` is taken over rather than re-claimed. Only a claim proved empty is stepped
 # over.
 is_superseded() {
@@ -615,6 +729,19 @@ done
 # offer none of it" never render alike again. The per-reason counts are what make the
 # reading actionable: a queue emptied by claims is the protocol working; one emptied by
 # ownership is work nothing can drive. It moves no token (see the header).
+#
+# THE COUNTS ARE DERIVED FROM WHATEVER `excluded[]` CARRIES, so a new exclusion reason is
+# counted here by construction and needs no edit (2026-08-27, confirmed while adding
+# `claimed_undelivered`). That genericity is the property to preserve: a hand-maintained list
+# of reasons in this loop would be a second vocabulary to keep in step with the mapping above,
+# and the one that drifted would silently drop a reason from the reading rather than fail.
+#
+# `claimed_undelivered` IS THE COUNT THAT MEANS THE LOOP'S OWN WORK. The others say a human is
+# on it, a colleague owns it, or the protocol is working; that one says the loop finished a unit
+# and could not deliver it, which is the reading `backlog_all_excluded` existed for and could
+# not express while the reason was folded into `claimed_reported`. It still moves no token --
+# that is `../SKILL.md` §7's own row, keyed on the units THIS RUN finished, and merging the two
+# would turn an hourly survey reading into a completion gate.
 ALL_EXCLUDED=false
 EXCLUDED_REASONS=""
 if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then
@@ -633,7 +760,7 @@ if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then
 fi
 ALL_EXCLUDED_JSON="{\"excluded\": ${ALL_EXCLUDED}, \"backlog_size\": ${BACKLOG_SIZE}, \"reasons\": [${EXCLUDED_REASONS}]}"
 
-printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s], "backlog_all_excluded": %s}\n' \
+printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "undelivered": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s], "backlog_all_excluded": %s}\n' \
     "$FETCHED" "$SHALLOW" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
     "$BACKLOG_SIZE" "$OWNER_UNRESOLVED" \
-    "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$MISSIONS" "$BACKLOG" "$EXCLUDED" "$ALL_EXCLUDED_JSON"
+    "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$UNDELIVERED" "$MISSIONS" "$BACKLOG" "$EXCLUDED" "$ALL_EXCLUDED_JSON"

@@ -42,17 +42,47 @@
 # so a reader in `lib/` would ship to every non-Claude agent with its transport missing. The
 # convention bends to the build, and the build's rule is the one with a failure mode.
 #
+# IT ALSO ANSWERS WHAT BECAME OF THE PULL REQUEST (2026-08-27, mission
+# `close-the-units-the-loop-already-finished`). Every claim excluded `claimed_reported` is a
+# unit the loop finished and reported, and nothing asked what happened to it afterwards. That
+# question is NOT the one `state` answers: `state=closed` made an OPEN pull request return an
+# empty array, so `open`, `closed-without-merging` and `no pull request at all` collapsed into
+# one `not_merged` — measured 2026-08-27, #622/#625/#633/#635 all open, green and reported
+# `not_merged`, indistinguishable from a branch nobody ever opened one for.
+#
+# IT IS WIDENED RATHER THAN JOINED BY A SECOND READER, deliberately: the claim protocol
+# holds ONE network read, and this question is answered by the same call. `state=all` is a
+# superset of `state=closed`, and `merged` is still exactly "some pull request for this head
+# has a non-null `merged_at`" — so **`state` and `reason` are byte-identical to what they
+# were**, and every existing consumer is untouched. The new fields are additive and describe
+# the pull request, never a judgement about it: whether a scan finding holds it open or a
+# transport refusal did is a different question, and answering it here would give two callers
+# one answer.
+#
 # Usage: claim-merged.sh <branch-name>
 # Output: one JSON line
-#   {"branch", "state": "merged|not_merged|unanswerable", "reason"}
+#   {"branch", "state": "merged|not_merged|unanswerable", "reason",
+#    "pr_state": "merged|open|closed|none|unanswerable",
+#    "pr_number": <n>|null, "pr_url": "<url>", "open_hours": <n>|null}
+#
+#   pr_state   what became of the head's pull request. `none` means the lookup succeeded and
+#              found no pull request at all — a fact, and the one `not_merged` used to hide.
+#   open_hours how long an OPEN pull request has been open, in whole hours; null for every
+#              other state and for a `created_at` that could not be parsed. An age we could
+#              not read is null, never 0 — a pull request whose date is unreadable is exactly
+#              the one a reader must not call fresh (`step-stalled-units.sh`'s rule).
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 
 BRANCH="${1:-}"
 
+# $1 state, $2 reason, $3 pr_state, $4 pr_number (JSON), $5 pr_url, $6 open_hours (JSON).
+# The defaults are the degraded shape, so every `emit unanswerable <reason>` call above and
+# below stays exactly as it was written.
 emit() {
-    printf '{"branch": "%s", "state": "%s", "reason": "%s"}\n' "$BRANCH" "$1" "${2:-}"
+    printf '{"branch": "%s", "state": "%s", "reason": "%s", "pr_state": "%s", "pr_number": %s, "pr_url": "%s", "open_hours": %s}\n' \
+        "$BRANCH" "$1" "${2:-}" "${3:-unanswerable}" "${4:-null}" "${5:-}" "${6:-null}"
     exit 0
 }
 
@@ -73,11 +103,16 @@ owner="${slug%%/*}"
 
 # REPOSITORY-SCOPED, AND FILTERED LOCALLY. `search/*` is refused outright by a bound
 # session (`rules/shell.md`), so the lookup is the `pulls` collection narrowed by `head`,
-# which the REST API supports as `<owner>:<branch>`. `state=closed` is the superset of
-# merged, and `merged_at` is what separates merged from closed-unmerged — a pull request
-# somebody closed without merging is emphatically NOT this branch's work reaching the base.
+# which the REST API supports as `<owner>:<branch>`. `merged_at` is what separates merged
+# from closed-unmerged — a pull request somebody closed without merging is emphatically NOT
+# this branch's work reaching the base.
+#
+# `state=all` RATHER THAN `state=closed` (2026-08-27). Closed is the superset of *merged*,
+# which is all the original question needed — and it is why an open pull request came back as
+# an empty array and read `not_merged`. `all` is a superset of `closed`, so the merged test
+# below is unchanged; what it adds is the ability to say `open` and `none` apart.
 if ! body=$(sh "$GH_REST" api \
-        "repos/${slug}/pulls?state=closed&head=${owner}:${BRANCH}&per_page=50" 2>&1); then
+        "repos/${slug}/pulls?state=all&head=${owner}:${BRANCH}&per_page=50" 2>&1); then
     # EACH FAILURE NAMED DISTINCTLY ENOUGH TO REPORT, which is what the consuming step needs
     # in order to say what it could not read rather than what it did not find.
     case "$body" in
@@ -97,8 +132,45 @@ case "$merged" in
     ''|*[!0-9]*) emit unanswerable unparseable_response ;;
 esac
 
-if [ "$merged" -gt 0 ]; then
-    emit merged ""
+# WHICH PULL REQUEST THE EXTRA FIELDS DESCRIBE, in a fixed order so two runs over one branch
+# never disagree: a merged one wins, then the newest open one, then the newest closed one.
+# A branch normally has exactly one; the order matters only for a head that was reopened or
+# re-proposed, and there the merged one is the only answer that is about the base.
+row=$(printf '%s' "$body" | jq -c '
+    (   ([.[] | select(.merged_at != null)] | sort_by(.merged_at) | last)
+     // ([.[] | select(.state == "open")]   | sort_by(.created_at) | last)
+     // ([.[] | select(.merged_at == null)] | sort_by(.created_at) | last)
+    ) // empty' 2>/dev/null || true)
+
+pr_number=null
+pr_url=""
+open_hours=null
+if [ -z "$row" ]; then
+    # THE LOOKUP SUCCEEDED AND THERE IS NO PULL REQUEST. That is a fact about the repository,
+    # not a degradation, so it is `none` and never `unanswerable`.
+    pr_state=none
 else
-    emit not_merged ""
+    pr_number=$(printf '%s' "$row" | jq '.number // null' 2>/dev/null || echo null)
+    case "$pr_number" in '' ) pr_number=null ;; esac
+    pr_url=$(printf '%s' "$row" | jq -r '.html_url // ""' 2>/dev/null || printf '')
+    if [ "$(printf '%s' "$row" | jq -r '.merged_at // "null"' 2>/dev/null || printf 'null')" != "null" ]; then
+        pr_state=merged
+    elif [ "$(printf '%s' "$row" | jq -r '.state // ""' 2>/dev/null || printf '')" = "open" ]; then
+        pr_state=open
+        # `date -d`, not jq's `fromdateiso8601` — the same choice `step-stalled-units.sh`
+        # records: an age we could not parse must read null rather than 0.
+        created=$(printf '%s' "$row" | jq -r '.created_at // ""' 2>/dev/null || printf '')
+        if [ -n "$created" ]; then
+            epoch=$(date -d "$created" +%s 2>/dev/null || true)
+            [ -n "$epoch" ] && open_hours=$(( ( $(date +%s) - epoch ) / 3600 ))
+        fi
+    else
+        pr_state=closed
+    fi
+fi
+
+if [ "$merged" -gt 0 ]; then
+    emit merged "" "$pr_state" "$pr_number" "$pr_url" "$open_hours"
+else
+    emit not_merged "" "$pr_state" "$pr_number" "$pr_url" "$open_hours"
 fi

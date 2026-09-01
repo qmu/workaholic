@@ -42,6 +42,9 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+# One derivation of a tick id's timestamp, shared with `step-doc-drift.sh`: two copies of
+# the same unvalidated substitution is how one poisoned log entry blinded both steps.
+. "${SCRIPT_DIR}/lib/tick-iso.sh"
 GATHER="${SCRIPT_DIR}/../../gather/scripts"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 
@@ -87,7 +90,12 @@ printf '{"step": "inbound-sweep", "status": "%s", "reason": "%s", "summary": "%s
 AGENT_SURFACES='{"surface": "slack", "action": "probe_connector", "bound": "exact-string search only, at most two queries, never a channel history read"}, {"surface": "gmail", "action": "probe_connector", "bound": "pointer and subject line only — never a message body"}, {"surface": "drive", "action": "probe_connector", "bound": "pointer and file title only — never file contents"}'
 SURFACES='"slack": "agent_probe", "gmail": "agent_probe", "drive": "agent_probe"'
 
-# The window: the previous sweep's tick, else this tick's day start.
+# The window: the previous sweep's tick, else this tick's day start. The conversion is
+# `lib/tick-iso.sh`'s and it VALIDATES — the log is append-only and carries whatever any
+# tick ever wrote, so a sentinel id in it (measured: `20260819-999999`, which sorts last
+# and therefore won every window for seven days) must cost one wide window and a named
+# reason, never a malformed `since` GitHub rejects while this step reports itself healthy.
+WINDOW_REASON=''
 if [ -z "$SINCE" ]; then
     prev=''
     if [ -f "$LOG_READ" ]; then
@@ -96,34 +104,52 @@ if [ -z "$SINCE" ]; then
                grep -v "^${TICK}$" | sort | tail -n 1 || true)
     fi
     if [ -n "$prev" ]; then
-        SINCE=$(printf '%s' "$prev" | sed 's/^\(....\)\(..\)\(..\)-\(..\)\(..\)\(..\)$/\1-\2-\3T\4:\5:\6Z/')
-    else
-        SINCE=$(printf '%s' "$TICK" | sed 's/^\(....\)\(..\)\(..\)-.*$/\1-\2-\3T00:00:00Z/')
+        SINCE=$(tick_to_iso "$prev")
+        [ -n "$SINCE" ] || WINDOW_REASON="previous tick id ${prev} is not a timestamp — widened to this tick's day start"
     fi
+    [ -n "$SINCE" ] || SINCE=$(tick_day_iso "$TICK")
+fi
+if [ -z "$SINCE" ]; then
+    emit degraded bad_window \
+        "no readable window: neither the previous sweep's tick nor ${TICK} is a timestamp; slack/gmail/drive left for the agent to probe" \
+        "$AGENT_SURFACES" "\"github\": \"bad_window\", $SURFACES"
 fi
 
 if ! command -v gh >/dev/null 2>&1; then
     emit degraded gh_unavailable \
-        "GitHub unreadable (gh is not on PATH); slack/gmail/drive left for the agent to probe" \
+        "GitHub unreadable (gh is not on PATH)${WINDOW_REASON:+; ${WINDOW_REASON}}; slack/gmail/drive left for the agent to probe" \
         "$AGENT_SURFACES" "\"github\": \"gh_unavailable\", $SURFACES"
 fi
 
 slug=$(sh "${GATHER}/gh-rest.sh" slug 2>/dev/null || true)
 if [ -z "$slug" ]; then
     emit degraded gh_unavailable \
-        "GitHub unreadable (no repository slug); slack/gmail/drive left for the agent to probe" \
+        "GitHub unreadable (no repository slug)${WINDOW_REASON:+; ${WINDOW_REASON}}; slack/gmail/drive left for the agent to probe" \
         "$AGENT_SURFACES" "\"github\": \"gh_unavailable\", $SURFACES"
 fi
 
 # Repository-scoped, `since`-filtered, pull requests dropped: they share the issue
 # numbering space and a sweep that kept them would re-file the loop's own work.
+# A FAILED READ IS NOT AN EMPTY ONE, and it is not a finding either (2026-08-26). The
+# `|| true` swallowed the transport's exit status, and an error body reaching stdout was
+# then parsed as a row — measured, GitHub's `422 The since parameter needs to be in ISO
+# 8601 format` was handed to the agent as an inbound ask "to judge", with the error
+# document as its reference. Both halves are guarded: the status decides whether the read
+# happened, and a row whose number is not a number means the response was not the shape
+# this step reads, which is a degraded read by any other name.
 rows=$(sh "${GATHER}/gh-rest.sh" api \
     "repos/${slug}/issues?state=open&sort=updated&direction=desc&since=${SINCE}&per_page=${LIMIT}" \
-    --jq 'map(select(.pull_request | not)) | .[] | [(.number|tostring), .html_url, .updated_at, .title] | @tsv' 2>/dev/null || true)
+    --jq 'map(select(.pull_request | not)) | .[] | [(.number|tostring), .html_url, .updated_at, .title] | @tsv' 2>/dev/null) || rows='__read_failed__'
+
+if [ "$rows" = '__read_failed__' ]; then
+    emit degraded gh_read_failed \
+        "GitHub read since ${SINCE} failed — the issues endpoint did not answer${WINDOW_REASON:+ (${WINDOW_REASON})}; slack/gmail/drive left for the agent to probe" \
+        "$AGENT_SURFACES" "\"github\": \"gh_read_failed\", $SURFACES"
+fi
 
 if [ -z "$rows" ]; then
     emit ok "" \
-        "GitHub read since ${SINCE}: nothing updated; slack/gmail/drive left for the agent to probe" \
+        "GitHub read since ${SINCE}: nothing updated${WINDOW_REASON:+; ${WINDOW_REASON}}; slack/gmail/drive left for the agent to probe" \
         "$AGENT_SURFACES" "\"github\": \"read\", $SURFACES"
 fi
 
@@ -132,8 +158,15 @@ candidates=''
 seen=0
 skipped=0
 FEEDBACKS="$ROOT/.workaholic/feedbacks"
+malformed=0
 while IFS="$TAB" read -r number url updated title; do
     [ -n "$number" ] || continue
+    # An issue number is digits. Anything else is a response this step does not read —
+    # an error document, an HTML interstitial — and manufacturing a candidate from it is
+    # what turned a 422 into a week of "1 new inbound ask arrived on GitHub".
+    case "$number" in
+        *[!0-9]*) malformed=$((malformed + 1)); continue ;;
+    esac
     seen=$((seen + 1))
     # Already captured: a feedback record naming this issue means the loop has it.
     if [ -d "$FEEDBACKS" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$FEEDBACKS" 2>/dev/null; then
@@ -150,6 +183,12 @@ done <<EOF
 $rows
 EOF
 
+if [ "$seen" -eq 0 ] && [ "$malformed" -gt 0 ]; then
+    emit degraded gh_read_failed \
+        "GitHub read since ${SINCE} returned ${malformed} unreadable row(s) and no issue — the response was not the issues list${WINDOW_REASON:+ (${WINDOW_REASON})}; slack/gmail/drive left for the agent to probe" \
+        "$AGENT_SURFACES" "\"github\": \"gh_read_failed\", $SURFACES"
+fi
+
 count=0
 if [ -n "$candidates" ]; then
     count=$(printf '%s' "$candidates" | awk '{ print gsub(/"surface": "github"/, "&") }')
@@ -161,5 +200,5 @@ fi
 INBOUND_EVENT=""
 [ "${count:-0}" -gt 0 ] && INBOUND_EVENT="${count} new inbound ask(s) arrived on GitHub"
 emit ok "" \
-    "GitHub read since ${SINCE}: ${seen} updated, ${skipped} already captured, ${count} to judge; slack/gmail/drive left for the agent to probe" \
+    "GitHub read since ${SINCE}: ${seen} updated, ${skipped} already captured, ${count} to judge${WINDOW_REASON:+; ${WINDOW_REASON}}; slack/gmail/drive left for the agent to probe" \
     "${candidates:+${candidates}, }$AGENT_SURFACES" "\"github\": \"read\", $SURFACES" "$INBOUND_EVENT"

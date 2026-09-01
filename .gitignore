@@ -34,3 +34,15 @@ docs/.vitepress/dist/
 
 # Proposal batch's runner-local processed-commit cursor (/propose; never shared state)
 .workaholic/proposal-cursor
+
+# The /moderate tick log. It is an OPERATIONAL LOG, not knowledge, and since 2026-09-01
+# (issue #782) it lives on its own branch — `moderate/scripts/log-ref.sh` — rather than on
+# `main`. Measured before the move: ~50 commits a day, three per tick, the single largest
+# author of `main`'s history, none of them a change to the development target.
+#
+# It is ignored rather than merely untracked, and that is the enforcement: an ordinary
+# `git add -A` in a container that has just ticked cannot put the log back on `main` by
+# accident. `log-append.sh` still writes here and every reader still reads here — only the
+# destination of the commit moved. `step-open-log.sh` hydrates this directory from the log
+# branch at the start of each tick, which is what keeps the dedup's memory across containers.
+.workaholic/moderations/

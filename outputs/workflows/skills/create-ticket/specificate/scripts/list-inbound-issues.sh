@@ -7,7 +7,7 @@
 # Output (one JSON line, always exit 0 for a reported outcome):
 #   {"ok": true, "identity": "<login>", "limit": N,
 #    "issues":   [{"number", "title", "url", "updated_at"}...],   oldest first
-#    "excluded": [{"number", "reason": "already_captured"}...]}
+#    "excluded": [{"number", "reason": "already_captured"|"captured_on_branch"}...]}
 #   {"ok": false, "reason": "gh_unavailable" | "identity_unresolved" | "list_failed",
 #    "detail": "..."}
 #
@@ -47,6 +47,37 @@
 # issue URL's `/issues/<N>` form, which the propose workflow's capture step
 # requires the record to carry. Excluded rows are reported with their reason,
 # never silently dropped.
+#
+# AND THE RECORD MAY BE ON A BRANCH (2026-09-01, ticket 20260901042313). The
+# paragraph above always named the in-flight case — "its proposal PR open" — and
+# the implementation could not see it: the grep read `$FEEDBACKS_DIR` in the
+# caller's checkout, which at the propose seam is a checkout of the base, so a
+# record living only on an unmerged proposal branch was invisible and its issue
+# was offered again every hour. Measured: issue #812's record sat on
+# `work-20260901-022335` behind pull request #813 (`Closes #812`) from 02:23, and
+# #812 was re-offered at 03:28 and again at 04:21 — each re-take writing a
+# duplicate record and opening a fresh publish-tree pull request that then
+# conflicted on the generated feedbacks index with every other open proposal.
+# The dedup half of the run (`list-proposed-refs.sh`) had learned to read
+# unmerged branches for exactly this reason a month earlier; the discovery half
+# had not. Both now read them through ONE walk (`lib/unmerged-branches.sh`).
+#
+# TWO REASON WORDS, NOT ONE, decided rather than defaulted: `already_captured`
+# means the record is on the base and the ask is settled, `captured_on_branch`
+# means it is on an unmerged branch and the ask is waiting on that pull request.
+# The two send a reader to different places — one to the record, one to a pull
+# request that may need settling — and collapsing them would make the output say
+# less than it did before the walk existed. Neither is a gate: nothing keys on
+# the word, and both exclude the issue identically.
+#
+# DEGRADE TOWARD EXCLUDING, AND SAY SO. Ambiguity inside the walk (a shallow
+# clone, an unanswerable ancestry test) resolves toward counting the branch, so
+# toward EXCLUDING the issue — the direction `list-proposed-refs.sh` states and
+# for its reason: a suppressed take is silence, a duplicate take is a duplicate
+# record and a conflicting pull request. A walk that cannot run at all (no git
+# repository, no base ref) warns on stderr and leaves the base grep alone; it
+# never turns a readable inbox into `list_failed`, because an inbox that reads is
+# an inbox this run can serve.
 #
 # PURE READ, NEVER LOAD-BEARING: a missing gh, a failed auth, or an unreachable
 # API is {"ok": false, ...} with exit 0 — the caller then reports the reason
@@ -107,16 +138,50 @@ rows="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
   || emit_err "list_failed" "$rows"
 
 TAB="$(printf '\t')"
+
+# ---- the feedback records the open proposal branches add --------------------
+# Materialised once, before the issue loop: the walk's cost is the BRANCH count, so
+# doing it per issue would pay it up to LIMIT times to answer the same question.
+BRANCH_RECORDS=""
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  echo "list-inbound-issues: not a git repository; records on open proposal branches not covered" >&2
+else
+  UNMERGED_BRANCHES_LABEL="list-inbound-issues"
+  . "${SCRIPT_DIR}/lib/unmerged-branches.sh"
+  base="$(unmerged_branches_base)"
+  if [ -z "$base" ]; then
+    echo "list-inbound-issues: no base ref resolved; records on open proposal branches not covered" >&2
+  else
+    unmerged_branches_warn_shallow
+    BRANCH_RECORDS="$(mktemp -d "${TMPDIR:-/tmp}/inbound-branch-records.XXXXXX")"
+    trap 'rm -rf "$BRANCH_RECORDS"' EXIT INT TERM
+    n=0
+    # The pathspec already bounds the walk to the feedbacks area, so the only filter
+    # left is the extension — matching a prefix here would disagree with git's
+    # repository-root-relative paths whenever the caller is not at the root.
+    while IFS="$TAB" read -r ref path; do
+      [ -n "$path" ] || continue
+      case "$path" in *.md) ;; *) continue ;; esac
+      n=$((n + 1))
+      git show "${ref}:${path}" >"${BRANCH_RECORDS}/${n}.md" 2>/dev/null || continue
+    done <<EOF
+$(unmerged_branches_added_paths "$base" "$FEEDBACKS_DIR")
+EOF
+  fi
+fi
+
 issues=""
 excluded=""
 while IFS="$TAB" read -r number url updated title; do
   [ -n "$number" ] || continue
-  captured="false"
+  captured=""
   if [ -d "$FEEDBACKS_DIR" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$FEEDBACKS_DIR" 2>/dev/null; then
-    captured="true"
+    captured="already_captured"
+  elif [ -n "$BRANCH_RECORDS" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$BRANCH_RECORDS" 2>/dev/null; then
+    captured="captured_on_branch"
   fi
-  if [ "$captured" = "true" ]; then
-    row="{\"number\": ${number}, \"reason\": \"already_captured\"}"
+  if [ -n "$captured" ]; then
+    row="{\"number\": ${number}, \"reason\": \"${captured}\"}"
     excluded="${excluded:+${excluded}, }${row}"
   else
     row="{\"number\": ${number}, \"title\": \"$(json_escape "$title")\", \"url\": \"$(json_escape "$url")\", \"updated_at\": \"$(json_escape "$updated")\"}"

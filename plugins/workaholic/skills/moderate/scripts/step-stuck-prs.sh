@@ -34,6 +34,31 @@
 # nothing; two Slack lines about one pull request in one tick is the noise the
 # gate exists to prevent.
 #
+# AND THE CONFLICT ROW NAMES WHICH ACTOR CLEARS IT (2026-09-01, ticket
+# `20260901082633`). The operator's words were that Moderation "only spews reports and
+# shows no sign of resolving anything", and the measurement behind them was four
+# conflicting pull requests, all four colliding on `.workaholic/stories/index.md` — the
+# loop's own generated OKF index — two of them on nothing else, reported hourly as
+# somebody's work. The ACTING half already existed: `catch-up-claim.sh` clears a
+# `mechanical` conflict on this identity's own reported claim and
+# `settle-stranded-publication.sh` clears a publication's, both from `/implement`. Only
+# the TELLING half was wrong — this row read "the claim holder must resolve the
+# conflict" for EVERY conflict, so the one class the loop repairs itself was announced
+# to a person as theirs, queued behind a budget of ten questions a day.
+#
+# THE CORRECTION IS GENERIC, AND THAT IS A CONSTRAINT RATHER THAN A PREFERENCE. The
+# class lives in `ship/scripts/lib/conflict-class.sh` via `claim-mergeability.sh`, which
+# needs the branch REF — and this step reads GitHub over REST through `pulls-state.sh`,
+# which carries no class, while the reader that fetches (`list-claims.sh`) is not
+# composed here and `step-merge-conflicts.sh`'s own header refuses a network read inside
+# these steps on a measurement. So the row names both classes and their actors rather
+# than deciding which one this pull request is; the per-branch judgement stays with
+# `catchup-blocked` (§26), which reads the class off a claim row that already has it.
+#
+# IT IS WORDING ONLY. `stuck:<digest>`, the `blocked_by` set, `headline` and the
+# `needs_agent` shape are byte-identical — the header above records that the heading was
+# once mistaken for the dedup key, and this change touches neither.
+#
 # Usage: step-stuck-prs.sh --tick <id> --root <repo-root> [--limit <n>]
 # Output: one JSON line {"step","status","reason","summary","headline","needs_agent":[...],"key":"","ask_key":"stuck-<digest>"}
 
@@ -107,13 +132,40 @@ else
 fi
 HEADLINE="${count} ${plural} ${what}"
 
+# THE QUESTION IS HELD ONCE THIS FINDING HAS BECOME WORK (2026-08-29, mission
+# `let-the-tick-s-own-findings-become-the-loop-s-work`). While an open finding issue carries this
+# step's finding, the loop is already driving the repair, so asking a person about it asks them —
+# the same person, in the same hour — about the thing in flight. Keyed on the SUBJECT, so a
+# filing about another step's finding silences nothing here; an unreadable read holds nothing;
+# and the suppression is derived, so merging or closing the issue makes the question reachable
+# again with no state anywhere. The headline, the summary and the `ask_key` are untouched — only
+# the questions are withheld.
+#
+# READ WITHOUT `jq`, deliberately: this step has never required it, and adding the dependency
+# for one boolean would make an existing step degrade on a container where it is missing.
+# `held.steps` is the only array of step ids in the reader's output.
+finding_held=false
+suppression="${SCRIPT_DIR}/finding-suppression.sh"
+if [ -f "$suppression" ]; then
+    fsupp=$(sh "$suppression" 2>/dev/null || true)
+    case "$fsupp" in
+        *'"readable": true'*)
+            held_steps=$(printf '%s' "$fsupp" | sed -n 's/.*"steps": \[\([^]]*\)\].*/\1/p')
+            case "$held_steps" in
+                *'"stuck-prs"'*) finding_held=true ;;
+            esac
+            ;;
+    esac
+fi
+if [ "$finding_held" = "true" ]; then rows=''; fi
+
 needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
     NF {
         n = $0; sub(/.*"number": /, "", n); sub(/,.*/, "", n)
         b = $0; sub(/.*"blocked_by": "/, "", b); sub(/".*/, "", b)
         u = $0; sub(/.*"url": "/, "", u); sub(/".*/, "", u)
         decision = "a human decision"
-        if (b == "conflict") decision = "the claim holder must resolve the conflict — nobody else may push to that branch"
+        if (b == "conflict") decision = "a generated-index conflict is cleared by the catch-up on the next [Implement] tick; a real content collision belongs to the claim holder, and nobody else may push to that branch"
         else if (b == "review") decision = "a required review or gate is unsatisfied — somebody must review it"
         else if (b == "checks") decision = "a check is failing — the author must fix it or say it is expected"
         else if (b == "draft")  decision = "it is still a draft — the author must mark it ready or close it"

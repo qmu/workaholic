@@ -42,6 +42,23 @@
 # second route into work; the repair for an uncovered address is a human's line in
 # `.claude/git-identities`, which `/workaholify`'s coverage audit proposes.
 #
+# HOW LONG IT HAS BEEN ASKED ABOUT RIDES THE QUESTION (2026-08-30, mission
+# `say-how-long-the-loop-has-been-stuck`). The eleven-day case that measured the mission is
+# exactly this step's: five queued tickets across three missions stamped with an address the
+# identity mapping does not name, undrivable since 2026-08-19, each asked about once — days
+# ago — and never again, because the asked-once gate is doing its job. `condition-age.sh`
+# answers the age from the question ledger the key already writes, keyed on the key this
+# step already composes, and the reading rides `needs_agent` and nothing else.
+#
+# THE READER'S WORDS ARE CARRIED VERBATIM, never normalised: a normalised word sends a
+# reader to a string no script printed. An UNREADABLE age is named as unreadable and NEVER
+# rendered as *this just started* — that collapse is the whole defect the age exists to
+# close, and it is the one this step could make loudest, since a first-time candidate and an
+# eleven-day one draw the same sentence without it.
+#
+# THE KEY DOES NOT MOVE, so `already_asked` is byte-identical and no question is re-asked by
+# the changed wording — the same rule the residue and the stage additions already hold.
+#
 # THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP, and that is a correctness requirement rather
 # than a preference (`step-stalled-units.sh`'s header records the measurement). The
 # moderation root calls a step changed when its summary differs from the same step's an hour
@@ -60,7 +77,10 @@
 #   {"step","status","reason","summary","needs_agent":[...],"event"}
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/jq-guard.sh"
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+SUPPRESSION="${SCRIPT_DIR}/ruling-suppression.sh"
+. "${SCRIPT_DIR}/lib/read-age.sh"
 
 TICK=""
 ROOT="."
@@ -85,6 +105,26 @@ emit() {
 WORKAHOLIC="${ROOT}/.workaholic"
 [ -d "$WORKAHOLIC" ] || emit ok "" "this repository holds no .workaholic tree; nothing is queued"
 
+# THE QUESTION A RULING DIFF ALREADY CARRIES IS HELD (2026-08-28, mission
+# `put-the-loop-s-standing-rulings-on-one-pull-request`). While an open ruling pull request
+# NAMES an address, asking a person to complete that same mapping line by hand on `main` is
+# asking them to do what they are being asked to merge.
+#
+# KEYED ON THE SUBJECT, never on the existence of a ruling: a ruling naming one address must
+# not silence the question about a different one. An UNREADABLE read holds nothing — an
+# over-eager question is better than a silently dropped one (`ci-retirement-turn.sh`) — and the
+# suppression is DERIVED, so a merged or closed ruling makes the question reachable again with
+# no state anywhere. `ask-question.sh`, the keys, the caps and the holds are untouched.
+held_addresses=""
+any_ruling_open=false
+if [ -f "$SUPPRESSION" ]; then
+    supp=$( ( cd "$ROOT" && sh "$SUPPRESSION" ) 2>/dev/null || true )
+    if [ -n "$supp" ] && printf '%s' "$supp" | jq -e '.readable // false' >/dev/null 2>&1; then
+        held_addresses=$(printf '%s' "$supp" | jq -r '.held.identity_mapping[]?' 2>/dev/null || true)
+        any_ruling_open=$(printf '%s' "$supp" | jq -r '.any_open // false' 2>/dev/null || printf false)
+    fi
+fi
+
 # The two areas that hold work a run could take: the queue, and the active missions that
 # plan it. Enumerated directly rather than through the survey — see the header.
 artifacts=$(
@@ -95,6 +135,7 @@ artifacts=$(
 
 n_owned=0
 n_unmapped=0
+n_held=0
 candidates=""
 c_sep=""
 
@@ -110,17 +151,23 @@ for file in $artifacts; do
         [ "$resolved" = "true" ] && continue
 
         n_unmapped=$((n_unmapped + 1))
+        if [ -n "$held_addresses" ] && printf '%s\n' "$held_addresses" | grep -qxF "$owner"; then
+            n_held=$((n_held + 1))
+            break
+        fi
         rel=$(printf '%s' "$file" | sed "s|^${ROOT}/||")
-        candidates="${candidates}${c_sep}{\"artifact\": \"${rel}\", \"owner\": \"${owner}\", \"key\": \"undrivable-unit:${rel}\"}"
+        age=$(read_age "undrivable-unit:${rel}" "$ROOT")
+        candidates="${candidates}${c_sep}{\"artifact\": \"${rel}\", \"owner\": \"${owner}\", \"key\": \"undrivable-unit:${rel}\", \"unjudged\": ${any_ruling_open}, \"age\": ${age}}"
         c_sep=", "
         # One question per unit, whatever the size of its owner list.
         break
     done
 done
 
-summary="${n_owned} queued artifact(s) name an owner; ${n_unmapped} name an address the identity mapping does not"
+n_asked=$((n_unmapped - n_held))
+summary="${n_owned} queued artifact(s) name an owner; ${n_unmapped} name an address the identity mapping does not; ${n_held} held by an open ruling"
 
-if [ "$n_unmapped" -eq 0 ]; then
+if [ "$n_asked" -le 0 ]; then
     # A queue every owner of which the mapping names is the healthy state: nothing happened
     # TO the repository, and a step with no event renders no root line at all.
     emit ok "" "$summary"
@@ -128,13 +175,13 @@ fi
 
 needs=$(printf '%s' "[${candidates}]" | jq -c '{action: "ask_about_work_no_run_can_drive",
     bound: "one question per artifact, addressed to the direction'"'"'s assignee, keyed on `key` so it is asked once; the step asks and never reassigns, writes, or lifts a gate",
-    compose: "name the artifact and the address no mapping entry names, and say the repair is one line in .claude/git-identities — /workaholify'"'"'s coverage audit proposes it with the address already filled in",
+    compose: "name the artifact and the address no mapping entry names, and say the repair is one line in .claude/git-identities — /workaholify'"'"'s coverage audit proposes it with the address already filled in. When `unjudged` is true, say ALSO that a ruling pull request is open and does not name this address: the loop could not judge which account it belongs to, which is exactly why this one still needs a person. When `age.first_seen` is set, say how long this has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, and `at least` that when `age.first_seen_is_floor` is true) — the age of the question, which is a lower bound on the age of the condition, so never assert how long the artifact itself has been undrivable. Say NOTHING about age when `age.first_seen` is null and the reading is readable: that is the first time anybody is being asked. When `age.readable` is false, name it as an age we could not read, by its `age.reason`, and never as a condition that just started.",
     undrivable: .}' 2>/dev/null || echo '{}')
 
-if [ "$n_unmapped" -eq 1 ]; then
+if [ "$n_asked" -eq 1 ]; then
     event="a queued unit is owned by an address the identity mapping does not name"
 else
-    event="${n_unmapped} queued units are owned by addresses the identity mapping does not name"
+    event="${n_asked} queued units are owned by addresses the identity mapping does not name"
 fi
 
 emit ok "" "$summary" "$needs" "$event"

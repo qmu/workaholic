@@ -1,6 +1,7 @@
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "WORKAHOLIC_INBOUND_SLACK_CHANNEL": "dev-workaholic"
   },
   "permissions": {
     "allow": [
@@ -8,7 +9,23 @@
       "Bash(git rebase:*)",
       "Bash(git push:*)",
       "Bash(git merge:*)",
-      "Bash(sh:*)"
+      "Bash(sh:*)",
+      "Bash(bash:*)",
+      "Bash(node:*)",
+      "Bash(python3:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(jq:*)",
+      "Bash(diff:*)",
+      "Bash(wc:*)",
+      "Read(//home/**)"
     ]
   },
   "enabledPlugins": {

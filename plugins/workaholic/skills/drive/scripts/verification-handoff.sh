@@ -73,6 +73,49 @@ fm_field() {
     ' "$1" 2>/dev/null || true
 }
 
+# A HANDOFF THE TICKET DID NOT HAVE TO DECLARE, BECAUSE THE CONTAINER ALREADY KNOWS
+# (2026-09-01, issue #793). `verification_handoff:` names what an unattended run cannot VERIFY;
+# this names what it cannot DO — the same class one step earlier, and it was fatal in a way the
+# declared one is not, because nothing reported it.
+#
+# MEASURED on a consuming repository, 2026-08-31: every `[Implement]` run from 13:37Z onward read
+# `requires_action` — frozen, not idle — each one ending at the same line:
+#
+#   permission prompt Edit: Claude requested permissions to edit
+#     …/.worktrees/batch-20260831094838/.claude/hooks/session-start.sh
+#     which is a sensitive file.
+#
+# Claude Code classifies `.claude/**` as sensitive and asks a human before editing it, and an
+# unattended container has no human. **Seven runs, five hours, nothing landed** — while `/propose`
+# and `/specificate`, which only read and open issues, kept producing proposals every hour. The
+# freeze was SILENT: no Slack post, no finding, no `needs_agent`; `stalled-units` counted the unit
+# as healthy because the resume beats the heartbeat before the edit, and `catchup-blocked` read 0.
+# The operator found it by asking why proposals were piling up.
+#
+# THE FIELD ALREADY ROUTES THIS CORRECTLY, which is why it is reused rather than duplicated: the
+# unit takes the `handoff` route, its pull request opens and stays open, the claim stays standing,
+# the finish line is `🟡 Handoff` and a person is asked. Nothing about that route changes.
+#
+# DERIVED, NOT DECLARED, AND DELIBERATELY SO. A declaration would only ever cover tickets written
+# after this change; the ticket that froze the loop was already in `todo/`, and so is every other
+# one like it in every consuming repository. A DECLARED value always wins — an author who named a
+# different reason is not overridden by this.
+#
+# THE TEST IS SYNTACTIC AND NARROW: a `## Key Files` entry naming `.claude/`. Prose elsewhere in
+# the ticket is not read, because a ticket that MENTIONS `.claude/` while editing something else
+# is common and stopping it would be worse than the defect. A repository that widens what an
+# unattended agent may edit (a `permissions.allow` entry) is making its own decision and is not a
+# substitute for the loop knowing — this reads the ticket, not the permission.
+derived_handoff() {
+    _dh_f="$1"
+    awk '
+        /^##[ \t]/ { inside = ($0 ~ /^##[ \t]+Key Files/) ; next }
+        inside && /\.claude\// { found = 1 }
+        END { exit found ? 0 : 1 }
+    ' "$_dh_f" 2>/dev/null \
+        && printf 'editing .claude/ needs a person: Claude Code classifies it as sensitive and an unattended run has no one to answer the prompt'
+}
+
 MEMBERS=""
 sep=""
 MISSING=""
@@ -106,7 +149,12 @@ classify() {
         consider "$_id" ""
         return 0
     fi
-    consider "$_id" "$(fm_field "$_f" verification_handoff)"
+    _declared=$(fm_field "$_f" verification_handoff)
+    if [ -n "$_declared" ]; then
+        consider "$_id" "$_declared"
+        return 0
+    fi
+    consider "$_id" "$(derived_handoff "$_f")"
 }
 
 case "$KIND" in

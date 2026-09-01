@@ -5,7 +5,11 @@
 #
 #   SLACK_BOT_TOKEN            xoxb token with chat:write (read at call time,
 #                              never persisted, logged, or echoed)
-#   WORKAHOLIC_SLACK_CHANNEL   channel id to post into
+#   WORKAHOLIC_SLACK_CHANNEL   channel id or name to post into. OPTIONAL since 2026-09-01:
+#                              absent, this falls back to WORKAHOLIC_INBOUND_SLACK_CHANNEL and
+#                              then to the repository's own name -- the resolution
+#                              `workaholic:notify` already states, read here rather than
+#                              re-authored.
 #   WORKAHOLIC_SLACK_API_URL   override for tests (default Slack's
 #                              chat.postMessage endpoint); the hermetic suite
 #                              points this at a local stub - the suite never
@@ -68,7 +72,25 @@ TEXT="${1:-}"
 [ -n "$TEXT" ] || { echo '{"notified": false, "reason": "no_text"}'; exit 1; }
 
 TOKEN="${SLACK_BOT_TOKEN:-}"
-CHANNEL="${WORKAHOLIC_SLACK_CHANNEL:-}"
+# ONE CHANNEL, ONE RESOLUTION (2026-09-01, issue #806). This read `WORKAHOLIC_SLACK_CHANNEL`
+# and nothing else, with no default -- so a repository that had already declared its channel the
+# way `workaholic:notify` states it (*the repository's channel: `WORKAHOLIC_INBOUND_SLACK_CHANNEL`
+# when set, else the repository's own name*) still got `no_channel` from this transport. Two
+# variables for one channel is the second derivation this repository forbids everywhere else, and
+# its cost was concrete: the machine fallback needed a token AND a second variable nobody had a
+# reason to set, so the one transport designated to survive a connector outage could not run
+# during one.
+#
+# THE ORDER IS THE STATED ONE, and this script is a reader of it rather than a second author:
+# an explicit `WORKAHOLIC_SLACK_CHANNEL` still wins (a caller that wants a different channel for
+# the tokened post keeps saying so), then the repository's declared channel, then the repository's
+# own name -- the last derived from the git remote, which is where `<repo_name>` comes from
+# everywhere else in this plugin.
+CHANNEL="${WORKAHOLIC_SLACK_CHANNEL:-${WORKAHOLIC_INBOUND_SLACK_CHANNEL:-}}"
+if [ -z "$CHANNEL" ]; then
+    CHANNEL=$(git config --get remote.origin.url 2>/dev/null \
+        | sed -e 's#\.git$##' -e 's#.*/##' 2>/dev/null || printf '')
+fi
 API_URL="${WORKAHOLIC_SLACK_API_URL:-https://slack.com/api/chat.postMessage}"
 
 if [ -z "$TOKEN" ]; then
@@ -83,8 +105,11 @@ fi
 # JSON-encode the payload safely (text is arbitrary prose). The thread_ts key
 # rides ONLY when the flag was given, so a caller that passes no flag sends the
 # byte-identical payload this script has always sent.
-PAYLOAD=$(printf '%s' "$TEXT" | python3 -c 'import json,sys,os
-p = {"channel": os.environ["WORKAHOLIC_SLACK_CHANNEL"], "text": sys.stdin.read()}
+# The RESOLVED channel is exported for the encoder rather than read from the raw variable it
+# used to name: with the fallback above, the raw one is routinely unset while the resolved one
+# never is at this point.
+PAYLOAD=$(printf '%s' "$TEXT" | WORKAHOLIC_SLACK_RESOLVED_CHANNEL="$CHANNEL" python3 -c 'import json,sys,os
+p = {"channel": os.environ["WORKAHOLIC_SLACK_RESOLVED_CHANNEL"], "text": sys.stdin.read()}
 if sys.argv[1]:
     p["thread_ts"] = sys.argv[1]
 print(json.dumps(p))' "$THREAD_TS")

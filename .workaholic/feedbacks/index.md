@@ -639,4 +639,5 @@
 * [Moderation never reports the shape of the plan, only its anomalies](20260901083125-moderation-never-reports-the-shape-of-the-plan-only-its-anomalies.md)
 * [A plugin-path read composed with an assignment prefix cannot be allowlisted, so it stalls the unattended tick](20260901101811-a-plugin-path-read-composed-with-an-assignment-prefix-cannot-be-allowlisted-so-it-stalls-the-unattended-tick.md)
 * [The unmerged-branch list is 30 long and 22 of them are dead](20260901112130-the-unmerged-branch-list-is-30-long-and-22-of-them-are-dead.md)
+* [The tick can only behave like a bot: a per-tick thread key, a banned recency match, and a string-diff post gate](20260901122046-the-tick-can-only-behave-like-a-bot-a-per-tick-thread-key-a-banned-recency-match-and-a-string-diff-post-gate.md)
 <!-- okf:generated:end -->

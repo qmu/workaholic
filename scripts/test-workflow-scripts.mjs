@@ -26623,6 +26623,37 @@ function testModerateRun() {
       [j.persist.status, j.persist.reason], ["skipped", "no_origin"]);
     assertEq("step 1 is real", j.steps[0].status, "ok");
 
+    // THE REPORT CARRIES THE PAYLOAD, NOT ONLY ITS LENGTH (2026-08-26). `run.sh` emitted
+    // `needs_agent` as a count, against its own documented contract — and
+    // `question-liveness.sh` answers live/settled by matching a question's key as a
+    // string INSIDE that payload. Against a counted report it therefore answered
+    // `settled` for every key by construction: the bounded re-ask could never fire and
+    // the `✅ 解消を確認` confirmation would fire on every open question, every tick. The
+    // agent had the same problem from the other side and re-invoked every step to see
+    // what the tick had found.
+    assertTrue("every step's needs_agent is the array its contract documents",
+      j.steps.every((s) => Array.isArray(s.needs_agent)),
+      JSON.stringify(j.steps.map((s) => [s.step, typeof s.needs_agent])));
+    assertTrue("with the count beside it, never instead of it",
+      j.steps.every((s) => s.needs_agent_count === s.needs_agent.length),
+      JSON.stringify(j.steps.map((s) => [s.step, s.needs_agent_count, s.needs_agent.length])));
+    assertEq("and the total still adds up",
+      j.needs_agent, j.steps.reduce((n, s) => n + s.needs_agent.length, 0));
+    // The reader that needs it, run against this very report: a subject the owning step
+    // did NOT raise reads `settled`, which is only trustworthy because a raised one can
+    // read `live` at all.
+    const LIVENESS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/question-liveness.sh")}`;
+    const reportPath = join(repo, "run-report.json");
+    writeFileSync(reportPath, JSON.stringify(j));
+    assertEq("a subject no step raised reads settled",
+      JSON.parse(run(repo, `${LIVENESS} --key nothing-raised-this --step human-checkin --run ${reportPath}`).stdout).liveness,
+      "settled");
+    const raised = j.steps.find((s) => s.status === "ok" && s.needs_agent.length > 0);
+    assertTrue("some step raised something to match against", !!raised, JSON.stringify(j.steps));
+    assertEq("and a subject its owning step DID raise reads live",
+      JSON.parse(run(repo, `${LIVENESS} --key ${JSON.stringify(raised.needs_agent[0].action || "")} --step ${raised.step} --run ${reportPath}`).stdout).liveness,
+      "live");
+
     // Every step is built: the spine's stubs reported `not_implemented`, and none is
     // left. A step that abstains now does it for a stated reason of its own — an empty
     // strategy set, a quiet window — which is the distinction the skill is built on.
@@ -26964,6 +26995,22 @@ function testProposeInboundSweep() {
     const k = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
     assertEq("an earlier sweep moves the window to that tick", k.since, "2026-08-17T10:00:00Z");
 
+    // A SENTINEL TICK ID IN THE LOG MUST NOT BECOME A MALFORMED WINDOW (2026-08-26).
+    // The log is append-only and carries whatever any tick ever wrote. `20260819-999999`
+    // — a real section on this repository's own base — sorts last, so `log-read.sh`
+    // handed it to an unvalidated substitution and every sweep from that day asked
+    // GitHub for `?since=2026-08-19T99:99:99Z`. GitHub answered 422 for seven days while
+    // the step reported itself `ok`. The window now widens to the day start and SAYS SO.
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --tick 20260817-999999 --step inbound-sweep --status ok --summary swept`);
+    const poisoned = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("a sentinel previous tick widens the window to the day start",
+      poisoned.since, "2026-08-17T00:00:00Z");
+    assertTrue("and the widening is named in the summary, never silent",
+      poisoned.summary.includes("20260817-999999") && poisoned.summary.includes("not a timestamp"),
+      poisoned.summary);
+    assertTrue("the window never reaches an API as a non-timestamp",
+      /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\dZ$/.test(poisoned.since), poisoned.since);
+
     // Step 3: no records at all is its own reason, distinct from "records but no source".
     let w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
     assertEq("no deployment records is its own reason", w.reason, "no_targets");
@@ -27149,6 +27196,21 @@ esac
     const s7 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-doc-drift.sh")} --tick 20260817-120000 --root . --base HEAD`, { env }).stdout);
     assertTrue("an already-filed drift finding is dropped, not re-filed",
       !JSON.stringify(s7.needs_agent).includes(s7key), JSON.stringify(s7.needs_agent));
+
+    // THE SAME SENTINEL BLINDED THIS STEP TOO (2026-08-26), and more quietly: the sweep
+    // at least got a 422, while `git rev-list --before=2026-08-19T99:99:99Z` simply
+    // matched nothing, so `doc-drift` answered `no_baseline` — a legitimate answer on a
+    // young repository — for seven days without one document being checked. Sharing
+    // `lib/tick-iso.sh` with the sweep is the point: two copies of the substitution is
+    // how one poisoned log entry took out both steps.
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --tick 20260817-999999 --step doc-drift --status ok --summary checked`);
+    const s7b = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-doc-drift.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertTrue("a sentinel previous tick does not silently become no_baseline",
+      s7b.reason !== "no_baseline" || s7b.summary.includes("not a timestamp"),
+      JSON.stringify([s7b.status, s7b.reason, s7b.summary]));
+    assertTrue("and the widening is named wherever it lands",
+      s7b.status === "ok" || s7b.summary.includes("20260817-999999"),
+      JSON.stringify([s7b.status, s7b.reason, s7b.summary]));
   } finally {
     cleanup(repo);
     cleanup(bin);

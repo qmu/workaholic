@@ -19052,6 +19052,28 @@ function testHeartbeat() {
     assertEq("and reports why it did not beat",
       { b: JSON.parse(missing.stdout).beat, r: JSON.parse(missing.stdout).reason },
       { b: false, r: "no_worktree" });
+
+    // THE BEAT MUST LAND FROM WHERE THE WORKFLOW SAYS TO WORK. `drive/SKILL.md` §4 opens
+    // "Inside the worktree" and makes the beat step 0 of every ticket, and there
+    // `--show-toplevel` answers the worktree's own root, so the path composed to
+    // `.worktrees/<unit>/.worktrees/<unit>` and the beat reported `no_worktree` while
+    // exiting 0 — silently doing nothing in exactly the documented calling context.
+    const wt = join(A, ".worktrees/m1");
+    const fromMain = execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim();
+    const inside = JSON.parse(run(wt, `${HEARTBEAT} m1`).stdout);
+    assertEq("the beat lands from inside the unit's own worktree",
+      { b: inside.beat, br: inside.branch }, { b: true, br: claimed.branch });
+    assertEq("and reports the same branch it reports from the main checkout",
+      inside.branch, beat.branch);
+    assertTrue("the beat from inside the worktree advanced the tip",
+      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim() !== fromMain);
+
+    // The refusal words are untouched from either directory.
+    const missingInside = run(wt, `${HEARTBEAT} no-such-unit`);
+    assertEq("an absent worktree still exits 0 from inside a worktree", missingInside.status, 0);
+    assertEq("and still answers no_worktree",
+      { b: JSON.parse(missingInside.stdout).beat, r: JSON.parse(missingInside.stdout).reason },
+      { b: false, r: "no_worktree" });
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 

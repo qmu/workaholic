@@ -22465,6 +22465,24 @@ function testStatelessThreadLookup() {
     "the /moderate command names no carrier for its directed shape");
   assertTrue("and that the root and the other replies stay on the connector",
     /always ride the connector/u.test(moderateTemplate), "the /moderate command leaves its undirected shapes' carrier unstated");
+
+  // A ROOT THE TICK COULD NOT DELIVER IS FILED, NOT LOST (2026-09-01, issue #806). Measured: a
+  // tick rendered `post: true` with 7 change lines and 2 impairment lines, held 18 questions
+  // including a stranded claim and three blocked retirements, and every one existed only in a
+  // tick log inside a container that was then discarded — both transports were out, the
+  // connector authenticated against a workspace holding none of the loop's channels and the bot
+  // fallback absent. What is pinned is the fallback AND the two properties that keep it honest:
+  // one issue for the hour, and a ledger that never records a question nobody received.
+  assertTrue("/moderate files a root it could not deliver",
+    /could not deliver is filed, not lost/u.test(moderateTemplate), "an undeliverable root is still lost");
+  assertTrue("through the filer every other finding already uses",
+    /file-inbound-ask\.sh/u.test(moderateTemplate), "the fallback invents a second filer");
+  assertTrue("one issue for the hour, not one per line",
+    /One issue for the hour, not one per line/u.test(moderateTemplate), "the fallback is unbounded");
+  assertTrue("and a question that reached nobody is never recorded as asked",
+    /never recorded as asked/u.test(moderateTemplate), "the ledger could record an undelivered ask");
+  assertTrue("the repair itself is named as provisioning, not code",
+    /provisioning, not code/u.test(moderateTemplate), "the command implies the tick can fix its own transport");
   // The rule is "not yourself", never "nobody": the maintenance tick's question addresses
   // a named assignee and is the one post whose whole purpose is to reach a person.
   assertTrue("the maintenance tick's question keeps its mention",

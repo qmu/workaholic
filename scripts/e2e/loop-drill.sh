@@ -3399,8 +3399,9 @@ EOF
 cmd_verify_merged_claim() {
     _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
     _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-merged.sh"
-    if [ ! -f "$_lister" ] || [ ! -f "$_reader" ]; then
-        emit_err "merged_claim_unreadable" 4 "list-claims.sh or claim-merged.sh is not present in this checkout"
+    _claimer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim.sh"
+    if [ ! -f "$_lister" ] || [ ! -f "$_reader" ] || [ ! -f "$_claimer" ]; then
+        emit_err "merged_claim_unreadable" 4 "list-claims.sh, claim-merged.sh or claim.sh is not present in this checkout"
     fi
 
     _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
@@ -3506,6 +3507,52 @@ cmd_verify_merged_claim() {
         add_row "merged_claim_named" true "and the claim it could not answer for is named, with its reason" load
     else
         add_row "merged_claim_named" false "the unanswered claim was not named: $(one_line "$_claims")" load
+    fi
+
+    # 5 + 6 + 7. THE CLAIM HALF (ticket `20260826144228`, drilled 2026-09-01). Every row above
+    # proves the oracle can SEE a superseded claim; not one of them proves the work it frees
+    # can be TAKEN. `plan-units.sh` resurveys that work and `workaholic:drive` §1 says in as
+    # many words *a fresh claim drives them, because the old branch cannot land* — so a drill
+    # that stops at the reading passes while the unit is reachable by no path at all. That is
+    # the shape measured on 2026-08-27: the survey offered mission
+    # `make-workaholify-converge-the-account-s-routines` and named it in `resurveyed[]`, a
+    # fresh claim answered `already_claimed`, and `claim.sh resume` answered `superseded` —
+    # both refusals by design, and between them no path to the work at all.
+    #
+    # THE TWO ROWS DIFFER IN ONE FACT — whether the lookup answers `merged`. The fixture, the
+    # identity and the collapsed heartbeat window are held constant across both, so what the
+    # breaker breaks is the behaviour itself rather than a return shape.
+    _claim_try() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_claimer" mission drilled ) 2>&1 || true; }
+
+    # THE BREAKER. With no merged pull request the claim is not superseded and the fresh claim
+    # must still be refused: only a claim PROVED to hold nothing may be claimed over. Without
+    # this row the one below it proves nothing — a `claim.sh` that had lost the reason test
+    # entirely, and refused no one, would pass it.
+    _stub "echo '[]'"
+    _refused=$(_claim_try)
+    if printf '%s' "$_refused" | grep -q '"reason": "already_claimed"'; then
+        add_row "merged_claim_live_refuses" true "a fresh claim over a LIVE claim is still refused already_claimed -- this drill can fail" breaker
+    else
+        add_row "merged_claim_live_refuses" false "a fresh claim over a live claim was not refused already_claimed, so only superseded is being stepped over is unproven: $(one_line "$_refused")" breaker
+    fi
+
+    # THE BEHAVIOUR. With the pull request merged the row reads `superseded`, the refusal loop
+    # steps over it, and the freed work is reachable again on a branch of its own.
+    _stub "echo '[{\"number\":1,\"merged_at\":\"2026-08-26T00:00:00Z\"}]'"
+    _fresh=$(_claim_try)
+    if printf '%s' "$_fresh" | grep -q '"claimed": true'; then
+        add_row "merged_claim_fresh_claim" true "a fresh claim over a superseded claim goes through, on a branch of its own" load
+    else
+        add_row "merged_claim_fresh_claim" false "a fresh claim over a superseded claim was refused, so the resurveyed work is reachable by no path: $(one_line "$_fresh")" load
+    fi
+
+    # IT FREES THE WORK, NOT THE BRANCH. `superseded` is *reported, never acted on*, so the
+    # dead branch is still on the origin with the fresh claim standing beside it.
+    if ( cd "$_read" && git ls-remote --exit-code --heads origin work-20260101-000000 ) >/dev/null 2>&1; then
+        add_row "merged_claim_branch_untouched" true "the superseded branch is still on the origin; the claim freed the work, not the branch" load
+    else
+        add_row "merged_claim_branch_untouched" false "the superseded branch is gone from the origin, so the claim acted on a verdict that is only ever reported" load
     fi
 
     # NO `gh` CALL REACHES A NETWORK, and the drill writes nothing into the checkout.

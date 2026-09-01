@@ -11,7 +11,9 @@ and every abort reports a machine-readable reason.
    (SKILL.md, *Clock-fired discovery*):
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/list-inbound-issues.sh`
    — the open GitHub issues assigned to this session's own identity, oldest-first,
-   minus those a feedback record already names (reported as `already_captured`). Each
+   minus those a feedback record already names, on the base (`already_captured`) or on
+   an unmerged remote branch (`captured_on_branch` — an ask whose proposal is open as a
+   pull request is in flight, not new). Each
    returned issue is an ask in hand: run steps 2–13 **once per issue**, in the order
    returned, its URL carried into step 3's record (the exclusion's contract) and its
    number into step 10's `Closes #<N>`. An empty list is
@@ -49,8 +51,10 @@ and every abort reports a machine-readable reason.
    silences its own proposal. The record is written **whatever step 7 concludes**.
    When the ask came from a GitHub issue, the body **must name the issue's URL** (a
    `Source:` line carrying its `/issues/<N>` form) — that line is what
-   `list-inbound-issues.sh` keys its `already_captured` exclusion on, so omitting it
-   re-proposes the same open issue every tick until its pull request merges.
+   `list-inbound-issues.sh` keys its capture exclusion on, so omitting it re-proposes
+   the same open issue every tick, forever. Carrying it is enough from the moment the
+   record is **committed**: the exclusion reads unmerged proposal branches as well as
+   the base, so the ask stops being re-offered while its pull request is still open.
 
 3b. **Carry the ask's own feedback refs forward**, when it names any. An ask whose body
    carries a `feedback: <ref>, <ref>` line names records that already exist in this

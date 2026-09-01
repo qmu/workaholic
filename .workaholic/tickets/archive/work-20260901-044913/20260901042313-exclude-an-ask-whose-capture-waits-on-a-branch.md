@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T04:23:13+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -136,3 +137,54 @@ learned to read unmerged branches; the discovery set did not.
   stranded publication is delivered by nothing
   (`20260901032409-a-clean-stranded-publication-is-delivered-by-nothing.md`), which is
   already proposed as its own work. Both conditions must be closed; neither closes the other.
+
+## Final Report
+
+Development completed as planned.
+
+Reproduced first (step 1): a fixture whose only record naming `/issues/8` lived on an
+unmerged remote branch returned that issue in `issues[]` before the change and in
+`excluded[]` after it. Localization (step 2) confirmed the single site — the
+`grep -rqE` over `$FEEDBACKS_DIR` was the only term in the script that consulted a
+record at all, so the change has exactly one call site.
+
+The walk was **extracted rather than copied** (step 3). `lib/unmerged-branches.sh` now
+owns the base resolution, the shallow warning and the added-paths walk; both
+`list-proposed-refs.sh` and `list-inbound-issues.sh` source it and differ only in the
+pathspec they hand it and the paths they keep. The Considerations' alternative — the
+caller reading the dedup set it already builds — was rejected on localization: the dedup
+set is a set of *feedback filenames*, not of issue numbers, so the caller would have had
+to re-derive the `/issues/<N>` match anyway, and the exclusion belongs where its
+contract is written.
+
+Step 4's open question is decided as **its own reason word**: `already_captured` keeps
+its meaning (the record is on the base, the ask is settled) and `captured_on_branch` is
+new (the record is on an unmerged branch, the ask waits on that pull request). Nothing
+keys on the word — the only consumers are the run report and the drill runbook's blame
+table — and the two send a reader to different places, which is the whole reason the
+ticket asked. Both are stated in the script header.
+
+### Discovered Insights
+
+- **Insight**: `verify.mjs`'s closure detector matches `${SCRIPT_DIR}/…` anywhere in a
+  file, comments included, so a sourced library that shows its own usage line in its
+  header reports itself as an unresolved reference in every bundle that ships it.
+  **Context**: `drive/scripts/lib/claims.sh` had already met this and answered it by
+  writing the usage prose without the token ("from a drive script, with SCRIPT_DIR its
+  own scripts/ dir"). That is a convention for sourced libraries here, not a quirk of
+  one file — a new `lib/` script that documents itself the obvious way fails the build.
+
+- **Insight**: `git rev-parse --is-shallow-repository` answers from the presence of
+  `.git/shallow`, so a shallow clone's degradation path is reachable in a hermetic
+  fixture by writing that file — no `clone --depth` and no second repository.
+  **Context**: the over-read caveat is the one behaviour of this walk that only shows up
+  in a routine's container, which is exactly where it is hardest to observe; being able
+  to pin its stderr line cheaply is what keeps it from becoming an untested claim.
+
+- **Insight**: the discovery half and the dedup half of `/specificate` answer the same
+  question — *has this ask been proposed* — against two different artifact classes, and
+  they learned to read unmerged branches a month apart.
+  **Context**: `list-proposed-refs.sh` gained the branch walk on 2026-08-05 after a
+  measured duplicate (issue #242 vs PR #241); `list-inbound-issues.sh` reproduced the
+  identical failure on 2026-09-01 (issue #812 vs PR #813). A capability added to one
+  reader of a shared oracle is worth checking against every other reader of it.

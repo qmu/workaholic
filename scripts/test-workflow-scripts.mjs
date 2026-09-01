@@ -22170,6 +22170,73 @@ function testListInboundIssues() {
     assertEq("and reads exactly what an unrestricted one reads",
       restricted.issues.map((i) => i.number), r.issues.map((i) => i.number));
 
+    // ---- A RECORD ON AN UNMERGED BRANCH EXCLUDES TOO (2026-09-01, ticket 20260901042313) ----
+    // The exclusion grepped the caller's checkout, which at the propose seam is a checkout of
+    // the base — so an open issue whose record lived only on an open proposal's branch was
+    // re-offered every hour, each re-take writing a duplicate record and opening a fresh
+    // publish-tree pull request that conflicted with every other open proposal. Measured on
+    // issue #812 / pull request #813: re-offered at 03:28 and again at 04:21.
+    const git = (args) => execSync(`git ${args}`, { cwd: repo, stdio: "ignore" });
+    git("config user.email a@qmu.jp");
+    git("config user.name t");
+    git("add -A");
+    git("-c commit.gpgsign=false commit -qm base");
+    git("update-ref refs/remotes/origin/main HEAD");
+    const baseSha = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
+    // A proposal branch that adds one record, naming issue 7 and nothing else.
+    git("checkout -q -b work-20260901-022335");
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260901022335-on-branch.md"),
+      `---\ntype: Feedback\n---\n\nSource: GitHub issue #7 (https://github.com/o/r/issues/7)\n`);
+    git("add -A");
+    git("-c commit.gpgsign=false commit -qm proposal");
+    git("update-ref refs/remotes/origin/work-20260901-022335 HEAD");
+    git(`checkout -q --detach ${baseSha}`);
+
+    writeGh(restGh());
+    const withBranch = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    // TWO WORDS, NOT ONE: a reader must be able to tell a settled capture from one waiting on
+    // a pull request — they send you to different places.
+    assertEq("a record on an unmerged proposal branch excludes its issue, under its own word",
+      withBranch.excluded.map((e) => `${e.number}:${e.reason}`).sort(),
+      ["12:already_captured", "7:captured_on_branch"]);
+    assertEq("and an issue no record names anywhere is still offered",
+      withBranch.issues.map((i) => i.number).sort((a, b) => a - b), [9, 120]);
+
+    // A MERGED-AND-DELETED BRANCH RESURRECTS NOTHING. The branch is what this keys on, so
+    // deleting it frees the ask again — the same invariant that releases a claim.
+    git("update-ref -d refs/remotes/origin/work-20260901-022335");
+    const afterDelete = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a branch that is gone excludes nothing — issue 7 is offered again",
+      afterDelete.issues.some((i) => i.number === 7), true);
+    assertEq("and the base record's own exclusion is untouched",
+      afterDelete.excluded.map((e) => e.reason), ["already_captured"]);
+
+    // A DEGRADED WALK IS NAMED ON STDERR AND ERRS TOWARD EXCLUDING. `.git/shallow` is what
+    // `--is-shallow-repository` answers from, so a shallow clone's over-read warning is
+    // reachable without cloning one.
+    const errFile = join(tmp, "walk-stderr.txt");
+    writeFileSync(join(repo, ".git/shallow"), `${baseSha}\n`);
+    const shallow = run(repo, `${POSIX_SH} ${SCRIPT} 2> ${errFile}`, { env });
+    assertEq("a shallow clone still exits 0", shallow.status, 0);
+    assertEq("and still reports ok: true", JSON.parse(shallow.stdout).ok, true);
+    assertTrue("with the over-read named on stderr, never on stdout",
+      /shallow clone; merged branches may be read as open/.test(readFileSync(errFile, "utf8")),
+      readFileSync(errFile, "utf8"));
+    rmSync(join(repo, ".git/shallow"), { force: true });
+
+    // AND A WALK THAT CANNOT RUN AT ALL NEVER BREAKS A READABLE INBOX.
+    git("update-ref -d refs/remotes/origin/main");
+    for (const b of ["main", "master"]) { try { git(`branch -D ${b}`); } catch { /* absent */ } }
+    const noBase = run(repo, `${POSIX_SH} ${SCRIPT} 2> ${errFile}`, { env });
+    assertEq("an unresolvable base still exits 0", noBase.status, 0);
+    const noBaseJson = JSON.parse(noBase.stdout);
+    assertEq("and reports ok: true, never list_failed", noBaseJson.ok, true);
+    assertTrue("with the reason on stderr",
+      /no base ref resolved/.test(readFileSync(errFile, "utf8")), readFileSync(errFile, "utf8"));
+    assertEq("and the base grep is untouched by the walk it could not make",
+      noBaseJson.excluded.map((e) => e.reason), ["already_captured"]);
+    git("update-ref refs/remotes/origin/main HEAD");
+
     // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.
     writeGh(restGh("[]"));
     const empty = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);

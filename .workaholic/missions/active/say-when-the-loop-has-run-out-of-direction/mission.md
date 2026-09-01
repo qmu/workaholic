@@ -40,7 +40,7 @@ and `/propose`'s gates are unchanged.
 
 <!-- PROPOSED - a sketch the reviewer replans drive-ready. -->
 
-- [ ] `overdue`, `dormant` and a repository-level `none` are readings composed from
+- [x] `overdue`, `dormant` and a repository-level `none` are readings composed from
       `survey-strategies.sh`; `unreadable` never collapses into them (#20260826110016-add-the-overdue-reading-to-the-strategy-survey.md)
 - [ ] `/moderate`'s `direction-health` asks each non-`live` reading's assignee
       once and renders its event (#20260826110016-add-the-moderate-step-direction-health.md)
@@ -50,3 +50,4 @@ and `/propose`'s gates are unchanged.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260826110016-add-the-overdue-reading-to-the-strategy-survey.md

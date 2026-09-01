@@ -55,3 +55,4 @@ and `/propose`'s gates are unchanged.
 - 2026-09-01 — ticket archived — 20260826110016-write-the-one-reader-of-a-direction-s-lifecycle-state.md
 - 2026-09-01 — ticket archived — 20260826110016-add-the-moderate-step-direction-health.md
 - 2026-09-01 — ticket archived — 20260826110016-render-the-direction-reading-on-the-tick-root.md
+- 2026-09-01 — ticket archived — 20260826110016-make-the-direction-question-actionable-in-its-body.md

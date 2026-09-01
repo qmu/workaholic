@@ -18,24 +18,33 @@ claim: work-20260901-074324
 `say-when-the-loop-has-run-out-of-direction` — one under `missions/active/`
 (`created_at: 2026-08-26T07:19:28`, `feedback: [20260826071745-…]`) and one under
 `missions/archive/` (`created_at: 2026-08-26T08:19:15`, `status: achieved`,
-`actual_hours: 1.1`, `feedback: [20260826081729-…]`, `claim: work-20260826-084111`).
-Different records, different asks, one slug.
+`actual_hours: 1.1`, `feedback: [20260826081729-…]`). Different asks, different records,
+one slug.
 
-Measured on 2026-09-01 while driving the active one: its eight tickets were archived,
-`progress.sh` read `{checked: 3, total: 3, unlinked: 0}` and `queue-size.sh` read `todo: 0`,
-so the archive gate proved it `achieved` and stamped the field — and the record stayed in
-`missions/active/`, because the destination path under `missions/archive/` is already
-occupied by the other mission.
+**How it happened, measured from git on 2026-09-01** — and this is the finding, because it
+is not the seam the first reading of this ticket assumed:
 
-The slug is the key every reader uses. `mission/scripts/read-relation.sh`,
-`mission-strategy.sh`, `close.sh`, `progress.sh`, `queue-size.sh` and `plan-units.sh` all
-resolve a mission by slug, searching `active/` then `archive/` — so with two records the
-answer depends on which area is searched first, and the loser is unreachable by name.
+| When | What |
+| ---- | ---- |
+| 2026-08-26 07:19:28 | Record A created in a publish tree. The base carried no such mission, so `create.sh` correctly saw no collision. |
+| 2026-08-26 08:19:15 | Record B created in a **different** publish tree. Record A was still unmerged, so the base still carried no such mission and `create.sh` again correctly saw no collision. |
+| 2026-08-26 08:25:18 | Record B merged (`35147ec2`). |
+| 2026-09-01 06:22:15 | Record A merged (`01ed9ae9`, PR #625) — **six days stranded** — landing a second record beside the first. |
 
-**This ticket does not pick a repair.** Two records that were both real work cannot be
-merged by a script without losing one of them, and deleting either destroys a driven
-mission's history. What is needed first is a ruling on which record is authoritative and
-what happens to the other.
+Git raised no conflict at that merge because record B had by then been archived, so the two
+records occupy **different paths** (`active/` vs `archive/`) and nothing collided.
+
+**Two premises this ticket originally carried are false, and are corrected here rather than
+implemented against.** `mission/scripts/create.sh` **already** refuses a slug that exists in
+either area (`{"created": false, "reason": "exists"}`, line 75; its header states "either
+area (active/ or archive/)"). And `mission/scripts/close.sh` **already** handles an occupied
+destination deliberately — lines 287-291 report `reason: archive_slug_conflict` and keep the
+mission where it is rather than nesting directories, with a comment naming it "a conflicted
+state a human must resolve". Neither is the defect.
+
+The real seam is that **`create.sh`'s check reads the tree it is writing into**, which is
+correct when the publish tree is built and arbitrarily stale by the time that tree merges.
+A publication stranded for six days carries a six-day-old collision check.
 
 ## Policies
 
@@ -44,34 +53,41 @@ what happens to the other.
 
 ## Key Files
 
-- `.workaholic/missions/active/say-when-the-loop-has-run-out-of-direction/mission.md` — the
-  record this run drove and closed; still in `active/` with `status: achieved`.
-- `.workaholic/missions/archive/say-when-the-loop-has-run-out-of-direction/mission.md` — the
-  earlier-closed record occupying the destination.
-- `plugins/workaholic/skills/mission/scripts/close.sh` — the one writer of an end state; it
-  stamped the field and could not complete the move.
-- `plugins/workaholic/skills/mission/scripts/summary.sh`, `read-relation.sh`,
-  `mission-strategy.sh` — the slug-keyed readers whose answer is now area-order dependent.
-- `plugins/workaholic/skills/drive/scripts/plan-units.sh` — surveys `active/`, so an
-  `achieved` record left there is a survey input.
+- `.workaholic/missions/active/say-when-the-loop-has-run-out-of-direction/mission.md` —
+  record A; driven and closed `achieved` on 2026-09-01, still in `active/` because the
+  destination is occupied.
+- `.workaholic/missions/archive/say-when-the-loop-has-run-out-of-direction/mission.md` —
+  record B, occupying the destination.
+- `plugins/workaholic/skills/mission/scripts/create.sh` — the collision check (line 75); it
+  reads the local tree, which is the whole of the seam.
+- `plugins/workaholic/skills/mission/scripts/close.sh` — lines 287-291, the existing
+  `archive_slug_conflict` answer. **Working as designed; do not "fix" it.**
+- `plugins/workaholic/skills/specificate/scripts/lib/unmerged-branches.sh` — the walk
+  `/specificate` already uses to see unmerged branches; the candidate reuse.
+- `plugins/workaholic/skills/mission/scripts/lib/resolve.sh` — `mission_resolve`, the
+  slug-keyed resolver every reader composes; it searches `active/` then `archive/` and
+  returns the first hit.
 
 ## Implementation Steps
 
-1. Establish the facts before proposing anything: read both records in full and both
-   feedback refs they cite, and state what each mission actually asked for. They are
-   different asks that were given the same slug, not one record duplicated.
-2. Determine how the collision was created — whether `/specificate` or `/mission` can mint a
-   slug that already exists in either area, and whether any writer checks both areas before
-   choosing one. That answer decides whether this is a one-off to clean up or a seam to close.
-3. If a writer can mint a colliding slug, close that seam: refuse the collision by name at
-   creation, checking **both** areas, with nothing written on the refusal.
-4. Give `close.sh` an honest answer for an occupied destination. It currently stamps the end
-   state and leaves the record in `active/` with no word to the caller — an `achieved`
-   mission sitting in the surveyed area. It must either complete the move or refuse by name
-   with the field unstamped; a half-applied close is the state this ticket is about.
-5. Decide what a slug-keyed reader owes a caller when two records match. Reporting the
-   ambiguity by name is the shape this repository uses everywhere else (`ambiguous_claim`);
-   silently taking the first area searched is what it does today.
+1. Re-read the Overview's table against git before changing anything — the diagnosis is the
+   deliverable here, and a repair aimed at `create.sh`'s area coverage or at `close.sh`
+   would be aimed at a seam that is already closed.
+2. Decide where a stale collision check should be caught. The two candidates, both real:
+   extend `create.sh`'s check to consult unmerged branches through the existing
+   `unmerged-branches.sh` walk (catches it at build time, and would have caught this case at
+   08:19), or catch it at merge time, where no writer currently looks.
+3. Weigh the cost of the first honestly: that walk **over-reads on every ambiguity** by
+   design, which is right for a dedup and wrong for a gate — an over-read there becomes a
+   refusal to create a legitimate mission. If it is adopted, the ambiguous case must not
+   refuse; report it and proceed.
+4. Note why `/specificate`'s existing ask-dedup did not prevent this: it keys on feedback
+   refs, and these two proposals carried **different** refs (`20260826071745-…` and
+   `20260826081729-…`) for one topic. A slug check is not reachable from a ref check.
+5. Give `mission_resolve` an answer for two matches. Reporting the ambiguity by name is the
+   shape this repository uses everywhere else (`ambiguous_claim`); returning the first area
+   searched is what it does today, which makes every downstream reading area-order
+   dependent. Changing its return shape touches every caller — scope it deliberately.
 6. The disposition of the two existing records is a **ruling, not a step** — see Open
    Decisions. Do not delete, merge, rename or re-slug either record without it.
 
@@ -79,47 +95,49 @@ what happens to the other.
 
 - **Which of the two records is authoritative, and what becomes of the other?**
 
-  **Sources consulted.** `CLAUDE.md`'s *Mission lifecycle* paragraph in full: it states
-  `status: active | achieved | abandoned | carried`, that `close.sh` is the **only** writer
-  of an end state, that `archive.sh` closes "the one outcome that is arithmetic" and
-  **never** `abandoned` or `carried`, "which assert intent". It says nothing about two
-  records sharing a slug. `skills/mission/SKILL.md` was read for a uniqueness rule and
-  states none — the slug is treated throughout as though it were unique without anything
-  establishing that it is. `close.sh`'s own header was read: it writes an end state and does
-  not contemplate an occupied destination. Both mission records were read in full, and they
-  cite different feedback refs, so neither is a copy of the other.
+  **Sources consulted.** `CLAUDE.md`'s *Mission lifecycle* paragraph in full: `status:
+  active | achieved | abandoned | carried`, `close.sh` the only writer of an end state,
+  `archive.sh` closing only "the one outcome that is arithmetic" and **never** `abandoned`
+  or `carried`, "which assert intent". It says nothing about two records sharing a slug.
+  `skills/mission/SKILL.md` was read for a uniqueness rule and states none — the slug is
+  treated throughout as though unique without anything establishing it. `create.sh` and
+  `close.sh` were both read in full, and both already do what this ticket first assumed
+  they did not, which is recorded in the Overview. Both mission records were read: they
+  cite different feedback refs, so neither is a copy of the other. The git history of both
+  paths was walked to build the Overview's table.
 
-  **The fork.** Either the archived record stays authoritative and the active one is
-  re-slugged to a distinct name before being archived under it — which preserves both
-  histories and costs every existing `mission:` relation pointing at the old slug a
-  migration — or the two are recognised as one line of work and consolidated into a single
-  record, which loses one record's changelog, acceptance and `actual_hours`.
+  **The fork.** Either record B (archived, `achieved`, `actual_hours: 1.1`) stays
+  authoritative and record A is re-slugged to a distinct name before being archived under
+  it — preserving both histories, at the cost of a migration for every `mission:` relation
+  naming the old slug — or the two are recognised as one line of work and consolidated into
+  a single record, losing one record's changelog, acceptance and hours.
 
-  Nothing in the repository settles which. The records were authored by `a@qmu.jp` and the
-  question is whose work each was and whether they were meant to be one mission; that is the
-  operator's ruling, and it is available to be made rather than unanswerable.
+  Nothing in the repository settles which. Both records were authored by `a@qmu.jp`; the
+  question is whether they were meant to be one mission, and that is the operator's ruling.
+  It is available to be made rather than unanswerable.
 
 ## Quality Gate
 
 **Acceptance criteria** — the checkable conditions that must hold:
 
-- No slug resolves to two `mission.md` files across `active/` and `archive/`
-- A writer asked to mint a slug that already exists in **either** area refuses by name, with
-  nothing written
-- `close.sh` on an occupied destination either completes the move or refuses by name with
-  the end state unstamped — never stamps and leaves the record in `active/`
-- No `achieved` mission remains under `missions/active/`
+- The stale-check seam identified in step 2 is closed at one named place, and a slug already
+  taken on an **unmerged branch** cannot be minted a second time without that being reported
+- No new refusal path can block mission creation on an ambiguous or degraded read — such a
+  read is reported and creation proceeds
+- `close.sh`'s `archive_slug_conflict` answer is **unchanged**
+- `create.sh`'s existing both-areas check is **unchanged**
 - The disposition of the two existing records follows the Open Decision's ruling; neither is
   deleted, merged or re-slugged before it
 
 **Verification method** — the commands/tests/probes that prove them:
 
-- `git ls-tree -r --name-only origin/main -- .workaholic/missions/` piped through a duplicate
-  check on the slug, asserting no slug appears twice
-- `node scripts/test-workflow-scripts.mjs` — a case seeding a slug present in `archive/` and
-  asserting the creating writer refuses it by name with the tree byte-identical
-- A case seeding an occupied destination and asserting `close.sh`'s named refusal, with
-  `status:` unchanged in the source record
+- `node scripts/test-workflow-scripts.mjs` — a case seeding a slug present only on an
+  unmerged branch, asserting the chosen behaviour, and a case asserting a degraded walk does
+  not refuse creation
+- A case asserting `close.sh` still answers `archive_slug_conflict` with the mission left in
+  place, and one asserting `create.sh` still refuses a slug present in either local area
+- `git ls-tree -r --name-only origin/main -- .workaholic/missions/` piped through a
+  duplicate check on the slug
 - `bash plugins/workaholic/hooks/layout-doctor.sh .`
 
 **Gate** — what must pass before approval:

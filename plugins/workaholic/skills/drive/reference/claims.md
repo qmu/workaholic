@@ -1067,6 +1067,22 @@ the classes apart without inferring them.
 | ---- | ----- | ----------------------------------------------- |
 | `superseded_only` | **proof** | Every claim for this unit reads `superseded` — the content reached the base and the branch is empty against it. The original class, unchanged; the act's `not_on_base` gate re-derives it. |
 | `pull_request_merged` | **proof** | This branch's own pull request has a non-null `merged_at`, read through `branch-pull-request-state.sh`. The tree established it and looking again cannot make it false, which is the same standing `superseded` has and the reason a destructive act may rest on it. |
+| `pull_request_closed_unmerged` | **proof** | A **person** closed this branch's pull request without merging it. The argument is different from the two above and is written out rather than borrowed: what makes it safe is **authorship**, not emptiness — closing a pull request unmerged is a recorded decision about that branch by somebody entitled to make it, and it does not become false by looking again. |
+
+**The third class is never folded into the second.** They answer different questions — *the loop
+delivered this* and *a person discarded this* — and one word answering two questions is how two
+questions drift. Measured 2026-09-01: five branches whose pull requests the operator closed
+unmerged as superseded (#801, #802 and #790 by #800; #520 by #519; #466 by #465), one closing
+comment reading *"this branch and `main` repaired the same defect twice"*. A hand-closed branch
+is **not empty by construction**, so `superseded` can never reach it and `retire-claim.sh` never
+would.
+
+**The residual risk is stated rather than hidden**: such a branch may still hold work found on no
+other ref. That is why `branch_empty` (`true` / `false` / **`unanswerable`**, the third named
+rather than assumed) rides both pull-request classes as **evidence and not as a gate** — CI's own
+record answers *how often does that actually happen* from real data before anything is gated on
+it. A `superseded_only` row carries no such field: that verdict already asserts the emptiness,
+and a second copy of one fact is how two copies come to disagree.
 
 **Measured, and why the second class was needed** (2026-09-01): 30 unmerged branches, 17 with a
 merged pull request. A squash merge never makes the branch an ancestor of the base, so

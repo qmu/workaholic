@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T11:25:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260901112558-read-a-claim-branch-s-pull-request-state.md
@@ -86,3 +87,46 @@ from one a person discarded.
 - The `#802` case shows why this matters more than the count suggests: five closures is five
   occasions a person read two implementations of one defect and carried the good parts across by
   hand. This ticket removes the residue; the localization ticket asks why it happened.
+
+## Final Report
+
+Development completed as planned.
+
+`list-retirable-claims.sh` gains a third candidate class,
+`candidate_reason: pull_request_closed_unmerged`, sharing the second class's ref walk and its
+live-row rule but keeping its own word in every rendered surface. The two pull-request classes
+are branches of one `case` over `branch-pull-request-state.sh`'s `state`, so `open` and `none`
+fall through to no class at all — the one state that must never reach a delete is excluded by
+the shape of the read rather than by a later gate.
+
+`branch_empty` (`true` / `false` / **`unanswerable`**) now rides both pull-request classes as
+**evidence, never a gate**, composed from `claims_branch_empty_against_base` rather than
+re-derived. A `superseded_only` row carries no such field: that verdict already asserts the
+emptiness, and a second copy of one fact is how two copies come to disagree.
+
+`drive/reference/claims.md` registers the word as a **proof with its own argument** — what
+makes it safe is **authorship**, not emptiness — with the five measured closures, the reason
+the classes are never folded together, and the residual risk stated plainly: such a branch may
+still hold work found on no other ref, and closing its pull request unmerged is the operator
+saying that work is not wanted. Whether the *act* should refuse on `branch_empty: false` is
+left to the next ticket, where the act lives, exactly as this ticket's Considerations direct.
+
+`lib/claims.sh` is byte-identical; `superseded`, `stranded` and the emptiness derivation did
+not move.
+
+The suite's one failure is the pre-existing clock-dependent row already ticketed as
+`20260901132500-make-the-liveness-row-independent-of-the-clock.md`; every row added here
+passes.
+
+### Discovered Insights
+
+- **Insight**: `open` and `none` needing no explicit refusal is a property of reading a state
+  rather than a boolean.
+  **Context**: had the reader answered *is this merged, yes/no*, both would have collapsed into
+  the same `no` and an explicit "and also not open" bound would have been needed — the sort of
+  bound that is correct once and forgotten at the next widening. The four-state reader makes
+  the safe cases fall out of the `case` arms.
+- **Insight**: recording a risk as a field before gating on it is cheaper than arguing about it.
+  **Context**: nobody knows how often a hand-closed branch still holds unlanded work. One
+  three-valued field on the candidate row turns that into something CI's own record answers
+  from real data, and the next ticket decides with numbers rather than intuition.

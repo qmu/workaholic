@@ -29617,14 +29617,54 @@ function testRetirementCandidatePullRequestMerged() {
       [`${fx.batch.branch}:superseded_only`]);
     assertEq("...with nothing recorded as unreadable", (none.pull_request_unreadable || []).length, 0);
 
-    // THE WORD IS CLASSIFIED WHERE EVERY OTHER CLAIM WORD IS, and as a PROOF — the suite fails
-    // on a word no table classifies, and this one licenses a branch delete.
+    // A PERSON'S CLOSURE IS ITS OWN CLASS, never folded into the merged one: *the loop
+    // delivered this* and *a person discarded this* are different questions. Measured
+    // 2026-09-01 as five hand-closed branches, none of them reachable by `superseded`, because
+    // a hand-closed branch is not empty by construction.
+    stub(`echo '[{"number":2,"state":"closed","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    const closed = read();
+    const closedRow = (closed.candidates || []).find((c) => c.branch === orphan);
+    assertEq("a closed-unmerged pull request is its own candidate class",
+      closedRow && closedRow.candidate_reason, "pull_request_closed_unmerged");
+    assertTrue("...and never wears the merged class's word",
+      (closed.candidates || []).every((c) => c.candidate_reason !== "pull_request_merged"),
+      JSON.stringify(closed.candidates));
+
+    // THE EMPTINESS READING RIDES THE ROW AS EVIDENCE, three-valued, and the orphan branch is
+    // one empty commit off the base — so it reads `true` and the reading is real rather than
+    // hard-coded. It gates nothing here: the row exists whatever it says.
+    assertTrue("the row carries a three-valued branch_empty reading",
+      ["true", "false", "unanswerable"].includes(closedRow.branch_empty), closedRow.branch_empty);
+    assertEq("...and a superseded_only row carries none, because its verdict already asserts it",
+      (closed.candidates || []).filter((c) => c.candidate_reason === "superseded_only")
+        .every((c) => !("branch_empty" in c)), true);
+
+    // AN OPEN PULL REQUEST IS IN NO CLASS AT ALL — the one state that must never reach a delete.
+    stub(`echo '[{"number":3,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a branch with an open pull request appears in no candidate class",
+      (read().candidates || []).some((c) => c.branch === orphan), false);
+
+    // THE WORDS ARE CLASSIFIED WHERE EVERY OTHER CLAIM WORD IS, and as PROOFS — the suite fails
+    // on a word no table classifies, and each of these licenses a branch delete.
     const claimsDoc = readFileSync(
       join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
-    for (const word of ["superseded_only", "pull_request_merged"]) {
+    for (const word of ["superseded_only", "pull_request_merged", "pull_request_closed_unmerged"]) {
       assertTrue(`claims.md classifies \`${word}\` as a candidate reason`,
         new RegExp(`\\\`${word}\\\`\\s*\\|\\s*\\*\\*proof\\*\\*`).test(claimsDoc), word);
     }
+    // AND THE CLOSED-UNMERGED ARGUMENT IS ITS OWN, not borrowed from the merged one: what makes
+    // it safe is authorship rather than emptiness, and the residual risk is stated.
+    assertTrue("claims.md states the closed-unmerged proof rests on authorship, not emptiness",
+      /authorship/.test(claimsDoc) && /not empty by construction/.test(claimsDoc),
+      "the argument was borrowed rather than written");
+
+    // THE EMPTINESS DERIVATION ITSELF IS UNTOUCHED — this class reads it, it does not move it.
+    const lib = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
+    assertTrue("the reader composes claims_branch_empty_against_base rather than re-deriving it",
+      lib.includes("claims_branch_empty_against_base()")
+      && readFileSync(READER, "utf8").includes("claims_branch_empty_against_base"),
+      "the emptiness reading was re-derived in the candidate reader");
   } finally { cleanup(fx.A); cleanup(fx.B); }
 }
 

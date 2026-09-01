@@ -636,4 +636,5 @@
 * [Specificate published a duplicate ticket set for an already-driven mission](20260901072508-specificate-published-a-duplicate-ticket-set-for-an-already-driven-mission.md)
 * [Moderation reports unknown mergeability and defers a conflict it could clear itself](20260901081927-moderation-reports-unknown-mergeability-and-defers-a-conflict-it-could-clear-itself.md)
 * [Moderation never reports the shape of the plan, only its anomalies](20260901083125-moderation-never-reports-the-shape-of-the-plan-only-its-anomalies.md)
+* [A plugin-path read composed with an assignment prefix cannot be allowlisted, so it stalls the unattended tick](20260901101811-a-plugin-path-read-composed-with-an-assignment-prefix-cannot-be-allowlisted-so-it-stalls-the-unattended-tick.md)
 <!-- okf:generated:end -->

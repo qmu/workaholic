@@ -7,6 +7,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: 20260901032409-a-clean-stranded-publication-is-delivered-by-nothing.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md
+claim: work-20260901-050906
 ---
 
 # Deliver a publication GitHub still calls dirty

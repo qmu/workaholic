@@ -23,14 +23,28 @@ The single home of the granularity discipline — every other place links here r
 
 `status` is the one lifecycle field: `active` (in `active/`, in flight) | `achieved` | `abandoned` | `carried` (ended, in `archive/`). **Merging a mission's pull request is its approval** — there is no draft state and no approve step (retirement record: [`reference/schema.md`](reference/schema.md), *History*) — and **`close.sh` is the only status flip that exists**: never hand-edit `status:` or `mv` a mission dir. **The unified run calls it for one outcome** (2026-08-23): the archive gate (`workaholic:drive`) closes a mission `achieved` when archiving a ticket leaves `progress.sh` reporting `checked == total` with `unlinked == 0` and `queue-size.sh` reporting `todo == 0`. `achieved` is the one of the three that is **arithmetic**; `abandoned` and `carried` assert *intent* and stay the operator's, through `/mission-close`. The single-writer rule is unmoved — the run calls this script, never a status — and the measured objection is answered rather than dropped: of four missions closed by hand on 2026-08-04 one turned out not to be achieved, and this proof, which asks whether the acceptance is complete rather than whether the work was good, would have refused it. An unreadable reader is not a proof and leaves the mission alone; the close and any refusal are reported by name. Drivability is not a status word: a mission is claimable when it is in the active area, has a plan (`## Acceptance` non-empty, else `no_plan`) and has a queued ticket naming it (`no_tickets`). `merge_policy: auto | review` is the orthogonal axis (G5), recorded at creation (K2); **absent means `review`**, exactly as on a ticket.
 
-**One slug can end up naming two missions, and `create.sh` cannot prevent it** (2026-09-01, ticket
-`20260901070000-collapse-two-missions-that-plan-the-same-ask.md`). `create.sh` refuses a slug that
+**One slug can end up naming two missions, and the local check alone cannot prevent it**
+(2026-09-01, tickets `20260901070000-collapse-two-missions-that-plan-the-same-ask.md` and
+`20260901072600-rule-on-two-missions-sharing-one-slug.md`). `create.sh` refuses a slug that
 `mission_resolve` finds in either area — but it resolves against **the checkout it runs in**, and
 `/specificate` writes into a publish tree cut from `origin/main`. A mission living only on an
 unmerged publication is invisible there, so a second record for the same ask produces a second
 mission with the same slug; the collision then arrives by **merge**, where no create runs at all.
 `/specificate`'s own dedup does not catch it either, because it keys on the ask's **feedback
-refs** and two records for one ask carry different ones.
+refs** and two records for one ask carry different ones. Measured: record A created
+2026-08-26 07:19:28 and record B 08:19:15, each in its own publish tree with the local check
+right at both moments; B merged at 08:25:18 and A six days later, landing beside it with no git
+conflict because B had been archived and the two occupy different paths.
+
+**So `create.sh` reads the unmerged branches too, and refuses only on a walk that completed.**
+It composes `/specificate`'s own `lib/unmerged-branches.sh` — the same oracle the claim protocol
+rests on, git-native, no API call — over `.workaholic/missions/*/<slug>/mission.md`, and answers
+**`exists_on_branch`** naming the ref, with nothing written. **A walk that could not complete
+reports on stderr and creates anyway**: that walk over-reads on every ambiguity *by design*,
+which is right for a dedup and wrong for a gate, so a shallow clone, a missing base ref or a
+non-repository is a reading we did not make rather than a refusal. Stdout stays exactly the line
+every caller parses. The two existing pairs on `main` are history and their disposition is the
+operator's ruling; `layout-doctor.sh` reports each pair as an advisory and deletes nothing.
 
 **Measured 2026-09-01**, both pairs in this repository — `deliver-what-the-loop-already-knows-…`
 (records 6 hours apart) and `say-when-the-loop-has-run-out-of-direction` (1 hour apart). In each,

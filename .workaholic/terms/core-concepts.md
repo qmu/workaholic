@@ -62,8 +62,8 @@ A hook is a callback the host agent runs at a point in the tool lifecycle, confi
 repository uses four kinds: `PostToolUse` validators that floor what gets written
 (tickets, missions, stories, feedback records, strategies), `PreToolUse` guards that
 refuse an off-policy action before it happens (commit subject, branch name, working
-directory, repository confinement, ticket moves), and `UserPromptSubmit` lenses that
-inject context (the policy lens, the mission lens). A hook is registered by the host,
+directory, repository confinement, ticket moves), and a `UserPromptSubmit` lens that
+injects context (the policy lens). A hook is registered by the host,
 so a session with no plugin binding runs the scripts but not the hooks. Related terms:
 rule, lens, guard.
 
@@ -85,11 +85,12 @@ Related terms: skill, subagent.
 
 ## lens
 
-A lens is context injected into a session rather than requested by it. Two ship active:
+A lens is context injected into a session rather than requested by it. One ships active:
 the **policy lens** (`policy-lens.sh`) puts the engineering-policy index in front of any
-command carrying the `workaholic:policy-lens` sentinel, and the **mission lens**
-(`mission-lens.sh`) surfaces the active missions that pass ownership and signal gates.
-A lens informs; it never forces. Related terms: hook, pillar, mission.
+command carrying the `workaholic:policy-lens` sentinel. The **mission lens** was retired
+on 2026-08-26 — its roster surfacing lives on in the bare `/mission` roadmap and
+`/moderate`'s closable-missions step. A lens informs; it never forces.
+Related terms: hook, pillar, mission.
 
 ## pillar
 

@@ -99,6 +99,28 @@ The minted ticket goes through the sanctioned path: the `create-ticket` structur
 otherwise), and it inherits the provoking ticket's `mission:` relation (read via
 `mission/scripts/read-relation.sh`, never re-parsed). Report every minted ticket as its own line.
 
+**It also carries the minting unit's own resolved `feedback:` refs** (2026-08-29, ticket
+`20260829111000`), emitted by `feedback/scripts/ask-feedback-line.sh` — that relation's one
+writer — never by hand-formatting a frontmatter line. Without them the mint names nothing at all:
+`drive/scripts/unit-feedback-stems.sh` answers `count: 0`, so the unit that later drives it has no
+stem for the notify lookup's case 2 and no record for case 4's root to link, and its merge is
+announced to nobody. Measured 2026-08-29: unit `batch-20260829093639` minted
+`20260829102500-resolve-a-units-stems-through-an-archived-mission.md`; that ticket became unit
+`batch-20260829102127` (PR #716), merged, and its finish line went unposted.
+
+**Why `feedback:` rather than `mission:` alone.** The `mission:` hop resolves a mint made while
+driving a *mission* unit, and resolves nothing for a **batch** with no mission — which is exactly
+the measured case. `feedback:` is correct for both unit kinds and is the field `/specificate`
+already writes for this purpose. Carrying both when both are in hand is right; carrying neither is
+the defect. The refs cost no lookup: the minting unit resolved its own stems in order to post its
+own finish line, so the relation is in hand at the moment the ticket is written.
+
+**Carry them only when the run can say the mint is about the same item.** The measured mint was;
+one that is genuinely unrelated must carry nothing, and its finish line stays unposted — a ref
+carried on a guess sends that line into somebody else's thread, and a wrong thread is worse than
+none (`workaholic:notify`, *Fuzzy matching is prohibited by name*). An empty stem set stays a
+designed answer, never an error: such a unit is keyed on `unit:<unit-id>`.
+
 **Do not append an acceptance item to the mission for a minted ticket.** `## Acceptance` is the
 plan the developer agreed to, and its `checked ÷ total` is the mission's progress; auto-appending
 moves the goalposts so a mission recedes as it works. Promoting a minted ticket into the

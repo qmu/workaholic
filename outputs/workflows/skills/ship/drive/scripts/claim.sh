@@ -60,6 +60,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
 fail() {
@@ -96,6 +97,11 @@ git config --get remote.origin.url >/dev/null 2>&1 \
     || fail "no_origin" ', "detail": "a claim is a pushed branch; this repository has no origin remote"'
 [ "$(claims_fetch)" = "true" ] \
     || fail "origin_unreachable" ', "detail": "refusing to claim a unit without a reachable origin -- an unpushed claim is not a claim"'
+# The writer refuses without a reachable origin, so reaching this line means the fetch ran.
+# The flag has to be set HERE because `claims_fetch` above runs in a command substitution and
+# the value it sets dies with that subshell (see lib/claims.sh); without it the merged lookup
+# is skipped as `offline` and `resume` cannot see a `superseded` claim at all.
+CLAIMS_FETCH_OK=true
 
 base=$(claims_base)
 
@@ -116,7 +122,18 @@ base=$(claims_base)
 # skew between a local runner and a cloud one.
 if [ "$kind" = "resume" ]; then
     unit="$1"
-    resume_row=$(claims_scan "$base" | awk -F'\t' -v u="$unit" '$1 == u { print; exit }')
+    # THE UNIT IS RESOLVED TO ITS LIVE BRANCH, NOT TO THE FIRST ONE THE SCAN EMITS
+    # (2026-08-27). A unit held by a superseded claim AND a live one gave first-match the
+    # older, dead branch, so `resume` refused on that branch's `superseded` verdict and the
+    # live claim was resumable by nothing. The resolution is the shared one in
+    # lib/claims.sh, so this refusal and the survey's offer cannot disagree about which
+    # branch a unit is.
+    resume_rows=$(claims_scan "$base")
+    resume_resolution=$(claims_unit_resolution "$resume_rows" "$unit")
+    if [ "$resume_resolution" = "ambiguous" ]; then
+        fail "ambiguous_claim" ', "unit": "'"${unit}"'", "branches": "'"$(claims_unit_live_branches "$resume_rows" "$unit")"'", "detail": "two or more LIVE claims hold this unit; the protocol settles a race by the push, so this cannot arise from the sanctioned path. Nothing is resumed rather than one branch being picked silently -- a human decides which branch is the unit"'
+    fi
+    resume_row=$(claims_unit_row "$resume_rows" "$unit")
     [ -n "$resume_row" ] \
         || fail "not_claimed" ', "unit": "'"${unit}"'", "detail": "no claim in flight for that unit -- claim it fresh instead"'
 
@@ -125,11 +142,12 @@ if [ "$kind" = "resume" ]; then
     r_author=$(printf '%s' "$resume_row" | cut -f5)
     r_resumable=$(printf '%s' "$resume_row" | cut -f6)
     r_reason=$(printf '%s' "$resume_row" | cut -f7)
-    # FIELD 9, NOT 8. The artifact list is the row's LAST field, and `reported` was
-    # inserted before it (2026-08-23) -- so this read was silently returning `true`/`false`
-    # as the unit's whole artifact list. It is the tail by construction (see lib/claims.sh's
-    # no-empty-field rule), which is what makes a fixed index safe at all.
-    r_arts=$(printf '%s' "$resume_row" | cut -f9)
+    # FIELD 10, NOT 8. The artifact list is the row's LAST field, and two booleans have been
+    # inserted before it -- `reported` (2026-08-23) and `declared_handoff` (2026-08-27) -- so
+    # this read once silently returned `true`/`false` as the unit's whole artifact list. It is
+    # the tail by construction (see lib/claims.sh's no-empty-field rule), which is what makes a
+    # fixed index safe at all; every insertion moves it, and this line moves with it.
+    r_arts=$(printf '%s' "$resume_row" | cut -f10)
 
     # The verdict is the SHARED scan's, never re-derived here. A writer that decided
     # resumability for itself could take over a unit the reader still reports as
@@ -142,11 +160,47 @@ if [ "$kind" = "resume" ]; then
             foreign_identity)
                 fail "foreign_identity" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "author": "'"${r_author}"'", "detail": "another identity holds this claim; it is never resumable here, at any age"'
                 ;;
+            # THE LOOP'S OWN UNDELIVERED WORK (2026-08-27, mission
+            # `close-the-units-the-loop-already-finished`). Named on its own rather than left to
+            # `queue_drained`'s wording, which sends the reader to wait for a human who is not
+            # coming: nothing here is under review — the merge was REFUSED, and the next action
+            # is retrying it, not taking the unit over. Resuming would push an empty `Resume`
+            # commit onto a branch whose pull request is open, the 2026-08-01 gate exactly.
+            report_undelivered)
+                fail "report_undelivered" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit finished, reported and opened its pull request, and the merge was REFUSED by the transport -- its branch story records which refusal. Nothing is under review and no takeover would help: the next action is retrying the merge on the open pull request. The survey reports it and forbids `ok`; resuming it would only add an empty commit to a branch that is already done"'
+                ;;
+            # A UNIT WHOSE REMAINING WORK NOBODY UNATTENDED CAN FINISH (2026-08-27, mission
+            # `stop-re-resuming-a-declared-handoff-unit`). Named on its own rather than left to
+            # `parked_with_pr`'s wording, which says a takeover is legitimate -- false by
+            # declaration here. Refusing under `queue_drained` would be no better: it sends the
+            # reader to wait for a merge, when what is owed is a verification a person must run.
+            awaiting_verification)
+                fail "awaiting_verification" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "the work still queued behind this claim was DECLARED unverifiable in an unattended environment (verification_handoff:), so the run routed it to the handoff route: its pull request is open and stays open, and its claim stays standing on purpose. A takeover would drive nothing -- the next action is a person running the declared verification. Once that ticket is driven the claim reads resumable again on its own"'
+                ;;
             queue_drained)
                 fail "queue_drained" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit has nothing left to drive AND it reported -- its story is committed and its PR is open, so it is waiting on a human, not on a runner; resuming it would only add an empty takeover commit to a branch under review. A drained unit that never reported is a different state and IS resumable (report_incomplete)"'
                 ;;
-            *)
+            # A CLAIM WHOSE WORK IS ALREADY ON THE BASE (2026-08-26). Named on its own rather
+            # than left to the default, because the operator reading this refusal needs to
+            # learn that the pull request MERGED -- a generic denial sends them looking for a
+            # live run that does not exist. Measured: a mission unit was offered as resumable
+            # five days after its own pull request merged, and taking that offer costs a full
+            # story-and-pull-request cycle whose only correct outcome is to be closed.
+            superseded)
+                fail "superseded" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this unit'"'"'s work already reached the base -- a merged pull request has this branch as its head, or every one of its tickets is archived on the base. There is nothing left to drive and nothing for a human to merge; nothing here deletes the branch or closes the pull request, so an operator closes it out"'
+                ;;
+            shallow_history)
+                fail "shallow_history" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this clone'"'"'s history is truncated, so whether the branch already merged is unanswerable here -- the verdict is suppressed rather than guessed. Deepen the clone (a reachable origin does it automatically) and ask again"'
+                ;;
+            # THE DEFAULT NO LONGER ASSERTS A CAUSE. It named `identity_unresolved` for every
+            # unrecognised reason, so a verdict added to the scan without a case here was
+            # reported as a missing git identity -- which is what `superseded` and
+            # `shallow_history` were both doing until this change.
+            identity_unresolved)
                 fail "identity_unresolved" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "detail": "this checkout has no git config user.email, so it cannot establish the claim is its own"'
+                ;;
+            *)
+                fail "not_resumable" ', "unit": "'"${unit}"'", "branch": "'"${r_branch}"'", "resume_reason": "'"${r_reason}"'", "detail": "the shared scan reports this claim as not resumable; the reason it gave is carried above verbatim"'
                 ;;
         esac
     fi
@@ -294,10 +348,36 @@ artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
 # Both checks matter: the unit id catches a second runner claiming the same mission,
 # and the artifact overlap catches a batch that scoops up a ticket another branch
 # already took under a different batch id.
+#
+# A `superseded` CLAIM IS NOT IN FLIGHT, AND SKIPPING IT IS THE OTHER HALF OF THE
+# 2026-08-26 CHANGE (2026-08-27). `plan-units.sh` already resurveys the mission and
+# tickets behind such a claim -- its `resurveyed[]` field names them, and `workaholic:drive`
+# §1 says in as many words *a fresh claim drives them, because the old branch cannot land*.
+# This loop read the verdict (`_held_reason` is right here) and ignored it, so the survey
+# offered a unit that BOTH claim paths refused: a fresh claim answered `already_claimed`
+# and `claim.sh resume` answered `superseded`, by design. Measured 2026-08-27 on this
+# repository: mission `make-workaholify-converge-the-account-s-routines` was offered and
+# named in `resurveyed[]` while its only holder, `work-20260819-113836`, had read
+# `superseded` since the day before -- reachable by no path at all, and forbidding `ok` on
+# every later tick. That is the shape `report_incomplete` was added to remove in
+# 2026-08-19, one layer up.
+#
+# IT FREES THE WORK, NOT THE BRANCH. `superseded` stays *reported, never acted on*: nothing
+# here deletes the old branch, closes its pull request or releases its claim, and the new
+# claim is an ordinary `work-*` branch beside it. The bound is the one `resurveyed[]`
+# already relies on and is derived in exactly one place (`lib/claims.sh`), so the survey's
+# offer and this refusal cannot disagree again: every one of the unit's tickets is archived
+# on the base, or a merged pull request has that branch as its head. Every other refusal is
+# untouched -- a live claim, a colleague's, a `queue_drained` one and a `report_incomplete`
+# one all refuse exactly as before, because only a claim already PROVED to hold nothing is
+# claimable over.
 rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
-    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported held_arts; do
+    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff held_arts; do
         [ -n "$held_unit" ] || continue
+        if [ "$_held_reason" = "superseded" ]; then
+            continue
+        fi
         if [ "$held_unit" = "$unit" ]; then
             fail "already_claimed" ', "unit": "'"${unit}"'", "holder_branch": "'"${held_branch}"'", "holder_unit": "'"${held_unit}"'"'
         fi

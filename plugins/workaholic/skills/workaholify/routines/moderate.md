@@ -54,7 +54,10 @@ least be racing under their own identities; that argument is moot, because step 
 Two steps genuinely are personal — the inbound sweep's Gmail, Drive and Slack connectors belong
 to whichever account runs the tick — and they degrade **honestly** rather than silently: each
 surface is reported by name (`no_surface: gmail`), so a single account's copy says exactly whose
-inboxes it could and could not see. If the operator wants both, the faithful shape is a split
+inboxes it could and could not see. The `unanswered-asks` step added on 2026-08-26 reads the
+repository's **own** channel rather than anyone's inbox, so it belongs to this scope and not to a
+personal one; it degrades by the same rule (`no_slack_transport`, `channel_unreadable` — never an
+unread channel reported as a quiet one). If the operator wants both, the faithful shape is a split
 (a developer-scoped inbound routine and this repository-scoped one), which is a template to add
 rather than a line to change. Moving this one is a **one-line** change to `scope:`; both setup
 commands and both setup sheets read this field, so nothing else has to move with it.
@@ -85,11 +88,23 @@ never calls `AskUserQuestion` — step 9 asks humans **in Slack**. Every one of 
 in `workaholic:moderate` and its `reference/workflow.md`, which is why this prompt does not
 restate them.
 
-**The prompt is the ceiling** (P3, Q2, P10): the one literal format below is the only shape a
-session running this routine may emit, and `workaholic:notify`'s `reference/notifications.md`
-mirrors it verbatim. A future edit to either copy is a drift to fix, never a second wording.
+**The prompt names the command and nothing else** (2026-09-01, the developer's instruction).
+Everything a session running this routine may do — the post shapes, the transports, what it may
+read, and what it must never emit — lives in `plugins/workaholic/commands/moderate.md`, versioned
+with the plugin and shipped with it. A routine record is an **account-level** object no
+repository can edit, so every rule that lived in this prompt had to be re-pasted into every
+developer's copy in every project before it took effect, and a prompt that drifted from the
+plugin was invisible from the repository. A rule written in the command reaches every account's
+routine on its next run with no routine edit at all.
 
-**One shape, because a status line addressed to nobody is noise** (2026-08-19, the developer's
+**The command is the ceiling** (`workaholic:notify`, *The command is the ceiling*): the shapes
+that command's own notification section names are the only ones a session running this routine
+may emit, and `workaholic:notify`'s `reference/notifications.md` mirrors each of them verbatim,
+so a drift between the two is a defect to fix rather than a second wording. What stays in the
+prompt is the one instruction the command cannot carry — the load fallback that finds and reads
+the command when the plugin did not bind.
+
+**Every shape here is addressed to somebody, because a status line addressed to nobody is noise** (2026-08-19, the developer's
 instruction). This routine used to emit a second, `🔧 Needs a decision`, and the merged-in
 release tick a third, `📦 Release Preparation`; both were top-level roots carrying no mention
 token. Measured on `#dev-workaholic` the same day: ten `📦` lines in ten consecutive hours for
@@ -102,28 +117,3 @@ log and, where it is work, becomes a ticket.
 Run `/moderate`.
 
 If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/moderate.md` and follow it with every script path under `<src>`.
-
-When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
-
-```
-🔎 Moderation - <N> change(s), <M> question(s)
-<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
-<what happened to the repository, one line per changed step that has an event>
-<session URL>
-```
-
-Then post each question the check-in step cleared as a reply into that root, addressed to the resolved person:
-
-```
-🙋 <@U…> - <what this tick could not decide>
-One sentence, max 25 words, the question itself, with the two options when there are two.
-```
-
-For each previously asked question whose subject the check-in read as settled this tick, post one confirmation as a reply into the thread where it was asked — no mention token, once ever per question:
-
-```
-✅ 解消を確認 - <the question's subject, one line>
-One sentence: what the tick measured that says it settled.
-```
-
-If the rendered post says not to post, post nothing at all — no root, no question, ever. An hour with nothing changed and nothing to ask is silent.

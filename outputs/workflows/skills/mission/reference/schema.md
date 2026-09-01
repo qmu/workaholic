@@ -73,11 +73,11 @@ Read a mission's owner(s) **only** through `gather/scripts/owners.sh` — never 
 
 Prints one owner per line; **empty output means unowned** — unclaimed work, surfaced to everyone as claimable. A mission may be **co-owned**; "mine" means the caller is **among** the owners, not the sole one.
 
-**Not somebody else's, not exactly mine.** `summary.sh`, the **mission lens**, `list.sh`'s `relation`, and `/drive`'s survey all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All four read through `gather/scripts/owners.sh`, so the gate is defined once.
+**Not somebody else's, not exactly mine.** `summary.sh`, `list.sh`'s `relation`, and `/drive`'s survey all gate on "is this mission my business" — the caller is among the owners (mine, shown first), or there are no owners (unassigned, shown as claimable, after your own); a mission owned only by others stays silent. All three read through `gather/scripts/owners.sh`, so the gate is defined once.
 
 **Claiming a mission = a one-line edit to that mission** — add yourself to its `assignees`. The claim is mission-local: it commits you to this plan and nothing else.
 
-This is per-worktree by construction — each worktree checks out its own `.workaholic/`, so the lens that fires there reflects the missions that are the business of whoever is working that tree.
+This is per-worktree by construction — each worktree checks out its own `.workaholic/`, so a survey run there reflects the missions that are the business of whoever is working that tree.
 
 ### Duration (predicted / actual)
 

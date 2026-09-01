@@ -1,11 +1,25 @@
 #!/bin/sh -eu
 # Check whether the Slack channel a routine will post to actually exists. Pure read.
 #
-#   check-slack-channel.sh <repo-name> [channel-prefix]      # prefix defaults to dev-
+#   check-slack-channel.sh <repo-name> [channel-prefix]      # prefix defaults to empty
+#
+# The channel probed is WORKAHOLIC_INBOUND_SLACK_CHANNEL when set — the same variable every
+# reader of the channel honours — else `<prefix><repo-name>`. The `dev-` prefix convention
+# was retired on 2026-08-28 (the operator's ruling): the default channel is the repository's
+# own name, and nothing here expects or requires a prefix any more; a repository whose
+# channel still carries one passes it as the second argument or sets the variable.
+#
+# THIS REPOSITORY IS ONE OF THOSE (2026-08-29, mission
+# `point-the-inbound-readers-at-the-channel-that-exists`). Its channel is `dev-workaholic`,
+# and no `#workaholic` exists — a private-inclusive search returns exactly one channel — so
+# it sets `WORKAHOLIC_INBOUND_SLACK_CHANNEL` in its own `.claude/settings.json` `env` block.
+# That USES the escape hatch this header already names rather than completing or reversing
+# the retirement: the default derivation below is untouched, and no prompt gains a
+# repository name.
 #
 # Output (one JSON line):
-#   {"channel": "dev-<repo>", "checked": true,  "exists": true}
-#   {"channel": "dev-<repo>", "checked": false, "reason": "no_qfs"|"slack_locked"
+#   {"channel": "<repo>", "checked": true,  "exists": true}
+#   {"channel": "<repo>", "checked": false, "reason": "no_qfs"|"slack_locked"
 #                                                        |"slack_not_connected"
 #                                                        |"channel_not_visible"|"probe_failed", ...}
 #
@@ -27,8 +41,8 @@
 # cloud. Absence of evidence is not evidence of absence, and a script that cannot tell
 # the two apart must say so.
 #
-# WHY THIS MATTERS BEFORE SCHEDULING. All three routine templates post to
-# `dev-<repo_name>`. A routine created against a channel that does not exist is a routine
+# WHY THIS MATTERS BEFORE SCHEDULING. The routine templates post to the repository's
+# channel. A routine created against a channel that does not exist is a routine
 # that runs, does its work, and silently fails at the last step — the most expensive kind
 # of broken, because it looks scheduled and healthy.
 #
@@ -39,11 +53,11 @@
 set -eu
 
 REPO_NAME="${1:-}"
-PREFIX="${2:-dev-}"
+PREFIX="${2:-}"
 
 [ -n "$REPO_NAME" ] || { echo '{"checked": false, "reason": "no_repo_name"}'; exit 1; }
 
-CHANNEL="${PREFIX}${REPO_NAME}"
+CHANNEL="${WORKAHOLIC_INBOUND_SLACK_CHANNEL:-${PREFIX}${REPO_NAME}}"
 WORKSPACE="${WORKAHOLIC_SLACK_WORKSPACE:-qmu}"
 
 if ! command -v qfs >/dev/null 2>&1; then

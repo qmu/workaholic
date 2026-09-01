@@ -197,7 +197,8 @@ sheet() {
         # "posts and reads" since 2026-08-23: [Propose]'s inbound sweep READS the channel
         # and posts nothing, so the old "every post goes there" claimed a post the routine
         # never makes. The line's job is unchanged — the channel must exist.
-        printf '%s. Have the Slack channel `dev-%s` ready — the routine'"'"'s posts and reads happen there and nowhere else.\n' "$_n" "$_repo_name"
+        # The bare repository name since 2026-08-28: the `dev-` prefix convention is retired.
+        printf '%s. Have the Slack channel `%s` ready — the routine'"'"'s posts and reads happen there and nowhere else.\n' "$_n" "$_repo_name"
         # A connector routine may ALSO declare a notification ([Propose] since 2026-08-23:
         # the connector is for the sweep's read, the result still reaches its reader by
         # push) — the two lines are not alternatives when the template declares both.
@@ -263,7 +264,8 @@ printf '> Note also that a Slack thread URL placed in a public Issue or pull req
 printf '> world-readable and permanently archived — it is not a credential and grants no\n'
 printf '> access, but it cannot be unpublished.\n\n'
 printf '> **Each developer whose tickets a routine should drive needs an entry in the\n'
-printf '> committed `.claude/git-identities` mapping** (`<login>=<email>`; the web bootstrap\n'
+printf '> committed `.claude/git-identities` mapping** (`<login>=<canonical>[,<alias>...]`;\n'
+printf '> the first field is canonical, the rest are that person'\''s other addresses; the web bootstrap\n'
 printf '> hook reads it). Without one, the cloud session keeps the container'\''s default git\n'
 printf '> identity and that developer'\''s own [Implement] routine cannot claim tickets\n'
 printf '> assigned to them.\n\n'

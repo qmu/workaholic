@@ -88,12 +88,46 @@ case "$CMD" in
         exec gh api "$@"
         ;;
     available)
+        # THE PROBE TESTS THE CAPABILITY, NOT A PROXY FOR IT (2026-08-29, mission
+        # `read-back-whether-the-loop-s-own-act-took-effect`). It ran `gh api user` until then,
+        # which asks *can I identify the running person* — and `GET /user` is NOT ACCESSIBLE TO A
+        # GITHUB APP INSTALLATION TOKEN, which is what `GITHUB_TOKEN` is inside a workflow. So
+        # every script guarded by this refused `gh_unavailable` in CI whatever its own operation's
+        # permissions were.
+        #
+        # MEASURED 2026-08-29 on this repository: `.github/workflows/claim-retirement.yml` holds
+        # `contents: write` and had deleted NOTHING since it shipped, because
+        # `delete-retired-claim-branch.sh` refused here before reaching its proof gate. Reproduced
+        # by stubbing `gh api user` to answer 403 `Resource not accessible by integration`: the
+        # candidate reader still named all three units while the act refused.
+        #
+        # `rate_limit` IS THE PROBE, chosen over the two alternatives and recorded so a later
+        # reader does not re-open it:
+        #
+        #   `GET /rate_limit`   answers for EVERY token type, installation tokens included, needs
+        #                       no repository context, and does not itself consume quota. It says
+        #                       exactly what this command is asked: does REST answer here.
+        #   `GET /repos/{slug}` proves repository read too, but needs a slug — and `available` is
+        #                       called BEFORE `slug` by several callers, so it would answer
+        #                       `false` in any checkout without a resolvable remote.
+        #   `GET /user`         what was here. It measures identity and calls it reachability.
+        #
+        # `login` IS VESTIGIAL AND ALWAYS EMPTY, kept only so the output shape does not move. No
+        # caller in this plugin ever read it — all seven test `"ok": true` and nothing else — and
+        # the four scripts that genuinely need an identity (`open-proposal.sh`,
+        # `list-open-proposals.sh`, `list-inbound-issues.sh`, the web bootstrap) call
+        # `gh api user` themselves and answer `identity_unresolved` in their own vocabulary. That
+        # separation is the point: a caller that needs a person asks for one and handles its
+        # absence; a caller that needs a transport must not fail because there is no person.
+        #
+        # NO REFUSAL WORD MOVED. `gh_unavailable` and `rest_unreachable` mean what they meant;
+        # what changed is when `rest_unreachable` is true.
         if ! command -v gh >/dev/null 2>&1; then
             printf '{"ok": false, "reason": "gh_unavailable"}\n'
             exit 0
         fi
-        if out="$(gh api user --jq .login 2>&1)" && [ -n "$out" ]; then
-            printf '{"ok": true, "login": "%s"}\n' "$(printf '%s' "$out" | tr -d '"\\')"
+        if out="$(gh api rate_limit --jq .rate.limit 2>&1)" && [ -n "$out" ]; then
+            printf '{"ok": true, "login": ""}\n'
             exit 0
         fi
         printf '{"ok": false, "reason": "rest_unreachable", "detail": "%s"}\n' \

@@ -49,4 +49,34 @@ if ! mkdir -p "$DIR" 2>/dev/null || [ ! -w "$DIR" ]; then
 fi
 
 DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(printf '%s' "$TICK" | cut -c7-8)
-printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/moderations/%s.md", "needs_agent": []}\n' "$DAY"
+
+# OPENING THE LOG NOW MEANS MAKING IT READABLE HERE (2026-09-01, issue #782). The log left
+# `main` for its own branch, so a fresh container's clone no longer carries it: without this,
+# every reader that walks the log -- `log-read.sh`'s dedup sets, `question-state.sh`,
+# `record-answer.sh`, `condition-age.sh`, `filed-records.sh`, `step-blocked-tick.sh` -- would
+# answer *no earlier tick ever ran* and the whole dedup would re-fire hourly. It is the other
+# half of the move, and it belongs to this step because "prepare a log storage location" is
+# exactly what it always did; what a location has to contain simply grew.
+#
+# IT IS NEVER FATAL. A tick that could not hydrate still runs -- it has no memory of earlier
+# ticks, which makes it OVER-report rather than under-report, the same asymmetry the claim scan
+# keeps. The reason is carried in this step's own summary so a re-firing dedup reads as *we
+# could not fetch the log* rather than as *there was nothing there*.
+hy=$(sh "${SCRIPT_DIR}/hydrate-log.sh" --root "$ROOT" 2>/dev/null || true)
+hy_state=$(printf '%s' "$hy" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
+hy_reason=$(printf '%s' "$hy" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+hy_files=$(printf '%s' "$hy" | sed -n 's/.*"files": \([0-9]*\).*/\1/p')
+[ -n "$hy_files" ] || hy_files=0
+
+case "$hy_state" in
+    hydrated) hy_note=", ${hy_files} day file(s) carried from the log branch" ;;
+    absent)   hy_note=", no log branch history yet (${hy_reason})" ;;
+    skipped)  hy_note=", not fetched (${hy_reason})" ;;
+    *)
+        printf '{"step": "open-log", "status": "degraded", "reason": "log_not_hydrated", "summary": "tick log open at .workaholic/moderations/%s.md, but the log branch could not be read (%s) — this tick has no memory of earlier ticks", "needs_agent": []}\n' \
+            "$DAY" "${hy_reason:-unknown}"
+        exit 0
+        ;;
+esac
+
+printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/moderations/%s.md%s", "needs_agent": []}\n' "$DAY" "$hy_note"

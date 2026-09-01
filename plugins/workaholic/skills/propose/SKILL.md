@@ -41,7 +41,12 @@ files the same `[FB]` issue the tag produced, so the deliverable is unchanged an
 downstream (`[Specificate]`'s ingestion, the record, the proposal) is untouched.
 
 **The channel** is `WORKAHOLIC_INBOUND_SLACK_CHANNEL`, defaulting to the repository's own
-`dev-<repo_name>` — the channel `workaholic:notify` already holds standing consent to read.
+name, `<repo_name>` — the channel `workaholic:notify` already holds standing consent to read
+(the `dev-` prefix convention was retired 2026-08-28; no prefix is expected or required).
+**A repository whose channel is named otherwise sets the variable**, which is the escape
+hatch that retirement documented; this one sets it to `dev-workaholic` in its own
+`.claude/settings.json` `env` block, because no `#workaholic` exists in the workspace. The
+default derivation does not move and no routine prompt gains a repository name (P7).
 **The window** is `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26): wider than the hourly
 tick by a day so a missed tick drops nothing, and the dedup below is what makes the overlap
 free. **This read is a bounded channel-history read, and it is the one place that has
@@ -60,7 +65,11 @@ routine roots, replies and finish lines this plugin's skills emit — a machine'
 an opinion to capture); **messages a filed issue already names**, matched by the
 `slack-ref: <channel>:<ts>` marker `list-swept-slack-refs.sh` reads back out of the issue
 ledger; and **answers to the tick's own questions**, which belong to `/moderate`'s
-`record-answer.sh`, not to a new issue. When unsure whether a message is an ask, the standing
+`record-answer.sh`, not to a new issue **opened here** — since 2026-08-28 that sentence names a
+path that exists: `/moderate`'s `question-answers` step reads the question's own thread, records
+the answer through that writer, and files the ones that ask for work through this same
+`file-inbound-ask.sh`, stamping the answer message's own `slack-ref` so the ledger this sweep
+reads already names it. When unsure whether a message is an ask, the standing
 bar applies — this sweep captures, it does not originate, so *when unsure, skip and say what
 made you unsure* costs one hour, not the ask.
 
@@ -98,13 +107,62 @@ decided none. An **unreadable strategy set is named** (`strategy_list_unreadable
 collapsed into `unattributed`: reading nothing and finding nothing are different facts, and
 blurring them is the invisible loss this whole change exists to remove.
 
+**And every capture is acknowledged where it was written** (2026-08-26, the developer's
+instruction). Filing an issue and leaving no trace on the message makes a captured ask and an
+ignored one **byte-identical from the channel** — the person who wrote it cannot tell which
+happened without going to look on GitHub. Measured the same day: the developer's 18:56 and
+19:20 JST messages became issues #620 and #621 within the hour, and, seeing nothing in the
+thread, they asked why neither had been treated as feedback. The capture had worked; only its
+receipt was missing.
+
+After `file-inbound-ask.sh` returns `ok: true`, the run posts **one reply into that message's
+own thread** — the `📥 受理` shape in `workaholic:notify`'s catalog, carrying the issue link and
+the session URL. It needs **no lookup**: the `slack-ref` the wrapper just wrote *is*
+`<channel>:<ts>`, so the thread coordinate is the sweep's own input and the model's
+two-query bound is never touched (`workaholic:notify`, *The inbound sweep's receipt*). A
+message with no thread gets one rooted on itself, which is where a person reading that message
+looks.
+
+**And a reaction on the message itself, beside the reply** (2026-08-26). The reply closed half
+the gap and left the other half open: a reply lives *inside* a thread, so from a channel scroll
+a captured ask and an ignored one still look identical — a person has to open the thread to find
+out which happened. The reaction is the same receipt at a glance, in the place someone scrolling
+the channel is already looking. The emoji is named **once**, in `workaholic:notify`'s catalog
+(*The inbound sweep's receipt*), so the skill, the routine template and the drift pin read one
+source; it is the emoji the reply already speaks with, because one event keeps one vocabulary.
+
+It is added **after** `file-inbound-ask.sh` returns `ok: true`, on the `slack-ref` that wrapper
+just wrote — so, like the reply, **no lookup, no search and no second query**. It is a **second
+signal for a second audience**, never a substitute: a reaction carries no link and is invisible
+to anyone reading the issue rather than the channel, while the reply carries the issue URL and
+is invisible to anyone scrolling past.
+
+**Only a message this run filed, and never load-bearing.** An **already-swept** message gets
+nothing — **neither reply nor reaction**; its receipt is on the issue that already exists, and a
+second one an hour later is the hourly restatement this repository retires posts for; an
+exclusion, a degradation and the strategy half of the tick post nothing at all. The issue is
+open before either is attempted, so a reply or a reaction that fails is reported per message as
+`ack_failed: <reason>` — one outcome each, so a landed reaction and a failed one are two facts —
+and changes nothing about the filing, the dedup marker or what `/specificate` ingests. A capture
+that landed and a receipt that did not are two facts and the run report states both.
+
 **Degradations are named, and the strategy flow never waits for them**: no Slack connector in
 the session → `no_slack_transport`, sweep skipped and said; an unreadable channel →
 `channel_unreadable` with the transport's own error; an unreadable issue ledger →
 `sweep_dedup_unreadable`, and the sweep is **skipped** rather than run blind — filing against
 an unreadable dedup is how the same ask arrives twice an hour. The run report names every
-message filed (issue URL), every one excluded (reason), and every degradation. The sweep
-happening or not never changes what the strategy half proposes.
+message filed (issue URL **and** whether its receipt landed), every one excluded (reason), and
+every degradation. The sweep happening or not never changes what the strategy half proposes.
+
+**`channel_unreadable` never claims the channel is absent, and it names the channel it resolved**
+(2026-08-29, mission `point-the-inbound-readers-at-the-channel-that-exists`). Slack answers *not
+found* for a channel the calling token cannot **see**, so absent and invisible are one response —
+the distinction `check-slack-channel.sh` exists to preserve. It is also distinct from *the channel
+was read and held nothing*, which is an ordinary quiet window and is reported as one. Naming the
+resolved channel in the report is what makes a divergence between the channel the loop posts to
+and the one it reads legible without anyone re-deriving the default; the person who must act on a
+persistent one is reached by `/moderate`'s `inbound-channel-unreadable:<channel>` question, asked
+once, never by an hourly line here.
 
 **It is not the `/propose` this repository retired.** That name belonged to what is now
 `/specificate` (renamed 2026-08-19), and `[Propose]` belonged to what is now `[Moderate]`.
@@ -205,6 +263,24 @@ propose housekeeping. What replaces the bar is not a softer judgment but a set o
 refusal is the run's own **judgement**, stated in words and arguable by a reader — which is why it
 is named here rather than folded into the mechanical list. It is a refusal on the same standing as
 housekeeping's, and like it, it is reported by name so a tick refused for it never reads as idle.
+
+**`attribution_unreadable` now covers a walk that did not complete** (2026-08-29, mission
+`keep-the-closing-link-readable-as-the-corpus-grows`). It used to mean only *the attribution reader
+produced no output at all*. Since that reader learned to tell *found nothing* from *could not look*
+(`workaholic:strategy`), a walk it could not complete reaches the same refusal — **the word this
+condition already had, never a second one** — and every reading composed on the walk is emitted as
+**unmade** rather than as false: `pace: unknown`, `dormant: false`, `quiescent: false`, and **null**
+`count` / `active_count` / `waiting_*` instead of zeroes. `direction-state.sh` answers `unreadable`
+for such a row through its existing precedence and carries the nulls rather than re-zeroing them.
+
+**`work_waiting` cannot stand open on it**, which is the whole point: a degraded walk cannot prove
+the brake is clear, and a gate that cannot be read is not a gate — the rule `no_feedback_refs` and
+`inbox_unreadable` already hold themselves to. Measured against the pre-change survey: a corpus one
+unreadable path wide put **both** directions in `eligible` with `dormant: true`, `waiting_count: 0`
+and both `selected`, on a walk that had read nothing. **The date terms do not move** — `overdue`,
+`expiring` and `days_to_target` come from the strategy's own `target_date`, never from the walk.
+The cost is accepted for the reason `inbox_unreadable` already records: proposing against a reading
+nobody can trust is worse than not proposing, and the degradation is now visible rather than silent.
 
 Three of them carry the design:
 
@@ -313,6 +389,109 @@ no second derivation) and asks the strategy's assignee once. The alternatives we
 named itself on every tick and still hid a day of starvation — and the proposal issue says
 nothing precisely when the direction is gated.
 
+### Overdue: has the date passed
+
+`pace` answers *will this direction arrive*. It cannot answer *has its date already gone*, and
+must not be asked to: `late` requires `(.landed | length) == 0`, so a direction that sailed past
+its `target_date` **while producing work** reads `on_course`. It is then refused
+`past_target_date` — a correct refusal — and produces no proposal and no question, forever.
+
+`survey-strategies.sh` emits **`overdue`** as its own boolean on every surveyed row, eligible and
+refused alike, `true` exactly when `days_to_target < 0`. The refused case is the whole point: a
+reader that saw only `eligible` would never see a direction whose date has gone.
+
+**It changes no gate.** `overdue` is computed *before* `refusal`, so `past_target_date` refuses
+exactly the strategies it refused before, `pace` is byte-identical, the sort is untouched, and
+`selected` does not move. Folding it into `pace` as a fourth value is refused: one field
+answering two questions is how the two drift.
+
+**Boundaries, stated rather than tuned.** A row with no resolvable `target_date` has a `null`
+`days_to_target` and is never `overdue` — a malformed strategy is not a late one. `days_to_target`
+is computed against a UTC `$today`, so a direction expiring **today** reads `0` and is not yet
+overdue.
+
+Who is told is `/moderate`'s business, not this routine's, for the reason `pace` records above.
+
+### Expiring: the date is about to arrive
+
+`pace`, `overdue` and `dormant` all answer **backwards**. None answers *this direction is about
+to stop originating work*, so a live, in-date, `on_course` direction one day from its
+`target_date` produced no reading and no question anywhere in the layer — and the day after,
+`past_target_date` silenced origination with the only signal being `direction-overdue`, asked in
+**arrears**. Measured on `an-autonomous-improvement-loop-run-by-the-routines` at the hour the ask
+was written: `days_to_target: 2`, `pace: on_course`, `overdue: false`, `dormant: false` — every
+reading healthy, two days from silence.
+
+`survey-strategies.sh` emits **`expiring`** on every surveyed row, eligible and refused alike,
+`true` exactly when `days_to_target != null` and `0 <= days_to_target <= $window_days`. The
+refused case is the point rather than a courtesy: a direction with a date approaching normally
+has work in flight, so it is refused `work_waiting` — the very shape the reading exists to catch.
+
+**The threshold is not a threshold.** Both terms were already on the row and already justified
+there: `$window_days` is the evidence window the judgment is made against, derived from the same
+`$WINDOW` `pace` is derived from, and the remaining days are the date the strategy itself
+declares. So the reading means *less runway remains than the window the judgment can see* — the
+point at which `pace` stops being able to tell whether the direction will arrive. **A tunable
+constant is refused by name**: a fresh number is one nobody can defend, and a narrower window
+must narrow the reading with it.
+
+**Folding it into `pace` as a fourth value is refused**, for the reason `overdue` records: one
+field answering two questions is how the two drift.
+
+**Boundaries, stated rather than tuned.** `days_to_target < 0` is the answer `overdue` gives and
+never this one, so the two are exhaustive and disjoint with no gap and no overlap; a direction
+whose date is **today** reads `0` and **is** expiring, not overdue; and a row with no resolvable
+`target_date` is never expiring — malformed is not near, exactly as it is not late.
+
+**It changes no gate.** `expiring` is computed *before* `refusal`, so every refusal, `pace`,
+`overdue`, `dormant`, `quiescent`, the sort and `selected` are byte-identical across the
+boundary. What changes is only that the run report **says** it: a tick proposing against an
+`expiring: true` strategy names `expiring` beside that proposal as evidence, in the same voice
+`pace` and `arrived` use. Proposing *more urgently* against an expiring direction, and *skipping*
+one to leave the operator room to decide, are both refused deliberately — each makes the output
+of the one routine that originates work a function of a clock, which is the coupling `pace` was
+kept out of. **A machine re-dating or closing a direction on this reading is refused too**: the
+artifact keeps its three writers, and a run never amends a direction on its own reading.
+
+Who is told is `/moderate`'s business: `direction-expiring:<slug>`, addressed to the direction's
+assignee, once, before the date.
+
+### Dormant: a live direction nothing is answering
+
+A direction can be perfectly legible, perfectly in date, perfectly eligible — and have nothing
+happening against it. `/propose` reports `no_evolutionary_move`, which is the honest answer, into
+a run report that on the day it matters is read by nobody; the direction stays eligible on every
+tick and produces nothing. That state is byte-identical to a healthy idle hour, which is the
+defect.
+
+`survey-strategies.sh` emits **`dormant`** on every surveyed row. It is `true` only when *all* of
+these hold, and every one is already computed here or by `attributed-work.sh` beneath it — no new
+counter, no field on any artifact, no second derivation of `pace`:
+
+| Term | Meaning |
+| ---- | ------- |
+| not `unreadable` | the attribution could be read at all — a degraded read is never dormant |
+| `status == "active"`, `owns == "mine"` | a live direction of this identity's |
+| `days_to_target >= 0` | not already `overdue`; that reading is its own |
+| `feedback_refs` non-empty | something the reader *could* have seen, so silence means silence |
+| `(.landed \| length) == 0` | nothing landed inside the window |
+| `waiting_missions + waiting_count == 0` | nothing waiting at either grain |
+| no open proposal | the last turn is not still sitting in the inbox |
+
+**It is not `pace: late`**, which requires the date to be *near* (`days_to_target <=` the window):
+a direction a year out with nothing happening is dormant and not late. **It is not
+`no_citing_artifacts`** either — that reading is explicitly *not* a refusal here, and neither is
+this: a dormant direction stays **eligible**, which is precisely what makes its silence a
+*finding* rather than a gate. `refusal`, `pace`, the sort and `selected` are untouched.
+
+**The two periods differ, and that is inherited rather than reconciled.** `landed` is bounded by
+the survey's window while `waiting_*` is computed over the queue, so the reading means *nothing
+landed in the window and nothing is waiting at all*.
+
+**A direction filed an hour ago reads dormant immediately.** That is correct — it is exactly the
+"nothing is answering this" state a person should be told about — but it is a description of the
+direction, never an accusation, and the question's wording is held to that (`workaholic:moderate`).
+
 - **`no_feedback_refs` is the answer to the lossy reader.** `attributed-work.sh` walks
   `strategy.feedback[] ∩ artifact.feedback[]` plus one hop through a mission and admits it
   cannot see everything. A strategy citing **no** record can never have anything attributed
@@ -347,6 +526,215 @@ nothing precisely when the direction is gated.
 
 **A gate that cannot be read is not a gate**: if the open-proposal list cannot be fetched, the
 whole tick refuses (`inbox_unreadable`) rather than proposing blind.
+
+### Quiescent: a direction whose work is all in
+
+`pace`, `overdue` and `dormant` all answer *is this direction in trouble*. None answers **has it
+arrived**, so a direction that produced its work and has nothing left in flight is byte-identical
+to one still running — and when its date passes, the loop reports that success as an hourly
+`direction-overdue` question. Naming a success as a failure is the defect this reading removes.
+
+`survey-strategies.sh` emits **`quiescent`** on every surveyed row, eligible and refused alike —
+the refused case is the point, because a direction past its date is refused `past_target_date` and
+would otherwise never show its arrival to anyone. It is `true` only when *all* of these hold, and
+every one is already on the row — no new counter, no field on any artifact, no second derivation:
+
+| Term | Meaning |
+| ---- | ------- |
+| not `unreadable` | the attribution could be read at all |
+| `status == "active"`, `owns == "mine"` | a live direction of this identity's |
+| `feedback_refs` non-empty | something the reader *could* have seen |
+| `(.landed \| length) > 0` | **its answers are in** — the one term that separates it from `dormant` |
+| `waiting_missions + waiting_count == 0` | nothing waiting at either grain |
+| no open proposal | the last turn is not still sitting in the inbox |
+
+**It is the complement of `dormant` on exactly one term** — `landed` empty versus non-empty — and
+the two are mutually exclusive by construction. Nothing enforces that: deriving each from the row
+independently is what keeps them from drifting.
+
+**It carries no date term at all**, deliberately, unlike `dormant` (which is `false` once
+`days_to_target < 0`). Arrival is independent of the date — a direction that finished late has
+still finished — and that independence is why the projected lifecycle state ranks `arrived` above
+`overdue` (`workaholic:strategy`). Folding a date term in here would make that projection
+unreachable for the one case it exists to serve.
+
+**And since 2026-08-28 one more term: the residue must have been *readable*.** `quiescent` is
+`false` when the survey's `residue` read was degraded (mission
+`say-what-the-direction-could-not-see-before-calling-it-arrived`). *Everything I could attribute
+has landed* was true and partial, and nothing said which half — measured on this repository, a
+strategy read `quiescent: true` with 125 landed items while **four active missions and ten queued
+tickets** belonged to no direction at all. Claiming an arrival on a blind read sends the operator
+to **close** a direction, while every other reading only asks them to **look**, so this is the one
+reading refused when the tree could not be read (`workaholic:strategy`,
+`strategy/scripts/unattributed-work.sh`). **A non-empty but successfully read residue leaves
+`quiescent` exactly as it was** — an unattributed mission is not this direction's work, and
+refusing on it would let any unrelated mission suppress every arrival forever. What a non-empty
+residue earns is being **named**, in the question and in the run report.
+
+#### Quiescent changes no gate — and the reason is recorded so it is not changed by reflex
+
+`quiescent` **lifts and closes no gate.** An arrived direction stays **eligible**; `refusal`,
+`pace`, `overdue`, `dormant`, the sort and `selected` are byte-identical, and `/propose` keeps
+proposing against it. What changes is only that the run report **says** it is doing so:
+a tick that proposes against a `quiescent: true` strategy names `arrived` beside that proposal,
+as evidence, in the same voice `pace` uses (`reference/loop.md`, step 5).
+
+**And it names that strategy's residue beside it** (2026-08-28) — the unattributed mission slugs
+and the counts, kept short. An `arrived` reading printed without its residue is the same partial
+claim this mission removed from the question, so the evidence and its limit are read together. A
+**degraded** residue read is reported as degraded and never as an empty one; a run that proposed
+against no `quiescent` strategy reports no residue at all, because the residue is evidence beside
+a reading and not a standing status line. Nothing is proposed, withheld, ordered or gated on it:
+no gate expression, no sort, no `selected` and no token reads the residue, and `not_active`,
+`not_mine`, `past_target_date`, `no_feedback_refs`, `work_waiting`, `open_proposal` and
+`attribution_unreadable` are untouched.
+
+**The gate that eventually holds is `not_active`, after a *person* closes the direction.** That is
+the operator's act, not a reading's — and the whole point of the reading is to *reach* that
+person, not to pre-empt them.
+
+**The obvious next request will be to gate on `arrived`, and it should be refused
+deliberately rather than by accident.** Silencing the one routine that originates work on a
+machine's guess is exactly what `pace` already refuses: `arrived` is a **candidate, not a
+verdict** (a strategy's "Reached when" is prose no script reads, so nothing here can know the
+aim was met — only that everything attributed has landed and nothing is queued), and a wrong
+guess would stop the direction producing work while the operator was never asked. The reading's
+job is to raise the question with a name on it — `/moderate`'s `direction-arrived:<slug>` — and
+nothing else.
+
+### The run report names a degraded direction reading
+
+(2026-08-29, mission `keep-the-closing-link-readable-as-the-corpus-grows`.) A tick that
+surveyed a strategy whose attribution walk did not complete names that strategy and the
+refusal the survey already emitted — **`attribution_unreadable`, never a second word** — in the
+run report, in the same voice `pace` and `arrived` are named in (`reference/loop.md`, step 5).
+Nothing else about the report moves: it never states a `pace`, a `dormant` or a `quiescent`
+verdict for such a strategy, because the survey emits none, and no line may imply the tick
+judged something it could not read.
+
+**This ticket names; the survey brakes.** The actual gate is
+`survey-strategies.sh`'s — a degraded row is refused and cannot be selected — and it is stated
+where the refusal vocabulary lives, above. The report is read by nobody on the day it matters,
+which is precisely why the brake is not here; and no question is added here either, because
+reaching a person is `/moderate`'s job and belongs in its own ask if it is wanted.
+
+### The declared stage rides on every row and gates nothing here
+
+(2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`.) `survey-strategies.sh`
+carries the direction's **declared** `stage` on every surveyed row, eligible and refused alike —
+the refused case being the point, since a settled direction is normally refused. It comes off
+`list.sh`, which resolves the absent-means-進行中 default through `read.sh`, the one place that
+default lives; a **degraded** row still carries it, because the degradation belongs to the
+attribution walk and the stage is read off the artifact.
+
+**Carrying it decides nothing**: `refusal`, `pace`, `overdue`, `expiring`, `dormant`,
+`quiescent`, the sort and `selected` are byte-identical under 進行中, 改良中 and an unstaged
+direction, which the hermetic suite pins rather than asserts. **観察中 is the one value that
+decides anything**, and it decides exactly one thing:
+
+### 改良中 competes for attention — the stage joins the sort and nothing else
+
+(2026-08-29, the same mission.) The ask's 改良中 carries one behaviour the other two do not:
+its priority rises and falls **relative to the other active directions**, because the operator
+runs several that reference each other and improve as a blend. The survey has exactly one seam
+for that and no other — the **eligible order**, admitted on the ground that it is a proposal
+about attention and never a gate, which is how `pace` was admitted — so the stage joins the
+sort key and stops there.
+
+**The whole ordering is stated in one place**, `survey-strategies.sh`'s own header, so no
+consumer re-derives it: **改良中 first**, then **late first**, then **nearest date**. The
+existing components keep their order beneath the new one.
+
+**Why 改良中 rather than 進行中**, with the counter-argument recorded rather than dismissed:
+work that cannot be cut over yet is the riskiest and might deserve attention first — it lost
+because 改良中 is the stage the operator declared to mean *can absorb a proposal*, and a
+blend's proposing energy belongs where it converts to shipped behaviour, while a direction
+still building is advanced by the work already queued against it.
+
+**It is a sort and not a gate**, which is what makes it cheap and reversible: `refused[]`, every
+gate, the membership of `eligible[]` and `selected[]` and every reading are byte-identical, and
+a repository whose directions all carry one stage — or none — produces the pre-change order
+exactly. **No weight, no score, no tunable constant and no cross-direction arithmetic**: the key
+is lexicographic over fields already on the row. Since `over_cap` was retired a tick proposes
+against **every** eligible direction, so the order decides only which one a tick that dies
+partway has advanced — which is precisely what bounds this change's blast radius. An explicit
+operator-set numeric rank is refused: a rank is a second thing to keep current, and if it is
+ever wanted it is a separate ask against a working ordering rather than a guess made now.
+
+### `observing` — the first DECLARED gate, and why that is what makes it safe
+
+(2026-08-29, the same mission.) A direction the operator declared **観察中** is settled: the
+loop stays **reactive only** and no longer originates proposals for it. That is the refusal
+`observing`, one more entry on the gate list, reported by name like every other.
+
+**It is the first gate on that list that is declared rather than derived, and that is precisely
+the argument for it.** A derived silence was refused here by name — `pace` changes order and
+never eligibility, because a machine's guess must not silence the one routine that originates
+work. The operator's own word is not a guess, it is read off the artifact, and no running
+session can make it differently.
+
+**Its placement is argued against both neighbours.** It sits **after** `not_active` and
+`not_mine`, because a closed or foreign direction is not this repository's question at all and
+answering `observing` for one would name the wrong fact; and **before** `past_target_date`,
+because an observing direction that is also overdue should read as observing — that is the fact
+a person acts on, and lateness on a settled direction is not a failure.
+
+**It stops origination and nothing else.** The refused row still carries `pace`, `overdue`,
+`expiring`, `dormant`, `quiescent` and its residue, so a settled direction stays visible; and
+**reactive work still reaches it** — an inbound ask, whether swept off the channel, filed as an
+issue or reported as an error, still becomes an `[FB]` issue, still reaches `/specificate`, and
+still lands as a mission or a ticket carrying that direction's refs. That asymmetry is the
+whole point of the stage. `no_evolutionary_move` stays what it is — an honest empty answer for
+a direction the run had nothing to propose against — and is never rendered as `observing`.
+
+### The run report names what is waiting on the operator
+
+(2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`.) A tick names each
+**un-acted operator-facing pull request** — the publications `publish-tree-pr.sh` refused to
+auto-merge, where merging **is** the operator's ruling and closing **is** their refusal — with
+its number, its age and the **refusal word** that made it the operator's (`ruling_touching` /
+`strategy_touching`), read once through
+`branching/scripts/list-operator-facing-pulls.sh` and `branching/scripts/publication-effect.sh`.
+It is named in the same voice as `pace`, `overdue`, `expiring` and `arrived`: **evidence, never
+a verdict**. A `merged` or `closed` reading is settled and is not named; an **`unreadable`** one
+is named as unreadable by its reason, and never as *nothing waiting*.
+
+**It gates nothing, and every gate is byte-identical across the change.** No `refusal`, no
+`pace`, no `overdue`, no `dormant`, no `quiescent`, no sort and no `selected` reads it —
+`survey-strategies.sh` is untouched — so `/propose` keeps proposing against a direction whose
+ruling is unanswered, exactly as it did before this reading existed. It is a `/propose`-level
+fact rather than a per-strategy one and rides no survey row. The person who must act is reached
+by `/moderate`'s `operator-pull:<number>` question, for the reason the degraded-reading section
+above records: this report is read by nobody on the day it matters, which is why nothing here is
+ever a brake. Every value is a **judgement**
+(`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*).
+
+### The run report names how long a standing blocker has been standing
+
+(2026-08-30, mission `say-how-long-the-loop-has-been-stuck`.) Every reading in this repository
+was **instantaneous**: `late`, `overdue`, `dormant`, `arrived`, an un-acted ruling — each says
+**what** is true and none said **how long**. A tick now names the age of the question about each
+standing blocker it reports, read once through
+`moderate/scripts/condition-age.sh --key <subject-key>`: `age.ticks` ticks since
+`age.first_seen`, *at least* that when `age.first_seen_is_floor`.
+
+It is named in the same voice as `pace`, `overdue`, `expiring` and `arrived`: **evidence, never
+a verdict**. What it answers is the age of the **question**, which is a lower bound on the age
+of the condition — a blocker that existed before anybody asked reads younger than it is — so the
+report says *asked about since* and never asserts how long the subject itself has been stuck. A
+subject nobody has been asked about yet reads `first_seen: null` and nothing is said about its
+age: that is an ordinary absence, the first time anybody is being asked. A **`readable: false`**
+reading is named **as unreadable, by its reason**, and never as *nothing standing*.
+
+**It gates nothing, and every gate is byte-identical across the change.** No `refusal`, no
+`pace`, no `overdue`, no `dormant`, no `quiescent`, no sort and no `selected` reads it —
+`survey-strategies.sh` is untouched and never reaches the reader — so `/propose` proposes exactly
+as it did before this reading existed. **It moves no token.** The tempting error is to brake on
+an old blocker; the person who must act is reached by `/moderate`'s own questions
+(`undrivable-unit`, `retire-blocked`, `undelivered-unit`, `stalled-unit`), for the reason the
+degraded-reading section above records: this report is read by nobody on the day it matters,
+which is why nothing here is ever a brake. Every value is a **judgement**
+(`drive/reference/claims.md`, *How long a condition has been standing*).
 
 ## How the loop closes — and it closes with no new field
 
@@ -398,17 +786,28 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
 The run itself is five steps: [reference/loop.md](reference/loop.md) carries them, together
 with the clock placement, the name reclamation, and the alternatives that were refused.
 
-## It posts nothing to Slack
+## The one thing it posts to Slack, and everything it still does not
 
-**It reads Slack since 2026-08-23 — the inbound sweep above — and still posts nothing**: the
-sweep consumes the channel and writes only issues. The distinction is load-bearing, because
-the reasons below are all about *posting*.
+**It posts exactly one shape — the sweep's `📥 受理` receipt, with its reaction — and nothing
+else** (2026-08-26).
+It read Slack and posted nothing at all from 2026-08-23 until then; what changed is narrow and
+the reasons that kept it silent are unchanged for everything else, so they are restated rather
+than dropped.
 
-The issue is assigned to exactly one person, who is the running identity, and GitHub already
-delivers it to them. A Slack copy would be the same noise twice — the argument that gives
-the retired `[Workaholic]` no connector — and a status line addressed to nobody is the noise that retired
-`🔧 Needs a decision` and `📦 Release Preparation`. The routine's result reaches its one reader
-as a **Claude notification** (`notifications: push`) — since `[Workaholic]` retired on 2026-08-22 (issue #557), the only template that declares the field.
+**The proposal is still announced by nobody.** The issue is assigned to exactly one person, who
+is the running identity, and GitHub already delivers it to them. A Slack copy would be the same
+noise twice — the argument that gives the retired `[Workaholic]` no connector — and a status
+line addressed to nobody is the noise that retired `🔧 Needs a decision` and `📦 Release
+Preparation`. The routine's result reaches its one reader as a **Claude notification**
+(`notifications: push`) — since `[Workaholic]` retired on 2026-08-22 (issue #557), the only
+template that declares the field. Nothing about the strategy half posts, and neither does a
+refusal, a degradation or an idle tick.
+
+**Why the receipt is not that same noise, stated rather than assumed.** It is **addressed to the
+one person who wrote the message**, in the thread they wrote it in, **exactly once**, and only
+when this run captured something — it is a reply to a human, not a status line. The three
+properties every retired post lacked are each present, and the failure it fixes was measured:
+without it, a captured ask and an ignored one look identical from the channel.
 
 ## Describing work does not gate a building aim
 

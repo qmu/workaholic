@@ -94,7 +94,14 @@ for slug in $(printf '%s' "$LIST" | jq -r '.strategies[]?.slug // empty' 2>/dev/
       "${TMP}/unreadable.json" > "${TMP}/u.tmp" && mv "${TMP}/u.tmp" "${TMP}/unreadable.json"
     continue
   fi
-  if [ "$(printf '%s' "$WORK" | jq -r '.unreadable // false')" = "true" ]; then
+  # A WALK THAT DID NOT COMPLETE IS A STRATEGY WE COULD NOT READ (2026-08-29, mission
+  # `keep-the-closing-link-readable-as-the-corpus-grows`). Answering *no strategy* from a
+  # blind walk is the one thing this reader was written not to do: `attributed: false` means
+  # NO STRATEGY COULD BE ATTRIBUTED, and a walk nobody could complete cannot say even that.
+  # The test is `readable == false`, never `.readable // true`: in jq `//` treats `false`
+  # itself as empty, so the natural-looking spelling reads every degraded walk as healthy.
+  # The reason word is the one this condition already has; no second word is minted.
+  if [ "$(printf '%s' "$WORK" | jq -r '(.unreadable // false) or (.readable == false)')" = "true" ]; then
     jq -c --arg s "$slug" '. + [{slug: $s, reason: "attribution_unreadable"}]' \
       "${TMP}/unreadable.json" > "${TMP}/u.tmp" && mv "${TMP}/u.tmp" "${TMP}/unreadable.json"
     continue

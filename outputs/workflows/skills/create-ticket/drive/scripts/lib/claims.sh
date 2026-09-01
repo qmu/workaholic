@@ -70,7 +70,8 @@
 #
 # `claims_scan` emits, tab-separated, one row per claim:
 #   unit <TAB> branch <TAB> last_commit_at <TAB> stale <TAB> author <TAB>
-#   resumable <TAB> resume_reason <TAB> artifact,artifact,...
+#   resumable <TAB> resume_reason <TAB> reported <TAB> declared_handoff <TAB>
+#   artifact,artifact,...
 # where `branch` is the SHORT name (no `origin/` prefix -- the name the stamp carries),
 # `stale` is true|false against WORKAHOLIC_CLAIM_STALE_HOURS (default 24), and the
 # artifact list is comma-separated repo-relative paths (empty when a claim commit
@@ -152,7 +153,8 @@
 # `resume_reason` always answers "why is it in this state", and is NEVER empty (see the
 # no-empty-field rule below): `heartbeat_lapsed`, `parked_with_pr` or `report_incomplete`
 # when resumable, else `claim_active`, `foreign_identity`, `identity_unresolved`,
-# `shallow_history`, `superseded`, or `queue_drained`.
+# `shallow_history`, `superseded`, `awaiting_verification`, `report_undelivered`, or
+# `queue_drained`.
 # `parked_with_pr` splits the RESUMABLE case in two: a unit that reached its PR (its story
 # file is committed at the branch tip) and merely has follow-up work, versus a run that
 # died mid-drive. Both MAY be taken over; only the latter is a MANDATORY takeover, because
@@ -174,6 +176,15 @@
 # `superseded` is the claim whose CONTENT already reached the base by another route, so
 # there is nothing in it to drive and nothing for a human to merge (`claims_superseded`).
 # It is reported and never acted on, exactly like `stale`, and it must not forbid `ok`.
+# `awaiting_verification` is the REPORTED unit whose remaining queued work was DECLARED
+# unverifiable here at creation (`claims_declared_handoff`). It splits `parked_with_pr`, whose
+# own wording -- *taking it over is legitimate* -- is false by declaration for such a unit: §6
+# routed it to the handoff route because nothing unattended can finish it, so the next action is
+# a PERSON satisfying the declared verification, never a takeover. `resumable: false`, excluded
+# `claimed_awaiting_verification`, and it must NOT forbid `ok`: a unit waiting on a declared
+# human verification is the gate working, exactly like a scan-held pull request. It RELEASES
+# ITSELF -- the declaration is read from the still-queued work, so driving that ticket returns
+# the unit to `parked_with_pr` or `queue_drained` with nothing stored anywhere.
 #
 # Paths are assumed free of tabs, commas, quotes and backslashes -- true of every
 # .workaholic/ artifact by construction (the ticket/mission filename rules), and the
@@ -188,8 +199,47 @@
 # must FAIL the writer loudly (claim.sh), because a claim that was not pushed is not
 # a claim. False "unclaimed" is the dangerous error: it double-picks work. A stale
 # reader over-reports claims, which merely makes a runner wait.
+#
+# THE MERGED LOOKUP BELOW RUNS THE SAME ASYMMETRY, and this is the sentence to read before
+# changing it (2026-08-26): a wrong `merged` RELEASES work that is still in flight, a wrong
+# `in flight` only delays a claim — so a lookup we could not make leaves the row precisely
+# the verdict it would have had without it, and is reported by name instead.
+
+# WHETHER THE LAST FETCH ACTUALLY RAN, for the one consumer inside this library that has to
+# know: the merged-claim lookup below, which is a NETWORK read and must not be attempted on a
+# run that has just proved it has no network.
+#
+# THE CALLER ASSIGNS IT, right after its `fetched=$(claims_fetch)` line, and that is not a
+# convenience — it is the only thing that works. `claims_fetch` is invoked in a command
+# substitution, so the assignment it makes to this variable happens in a SUBSHELL and never
+# reaches the parent; `claims_scan` then runs in a subshell of its own, which inherits the
+# parent's value but cannot write one back. So the flag has to be set in the parent, between
+# the two calls. It defaults to `false`, which is the safe direction: a caller that forgets
+# skips the lookup and keeps every verdict local.
+CLAIMS_FETCH_OK=false
+
+# Where this library itself lives — what locates the sibling `claim-merged.sh` the merged
+# lookup runs.
+#
+# THE CALLER SETS IT, and the `$0` walk below is only a fallback. A sourced file cannot ask
+# where it is: `$0` is the CALLER's script, and the caller may sit in a worktree, a publish
+# tree or the installed plugin cache. Every sourcer already computes its own script directory
+# in order to source this file at all, so passing it costs one line and is the only form that
+# is right by construction rather than by coincidence.
+CLAIMS_LIB_DIR="${CLAIMS_LIB_DIR:-}"
+if [ -z "$CLAIMS_LIB_DIR" ]; then
+    for _cl_cand in "$(dirname -- "$0")/lib" "$(dirname -- "$0")"; do
+        if [ -f "${_cl_cand}/claims.sh" ]; then
+            CLAIMS_LIB_DIR=$(CDPATH= cd -- "$_cl_cand" && pwd)
+            break
+        fi
+    done
+    unset _cl_cand
+fi
+
 claims_fetch() {
     if ! git config --get remote.origin.url >/dev/null 2>&1; then
+        CLAIMS_FETCH_OK=false
         printf 'false'
         return 0
     fi
@@ -202,8 +252,10 @@ claims_fetch() {
         git fetch --unshallow --prune --quiet origin >/dev/null 2>&1 || true
     fi
     if git fetch --prune --quiet origin >/dev/null 2>&1; then
+        CLAIMS_FETCH_OK=true
         printf 'true'
     else
+        CLAIMS_FETCH_OK=false
         printf 'false'
     fi
 }
@@ -338,35 +390,213 @@ claims_has_work() {
     _chw_ref="$1"
     _chw_arts="${2:-}"
     [ -n "$_chw_arts" ] || { printf 'true'; return 0; }
+    # $3 = OPTIONAL precomputed `claims_remaining_tickets` output, so a caller that already
+    # needs the set (the scan does, for the declared-handoff reading below) derives it once.
+    if [ "$#" -ge 3 ]; then
+        _chw_rem="$3"
+    else
+        _chw_rem=$(claims_remaining_tickets "$_chw_ref" "$_chw_arts")
+    fi
+    if [ -n "$_chw_rem" ]; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
 
-    _chw_mission=""
-    _chw_old_ifs="$IFS"
+# THE UNIT'S STILL-QUEUED TICKETS AT THE TIP, one path per line (empty = nothing queued).
+# $1 = branch ref, $2 = the comma-separated TIP-side artifact paths.
+#
+# This is the walk `claims_has_work` has always made, LIFTED OUT so the two readings built on
+# it -- "is there anything left to drive?" and "was the remaining work declared unverifiable
+# here?" -- cannot answer from two different ticket sets. Deriving the set a second way would
+# give the protocol two answers to one question, which is the failure this whole library is
+# written against.
+#
+# The grain split is the one the header describes and does not move: a BATCH claim stamps its
+# ticket files, so its queued work is whichever artifacts are still under
+# `.workaholic/tickets/todo/` at the tip (archive.sh drives a ticket by renaming it out); a
+# MISSION claim stamps only `mission.md`, which never sits under todo/, so its queued work is
+# every ticket at the tip whose `mission:` names the slug. `mission.md` itself is NOT queued
+# work and is deliberately absent from this list -- a caller that needs the mission's own
+# frontmatter (the handoff reading does) picks it out of the artifacts.
+#
+# An empty artifact list yields nothing, and the callers -- not this -- decide what that
+# unknown means; `claims_has_work` reads it as `true` exactly as it always has.
+claims_remaining_tickets() {
+    _crt2_ref="$1"
+    _crt2_arts="${2:-}"
+    [ -n "$_crt2_arts" ] || return 0
+
+    _crt2_mission=""
+    _crt2_old_ifs="$IFS"
     IFS=','
-    for _chw_p in $_chw_arts; do
-        case "$_chw_p" in
+    for _crt2_p in $_crt2_arts; do
+        case "$_crt2_p" in
             .workaholic/tickets/todo/*)
-                IFS="$_chw_old_ifs"
-                printf 'true'
-                return 0
+                printf '%s\n' "$_crt2_p"
                 ;;
             */missions/*/mission.md)
                 # Strip to the directory name: .../missions/<area>/<slug>/mission.md
-                _chw_mission="${_chw_p%/mission.md}"
-                _chw_mission="${_chw_mission##*/}"
+                _crt2_mission="${_crt2_p%/mission.md}"
+                _crt2_mission="${_crt2_mission##*/}"
                 ;;
         esac
     done
-    IFS="$_chw_old_ifs"
+    IFS="$_crt2_old_ifs"
 
-    [ -n "$_chw_mission" ] || { printf 'false'; return 0; }
+    [ -n "$_crt2_mission" ] || return 0
 
-    for _chw_t in $(git ls-tree -r --name-only "$_chw_ref" -- .workaholic/tickets/todo 2>/dev/null || true); do
-        case "$(claims_blob_field "$_chw_ref" "$_chw_t" mission)" in
+    claims_tickets_for_mission "$_crt2_ref" .workaholic/tickets/todo "$_crt2_mission"
+}
+
+# EVERY TICKET UNDER ONE PATH WHOSE `mission:` NAMES ONE SLUG, one path per line.
+# $1 = ref, $2 = path prefix to list under, $3 = the mission slug.
+#
+# THE ONE PLACE THE `mission:` RELATION IS WALKED IN THIS LIBRARY, lifted out of
+# `claims_remaining_tickets` (2026-08-30, mission `stop-two-runs-from-claiming-and-driving-one-unit`)
+# because a second reading now needs the same walk over a DIFFERENT path: the queued half answers
+# *is there anything left to drive?* and the archived half answers *did this unit's content reach
+# the base?* (`claims_superseded`). Two walks would be two parsers of a many-valued relation, which
+# is the objection `claims_superseded`'s own header recorded in 2026-08-26 and which this
+# factoring answers rather than ignores — the relation is still read exactly once, through
+# `claims_blob_field`, and neither caller re-implements the match.
+#
+# The match is the substring one `claims_remaining_tickets` has always used, unchanged: the
+# relation is many-valued (`mission: [a, b]`), and a stricter parse here would be the second
+# reader this factoring exists to prevent.
+claims_tickets_for_mission() {
+    _ctm_ref="$1"
+    _ctm_path="$2"
+    _ctm_slug="${3:-}"
+    [ -n "$_ctm_slug" ] || return 0
+    for _ctm_t in $(git ls-tree -r --name-only "$_ctm_ref" -- "$_ctm_path" 2>/dev/null || true); do
+        case "$(claims_blob_field "$_ctm_ref" "$_ctm_t" mission)" in
             "") continue ;;
-            *"$_chw_mission"*) printf 'true'; return 0 ;;
+            *"$_ctm_slug"*) printf '%s\n' "$_ctm_t" ;;
         esac
     done
-    printf 'false'
+}
+
+# WAS THE WORK STILL QUEUED BEHIND THIS CLAIM DECLARED UNVERIFIABLE HERE? $1 = branch ref,
+# $2 = the comma-separated TIP-side artifact paths, $3 = OPTIONAL precomputed
+# `claims_remaining_tickets` output. Echoes true|false, never fails.
+#
+# `verification_handoff:` is declared at CREATION and names a credential, device or account an
+# unattended run does not have (`../verification-handoff.sh`). §6 reads it before merge policy
+# and routes such a unit to the HANDOFF route: the pull request opens and stays open, the claim
+# stays standing, and a person runs the verification. The route honoured it and THE ORACLE NEVER
+# CONSULTED IT AGAIN -- so once `/story` committed the branch story the claim read
+# `parked_with_pr`, `resumable: true`, and every later survey offered the takeover. Measured on
+# PR #647 (2026-08-27): routed at 02:14 UTC, taken over again at 06:43 for nothing.
+#
+# NOTHING NEW IS DERIVED. The declaration is already read by exactly one script, and this hands
+# it the blobs rather than parsing the field a second time -- a second parser of one field is
+# what this repository forbids by name. The blobs are materialised from the BRANCH TIP into a
+# throwaway directory, because the reader takes files and the tip is the only space in which
+# "still queued behind this claim" is a question at all: the working tree belongs to whichever
+# checkout happens to be running the scan.
+#
+# BOTH GRAINS, from `claims_remaining_tickets`'s one split. A mission's OWN
+# `verification_handoff:` counts too -- any member declaring it carries the whole unit, which is
+# the reader's own rule -- so `mission.md` is added from the artifact list even though it is
+# never queued work.
+#
+# IT IS READ FROM THE REMAINING QUEUED WORK, NEVER THE ARCHIVED WORK, and that is what makes the
+# reading SELF-RELEASING: once the declared ticket is driven the same reader answers `false`,
+# with nothing stored anywhere and no cursor to reset.
+#
+# OFFLINE BY CONSTRUCTION -- `git ls-tree`/`git show` against an already-fetched ref and one
+# local script, no network call -- so every verdict stays byte-identical on a run with no origin.
+#
+# A READ THAT CANNOT BE MADE ANSWERS `false` AND NEVER GUESSES. An absent reader script, an
+# unreadable blob, an empty artifact list: none of them is a declaration, and inventing one would
+# stop a merge on a typo exactly as `../verification-handoff.sh` refuses to.
+#
+# TWO READINGS, ONE MATERIALISATION (2026-08-27, mission
+# `ask-for-the-one-act-a-declared-handoff-is-waiting-on`). The boolean was all the scan ever
+# wanted, so the reader's `reason` -- the declared string, in the words the ticket wrote it in --
+# was computed and thrown away, and the question a person must be asked names exactly that
+# string. `claims_declared_reading` is the one derivation and echoes the reader's own JSON line;
+# `claims_declared_handoff` and `claims_declared_reason` are both thin reads OF IT, so there is
+# still one materialisation, one call to the one reader of the field, and no second parser.
+claims_declared_handoff() {
+    case "$(claims_declared_reading "$@")" in
+        *'"handoff": true'*) printf 'true' ;;
+        *) printf 'false' ;;
+    esac
+}
+
+# THE DECLARED REASON, VERBATIM ("" when nothing is declared, or when the read could not be
+# made). Same arguments as `claims_declared_handoff`.
+#
+# It is sliced out of the reader's own line between the two keys the reader always prints in
+# that order, rather than by a JSON parser this library does not have and rather than by
+# re-reading the frontmatter -- re-reading it would be the second parser of `verification_handoff:`
+# that this whole shape exists to forbid. The value is JSON-escaped on the way out of the reader,
+# so the two escapes it can carry are undone on the way back in.
+claims_declared_reason() {
+    _cdr_line=$(claims_declared_reading "$@")
+    case "$_cdr_line" in
+        *'"reason": "'*) ;;
+        *) return 0 ;;
+    esac
+    _cdr_v=${_cdr_line#*'"reason": "'}
+    _cdr_v=${_cdr_v%%'", "member"'*}
+    printf '%s' "$_cdr_v" | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g'
+}
+
+# The shared derivation: materialise the still-queued work (plus the mission's own `mission.md`)
+# from the branch tip and hand it to the ONE reader of `verification_handoff:`. Echoes that
+# reader's JSON line, or nothing at all when the read could not be made.
+claims_declared_reading() {
+    _cdh_ref="$1"
+    _cdh_arts="${2:-}"
+    [ -n "$_cdh_arts" ] || return 0
+
+    _cdh_reader="${CLAIMS_LIB_DIR}/../verification-handoff.sh"
+    [ -f "$_cdh_reader" ] || return 0
+
+    if [ "$#" -ge 3 ]; then
+        _cdh_rem="$3"
+    else
+        _cdh_rem=$(claims_remaining_tickets "$_cdh_ref" "$_cdh_arts")
+    fi
+
+    # The mission's own declaration, from the artifact list: any member carries the unit.
+    _cdh_own=""
+    _cdh_old_ifs="$IFS"
+    IFS=','
+    for _cdh_p in $_cdh_arts; do
+        case "$_cdh_p" in
+            */missions/*/mission.md) _cdh_own="${_cdh_own}${_cdh_p}
+" ;;
+        esac
+    done
+    IFS="$_cdh_old_ifs"
+
+    _cdh_paths=$(printf '%s%s' "$_cdh_own" "$_cdh_rem")
+    [ -n "$_cdh_paths" ] || return 0
+
+    _cdh_dir=$(mktemp -d 2>/dev/null || printf '')
+    [ -n "$_cdh_dir" ] || return 0
+
+    _cdh_n=0
+    _cdh_files=""
+    for _cdh_f in $_cdh_paths; do
+        _cdh_n=$((_cdh_n + 1))
+        if git show "${_cdh_ref}:${_cdh_f}" > "${_cdh_dir}/${_cdh_n}.md" 2>/dev/null; then
+            _cdh_files="${_cdh_files} ${_cdh_dir}/${_cdh_n}.md"
+        fi
+    done
+
+    _cdh_out=""
+    if [ -n "$_cdh_files" ]; then
+        # shellcheck disable=SC2086 -- the paths are mktemp's own and carry no whitespace.
+        _cdh_out=$(sh "$_cdh_reader" tickets $_cdh_files 2>/dev/null || true)
+    fi
+    rm -rf "$_cdh_dir" 2>/dev/null || true
+    printf '%s' "$_cdh_out"
 }
 
 # Did this unit already REPORT -- i.e. reach the story+PR seam? $1 = branch ref,
@@ -388,6 +618,39 @@ claims_has_work() {
 # library spends its longest comment defending.
 claims_has_story() {
     git cat-file -e "${1}:.workaholic/stories/${2}.md" 2>/dev/null && printf 'true' || printf 'false'
+}
+
+# Why is this reported unit's pull request still open? $1 = branch ref, $2 = short branch name.
+# Echoes the outcome line `record-merge-outcome.sh` wrote into the branch story, or empty.
+#
+# `claimed_reported` COVERED TWO STATES WITH OPPOSITE NEXT ACTIONS (2026-08-27, mission
+# `close-the-units-the-loop-already-finished`). A unit whose pull request a `hard`/`confirm`
+# scan finding holds is waiting on a PERSON — the gate did its job and the override is a human
+# ruling. A unit whose merge the TRANSPORT refused is the loop's own undelivered work, which
+# nothing will pick up: it is drained, its claim is excluded, no later survey offers it, and
+# nobody was told. Measured 2026-08-27: four such pull requests green and unmerged with `ok`
+# reported over all of them. This is the shape the 2026-08-19 `report_incomplete` split already
+# fixed one layer up, and that split's own header states the rule it rests on — a reason must
+# imply its own next action, and folding two next actions into one word is what makes the
+# invisible half invisible.
+#
+# IT IS READ OFF THE BRANCH, NOT RE-DERIVED AND NOT RE-FETCHED. The scan cannot be re-run here:
+# `scan-branch-safety.sh` diffs `<base>..HEAD` of the CURRENT checkout, and the oracle stands in
+# the main tree, so answering "would the scan have held this branch?" would mean checking the
+# branch out inside a pure read. And a fresh lookup is worse than the run's own answer, for the
+# reason `claim-merged.sh`'s three-valued contract exists: a wrong verdict here releases work
+# still in flight. So the run that made the merge attempt records what happened, in the branch
+# story it already committed, and this reads that blob — offline, no network call, no second
+# derivation of anything.
+#
+# AN ABSENT SECTION IS NOT A REFUSAL. Every unit whose story predates this section, and every
+# unit whose run died before it could record, answers empty — and empty keeps `queue_drained`,
+# exactly the verdict it had before. The asymmetry is the same one the rest of this library
+# runs on: over-reporting a claim as a human's business makes a runner wait, under-reporting it
+# hides work nobody will deliver, so the NEW reason is claimed only on positive evidence.
+claims_merge_outcome() {
+    git cat-file blob "${1}:.workaholic/stories/${2}.md" 2>/dev/null \
+        | sed -n '/^## Merge Outcome$/{n;n;p;}' 2>/dev/null || true
 }
 
 # Has this claim's work already reached the BASE by another route? $1 = base ref,
@@ -421,23 +684,200 @@ claims_has_story() {
 # under ANY branch is delivered, and which branch delivered it is exactly what this test
 # must not care about.
 #
-# IT ANSWERS FOR BATCH UNITS AND LEAVES MISSION UNITS ON TODAY'S READING, deliberately and
-# in the open. A batch claim stamps its ticket files, so "are they archived?" is a direct
-# question about the unit's own artifacts. A mission claim stamps only `mission.md`, which
-# driving never archives -- the equivalent would have to walk every ticket on the base and
-# read its `mission:` relation, which is a second parser of a many-valued relation for a
-# shape nothing has measured. A unit carrying any non-ticket artifact answers `false`, so a
-# mission claim keeps precisely the verdict it has today.
+# IT ANSWERS FROM THE TREE AT BOTH GRAINS (2026-08-30, mission
+# `stop-two-runs-from-claiming-and-driving-one-unit`). A batch claim stamps its ticket files,
+# so "are they archived?" is a direct question about the unit's own artifacts. A mission claim
+# stamps only `mission.md`, which driving never archives, so its tickets are found the other
+# way round -- off the claim's own TIP, through `claims_mission_landed` -- and then put to the
+# SAME archived-on-the-base test.
+#
+# THIS REVERSES A SCOPE RULE RATHER THAN IGNORING IT, and the reason it was written is
+# answered rather than dropped. Until this change the header read: *the equivalent would have
+# to walk every ticket on the base and read its `mission:` relation, which is a second parser
+# of a many-valued relation for a shape nothing has measured.* Both halves have moved. The
+# shape was measured on 2026-08-30 -- two runs claimed one mission four seconds apart, the
+# loser's four tickets all landed on the base under the twin's branch directory, and the
+# loser still read `report_undelivered`, so `retire-claim.sh` refused it and CI's retirement
+# turn found no candidate. And the relation is still NOT parsed twice: `claims_mission_landed`
+# composes `claims_tickets_for_mission`, the one walk `claims_remaining_tickets` already made.
 #
 # REPORTED, NEVER ACTED ON. Nothing here deletes a branch, closes a pull request or breaks
 # a claim -- `stale` has been reported-never-acted-on since the protocol shipped and this is
 # the same kind of fact. It is `resumable: false` because there is nothing to drive, and for
 # the same reason it must NOT forbid `ok` (drive/SKILL.md §7): a claim holding no work is
 # the opposite of outstanding work.
+# Every archived ticket path on the base, one per line. $1 = base ref.
+#
+# One listing, reused: the archive is the largest path in the tree, which is why
+# `claims_superseded` has always taken it once per claim rather than once per artifact.
+claims_archived_on_base() {
+    git ls-tree -r --name-only "$1" -- .workaholic/tickets/archive 2>/dev/null || true
+}
+
+# Is $2 (a ticket FILENAME) present in $1 (a listing from `claims_archived_on_base`)?
+# Echoes true|false.
+#
+# MATCHED BY FILENAME UNDER ANY BRANCH DIRECTORY, deliberately: a ticket archived under ANY
+# branch is delivered, and WHICH branch delivered it is exactly what this test must not care
+# about. That is the whole reason a raced twin's delivery counts.
+claims_is_archived() {
+    if printf '%s\n' "$1" | awk -v b="$2" '
+        { n = length($0); m = length(b); if (n > m && substr($0, n - m) == "/" b) { found = 1; exit } }
+        END { exit found ? 0 : 1 }
+    '; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
+# HAS EVERY TICKET OF THIS MISSION UNIT LANDED ON THE BASE? $1 = base ref, $2 = the claim's
+# TIP ref, $3 = the `mission.md` artifact path. Echoes true|false, never fails.
+#
+# The mission grain's answer to the question `claims_superseded`'s batch branch already
+# answers from the tree, and it is the SAME test: every one of the unit's tickets archived on
+# the base, matched by filename under any branch directory. What differs is only how the
+# unit's ticket set is found — a batch claim stamps its tickets, a mission claim stamps
+# `mission.md`, so the tickets are read the other way round, off the claim's own TIP, through
+# the one walk this library already makes.
+#
+# WHY THE TIP AND NOT THE BASE. The tip is the branch's own statement of what its unit is.
+# Reading the base would ask the twin's question rather than this claim's, and a mission whose
+# tickets the base has already archived and re-planned would answer about work this branch
+# never held.
+#
+# `every`, NOT `any` — a unit half of whose tickets landed elsewhere still has work, and
+# calling it superseded would hide that half. This is the batch grain's existing rule and it
+# does not move.
+#
+# A UNIT WITH NO TICKETS AT THE TIP ANSWERS `false`, and the caller then falls through to the
+# merged-pull-request lookup: a mission whose plan is not written yet is a tree that CANNOT
+# answer, and a proof that gates a destructive act is never taken from an empty set.
+claims_mission_landed() {
+    _cml_base="$1"
+    _cml_tip="${2:-}"
+    _cml_art="${3:-}"
+    [ -n "$_cml_tip" ] || { printf 'false'; return 0; }
+    case "$_cml_art" in
+        */missions/*/mission.md) ;;
+        *) printf 'false'; return 0 ;;
+    esac
+    _cml_slug="${_cml_art%/mission.md}"
+    _cml_slug="${_cml_slug##*/}"
+    [ -n "$_cml_slug" ] || { printf 'false'; return 0; }
+
+    _cml_set=$( { claims_tickets_for_mission "$_cml_tip" .workaholic/tickets/todo "$_cml_slug"
+                  claims_tickets_for_mission "$_cml_tip" .workaholic/tickets/archive "$_cml_slug"; } )
+    [ -n "$_cml_set" ] || { printf 'false'; return 0; }
+
+    _cml_listed=$(claims_archived_on_base "$_cml_base")
+    _cml_total=0
+    _cml_archived=0
+    for _cml_t in $_cml_set; do
+        _cml_total=$((_cml_total + 1))
+        if [ "$(claims_is_archived "$_cml_listed" "${_cml_t##*/}")" = "true" ]; then
+            _cml_archived=$((_cml_archived + 1))
+        fi
+    done
+    if [ "$_cml_total" -gt 0 ] && [ "$_cml_total" -eq "$_cml_archived" ]; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
+
+# IS THIS BRANCH EMPTY AGAINST THE BASE? $1 = base ref, $2 = the claim's tip ref.
+# Echoes `true`, `false` or `unknown`, and never fails.
+#
+# WHY IT EXISTS (2026-09-01, issue #788). `superseded` is one of the protocol's two PROOFS and
+# `retire-claim.sh` deletes a branch on exactly that strength — its own header says *what makes a
+# destructive act safe here is the proof, and nothing else*, and offers as recovery that the
+# content is on the base, *that is what `superseded` means*. It did not mean that. The proof
+# established was **the unit's tickets are archived on the base**, and the step from there to
+# **the branch holds no work** holds only when a branch carries nothing but its own unit's
+# tickets.
+#
+# MEASURED on a consuming repository, 2026-09-01. Two branches read `superseded` because their
+# tickets had landed — through DIFFERENT branches, each of which drove the same tickets and
+# merged — while still holding, on themselves and on no other ref:
+#
+#   work-20260827-163420   docs/design/platform/mcp-server.md +46 and its counterpart +50
+#   work-20260829-113447   verify-published-site.mjs (113), published-site-verdicts.mjs (104),
+#                          published-site-verdicts.test.ts (85)
+#
+# The tick asked for both to be deleted. Roughly three hundred lines of code and a documentation
+# section exist in no other ref, and the stated recovery — *its content is on the base* — was
+# false for precisely the branches it was protecting. **Only a 403 on `push --delete` had been
+# preventing the loss**, for five days, while the tick reported that refusal as the problem.
+# Repairing the delete without repairing the verdict would have turned a reported nuisance into
+# a silent loss on the first tick after the fix.
+#
+# ONE `merge-base` AND ONE `diff --quiet`, no network, no worktree, no index. It is the fact the
+# verdict was already asserting, and it was simply never read.
+#
+# `unknown` IS NOT `false` AND IS NOT `true`. A shallow clone, an absent ref or a missing merge
+# base cannot answer this, and the caller treats an unanswerable emptiness the way this protocol
+# treats every absence of a reading: it does not license the act. A reading we could not make
+# must never authorise a delete, which is the same asymmetry `claims_fetch` keeps.
+claims_branch_empty_against_base() {
+    _cbe_base="${1:-}"
+    _cbe_ref="${2:-}"
+    [ -n "$_cbe_base" ] && [ -n "$_cbe_ref" ] || { printf 'unknown'; return 0; }
+    git rev-parse --verify --quiet "${_cbe_ref}^{commit}" >/dev/null 2>&1 || { printf 'unknown'; return 0; }
+    git rev-parse --verify --quiet "${_cbe_base}^{commit}" >/dev/null 2>&1 || { printf 'unknown'; return 0; }
+    _cbe_mb=$(git merge-base "$_cbe_base" "$_cbe_ref" 2>/dev/null || printf '')
+    [ -n "$_cbe_mb" ] || { printf 'unknown'; return 0; }
+    # `.workaholic/` IS EXCLUDED, AND THAT IS THE WHOLE PRECISION OF THIS TEST. The ordinary
+    # `superseded` shape is a twin that drove the same tickets and archived them under ITS OWN
+    # branch directory, so the two branches' `.workaholic/tickets/` trees differ by construction
+    # — a bare `diff --quiet` would call every genuinely superseded claim stranded and the
+    # verdict would never fire again. What was measured as lost was outside it in both cases:
+    # `docs/design/platform/mcp-server.md` and its counterpart, and three files under `scripts/`
+    # and `test/`. So the question this asks is the one the loss poses: **does this branch carry
+    # anything but the loop's own bookkeeping that the base does not have?**
+    #
+    # THE COST, STATED: a branch whose only orphaned work is inside `.workaholic/` still reads
+    # `superseded` and can still be deleted. That is accepted rather than overlooked — the unit's
+    # tickets are proved archived on the base, `.workaholic/` is the loop's own record, and
+    # tightening this further would cost the verdict its ordinary case.
+    if git diff --quiet "$_cbe_mb" "$_cbe_ref" -- . ':(exclude).workaholic' 2>/dev/null; then
+        printf 'true'
+    else
+        printf 'false'
+    fi
+}
+
 claims_superseded() {
     _csp_base="$1"
     _csp_arts="${2:-}"
+    # $3 = the claim's SHORT branch name, for the merged-pull-request lookup a non-ticket
+    # artifact routes to. Optional: a caller with no branch in hand keeps the local test only.
+    _csp_branch="${3:-}"
+    # $4 = the claim's TIP REF, for the mission grain's own local test (2026-08-30, mission
+    # `stop-two-runs-from-claiming-and-driving-one-unit`). Optional and absent-means-unchanged:
+    # with no tip ref the mission grain routes straight to the merged lookup exactly as it did
+    # before this argument existed, so every caller that does not pass it is byte-for-byte what
+    # it was.
+    _csp_tip="${4:-}"
     [ -n "$_csp_arts" ] || { printf 'false'; return 0; }
+
+    # THE VERDICT IS THREE-VALUED SINCE 2026-09-01 (issue #788): `superseded` (the tickets
+    # landed AND the branch is empty against the base), `stranded` (the tickets landed and the
+    # branch still holds work found on no other ref), or `false`. Only the first is a proof, and
+    # only the first licenses `retire-claim.sh`'s delete. `stranded` is a real and different
+    # state — the work is not finished, it is orphaned — and it wants a person told rather than a
+    # branch deleted.
+    #
+    # AN UNANSWERABLE EMPTINESS ANSWERS `stranded`, NOT `superseded`. A shallow clone cannot
+    # prove the branch is empty, and this protocol never lets an absence of a reading authorise
+    # a destructive act.
+    _csp_landed() {
+        case "$(claims_branch_empty_against_base "$_csp_base" "$_csp_tip")" in
+            true) printf 'superseded' ;;
+            *)    printf 'stranded' ;;
+        esac
+    }
 
     # One listing per claim, reused for every artifact -- the archive is the largest path
     # in the tree and this is the scan's most expensive gate, which is why it sits last
@@ -452,24 +892,68 @@ claims_superseded() {
     for _csp_p in $_csp_arts; do
         case "$_csp_p" in
             .workaholic/tickets/*) ;;
-            # A mission unit (or anything else a claim may come to stamp) is out of scope:
-            # answer `false` rather than guessing, so its verdict is untouched.
+            # A NON-TICKET ARTIFACT — in practice a mission claim's `mission.md` — is answered
+            # by the merged-pull-request lookup instead (2026-08-26). It used to answer `false`
+            # outright, on the ground that the equivalent local test would need a second parser
+            # of the many-valued `mission:` relation "for a shape nothing has measured". The
+            # shape has since been measured: three of five claims on this repository headed
+            # pull requests #521, #537 and #546, all merged, all mission units, one of them
+            # offered `resumable: true` five days after its own pull request merged. The
+            # reasoning is replaced rather than deleted — the relation is still not parsed
+            # twice, because the lookup reads no artifact at all; it asks whether a merged
+            # pull request has this branch as its head, which is grain-agnostic by
+            # construction.
+            #
+            # THE LOCAL TEST STAYS FIRST AND STAYS NETWORK-FREE for a batch unit: the loop only
+            # reaches here on an artifact that is not a ticket, so an offline batch verdict is
+            # byte-identical to what it has always been.
+            #
+            # AN `unanswerable` LOOKUP ANSWERS `false`, which is precisely today's verdict for
+            # this grain — the degradation contract, not a new state.
+            # AND SINCE 2026-08-30 THE TREE IS ASKED FIRST AT THIS GRAIN TOO (mission
+            # `stop-two-runs-from-claiming-and-driving-one-unit`). The 2026-08-26 note above
+            # is right that `mission.md` is never archived; what it missed is that the
+            # mission's TICKETS are, and the very test the batch grain already applies answers
+            # for them. Measured 2026-08-30: two runs claimed
+            # `draft-a-dateless-direction-with-the-operator-s-one-week-default` four seconds
+            # apart, all four of `work-20260830-055314`'s tickets landed on the base under the
+            # twin's `work-20260830-055318/`, and the loser still read `report_undelivered` —
+            # so `retire-claim.sh` refused it, CI's retirement turn found no candidate, and
+            # `catch-up-claim.sh` was left trying to resolve a collision between a unit and
+            # itself.
+            #
+            # THE RELATION IS STILL NOT PARSED TWICE, which is the objection that kept this
+            # test out at the mission grain. `claims_tickets_for_mission` is the ONE walk
+            # `claims_remaining_tickets` already made, lifted out and handed a different path;
+            # nothing here reads `mission:` on its own.
+            #
+            # THE LOOKUP STAYS AS THE FALLBACK, and it is reached in every case the tree does
+            # not answer `true`: a mission with no tickets written yet, a mission still holding
+            # queued work, an absent tip ref. So this can only ever ADD a `superseded` the
+            # chain would not have reached — it can never take one away, which is the direction
+            # that matters when a proof gates a destructive act.
             *)
                 IFS="$_csp_old_ifs"
-                printf 'false'
+                if [ "$(claims_mission_landed "$_csp_base" "$_csp_tip" "$_csp_p")" = "true" ]; then
+                    _csp_landed
+                    return 0
+                fi
+                if [ "$(claims_merged_state "$_csp_branch")" = "merged" ]; then
+                    # A MERGED PULL REQUEST IS NOT ON ITS OWN A PROOF THAT THE BRANCH IS EMPTY:
+                    # a branch that advanced after its merge still holds work no other ref has.
+                    _csp_landed
+                else
+                    printf 'false'
+                fi
                 return 0
                 ;;
         esac
         if [ "$_csp_have_list" = "false" ]; then
-            _csp_listed=$(git ls-tree -r --name-only "$_csp_base" -- .workaholic/tickets/archive 2>/dev/null || true)
+            _csp_listed=$(claims_archived_on_base "$_csp_base")
             _csp_have_list=true
         fi
         _csp_total=$((_csp_total + 1))
-        _csp_bn="${_csp_p##*/}"
-        if printf '%s\n' "$_csp_listed" | awk -v b="$_csp_bn" '
-            { n = length($0); m = length(b); if (n > m && substr($0, n - m) == "/" b) { found = 1; exit } }
-            END { exit found ? 0 : 1 }
-        '; then
+        if [ "$(claims_is_archived "$_csp_listed" "${_csp_p##*/}")" = "true" ]; then
             _csp_archived=$((_csp_archived + 1))
         fi
     done
@@ -478,10 +962,84 @@ claims_superseded() {
     # EVERY ticket, not any: a unit half of whose tickets landed elsewhere still has work,
     # and calling it superseded would hide that half.
     if [ "$_csp_total" -gt 0 ] && [ "$_csp_total" -eq "$_csp_archived" ]; then
-        printf 'true'
+        _csp_landed
     else
         printf 'false'
     fi
+}
+
+# Has this claim branch's work reached the base through a MERGED pull request? $1 = branch
+# name. Echoes `merged`, `not_merged` or `unanswerable`, and never fails.
+#
+# THIS IS THE CLAIM PROTOCOL'S ONE NETWORK READ, and every rule around it exists to keep
+# that from costing the reader its offline contract (`list-claims.sh`: *the reader degrades
+# offline*). `claims_superseded` above answers the same question from the tree and cannot
+# answer it for a mission claim; this can, because a pull request has a head branch whatever
+# the unit's grain.
+#
+# THE ASYMMETRY IS THE WHOLE DESIGN, and it runs the same way as `claims_fetch`'s: a wrong
+# `merged` RELEASES work that is still in flight, and the release is what double-picks a
+# colleague's unit. A wrong `in flight` only makes a runner wait. So an answer we could not
+# read is NEVER promoted to `merged` — it leaves the row exactly the verdict it would have
+# had before this lookup existed.
+#
+# IT IS SKIPPED, BY NAME, WHENEVER IT CANNOT SUCCEED. A run whose fetch just failed has
+# proved it has no network, so spending a call per claim to be told so again is pure latency
+# on the path a degraded runner is already on; `WORKAHOLIC_CLAIM_MERGED_LOOKUP=0` is the
+# explicit opt-out for a caller that wants the scan purely local. Both are reported as
+# reasons rather than silently answering `not_merged`.
+#
+# AT MOST ONE CALL PER CLAIM. It is invoked from exactly one place in the verdict chain, and
+# the chain short-circuits before it whenever a cheaper gate already decided.
+claims_merged_state() {
+    _cms_branch="${1:-}"
+    [ -n "$_cms_branch" ] || { printf 'unanswerable'; return 0; }
+
+    _cms_enabled="${WORKAHOLIC_CLAIM_MERGED_LOOKUP:-1}"
+    if [ "$_cms_enabled" = "0" ]; then
+        claims_note_unanswered "$_cms_branch" disabled
+        printf 'unanswerable'
+        return 0
+    fi
+    if [ "${CLAIMS_FETCH_OK:-false}" != "true" ]; then
+        claims_note_unanswered "$_cms_branch" offline
+        printf 'unanswerable'
+        return 0
+    fi
+
+    _cms_reader="${CLAIMS_LIB_DIR}/../claim-merged.sh"
+    if [ ! -f "$_cms_reader" ]; then
+        claims_note_unanswered "$_cms_branch" no_reader_script
+        printf 'unanswerable'
+        return 0
+    fi
+
+    _cms_out=$(sh "$_cms_reader" "$_cms_branch" 2>/dev/null || true)
+    _cms_state=$(printf '%s' "$_cms_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
+    case "$_cms_state" in
+        merged|not_merged)
+            printf '%s' "$_cms_state"
+            ;;
+        *)
+            _cms_reason=$(printf '%s' "$_cms_out" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+            claims_note_unanswered "$_cms_branch" "${_cms_reason:-unreadable}"
+            printf 'unanswerable'
+            ;;
+    esac
+}
+
+# Record one claim the merged lookup could not answer for, so the scan can REPORT what it
+# could not read rather than leaving it indistinguishable from what it read as live.
+#
+# IT GOES TO A FILE THE CALLER NAMES, not to a variable and not to an extra TSV column.
+# `claims_scan` runs inside a command substitution, so a variable it sets dies with the
+# subshell; and the row's field count is load-bearing — the header's longest warning is
+# about exactly what happens when a column is added. A caller that wants the set creates a
+# file, exports `CLAIMS_UNANSWERED_FILE`, and reads it afterwards; a caller that does not
+# care sets nothing and this is a no-op.
+claims_note_unanswered() {
+    [ -n "${CLAIMS_UNANSWERED_FILE:-}" ] || return 0
+    printf '%s\t%s\n' "$1" "$2" >> "$CLAIMS_UNANSWERED_FILE" 2>/dev/null || true
 }
 
 # Scan the remote branches for claims. $1 = base ref (from claims_base).
@@ -508,7 +1066,17 @@ claims_scan() {
 
     # Resolved once: whose runner this is. Empty means unresolvable, and every claim
     # is then somebody else's.
-    _cs_me=$(git config user.email 2>/dev/null || true)
+    #
+    # WORKAHOLIC_CLAIM_IDENTITY IS AN OVERRIDE, NOT A DEFAULT (2026-08-29, mission
+    # `make-the-two-executors-agree-about-a-proved-empty-claim`). Unset — every container and
+    # every developer's checkout — this is byte-for-byte the line it has always been, and no
+    # gate, order or verdict moves. It exists for the OTHER executor: `actions/checkout@v4`
+    # configures no `user.email`, so CI read `identity_unresolved` for every claim and
+    # `superseded` was never reached, leaving `Claim Retirement` green while three proved-empty
+    # branches stood (measured 2026-08-29; reproduced offline, candidates 3 → 0 on this term
+    # alone). Who may set it, and the bound that stops it becoming *CI owns every claim*, is
+    # `lib/runner-identity.sh` — the value must be an address the committed mapping names.
+    _cs_me=${WORKAHOLIC_CLAIM_IDENTITY:-$(git config user.email 2>/dev/null || true)}
 
     for _cs_ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin 2>/dev/null | sort); do
         [ "$_cs_ref" = "origin/HEAD" ] && continue
@@ -630,6 +1198,25 @@ claims_scan() {
         # answers both forks, and the row's value is unchanged.
         _cs_reported=$(claims_has_story "$_cs_ref" "$_cs_branch")
 
+        # WHAT THIS UNIT STILL HAS QUEUED, DERIVED ONCE (2026-08-27, mission
+        # `stop-re-resuming-a-declared-handoff-unit`). Two readings below are built on the same
+        # set -- "is there anything left to drive?" and "was that remaining work declared
+        # unverifiable here?" -- so it is computed here and passed to both rather than walked
+        # twice. The declaration is reported on EVERY row, on the precedent `_cs_reported` set
+        # one change earlier: a reader that consults a signal only where one branch happens to
+        # need it leaves every other consumer to derive it again.
+        # ASKED ONCE PER ROW, NOT ONCE PER BRANCH OF THE `if` (2026-09-01). The verdict became
+        # three-valued and the dispatch below tests it twice; `claims_superseded` reaches the
+        # merged-pull-request lookup at the mission grain, which is the one reading in this chain
+        # that CAN answer differently the second time it is asked. Two calls would let a row be
+        # neither `stranded` nor `superseded` because the answer moved between them — which is
+        # exactly what `verify-ci-retirement`'s flip fixture caught.
+        _cs_landed_verdict=$(claims_superseded "$_cs_base" "$_cs_artifacts" "$_cs_branch" "$_cs_ref")
+        claims_landed_verdict() { printf '%s' "$_cs_landed_verdict"; }
+
+        _cs_remaining=$(claims_remaining_tickets "$_cs_ref" "$_cs_artifacts_tip")
+        _cs_declared_handoff=$(claims_declared_handoff "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")
+
         # The resumability verdict (see the header). Identity first: a foreign claim is
         # untouchable at any age, so its liveness never even needs measuring. The queue
         # check runs last because it is the only one that costs git calls.
@@ -650,7 +1237,16 @@ claims_scan() {
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active
-        elif [ "$(claims_superseded "$_cs_base" "$_cs_artifacts")" = "true" ]; then
+        elif [ "$(claims_landed_verdict)" = "stranded" ]; then
+            # THE TICKETS LANDED AND THE BRANCH STILL HOLDS WORK (2026-09-01, issue #788). This
+            # is not `superseded` and must never be treated as one: `superseded` is a PROOF that
+            # licenses `retire-claim.sh` to delete the branch, and here the branch carries
+            # content found on no other ref. It is not resumable either — the queue this unit
+            # was claimed for is drained, so there is nothing to drive — and what it wants is a
+            # person told. `/moderate`'s `retire-claims` step asks its holder.
+            _cs_resumable=false
+            _cs_reason=stranded
+        elif [ "$(claims_landed_verdict)" = "superseded" ]; then
             # The unit's work is already on the base by another route (see
             # claims_superseded). It sits AFTER `claim_active` on purpose: liveness is what
             # gates a takeover, so a run that is still committing keeps the reading that
@@ -661,7 +1257,7 @@ claims_scan() {
             # land.
             _cs_resumable=false
             _cs_reason=superseded
-        elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip")" = "false" ]; then
+        elif [ "$(claims_has_work "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")" = "false" ]; then
             # A DRAINED QUEUE IS TWO DIFFERENT STATES, TOLD APART BY THE SAME STORY SIGNAL
             # the parked/dead fork below already reads (2026-08-19). With a story at the
             # tip the unit REPORTED -- its pull request is open and a human, not a runner,
@@ -676,29 +1272,161 @@ claims_scan() {
             # empty) and re-enters the Unified Run at §5, writing the story and opening
             # the pull request the dead run never did.
             if [ "$_cs_reported" = "true" ]; then
-                _cs_resumable=false
-                _cs_reason=queue_drained
+                # AND A REPORTED UNIT IS ITSELF TWO STATES (2026-08-27, see
+                # `claims_merge_outcome`). `queue_drained` means *waiting on a person*, and it
+                # was also covering the loop's own undelivered work — a unit whose merge the
+                # transport refused, which no later survey offers and nobody was told about.
+                # The split is read off the branch story the run already committed, so it costs
+                # no network call and cannot disagree with the run that made the attempt.
+                #
+                # `resumable: false`, and the reason is NOT the one `queue_drained` gives.
+                # The next action here is a MERGE RETRY, which is not a takeover: `claim.sh
+                # resume` would push an empty `Resume` commit onto a branch whose pull request
+                # is open, which is precisely the 2026-08-01 gate. The 2026-08-19 split went
+                # `resumable: true` because its unit had never reported and the takeover had
+                # real work to do (write the story, open the pull request); this one has
+                # already done both. So it is REPORTED and it forbids `ok` (`../SKILL.md` §7)
+                # rather than being offered as a takeover.
+                case "$(claims_merge_outcome "$_cs_ref" "$_cs_branch")" in
+                    merge_refused*)
+                        _cs_resumable=false
+                        _cs_reason=report_undelivered
+                        ;;
+                    *)
+                        _cs_resumable=false
+                        _cs_reason=queue_drained
+                        ;;
+                esac
             else
                 _cs_resumable=true
                 _cs_reason=report_incomplete
             fi
         elif [ "$_cs_reported" = "true" ]; then
-            # Resumable, but PARKED rather than dead: it reported and opened a PR, and the
-            # follow-up tickets on its branch are why it still has work. Taking it over is
-            # legitimate; being FORCED to take it over ahead of fresh work is not, so the
-            # reason is distinct and /drive treats it as reportable rather than mandatory.
-            _cs_resumable=true
-            _cs_reason=parked_with_pr
+            if [ "$_cs_declared_handoff" = "true" ]; then
+                # AND A *REPORTED* UNIT WITH WORK LEFT IS TWO STATES TOO (2026-08-27, mission
+                # `stop-re-resuming-a-declared-handoff-unit`). `parked_with_pr`'s own contract
+                # says *the follow-up tickets on its branch are why it still has work. Taking it
+                # over is legitimate* -- and that sentence is FALSE BY DECLARATION for a unit
+                # whose remaining work carries `verification_handoff:`. §6 routed it to the
+                # handoff route precisely because nothing unattended can finish it, and the
+                # oracle then offered the takeover anyway: measured on PR #647, routed at 02:14
+                # UTC and taken over again at 06:43 for nothing.
+                #
+                # A SIBLING WORD, NOT A NARROWED `parked_with_pr`, on the `report_undelivered`
+                # precedent: the two states call for different next actions -- take it over
+                # versus satisfy the declared verification -- and one word answering both is
+                # what made this invisible for thirteen days.
+                #
+                # `resumable: false`, for its own reason: the next action belongs to a PERSON,
+                # and resuming would push an empty `Resume` commit onto a branch whose pull
+                # request is open -- the 2026-08-01 gate exactly.
+                #
+                # IT RELEASES ITSELF. The declaration is read from the work still QUEUED, so
+                # once that ticket is driven the reading answers `false` and the unit reads
+                # `parked_with_pr` or `queue_drained` again, with nothing stored anywhere.
+                _cs_resumable=false
+                _cs_reason=awaiting_verification
+            else
+                # Resumable, but PARKED rather than dead: it reported and opened a PR, and the
+                # follow-up tickets on its branch are why it still has work. Taking it over is
+                # legitimate; being FORCED to take it over ahead of fresh work is not, so the
+                # reason is distinct and /drive treats it as reportable rather than mandatory.
+                _cs_resumable=true
+                _cs_reason=parked_with_pr
+            fi
         else
             _cs_resumable=true
             _cs_reason=heartbeat_lapsed
         fi
 
-        # `reported` sits BEFORE the artifact list, never after it: the artifact list is
-        # last because a trailing empty field is the one case `read` handles correctly
-        # (see the note above), so a new column appended after it would land inside it.
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        # `reported` and `declared_handoff` sit BEFORE the artifact list, never after it: the
+        # artifact list is last because a trailing empty field is the one case `read` handles
+        # correctly (see the note above), so a new column appended after it would land inside
+        # it. Both are always `true` or `false`, so neither can be the empty middle field that
+        # rule exists to forbid.
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
             "$_cs_unit" "$_cs_branch" "$_cs_at" "$_cs_stale" \
-            "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_reported" "$_cs_artifacts"
+            "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_reported" \
+            "$_cs_declared_handoff" "$_cs_artifacts"
     done
+}
+
+# ---------------------------------------------------------------------------
+# RESOLVING A UNIT ID TO THE ONE CLAIM ROW A WRITER MAY ACT ON (2026-08-27).
+#
+# A unit can legitimately be held by TWO claim branches since 2026-08-26: a `superseded`
+# one the survey ignores, and the fresh one a later run took its work on. Every writer
+# resolved a unit to *a* branch by taking the FIRST match out of `claims_scan`, and
+# `claims_scan` walks refs in name order -- so the first match is the OLDEST branch, which
+# for this shape is precisely the dead one. Measured 2026-08-27 on this repository, on unit
+# `make-workaholify-converge-the-account-s-routines` held by `work-20260819-113836`
+# (superseded) and `work-20260827-003544` (claim_active): `claim.sh resume` refused on the
+# superseded branch's verdict, so the LIVE claim could not be resumed by anything, and
+# `release-claim.sh` tore down the superseded branch and reported `half_released` while the
+# live claim stood.
+#
+# The two-branch shape is NEW, which is why first-match was right until now: before a fresh
+# claim could be taken over a superseded one, a unit had exactly one branch.
+#
+# ONE DERIVATION, THREE VIEWS. The resolution lives here rather than in each caller because
+# three copies of a lookup is exactly how these three disagreed. Callers read
+# `claims_unit_resolution` to decide whether they may act, and `claims_unit_row` for the row.
+#
+#   none            no claim in flight for this unit
+#   single          exactly one claim, whatever its verdict -- byte-identical to first-match
+#   live            one live claim beside one or more superseded ones -- the live one wins
+#   superseded_only every claim for this unit is superseded; the first is returned, so a
+#                   caller keeps refusing under `superseded` exactly as it did before
+#   ambiguous       TWO OR MORE LIVE CLAIMS. Reported, never picked. This row read *the
+#                   protocol settles a race by the push, so this state cannot arise from the
+#                   sanctioned path at all* until 2026-08-30, and that premise was FALSE for a
+#                   fresh claim: `create.sh` mints a clock-derived name, so two runners that
+#                   survey before either pushes name two different refs and both win
+#                   (`../reference/claims.md`, *What the claim contends for*). So it does
+#                   arise, and the refusal is MORE necessary rather than less -- picking one
+#                   of two live branches silently is how a runner would resume, or release,
+#                   work another run is still driving. Name both branches instead. Since
+#                   2026-08-30 this reading also reaches a person: `list-raced-units.sh`
+#                   composes it and `/moderate`'s `raced-units` step asks the claim holders
+#                   which branch keeps going. It is a JUDGEMENT -- a race resolves the moment
+#                   one branch merges -- so no consumer may act on it.
+
+# Every claim row for this unit, in scan order. $1 = rows, $2 = unit.
+claims_unit_all_rows() {
+    printf '%s\n' "$1" | awk -F'\t' -v u="$2" '$1 == u && NF > 1'
+}
+
+# The branches of this unit's LIVE (non-superseded) claims, comma-joined -- what an
+# `ambiguous` refusal reports so a human sees both. $1 = rows, $2 = unit.
+claims_unit_live_branches() {
+    claims_unit_all_rows "$1" "$2" \
+        | awk -F'\t' '$7 != "superseded" { printf "%s%s", (n++ ? "," : ""), $2 } END { printf "\n" }'
+}
+
+# One of the words above. $1 = rows, $2 = unit.
+claims_unit_resolution() {
+    _cu_all=$(claims_unit_all_rows "$1" "$2")
+    _cu_total=$(printf '%s\n' "$_cu_all" | grep -c . || true)
+    [ "$_cu_total" -gt 0 ] || { printf 'none\n'; return 0; }
+    _cu_live=$(printf '%s\n' "$_cu_all" | awk -F'\t' '$7 != "superseded"' | grep -c . || true)
+    if [ "$_cu_live" -eq 0 ]; then
+        printf 'superseded_only\n'
+    elif [ "$_cu_live" -gt 1 ]; then
+        printf 'ambiguous\n'
+    elif [ "$_cu_total" -eq 1 ]; then
+        printf 'single\n'
+    else
+        printf 'live\n'
+    fi
+}
+
+# The row to act on -- the live one when there is one, else the first superseded one.
+# EMPTY for `none` and for `ambiguous`: a caller that gets no row must refuse rather than
+# fall back to a guess. $1 = rows, $2 = unit.
+claims_unit_row() {
+    case "$(claims_unit_resolution "$1" "$2")" in
+        none | ambiguous) return 0 ;;
+        superseded_only) claims_unit_all_rows "$1" "$2" | head -n 1 ;;
+        *) claims_unit_all_rows "$1" "$2" | awk -F'\t' '$7 != "superseded" { print; exit }' ;;
+    esac
 }

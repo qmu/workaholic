@@ -116,7 +116,7 @@ Each seam reads the artifact's many-valued `mission:` relation through the singl
 | `story` (concern verdicts) | a missioned concern judged resolved | `concern resolved (unstuck)` | — |
 | `ship` (concern extraction) | a missioned concern is deferred | `concern deferred (stuck)` | — |
 
-Non-blocking is not silent: a seam never lets a mission problem block the work it is archiving, but a failed mutator is named loudly and a mutator that ran and changed nothing prints its `reason` (`"ticked": false` is not a failure, so a bare `|| true` never catches it) — never route a mutator's stdout, stderr, and exit code to `/dev/null`. Read-only consumers — `/catch`, and the always-on mission lens (`hooks/mission-lens.sh`, via `progress.sh`/`next-acceptance.sh`, gated on ownership through `gather/scripts/owners.sh`, worktree focus, and at least one acceptance item) — mutate nothing.
+Non-blocking is not silent: a seam never lets a mission problem block the work it is archiving, but a failed mutator is named loudly and a mutator that ran and changed nothing prints its `reason` (`"ticked": false` is not a failure, so a bare `|| true` never catches it) — never route a mutator's stdout, stderr, and exit code to `/dev/null`. Read-only consumers — `/catch`, and the bare `/mission` roadmap — mutate nothing.
 
 ## Caveats
 

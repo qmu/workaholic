@@ -1,6 +1,14 @@
 #!/bin/sh -eu
 # Record that a person ANSWERED a check-in question, and what they said.
 #
+# TWO ROUTES REACH IT SINCE 2026-08-28 (mission
+# `let-an-answer-in-the-thread-turn-back-into-the-loop-s-work`), and the second is now the
+# ordinary one: the developer answers **in the question's own thread**, and the next tick's
+# `question-answers` step reads that thread on the coordinate the ask line recorded and hands
+# the words here. The session-link route below still works and costs a session per answer.
+# This script did not change: it is still the ONE writer of the answered line, still
+# append-only through `log-append.sh`, and still parses nothing.
+#
 # WHY THIS EXISTS (2026-08-23, issue #584). The developer's flow ends where the plugin had
 # nothing: they open the session link on the question, answer inside the moderator's own
 # session, and expect the loop to continue. The tick had no notion of an answer —

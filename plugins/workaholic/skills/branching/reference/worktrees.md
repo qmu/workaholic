@@ -37,7 +37,7 @@ Workspace cleanliness only (no branch inspection): `{"clean": bool, "untracked_c
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-all-worktrees.sh
 ```
 
-All active worktrees, no GitHub calls: `{"count": N, "worktrees": [{"name", "branch", "worktree_path", "type"}]}`. A `.worktrees/<slug>` mission worktree is tagged `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` and the mission lens can distinguish a mission's claim worktree from an ordinary branch worktree.
+All active worktrees, no GitHub calls: `{"count": N, "worktrees": [{"name", "branch", "worktree_path", "type"}]}`. A `.worktrees/<slug>` mission worktree is tagged `"type": "mission"` (ordinary `work-*` dirs stay `"type": "work"`), so `/ship` can distinguish a mission's claim worktree from an ordinary branch worktree.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/list-worktrees.sh

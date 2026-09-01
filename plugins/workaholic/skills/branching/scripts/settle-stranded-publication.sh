@@ -105,6 +105,7 @@ esac
 
 BRANCH=""
 CLASS=""
+AGE=null
 CONFLICTED="[]"
 WORKTREE=""
 MERGED=false
@@ -138,9 +139,9 @@ teardown_worktree() {
 
 report() {
     teardown_worktree "$1"
-    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s"}\n' \
+    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "age_hours": %s, "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s"}\n' \
         "$1" "$NUMBER" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" "$(json_str "$CLASS")" \
-        "$CONFLICTED" "$(json_str "$WORKTREE")" \
+        "$AGE" "$CONFLICTED" "$(json_str "$WORKTREE")" \
         "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")"
     exit 0
 }
@@ -167,6 +168,12 @@ row="$(printf '%s' "$rows" | jq -c --arg n "$NUMBER" '.publications[]? | select(
 
 BRANCH="$(printf '%s' "$row" | jq -r '.branch // ""')"
 CLASS="$(printf '%s' "$row" | jq -r '.mergeability // ""')"
+# THE AGE RIDES THE ROW THE VERDICT CAME FROM (2026-09-01) — re-derived here and now, because
+# the reader above was re-run here and now. It is REPORTED and never read: no branch of this
+# script tests it, so an old publication settles exactly as a fresh one does. What it earns is
+# that the caller can say a stale plan landed; a gate here would strand the very publications
+# the `clean` widening exists to deliver.
+AGE="$(printf '%s' "$row" | jq -r 'if (.age_hours|type) == "number" then (.age_hours|tostring) else "null" end' 2>/dev/null || printf 'null')"
 [ -n "$BRANCH" ] || refuse not_a_stranded_publication
 
 # THE BRANCH SHAPE IS CHECKED AGAIN HERE, DELIBERATELY. The reader already applies it, so this

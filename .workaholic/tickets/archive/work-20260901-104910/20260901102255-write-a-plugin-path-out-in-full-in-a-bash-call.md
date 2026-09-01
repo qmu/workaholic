@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T10:22:55+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -103,3 +104,31 @@ Diagnosis first — the ask is a failure report, so reproduce and localize befor
   because shell state does not persist between tool calls. So the clause must say what such a
   seam does instead — carry the values as flags, or state the prefix as a named exception with
   its allowlist cost — rather than forbidding a shape the loop still has to run.
+
+## Final Report
+
+Development completed as planned.
+
+The clause landed in `plugins/workaholic/rules/shell.md` as its own section,
+*Composing the call: the path in full, the reader first, no assignment prefix*, placed
+between the read-tool section it extends and the GitHub-transport section. It carries the
+measured stall verbatim, the allowlist reasoning (`Bash(export:*)` is the only matching rule
+and it permits everything after the semicolon), the statement that `${CLAUDE_PLUGIN_ROOT}`
+remains correct in markdown, the refusal of `env VAR=… <cmd>` on the same first-token
+grounds, and the named exception for the seams documented with a one-command `VAR=value`
+prefix. Enforcement is stated as prose a human reads, with the reason a mechanical row would
+find nothing: the composition happens at run time and never appears in this tree's markdown.
+
+### Discovered Insights
+
+- **Insight**: the export is not only unallowlistable, it buys nothing — shell state does not
+  persist between Bash tool calls, so an exported variable is never carried forward to a later
+  call.
+  **Context**: the rule reads as a pure cost with no benefit to trade against, which is why it
+  can be stated absolutely rather than as a preference. The one genuine counter-case (a seam
+  whose script takes its inputs only as environment variables) is a *one-command* prefix, not
+  an export, and is handled as a named exception.
+- **Insight**: `rules/shell.md`'s sibling read-tool section had already written down why a
+  mechanical check cannot carry here, and the reasoning transfers exactly.
+  **Context**: a later session tempted to add a grep should read that paragraph first — a row
+  keying on `export` would fire on this very section's own prose.

@@ -44,12 +44,37 @@ answer to continue.
 
 **Every unattended contract is an instance of this policy, not a separate question.** `/implement`,
 `/specificate`, `/propose` and `/moderate` each say *no `AskUserQuestion` anywhere*; read that as
-*no prompt of any kind*, and this section as the reason. Where a run's own reach is what raises the
-prompt, the rule that removes it is `rules/shell.md`, *Reading a plugin script: a read tool, never a
-Bash text pipeline*.
+*no prompt of any kind*, and this section as the reason. No command file needs its own copy of
+what follows.
 
-**This is prose, and its enforcement is a human reading it.** What a machine can hold is the
-*configuration* a run inherits — established, with its evidence and its limit, in
+**A run with no human present composes only commands an allowlist can name** (2026-09-01, mission
+`compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it`). This is the axis, and the
+outcomes above are downstream of it: a command an operator's allowlist can name never reaches the
+dialog at all, so **a command that cannot be allowlisted is a prompt the run has chosen to raise**.
+The two rules this repository holds are cases of that axis rather than a list:
+
+- **What the run reaches for** — an inspection read goes through a read tool, never a Bash text
+  pipeline (`rules/shell.md`, *Reading a plugin script: a read tool, never a Bash text pipeline*).
+  The harness classifies such a pipeline over a sensitive path as an edit, and that classification
+  is the harness's.
+- **How the run spells it** — a plugin path is written out in full, one command per call, the
+  reader first, no assignment prefix (`rules/shell.md`, *Composing the call: the path in full, the
+  reader first, no assignment prefix*, and `rules/general.md`'s ceiling bullet). A permission rule
+  matches on the command, so an assignment prefix leaves nothing but a rule permitting everything
+  after it.
+
+**The observer gap is already covered for one of the four unattended commands, and naming it here
+is what stops it being re-proposed.** `/moderate`'s `blocked-tick` step (2026-08-31) reads its own
+tick log for an opening with no closing and names a stopped tick — an hour later, by a structural
+bound, and only for `/moderate`, because it is that log the step reads. `/implement`,
+`/specificate` and `/propose` write no such log, so a stall in one of them is still visible only as
+an hour in which nothing happened. That is a reason to keep this rule, not a reason to build a
+second watcher.
+
+**This is prose, and its enforcement is a human reading it — the composition clause included.**
+Nothing mechanical can check it: the composition happens at run time and never appears in this
+tree's markdown, so a row over these files would find nothing to fail on. What a machine can hold
+is the *configuration* a run inherits — established, with its evidence and its limit, in
 `workaholic:workaholify`, *Where an unattended run's prompt policy is configured*. A policy nothing
 configures is a policy each run re-decides.
 

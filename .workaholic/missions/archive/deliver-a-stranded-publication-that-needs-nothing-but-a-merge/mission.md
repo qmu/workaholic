@@ -2,7 +2,7 @@
 type: Mission
 title: Deliver a stranded publication that needs nothing but a merge
 slug: deliver-a-stranded-publication-that-needs-nothing-but-a-merge
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T03:24:25+00:00
 author: a@qmu.jp
@@ -41,10 +41,12 @@ A regression that leaves the class ownerless fails a drill.
       no catch-up, running the gate first, and staying idempotent and refused by its own word (#20260901032501-settle-a-clean-stranded-publication.md)
 - [x] `/implement` acts on every `clean` entry it reads and reports both outcomes per entry,
       with the docs stating which class each act owns (#20260901032502-act-on-every-clean-publication-the-run-reads.md)
-- [ ] A drill fails when a `clean` publication stops being settled (#20260901032502-drill-the-clean-publication-settlement.md)
+- [x] A drill fails when a `clean` publication stops being settled (#20260901032502-drill-the-clean-publication-settlement.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-01 — ticket archived — 20260901032501-settle-a-clean-stranded-publication.md
 - 2026-09-01 — ticket archived — 20260901032502-act-on-every-clean-publication-the-run-reads.md
+- 2026-09-01 — ticket archived — 20260901032502-drill-the-clean-publication-settlement.md
+- 2026-09-01 — mission achieved — mission.md

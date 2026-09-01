@@ -101,6 +101,7 @@ const SCRIPTS = {
   validateMission: join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
+  acceptanceHandoffs: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/acceptance-handoffs.sh"),
   linkAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/link-acceptance.sh"),
   unlinkedAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/unlinked-acceptance.sh"),
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
@@ -9018,6 +9019,69 @@ concerns: []
     r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} nope.md`).stdout);
     assertEq("tick-acceptance no-match is a no-op", r.ticked, false);
     assertEq("progress unchanged after a no-op tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2, unlinked: 0 });
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/acceptance-handoffs.sh (what the close gate cannot see) ----------
+// The archive gate closes a mission on arithmetic: every acceptance item ticked, none
+// unlinked, the queue empty. A ticket declaring `verification_handoff` is archived as
+// IMPLEMENTED — the code is written — so its acceptance item ticks and the mission then
+// closed `achieved` while what the item asserts had been verified by nobody. Measured
+// 2026-08-31 on a real mission. This reader is what the gate consults; it delegates the
+// declaration itself to verification-handoff.sh rather than reading the field again.
+function testAcceptanceHandoffs() {
+  const dir = makeRepo("main");
+  try {
+    const ticket = (name, handoff) => {
+      const at = join(dir, `.workaholic/tickets/archive/work-1/${name}`);
+      mkdirSync(dirname(at), { recursive: true });
+      writeFileSync(at, `---\nverification_handoff: ${handoff}\n---\n\n# ${name}\n`);
+    };
+    const mission = (slug, body) => {
+      const mdir = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(mdir, { recursive: true });
+      const mfile = join(mdir, "mission.md");
+      writeFileSync(mfile, `---\ntype: Mission\nslug: ${slug}\nstatus: active\n---\n\n# ${slug}\n\n## Acceptance\n\n${body}\n`);
+      return mfile;
+    };
+
+    ticket("t-code.md", "");
+    ticket("t-check.md", "");
+    ticket("t-deployed.md", "a deployed application no unattended runner can reach");
+
+    // The measured case: one item answered by a ticket that declared a handoff.
+    const withHandoff = mission("m-handoff", "- [x] The code is written. (#t-code.md)\n- [x] It works on the deployed screen. (#t-deployed.md)");
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${withHandoff}`).stdout);
+    assertEq("a declared handoff among the acceptance items is found", r.handoff, true);
+    assertEq("and the ticket is named, so the refusal can say which", r.tickets, ["t-deployed.md"]);
+    assertEq("nothing unresolved when every link points at a file", r.unresolved, []);
+
+    // The control: a mission with none must behave byte-identically to today.
+    const plain = mission("m-plain", "- [x] The code is written. (#t-code.md)\n- [x] The check is written. (#t-check.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${plain}`).stdout);
+    assertEq("a mission with no declared handoff answers false", r.handoff, false);
+    assertEq("and names no ticket", r.tickets, []);
+
+    // A ticket still in todo/ counts: the plan says the same thing before it is driven.
+    const queued = join(dir, ".workaholic/tickets/todo/t-queued.md");
+    mkdirSync(dirname(queued), { recursive: true });
+    writeFileSync(queued, `---\nverification_handoff: a device this runner does not have\n---\n\n# t-queued\n`);
+    const notYet = mission("m-queued", "- [ ] Not driven yet. (#t-queued.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${notYet}`).stdout);
+    assertEq("a queued handoff ticket is found too", r.handoff, true);
+
+    // A link pointing at no file is reported, and is NOT a handoff: a broken link is a
+    // different fault, already counted by progress.sh's `unlinked`.
+    const broken = mission("m-broken", "- [x] Answered by nothing. (#t-missing.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${broken}`).stdout);
+    assertEq("an unresolved link is not a handoff", r.handoff, false);
+    assertEq("and is reported as unresolved", r.unresolved, ["t-missing.md"]);
+
+    // An item naming no ticket at all leaves the reader with nothing to resolve.
+    const unlinked = mission("m-unlinked", "- [x] Answered by nobody in particular.");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${unlinked}`).stdout);
+    assertEq("an item with no link is neither a handoff nor unresolved", r.handoff, false);
+    assertEq("no ticket resolved from an unlinked item", r.unresolved, []);
   } finally { cleanup(dir); }
 }
 
@@ -20787,6 +20851,7 @@ const tests = [
   ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
+  ["mission/acceptance-handoffs.sh", testAcceptanceHandoffs],
   ["mission/link-acceptance.sh (the acceptance-to-artifact link)", testLinkAcceptance],
   ["acceptance satisfaction semantics (ticker + progress + audit)", testAcceptanceSatisfactionSemantics],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],

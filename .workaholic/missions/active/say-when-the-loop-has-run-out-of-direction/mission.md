@@ -44,7 +44,7 @@ and `/propose`'s gates are unchanged.
       `survey-strategies.sh`; `unreadable` never collapses into them (#20260826110016-add-the-overdue-reading-to-the-strategy-survey.md)
 - [x] `/moderate`'s `direction-health` asks each non-`live` reading's assignee
       once and renders its event (#20260826110016-add-the-moderate-step-direction-health.md)
-- [ ] A test and a drill prove the step writes nothing under `strategies/`,
+- [x] A test and a drill prove the step writes nothing under `strategies/`,
       never closes and never lifts a gate (#20260826110016-pin-the-three-refusals-with-a-hermetic-test.md)
 
 ## Changelog
@@ -56,3 +56,4 @@ and `/propose`'s gates are unchanged.
 - 2026-09-01 — ticket archived — 20260826110016-add-the-moderate-step-direction-health.md
 - 2026-09-01 — ticket archived — 20260826110016-render-the-direction-reading-on-the-tick-root.md
 - 2026-09-01 — ticket archived — 20260826110016-make-the-direction-question-actionable-in-its-body.md
+- 2026-09-01 — ticket archived — 20260826110016-pin-the-three-refusals-with-a-hermetic-test.md

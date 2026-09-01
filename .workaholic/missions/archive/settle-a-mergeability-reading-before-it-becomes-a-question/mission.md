@@ -50,3 +50,4 @@ on its face that GitHub applies none of it.
 - 2026-09-01 — ticket archived — 20260901082633-name-the-loop-s-own-repair-on-a-conflicted-pull-request.md
 - 2026-09-01 — ticket archived — 20260901082635-state-that-github-applies-no-merge-driver.md
 - 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — story — work-20260901-094857.md

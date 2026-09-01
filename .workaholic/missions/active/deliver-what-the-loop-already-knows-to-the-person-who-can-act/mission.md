@@ -38,7 +38,7 @@ of looking like a quiet hour.
 
 ## Acceptance
 
-- [ ] The day count is bounded to one derived day; a log carrying only earlier
+- [x] The day count is bounded to one derived day; a log carrying only earlier
       days' asks no longer refuses `day_cap`, pinned by a hermetic test. (#20260828122110-bound-the-check-in-day-count-to-one-derived-day.md)
 - [ ] Held findings are offered oldest-held first under the unchanged
       `max_per_tick`, so a multi-day backlog drains in urgency order. (#20260828122110-drain-a-multi-day-question-backlog-oldest-held-first.md)
@@ -49,3 +49,4 @@ of looking like a quiet hour.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-01 — ticket archived — 20260828122109-reproduce-the-check-in-day-cap-jam-and-pin-it.md
+- 2026-09-01 — ticket archived — 20260828122110-bound-the-check-in-day-count-to-one-derived-day.md

@@ -21231,6 +21231,7 @@ const tests = [
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
   ["moderate: one tick, one reading of the open pull requests", testOneReadingOfTheOpenPullRequests],
   ["moderate/merge-conflicts: an uncomputed mergeability is not \"none conflicted\"", testUncomputedMergeabilityIsNamed],
+  ["moderate: an uncomputed mergeability is re-read once before it is reported", testUncomputedMergeabilityIsReReadOnce],
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
   ["moderate: an answer in a question's own thread reaches the writer", testAnswerReturnPath],
@@ -32747,10 +32748,19 @@ printf '[]\\n'
   return { dir, bin, counter };
 }
 
+// THE SECOND LOOK IS TURNED OFF FOR THIS ROW, DELIBERATELY (2026-09-01, ticket
+// `20260901082631`). The fixture's whole mechanism is a first answer of `null`, which is
+// exactly what the re-read now settles — so with it on, the historical drift this row exists
+// to pin becomes unreproducible and the row would silently stop testing what it names.
+// `WORKAHOLIC_PULLS_STATE_REREAD_MAX=0` is a legitimate value of a named cap, not a test-only
+// hook, and the re-read has a row of its own below.
 function testOneReadingOfTheOpenPullRequests() {
   const fx = makePullsDriftFixture();
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
-  const env = { ...process.env, PATH: `${fx.bin}:${process.env.PATH}` };
+  const env = {
+    ...process.env, PATH: `${fx.bin}:${process.env.PATH}`,
+    WORKAHOLIC_PULLS_STATE_REREAD_MAX: "0",
+  };
   try {
     // 1. THE DISAGREEMENT, REPRODUCED AT THE SEAM. Two independent resolutions in `run.sh`'s
     //    own order give step 4 the `unknown` round and step 6 the `conflict` round.
@@ -32834,7 +32844,13 @@ function testOneReadingOfTheOpenPullRequests() {
 function testUncomputedMergeabilityIsNamed() {
   const fx = makePullsDriftFixture({ alwaysUnknown: true });
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
-  const env = { ...process.env, PATH: `${fx.bin}:${process.env.PATH}` };
+  // The row is `null` on every read, so the second look changes nothing it asserts — only how
+  // long it takes. The wait is zeroed because a hermetic suite must not sleep; the cap on rows
+  // is left at its default so this row still exercises the re-read's no-op path.
+  const env = {
+    ...process.env, PATH: `${fx.bin}:${process.env.PATH}`,
+    WORKAHOLIC_PULLS_STATE_REREAD_WAIT: "0",
+  };
   try {
     const r = JSON.parse(run(fx.dir,
       `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260829-085055 --root .`,
@@ -32877,6 +32893,82 @@ function testUncomputedMergeabilityIsNamed() {
     assertTrue("blocked_by is still derived only in the one reader",
       /blocked=unknown/.test(reader) && !/blocked_by=/.test(src), "a second derivation appeared");
   } finally { cleanup(fx.dir); cleanup(fx.bin); }
+}
+
+// ---------- an uncomputed mergeability is re-read once before it is reported (2026-09-01) ----------
+//
+// GitHub computes `mergeable` lazily and REQUESTING the pull request is what schedules the
+// job, so the tick's own first per-pull read is systematically the one most likely to answer
+// `null`. With nothing looking again, a *not yet* became an hourly `unknown` finding, a
+// `stuck-prs` reminder and eventually a question against a person's daily budget. Measured
+// (issue #838): four pull requests reported `unknown` hour after hour, and a hand read settled
+// all four on the first try — because the hand read was the SECOND read.
+//
+// THE ASSERTIONS ARE ON THE CLASSIFICATION AND ON THE BOUND, not on a return shape: a row
+// whose second answer differs must be classified from the SECOND one, a row that stays `null`
+// must still be `unknown`, and the spend must be reported whether or not it bought anything.
+function testUncomputedMergeabilityIsReReadOnce() {
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const settle = makePullsDriftFixture();
+  const stay = makePullsDriftFixture({ alwaysUnknown: true });
+  const envFor = (fx, extra = {}) => ({
+    ...process.env, PATH: `${fx.bin}:${process.env.PATH}`,
+    WORKAHOLIC_PULLS_STATE_REREAD_WAIT: "0", ...extra,
+  });
+  try {
+    // 1. `null` THEN `false` IS A CONFLICT, not an `unknown`. The first answer is the one the
+    //    request itself scheduled; the second is the one GitHub actually computed.
+    writeFileSync(settle.counter, "0");
+    const settled = JSON.parse(run(settle.dir,
+      `${POSIX_SH} ${join(HK, "pulls-state.sh")}`, { env: envFor(settle) }).stdout);
+    assertEq("a row settled by the second look is classified from the second answer",
+      [settled.pulls[0].blocked_by, settled.pulls[0].mergeable], ["conflict", "false"]);
+    assertEq("and the reader says it spent the second look and what it bought",
+      [settled.reread_attempted, settled.reread_settled, settled.reread_capped],
+      [1, 1, false]);
+    assertEq("the second look is ONE re-read, never a retry loop",
+      readFileSync(settle.counter, "utf8").trim(), "2");
+
+    // 2. `null` BOTH TIMES IS STILL `unknown`. The vocabulary does not move — that is still the
+    //    honest word for a row GitHub has not computed — and a tick that spent the budget and
+    //    learned nothing SAYS SO rather than reading like one that never tried.
+    writeFileSync(stay.counter, "0");
+    const unknown = JSON.parse(run(stay.dir,
+      `${POSIX_SH} ${join(HK, "pulls-state.sh")}`, { env: envFor(stay) }).stdout);
+    assertEq("a row still uncomputed after the second look is still unknown",
+      [unknown.pulls[0].blocked_by, unknown.pulls[0].mergeable], ["unknown", "null"]);
+    assertEq("and the spend is reported as spent and unrewarded",
+      [unknown.reread_attempted, unknown.reread_settled], [1, 0]);
+
+    // 3. AND `merge-conflicts` STILL COUNTS IT. `uncomputed` distinguishes *could not look*
+    //    from *looked and found nothing*, and the second look does not blur the two.
+    writeFileSync(stay.counter, "0");
+    const four = JSON.parse(run(stay.dir,
+      `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260901-090000 --root .`,
+      { env: envFor(stay) }).stdout);
+    assertEq("the consuming step's uncomputed count is unchanged for a row that stayed null",
+      [four.uncomputed, four.conflicted, four.reason], [1, [], "mergeability_uncomputed"]);
+
+    // 4. THE BOUND IS A NAMED CAP, and exceeding it leaves the row as it was rather than
+    //    extending the tick. `0` rows is the same cap at its floor.
+    writeFileSync(stay.counter, "0");
+    const capped = JSON.parse(run(stay.dir, `${POSIX_SH} ${join(HK, "pulls-state.sh")}`,
+      { env: envFor(stay, { WORKAHOLIC_PULLS_STATE_REREAD_MAX: "0" }) }).stdout);
+    assertEq("a capped-out second look re-reads nothing and reports nothing settled",
+      [capped.reread_attempted, capped.reread_settled, capped.pulls[0].blocked_by],
+      [0, 0, "unknown"]);
+    assertEq("and the transport was read exactly once", readFileSync(stay.counter, "utf8").trim(), "1");
+
+    // 5. THE SECOND LOOK LIVES IN THE ONE READER. A step-level re-read would give `stuck-prs`
+    //    and `merge-conflicts` a network call each and re-open the drift the per-tick cache
+    //    exists to close — the defect `pulls-state.sh`'s own header records.
+    for (const step of ["step-stuck-prs.sh", "step-merge-conflicts.sh"]) {
+      assertTrue(`${step} gains no re-read of its own`,
+        !/REREAD/.test(readFileSync(join(HK, step), "utf8")), step);
+    }
+  } finally {
+    cleanup(settle.dir); cleanup(settle.bin); cleanup(stay.dir); cleanup(stay.bin);
+  }
 }
 
 // ---------- the drill verdict path (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`) ----------

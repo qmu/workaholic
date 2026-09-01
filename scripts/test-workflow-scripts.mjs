@@ -16483,6 +16483,40 @@ function testVerificationHandoff() {
       { handoff: missing.handoff, missing: missing.missing },
       { handoff: false, missing: [".workaholic/tickets/todo/nope.md"] });
 
+    // --- A MISSION'S MEMBERS ARE ITS TICKETS (2026-09-01, ticket `20260826135100`) ---
+    // `mission` mode read the mission file alone, so the "any member wins" rule above could
+    // not fire for the artifact that most often carries the declaration. The fixture puts the
+    // declaring ticket under `archive/<branch>/` rather than in `todo/`, because that is where
+    // a unit's tickets are BY THE TIME the route reads this answer — a `todo/`-only fixture
+    // would pass over the implementation that caused the measured miss.
+    mission("m-member", null);
+    const archived = join(dir, ".workaholic/tickets/archive/work-20260826-134108");
+    mkdirSync(archived, { recursive: true });
+    const relArchived = ".workaholic/tickets/archive/work-20260826-134108/20260814000004-declared.md";
+    writeFileSync(join(dir, relArchived),
+      "---\ncreated_at: 2026-08-14T00:00:00+09:00\nauthor: test@example.com\n"
+      + `mission: m-member\nverification_handoff: ${REASON}\n---\n\n# archived-declared\n`);
+    const viaMember = v("mission m-member");
+    assertEq("a mission whose ARCHIVED ticket declares hands the whole unit off",
+      { handoff: viaMember.handoff, reason: viaMember.reason, names: viaMember.member.endsWith(relArchived) },
+      { handoff: true, reason: REASON, names: true });
+    assertTrue("and the mission file is still a member of the answer",
+      viaMember.members.some((m) => m.id === "m-member"), JSON.stringify(viaMember.members));
+
+    // A ticket relating to ANOTHER mission is not this unit's member, even though the
+    // grep prefilter can hand it over: `read-relation.sh` is what decides, not the text.
+    const relOther = ".workaholic/tickets/archive/work-20260826-134108/20260814000005-other.md";
+    writeFileSync(join(dir, relOther),
+      "---\ncreated_at: 2026-08-14T00:00:00+09:00\nauthor: test@example.com\n"
+      + `mission: m-plain\n---\n\n# mentions m-member in its body\n\nSee m-member.\n`);
+    const stillPlain = v("mission m-plain");
+    const names = (r) => r.members.map((m) => m.id).filter((id) => id.endsWith(relOther));
+    assertTrue("a ticket is a member of the mission its relation names, never of one it mentions",
+      names(v("mission m-member")).length === 0 && names(stillPlain).length === 1,
+      JSON.stringify([v("mission m-member").members.map((m) => m.id), stillPlain.members.map((m) => m.id)]));
+    assertEq("and a mission whose members declare nothing still hands nothing off",
+      stillPlain.handoff, false);
+
     // Malformed invocation is the only hard error: a caller that mistyped the kind
     // must not receive a plausible-looking `false`.
     assertTrue("a bad unit kind exits non-zero", run(dir, `${VH} bogus x`).status !== 0);

@@ -101,6 +101,7 @@ const SCRIPTS = {
   validateMission: join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
+  acceptanceHandoffs: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/acceptance-handoffs.sh"),
   linkAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/link-acceptance.sh"),
   unlinkedAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/unlinked-acceptance.sh"),
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
@@ -9018,6 +9019,69 @@ concerns: []
     r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} nope.md`).stdout);
     assertEq("tick-acceptance no-match is a no-op", r.ticked, false);
     assertEq("progress unchanged after a no-op tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2, unlinked: 0 });
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/acceptance-handoffs.sh (what the close gate cannot see) ----------
+// The archive gate closes a mission on arithmetic: every acceptance item ticked, none
+// unlinked, the queue empty. A ticket declaring `verification_handoff` is archived as
+// IMPLEMENTED — the code is written — so its acceptance item ticks and the mission then
+// closed `achieved` while what the item asserts had been verified by nobody. Measured
+// 2026-08-31 on a real mission. This reader is what the gate consults; it delegates the
+// declaration itself to verification-handoff.sh rather than reading the field again.
+function testAcceptanceHandoffs() {
+  const dir = makeRepo("main");
+  try {
+    const ticket = (name, handoff) => {
+      const at = join(dir, `.workaholic/tickets/archive/work-1/${name}`);
+      mkdirSync(dirname(at), { recursive: true });
+      writeFileSync(at, `---\nverification_handoff: ${handoff}\n---\n\n# ${name}\n`);
+    };
+    const mission = (slug, body) => {
+      const mdir = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(mdir, { recursive: true });
+      const mfile = join(mdir, "mission.md");
+      writeFileSync(mfile, `---\ntype: Mission\nslug: ${slug}\nstatus: active\n---\n\n# ${slug}\n\n## Acceptance\n\n${body}\n`);
+      return mfile;
+    };
+
+    ticket("t-code.md", "");
+    ticket("t-check.md", "");
+    ticket("t-deployed.md", "a deployed application no unattended runner can reach");
+
+    // The measured case: one item answered by a ticket that declared a handoff.
+    const withHandoff = mission("m-handoff", "- [x] The code is written. (#t-code.md)\n- [x] It works on the deployed screen. (#t-deployed.md)");
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${withHandoff}`).stdout);
+    assertEq("a declared handoff among the acceptance items is found", r.handoff, true);
+    assertEq("and the ticket is named, so the refusal can say which", r.tickets, ["t-deployed.md"]);
+    assertEq("nothing unresolved when every link points at a file", r.unresolved, []);
+
+    // The control: a mission with none must behave byte-identically to today.
+    const plain = mission("m-plain", "- [x] The code is written. (#t-code.md)\n- [x] The check is written. (#t-check.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${plain}`).stdout);
+    assertEq("a mission with no declared handoff answers false", r.handoff, false);
+    assertEq("and names no ticket", r.tickets, []);
+
+    // A ticket still in todo/ counts: the plan says the same thing before it is driven.
+    const queued = join(dir, ".workaholic/tickets/todo/t-queued.md");
+    mkdirSync(dirname(queued), { recursive: true });
+    writeFileSync(queued, `---\nverification_handoff: a device this runner does not have\n---\n\n# t-queued\n`);
+    const notYet = mission("m-queued", "- [ ] Not driven yet. (#t-queued.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${notYet}`).stdout);
+    assertEq("a queued handoff ticket is found too", r.handoff, true);
+
+    // A link pointing at no file is reported, and is NOT a handoff: a broken link is a
+    // different fault, already counted by progress.sh's `unlinked`.
+    const broken = mission("m-broken", "- [x] Answered by nothing. (#t-missing.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${broken}`).stdout);
+    assertEq("an unresolved link is not a handoff", r.handoff, false);
+    assertEq("and is reported as unresolved", r.unresolved, ["t-missing.md"]);
+
+    // An item naming no ticket at all leaves the reader with nothing to resolve.
+    const unlinked = mission("m-unlinked", "- [x] Answered by nobody in particular.");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${unlinked}`).stdout);
+    assertEq("an item with no link is neither a handoff nor unresolved", r.handoff, false);
+    assertEq("no ticket resolved from an unlinked item", r.unresolved, []);
   } finally { cleanup(dir); }
 }
 
@@ -20787,6 +20851,7 @@ const tests = [
   ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
+  ["mission/acceptance-handoffs.sh", testAcceptanceHandoffs],
   ["mission/link-acceptance.sh (the acceptance-to-artifact link)", testLinkAcceptance],
   ["acceptance satisfaction semantics (ticker + progress + audit)", testAcceptanceSatisfactionSemantics],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
@@ -20896,6 +20961,7 @@ const tests = [
   ["branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication],
   ["moderate/stranded-publications: the collision only a person can settle", testStrandedPublicationsStep],
   ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
+  ["drive/claim-mergeability.sh: the reader predicts the remote's merge, not this checkout's", testMergeabilityIgnoresLocalMergeAttributes],
   ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
   ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
@@ -31744,14 +31810,27 @@ function testSettleStrandedPublication() {
     assertEq("no worktree is left behind", existsSync(join(fx.A, ".worktrees/publication-21")),
       false);
 
-    // 3. A SECOND RUN IS A NO-OP REPORTING ITS OWN WORD. The branch now contains the base, so
-    //    the reader no longer calls it `mechanical` and the act refuses by name rather than
-    //    merging a second time.
+    // 3. A SECOND RUN IS A NO-OP REPORTING ITS OWN WORD. The delivery merged the pull request,
+    //    so GitHub no longer lists it open and the reader does not name it — which is the
+    //    idempotency guard, and the only one that survives `clean` becoming an accepted class
+    //    (2026-09-01): a branch that already contains the base reads `clean`, so a fixture that
+    //    kept the merged pull request open would be asserting that the act refuses a
+    //    publication it is now right to deliver. The stub is re-issued without #21 because that
+    //    is what the merge did.
+    const tipBeforeRerun = tipOf(mech);
+    publicationGhStub(fx.binDir, {
+      pulls: [
+        { number: 22, url: "https://example.test/pr/22", title: "[Proposal] app",
+          created: "2026-08-31T12:00:01Z", author: "claude[bot]", head: content },
+      ],
+      files: { 22: pubFiles(["src/app.txt"]) },
+    });
     const again = settle(21);
     assertEq("a re-run over a settled publication is a no-op with its own word",
-      [again.outcome, again.merged, again.pushed], ["settle_refused", false, false]);
-    assertTrue("and it names why rather than repeating the act",
-      /^not_mechanical:/.test(again.reason), again.reason);
+      [again.outcome, again.reason, again.merged, again.pushed],
+      ["settle_refused", "not_a_stranded_publication", false, false]);
+    assertEq("and it moves no ref", tipOf(mech), tipBeforeRerun);
+    stub();
 
     // 4. A PULL REQUEST THE READER DOES NOT NAME IS REFUSED, never searched for.
     const unknown = settle(99);
@@ -31786,6 +31865,32 @@ function testSettleStrandedPublication() {
     assertEq("a refused delivery is reported in the merge vocabulary, settlement intact",
       [undelivered.outcome, undelivered.pushed, undelivered.delivery],
       ["settled", true, "merge_refused: merge_not_allowed"]);
+
+    // 6. A PUBLICATION THAT NEEDS NOTHING BUT A MERGE IS DELIVERED, AND TAKES NO CATCH-UP
+    //    (2026-09-01, mission `deliver-a-stranded-publication-that-needs-nothing-but-a-merge`).
+    //    It collides with nothing, so `merged`, `regenerated`, `validated` and `pushed` are all
+    //    false and the branch is byte-identical after the act — the whole difference between
+    //    the two accepted classes, asserted as behaviour rather than as a return shape.
+    const clean = publishBranch(fx.A, "work-20260831-140000", (wt) => {
+      writeFileSync(join(wt, "src/other.txt"), "untouched-by-the-base\n");
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    publicationGhStub(fx.binDir, {
+      pulls: [{ number: 24, url: "https://example.test/pr/24", title: "[Proposal] other",
+                created: "2026-08-31T14:00:00Z", author: "claude[bot]", head: clean }],
+      files: { 24: pubFiles(["src/other.txt"]) },
+    });
+    const cleanTip = tipOf(clean);
+    const delivered = settle(24);
+    assertEq("a publication needing nothing but a merge is settled and delivered",
+      [delivered.outcome, delivered.class, delivered.delivery],
+      ["settled", "clean", "merged"]);
+    assertEq("and it takes no catch-up: nothing merged, regenerated, validated or pushed",
+      [delivered.merged, delivered.regenerated, delivered.validated, delivered.pushed],
+      [false, false, false, false]);
+    assertEq("its branch is byte-identical after the act", tipOf(clean), cleanTip);
+    assertEq("and no worktree is left behind",
+      existsSync(join(fx.A, ".worktrees/publication-24")), false);
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 
@@ -31917,6 +32022,65 @@ function testClaimMergeabilityReader() {
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
     assertTrue("and the reader carries no allowlist of its own",
       !/marketplace\.json|codex-plugin|outputs\/\*/.test(readerSrc), readerSrc);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the reader predicts the REMOTE's merge, not this checkout's (2026-09-01) ----------
+// A repository may hand git a merge driver through `.gitattributes` — this one marks the
+// generated OKF indexes `merge=union` (issue #780) so a regenerated sorted region takes both
+// sides instead of conflicting. GitHub does NOT apply a repository's merge attributes when it
+// computes `mergeable`, so a reader that lets the driver resolve a path answers `clean` for a
+// pull request the remote refuses. Measured: five open publications read `clean` here and
+// `mergeable: false, mergeable_state: "dirty"` at the API, and the loop attempted the merge on
+// every tick and was refused `merge_not_allowed` every time.
+//
+// The driver is not the defect and is not removed: the WRITER runs in a real checkout and still
+// resolves such a path with no judgement, which is why `mechanical` is the honest class and why
+// the existing catch-up settles these branches. The row asserts the behaviour — the class the
+// remote agrees with — not the mechanism that produces it.
+function testMergeabilityIgnoresLocalMergeAttributes() {
+  const fx = makeDriftFixture();
+  try {
+    const idx = (...stems) => "# feedbacks\n\n<!-- okf:generated:begin -->\n"
+      + stems.map((s) => `* [${s}](${s}.md)\n`).join("")
+      + "<!-- okf:generated:end -->\n";
+    // The attribute and the generated index reach the base first, so both sides of the merge
+    // below carry them and the checkout's own working tree holds the `.gitattributes`.
+    advanceBase(fx.A, (root) => {
+      writeFileSync(join(root, ".gitattributes"), ".workaholic/*/index.md merge=union\n");
+      mkdirSync(join(root, ".workaholic/feedbacks"), { recursive: true });
+      writeFileSync(join(root, ".workaholic/feedbacks/index.md"), idx("20260101000000-a"));
+    });
+    const branch = strandUnit(fx.A, `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`,
+      (wt) => writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        idx("20260101000000-a", "20260102000000-b")));
+    advanceBase(fx.A, (root) => writeFileSync(join(root, ".workaholic/feedbacks/index.md"),
+      idx("20260101000000-a", "20260103000000-c")));
+
+    // The checkout really does resolve it — the premise of the row, asserted rather than assumed,
+    // so a repository that stopped configuring the driver does not quietly make the row vacuous.
+    assertEq("the checkout's own merge driver resolves the index",
+      execSync("git check-attr merge -- .workaholic/feedbacks/index.md",
+        { cwd: fx.A, encoding: "utf8" }).trim(),
+      ".workaholic/feedbacks/index.md: merge: union");
+
+    const seen = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.claimMergeability} ${branch.branch} origin/main`).stdout);
+    assertEq("a collision only a local merge driver resolves is not called clean",
+      [seen.readable, seen.class], [true, "mechanical"]);
+    assertTrue("and the reader names the path the remote would conflict on",
+      seen.mechanical_files.includes(".workaholic/feedbacks/index.md"),
+      JSON.stringify(seen));
+
+    // AND THE WRITER STILL RESOLVES IT, so the class the reader now reports is one the loop can
+    // act on: reader and writer agree, in the direction that lets the catch-up settle it.
+    assertEq("what the reader calls mechanical, the writer still resolves",
+      /"caught_up": true/.test(run(branch.worktree_path,
+        `${POSIX_SH} ${SCRIPTS.catchupMain} main --resolve-mechanical`).stdout),
+      true);
+
+    assertEq("the reader left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 

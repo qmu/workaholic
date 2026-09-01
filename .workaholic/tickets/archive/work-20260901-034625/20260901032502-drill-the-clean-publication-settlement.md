@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T03:25:02+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -115,3 +116,66 @@ requirement, and the difference between a proved drill and an `unproved` one.
 - **What this drill will still not prove** is that a consuming repository's own stranded
   publications are gone; it exercises this checkout's scripts only. §5t already says so and the
   sentence should keep covering both classes.
+
+## Final Report
+
+Development completed as planned.
+
+The hole was read before it was filled. Every row of `verify-stranded-publication` was about a
+**collision** — `content` refused, `mechanical` settled, the reader classifying both — so a
+publication that collides with nothing appeared in none of them, and the drill went on passing
+after the mission's first two tickets landed whether or not the new behaviour held. Proved by
+hand: narrowing the act's class gate back to `mechanical` alone left the drill green before these
+rows existed, and turns it red now.
+
+Three additions, one fixture:
+
+- A third publication (`work-20260831-100002`, pull request 43) touching `src/other.txt`, a path
+  nothing else touches, so its class is `clean` with no collision to classify. Same fixture
+  machinery, one more branch, still no credential and no network. Row 1 now asserts all three
+  classes rather than two, so the fixture's premise is stated rather than assumed.
+- `stranded_clean_is_settled` — the act reports `settled` on class `clean` with `merged`,
+  `regenerated`, `validated` and `pushed` all false, the branch byte-identical after the act, no
+  worktree left behind, and the delivery in the merge vocabulary. Behaviour, not shape.
+- `stranded_clean_rerun_is_a_noop` — a second run over the delivered publication refuses
+  `not_a_stranded_publication`, attempts no delivery and moves no ref.
+
+The `gh` stub became `_write_gh_stub <open-pull-number>...` for that last row. A merge **closes**
+a pull request, so after a delivery the reader must stop naming it — and that is the act's real
+idempotency guard, the only one that survives `clean` being an accepted class: a branch that
+already contains the base reads `clean`, so a fixture that kept the merged pull request open would
+be asserting a refusal of work the act is now right to do.
+
+`stranded_clean_breaker` narrows the class gate back to `mechanical` alone and asserts the clean
+publication is then refused `not_mechanical:clean` with `delivery: not_attempted` and its branch
+unmoved — the measured incident on demand. It runs under the existing breaker's ordering
+constraint (before anything is settled; afterwards the delivered publication is closed and there
+is nothing left to refuse) and against its **own** broken copy of the skills tree, because the
+first breaker's copy has the classification rule stripped and would confound what this one
+asserts.
+
+§5t's prose and blame table carry both new rows and both breakers. §9's register row is unchanged
+and that is a decision, not an omission: `Breaker: yes` still holds, and the `Mission` column
+answers *which earlier turn does a failure belong to* with one slug — rewriting it to this
+mission would misattribute a failure of the six original rows, which belong to
+`repair-a-mechanically-resolvable-conflict-instead-of-reporting-it`. The blame table is where a
+row-level failure is attributed, and it now names both.
+
+Verification: `verify-stranded-publication` reports 11 load-bearing rows passed, 0 failed, 2
+breakers. Run by hand with the real class gate narrowed, the drill goes **red** on
+`stranded_clean_is_settled` and green again once reverted, with the file byte-identical after the
+revert. `verify-all` exits 0 over 41 drills — 29 proved, 0 failed.
+
+### Discovered Insights
+
+- **Insight**: A drill whose fixture models a merge without closing the pull request cannot tell
+  idempotency from a class refusal, and this one had been resting on the second.
+  **Context**: Its `stranded_rerun_is_a_noop` row asserted only that a re-run pushed nothing and
+  moved no ref, which stayed true when `clean` became actable — so the row survived a change that
+  altered what a re-run actually does. The new row asserts the refusal word, and needed the stub
+  to model the close before it could.
+- **Insight**: Two breakers on one drill need two broken copies of the tree, not one.
+  **Context**: The first breaker strips `conflict_class_generated_region` out of the shared
+  classification rule, which changes what *every* class reads. Layering the second breaker's gate
+  narrowing on top of that would have left `stranded_clean_breaker` unable to say which of the two
+  edits produced the refusal it observed.

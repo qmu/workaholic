@@ -2,6 +2,7 @@
 
 ## active
 
+* [adjust-the-plan-hourly-not-only-report-it](active/adjust-the-plan-hourly-not-only-report-it/mission.md) - Adjust the plan hourly, not only report it
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [leave-only-live-work-in-the-unmerged-branch-list](active/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
 * [let-the-tick-add-to-a-standing-thread-instead-of-restating-itself](active/let-the-tick-add-to-a-standing-thread-instead-of-restating-itself/mission.md) - Let the tick add to a standing thread instead of restating itself

@@ -161,7 +161,11 @@ in the window / queued now) instead of "item(s)".
 
 ### `/moderate` — the moderator's hourly thread: one root, its questions inside it
 
-**One thread per tick, and two speech acts told apart by position** (2026-08-21, the developer's design). The tick posts a **root** carrying what changed in the hour, and every question it has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
+**One thread per day, and two speech acts told apart by position** (2026-08-21, the developer's design; one thread per *tick* until 2026-09-01). The day's first speaking tick posts a **root** carrying what changed; every later speaking tick that day replies its hour's change lines into that same thread, with no restated head. Every question any of them has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
+
+**What moved on 2026-09-01, and what did not** (mission `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself`). The root was keyed `` `tick:<tick-id>` ``, and the id is that tick's own timestamp — so the exact string this hour searched for is one no earlier message could contain, and the lookup could not match the previous hour *by construction*. Measured: **14 roots in one window, 12 of them carrying no question at all**. The key's derivation moved to the UTC day inside the same id (`` `tick-day:<YYYYMMDD>` ``), and the posting rule moved with it: found ⇒ reply the delta, not found ⇒ post the root. **The 2026-08-05 misfire and the prohibition it produced are untouched** — the tick still searches one exact string it derives, still posts a root rather than picking the closest thread when nothing matches, and still chooses no thread for looking related or for being recent. What changed is one key's derivation; the search is the same search.
+
+**The delta reply carries no mention token either.** A change line names a repository event and asks nobody for anything; the mention belongs on the question, which now sits in the same thread — so an hour with something a person must do already reaches them there. Adding one to the delta would wake the channel for orientation, which is what `📦 Release Preparation` was retired for.
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)

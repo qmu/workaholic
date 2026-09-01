@@ -4,8 +4,14 @@
 #
 # Usage: run.sh ... | render-tick-post.sh --tick <id> [--root <repo-root>] [--questions <n>]
 # Output: one JSON object
-#   {"post": bool, "reason": "...", "tick": "...", "token": "tick:<id>",
-#    ... "impaired": [{"step","status","reason"}], "impaired_count": N}
+#   {"post": bool, "reason": "...", "tick": "...", "token": "tick-day:<YYYYMMDD>",
+#    "token_reason": "", ... "impaired": [{"step","status","reason"}], "impaired_count": N}
+#
+# `token` NAMES THE DAY, NOT THE TICK (2026-09-01). It was `tick:<tick-id>`, so the lookup
+# could never match the previous hour and every tick opened its own root — 14 in one window,
+# 12 of them carrying no questions. The derivation, the operator's-zone rule and the named
+# refusal an unreadable id gets all live in `lib/tick-thread-key.sh`; this script reads it
+# and spells nothing. `token_reason` is empty on an ordinary tick.
 #
 # `token` IS NOT PRINTED AT A READER (2026-08-22). It was rendered as a `tick:<id>` line on
 # the root until then, and NOTHING EVER SEARCHED IT -- the already-asked ledger matches the
@@ -13,7 +19,12 @@
 # it identifies the tick to any machine consumer that wants it; what left is the line at a
 # person. The developer said it plainly and more than once: stop mixing strange ids into Slack.
 #    "changes": [{"step","summary","event"}], "change_count": N, "questions": N,
-#    "previous_tick": "<id>|", "root_text": "..."}
+#    "previous_tick": "<id>|", "root_text": "...", "reply_text": "..."}
+#
+# TWO FORMS, ONE READING (2026-09-01). `root_text` is the day's FIRST speaking tick's post;
+# `reply_text` is every later one's — the same body without the head, posted into the thread the
+# day key resolved. Which one goes out is the caller's decision and is written in one place,
+# `plugins/workaholic/commands/moderate.md`; this script renders both and posts neither.
 #
 # ═══ WHY THE TICK NEEDED A VOICE OF ITS OWN ═══════════════════════════════════════
 #
@@ -116,6 +127,10 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
+# The thread key's one derivation. It brings `lib/tick-iso.sh` and `lib/speaking-window.sh`
+# with it; the latter is sourced again further down, where the window itself is read, and a
+# second source of a file that only defines functions costs nothing.
+. "${SCRIPT_DIR}/lib/tick-thread-key.sh"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 
 TICK=''; ROOT='.'; QUESTIONS=0
@@ -160,9 +175,33 @@ IMPAIRED_COUNT=0
 IMPAIRMENT_CHANGED=0
 TAB=$(printf '\t')
 
+# THE THREAD KEY, derived once per run by the one derivation and read here rather than
+# spelled (2026-09-01). It names the DAY, not the tick, so the hour after this one resolves
+# THIS root instead of opening its own — see `lib/tick-thread-key.sh` for why the old
+# `tick:<id>` form could never match and what it cost. The FIELD NAME does not move, so no
+# consumer moves with it.
+#
+# `token_reason` rides beside it and is empty on every ordinary tick. An unreadable tick id
+# yields an EMPTY token and a named reason, never a key derived from a date this could not
+# read: threading an hour into the wrong day's root is worse than opening a new one, and the
+# caller's fallback with no token is exactly the behaviour it had before the key was derived.
+TOKEN=''
+TOKEN_REASON=''
+tick_thread_key "$TICK"
+TOKEN="$TTK_KEY"
+TOKEN_REASON="$TTK_REASON"
+
+# TWO FORMS OFF ONE READING (2026-09-01). `root_text` is what a day's FIRST speaking tick
+# posts — head plus body, unchanged. `reply_text` is what every later speaking tick that day
+# posts INTO it: the same body with NO HEAD, because the head restates the day and a reader
+# following one thread has already read it. They are not two compositions — the body is built
+# once and the root is that body under a head — so the two cannot drift into two voices.
+#
+# `reply_text` IS EMPTY ON EVERY SILENT PATH, exactly as `root_text` is: a tick the gates hold
+# posts neither, and an empty string is what "nothing to say" has always looked like here.
 emit() {
-    printf '{"post": %s, "reason": "%s", "tick": "%s", "token": "tick:%s", "changes": [%s], "change_count": %s, "questions": %s, "previous_tick": "%s", "root_text": "%s", "impaired": [%s], "impaired_count": %s}\n' \
-        "$1" "$2" "$(json_escape "$TICK")" "$(json_escape "$TICK")" "$3" "$4" "$QUESTIONS" "$(json_escape "$5")" "$(json_escape "$6")" "$IMPAIRED" "$IMPAIRED_COUNT"
+    printf '{"post": %s, "reason": "%s", "tick": "%s", "token": "%s", "token_reason": "%s", "changes": [%s], "change_count": %s, "questions": %s, "previous_tick": "%s", "root_text": "%s", "reply_text": "%s", "impaired": [%s], "impaired_count": %s}\n' \
+        "$1" "$2" "$(json_escape "$TICK")" "$(json_escape "$TOKEN")" "$(json_escape "$TOKEN_REASON")" "$3" "$4" "$QUESTIONS" "$(json_escape "$5")" "$(json_escape "$6")" "$(json_escape "${7:-}")" "$IMPAIRED" "$IMPAIRED_COUNT"
     exit 0
 }
 
@@ -542,4 +581,6 @@ fi
 
 HEAD="🔎 Moderation - ${count} change(s), ${QUESTIONS} question(s)${IMPAIRED_HEAD}"
 BODY=$(printf '%s%s' "$lines" "$IMPAIRED_BODY")
-emit true "$READY_REASON" "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")"
+# The root is the body under a head; the reply is the body. One composition, two renderings —
+# the caller picks by whether the day key resolved a thread, and never by re-deriving either.
+emit true "$READY_REASON" "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")" "$BODY"

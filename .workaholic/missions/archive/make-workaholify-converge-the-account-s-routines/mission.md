@@ -2,21 +2,21 @@
 type: Mission
 title: Make /workaholify converge the account's routines
 slug: make-workaholify-converge-the-account-s-routines
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-19T10:38:22+00:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.8
-feedback: [20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md]
+actual_hours: 1.2
+feedback: [20260819103531-workaholify-should-converge-the-account-s-routines-not-just-render-setup-sheets.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260819-113836
+claim: work-20260827-003544
 ---
 
 # Make /workaholify converge the account's routines
@@ -42,7 +42,7 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 - [x] `/workaholify` §5 converges the account's routines over every scope, and
       report-only happens solely under a named `no_transport` refusal. (#20260819103847-make-workaholify-converge-the-routines-over-every-scope.md)
 - [x] Every routine the run touches or skips is reported with its enabled state. (#20260819103851-report-each-routine-s-enabled-state-at-every-convergence-seam.md)
-- [ ] Whether convergence renames a routine in place is ruled on, and
+- [x] Whether convergence renames a routine in place is ruled on, and
       `renamed_from:`'s standing states the answer. (#20260819103855-rule-on-renaming-a-live-routine-in-place.md)
 
 ## Changelog
@@ -52,3 +52,7 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 - 2026-08-19 — ticket archived — 20260819103851-report-each-routine-s-enabled-state-at-every-convergence-seam.md
 - 2026-08-19 — run recorded (+0.6h) — implement-20260819-113836
 - 2026-08-21 — run recorded (+0.2h) — drive-20260820-1930-resume
+- 2026-08-27 — run recorded (+0.3h) — implement-20260827-014149
+- 2026-08-27 — run recorded (+0.1h) — implement-20260827-064000
+- 2026-09-01 — ticket archived — 20260819103855-rule-on-renaming-a-live-routine-in-place.md
+- 2026-09-01 — mission achieved — mission.md

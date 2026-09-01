@@ -175,5 +175,30 @@ needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
             (c++ ? ", " : ""), n, u, b, decision, key
     }')
 
-printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s (%s) — candidates for step 10, never a status post", "headline": "%s", "needs_agent": [%s], "key": "", "ask_key": "%s"}\n' \
-    "$HEADLINE" "$(printf '%s' "$pairs" | sed 's/ $//')" "$HEADLINE" "$needs" "$ASK_KEY"
+# THE SUMMARY IS COMPARED, SO IT CARRIES WHAT MOVED IN THE REPOSITORY (2026-09-01, ticket
+# `20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate`). It used to
+# carry the `<number>:<blocked_by>` pair list, and `render-tick-post.sh` compares summaries
+# verbatim after a stabilizer whose named list strips a timestamp, a bare hex object name
+# and a clock time — none of which a pair list looks like. So the gate built to stop hourly
+# noise was the thing producing it: measured across nine consecutive ticks the pairs read
+# `(403:unknown 407:unknown 409:unknown)` four times, then four pull requests, then one
+# conflicting, then five, then one with a failing check, while the repository did not move.
+# Reproduced before the change with two pair lists over the SAME three pull requests and the
+# SAME set of classes, differing only in which pull request held which — the stabilizer left
+# them different and the gate opened a root.
+#
+# THE FIX IS HERE AND NOT IN `stabilize()`. That function's own header says its list is short
+# and named on purpose; a pattern broad enough to catch `403:unknown` would also catch counts
+# and identifiers that are real news. The volatility belongs to one step's summary.
+#
+# WHAT STAYS IS WHAT MOVED IN THE REPOSITORY: `HEADLINE` carries how many are stuck and by
+# what class, so a pull request ENTERING or LEAVING the stuck set still changes the count and
+# still opens a root, and a class appearing or clearing still does. What no longer opens one
+# is a re-shuffle of which pull request holds which class at an unchanged count and class set.
+#
+# THE QUESTION SIDE IS BYTE-IDENTICAL: `ask_key` is still the digest over the sorted pair
+# set, `headline` is unchanged, and `needs_agent` still names every pull request with its
+# `blocked_by` and its decision — nothing a person is asked loses detail. Only the compared
+# string is coarsened.
+printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s — candidates for step 10, never a status post", "headline": "%s", "needs_agent": [%s], "key": "", "ask_key": "%s"}\n' \
+    "$HEADLINE" "$HEADLINE" "$needs" "$ASK_KEY"

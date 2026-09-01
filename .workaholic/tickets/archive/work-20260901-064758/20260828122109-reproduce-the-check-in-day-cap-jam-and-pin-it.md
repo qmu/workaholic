@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-28T12:21:09+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -72,3 +73,23 @@ past the ceiling since 2026-08-27).
   own fixture rather than depend on the live log, or it stops meaning anything.
 - Do not fix the bug in this ticket. A red test that the next ticket turns green is
   the evidence the repair actually addresses the cause.
+
+## Final Report
+
+**The work is already on the base.** This ticket reached `todo/` on 2026-09-01, when the
+tick that repaired the stranded-publication path merged proposal #688 — opened 2026-08-28
+and stranded for four days. The repair it asks for landed in the meantime by another route.
+
+Verified against the tree rather than by file existence:
+
+- `scripts/test-workflow-scripts.mjs` carries the hermetic reproduction at lines 27093-27177.
+  It pins the jam in the ticket's own terms: a log whose asks are all on **earlier** days no
+  longer refuses (`fresh.asked_today` is `0`), while a cap genuinely spent on the tick's own
+  day still refuses `day_cap` — which is the discrimination the ticket asked the red test to
+  make.
+- `ask-question.sh`'s header records the confirmed diagnosis verbatim, including the measured
+  numbers (`count: 12, days: 5` against a cap of 10, the same reader bounded to the current
+  day answering `count: 0`).
+
+The reporter's hypothesis was confirmed rather than assumed, which is what this ticket asked
+for; nothing here was re-implemented.

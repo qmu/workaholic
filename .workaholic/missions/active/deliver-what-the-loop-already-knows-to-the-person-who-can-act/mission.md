@@ -48,3 +48,4 @@ of looking like a quiet hour.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260828122109-reproduce-the-check-in-day-cap-jam-and-pin-it.md

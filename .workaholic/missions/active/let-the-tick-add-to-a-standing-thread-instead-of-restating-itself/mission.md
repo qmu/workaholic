@@ -46,3 +46,4 @@ what the tick repairs and who repairs the rest.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260901122448-derive-the-tick-s-thread-key-from-the-day-not-the-tick.md

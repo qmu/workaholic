@@ -20753,6 +20753,68 @@ function testModerationRootIsHeldByTheSpeakingWindow() {
   }
 }
 
+// ---------- the tick root's thread key names the DAY, not the tick (2026-09-01) -------------
+// The root was keyed `tick:<tick-id>`, which is that tick's own timestamp, so the stateless
+// exact-string lookup could never match the previous hour and took case 4 -- OPEN A NEW ROOT --
+// every hour, BY CONSTRUCTION. Measured on a consuming repository: 14 roots in one window, 12
+// carrying no questions. Nothing was broken; the key named the hour rather than the conversation.
+//
+// What is pinned is the PROPERTY, not the string: same local day => one key, either side of the
+// boundary => two, an unreadable id => a named refusal and NO key. The last is the one that
+// matters most -- a key derived from a date the tick could not read would thread an hour into
+// the WRONG day's root, which is worse than opening a new one.
+function testTickThreadKeyNamesTheDay() {
+  const KEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/tick-thread-key.sh")}`;
+  const dir = makeRepo("main");
+  const key = (tick) => JSON.parse(run(dir, `${KEY} ${tick}`).stdout);
+  try {
+    // 1. ONE HOUR APART ON THE SAME LOCAL DAY IS ONE CONVERSATION. This is the whole repair:
+    //    before it, these two differed and the lookup could only ever open a second root.
+    assertEq("two ticks an hour apart on the same day derive one key",
+      [key("20260901-050000").key, key("20260901-060000").key],
+      ["tick-day:20260901", "tick-day:20260901"]);
+
+    // 2. THE DAY IS THE OPERATOR'S, NOT UTC. 14:59Z and 15:01Z are the same UTC day and
+    //    different Asia/Tokyo days, so a UTC key would break a root at midnight UTC -- the
+    //    middle of a JST reader's evening.
+    assertTrue("two ticks either side of the operator's day boundary derive different keys",
+      key("20260901-145900").key !== key("20260901-150100").key,
+      `${key("20260901-145900").key} vs ${key("20260901-150100").key}`);
+    assertEq("and the later one names the next local day",
+      key("20260901-150100").key, "tick-day:20260902");
+
+    // 3. AN UNREADABLE ID REFUSES BY NAME. `20260819-999999` is the sentinel that cost seven
+    //    days of blind windows (`lib/tick-iso.sh`); it must yield no key at all.
+    assertEq("the sentinel tick id answers a named refusal and no key",
+      [key("20260819-999999").key, key("20260819-999999").reason],
+      ["", "tick_not_a_timestamp"]);
+    assertEq("and so does no id at all", [key("").key, key("").reason], ["", "no_tick"]);
+  } finally { cleanup(dir); }
+
+  // 4. THE KEY IS COMPOSED IN EXACTLY ONE FILE. A renderer that spelled `tick:<id>` beside the
+  //    derivation is how the two would drift back apart.
+  const render = readFileSync(SCRIPTS.renderTickPost, "utf8");
+  const code = render.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("render-tick-post.sh reads the shared key derivation",
+    /lib\/tick-thread-key\.sh/.test(code), "render-tick-post.sh");
+  assertTrue("and composes no tick key of its own",
+    !/"tick:/.test(code) && !/tick-day:/.test(code), "render-tick-post.sh");
+
+  // 5. THE ZONE IS ONE READ. `speaking_zone` is where it lives; the key derivation must not
+  //    reach past it to the environment, or a root and a question could disagree about the day.
+  const keyBody = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/tick-thread-key.sh"), "utf8");
+  const keyCode = keyBody.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("the key derivation reads the zone through speaking_zone",
+    /speaking_zone/.test(keyCode), "tick-thread-key.sh");
+  assertTrue("and never reads WORKAHOLIC_QUIET_TZ itself",
+    !/WORKAHOLIC_QUIET_TZ/.test(keyCode), "tick-thread-key.sh");
+  // AND IT READS NO CLOCK OF ITS OWN: a `date` with no `-d` is *now*, which would thread an
+  // hour into whichever day the container happened to wake in.
+  assertTrue("and derives the day from the tick id rather than from now",
+    !/date [^|)]*\+%/.test(keyCode.replace(/date -d /g, "date_of ")), "tick-thread-key.sh");
+}
+
 // ---------- the tick log lives on its own branch, not on `main` (2026-09-01, issue #782) ------
 // MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
 // touched only `.workaholic/` and FIVE touched only the product. After squash-merging removed
@@ -21301,6 +21363,7 @@ const tests = [
   ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
+  ["the tick root's thread key names the day", testTickThreadKeyNamesTheDay],
   ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
   ["the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],

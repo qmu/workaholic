@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:24:48+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,48 @@ standing thread becomes reachable. It changes the key and nothing else.
   can name different days for the same tick — stated rather than hidden.
 - This ticket changes the key only. The posting behaviour it unlocks is the next ticket, and
   neither is worth shipping without the other.
+
+## Final Report
+
+**Implemented.** The key is `tick-day:<YYYYMMDD>` in `WORKAHOLIC_QUIET_TZ`, derived in one file.
+
+*Step 1, the reproduction.* Two renders an hour apart, before the change:
+
+```
+$ printf '{"rows": []}' | render-tick-post.sh --tick 20260901-150000   → "token": "tick:20260901-150000"
+$ printf '{"rows": []}' | render-tick-post.sh --tick 20260901-160000   → "token": "tick:20260901-160000"
+```
+
+Two different strings for two consecutive hours, so the exact-string lookup could only ever
+take case 4. After the change both read `"token": "tick-day:20260901"`.
+
+*Step 2, localization.* `render-tick-post.sh:164` was the only composer (`"token": "tick:%s"`).
+No script in the skill parses the field back — it is read by the agent that posts `root_text`,
+so the change reaches the lookup and nothing else.
+
+*Steps 3-5.* `lib/tick-thread-key.sh` is the one derivation: it takes a tick id, validates it
+through the existing `lib/tick-iso.sh`, converts to the operator's day, and answers
+`tick-day:<YYYYMMDD>`. It reads **no clock** — no `date +%Y%m%d` fallback, because a key derived
+from *now* would thread an hour into whichever day the container woke in. The zone comes from a
+new `speaking_zone()` in `lib/speaking-window.sh`, so the day a reader perceives and the hour
+they are awake stay one read; `speaking_window` now reads it too. An unparseable id answers
+`tick_not_a_timestamp` with **no key**, and `render-tick-post.sh` emits an empty `token` beside a
+new `token_reason` — the caller then falls back to naming the tick, exactly as before.
+
+*Step 6, the pin.* `the tick root's thread key names the day` — five assertions covering the
+same-day identity, the boundary, both named refusals, the single composition site, the single
+zone read, and that the derivation reads no clock.
+
+**Verification run.**
+
+| Check | Result |
+| ----- | ------ |
+| `lib/tick-thread-key.sh` on each case | same day `tick-day:20260901` ×2; `20260901-145900` → `…20260901` vs `20260901-150100` → `…20260902`; sentinel → `tick_not_a_timestamp`, no key; empty → `no_tick`, no key |
+| `node scripts/test-workflow-scripts.mjs` | 5852 passed, 0 failed (+10) |
+| `node scripts/build-plugins/build.mjs && verify.mjs` | clean; all built skills self-contained |
+
+**Left for the next ticket, deliberately.** Nothing replies into the standing root yet — the key
+now makes that reachable, and the posting behaviour is
+`20260901122448-reply-an-hour-s-changes-into-the-day-s-standing-root.md`. The documentation that
+still says `tick:<tick-id>` (`notify/SKILL.md`, `moderate/SKILL.md`,
+`moderate/reference/workflow.md`) is ticket 5's by the mission's own split.

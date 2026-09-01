@@ -25,5 +25,15 @@ outputs/** linguist-generated
 # from the tree and runs before every knowledge commit — and it is a strictly better failure than
 # a pull request nobody can merge. `conflict-class.sh` keeps its `mechanical` classification for
 # the branches that still meet one; this removes the occasion rather than replacing the reader.
+#
+# AND GITHUB APPLIES NONE OF IT (2026-09-01, ticket `20260901082635`). A `.gitattributes` merge
+# driver is a property of a working tree, and GitHub reads none when it computes a pull request's
+# `mergeable` or when the merge button runs. So this driver resolves the conflict for every LOCAL
+# merge and for none of the remote's: such a branch still shows as conflicting and still has to be
+# caught up and pushed before GitHub will merge it. Measured on the same two commits, same git:
+# `git merge-tree --write-tree` exits 0 from this checkout and 1 from an empty directory with
+# `GIT_DIR` set, and the API answers `mergeable_state: "dirty"`. The full record is in
+# `plugins/workaholic/skills/drive/scripts/claim-mergeability.sh`, which predicts the remote's
+# answer by computing with these attributes deliberately out of reach.
 .workaholic/*/index.md merge=union
 .workaholic/index.md merge=union

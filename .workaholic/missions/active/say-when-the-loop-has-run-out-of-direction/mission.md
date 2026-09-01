@@ -42,7 +42,7 @@ and `/propose`'s gates are unchanged.
 
 - [x] `overdue`, `dormant` and a repository-level `none` are readings composed from
       `survey-strategies.sh`; `unreadable` never collapses into them (#20260826110016-add-the-overdue-reading-to-the-strategy-survey.md)
-- [ ] `/moderate`'s `direction-health` asks each non-`live` reading's assignee
+- [x] `/moderate`'s `direction-health` asks each non-`live` reading's assignee
       once and renders its event (#20260826110016-add-the-moderate-step-direction-health.md)
 - [ ] A test and a drill prove the step writes nothing under `strategies/`,
       never closes and never lifts a gate (#20260826110016-pin-the-three-refusals-with-a-hermetic-test.md)
@@ -53,3 +53,4 @@ and `/propose`'s gates are unchanged.
 - 2026-09-01 — ticket archived — 20260826110016-add-the-overdue-reading-to-the-strategy-survey.md
 - 2026-09-01 — ticket archived — 20260826110016-add-the-dormant-reading-to-the-strategy-survey.md
 - 2026-09-01 — ticket archived — 20260826110016-write-the-one-reader-of-a-direction-s-lifecycle-state.md
+- 2026-09-01 — ticket archived — 20260826110016-add-the-moderate-step-direction-health.md

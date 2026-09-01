@@ -63,6 +63,7 @@ Branch development narratives, one per branch, serving as the PR description and
 * [Let a fresh claim take a superseded claim's work](work-20260827-003503.md) - The survey re-offered work behind a superseded claim that both claim paths refused; a fresh claim may now take it.
 * [work-20260826-195732](work-20260826-195732.md) - Retire the always-on mission-lens hook — its roster surfacing now lives in /moderate's closable-missions step and the on-demand /mission roadmap
 * ["Drive the work the loop wrote: one resolution of who a person is"](work-20260826-154116.md) - A person's addresses are named once and read through one script, so work the loop writes is work the loop can drive.
+* [work-20260826-134108](work-20260826-134108.md) - The docs site gains a Worker, a deploy-on-merge workflow and a registered deployment target — complete but unverifiable without the Cloudflare account.
 * [work-20260826-122328](work-20260826-122328.md) - The claim oracle now tells a merged claim from a live one at both grains, stops asking about finished ones, and hands their work back to the survey.
 * [work-20260826-114429](work-20260826-114429.md) - The loop says what it accepted and asks about what is still waiting — a reaction on every swept message, a tick step for unanswered channel asks, and the surface language rule.
 * [work-20260826-084111](work-20260826-084111.md) - The direction layer gets a lifecycle reading and a voice — overdue, dormant and none are read once and asked about by name, and three refusals are pinned by a test and a drill.

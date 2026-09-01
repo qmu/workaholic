@@ -42,8 +42,11 @@ outputs/                 # GENERATED, committed cross-agent artifacts — never 
   okf/                   # OKF v0.1 bundle of the four pillars' policies
 .agents/plugins/marketplace.json  # Codex plugin list (workflows -> ./outputs/workflows)
 .github/workflows/       # release.yml, release-note-draft.yml, claim-retirement.yml, loop-drills.yml, …
-docs/                    # Documentation; VitePress site (.vitepress/ + articles; dependencies/)
+docs/                    # Documentation; VitePress site (.vitepress/ + articles; dependencies/ = dependency-decision logs)
+                         # wrangler.jsonc = the assets-only Cloudflare Worker serving the built site
 ```
+
+**The documentation site deploys on merge** (2026-08-26): `docs/` is a VitePress site served at <https://workaholic.qmu.co.jp> by the `workaholic-docs` Cloudflare Worker, an **assets-only** Worker whose `assets.directory` is the `docs/.vitepress/dist` that `npm run docs:build` writes (`docs/wrangler.jsonc`; `not_found_handling: "404-page"`, because VitePress emits real `.html` files and the SPA form would answer 200 for every dead deep link — a soft 404 no HTTP check catches). The `Docs Deploy` workflow (`.github/workflows/docs-deploy.yml`) builds and deploys on push to `main` filtered to `docs/**`, with `workflow_dispatch` for the first deploy and for a change that alters the rendered site without touching `docs/**` — the stated cost of the `paths:` filter. **Without the Cloudflare secrets it builds and skips the deploy, naming the skip in the job summary** rather than failing: the same shape `release-note-draft.yml` uses for its own optional credential, so a fork never sees a permanently red workflow and an absent credential is never read as a successful deploy. The site is a registered deployment target (`.workaholic/deployments/docs-site.md`, `deploy-on-merge`, `api-probe`), so `/prepare-release` reports it and `/ship` reads its confirmation; that record states it is **inactive until `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exist and `workaholic.qmu.co.jp` is bound to the Worker as a custom domain**, so a target reported as waiting is reporting that precondition rather than an unexplained arrears. Neither target declares `paths:`, so both read `attribution: whole_range`: declaring it on one alone makes every component the other has not claimed report as an `unmatched_component` gap.
 
 ### Hooks (all shipped active in hooks.json)
 

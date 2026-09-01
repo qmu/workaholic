@@ -105,9 +105,17 @@ jobs:
             # a later tick must be able to tell apart from "there was nothing to retire".
             echo "the claim scan was degraded ($(jq -r '.reason' candidates.json)); nothing was proved and nothing deleted"
           else
-            jq -r '.candidates[]? | .unit' candidates.json | while read -r unit; do
-              [ -n "$unit" ] || continue
-              bash plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh "$unit" \
+            # ONE LINE PER CANDIDATE, CARRYING ITS BRANCH AND THE PROOF IT CLAIMS. A candidate
+            # of the two pull-request classes may carry NO unit — a publish-tree publication has
+            # no `Claim` commit, so the oracle names no unit for it — which is why the branch is
+            # passed and why a unit-only loop skipped exactly the branches those classes exist
+            # for. The act re-derives whichever proof `--reason` names; the flag says which
+            # question to re-ask, never what the answer is.
+            jq -r '.candidates[]? | [(.unit // ""), .branch, (.candidate_reason // "superseded_only")] | @tsv' \
+              candidates.json | while IFS="$(printf '\t')" read -r unit branch reason; do
+              [ -n "$branch" ] || continue
+              bash plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh \
+                "$unit" --branch "$branch" --reason "$reason" \
                 | tee -a acts.jsonl
             done
           fi

@@ -29665,6 +29665,82 @@ function testRetirementCandidatePullRequestMerged() {
       lib.includes("claims_branch_empty_against_base()")
       && readFileSync(READER, "utf8").includes("claims_branch_empty_against_base"),
       "the emptiness reading was re-derived in the candidate reader");
+
+    // ---- THE ACT, BOUNDED BY THE NEW CLASSES --------------------------------------------
+    // The candidate list is an INPUT and the gap between it and the act is a queue and a
+    // checkout, so each class re-asks its own question immediately before the delete. Every
+    // one of these paths exits 0 and deletes nothing — a refusal is an answer CI reports.
+    const ACT2 = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh");
+    const act = (args) => JSON.parse(run(fx.B, `${POSIX_SH} ${ACT2} ${args}`, withStub).stdout);
+
+    // A STATE THAT MOVED BETWEEN THE LIST AND THE ACT REFUSES BY ITS OWN WORD, never folded
+    // into `not_superseded:<verdict>` — which would send a reader to the claim oracle for a
+    // candidate the oracle never named.
+    stub(`echo '[{"number":4,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a candidate that claimed merged, on a now-open pull request, refuses by its own word",
+      [act(`"" --branch ${orphan} --reason pull_request_merged`).state,
+       act(`"" --branch ${orphan} --reason pull_request_merged`).reason],
+      ["not_attempted", "not_merged:open"]);
+    assertEq("...and a claimed closure on the same pull request refuses by its own word too",
+      act(`"" --branch ${orphan} --reason pull_request_closed_unmerged`).reason,
+      "not_closed_unmerged:open");
+
+    // AN ABSENT READING SENDS A READER TO THE LOOKUP THAT FAILED, NEVER TO A DELETE.
+    stub(`echo "API rate limit exceeded" >&2; exit 1`);
+    assertEq("a re-read that failed refuses pull_request_unreadable, naming why",
+      [act(`"" --branch ${orphan} --reason pull_request_merged`).deleted,
+       act(`"" --branch ${orphan} --reason pull_request_merged`).reason],
+      [false, "pull_request_unreadable:rate_limited"]);
+
+    // THE TERM THAT FAILS CLOSED. A hand-closed branch asserts nothing about the base, so a
+    // branch still holding work is refused rather than deleted — the direction issue #788
+    // turned `superseded`, applied to the one class whose proof is authorship.
+    const holds = "work-20260716-121212";
+    // `git add` NAMES THE FILE rather than sweeping: the stub `gh` lives in this checkout as an
+    // untracked directory, and a `git add -A` here would commit it onto this branch and then
+    // delete it on the way back to `main` — taking the transport out from under every later row.
+    execSync(`git checkout -q -B ${holds} origin/main && mkdir -p src`
+      + ` && printf 'kept\\n' > src/only-here.txt && git add src/only-here.txt`
+      + ` && git commit -q -m "Work found on no other ref" && git push -q origin ${holds}`
+      + ` && git checkout -q main`, { cwd: fx.B });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    stub(`echo '[{"number":5,"state":"closed","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a closed-unmerged branch that still holds work is refused, not deleted",
+      [act(`"" --branch ${holds} --reason pull_request_closed_unmerged`).deleted,
+       act(`"" --branch ${holds} --reason pull_request_closed_unmerged`).reason],
+      [false, "branch_holds_work"]);
+    assertTrue("...and the branch is still on origin afterwards",
+      execSync(`git rev-parse --verify --quiet refs/remotes/origin/${holds}`,
+        { cwd: fx.B, encoding: "utf8" }).trim().length > 0, holds);
+
+    // THE THREE SHARED BOUNDS STILL APPLY TO THE NEW CLASSES.
+    assertEq("a release ref is refused before anything else is read",
+      act(`"" --branch release/20260101-000000 --reason pull_request_merged`).reason,
+      "release_branch");
+    assertEq("a ref outside the one work-* pattern is refused",
+      act(`"" --branch feature-x --reason pull_request_merged`).reason, "not_a_work_branch");
+    assertEq("and a class with no branch to act on refuses rather than guessing",
+      act(`some-unit --reason pull_request_merged`).reason, "no_branch");
+
+    // A LIVE CLAIM OUTRANKS EVERY PULL-REQUEST READING, re-derived at the act.
+    stub(`echo '[{"number":6,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertTrue("a branch whose unit holds a live claim is refused at the act too",
+      /^not_superseded:/.test(act(`"" --branch ${live.branch} --reason pull_request_merged`).reason),
+      act(`"" --branch ${live.branch} --reason pull_request_merged`).reason);
+
+    // THE DEFAULT IS THE ORIGINAL CLASS, so every caller that passed only a unit before this
+    // change behaves exactly as it did.
+    assertEq("an unknown unit on the default class is refused, and exits 0",
+      run(fx.B, `${POSIX_SH} ${ACT2} no-such-unit`, withStub).status, 0);
+    assertEq("...by the word it always used", act("no-such-unit").reason, "no_such_claim");
+
+    // AND NO NEW PERMISSION APPEARS IN THE WORKFLOW THAT RUNS IT.
+    const wf = readFileSync(join(REPO_ROOT, ".github/workflows/claim-retirement.yml"), "utf8");
+    assertEq("claim-retirement.yml still grants contents: write and nothing wider",
+      (wf.match(/^\s{2}\w+:\s*(read|write)$/gm) || []).map((s) => s.trim()),
+      ["contents: write"]);
+    assertTrue("and it passes each candidate's branch and claimed proof to the act",
+      /--branch/.test(wf) && /--reason/.test(wf), "the loop still keys on the unit alone");
   } finally { cleanup(fx.A); cleanup(fx.B); }
 }
 

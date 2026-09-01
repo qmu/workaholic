@@ -54,3 +54,4 @@ defect five times is written down rather than guessed at.
 - 2026-09-01 — ticket archived — 20260901112558-read-a-claim-branch-s-pull-request-state.md
 - 2026-09-01 — ticket archived — 20260901112558-name-a-merged-branch-as-a-retirement-candidate.md
 - 2026-09-01 — ticket archived — 20260901112558-name-a-closed-unmerged-branch-as-its-own-candidate.md
+- 2026-09-01 — ticket archived — 20260901112558-bound-the-ci-delete-act-by-the-new-candidates.md

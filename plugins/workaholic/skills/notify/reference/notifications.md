@@ -153,6 +153,10 @@ in the window / queued now) instead of "item(s)".
 
 **One strategy line each, in the digest's own order, capped.** A quiet strategy gets the explicit `no activity` line rather than being dropped — a strategy missing from the digest reads as a strategy nobody is working on, which is a different claim. `strategies_omitted` above the cap is stated as a trailing count, never silently cut. The final `not attributable` line is a **count** and rides only when it is non-zero; enumerating it would make this a repository changelog, which is `/catch`'s job.
 
+**And each strategy's missions nest under it, with the repository's total queued on the honesty line** (2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). The operator asked mid-session how many todos were left and no post the loop makes carried the answer: every surface here reports what has gone *wrong*, so the ordinary question — where does the work stand — had to be put to a person, who then read it out of the bundle by hand. Under each numbered strategy, one line per mission from `digest.sh`'s `missions[]`: its title, its acceptance **done/total** and how many tickets are **queued** under it; and the honesty line, which already names tickets and the window, also names `queued_total`. The caps are the ones already stated — `missions_omitted` above `STANDUP_MAX_ITEMS` is a trailing count like every other cut — and a mission grain the reader could not complete renders **by its reason with no numbers**, never as `0/0` with nothing queued, which is the answer "this mission is finished".
+
+**It is the daily digest that gains the shape, not a new hourly line** — the request was for it on the ordinary tick, and the answer is the two roots this catalog has already retired. `📦 Release Preparation` was withdrawn for restating an unchanged answer ten hours running, and `🔧 Needs a decision` for the same shape; the plan's shape is an *unchanged answer* on most hours, so an hourly copy of it is that post returning under a new name. Once per Asia/Tokyo day, on the morning root, is where an unasked-for status statement is admissible here, and it is admissible there because the developer asked for the morning to open with it.
+
 **Keyed on the date, not on the content.** A daily digest speaks for today even when today resembles yesterday; what the key prevents is two posts for one morning. Search the token exactly once (private-inclusive, `include_bots: true`): found ⇒ post nothing. `noop: true` from the digest posts nothing either, whatever the date says.
 
 ### `/moderate` — the moderator's hourly thread: one root, its questions inside it
@@ -161,7 +165,7 @@ in the window / queued now) instead of "item(s)".
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
-<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
+<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, each strategy's missions nested under it with acceptance done/total and queued count, headline commits since yesterday, honesty line naming tickets, the total queued and the window>
 <what happened to the repository, one line per changed step that has an event>
 <one line per reading the tick could not make, after the event lines: ⚠️ <that step's own summary — a sentence saying what could not be read and what follows from it>, at most 5 then "and <K> more">
 <session URL>

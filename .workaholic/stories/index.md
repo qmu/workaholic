@@ -4,6 +4,13 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260831-134347](work-20260831-134347.md) - An all-held check-in whose arrears outlived the designed hold now says how deep and how old they are, and each held question names its own refusal
+* [work-20260901-085116](work-20260901-085116.md) - The digest reports where the work stands — each direction's missions with acceptance progress and queued counts, the repository's whole queue, and which direction a mission serves
+* [work-20260901-070504](work-20260901-070504.md)
+* [work-20260901-065202](work-20260901-065202.md) - Closes the direction-health mission by verifying its landed chain against each ticket's own gate and giving its drill the breaker row it never had.
+* [work-20260901-064758](work-20260901-064758.md)
+* [work-20260901-055834](work-20260901-055834.md)
+* [work-20260901-050906](work-20260901-050906.md) - Make the mergeability reader predict GitHub's merge rather than this checkout's, which a local merge driver had been quietly resolving
+* [work-20260901-044913](work-20260901-044913.md)
 * [work-20260901-034625](work-20260901-034625.md) - Give the clean stranded-publication class an owner — the act, the caller, and a drill that fails when it stops firing
 * [work-20260831-231823](work-20260831-231823.md) - Pin the merged-proposal narrowing — the step spec's fourth copy caught up with the other three, and nine rows hold all four transitions
 * [work-20260831-224412](work-20260831-224412.md) - Give a publish-tree publication a reader, an act and a question, so a collision a generator settles is repaired rather than reported hourly

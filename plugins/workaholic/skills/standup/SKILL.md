@@ -36,7 +36,28 @@ Attribution is **not** this skill's question. `workaholic:strategy`, *Which work
    `strategy_list_unreadable` still post nothing at all, and a daily post is a standing claim
    on attention that one more word must not turn from silent into spoken.
 
-**Bounded by construction, and never silently.** `STANDUP_MAX_STRATEGIES` (8) and `STANDUP_MAX_ITEMS` (3) cap what renders; every cut is counted in `strategies_omitted` / `moved_omitted` / `waiting_omitted` and stated. The digest's value is in **omission** — a standup that lists everything is a changelog — so prefer "what moved and what is waiting" over completeness.
+8. **Each strategy names the missions serving it, and the digest names the whole queue**
+   (2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). `missions[]`
+   rides each strategy record and `queued_total` rides beside the other counts. Render the
+   missions **nested under their strategy**, one line each: the mission's title, its
+   acceptance **done/total** and how many tickets are **queued** under it; and put
+   `queued_total` on the honesty line, which already names tickets and the window. The point
+   is the ordinary question — *where does the work stand* — which every other reading in this
+   loop answers only by exception: an operator had to ask it mid-session and then read the
+   answer out of the bundle by hand.
+
+   **A mission grain the reader could not complete renders by its reason, with no numbers.**
+   `readable: false` with `mission_progress_unreadable` / `mission_queue_unreadable` /
+   `mission_unreadable` and **null** counts is rule 5 one grain down: `0/0` with nothing
+   queued is the sentence *this mission is finished*, which is the opposite of *we could not
+   look*. `queued_total` is null on the same terms.
+
+   **No artifact gains a field to make this legible.** The mission grain is composed from
+   `attributed-work.sh`, `progress.sh`, `queue-size.sh` and `list-todo.sh` — readers that
+   already existed — and the retired `strategy:` mission relation stays retired
+   (`workaholic:mission`, *The strategy layer: retired, then redefined*).
+
+**Bounded by construction, and never silently.** `STANDUP_MAX_STRATEGIES` (8) and `STANDUP_MAX_ITEMS` (3) cap what renders; every cut is counted in `strategies_omitted` / `moved_omitted` / `waiting_omitted` / `missions_omitted` and stated. The digest's value is in **omission** — a standup that lists everything is a changelog — so prefer "what moved and what is waiting" over completeness. The mission grain is the largest block the digest emits, so a raised cap is a deliberate edit with its own reason, never a convenience.
 
 ## The silence rule — when a morning is not news
 
@@ -65,4 +86,4 @@ Two silences, both `noop: true`, and the reason is always named:
 
 - **No GitHub read at all** — no pull-request count, no issue sweep, hence no `gh-rest.sh` call. Everything a standup needs is in the repository, and a daily unattended read that cannot fail on a token or a 403 is worth more than the extra column. `rules/shell.md`'s REST-only rule is satisfied by having no such read, not by skipping one.
 - **No fetch and no branch scan.** The digest describes what reached the base. Work on an unmerged claim branch is in flight, not landed, and `/catch` is the by-developer view that reads branches.
-- **No per-strategy progress number.** A strategy is *not a status board* (`workaholic:strategy`) — the schedule is the only temporal claim it makes, and `days_to_target` is that claim, not a computed percentage.
+- **No per-strategy progress number.** A strategy is *not a status board* (`workaholic:strategy`) — the schedule is the only temporal claim it makes, and `days_to_target` is that claim, not a computed percentage. **A mission's `checked`/`total` is not that number** (2026-09-01): it is the mission's own acceptance checklist, computed by `progress.sh` and never stored, and it says how far *that plan* got — the digest still makes no claim about how far a direction is, and no percentage is derived over a strategy's missions.

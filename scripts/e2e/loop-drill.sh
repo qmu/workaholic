@@ -1824,6 +1824,33 @@ EOF
     # through the same feedback ref, which is what `attributed-work.sh` walks.
     _mk gone "$_gone"
     _mk quiet "$_far"
+    # THE DELIBERATELY BROKEN SEAM: A DIRECTION WITH NO DATE AT ALL. `overdue` is
+    # `days_to_target < 0` AND the date resolves, and the second half is not decoration --
+    # `days_to_target` is `null` for an undated direction and **jq answers `null < 0` with
+    # `true`**, so the guard is the only thing standing between an undated direction and an
+    # hourly `direction-overdue` question about a date it never had. Neither other fixture can
+    # notice it going: `gone` has a past date and `quiet` a future one, so both read the same
+    # with the guard or without it. This row is what fails.
+    cat > "${_root}/.workaholic/strategies/undated.md" <<EOF
+---
+type: Strategy
+title: T undated
+slug: undated
+status: active
+assignees: [${_me}]
+feedback: [20260101000000-a.md]
+---
+
+# undated
+
+## Aim
+
+a
+
+## Schedule
+
+s
+EOF
     mkdir -p "${_root}/.workaholic/missions/archive/landed"
     printf -- '---\ntype: Mission\ntitle: Landed\nslug: landed\nstatus: achieved\nfeedback: [20260101000000-a.md]\n---\n\n# Landed\n' \
         > "${_root}/.workaholic/missions/archive/landed/mission.md"
@@ -1852,6 +1879,16 @@ EOF
         fi
     done
 
+    # A DIRECTION WITH NO DATE IS NEVER OVERDUE -- the boundary the readings state in words,
+    # asserted here because jq's `null < 0` is `true` and would assert the opposite for free.
+    # An undated direction still answers every other term, so it reads `dormant`: what is
+    # pinned is that the DATE reading stays out of it, not that the row falls silent.
+    if [ "$(_stateof undated)" = "dormant" ]; then
+        add_row "direction_health_undated_is_never_overdue" true "a direction with no target_date reads dormant, never overdue -- this drill can fail" breaker
+    else
+        add_row "direction_health_undated_is_never_overdue" false "an undated direction read '$(_stateof undated)'; a date it never had is being reported as passed: $(one_line "$_state")" breaker
+    fi
+
     # `none` is the REPOSITORY-level reading: no active strategy at all.
     _empty=$(mktemp -d); mkdir -p "${_empty}/.workaholic"
     _none=$(cd "$REPO_ROOT" && sh "$_reader" --open-proposals "$_open" "14 days ago" "${_empty}/.workaholic" 2>&1) || true
@@ -1874,8 +1911,8 @@ EOF
     # key that drifts is a question asked twice or never.
     _out=$(cd "$REPO_ROOT" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
     _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-dormant:quiet direction-overdue:gone " ]; then
-        add_row "direction_health_keys" true "the step asks exactly direction-overdue:gone and direction-dormant:quiet" load
+    if [ "$_keys" = "direction-dormant:quiet direction-dormant:undated direction-overdue:gone " ]; then
+        add_row "direction_health_keys" true "the step asks exactly direction-overdue:gone, direction-dormant:quiet and direction-dormant:undated" load
     else
         add_row "direction_health_keys" false "unexpected question keys: '${_keys}'" load
     fi
@@ -1938,7 +1975,7 @@ EOF
         add_row "direction_health_writes_nothing" false "the drill changed the working tree" load
     fi
     _seeded=$(ls "${_root}/.workaholic/strategies" | sort | tr '\n' ' ')
-    if [ "$_seeded" = "gone.md quiet.md " ]; then
+    if [ "$_seeded" = "gone.md quiet.md undated.md " ]; then
         add_row "direction_health_fixtures_intact" true "the seeded strategies area is untouched by the reader and the step" load
     else
         add_row "direction_health_fixtures_intact" false "the fixture strategies area changed: '${_seeded}'" load
@@ -3399,8 +3436,9 @@ EOF
 cmd_verify_merged_claim() {
     _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
     _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-merged.sh"
-    if [ ! -f "$_lister" ] || [ ! -f "$_reader" ]; then
-        emit_err "merged_claim_unreadable" 4 "list-claims.sh or claim-merged.sh is not present in this checkout"
+    _claimer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim.sh"
+    if [ ! -f "$_lister" ] || [ ! -f "$_reader" ] || [ ! -f "$_claimer" ]; then
+        emit_err "merged_claim_unreadable" 4 "list-claims.sh, claim-merged.sh or claim.sh is not present in this checkout"
     fi
 
     _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
@@ -3506,6 +3544,52 @@ cmd_verify_merged_claim() {
         add_row "merged_claim_named" true "and the claim it could not answer for is named, with its reason" load
     else
         add_row "merged_claim_named" false "the unanswered claim was not named: $(one_line "$_claims")" load
+    fi
+
+    # 5 + 6 + 7. THE CLAIM HALF (ticket `20260826144228`, drilled 2026-09-01). Every row above
+    # proves the oracle can SEE a superseded claim; not one of them proves the work it frees
+    # can be TAKEN. `plan-units.sh` resurveys that work and `workaholic:drive` §1 says in as
+    # many words *a fresh claim drives them, because the old branch cannot land* — so a drill
+    # that stops at the reading passes while the unit is reachable by no path at all. That is
+    # the shape measured on 2026-08-27: the survey offered mission
+    # `make-workaholify-converge-the-account-s-routines` and named it in `resurveyed[]`, a
+    # fresh claim answered `already_claimed`, and `claim.sh resume` answered `superseded` —
+    # both refusals by design, and between them no path to the work at all.
+    #
+    # THE TWO ROWS DIFFER IN ONE FACT — whether the lookup answers `merged`. The fixture, the
+    # identity and the collapsed heartbeat window are held constant across both, so what the
+    # breaker breaks is the behaviour itself rather than a return shape.
+    _claim_try() { ( cd "$_read" && PATH="${_bin}:$PATH" \
+        WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_claimer" mission drilled ) 2>&1 || true; }
+
+    # THE BREAKER. With no merged pull request the claim is not superseded and the fresh claim
+    # must still be refused: only a claim PROVED to hold nothing may be claimed over. Without
+    # this row the one below it proves nothing — a `claim.sh` that had lost the reason test
+    # entirely, and refused no one, would pass it.
+    _stub "echo '[]'"
+    _refused=$(_claim_try)
+    if printf '%s' "$_refused" | grep -q '"reason": "already_claimed"'; then
+        add_row "merged_claim_live_refuses" true "a fresh claim over a LIVE claim is still refused already_claimed -- this drill can fail" breaker
+    else
+        add_row "merged_claim_live_refuses" false "a fresh claim over a live claim was not refused already_claimed, so only superseded is being stepped over is unproven: $(one_line "$_refused")" breaker
+    fi
+
+    # THE BEHAVIOUR. With the pull request merged the row reads `superseded`, the refusal loop
+    # steps over it, and the freed work is reachable again on a branch of its own.
+    _stub "echo '[{\"number\":1,\"merged_at\":\"2026-08-26T00:00:00Z\"}]'"
+    _fresh=$(_claim_try)
+    if printf '%s' "$_fresh" | grep -q '"claimed": true'; then
+        add_row "merged_claim_fresh_claim" true "a fresh claim over a superseded claim goes through, on a branch of its own" load
+    else
+        add_row "merged_claim_fresh_claim" false "a fresh claim over a superseded claim was refused, so the resurveyed work is reachable by no path: $(one_line "$_fresh")" load
+    fi
+
+    # IT FREES THE WORK, NOT THE BRANCH. `superseded` is *reported, never acted on*, so the
+    # dead branch is still on the origin with the fresh claim standing beside it.
+    if ( cd "$_read" && git ls-remote --exit-code --heads origin work-20260101-000000 ) >/dev/null 2>&1; then
+        add_row "merged_claim_branch_untouched" true "the superseded branch is still on the origin; the claim freed the work, not the branch" load
+    else
+        add_row "merged_claim_branch_untouched" false "the superseded branch is gone from the origin, so the claim acted on a verdict that is only ever reported" load
     fi
 
     # NO `gh` CALL REACHES A NETWORK, and the drill writes nothing into the checkout.

@@ -32,9 +32,18 @@
 # a human stamped by hand, must not be offered as claimable, so the filter is on
 # the FIELD rather than on the assumption that the directory implies it.
 
+# THE ROOT IS AN OPTIONAL ARGUMENT (2026-09-01, ticket `20260901083237`). Every caller
+# to date runs from a repository root and passes nothing, so the default keeps the
+# script byte-identical for them. `standup/scripts/digest.sh` is the first caller that
+# already carries a `.workaholic` root of its own (its second positional, which its
+# fixtures set to a throwaway tree), and it must count the queue in THAT root rather
+# than in whatever the process cwd happens to be. The alternative — a second walk with
+# a second copy of the end-state filter below — is how two readings of one queue drift.
+
 set -eu
 
-DIR=".workaholic/tickets/todo"
+ROOT="${1:-.workaholic}"
+DIR="${ROOT}/tickets/todo"
 
 if [ ! -d "$DIR" ]; then
     exit 0

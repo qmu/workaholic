@@ -22,6 +22,22 @@
 # agent to render at the TOP of the Moderation root in the numbered form the developer
 # specified (2026-08-24): the headline is `commit_count`, each strategy is numbered with
 # a bold title on its own line, and the honesty line names tickets and the window.
+# SINCE 2026-09-01 each strategy's MISSIONS nest under it — title, acceptance done/total,
+# queued count — and the honesty line also names `queued_total`. The step reads none of
+# that: it hands the digest through whole, so the grain arrived here with no change to
+# this file's logic and none to its gates.
+#
+# AND IT STAYS DAILY, WHICH IS THIS STEP'S ANSWER TO "POST IT EVERY TICK" (2026-09-01,
+# mission `report-where-the-work-stands-not-only-what-is-wrong`). The ask that added the
+# mission grain asked for it on the ORDINARY tick. That half is declined with its sources,
+# not silently: this repository has retired two status roots for exactly that shape —
+# `🔧 Needs a decision` and `📦 Release Preparation`, the second measured at ten lines in
+# ten consecutive hours for one unchanged request, none answered — and the rule is recorded
+# in `CLAUDE.md` as *a status line addressed to nobody is noise whatever its dedup key*.
+# A plan's shape is an unchanged answer on most hours, so an hourly copy of it is that post
+# returning under a new name; a daily one speaks for today even when today resembles
+# yesterday. If the operator wants the hourly post having read that, it is their ruling and
+# a new ask — not a decision this step makes for them, and not one it makes quietly.
 #
 # THE DIGEST IS A SECOND GATE ON THE ROOT, beside the question gate: a morning tick
 # whose digest is present posts its root even with zero questions, because the digest is
@@ -87,7 +103,7 @@ fi
 commits=$(printf '%s' "$digest" | jq -r '.commit_count // 0')
 count=$(printf '%s' "$digest" | jq -r '.strategy_count // 0')
 needs=$(printf '%s' "$digest" | jq -c '{action: "render_the_morning_digest_at_the_top_of_the_root",
-    bound: "numbered strategies, bold title on its own line, headline is commit_count, honesty line names tickets and the window; log strategy-digest-rendered:<jst-day> via log-append.sh when the root posts",
+    bound: "numbered strategies, bold title on its own line, each strategy'"'"'s missions nested under it (title, acceptance checked/total, queued count; an unreadable grain by its reason with no numbers), headline is commit_count, honesty line names tickets, queued_total and the window; log strategy-digest-rendered:<jst-day> via log-append.sh when the root posts",
     jst_day: "'"$jst_day"'", digest: .}' 2>/dev/null || echo '{}')
 
 emit ok "" "morning digest ready for ${jst_day}: ${count} strategies, ${commits} commits" "$needs" \

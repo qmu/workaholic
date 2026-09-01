@@ -126,12 +126,41 @@ TMP=$(mktemp -d 2>/dev/null || printf '')
 [ -n "$TMP" ] || emit false unanswerable no_tmpdir
 trap 'rm -rf "$TMP"' EXIT INT TERM
 
+# The repository this reading is about, named absolutely so the merge below can be run from
+# outside any working tree. In a claim worktree this is `.git/worktrees/<name>`, which shares
+# the object store and the refs — every name resolved above still resolves there.
+GIT_DIR_ABS=$(git rev-parse --absolute-git-dir 2>/dev/null || printf '')
+[ -n "$GIT_DIR_ABS" ] || emit false unanswerable no_git_dir
+
 # OURS IS THE CLAIM BRANCH, THEIRS IS THE BASE — the same orientation `catchup-main.sh` merges
 # in (`git merge origin/<base>` from the branch), so the stages this reads are the stages that
 # writer would resolve. The shape test is symmetric, but an asymmetric one added later would
 # silently invert if the orientation were left to chance.
+#
+# THE MERGE IS COMPUTED WITH THE REPOSITORY'S OWN `.gitattributes` OUT OF REACH (2026-09-01,
+# ticket `20260901041500`), by running it from an empty directory with `GIT_DIR` set: git reads
+# merge attributes from the WORKING TREE, so a checkout carrying `.workaholic/*/index.md
+# merge=union` resolves that path silently and this reader answers `clean`. **GitHub does not
+# apply a repository's merge attributes when it computes `mergeable`**, so the question this
+# script exists to answer — will the base still merge into this branch — was being answered for
+# a merge only this clone can perform.
+#
+# MEASURED, same git (2.43.0) and the same two commits: from the checkout `merge-tree` exits 0;
+# from a clone with no `.gitattributes` in its working tree it exits 1 on
+# `.workaholic/feedbacks/index.md`, and the API answers `mergeable: false, mergeable_state:
+# "dirty"` for the same pull request. Five open publications read `clean` here and `dirty`
+# there — #813, #799, #688, #635, #625, the oldest six days old — and the loop, believing them
+# mergeable as they stood, attempted the merge and was refused `merge_not_allowed` every time.
+#
+# THE UNION DRIVER IS NOT REMOVED AND IS NOT THE DEFECT. It does exactly what it was added for
+# (2026-09-01, issue #780): the WRITER — `catchup-main.sh`, running in a real checkout — still
+# resolves such a path with no judgement, which is why the honest class for these branches is
+# `mechanical` and why the existing catch-up settles them. What was wrong was a READER predicting
+# the remote's answer with a driver the remote will not use; suppressing it here restores the
+# occasion the writer already knows how to take, rather than removing the repair.
 set +e
-git merge-tree --write-tree "$BRANCH_REF" "$BASE" >"${TMP}/out" 2>"${TMP}/err"
+( cd "$TMP" && GIT_DIR="$GIT_DIR_ABS" git merge-tree --write-tree "$BRANCH_REF" "$BASE" ) \
+    >"${TMP}/out" 2>"${TMP}/err"
 MT_STATUS=$?
 set -e
 

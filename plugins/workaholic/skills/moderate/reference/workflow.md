@@ -892,8 +892,9 @@ the digest belongs in the one thread they read). Once per Asia/Tokyo day, on the
 after 09:00 (both read from the **tick id**, never the wall clock), the step reads
 `standup/scripts/digest.sh` — the same pure read `/standup` uses, one derivation with two
 consumers — and hands the digest to the agent to render at the **top of the Moderation root**, in
-the developer's specified form: numbered strategies, bold title on its own line, headline is
-`commit_count`, honesty line naming tickets and the window. The render is logged
+the developer's specified form: numbered strategies, bold title on its own line, **each
+strategy's missions nested under it with acceptance done/total and queued count**, headline is
+`commit_count`, honesty line naming tickets, **the total queued** and the window. The render is logged
 (`strategy-digest-rendered:<jst-day>`) so a second morning render is impossible; before 09:00 the
 step reports `before_morning`; a no-op digest (`no_strategies` / `no_activity`) rides nothing; an
 unreadable digest is `digest_unreadable`, named rather than rendered as a quiet morning.
@@ -901,6 +902,24 @@ unreadable digest is `digest_unreadable`, named rather than rendered as a quiet 
 **The digest is the root's second gate**: a morning tick with a digest posts its root even with
 zero questions — the day's opening statement, the exception the developer asked for — while every
 other hour the question gate stands alone.
+
+**The plan's shape is daily, not hourly, and that is an answer rather than an omission**
+(2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). The ask that put
+the mission grain here asked for it on **every** tick — "post where the work stands on the
+ordinary tick rather than only when something is wrong". Its first half is granted: the grain,
+the mission counts and `queued_total` now ride this step. Its second half is declined with its
+sources, which are two roots this repository has already retired for exactly the shape being
+asked for. `CLAUDE.md` (`/moderate`): *the two retired status roots stay retired — a status line
+addressed to nobody is noise whatever its dedup key*; `workaholic:notify` records what `📦
+Release Preparation` measured — ten lines in ten consecutive hours for one unchanged request,
+none of them answered. **A plan's shape is an unchanged answer on most hours**, so an hourly copy
+of it is that post returning under a new name; a *daily* one speaks for today even when today
+resembles yesterday, which is the distinction the `standup:<date>` key was chosen for.
+
+**If the operator, having read that, wants an hourly plan post, it is their call and a new ask.**
+This step does not decide it for them and does not pretend the request was met: the gate, the
+key, the cadence and the once-per-JST-day dedup are untouched, and nothing here posts a second
+root.
 
 ## 15. `direction-health` — a direction out of date, with nothing answering it, or with its work all in
 
@@ -3078,6 +3097,39 @@ pull request costs one question however many ticks see it.
 - **Never alone**: `content_conflict`, `mechanical`, `unanswerable`, a branch name, a number.
 - **The age** rides `lib/read-age.sh`, keyed on the key the step already composes, the reader's
   words verbatim; an unreadable age is named as unreadable and an absent one is not mentioned.
+
+**A second question: a publication old enough that its plan may be stale** (2026-09-01, ticket
+`20260901062000-check-a-stranded-proposal-is-still-worth-landing.md`). Keyed
+`stranded-publication-stale:<number>`.
+
+`publish-tree-pr.sh` auto-merges on opening, so a proposal is normally written and landed minutes
+apart and its age says nothing; only one the **transport** refused stays open long enough for the
+plan it carries to go stale. **Measured 2026-09-01**: five of six open publications read `clean`,
+the oldest six days old, and landing them queued roughly fifteen tickets for work the loop had
+already finished — two whole missions of it, one of them a second plan of an ask that had already
+been driven.
+
+- **Candidates** — `mergeability` of `mechanical` or `clean` whose `age_hours` is at least
+  `WORKAHOLIC_PUBLICATION_STALE_HOURS` (default 48). **Disjoint from the `content` set by
+  construction**, so no publication ever draws both questions — the `retire-claims` /
+  `stalled-units` division applied to one reader's rows. An **unreadable** age is not a candidate:
+  asking on an absence is what the three-valued readings exist to avoid.
+- **Heading** — *something the loop wrote days ago is about to be published, and what it plans may
+  already be done*, then the pull request and how long it has been open.
+- **Body** — the one act: *say whether that plan is still wanted, or close the pull request.*
+- **Addressed to** the publication's author.
+- **It holds nothing, and that is the design.** `/implement` settles a `clean` or `mechanical`
+  publication unconditionally, exactly as before this question existed — an age threshold on the
+  **act** would strand precisely the publications the `clean` widening exists to deliver, and this
+  repository has paid repeatedly for a reading that stops something and tells nobody. So the two
+  run independently: usually the act wins the hour and the question is the record that nothing was
+  landed silently; when a person gets there first, they can close it. **The rejected alternatives**
+  are the act refusing on an age (it strands the deliverable set) and a survey-side test for a
+  queued ticket whose work already exists (*already implemented* is a judgement about behaviour,
+  not a file test — measured the same day, five of eight queued tickets had exact-title archived
+  twins while three had none and their work existed anyway).
+- **Two ages, never conflated**: `open_hours` is how long the **pull request** has been open;
+  `age` is how long the **question** has been asked, through `lib/read-age.sh` as above.
 
 ---
 

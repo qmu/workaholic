@@ -101,6 +101,7 @@ const SCRIPTS = {
   validateMission: join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh"),
   appendChangelog: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/append-changelog.sh"),
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
+  acceptanceHandoffs: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/acceptance-handoffs.sh"),
   linkAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/link-acceptance.sh"),
   unlinkedAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/unlinked-acceptance.sh"),
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
@@ -7994,6 +7995,109 @@ function testStandupDigest() {
   } finally { cleanup(dir); }
 }
 
+// ---------- standup/digest.sh: the MISSION GRAIN (2026-09-01, ticket `20260901083237`) ----
+// The operator's ordinary question — "so how many todos are left?" — was answered by no
+// reading this loop had. What is pinned here is that the answer is a COMPOSITION of readers
+// that already existed: `attributed-work.sh` says which missions the direction owns,
+// `progress.sh` says how far each is, `queue-size.sh` says what is queued under it, and
+// `list-todo.sh` is the repository's queue. Nothing here may become a second walker, and no
+// artifact may gain a field to make the join legible — that relation is retired by name.
+function testStandupDigestMissionGrain() {
+  const dir = makeRepo("main");
+  const DIGEST = `${POSIX_SH} ${SCRIPTS.standupDigest}`;
+  const PROGRESS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh")}`;
+  const QUEUE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const REF = "20260801000001-one.md";
+  const mission = (slug, title, acceptance) =>
+    `---\ntype: Mission\ntitle: ${title}\nslug: ${slug}\nstatus: active\nfeedback: [${REF}]\n---\n\n` +
+    `# ${title}\n\n## Experience\n\nx\n${acceptance}`;
+  try {
+    wf(".workaholic/strategies/dir-a.md",
+      `---\ntype: Strategy\ntitle: Direction A\nslug: dir-a\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [a@qmu.jp]\nfeedback: [${REF}]\n---\n\n` +
+      `# Direction A\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`);
+    wf(".workaholic/missions/active/m-one/mission.md",
+      mission("m-one", "M One", "\n## Acceptance\n\n- [x] done one\n- [ ] left one\n"));
+    wf(".workaholic/missions/active/m-two/mission.md",
+      mission("m-two", "M Two", "\n## Acceptance\n\n- [ ] left two\n"));
+    // A mission with no acceptance block at all reads 0/0 — a real state, and the one that
+    // would be indistinguishable from an unreadable read if a failure were allowed to zero.
+    wf(".workaholic/missions/active/m-three/mission.md", mission("m-three", "M Three", ""));
+    for (const [n, slug] of [[1, "m-one"], [2, "m-one"], [3, "m-two"]]) {
+      wf(`.workaholic/tickets/todo/2026081000000${n}-queued-${n}.md`,
+        `---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: ${slug}\n---\n\n# Queued ${n}\n`);
+    }
+    // Queued under no mission and no direction: it counts toward the repository total and
+    // toward nothing else, which is the whole point of reporting the total separately.
+    wf(".workaholic/tickets/todo/20260812000001-orphan.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# Orphan queued\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const d = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    const a = d.strategies.find((s) => s.slug === "dir-a");
+
+    // The order is the attribution reader's own — its artifact walk is path-sorted — and it
+    // is asserted rather than re-sorted here, so a change in that reader's order shows up as
+    // a failure in the consumer that renders it rather than being quietly absorbed.
+    assertEq("the direction names its active missions, in the attribution reader's own order",
+      a.missions.map((m) => [m.slug, m.title]),
+      [["m-one", "M One"], ["m-three", "M Three"], ["m-two", "M Two"]]);
+    assertEq("each mission carries its acceptance progress and its queued count",
+      a.missions.map((m) => [m.checked, m.total, m.queued]), [[1, 2, 2], [0, 0, 0], [0, 1, 1]]);
+    assertEq("a completed grain is readable with no reason, like every other record here",
+      a.missions.map((m) => [m.readable, m.reason]), [[true, ""], [true, ""], [true, ""]]);
+    assertEq("and the repository's whole queue is reported beside the per-mission counts",
+      d.queued_total, 4);
+
+    // THE COMPOSITION IS THE POINT: the digest must agree with the readers it composes,
+    // rather than carrying a second derivation that can drift from them.
+    for (const m of a.missions) {
+      const p = JSON.parse(run(dir, `${PROGRESS} ${m.slug}`).stdout);
+      const q = JSON.parse(run(dir, `${QUEUE} ${m.slug} .workaholic`).stdout);
+      assertEq(`the grain for ${m.slug} is exactly what progress.sh and queue-size.sh answer`,
+        [m.checked, m.total, m.queued], [p.checked, p.total, q.todo]);
+    }
+
+    // ---- the cap applies to the new block too, and every cut is counted ----
+    const capped = JSON.parse(run(dir, `STANDUP_MAX_ITEMS=2 ${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("the mission list is capped and the cut is counted, never silently dropped",
+      [capped.strategies[0].missions.length, capped.strategies[0].missions_omitted], [2, 1]);
+
+    // ---- every existing field survives unchanged in name and meaning ----
+    for (const k of ["slug", "title", "status", "target_date", "days_to_target", "assignees",
+      "stage", "readable", "reason", "count", "active_count", "waiting_count", "empty_reason",
+      "moved", "waiting", "moved_omitted", "waiting_omitted"]) {
+      assertTrue(`the strategy record still carries ${k}`, k in a, JSON.stringify(Object.keys(a)));
+    }
+
+    // ---- no artifact gains a field, and the digest stays a pure read ----
+    assertTrue("no strategy: relation is written onto any mission",
+      !run(dir, "grep -rn '^strategy:' .workaholic/missions || true").stdout.trim(),
+      run(dir, "grep -rn '^strategy:' .workaholic/missions || true").stdout);
+    assertEq("the mission grain leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+    assertEq("and commits nothing", run(dir, "git log --oneline").stdout.trim().split("\n").length, 2);
+
+    // A GRAIN THAT COULD NOT BE READ IS NAMED, NEVER ZEROED. The branch is not reachable
+    // from a fixture — a mission is named here only because the attribution walk just read
+    // its file, so `progress.sh` and `queue-size.sh` cannot fail on it in the same process —
+    // so the rule is pinned where it is written. A zero would read as "nothing left", which
+    // is the opposite of "we could not look".
+    const code = readFileSync(SCRIPTS.standupDigest, "utf8");
+    for (const reason of ["mission_progress_unreadable", "mission_queue_unreadable",
+      "mission_unreadable", "queue_unreadable"]) {
+      assertTrue(`the digest names ${reason} rather than reporting a count it did not read`,
+        code.includes(reason), reason);
+    }
+    assertTrue("and an unreadable grain carries null counts, never zeroed ones",
+      /_sm_checked=null/.test(code) && /_sm_queued=null/.test(code), code.slice(0, 200));
+  } finally { cleanup(dir); }
+}
+
 // ---------- /moderate: the tick's own voice, one root an hour (2026-08-21) ----------
 // WHAT IS PINNED is the gate, not the wording. An hourly root is only admissible here
 // because an idle hour is silent, and the thing that makes it silent is that a "change"
@@ -9018,6 +9122,69 @@ concerns: []
     r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.tickAcceptance} ${slug} nope.md`).stdout);
     assertEq("tick-acceptance no-match is a no-op", r.ticked, false);
     assertEq("progress unchanged after a no-op tick", JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionProgress} ${slug}`).stdout), { checked: 1, total: 2, unlinked: 0 });
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/acceptance-handoffs.sh (what the close gate cannot see) ----------
+// The archive gate closes a mission on arithmetic: every acceptance item ticked, none
+// unlinked, the queue empty. A ticket declaring `verification_handoff` is archived as
+// IMPLEMENTED — the code is written — so its acceptance item ticks and the mission then
+// closed `achieved` while what the item asserts had been verified by nobody. Measured
+// 2026-08-31 on a real mission. This reader is what the gate consults; it delegates the
+// declaration itself to verification-handoff.sh rather than reading the field again.
+function testAcceptanceHandoffs() {
+  const dir = makeRepo("main");
+  try {
+    const ticket = (name, handoff) => {
+      const at = join(dir, `.workaholic/tickets/archive/work-1/${name}`);
+      mkdirSync(dirname(at), { recursive: true });
+      writeFileSync(at, `---\nverification_handoff: ${handoff}\n---\n\n# ${name}\n`);
+    };
+    const mission = (slug, body) => {
+      const mdir = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(mdir, { recursive: true });
+      const mfile = join(mdir, "mission.md");
+      writeFileSync(mfile, `---\ntype: Mission\nslug: ${slug}\nstatus: active\n---\n\n# ${slug}\n\n## Acceptance\n\n${body}\n`);
+      return mfile;
+    };
+
+    ticket("t-code.md", "");
+    ticket("t-check.md", "");
+    ticket("t-deployed.md", "a deployed application no unattended runner can reach");
+
+    // The measured case: one item answered by a ticket that declared a handoff.
+    const withHandoff = mission("m-handoff", "- [x] The code is written. (#t-code.md)\n- [x] It works on the deployed screen. (#t-deployed.md)");
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${withHandoff}`).stdout);
+    assertEq("a declared handoff among the acceptance items is found", r.handoff, true);
+    assertEq("and the ticket is named, so the refusal can say which", r.tickets, ["t-deployed.md"]);
+    assertEq("nothing unresolved when every link points at a file", r.unresolved, []);
+
+    // The control: a mission with none must behave byte-identically to today.
+    const plain = mission("m-plain", "- [x] The code is written. (#t-code.md)\n- [x] The check is written. (#t-check.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${plain}`).stdout);
+    assertEq("a mission with no declared handoff answers false", r.handoff, false);
+    assertEq("and names no ticket", r.tickets, []);
+
+    // A ticket still in todo/ counts: the plan says the same thing before it is driven.
+    const queued = join(dir, ".workaholic/tickets/todo/t-queued.md");
+    mkdirSync(dirname(queued), { recursive: true });
+    writeFileSync(queued, `---\nverification_handoff: a device this runner does not have\n---\n\n# t-queued\n`);
+    const notYet = mission("m-queued", "- [ ] Not driven yet. (#t-queued.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${notYet}`).stdout);
+    assertEq("a queued handoff ticket is found too", r.handoff, true);
+
+    // A link pointing at no file is reported, and is NOT a handoff: a broken link is a
+    // different fault, already counted by progress.sh's `unlinked`.
+    const broken = mission("m-broken", "- [x] Answered by nothing. (#t-missing.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${broken}`).stdout);
+    assertEq("an unresolved link is not a handoff", r.handoff, false);
+    assertEq("and is reported as unresolved", r.unresolved, ["t-missing.md"]);
+
+    // An item naming no ticket at all leaves the reader with nothing to resolve.
+    const unlinked = mission("m-unlinked", "- [x] Answered by nobody in particular.");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${unlinked}`).stdout);
+    assertEq("an item with no link is neither a handoff nor unresolved", r.handoff, false);
+    assertEq("no ticket resolved from an unlinked item", r.unresolved, []);
   } finally { cleanup(dir); }
 }
 
@@ -11968,6 +12135,32 @@ function testLayoutDoctor() {
     assertTrue("doctor: no false positive on stories/", !paths.includes(".workaholic/stories"));
     assertTrue("doctor: no false positive on feedbacks/", !paths.includes(".workaholic/concerns"));
   } finally { cleanup(dir); }
+
+  // ONE SLUG NAMING TWO MISSIONS (2026-09-01). `/specificate` dedups on the ask's feedback
+  // refs, so two records for one ask produce two missions whose slugs — derived from the title
+  // — collide. Measured: both pairs in this repository arose that way, and in each the later
+  // record's mission was driven while the earlier sat in a refused publication.
+  //
+  // IT IS AN ADVISORY, NOT A FINDING, AND THE TEST PINS THAT: a finding sets
+  // `conforming: false`, which fails the merge gate, and pairs already in a tree would block
+  // every merge until somebody ruled on history that is harming nothing.
+  const dupes = mkdtempSync(join(tmpdir(), "workaholic-doctor-dupe-"));
+  try {
+    for (const d of [".workaholic/missions/active/one", ".workaholic/missions/archive/one",
+                     ".workaholic/missions/active/two", ".workaholic/missions/archive/three"]) {
+      mkdirSync(join(dupes, d), { recursive: true });
+    }
+    writeFileSync(join(dupes, ".workaholic/README.md"), "x");
+    const r = JSON.parse(run(dupes, `${POSIX_SH} ${DOCTOR} ${dupes}`).stdout);
+    const adv = r.advisories.filter((a) => /two missions/.test(a.reason)).map((a) => a.path);
+    assertEq("the doctor names exactly the slug that exists in both areas", adv,
+      [".workaholic/missions/active/one"]);
+    assertTrue("and says the operator rules, deleting neither",
+      /operator rules/.test(r.advisories.find((a) => /two missions/.test(a.reason)).reason),
+      JSON.stringify(r.advisories));
+    assertEq("a same-slug pair is advisory, never a finding that fails the merge gate",
+      [r.conforming, r.findings.length], [true, 0]);
+  } finally { cleanup(dupes); }
 
   // The three areas retired 2026-08-13 (issue #436) are named BY THE RETIREMENT,
   // not as generic undesignated dirs — a consuming repo's plugin updates before
@@ -20766,6 +20959,7 @@ const tests = [
   ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
   ["the run reports name a degraded direction reading", testRunReportsNameADegradedReading],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
+  ["standup/digest.sh reports the mission grain and the whole queue", testStandupDigestMissionGrain],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],
   ["moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline],
@@ -20787,6 +20981,7 @@ const tests = [
   ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
   ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
   ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
+  ["mission/acceptance-handoffs.sh", testAcceptanceHandoffs],
   ["mission/link-acceptance.sh (the acceptance-to-artifact link)", testLinkAcceptance],
   ["acceptance satisfaction semantics (ticker + progress + audit)", testAcceptanceSatisfactionSemantics],
   ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
@@ -20895,7 +21090,9 @@ const tests = [
   ["branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader],
   ["branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication],
   ["moderate/stranded-publications: the collision only a person can settle", testStrandedPublicationsStep],
+  ["moderate/stranded-publications: a publication old enough that its plan may be stale", testStrandedPublicationStaleQuestion],
   ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
+  ["drive/claim-mergeability.sh: the reader predicts the remote's merge, not this checkout's", testMergeabilityIgnoresLocalMergeAttributes],
   ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
   ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
@@ -22169,6 +22366,73 @@ function testListInboundIssues() {
     assertEq("a GraphQL-restricted session still reads its inbox", restricted.ok, true);
     assertEq("and reads exactly what an unrestricted one reads",
       restricted.issues.map((i) => i.number), r.issues.map((i) => i.number));
+
+    // ---- A RECORD ON AN UNMERGED BRANCH EXCLUDES TOO (2026-09-01, ticket 20260901042313) ----
+    // The exclusion grepped the caller's checkout, which at the propose seam is a checkout of
+    // the base — so an open issue whose record lived only on an open proposal's branch was
+    // re-offered every hour, each re-take writing a duplicate record and opening a fresh
+    // publish-tree pull request that conflicted with every other open proposal. Measured on
+    // issue #812 / pull request #813: re-offered at 03:28 and again at 04:21.
+    const git = (args) => execSync(`git ${args}`, { cwd: repo, stdio: "ignore" });
+    git("config user.email a@qmu.jp");
+    git("config user.name t");
+    git("add -A");
+    git("-c commit.gpgsign=false commit -qm base");
+    git("update-ref refs/remotes/origin/main HEAD");
+    const baseSha = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
+    // A proposal branch that adds one record, naming issue 7 and nothing else.
+    git("checkout -q -b work-20260901-022335");
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260901022335-on-branch.md"),
+      `---\ntype: Feedback\n---\n\nSource: GitHub issue #7 (https://github.com/o/r/issues/7)\n`);
+    git("add -A");
+    git("-c commit.gpgsign=false commit -qm proposal");
+    git("update-ref refs/remotes/origin/work-20260901-022335 HEAD");
+    git(`checkout -q --detach ${baseSha}`);
+
+    writeGh(restGh());
+    const withBranch = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    // TWO WORDS, NOT ONE: a reader must be able to tell a settled capture from one waiting on
+    // a pull request — they send you to different places.
+    assertEq("a record on an unmerged proposal branch excludes its issue, under its own word",
+      withBranch.excluded.map((e) => `${e.number}:${e.reason}`).sort(),
+      ["12:already_captured", "7:captured_on_branch"]);
+    assertEq("and an issue no record names anywhere is still offered",
+      withBranch.issues.map((i) => i.number).sort((a, b) => a - b), [9, 120]);
+
+    // A MERGED-AND-DELETED BRANCH RESURRECTS NOTHING. The branch is what this keys on, so
+    // deleting it frees the ask again — the same invariant that releases a claim.
+    git("update-ref -d refs/remotes/origin/work-20260901-022335");
+    const afterDelete = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a branch that is gone excludes nothing — issue 7 is offered again",
+      afterDelete.issues.some((i) => i.number === 7), true);
+    assertEq("and the base record's own exclusion is untouched",
+      afterDelete.excluded.map((e) => e.reason), ["already_captured"]);
+
+    // A DEGRADED WALK IS NAMED ON STDERR AND ERRS TOWARD EXCLUDING. `.git/shallow` is what
+    // `--is-shallow-repository` answers from, so a shallow clone's over-read warning is
+    // reachable without cloning one.
+    const errFile = join(tmp, "walk-stderr.txt");
+    writeFileSync(join(repo, ".git/shallow"), `${baseSha}\n`);
+    const shallow = run(repo, `${POSIX_SH} ${SCRIPT} 2> ${errFile}`, { env });
+    assertEq("a shallow clone still exits 0", shallow.status, 0);
+    assertEq("and still reports ok: true", JSON.parse(shallow.stdout).ok, true);
+    assertTrue("with the over-read named on stderr, never on stdout",
+      /shallow clone; merged branches may be read as open/.test(readFileSync(errFile, "utf8")),
+      readFileSync(errFile, "utf8"));
+    rmSync(join(repo, ".git/shallow"), { force: true });
+
+    // AND A WALK THAT CANNOT RUN AT ALL NEVER BREAKS A READABLE INBOX.
+    git("update-ref -d refs/remotes/origin/main");
+    for (const b of ["main", "master"]) { try { git(`branch -D ${b}`); } catch { /* absent */ } }
+    const noBase = run(repo, `${POSIX_SH} ${SCRIPT} 2> ${errFile}`, { env });
+    assertEq("an unresolvable base still exits 0", noBase.status, 0);
+    const noBaseJson = JSON.parse(noBase.stdout);
+    assertEq("and reports ok: true, never list_failed", noBaseJson.ok, true);
+    assertTrue("with the reason on stderr",
+      /no base ref resolved/.test(readFileSync(errFile, "utf8")), readFileSync(errFile, "utf8"));
+    assertEq("and the base grep is untouched by the walk it could not make",
+      noBaseJson.excluded.map((e) => e.reason), ["already_captured"]);
+    git("update-ref refs/remotes/origin/main HEAD");
 
     // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.
     writeGh(restGh("[]"));
@@ -28006,6 +28270,34 @@ function testMissionStrategy() {
       /^strategy:/m.test(readFileSync(join(dir, ".workaholic/missions/active/carried/mission.md"), "utf8")),
       false);
 
+    // THE ANSWER HAS TO REACH A PERSON WHERE THEY MEET A MISSION (2026-09-01, mission
+    // `report-where-the-work-stands-not-only-what-is-wrong`). The ask was "a person opening a
+    // mission file cannot tell which direction it serves", and it proposed the one mechanism
+    // this repository has ruled against by name. The need is met by the RENDER, so what is
+    // pinned is that the render surfaces state the reader and the three-way answer, and that
+    // the ruling is written where the question will be asked again.
+    {
+      const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+      const report = skill.slice(skill.indexOf("## Mission Position Report"));
+      assertTrue("the Mission Position Report derives the direction through the one inverse reader",
+        /mission-strategy\.sh/.test(report.slice(0, 3000)), report.slice(0, 300));
+      assertTrue("and renders no strategy explicitly, so unattributed never reads as absent",
+        /no strategy/.test(report.slice(0, 3000)), report.slice(0, 300));
+      const schema = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/schema.md"), "utf8");
+      assertTrue("the schema records how a mission's direction is read",
+        /mission-strategy\.sh/.test(schema), "missing from mission/reference/schema.md");
+      assertTrue("and why the frontmatter key is not the answer",
+        /no `strategy:` key/.test(schema), "missing from mission/reference/schema.md");
+      const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+      assertTrue("and CLAUDE.md agrees that it is a render rather than a field",
+        /Which direction a mission serves is a render, not a field/.test(claudeMd),
+        "missing from CLAUDE.md");
+    }
+    // NO SCAFFOLD WRITES ONE EITHER. The template is where a re-added key would arrive first.
+    assertTrue("create.sh scaffolds no strategy: key",
+      !/^\s*strategy:/m.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"), "utf8")),
+      "a strategy: key survives in the mission scaffold");
+
     // It is a READER: the roadmap it feeds runs on the operator's own checkout.
     assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
     assertEq("and exits 0 even with no strategies at all",
@@ -31887,6 +32179,83 @@ function testStrandedPublicationsStep() {
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 
+// ---------- a publication old enough that its plan may be stale (2026-09-01) ----------
+//
+// `publish-tree-pr.sh` auto-merges on opening, so a proposal is normally written and landed
+// minutes apart and its age says nothing. Only one the TRANSPORT refused stays open long
+// enough for the plan it carries to go stale. Measured 2026-09-01: five of six open
+// publications were `clean`, the oldest six days old, and landing them queued roughly fifteen
+// tickets for work the loop had already finished — two whole missions of it.
+//
+// THE QUESTION DOES NOT HOLD THE ACT, and that is what this pins. An age threshold on
+// `settle-stranded-publication.sh` would strand exactly the publications the `clean` widening
+// exists to deliver, so the act stays unconditional and the age is REPORTED: the run report
+// names it and `/moderate` asks the author while the publication is still open.
+function testStrandedPublicationStaleQuestion() {
+  const fx = makePublicationFixture();
+  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+  try {
+    // A publication that collides with nothing — `clean`, the class the loop settles itself.
+    const clean = publishBranch(fx.A, "work-20260826-110000", (wt) => {
+      writeFileSync(join(wt, "src/other.txt"), "untouched-by-the-base\n");
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.A });
+    publicationGhStub(fx.binDir, {
+      pulls: [{ number: 41, url: "https://example.test/pr/41", title: "[Proposal] direction",
+                created: "2026-01-02T03:04:05Z", author: "claude[bot]", head: clean }],
+      files: { 41: pubFiles(["src/other.txt"]) },
+    });
+
+    // 1. THE READER CARRIES AN AGE, derived from the `created_at` it already had — no extra
+    //    call, and one derivation shared with `publication-effect.sh` via `lib/publication-age.sh`.
+    const read = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.listStrandedPublications}`, { env: withGh }).stdout);
+    const row = read.publications.find((p) => p.number === 41);
+    assertTrue("the reader reports the publication's age in hours",
+      typeof row.age_hours === "number" && row.age_hours > 0, JSON.stringify(row));
+
+    const step = (env) => JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.stepStrandedPublications} --tick 20260901T0700 --root ${fx.A}`,
+      { env }).stdout);
+
+    // 2. UNDER THE THRESHOLD IT ASKS NOBODY. A fresh publication is the loop's own work.
+    const fresh = step({ ...withGh, WORKAHOLIC_PUBLICATION_STALE_HOURS: "999999" });
+    assertEq("a publication younger than the bound draws no question", fresh.needs_agent, []);
+    assertEq("and the step still reports ok", fresh.status, "ok");
+
+    // 3. OVER IT, THE AUTHOR IS ASKED — once, keyed on its own number.
+    const stale = step({ ...withGh, WORKAHOLIC_PUBLICATION_STALE_HOURS: "1" });
+    const asked = JSON.stringify(stale.needs_agent);
+    assertTrue("a stale settleable publication asks its author whether the plan is still wanted",
+      /stranded-publication-stale:41/.test(asked), asked);
+    assertTrue("naming how long the pull request itself has been open",
+      /"open_hours": *\d+/.test(asked), asked);
+    assertTrue("and it earns a root line of its own",
+      /may already be done/.test(stale.event), stale.event);
+    assertTrue("the summary says how many are stale, with no age or timestamp in it",
+      /stale/.test(stale.summary)
+      && !/\d{4}-\d{2}-\d{2}|\d+ *(hour|day|tick)/.test(stale.summary), stale.summary);
+
+    // 4. THE TWO QUESTION SETS ARE DISJOINT BY CONSTRUCTION: `content` draws the collision
+    //    question and `mechanical`/`clean` draw this one, so no publication draws both.
+    assertTrue("a clean publication draws the stale question and never the collision one",
+      !/ask_the_publication_author_to_resolve_the_conflict/.test(asked), asked);
+
+    // 5. IT HOLDS NOTHING. The act re-derives its own verdict and settles a stale publication
+    //    exactly as it settles a fresh one — the age rides the report and gates nothing.
+    const settled = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.settleStrandedPublication} 41`, { env: withGh }).stdout);
+    assertEq("the act settles and delivers a stale publication unchanged",
+      [settled.outcome, settled.class, settled.delivery], ["settled", "clean", "merged"]);
+    assertTrue("while reporting the age it acted on",
+      typeof settled.age_hours === "number" && settled.age_hours > 0, JSON.stringify(settled));
+
+    // 6. IT WRITES NOTHING ANYWHERE.
+    assertEq("the step left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
 // ---------- the reader and the writer answer with one rule (2026-08-29) ----------
 //
 // `claim-mergeability.sh` predicts what `catchup-main.sh` will do, from `git merge-tree`,
@@ -31955,6 +32324,65 @@ function testClaimMergeabilityReader() {
       .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
     assertTrue("and the reader carries no allowlist of its own",
       !/marketplace\.json|codex-plugin|outputs\/\*/.test(readerSrc), readerSrc);
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+}
+
+// ---------- the reader predicts the REMOTE's merge, not this checkout's (2026-09-01) ----------
+// A repository may hand git a merge driver through `.gitattributes` — this one marks the
+// generated OKF indexes `merge=union` (issue #780) so a regenerated sorted region takes both
+// sides instead of conflicting. GitHub does NOT apply a repository's merge attributes when it
+// computes `mergeable`, so a reader that lets the driver resolve a path answers `clean` for a
+// pull request the remote refuses. Measured: five open publications read `clean` here and
+// `mergeable: false, mergeable_state: "dirty"` at the API, and the loop attempted the merge on
+// every tick and was refused `merge_not_allowed` every time.
+//
+// The driver is not the defect and is not removed: the WRITER runs in a real checkout and still
+// resolves such a path with no judgement, which is why `mechanical` is the honest class and why
+// the existing catch-up settles these branches. The row asserts the behaviour — the class the
+// remote agrees with — not the mechanism that produces it.
+function testMergeabilityIgnoresLocalMergeAttributes() {
+  const fx = makeDriftFixture();
+  try {
+    const idx = (...stems) => "# feedbacks\n\n<!-- okf:generated:begin -->\n"
+      + stems.map((s) => `* [${s}](${s}.md)\n`).join("")
+      + "<!-- okf:generated:end -->\n";
+    // The attribute and the generated index reach the base first, so both sides of the merge
+    // below carry them and the checkout's own working tree holds the `.gitattributes`.
+    advanceBase(fx.A, (root) => {
+      writeFileSync(join(root, ".gitattributes"), ".workaholic/*/index.md merge=union\n");
+      mkdirSync(join(root, ".workaholic/feedbacks"), { recursive: true });
+      writeFileSync(join(root, ".workaholic/feedbacks/index.md"), idx("20260101000000-a"));
+    });
+    const branch = strandUnit(fx.A, `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`,
+      (wt) => writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        idx("20260101000000-a", "20260102000000-b")));
+    advanceBase(fx.A, (root) => writeFileSync(join(root, ".workaholic/feedbacks/index.md"),
+      idx("20260101000000-a", "20260103000000-c")));
+
+    // The checkout really does resolve it — the premise of the row, asserted rather than assumed,
+    // so a repository that stopped configuring the driver does not quietly make the row vacuous.
+    assertEq("the checkout's own merge driver resolves the index",
+      execSync("git check-attr merge -- .workaholic/feedbacks/index.md",
+        { cwd: fx.A, encoding: "utf8" }).trim(),
+      ".workaholic/feedbacks/index.md: merge: union");
+
+    const seen = JSON.parse(run(fx.A,
+      `${POSIX_SH} ${SCRIPTS.claimMergeability} ${branch.branch} origin/main`).stdout);
+    assertEq("a collision only a local merge driver resolves is not called clean",
+      [seen.readable, seen.class], [true, "mechanical"]);
+    assertTrue("and the reader names the path the remote would conflict on",
+      seen.mechanical_files.includes(".workaholic/feedbacks/index.md"),
+      JSON.stringify(seen));
+
+    // AND THE WRITER STILL RESOLVES IT, so the class the reader now reports is one the loop can
+    // act on: reader and writer agree, in the direction that lets the catch-up settle it.
+    assertEq("what the reader calls mechanical, the writer still resolves",
+      /"caught_up": true/.test(run(branch.worktree_path,
+        `${POSIX_SH} ${SCRIPTS.catchupMain} main --resolve-mechanical`).stdout),
+      true);
+
+    assertEq("the reader left the checkout as it found it",
+      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 

@@ -7995,6 +7995,109 @@ function testStandupDigest() {
   } finally { cleanup(dir); }
 }
 
+// ---------- standup/digest.sh: the MISSION GRAIN (2026-09-01, ticket `20260901083237`) ----
+// The operator's ordinary question — "so how many todos are left?" — was answered by no
+// reading this loop had. What is pinned here is that the answer is a COMPOSITION of readers
+// that already existed: `attributed-work.sh` says which missions the direction owns,
+// `progress.sh` says how far each is, `queue-size.sh` says what is queued under it, and
+// `list-todo.sh` is the repository's queue. Nothing here may become a second walker, and no
+// artifact may gain a field to make the join legible — that relation is retired by name.
+function testStandupDigestMissionGrain() {
+  const dir = makeRepo("main");
+  const DIGEST = `${POSIX_SH} ${SCRIPTS.standupDigest}`;
+  const PROGRESS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/progress.sh")}`;
+  const QUEUE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh")}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const REF = "20260801000001-one.md";
+  const mission = (slug, title, acceptance) =>
+    `---\ntype: Mission\ntitle: ${title}\nslug: ${slug}\nstatus: active\nfeedback: [${REF}]\n---\n\n` +
+    `# ${title}\n\n## Experience\n\nx\n${acceptance}`;
+  try {
+    wf(".workaholic/strategies/dir-a.md",
+      `---\ntype: Strategy\ntitle: Direction A\nslug: dir-a\nstatus: active\n` +
+      `target_date: 2099-12-31\nassignees: [a@qmu.jp]\nfeedback: [${REF}]\n---\n\n` +
+      `# Direction A\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`);
+    wf(".workaholic/missions/active/m-one/mission.md",
+      mission("m-one", "M One", "\n## Acceptance\n\n- [x] done one\n- [ ] left one\n"));
+    wf(".workaholic/missions/active/m-two/mission.md",
+      mission("m-two", "M Two", "\n## Acceptance\n\n- [ ] left two\n"));
+    // A mission with no acceptance block at all reads 0/0 — a real state, and the one that
+    // would be indistinguishable from an unreadable read if a failure were allowed to zero.
+    wf(".workaholic/missions/active/m-three/mission.md", mission("m-three", "M Three", ""));
+    for (const [n, slug] of [[1, "m-one"], [2, "m-one"], [3, "m-two"]]) {
+      wf(`.workaholic/tickets/todo/2026081000000${n}-queued-${n}.md`,
+        `---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: ${slug}\n---\n\n# Queued ${n}\n`);
+    }
+    // Queued under no mission and no direction: it counts toward the repository total and
+    // toward nothing else, which is the whole point of reporting the total separately.
+    wf(".workaholic/tickets/todo/20260812000001-orphan.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# Orphan queued\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const d = JSON.parse(run(dir, `${DIGEST} "1 day ago" .workaholic`).stdout);
+    const a = d.strategies.find((s) => s.slug === "dir-a");
+
+    // The order is the attribution reader's own — its artifact walk is path-sorted — and it
+    // is asserted rather than re-sorted here, so a change in that reader's order shows up as
+    // a failure in the consumer that renders it rather than being quietly absorbed.
+    assertEq("the direction names its active missions, in the attribution reader's own order",
+      a.missions.map((m) => [m.slug, m.title]),
+      [["m-one", "M One"], ["m-three", "M Three"], ["m-two", "M Two"]]);
+    assertEq("each mission carries its acceptance progress and its queued count",
+      a.missions.map((m) => [m.checked, m.total, m.queued]), [[1, 2, 2], [0, 0, 0], [0, 1, 1]]);
+    assertEq("a completed grain is readable with no reason, like every other record here",
+      a.missions.map((m) => [m.readable, m.reason]), [[true, ""], [true, ""], [true, ""]]);
+    assertEq("and the repository's whole queue is reported beside the per-mission counts",
+      d.queued_total, 4);
+
+    // THE COMPOSITION IS THE POINT: the digest must agree with the readers it composes,
+    // rather than carrying a second derivation that can drift from them.
+    for (const m of a.missions) {
+      const p = JSON.parse(run(dir, `${PROGRESS} ${m.slug}`).stdout);
+      const q = JSON.parse(run(dir, `${QUEUE} ${m.slug} .workaholic`).stdout);
+      assertEq(`the grain for ${m.slug} is exactly what progress.sh and queue-size.sh answer`,
+        [m.checked, m.total, m.queued], [p.checked, p.total, q.todo]);
+    }
+
+    // ---- the cap applies to the new block too, and every cut is counted ----
+    const capped = JSON.parse(run(dir, `STANDUP_MAX_ITEMS=2 ${DIGEST} "1 day ago" .workaholic`).stdout);
+    assertEq("the mission list is capped and the cut is counted, never silently dropped",
+      [capped.strategies[0].missions.length, capped.strategies[0].missions_omitted], [2, 1]);
+
+    // ---- every existing field survives unchanged in name and meaning ----
+    for (const k of ["slug", "title", "status", "target_date", "days_to_target", "assignees",
+      "stage", "readable", "reason", "count", "active_count", "waiting_count", "empty_reason",
+      "moved", "waiting", "moved_omitted", "waiting_omitted"]) {
+      assertTrue(`the strategy record still carries ${k}`, k in a, JSON.stringify(Object.keys(a)));
+    }
+
+    // ---- no artifact gains a field, and the digest stays a pure read ----
+    assertTrue("no strategy: relation is written onto any mission",
+      !run(dir, "grep -rn '^strategy:' .workaholic/missions || true").stdout.trim(),
+      run(dir, "grep -rn '^strategy:' .workaholic/missions || true").stdout);
+    assertEq("the mission grain leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");
+    assertEq("and commits nothing", run(dir, "git log --oneline").stdout.trim().split("\n").length, 2);
+
+    // A GRAIN THAT COULD NOT BE READ IS NAMED, NEVER ZEROED. The branch is not reachable
+    // from a fixture — a mission is named here only because the attribution walk just read
+    // its file, so `progress.sh` and `queue-size.sh` cannot fail on it in the same process —
+    // so the rule is pinned where it is written. A zero would read as "nothing left", which
+    // is the opposite of "we could not look".
+    const code = readFileSync(SCRIPTS.standupDigest, "utf8");
+    for (const reason of ["mission_progress_unreadable", "mission_queue_unreadable",
+      "mission_unreadable", "queue_unreadable"]) {
+      assertTrue(`the digest names ${reason} rather than reporting a count it did not read`,
+        code.includes(reason), reason);
+    }
+    assertTrue("and an unreadable grain carries null counts, never zeroed ones",
+      /_sm_checked=null/.test(code) && /_sm_queued=null/.test(code), code.slice(0, 200));
+  } finally { cleanup(dir); }
+}
+
 // ---------- /moderate: the tick's own voice, one root an hour (2026-08-21) ----------
 // WHAT IS PINNED is the gate, not the wording. An hourly root is only admissible here
 // because an idle hour is silent, and the thing that makes it silent is that a "change"
@@ -18949,6 +19052,28 @@ function testHeartbeat() {
     assertEq("and reports why it did not beat",
       { b: JSON.parse(missing.stdout).beat, r: JSON.parse(missing.stdout).reason },
       { b: false, r: "no_worktree" });
+
+    // THE BEAT MUST LAND FROM WHERE THE WORKFLOW SAYS TO WORK. `drive/SKILL.md` §4 opens
+    // "Inside the worktree" and makes the beat step 0 of every ticket, and there
+    // `--show-toplevel` answers the worktree's own root, so the path composed to
+    // `.worktrees/<unit>/.worktrees/<unit>` and the beat reported `no_worktree` while
+    // exiting 0 — silently doing nothing in exactly the documented calling context.
+    const wt = join(A, ".worktrees/m1");
+    const fromMain = execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim();
+    const inside = JSON.parse(run(wt, `${HEARTBEAT} m1`).stdout);
+    assertEq("the beat lands from inside the unit's own worktree",
+      { b: inside.beat, br: inside.branch }, { b: true, br: claimed.branch });
+    assertEq("and reports the same branch it reports from the main checkout",
+      inside.branch, beat.branch);
+    assertTrue("the beat from inside the worktree advanced the tip",
+      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim() !== fromMain);
+
+    // The refusal words are untouched from either directory.
+    const missingInside = run(wt, `${HEARTBEAT} no-such-unit`);
+    assertEq("an absent worktree still exits 0 from inside a worktree", missingInside.status, 0);
+    assertEq("and still answers no_worktree",
+      { b: JSON.parse(missingInside.stdout).beat, r: JSON.parse(missingInside.stdout).reason },
+      { b: false, r: "no_worktree" });
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
@@ -20856,6 +20981,7 @@ const tests = [
   ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
   ["the run reports name a degraded direction reading", testRunReportsNameADegradedReading],
   ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
+  ["standup/digest.sh reports the mission grain and the whole queue", testStandupDigestMissionGrain],
   ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
   ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],
   ["moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline],
@@ -27082,7 +27208,8 @@ function testProposeCheckIn() {
     // The held question comes back on the next eligible tick, then stops once asked.
     run(repo, `${LOG} --tick 20260817-020000 --step human-checkin-held-q-sizing --status skipped --summary "held q:sizing"`);
     j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14 --weekday 3`).stdout);
-    assertEq("a held question is handed back when the window clears", j.held, ["q-sizing"]);
+    assertEq("a held question is handed back when the window clears",
+      j.held.map((h) => h.key), ["q-sizing"]);
     // THE ASK IS RECORDED UNDER THE ID THE SCRIPT RETURNS, and that is now the whole gate
     // (2026-08-21, ticket `20260819062058`). It used to search the log's SUMMARY text for
     // the raw key, which nothing ever required a writer to put there — so the gate rested
@@ -27241,7 +27368,8 @@ function testCheckInHeldOrder() {
   const STEP = `${POSIX_SH} ${join(HK, "step-human-checkin.sh")}`;
   const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
   const held = (tick) =>
-    JSON.parse(run(repo, `${STEP} --root . --tick ${tick} --hour 14 --weekday 3`).stdout).held;
+    JSON.parse(run(repo, `${STEP} --root . --tick ${tick} --hour 14 --weekday 3`).stdout)
+      .held.map((h) => h.key);
   try {
     mkdirSync(join(repo, ".workaholic"), { recursive: true });
     // Holds on three different days, written out of order and with the alphabet pointing
@@ -27260,10 +27388,22 @@ function testCheckInHeldOrder() {
     assertEq("and a repeated run over one fixture is byte-identical",
       held("20260828-140000"), ["yak", "zebra", "alpha", "bravo"]);
 
+    // HOW DEEP AND HOW OLD, off the reading the ordering already made (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). The first-held day per key
+    // was derived for the order and then thrown away, so the step knew how old its backlog
+    // was and said only how large it is.
+    let a = JSON.parse(run(repo, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+    assertEq("the arrears name their oldest day and its whole-day distance to the tick's day",
+      [a.held_oldest_day, a.held_days], ["2026-08-25", 3]);
+
     // The ask is still the resolution of the hold.
     run(repo, `${LOG} --tick 20260828-120000 --step human-checkin-ask-yak --status filed --summary "asked yak"`);
     assertEq("a held key that has since been asked still drops out",
       held("20260828-140000"), ["zebra", "alpha", "bravo"]);
+    // ...and stops ageing the arrears with it: the minimum is over what is STILL held.
+    a = JSON.parse(run(repo, `${STEP} --root . --tick 20260828-140000 --hour 14 --weekday 3`).stdout);
+    assertEq("an asked key no longer ages the arrears",
+      [a.held_oldest_day, a.held_days], ["2026-08-26", 2]);
 
     // THE STEP ORDERS; IT DOES NOT CAP. `max_per_tick` is enforced per candidate by
     // `ask-question.sh`, and `held_count` counts the whole held set rather than a prefix —
@@ -27313,6 +27453,10 @@ function testCheckInDeliveryReading() {
     assertEq("a tick with nothing waiting names the quiet hour",
       [j.delivered, j.held_count, j.candidates, j.delivery], [0, 0, 0, "no_candidates"]);
     assertEq("and supplies no event, so the root renders no line", j.event, "");
+    // NULL, NEVER `0` — a zero here reads as *this just started*, the most reassuring thing
+    // the field can say, for a reading nobody made.
+    assertEq("a tick with no holds reports the arrears as null rather than as zero",
+      [j.held_oldest_day, j.held_days], [null, null]);
 
     run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-a --status skipped --summary "held a"`);
     run(repo, `${LOG} --tick 20260826-100000 --step human-checkin-held-b --status skipped --summary "held b"`);
@@ -27322,12 +27466,47 @@ function testCheckInDeliveryReading() {
     assertEq("a tick that can still deliver names no failure",
       [j.candidates, j.delivery, j.event], [2, "", ""]);
 
-    // `all_held` — the designed hold. The quiet window and the off day are named, and
-    // neither supplies an event: they are not a delivery failure, they are the gate working.
+    // `all_held` — the designed hold. The quiet window and the off day are named, and while
+    // the hold is INSIDE the window that explains it neither supplies an event: that is not
+    // a delivery failure, it is the gate working. Once the arrears OUTLIVE that window they
+    // earn a line (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`): 24 consecutive ticks
+    // reported `all_held` with 13 questions behind them and the root said nothing.
     j = step("20260828-020000", "--hour 2 --weekday 3");
-    assertEq("the quiet window names the hold", [j.delivery, j.event], ["all_held", ""]);
+    assertEq("the quiet window names the hold", j.delivery, "all_held");
+    assertTrue("and arrears that outlived it name their depth and age",
+      /2 question\(s\) held/.test(j.event) && /since 2026-08-26 \(2 day\(s\)\)/.test(j.event), j.event);
+    assertTrue("naming no dedup key and no mention token",
+      !/tick:|ask:|fb:|<@/.test(j.event), j.event);
+    // AND EACH HELD QUESTION NAMES ITS OWN REFUSAL (2026-08-31, mission
+    // `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`). `all_held` was one token
+    // over four refusals that call for four different acts, so the aggregate is kept as the
+    // summary word and the gate's own word rides each entry, verbatim.
+    assertEq("every held entry carries the gate's own word for that key",
+      j.held.map((h) => h.reason), ["quiet_hours", "quiet_hours"]);
     j = step("20260829-140000", "--hour 14 --weekday 6");
-    assertEq("so does the off day", [j.delivery, j.event], ["all_held", ""]);
+    assertEq("so does the off day", j.delivery, "all_held");
+    assertEq("and the off day's own word rides each entry too",
+      j.held.map((h) => h.reason), ["off_day", "off_day"]);
+    assertTrue("a weekend's outlived arrears earn the line where they actually sit",
+      /since 2026-08-26/.test(j.event), j.event);
+    // TWO CONSECUTIVE TICKS WITH THE SAME READING RENDER ONE LINE, because the event is a
+    // function of the reading alone — no clock, no timestamp, nothing that moves.
+    assertEq("and a second tick with the same reading says exactly the same thing",
+      step("20260829-150000", "--hour 15 --weekday 6").event, j.event);
+
+    // A HOLD INSIDE THE BOUNDARY IS THE DESIGNED HOLD AND SUPPLIES NOTHING. The boundary is
+    // composed from the gate's own three variables: on a Saturday the most recent working
+    // opening is Friday, so a Friday hold is inside it and a Thursday one is not.
+    const fresh = makeRepo();
+    try {
+      mkdirSync(join(fresh, ".workaholic"), { recursive: true });
+      run(fresh, `${LOG} --tick 20260828-100000 --step human-checkin-held-fri --status skipped --summary "held"`);
+      const f = JSON.parse(run(fresh,
+        `${STEP} --root . --tick 20260829-140000 --hour 14 --weekday 6`).stdout);
+      assertEq("a hold inside the working-day boundary supplies no event",
+        [f.delivery, f.event], ["all_held", ""]);
+    } finally { cleanup(fresh); }
 
     // `cap_spent` — the budget worked, and it is still worth one line, because a reader has
     // to be able to tell it from `cap_unbounded`.
@@ -27342,6 +27521,17 @@ function testCheckInDeliveryReading() {
       /none asked/.test(j.event) && /budget is spent/.test(j.event), j.event);
     assertTrue("which names no dedup key and no mention token",
       !/tick:|ask:|fb:|<@/.test(j.event), j.event);
+    // A tick held by quiet hours and one held by a spent day cap are told apart from the
+    // step's output alone — the whole reason the aggregate was not enough.
+    assertEq("a spent day's own word rides each held entry",
+      j.held.map((h) => h.reason), ["day_cap", "day_cap"]);
+    // THE PROBE WRITES NOTHING. Recording an ask is `--record-ask`'s separate mode, so
+    // asking the gate once per held key leaves the ledger exactly as it was.
+    const askLines = () => JSON.parse(run(repo,
+      `${POSIX_SH} ${join(HK, "log-read.sh")} --root . --step-prefix human-checkin-ask`).stdout).count;
+    const before = askLines();
+    step("20260828-140000");
+    assertEq("the per-candidate probe leaves the ledger untouched", askLines(), before);
 
     // `all_asked_before` — everything that was ever held has since been asked. Distinct from
     // `no_candidates`, which is a tick that never held anything.
@@ -27377,6 +27567,8 @@ function testCheckInDeliveryReading() {
         [d.status, d.reason, d.delivery], ["degraded", "no_reader", "unreadable"]);
       assertEq("it asks nothing and supplies no event", [d.needs_agent.length, d.event], [0, ""]);
       assertEq("and it claims no delivery", d.delivered, undefined);
+      assertEq("and reports the arrears as null, never as a backlog that just started",
+        [d.held_oldest_day, d.held_days], [null, null]);
     } finally {
       rmSync(noGate, { recursive: true, force: true });
       rmSync(noReader, { recursive: true, force: true });
@@ -28100,6 +28292,34 @@ function testMissionStrategy() {
     assertEq("no mission gained a strategy field",
       /^strategy:/m.test(readFileSync(join(dir, ".workaholic/missions/active/carried/mission.md"), "utf8")),
       false);
+
+    // THE ANSWER HAS TO REACH A PERSON WHERE THEY MEET A MISSION (2026-09-01, mission
+    // `report-where-the-work-stands-not-only-what-is-wrong`). The ask was "a person opening a
+    // mission file cannot tell which direction it serves", and it proposed the one mechanism
+    // this repository has ruled against by name. The need is met by the RENDER, so what is
+    // pinned is that the render surfaces state the reader and the three-way answer, and that
+    // the ruling is written where the question will be asked again.
+    {
+      const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+      const report = skill.slice(skill.indexOf("## Mission Position Report"));
+      assertTrue("the Mission Position Report derives the direction through the one inverse reader",
+        /mission-strategy\.sh/.test(report.slice(0, 3000)), report.slice(0, 300));
+      assertTrue("and renders no strategy explicitly, so unattributed never reads as absent",
+        /no strategy/.test(report.slice(0, 3000)), report.slice(0, 300));
+      const schema = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/schema.md"), "utf8");
+      assertTrue("the schema records how a mission's direction is read",
+        /mission-strategy\.sh/.test(schema), "missing from mission/reference/schema.md");
+      assertTrue("and why the frontmatter key is not the answer",
+        /no `strategy:` key/.test(schema), "missing from mission/reference/schema.md");
+      const claudeMd = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+      assertTrue("and CLAUDE.md agrees that it is a render rather than a field",
+        /Which direction a mission serves is a render, not a field/.test(claudeMd),
+        "missing from CLAUDE.md");
+    }
+    // NO SCAFFOLD WRITES ONE EITHER. The template is where a re-added key would arrive first.
+    assertTrue("create.sh scaffolds no strategy: key",
+      !/^\s*strategy:/m.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/create.sh"), "utf8")),
+      "a strategy: key survives in the mission scaffold");
 
     // It is a READER: the roadmap it feeds runs on the operator's own checkout.
     assertEq("the reader leaves the tree clean", run(dir, "git status --porcelain").stdout.trim(), "");

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:25:34+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,31 @@ with a tick-unique key and keeps only the aggregate.
 - The per-candidate probe costs one local script call per held key. The held set is what
   the drain already orders, so it is bounded by the same set.
 
+
+## Final Report
+
+Development completed as planned.
+
+`step-human-checkin.sh` asks `ask-question.sh` once per held candidate instead of once with
+a tick-unique key, and each entry of `held` became `{"key": …, "reason": …}` carrying the
+gate's own refusal word verbatim. The set's order is exactly what the drain ordering
+produces, `all_held` remains the step's `reason`, and the tick-level `delivery` word is now
+read off those same probes rather than a second one — one gate, one derivation.
+
+`ask-question.sh` is unmodified: the probe is its read-only mode (recording an ask is
+`--record-ask`'s separate mode), so no key, cap, hold or ledger line moves. The suite pins
+the ledger count across the step's own run.
+
+### Discovered Insights
+
+- **Insight**: the per-candidate probe had to move above the off-day and quiet-hours early
+  exits, not into the `ok` branch beside the old probe.
+  **Context**: those two branches produce a `held` set too, and `quiet_hours` / `off_day`
+  are precisely the two words the gate only ever emits there — probing only on the `ok`
+  branch would have left the two most common holds permanently unexplained.
+
+- **Insight**: replacing the tick-unique probe cost nothing in the `cap_unbounded` path.
+  **Context**: that word means *the gate said something this step cannot interpret*, which
+  the per-candidate derivation reaches through exactly the same fallthrough — an absent gate
+  file sets none of the three flags, so the word is still reported and still never
+  `cap_spent`.

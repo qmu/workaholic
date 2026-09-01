@@ -9,14 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 2.6
+actual_hours: 6.1
 feedback: [20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260830-094214
+claim: work-20260830-124234
 ---
 
 # Stop two runs from claiming and driving one unit
@@ -61,3 +61,18 @@ happens, one person is told once, both branches named.
 - 2026-08-30 — ticket archived — 20260830082251-report-a-lost-race-where-a-person-reads-it.md
 - 2026-08-30 — story reported — work-20260830-094214
 - 2026-08-30 — run recorded (+1.4h) — session_01AHkLmCxmwvGBfkrAc24vRk
+- 2026-08-30 — run recorded (+0.3h) — session_01LZbHJ2uC4hSHFnzTZbjzgN
+- 2026-08-30 — run recorded (+0.2h) — cse_0167AkW7JAXdU8UHH5MigseZ
+- 2026-08-30 — run recorded (+0.2h) — cse_01JKUuQLvXWd8UsA4rn5jBvR
+- 2026-08-30 — story reported — work-20260830-124234
+- 2026-08-30 — run recorded (+0.4h) — cse_01VUsXysHTXFuzVGiD8kyh6A
+- 2026-08-30 — run recorded (+0.2h) — cse_019NRDwn1ExjNJRX6EiwKHZb
+- 2026-08-31 — run recorded (+0.4h) — cse_01PZPe1gEfrxmdvWmeBUGbER
+- 2026-08-31 — run recorded (+0.3h) — cse-implement-20260831-0244
+- 2026-08-31 — run recorded (+0.2h) — session_01LsDDBDKuDCKBXAhUDNiZaL
+- 2026-08-31 — ticket archived — 20260831024448-stop-re-resuming-a-handoff-blocked-on-a-ruling.md
+- 2026-08-31 — run recorded (+0.3h) — implement-20260831-1545
+- 2026-08-31 — run recorded (+0.3h) — implement-20260831-1645
+- 2026-08-31 — run recorded (+0.3h) — implement-20260831-1743
+- 2026-08-31 — run recorded (+0.4h) — implement-20260831-1943
+- 2026-09-01 — ticket archived — 20260831235425-beat-the-heartbeat-from-where-the-workflow-says-to-work.md

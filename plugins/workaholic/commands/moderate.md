@@ -28,7 +28,7 @@ When the tick's rendered post says to post, post this root as a new top-level me
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
-<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, headline commits since yesterday, honesty line naming tickets and the window>
+<on the morning tick only, first: the per-strategy digest — numbered strategies, bold title on its own line, each strategy's missions nested under it with acceptance done/total and queued count, headline commits since yesterday, honesty line naming tickets, the total queued and the window>
 <what happened to the repository, one line per changed step that has an event>
 <one line per reading the tick could not make, after the event lines: ⚠️ <that step's own summary — a sentence saying what could not be read and what follows from it>, at most 5 then "and <K> more">
 <session URL>

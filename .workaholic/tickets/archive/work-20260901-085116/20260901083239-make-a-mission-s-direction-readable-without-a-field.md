@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T08:32:39+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -104,3 +105,53 @@ and records why the field is not the answer.
 - `mission-strategy.sh` inherits attribution's lossiness: a mission no direction claims
   renders an explicit *no strategy*, exactly as bare `/mission` already does. Do not render
   a guess.
+
+## Final Report
+
+Development completed as planned. The reporter's proposed mechanism — a readable `strategy:`
+field on the mission — is **declined with its sources**, and the need behind it is met.
+
+Both sources were read in full, not the paragraphs the ticket quotes. `mission/SKILL.md`, *The
+strategy layer: retired, then redefined*: what did **not** return on 2026-08-13 was "the
+`strategy:` relation on a mission, and the ownership hop it fed"; a legacy key "stays tolerated
+history and is still read by nothing". `CLAUDE.md`, *The strategy layer*: the readers compose
+with "no second walker, no relation of its own, no field on any artifact", and the relation and
+its hop "stay retired — do not re-add them".
+
+The gap reproduced exactly as the ticket predicted: the mission file's frontmatter carries
+`feedback:` refs and names no direction, while `mission-strategy.sh <slug>` answers it in one
+call. It is a surfacing gap, so the repair is a render.
+
+The surface that still omitted it is the **Mission Position Report** — the one definition of
+*where does the mission stand*, stated by `/mission-close` before the outcome is asked and by
+`/drive` for each unfinished mission unit. It was three things and is now four, the direction
+first, read through `mission-strategy.sh` and rendered in the bare `/mission` roadmap's own
+vocabulary so a person meets one answer: `— <strategy title>`, an explicit `— no strategy`, or
+an unreadable walk named as unreadable. One definition point, so both seams gained it at once.
+
+The ruling is recorded beside the frontmatter block in `mission/reference/schema.md`, where the
+question recurs, with both standing reasons — the ownership hop the relation drags behind it,
+and that a field would be a hand-maintained copy of a derived fact, wrong the moment a
+strategy's `feedback:` line moves. `CLAUDE.md` agrees. No `strategy:` key was written: the three
+survivors are in `missions/archive/`, are tolerated history, and `missions/active/` has none.
+
+### Discovered Insights
+
+- **Insight**: the Mission Position Report is defined once and stated by two seams, so a change
+  to *what a handoff says about a mission* is a single edit — and correspondingly, a surface
+  added there reaches an unattended `/drive` run as well as an attended close.
+  **Context**: it is the reason this was the right surface rather than `/catch`'s Missions
+  section, which is a cross-developer synthesis and would have needed its own read.
+
+- **Insight**: three `strategy:` keys survive in `.workaholic/missions/archive/`, and the
+  ruling's own words cover them — tolerated history, read by nothing. A gate written against
+  the whole `missions/` tree would fail on history that harms nothing.
+  **Context**: the ticket's own verification command is scoped to `active/` for exactly that
+  reason; a future audit should keep that scope rather than "cleaning up" the archive.
+
+- **Insight**: the render already had a three-way vocabulary — attributed / `no strategy` /
+  unreadable — established by the bare `/mission` roadmap, and reusing it verbatim was the
+  whole design work.
+  **Context**: attribution is transitive and lossy by construction (`exhaustive: false`), so
+  every consumer needs all three; inventing a second wording for one of them is how two
+  readings of one fact drift.

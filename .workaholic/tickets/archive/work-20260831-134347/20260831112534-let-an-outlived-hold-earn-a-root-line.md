@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T11:25:34+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,32 @@ nothing. A hold that has outlived the window that explains it is no longer a del
 - The step still **asks nothing extra and holds nothing differently**: this changes what
   the root says, never which questions are asked or when.
 
+
+## Final Report
+
+Development completed as planned.
+
+`step-human-checkin.sh` composes the boundary from the gate's own three variables —
+`WORKAHOLIC_WORK_DAYS`, the end of `WORKAHOLIC_QUIET_HOURS`, `WORKAHOLIC_QUIET_TZ` — as
+`boundary_back`, the number of days back to the most recent working-window opening (0 when
+today's opening has already happened). No constant is introduced. An `all_held` tick whose
+`held_days` exceeds that distance supplies an event naming the depth and the age; one inside
+the boundary supplies none, a null reading supplies none, and `cap_spent`, `cap_unbounded`,
+`all_asked_before`, `no_candidates` and the degraded branch are byte-identical.
+
+### Discovered Insights
+
+- **Insight**: the event had to be supplied on the `off_day` and `quiet_hours` branches, not
+  only on the `ok` one, because `all_held` is not reachable on the `ok` branch at all.
+  **Context**: on `ok`, `quiet_hours` and `off_day` cannot be the gate's answer (the step has
+  already exited), and `tick_cap` requires five asks on the tick — which makes `delivered`
+  non-zero, and the `all_held` derivation only runs when `delivered` is zero. The measured
+  24 consecutive `all_held` ticks were therefore all in the two skipped branches, which is
+  exactly where a weekend's or a night's arrears sit.
+
+- **Insight**: comparing against the boundary needs no second date and no inverse
+  day-to-date conversion.
+  **Context**: `held_days` is already the distance from the oldest hold to the tick's day, so
+  `held_days > boundary_back` *is* "the oldest hold predates the boundary's day". Deriving
+  how many days back the opening is (0..7, the length of the week) keeps the whole
+  comparison in integers.

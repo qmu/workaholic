@@ -49,3 +49,4 @@ intersection — and no artifact gains a field to make that true.
 - 2026-09-01 — ticket archived — 20260901083238-render-the-plan-s-shape-in-the-morning-digest.md
 - 2026-09-01 — ticket archived — 20260901083239-make-a-mission-s-direction-readable-without-a-field.md
 - 2026-09-01 — mission achieved — mission.md
+- 2026-09-01 — story reported — work-20260901-085116

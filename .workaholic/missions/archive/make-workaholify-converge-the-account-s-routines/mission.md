@@ -2,7 +2,7 @@
 type: Mission
 title: Make /workaholify converge the account's routines
 slug: make-workaholify-converge-the-account-s-routines
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-19T10:38:22+00:00
 author: a@qmu.jp
@@ -55,3 +55,4 @@ Each routine's enabled state is stated, so a silently-off routine is legible.
 - 2026-08-27 — run recorded (+0.3h) — implement-20260827-014149
 - 2026-08-27 — run recorded (+0.1h) — implement-20260827-064000
 - 2026-09-01 — ticket archived — 20260819103855-rule-on-renaming-a-live-routine-in-place.md
+- 2026-09-01 — mission achieved — mission.md

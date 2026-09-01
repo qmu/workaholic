@@ -93,6 +93,19 @@ fi
 slugs=$(printf '%s' "$waiting" | sed 's/.*"slug": "//; s/".*//' | tr '\n' ' ' | sed 's/ $//')
 summary="${n} deployment target(s) waiting: $(printf '%s' "$slugs" | sed 's/ /, /g') — a question for step 10, never a status post"
 
-printf '{"step": "release-status", "status": "blocked", "reason": "waiting", "summary": "%s (refs: %s)", "needs_agent": ["release-status-waiting"], "targets": [%s]}\n' \
-    "$(json_escape "$summary")" "$(json_escape "$refs")" \
+# THE REFS WORD IS TRANSPORT-DERIVED AND NO LONGER RIDES THIS COMPARED SUMMARY
+# (2026-09-01, ticket `20260901122448-name-every-step-summary-carrying-transport-derived-
+# volatility`). This row is `blocked`, so it enters `render-tick-post.sh`'s IMPAIRMENT diff,
+# which compares `(step, status, stabilized summary)` — and `refs` reads `fresh` or `stale`
+# purely by whether one bounded fetch succeeded, which flips on a slow network with the base
+# and the targets unmoved. Every flip opened a root saying nothing had happened.
+#
+# NOTHING IS LOST. The count that a doubtful read would make untrustworthy is already
+# withheld above under its own `degraded`/`doubtful` row, which is where a reader learns the
+# refs were not fresh; `refs` stays on the reader's own output for any caller that wants it.
+# The two `ok` rows above keep it: this step supplies no `event`, so an `ok` row renders no
+# change line, and an `ok` row is not impairment — neither of them can open a root at all.
+# What stays here is the repository fact: how many targets are waiting, and which.
+printf '{"step": "release-status", "status": "blocked", "reason": "waiting", "summary": "%s", "needs_agent": ["release-status-waiting"], "targets": [%s]}\n' \
+    "$(json_escape "$summary")" \
     "$(printf '%s' "$slugs" | tr ' ' '\n' | awk 'NF { printf "%s\"%s\"", (n++ ? ", " : ""), $0 }')"

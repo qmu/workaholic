@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T08:32:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -97,3 +98,41 @@ field on any artifact. `digest.sh` is a pure read and stays one.
 - `attributed-work.sh` is transitive and lossy by design (`exhaustive: false`). A mission
   no direction claims is `unattributed-work.sh`'s subject and must not be invented into a
   direction here.
+
+## Final Report
+
+Development completed as planned.
+
+The hand reading came first, on this repository: one active direction
+(`an-autonomous-improvement-loop-run-by-the-routines`), seven attributed active missions,
+each mission's `progress.sh` and `queue-size.sh`, and 42 queued tickets. `digest.sh` now
+reproduces exactly those numbers — the top three missions read 0/3 with 6, 3 and 3 queued,
+and `queued_total` is 42, matching `plan-units.sh`'s own `backlog_size`.
+
+The grain is a sibling `missions[]` block on the per-strategy record plus a top-level
+`queued_total`, composed from readers that already existed: `attributed-work.sh` supplies
+`waiting_mission_slugs` and, in `artifacts[]`, each mission's title and path;
+`progress.sh` gives `checked`/`total`; `queue-size.sh` gives the queued count;
+`list-todo.sh` is the repository's queue. No relation is parsed here, no second walker was
+added, and no artifact gained a field.
+
+### Discovered Insights
+
+- **Insight**: `attributed-work.sh`'s `artifacts[]` already carries every attributed
+  mission with its `title`, `path` and `state`, so the mission grain needs no frontmatter
+  parse and no call to `mission/scripts/list.sh`.
+  **Context**: `mission/scripts/list.sh` hardcodes a cwd-relative `.workaholic/missions`,
+  so it could not have honoured `digest.sh`'s own root argument. Composing off the reader's
+  existing payload is both cheaper and the only root-correct option.
+
+- **Insight**: `progress.sh` derives its mission root from the artifact path it is handed
+  (`missions_root_from_artifact`), and only falls back to the repository root for a bare
+  slug — so passing the path from `artifacts[]` is what keeps a worktree's mission from
+  being read out of a sibling worktree.
+  **Context**: the same slug exists in several worktrees during a normal drive; a bare-slug
+  read there is silently wrong rather than an error.
+
+- **Insight**: `waiting_mission_slugs` names every attributed **active** mission, not only
+  those with queued tickets — the name reads narrower than the derivation is.
+  **Context**: it is what makes the block answer "the missions serving this direction"
+  rather than "the missions with something left", which is the question the operator asked.

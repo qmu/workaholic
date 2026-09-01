@@ -1413,18 +1413,25 @@ GitHub transport is a stub on `PATH`, so the fixture is a real collision on a re
 index rather than a shape that resembles one.
 
 **What it proves.** A publication — a `work-*` branch with **no claim commit**, which is exactly
-what `publish-tree-pr.sh` pushes — is read at all, with its collision classified through the one
-derivation; a collision only a person can settle is refused by its own word with its branch
-**byte-identical**; a collision a generator settles is caught up, **regenerated so both sides'
-records survive**, pushed and delivered with no person; neither path leaves a worktree behind; a
-re-run of either moves no ref; and the content one reaches a person as exactly one keyed
-question.
+what `publish-tree-pr.sh` pushes — is read at all, with each of the three classes derived through
+the one derivation; a collision only a person can settle is refused by its own word with its
+branch **byte-identical**; a collision a generator settles is caught up, **regenerated so both
+sides' records survive**, pushed and delivered with no person; **a publication that collides with
+nothing is delivered with no catch-up at all** — nothing merged, regenerated, validated or
+pushed, and no ref written before the merge; no path leaves a worktree behind; a re-run moves no
+ref, and a re-run over the *delivered* publication refuses by name because the merge closed its
+pull request; and the content one reaches a person as exactly one keyed question.
 
-**Its breaker runs before anything is settled**, deliberately: afterwards the settleable branch
-contains the base and there is no collision left to misclassify. It strips the generated-region
-proof out of `ship/scripts/lib/conflict-class.sh` and asserts the settleable collision then
-reads `content` — reported rather than repaired, which is the measured incident reproduced on
-demand.
+**Its two breakers both run before anything is settled**, deliberately: afterwards the settleable
+branch contains the base and the delivered one is closed, so there is nothing left to misclassify
+or refuse. The first strips the generated-region proof out of
+`ship/scripts/lib/conflict-class.sh` and asserts the settleable collision then reads `content` —
+reported rather than repaired. The second (2026-09-01, mission
+`deliver-a-stranded-publication-that-needs-nothing-but-a-merge`) narrows the act's class gate back
+to `mechanical` alone and asserts the clean publication is then refused `not_mechanical:clean`
+with nothing attempted — five green publications read, named and delivered by nothing. Each is the
+measured incident reproduced on demand, and each runs against its **own** broken copy of the
+skills tree so neither confounds what the other asserts.
 
 **What this drill does not prove** is that the consuming repository's own incident is gone. That
 repository may be on a different plugin version; this exercises this checkout's scripts only.
@@ -1436,8 +1443,10 @@ repository may be on a different plugin version; this exercises this checkout's 
 | `stranded_mechanical_is_settled` | `settle-stranded-publication.sh` or `catchup-main.sh` — the repair stopped firing, or the regeneration stopped re-deriving the index from the merged source |
 | `stranded_leaves_no_worktree` | `settle-stranded-publication.sh` — the teardown stopped running |
 | `stranded_rerun_is_a_noop` | `settle-stranded-publication.sh` — the act is no longer idempotent |
+| `stranded_clean_is_settled` | `settle-stranded-publication.sh` — the class gate narrowed back to `mechanical`, or the `clean` path started taking a catch-up it has nothing to do |
+| `stranded_clean_rerun_is_a_noop` | `settle-stranded-publication.sh` or `list-stranded-publications.sh` — a delivered publication is being acted on a second time, or the reader started naming a pull request nobody has open |
 | `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
-| `stranded_breaker` | the drill can no longer fail, so every row above proves nothing |
+| `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
 ## 9. The drill register
 

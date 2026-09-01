@@ -3,6 +3,8 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260901-050906](work-20260901-050906.md) - Make the mergeability reader predict GitHub's merge rather than this checkout's, which a local merge driver had been quietly resolving
+* [work-20260901-034625](work-20260901-034625.md) - Give the clean stranded-publication class an owner — the act, the caller, and a drill that fails when it stops firing
 * [work-20260831-231823](work-20260831-231823.md) - Pin the merged-proposal narrowing — the step spec's fourth copy caught up with the other three, and nine rows hold all four transitions
 * [work-20260831-224412](work-20260831-224412.md) - Give a publish-tree publication a reader, an act and a question, so a collision a generator settles is repaired rather than reported hourly
 * [work-20260831-152743](work-20260831-152743.md) - The heartbeat becomes step 0 of every ticket, so a unit that is one long ticket keeps its own claim

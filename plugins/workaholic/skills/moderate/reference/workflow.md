@@ -2095,7 +2095,7 @@ decide something before any change is the right one*.
 | `standing-rulings` | `needs_ruling` | It exists **because** the loop cannot make those rulings itself. |
 | `undelivered-units` | **`repairable`** | A merge the transport refused names the transport seam, which is code. |
 | `catchup-blocked` | `needs_ruling` | Which side of a content conflict keeps its behaviour is the claim holder's, by that step's own contract — the loop refused it precisely because it must not decide. |
-| `stranded-publications` | `needs_ruling` | `catchup-blocked`'s row, for `catchup-blocked`'s reason, and the decision is made here explicitly rather than left to the unclassified default: which side of a content collision keeps its meaning is the publication author's, and the loop refused it precisely because it must not decide. The half that **is** repairable — a collision a generator settles — is not a finding at all: `/implement` settles it through `settle-stranded-publication.sh`, so filing it would ask for work already in flight. |
+| `stranded-publications` | `needs_ruling` | `catchup-blocked`'s row, for `catchup-blocked`'s reason, and the decision is made here explicitly rather than left to the unclassified default: which side of a content collision keeps its meaning is the publication author's, and the loop refused it precisely because it must not decide. The half that **is** repairable — a collision a generator settles, and (since 2026-09-01) a publication that collides with nothing at all — is not a finding at all: `/implement` settles both classes through `settle-stranded-publication.sh`, so filing either would ask for work already in flight. |
 | `handoff-units` | `needs_ruling` | The declared verification is the one act nothing unattended can take. |
 | `operator-pulls` | `needs_ruling` | The publication exists **because** merging it is the operator's ruling and closing it is their refusal; the seam refused to auto-merge it for exactly that reason. Filing it as work would be the loop asking itself to settle what it opened a diff to have settled. Every reading it carries is besides that a **judgement** (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*). |
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
@@ -2998,11 +2998,19 @@ mechanical and total, the tick reporting the blockage hourly to nobody in partic
 `plan-units.sh` is **refused**, on `undrivable-units`' axis: the survey reaches the mission
 readers, which carry the living migrations and stage what they converge.
 
-**Only `content` draws a question.** `mechanical` is the loop's own work — `/implement` settles it
-through `settle-stranded-publication.sh`, and asking about it would ask a person for the act the
-machinery is about to take. `clean` needs no catch-up. `unanswerable` is the **absence** of a
-reading, never actable; it is **counted** in the summary so it stays visible rather than
-vanishing.
+**Only `content` draws a question.** `mechanical` **and `clean`** are the loop's own work —
+`/implement` settles both through `settle-stranded-publication.sh` (a `mechanical` one after a
+catch-up, a `clean` one with no catch-up at all), and asking about either would ask a person for
+the act the machinery is about to take. `unanswerable` is the **absence** of a reading, never
+actable; it is **counted** in the summary so it stays visible rather than vanishing.
+
+**The candidate set did not move when `clean` became settleable** (2026-09-01, mission
+`deliver-a-stranded-publication-that-needs-nothing-but-a-merge`). `content` is still the whole of
+it, for its own unchanged reason: only a person can judge a collision. What moved is the
+**`settleable` count** in the summary, which is a reader-facing number rather than a candidate
+set — left at `mechanical` it would have understated by four on the morning the class was widened,
+and a count that understates what the loop owns is how a reader stops trusting it. **No question,
+key, cap, addressee or gate moved with it.**
 
 **One publication never draws two questions, and no filter was added.** The ticket asked for the
 `retire-claims` / `stalled-units` division; it does not apply, and the reason is recorded rather

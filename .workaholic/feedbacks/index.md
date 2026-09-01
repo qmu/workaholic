@@ -627,4 +627,8 @@
 * [The moderation tick has no Slack transport that reaches the loop's channel](20260901002017-the-moderation-tick-has-no-slack-transport-that-reaches-the-loop-s-channel.md)
 * [A second moderation hour reached nobody and was preserved as an issue](20260901011816-a-second-moderation-hour-reached-nobody-and-was-preserved-as-an-issue.md)
 * [A third moderation hour reached nobody and the outage is now standing](20260901022252-a-third-moderation-hour-reached-nobody-and-the-outage-is-now-standing.md)
+* [A clean stranded publication is delivered by nothing](20260901032409-a-clean-stranded-publication-is-delivered-by-nothing.md)
+* [A fourth moderation hour reached nobody and compounded with an undelivered proposal](20260901032838-a-fourth-moderation-hour-reached-nobody-and-compounded-with-an-undelivered-proposal.md)
+* [A captured ask is re-offered while its proposal waits on a branch](20260901042106-a-captured-ask-is-re-offered-while-its-proposal-waits-on-a-branch.md)
+* [A fifth moderation hour reached nobody and its held questions went stale](20260901042623-a-fifth-moderation-hour-reached-nobody-and-its-held-questions-went-stale.md)
 <!-- okf:generated:end -->

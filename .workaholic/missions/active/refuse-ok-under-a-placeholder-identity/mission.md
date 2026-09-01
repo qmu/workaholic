@@ -10,7 +10,7 @@ assignees: [tamura.yoshiya@gmail.com]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260821151227-a-survey-run-under-a-placeholder-git-identity-returns-an-indistinguishable-ok.md]
+feedback: [20260821151227-a-survey-run-under-a-placeholder-git-identity-returns-an-indistinguishable-ok.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:

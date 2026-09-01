@@ -628,4 +628,5 @@
 * [A second moderation hour reached nobody and was preserved as an issue](20260901011816-a-second-moderation-hour-reached-nobody-and-was-preserved-as-an-issue.md)
 * [A clean stranded publication is delivered by nothing](20260901032409-a-clean-stranded-publication-is-delivered-by-nothing.md)
 * [A fourth moderation hour reached nobody and compounded with an undelivered proposal](20260901032838-a-fourth-moderation-hour-reached-nobody-and-compounded-with-an-undelivered-proposal.md)
+* [A captured ask is re-offered while its proposal waits on a branch](20260901042106-a-captured-ask-is-re-offered-while-its-proposal-waits-on-a-branch.md)
 <!-- okf:generated:end -->

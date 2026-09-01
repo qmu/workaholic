@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-115944
 ---
 
 # Leave only live work in the unmerged-branch list

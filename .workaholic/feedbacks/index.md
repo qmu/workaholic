@@ -626,4 +626,5 @@
 * [An unattended run decides everything below the handoff bar](20260831221825-an-unattended-run-decides-everything-below-the-handoff-bar.md)
 * [The moderation tick has no Slack transport that reaches the loop's channel](20260901002017-the-moderation-tick-has-no-slack-transport-that-reaches-the-loop-s-channel.md)
 * [A second moderation hour reached nobody and was preserved as an issue](20260901011816-a-second-moderation-hour-reached-nobody-and-was-preserved-as-an-issue.md)
+* [A third moderation hour reached nobody and the outage is now standing](20260901022252-a-third-moderation-hour-reached-nobody-and-the-outage-is-now-standing.md)
 <!-- okf:generated:end -->

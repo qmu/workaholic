@@ -1482,6 +1482,49 @@ repository may be on a different plugin version; this exercises this checkout's 
 | `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
 | `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
+## 5u. The retirement candidates (does the loop offer only branches it may delete?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-retirement-candidates [--json]
+```
+
+Walks the two 2026-09-01 candidate readings and the act they feed (mission
+`leave-only-live-work-in-the-unmerged-branch-list`). It needs **no seed, no issue number, no
+credential and no network**: the origin is a bare local repository placed where its last two path
+segments read as the slug, and the GitHub transport is a stub on `PATH` answering per branch.
+
+**The reading and the act are one verb, deliberately.** The failure this drill exists to catch
+lives in the **gap** between them — a candidate list that was right when it was made and wrong by
+the time CI ran — and two separate drills would each pass over exactly that gap.
+
+**What it proves.** Seven branches, one per case: a merged pull request and a hand-closed one are
+each offered under their own `candidate_reason`; an open pull request, a branch that never had
+one, and a branch whose unit holds a **live** claim are offered under none — the last however
+loudly its own pull request says merged; an unreadable read contributes no candidate **and names
+its reason**; and the `branch_empty` reading on each row really distinguishes a bookkeeping-only
+branch from one holding work found on no other ref. Then the act: a candidate whose pull request
+re-opened between the list and the act is refused `not_merged:open`, a hand-closed branch still
+holding work is refused `branch_holds_work`, a live claim is refused at the act too, and a branch
+already gone from origin answers `already_gone` — every one of them with no ref moved.
+
+**Three breaker rows, written against the behaviour.** Each asserts a refusal the act must make,
+so a regression that lets any of them through fails the drill rather than changing a return
+shape. Measured on the day it shipped: deleting the live-row skip from
+`list-retirable-claims.sh` makes `retirement_reader_offers_nothing_else` fail with the live
+claim's branch offered as a `pull_request_merged` candidate — the shape the reader's own header
+names as the one that would hand CI a branch a run is still driving.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `retirement_reader_names_both_classes` | `list-retirable-claims.sh` — a class stopped being offered, or the two classes collapsed into one word |
+| `retirement_reader_offers_nothing_else` | `list-retirable-claims.sh` — a branch that must not be deleted is being offered; the live-row rule or a state test is gone |
+| `retirement_unreadable_names_its_reason` | `list-retirable-claims.sh` or `branch-pull-request-state.sh` — a degraded read is being dropped, which reads exactly like a branch whose pull request is open |
+| `retirement_row_carries_the_emptiness` | `claims_branch_empty_against_base` or the row that carries it — the evidence the closed-unmerged act gates on stopped being derived |
+| `retirement_act_refuses_a_moved_proof` | `delete-retired-claim-branch.sh` — the act is trusting the candidate list instead of re-deriving at the moment of the act |
+| `retirement_act_refuses_a_branch_holding_work` | `delete-retired-claim-branch.sh` — the term that fails closed is gone, and a hand-closed branch holding work can be deleted |
+| `retirement_act_refuses_a_live_claim` | `delete-retired-claim-branch.sh` — a run's own branch can be deleted out from under it |
+| `retirement_act_is_idempotent` | `delete-retired-claim-branch.sh` — a second CI turn over a set already taken errors instead of answering `already_gone` |
+
 ## 9. The drill register
 
 **One table, three columns, one reader** (2026-08-29, mission
@@ -1564,6 +1607,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
+| `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |
 
 ### The evidence behind the classification
 

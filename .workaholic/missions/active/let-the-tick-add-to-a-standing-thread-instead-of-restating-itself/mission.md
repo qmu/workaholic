@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-123859
 ---
 
 # Let the tick add to a standing thread instead of restating itself

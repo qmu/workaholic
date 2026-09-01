@@ -3046,6 +3046,39 @@ pull request costs one question however many ticks see it.
 - **The age** rides `lib/read-age.sh`, keyed on the key the step already composes, the reader's
   words verbatim; an unreadable age is named as unreadable and an absent one is not mentioned.
 
+**A second question: a publication old enough that its plan may be stale** (2026-09-01, ticket
+`20260901062000-check-a-stranded-proposal-is-still-worth-landing.md`). Keyed
+`stranded-publication-stale:<number>`.
+
+`publish-tree-pr.sh` auto-merges on opening, so a proposal is normally written and landed minutes
+apart and its age says nothing; only one the **transport** refused stays open long enough for the
+plan it carries to go stale. **Measured 2026-09-01**: five of six open publications read `clean`,
+the oldest six days old, and landing them queued roughly fifteen tickets for work the loop had
+already finished — two whole missions of it, one of them a second plan of an ask that had already
+been driven.
+
+- **Candidates** — `mergeability` of `mechanical` or `clean` whose `age_hours` is at least
+  `WORKAHOLIC_PUBLICATION_STALE_HOURS` (default 48). **Disjoint from the `content` set by
+  construction**, so no publication ever draws both questions — the `retire-claims` /
+  `stalled-units` division applied to one reader's rows. An **unreadable** age is not a candidate:
+  asking on an absence is what the three-valued readings exist to avoid.
+- **Heading** — *something the loop wrote days ago is about to be published, and what it plans may
+  already be done*, then the pull request and how long it has been open.
+- **Body** — the one act: *say whether that plan is still wanted, or close the pull request.*
+- **Addressed to** the publication's author.
+- **It holds nothing, and that is the design.** `/implement` settles a `clean` or `mechanical`
+  publication unconditionally, exactly as before this question existed — an age threshold on the
+  **act** would strand precisely the publications the `clean` widening exists to deliver, and this
+  repository has paid repeatedly for a reading that stops something and tells nobody. So the two
+  run independently: usually the act wins the hour and the question is the record that nothing was
+  landed silently; when a person gets there first, they can close it. **The rejected alternatives**
+  are the act refusing on an age (it strands the deliverable set) and a survey-side test for a
+  queued ticket whose work already exists (*already implemented* is a judgement about behaviour,
+  not a file test — measured the same day, five of eight queued tickets had exact-title archived
+  twins while three had none and their work existed anyway).
+- **Two ages, never conflated**: `open_hours` is how long the **pull request** has been open;
+  `age` is how long the **question** has been asked, through `lib/read-age.sh` as above.
+
 ---
 
 ## What did not move with any of this wording

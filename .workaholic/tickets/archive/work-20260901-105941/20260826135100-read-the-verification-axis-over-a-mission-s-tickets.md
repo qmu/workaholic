@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T13:51:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -118,3 +119,48 @@ that must not be what stands between the declaration and the merge.
 - Resist widening this to "infer the handoff from prose". The declaration is a field on
   purpose (the script's own header says why): what is missing is only that a mission
   unit's member set excludes its tickets.
+
+## Final Report
+
+Development completed as planned.
+
+**Step 1, the sibling audit — run, and its answer was to leave `effective-policy.sh`
+alone.** Its `mission` arm classifies the mission file and nothing else, exactly as this
+script's did, so the conditional in step 1 pointed at covering both. It is deliberately
+not covered, and the reason is a measurable regression rather than scope discipline:
+`CLAUDE.md`'s merge-policy table states the mission grain's source as *the mission's
+`merge_policy`, recorded at creation*, and a member expansion there would resolve every
+explicitly-`auto` mission whose tickets record nothing to `review` — because *absent means
+review* — so `auto` missions would stop shipping and `/ship`'s deployment-plan refresh,
+which rides them, would stop with them. None of this ticket's acceptance criteria name
+that script. The finding is recorded rather than acted on, which is what the Considerations
+ask for; a ruling to widen it is the operator's.
+
+**The repair.** `verification-handoff.sh mission <slug>` now classifies the mission file
+first — so a mission-level declaration still wins and the old behaviour is a strict subset
+— then every ticket whose `mission:` relation names the slug, in `todo/` **and** under
+`archive/<branch>/`. The relation is decided by `mission/scripts/read-relation.sh` and
+nowhere else; `grep -rlF --include='*.md'` supplies the candidates, a text search that
+decides nothing, because a per-file `awk` over the 1202 archived tickets in this repository
+is the whole-archive walk the Considerations refuse by name.
+
+**The measured case, replayed.** `verification-handoff.sh mission
+deploy-the-docs-site-on-merge-to-main` now answers `handoff: true`, names
+`20260826112804-build-and-deploy-the-docs-site-on-merge-to-main.md` as the declaring
+member, and quotes the Cloudflare reason verbatim — in **87 ms**, against the 0 ms it took
+to answer wrongly. Three other live missions were spot-checked and still answer `false`.
+
+### Discovered Insights
+
+- **Insight**: `classify` sets shell globals, so the member list has to be collected into a
+  variable and iterated with `IFS` set to newline. A `while read` fed by the `grep`
+  pipeline runs in a subshell and silently loses every declaration it finds — the failure
+  looks exactly like the defect being fixed.
+  **Context**: The same shape is in `effective-policy.sh` should it ever be widened.
+
+- **Insight**: The prefilter and the decision are deliberately different mechanisms. `grep`
+  hands over any file whose text contains the slug — including a ticket that merely
+  *mentions* another mission — and `read-relation.sh` throws those away. The hermetic test
+  asserts exactly that, so a future "optimisation" that trusts the grep result fails.
+  **Context**: This is how the one-reader rule survives a performance constraint that
+  forbids reading every file.

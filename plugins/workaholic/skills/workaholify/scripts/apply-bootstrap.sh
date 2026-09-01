@@ -218,6 +218,10 @@ if has_problem index_merge_union; then
     printf '# conflict here carries no information: it is never a disagreement between two authors,\n'
     printf '# only a stale regeneration. Cost, stated: until the next refresh-index.sh an index can\n'
     printf '# carry a duplicated or mis-sorted line, which the generator rewrites from the tree.\n'
+    printf '# AND GITHUB APPLIES NONE OF IT: a merge driver is a property of a working tree, and\n'
+    printf '# GitHub reads none when it computes a pull request mergeable or when the merge button\n'
+    printf '# runs. This resolves the conflict for every LOCAL merge and for none of the remote,\n'
+    printf '# so such a branch still has to be caught up and pushed before GitHub will merge it.\n'
     printf '.workaholic/*/index.md merge=union\n'
     printf '.workaholic/index.md merge=union\n'
   } >> "$ATTRS" 2>/dev/null || emit_refusal unwritable

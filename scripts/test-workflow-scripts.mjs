@@ -16483,6 +16483,40 @@ function testVerificationHandoff() {
       { handoff: missing.handoff, missing: missing.missing },
       { handoff: false, missing: [".workaholic/tickets/todo/nope.md"] });
 
+    // --- A MISSION'S MEMBERS ARE ITS TICKETS (2026-09-01, ticket `20260826135100`) ---
+    // `mission` mode read the mission file alone, so the "any member wins" rule above could
+    // not fire for the artifact that most often carries the declaration. The fixture puts the
+    // declaring ticket under `archive/<branch>/` rather than in `todo/`, because that is where
+    // a unit's tickets are BY THE TIME the route reads this answer — a `todo/`-only fixture
+    // would pass over the implementation that caused the measured miss.
+    mission("m-member", null);
+    const archived = join(dir, ".workaholic/tickets/archive/work-20260826-134108");
+    mkdirSync(archived, { recursive: true });
+    const relArchived = ".workaholic/tickets/archive/work-20260826-134108/20260814000004-declared.md";
+    writeFileSync(join(dir, relArchived),
+      "---\ncreated_at: 2026-08-14T00:00:00+09:00\nauthor: test@example.com\n"
+      + `mission: m-member\nverification_handoff: ${REASON}\n---\n\n# archived-declared\n`);
+    const viaMember = v("mission m-member");
+    assertEq("a mission whose ARCHIVED ticket declares hands the whole unit off",
+      { handoff: viaMember.handoff, reason: viaMember.reason, names: viaMember.member.endsWith(relArchived) },
+      { handoff: true, reason: REASON, names: true });
+    assertTrue("and the mission file is still a member of the answer",
+      viaMember.members.some((m) => m.id === "m-member"), JSON.stringify(viaMember.members));
+
+    // A ticket relating to ANOTHER mission is not this unit's member, even though the
+    // grep prefilter can hand it over: `read-relation.sh` is what decides, not the text.
+    const relOther = ".workaholic/tickets/archive/work-20260826-134108/20260814000005-other.md";
+    writeFileSync(join(dir, relOther),
+      "---\ncreated_at: 2026-08-14T00:00:00+09:00\nauthor: test@example.com\n"
+      + `mission: m-plain\n---\n\n# mentions m-member in its body\n\nSee m-member.\n`);
+    const stillPlain = v("mission m-plain");
+    const names = (r) => r.members.map((m) => m.id).filter((id) => id.endsWith(relOther));
+    assertTrue("a ticket is a member of the mission its relation names, never of one it mentions",
+      names(v("mission m-member")).length === 0 && names(stillPlain).length === 1,
+      JSON.stringify([v("mission m-member").members.map((m) => m.id), stillPlain.members.map((m) => m.id)]));
+    assertEq("and a mission whose members declare nothing still hands nothing off",
+      stillPlain.handoff, false);
+
     // Malformed invocation is the only hard error: a caller that mistyped the kind
     // must not receive a plausible-looking `false`.
     assertTrue("a bad unit kind exits non-zero", run(dir, `${VH} bogus x`).status !== 0);
@@ -21231,6 +21265,7 @@ const tests = [
   ["moderate: the tick runs every step, and every step reports", testModerateRun],
   ["moderate: one tick, one reading of the open pull requests", testOneReadingOfTheOpenPullRequests],
   ["moderate/merge-conflicts: an uncomputed mergeability is not \"none conflicted\"", testUncomputedMergeabilityIsNamed],
+  ["moderate: an uncomputed mergeability is re-read once before it is reported", testUncomputedMergeabilityIsReReadOnce],
   ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
   ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
   ["moderate: an answer in a question's own thread reaches the writer", testAnswerReturnPath],
@@ -26622,6 +26657,37 @@ function testModerateRun() {
       [j.persist.status, j.persist.reason], ["skipped", "no_origin"]);
     assertEq("step 1 is real", j.steps[0].status, "ok");
 
+    // THE REPORT CARRIES THE PAYLOAD, NOT ONLY ITS LENGTH (2026-08-26). `run.sh` emitted
+    // `needs_agent` as a count, against its own documented contract — and
+    // `question-liveness.sh` answers live/settled by matching a question's key as a
+    // string INSIDE that payload. Against a counted report it therefore answered
+    // `settled` for every key by construction: the bounded re-ask could never fire and
+    // the `✅ 解消を確認` confirmation would fire on every open question, every tick. The
+    // agent had the same problem from the other side and re-invoked every step to see
+    // what the tick had found.
+    assertTrue("every step's needs_agent is the array its contract documents",
+      j.steps.every((s) => Array.isArray(s.needs_agent)),
+      JSON.stringify(j.steps.map((s) => [s.step, typeof s.needs_agent])));
+    assertTrue("with the count beside it, never instead of it",
+      j.steps.every((s) => s.needs_agent_count === s.needs_agent.length),
+      JSON.stringify(j.steps.map((s) => [s.step, s.needs_agent_count, s.needs_agent.length])));
+    assertEq("and the total still adds up",
+      j.needs_agent, j.steps.reduce((n, s) => n + s.needs_agent.length, 0));
+    // The reader that needs it, run against this very report: a subject the owning step
+    // did NOT raise reads `settled`, which is only trustworthy because a raised one can
+    // read `live` at all.
+    const LIVENESS = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/question-liveness.sh")}`;
+    const reportPath = join(repo, "run-report.json");
+    writeFileSync(reportPath, JSON.stringify(j));
+    assertEq("a subject no step raised reads settled",
+      JSON.parse(run(repo, `${LIVENESS} --key nothing-raised-this --step human-checkin --run ${reportPath}`).stdout).liveness,
+      "settled");
+    const raised = j.steps.find((s) => s.status === "ok" && s.needs_agent.length > 0);
+    assertTrue("some step raised something to match against", !!raised, JSON.stringify(j.steps));
+    assertEq("and a subject its owning step DID raise reads live",
+      JSON.parse(run(repo, `${LIVENESS} --key ${JSON.stringify(raised.needs_agent[0].action || "")} --step ${raised.step} --run ${reportPath}`).stdout).liveness,
+      "live");
+
     // Every step is built: the spine's stubs reported `not_implemented`, and none is
     // left. A step that abstains now does it for a stated reason of its own — an empty
     // strategy set, a quiet window — which is the distinction the skill is built on.
@@ -26963,6 +27029,22 @@ function testProposeInboundSweep() {
     const k = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
     assertEq("an earlier sweep moves the window to that tick", k.since, "2026-08-17T10:00:00Z");
 
+    // A SENTINEL TICK ID IN THE LOG MUST NOT BECOME A MALFORMED WINDOW (2026-08-26).
+    // The log is append-only and carries whatever any tick ever wrote. `20260819-999999`
+    // — a real section on this repository's own base — sorts last, so `log-read.sh`
+    // handed it to an unvalidated substitution and every sweep from that day asked
+    // GitHub for `?since=2026-08-19T99:99:99Z`. GitHub answered 422 for seven days while
+    // the step reported itself `ok`. The window now widens to the day start and SAYS SO.
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --tick 20260817-999999 --step inbound-sweep --status ok --summary swept`);
+    const poisoned = JSON.parse(run(repo, `${SWEEP} --tick 20260817-120000 --root .`).stdout);
+    assertEq("a sentinel previous tick widens the window to the day start",
+      poisoned.since, "2026-08-17T00:00:00Z");
+    assertTrue("and the widening is named in the summary, never silent",
+      poisoned.summary.includes("20260817-999999") && poisoned.summary.includes("not a timestamp"),
+      poisoned.summary);
+    assertTrue("the window never reaches an API as a non-timestamp",
+      /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\dZ$/.test(poisoned.since), poisoned.since);
+
     // Step 3: no records at all is its own reason, distinct from "records but no source".
     let w = JSON.parse(run(repo, `${LOGS} --tick 20260817-120000 --root .`).stdout);
     assertEq("no deployment records is its own reason", w.reason, "no_targets");
@@ -27148,6 +27230,21 @@ esac
     const s7 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-doc-drift.sh")} --tick 20260817-120000 --root . --base HEAD`, { env }).stdout);
     assertTrue("an already-filed drift finding is dropped, not re-filed",
       !JSON.stringify(s7.needs_agent).includes(s7key), JSON.stringify(s7.needs_agent));
+
+    // THE SAME SENTINEL BLINDED THIS STEP TOO (2026-08-26), and more quietly: the sweep
+    // at least got a 422, while `git rev-list --before=2026-08-19T99:99:99Z` simply
+    // matched nothing, so `doc-drift` answered `no_baseline` — a legitimate answer on a
+    // young repository — for seven days without one document being checked. Sharing
+    // `lib/tick-iso.sh` with the sweep is the point: two copies of the substitution is
+    // how one poisoned log entry took out both steps.
+    run(repo, `${POSIX_SH} ${SCRIPTS.proposeLogAppend} --tick 20260817-999999 --step doc-drift --status ok --summary checked`);
+    const s7b = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-doc-drift.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
+    assertTrue("a sentinel previous tick does not silently become no_baseline",
+      s7b.reason !== "no_baseline" || s7b.summary.includes("not a timestamp"),
+      JSON.stringify([s7b.status, s7b.reason, s7b.summary]));
+    assertTrue("and the widening is named wherever it lands",
+      s7b.status === "ok" || s7b.summary.includes("20260817-999999"),
+      JSON.stringify([s7b.status, s7b.reason, s7b.summary]));
   } finally {
     cleanup(repo);
     cleanup(bin);
@@ -32747,10 +32844,19 @@ printf '[]\\n'
   return { dir, bin, counter };
 }
 
+// THE SECOND LOOK IS TURNED OFF FOR THIS ROW, DELIBERATELY (2026-09-01, ticket
+// `20260901082631`). The fixture's whole mechanism is a first answer of `null`, which is
+// exactly what the re-read now settles — so with it on, the historical drift this row exists
+// to pin becomes unreproducible and the row would silently stop testing what it names.
+// `WORKAHOLIC_PULLS_STATE_REREAD_MAX=0` is a legitimate value of a named cap, not a test-only
+// hook, and the re-read has a row of its own below.
 function testOneReadingOfTheOpenPullRequests() {
   const fx = makePullsDriftFixture();
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
-  const env = { ...process.env, PATH: `${fx.bin}:${process.env.PATH}` };
+  const env = {
+    ...process.env, PATH: `${fx.bin}:${process.env.PATH}`,
+    WORKAHOLIC_PULLS_STATE_REREAD_MAX: "0",
+  };
   try {
     // 1. THE DISAGREEMENT, REPRODUCED AT THE SEAM. Two independent resolutions in `run.sh`'s
     //    own order give step 4 the `unknown` round and step 6 the `conflict` round.
@@ -32834,7 +32940,13 @@ function testOneReadingOfTheOpenPullRequests() {
 function testUncomputedMergeabilityIsNamed() {
   const fx = makePullsDriftFixture({ alwaysUnknown: true });
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
-  const env = { ...process.env, PATH: `${fx.bin}:${process.env.PATH}` };
+  // The row is `null` on every read, so the second look changes nothing it asserts — only how
+  // long it takes. The wait is zeroed because a hermetic suite must not sleep; the cap on rows
+  // is left at its default so this row still exercises the re-read's no-op path.
+  const env = {
+    ...process.env, PATH: `${fx.bin}:${process.env.PATH}`,
+    WORKAHOLIC_PULLS_STATE_REREAD_WAIT: "0",
+  };
   try {
     const r = JSON.parse(run(fx.dir,
       `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260829-085055 --root .`,
@@ -32877,6 +32989,82 @@ function testUncomputedMergeabilityIsNamed() {
     assertTrue("blocked_by is still derived only in the one reader",
       /blocked=unknown/.test(reader) && !/blocked_by=/.test(src), "a second derivation appeared");
   } finally { cleanup(fx.dir); cleanup(fx.bin); }
+}
+
+// ---------- an uncomputed mergeability is re-read once before it is reported (2026-09-01) ----------
+//
+// GitHub computes `mergeable` lazily and REQUESTING the pull request is what schedules the
+// job, so the tick's own first per-pull read is systematically the one most likely to answer
+// `null`. With nothing looking again, a *not yet* became an hourly `unknown` finding, a
+// `stuck-prs` reminder and eventually a question against a person's daily budget. Measured
+// (issue #838): four pull requests reported `unknown` hour after hour, and a hand read settled
+// all four on the first try — because the hand read was the SECOND read.
+//
+// THE ASSERTIONS ARE ON THE CLASSIFICATION AND ON THE BOUND, not on a return shape: a row
+// whose second answer differs must be classified from the SECOND one, a row that stays `null`
+// must still be `unknown`, and the spend must be reported whether or not it bought anything.
+function testUncomputedMergeabilityIsReReadOnce() {
+  const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const settle = makePullsDriftFixture();
+  const stay = makePullsDriftFixture({ alwaysUnknown: true });
+  const envFor = (fx, extra = {}) => ({
+    ...process.env, PATH: `${fx.bin}:${process.env.PATH}`,
+    WORKAHOLIC_PULLS_STATE_REREAD_WAIT: "0", ...extra,
+  });
+  try {
+    // 1. `null` THEN `false` IS A CONFLICT, not an `unknown`. The first answer is the one the
+    //    request itself scheduled; the second is the one GitHub actually computed.
+    writeFileSync(settle.counter, "0");
+    const settled = JSON.parse(run(settle.dir,
+      `${POSIX_SH} ${join(HK, "pulls-state.sh")}`, { env: envFor(settle) }).stdout);
+    assertEq("a row settled by the second look is classified from the second answer",
+      [settled.pulls[0].blocked_by, settled.pulls[0].mergeable], ["conflict", "false"]);
+    assertEq("and the reader says it spent the second look and what it bought",
+      [settled.reread_attempted, settled.reread_settled, settled.reread_capped],
+      [1, 1, false]);
+    assertEq("the second look is ONE re-read, never a retry loop",
+      readFileSync(settle.counter, "utf8").trim(), "2");
+
+    // 2. `null` BOTH TIMES IS STILL `unknown`. The vocabulary does not move — that is still the
+    //    honest word for a row GitHub has not computed — and a tick that spent the budget and
+    //    learned nothing SAYS SO rather than reading like one that never tried.
+    writeFileSync(stay.counter, "0");
+    const unknown = JSON.parse(run(stay.dir,
+      `${POSIX_SH} ${join(HK, "pulls-state.sh")}`, { env: envFor(stay) }).stdout);
+    assertEq("a row still uncomputed after the second look is still unknown",
+      [unknown.pulls[0].blocked_by, unknown.pulls[0].mergeable], ["unknown", "null"]);
+    assertEq("and the spend is reported as spent and unrewarded",
+      [unknown.reread_attempted, unknown.reread_settled], [1, 0]);
+
+    // 3. AND `merge-conflicts` STILL COUNTS IT. `uncomputed` distinguishes *could not look*
+    //    from *looked and found nothing*, and the second look does not blur the two.
+    writeFileSync(stay.counter, "0");
+    const four = JSON.parse(run(stay.dir,
+      `${POSIX_SH} ${join(HK, "step-merge-conflicts.sh")} --tick 20260901-090000 --root .`,
+      { env: envFor(stay) }).stdout);
+    assertEq("the consuming step's uncomputed count is unchanged for a row that stayed null",
+      [four.uncomputed, four.conflicted, four.reason], [1, [], "mergeability_uncomputed"]);
+
+    // 4. THE BOUND IS A NAMED CAP, and exceeding it leaves the row as it was rather than
+    //    extending the tick. `0` rows is the same cap at its floor.
+    writeFileSync(stay.counter, "0");
+    const capped = JSON.parse(run(stay.dir, `${POSIX_SH} ${join(HK, "pulls-state.sh")}`,
+      { env: envFor(stay, { WORKAHOLIC_PULLS_STATE_REREAD_MAX: "0" }) }).stdout);
+    assertEq("a capped-out second look re-reads nothing and reports nothing settled",
+      [capped.reread_attempted, capped.reread_settled, capped.pulls[0].blocked_by],
+      [0, 0, "unknown"]);
+    assertEq("and the transport was read exactly once", readFileSync(stay.counter, "utf8").trim(), "1");
+
+    // 5. THE SECOND LOOK LIVES IN THE ONE READER. A step-level re-read would give `stuck-prs`
+    //    and `merge-conflicts` a network call each and re-open the drift the per-tick cache
+    //    exists to close — the defect `pulls-state.sh`'s own header records.
+    for (const step of ["step-stuck-prs.sh", "step-merge-conflicts.sh"]) {
+      assertTrue(`${step} gains no re-read of its own`,
+        !/REREAD/.test(readFileSync(join(HK, step), "utf8")), step);
+    }
+  } finally {
+    cleanup(settle.dir); cleanup(settle.bin); cleanup(stay.dir); cleanup(stay.bin);
+  }
 }
 
 // ---------- the drill verdict path (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`) ----------

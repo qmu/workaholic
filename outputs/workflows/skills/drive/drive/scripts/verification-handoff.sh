@@ -28,6 +28,31 @@
 # effective-policy.sh: the unit is one merge. Half a pull request cannot be handed
 # to a person while the other half merges.
 #
+# AND A MISSION'S MEMBERS ARE ITS TICKETS, NOT JUST ITS mission.md (2026-09-01, ticket
+# `20260826135100`). `mission` mode read the mission file and nothing else, so the rule
+# above could not fire for the artifact that most often carries the declaration — the
+# ticket. MEASURED while driving `deploy-the-docs-site-on-merge-to-main`, verbatim:
+# `verification-handoff.sh mission <slug>` answered `handoff: false` with `members` holding
+# the mission alone, while `… tickets <the same mission's three archived tickets>` answered
+# `handoff: true` naming the Cloudflare account nobody here holds. The consequence is the one
+# this axis exists to prevent: an `auto` mission whose ticket declared work nobody can verify
+# here would merge unattended. That run escaped it only because the mission's `merge_policy`
+# was absent, and because the driving session read the axis a second time by hand.
+#
+# THE MEMBER SET IS PREFILTERED BY TEXT AND DECIDED BY THE ONE READER. The relation is
+# many-valued and `mission/scripts/read-relation.sh` is its only parser (CLAUDE.md, *Mission
+# rolling*), so the expansion asks that script about each candidate rather than growing a
+# second parser. `grep -rlF` over `tickets/` supplies the candidates — a text search that
+# decides nothing — because this runs per unit AT ROUTE TIME and a whole-archive walk is what
+# the ticket's Considerations refuse by name: 1202 archived tickets here, one `awk` each.
+#
+# BOTH AREAS, BECAUSE OF WHEN IT IS READ. A unit reaches the route step with its tickets
+# already ARCHIVED, which is exactly when this answer decides a merge; reading `todo/` alone
+# would answer `false` for every unit that got as far as being routed.
+#
+# THE MISSION FILE IS STILL CLASSIFIED FIRST, so a mission-level declaration keeps winning and
+# the pre-2026-09-01 behaviour is a strict subset of this one.
+#
 # THIS SCRIPT ANSWERS "CAN ITS VERIFICATION RUN HERE", NEVER "MAY IT MERGE".
 # effective-policy.sh answers the merge-policy axis and this one answers the
 # verification axis; they are read together at route time and deliberately not
@@ -157,6 +182,27 @@ classify() {
     consider "$_id" "$(derived_handoff "$_f")"
 }
 
+# Every ticket whose `mission:` relation names this slug, in `todo/` and under
+# `archive/<branch>/`. One `grep` narrows the candidates; `read-relation.sh` decides each one.
+mission_member_tickets() {
+    _mmt_root="$1"
+    _mmt_slug="$2"
+    _mmt_dirs=""
+    for _mmt_d in "${_mmt_root}/tickets/todo" "${_mmt_root}/tickets/archive"; do
+        [ -d "$_mmt_d" ] && _mmt_dirs="${_mmt_dirs} ${_mmt_d}"
+    done
+    [ -n "$_mmt_dirs" ] || return 0
+    # shellcheck disable=SC2086
+    grep -rlF --include='*.md' -- "$_mmt_slug" $_mmt_dirs 2>/dev/null | sort | while IFS= read -r _mmt_f
+    do
+        [ -n "$_mmt_f" ] || continue
+        if sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$_mmt_f" 2>/dev/null \
+            | grep -qxF -- "$_mmt_slug"; then
+            printf '%s\n' "$_mmt_f"
+        fi
+    done
+}
+
 case "$KIND" in
     mission)
         UNIT="$1"
@@ -167,6 +213,22 @@ case "$KIND" in
             */mission.md) UNIT=$(basename "$(dirname "$FILE")") ;;
         esac
         classify "$FILE" "$UNIT"
+        # `classify` sets globals, so the members are collected first and iterated in this
+        # shell — a `while read` fed by a pipeline would classify inside a subshell and lose
+        # every declaration it found.
+        MEMBER_TICKETS=$(mission_member_tickets "$ROOT" "$UNIT")
+        if [ -n "$MEMBER_TICKETS" ]; then
+            OLDIFS=$IFS
+            IFS='
+'
+            for m in $MEMBER_TICKETS; do
+                IFS=$OLDIFS
+                classify "$m" "$m"
+                IFS='
+'
+            done
+            IFS=$OLDIFS
+        fi
         ;;
     tickets)
         # A batch's unit id is minted by claim.sh, not here -- like effective-policy.sh,

@@ -35,6 +35,8 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+# One derivation of a tick id's timestamp, shared with `step-inbound-sweep.sh`.
+. "${SCRIPT_DIR}/lib/tick-iso.sh"
 REPORT="${SCRIPT_DIR}/../../story/scripts"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 ROOT='.'
@@ -75,13 +77,22 @@ if [ -z "$BASE" ]; then
                tr ',' '\n' | grep '"tick"' | sed 's/.*"tick": "//; s/".*//' |
                grep -v "^${TICK}$" | sort | tail -n 1 || true)
     fi
+    # The conversion VALIDATES (`lib/tick-iso.sh`, 2026-08-26). The log is append-only and
+    # carries whatever any tick ever wrote; a sentinel id in it sorts last and wins every
+    # window. Measured: `20260819-999999` became `2026-08-19T99:99:99Z`, `git rev-list
+    # --before` matched nothing, and this step answered `no_baseline` — a legitimate
+    # answer on a young repository — for seven days, so the documentation check never ran
+    # while the tick reported itself healthy.
+    since=''
+    window_reason=''
     if [ -n "$prev" ]; then
-        since=$(printf '%s' "$prev" | sed 's/^\(....\)\(..\)\(..\)-\(..\)\(..\)\(..\)$/\1-\2-\3T\4:\5:\6Z/')
-    else
-        since=$(printf '%s' "$TICK" | sed 's/^\(....\)\(..\)\(..\)-.*$/\1-\2-\3T00:00:00Z/')
+        since=$(tick_to_iso "$prev")
+        [ -n "$since" ] || window_reason=" (previous tick id ${prev} is not a timestamp — widened to this tick's day start)"
     fi
+    [ -n "$since" ] || since=$(tick_day_iso "$TICK")
+    [ -n "$since" ] || emit degraded bad_window "no readable window: neither the previous doc-drift tick nor ${TICK} is a timestamp" ""
     BASE=$(git -C "$ROOT" rev-list -1 --before="$since" HEAD 2>/dev/null || true)
-    [ -n "$BASE" ] || emit skipped no_baseline "no commit before ${since} — nothing to compare this tick's documentation against" ""
+    [ -n "$BASE" ] || emit skipped no_baseline "no commit before ${since}${window_reason} — nothing to compare this tick's documentation against" ""
 fi
 
 drift=$(sh "${REPORT}/doc-drift.sh" "$BASE" 2>/dev/null || true)

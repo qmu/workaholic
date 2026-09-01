@@ -83,6 +83,20 @@ is only what a line is allowed to prove.
   recorded an `inbound-sweep` line, read out of the tick log; with no such tick, this tick's own UTC
   day start. Anchoring to a fact in the log avoids `date -d`/`date -v`, which differ between the
   developer's laptop and the routine's container.
+- **And the conversion validates** (2026-08-26, `lib/tick-iso.sh`, shared with step 7). The log is
+  append-only and carries whatever any tick ever wrote, so the tick id it hands back is an input,
+  not a guarantee. Measured: a sentinel section `## 20260819-999999` sat on the base; `999999`
+  sorts last, so it won every window from that day, the unvalidated substitution produced
+  `2026-08-19T99:99:99Z`, and GitHub answered `422 The since parameter needs to be in ISO 8601
+  format` for **seven days** while this step reported itself `ok`. An id that does not validate now
+  widens the window to the tick's own day start and **names the widening in the summary** — one wide
+  window instead of seven silent days. Nothing prunes the log to fix it: it is append-only, and a
+  machine deleting a line it disliked is a worse failure than the one it would cure.
+- **A failed read is not an empty one, and never a finding** (same change). The transport's exit
+  status was swallowed by `|| true`, and the error body reaching stdout was parsed as a row — so the
+  422 document was handed to the agent as an inbound ask "to judge", with itself as the reference.
+  The status now decides whether the read happened, and a row whose issue number is not a number
+  means the response was not the issues list: both are `degraded`/`gh_read_failed`, by name.
 - **Writes**: nothing. The agent applies the **materiality bar** — a genuine problem or improvement
   idea, or something that must not be overlooked; a passing remark is not filed — and writes what
   passes as a **feedback record** (`feedback/scripts/create.sh`, `--subject` naming *whose* opinion
@@ -102,7 +116,9 @@ is only what a line is allowed to prove.
 - **Slack's bound is not advice**: exact-string search, at most two queries, **no channel history
   read at any point** (`workaholic:notify`).
 - **Aborts**: `gh_unavailable` (GitHub named as unreadable while the three connector surfaces are
-  still handed over — three of four working is not "nothing found").
+  still handed over — three of four working is not "nothing found"), `gh_read_failed` (the endpoint
+  did not answer, or did not answer with issues), `bad_window` (neither the previous tick nor this
+  one is a timestamp — the one case where no window can be derived at all).
 - **Dedup**: an issue a feedback record already names, or one an earlier tick logged under
   `inbound-sweep-filed`, is skipped and counted in the summary.
 
@@ -130,6 +146,19 @@ is only what a line is allowed to prove.
   Mergeability lives only on the single-pull endpoint, so the per-pull reads are bounded by
   `--limit` (default 10) and the cap is **reported** — a busy repository is never silently
   half-read. GitHub's lazily-computed `mergeable: null` is `unknown`, never `clean`.
+- **And a `null` gets ONE second look before either step sees it** (2026-09-01, ticket
+  `20260901082631`). Requesting the pull request is what *schedules* the background merge job,
+  so the tick's own first per-pull read is systematically the one most likely to answer `null`:
+  measured (issue #838), four pull requests reported `unknown` hour after hour and a hand read
+  settled all four on the first try, because the hand read was the **second** read. The reader
+  waits once (`WORKAHOLIC_PULLS_STATE_REREAD_WAIT`, default 2s) and re-reads the `null` rows
+  **once** — never a retry loop — bounded by `WORKAHOLIC_PULLS_STATE_REREAD_MAX` (default 5
+  rows) and `WORKAHOLIC_PULLS_STATE_REREAD_BUDGET_SECONDS` (default 10s in total), and reports
+  the spend as `reread_attempted` / `reread_settled` / `reread_capped` so a tick that spent the
+  budget and learned nothing says so. It lives in **`pulls-state.sh` alone**, so both steps
+  inherit the settled answer and **neither gains a network call of its own** — a step-level
+  re-read would re-open exactly the drift the per-tick cache below exists to close. A row still
+  `null` after the second look is still `unknown`, and `uncomputed` still counts it.
 - **Resolved once per tick, used twice — and since 2026-08-29 actually so** (ticket
   `20260829092043`). That sentence stood under step 6 while both steps called the reader
   themselves, so a tick made two rounds of per-pull reads. Because `mergeable` is computed
@@ -188,8 +217,9 @@ is only what a line is allowed to prove.
 - **Reads**: `pulls-state.sh`, as step 4 does — resolved once per tick, used twice, and since
   2026-08-29 held by the reader rather than by each caller (step 4's entry carries the
   measurement and the seam).
-- **Every row names the decision, not the colour**: `conflict` → the claim holder must resolve it
-  and nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
+- **Every row names the decision, not the colour**: `conflict` → the next `[Implement]` tick's
+  catch-up clears a generated-index conflict, a real content collision is the claim holder's and
+  nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
   close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
   mergeability yet, re-read before acting.
@@ -207,15 +237,28 @@ is only what a line is allowed to prove.
   `deploy:<digest>`: one reports what is waiting to deploy, this what is waiting on a human, and a
   shared key would let either dedup the other away.
 - **Aborts**: `gh_unavailable`. Already-posted state is `ok`/`already_filed`, not a second post.
+- **The `conflict` row names which actor clears it** (2026-09-01, ticket `20260901082633`). It
+  read *the claim holder must resolve the conflict* for **every** conflict, so the one class the
+  loop repairs itself — a collision confined to the generated OKF indexes, settled by
+  `catch-up-claim.sh` from `/implement` and by `settle-stranded-publication.sh` for a
+  publication — was announced to a person as theirs, and queued behind a budget of ten questions
+  a day. Measured: four conflicting pull requests, all four colliding on
+  `.workaholic/stories/index.md`, two of them on nothing else. The correction is **generic
+  rather than per-row, by constraint**: the class lives in `claim-mergeability.sh`, which needs
+  the branch ref, and this step reads GitHub over REST through `pulls-state.sh`, which carries
+  no class — a per-branch judgement here would need the fetch step 4's header refuses. The
+  per-branch judgement therefore stays with `catchup-blocked` (§26), which reads the class off a
+  claim row that already has it. **Wording only**: `stuck:<digest>`, the `blocked_by` set,
+  `headline` and the `needs_agent` shape are byte-identical.
 
 **The question, under the composition contract** (2026-08-31, mission
 `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). This step is the one that
 already met it, and the reason is worth naming: `headline` is derived from the *reason* rather
 than from the identifier, so the post opens `conflicting with main` and not `#642`. Heading —
 the `headline` above, then the pull requests it covers. Body — the act that row's `blocked_by`
-already names (resolve the conflict / review it / fix the check / mark it ready / update it /
-re-read). `stuck:<digest>` is a **dedup key and never a heading**: the contract's clause 3 in
-its oldest form.
+already names (the catch-up clears a generated-index conflict and a content collision is the
+holder's / review it / fix the check / mark it ready / update it / re-read). `stuck:<digest>`
+is a **dedup key and never a heading**: the contract's clause 3 in its oldest form.
 
 ## 7. `doc-drift` — the documentation against the current concept
 
@@ -225,13 +268,20 @@ its oldest form.
 - **The window is a git question**: the base is `git rev-list -1 --before=<the previous doc-drift
   tick, as ISO> HEAD`, so no `date -d`/`date -v` arithmetic is involved. `no_baseline` when nothing
   precedes that boundary — comparing against nothing would report every document as drifted.
+- **The conversion is `lib/tick-iso.sh`'s, shared with step 2** (2026-08-26). The same sentinel tick
+  id blinded this step too, and more quietly: the sweep at least got a 422, while `git rev-list
+  --before=2026-08-19T99:99:99Z` simply matched nothing, so this step answered `no_baseline` — a
+  legitimate answer on a young repository — for seven days without one document being checked.
+  Sharing the derivation is the point: two copies of an unvalidated substitution is how one poisoned
+  log entry took out both steps. An unusable previous tick widens to the day start and says so;
+  `bad_window` is the abort when even that is not a date.
 - **Writes**: nothing. Drift becomes a **ticket**, because fixing documentation is work and work
   has a queue; an hourly agent rewriting `main`'s documents is the unattended-write class this
   project has refused twice.
 - **Dedup is not optional here.** `terms/retired-terms.md` is a glossary *of* retired terms, so it
   names retired terms by construction and `area-freshness.sh` reports it truthfully and forever.
   A finding an earlier tick logged under `doc-drift-filed` is counted and dropped.
-- **Aborts**: `no_repo`, `no_baseline`, `drift_unreadable`.
+- **Aborts**: `no_repo`, `no_baseline`, `bad_window`, `drift_unreadable`.
 
 ## 8. `release-status` — what is waiting to reach a deployment target
 
@@ -2217,6 +2267,16 @@ in a tick is visible.
 
 ## What `run.sh` guarantees around the steps
 
+- **The report carries each step's `needs_agent` array, with `needs_agent_count` beside it**
+  (2026-08-26). It carried the count alone, against this file's own stated shape, on the reasoning
+  that the report only needed the length — and two readers needed the payload.
+  `question-liveness.sh` matches a question's key as a string **inside** `needs_agent`, so against a
+  counted report it answered `settled` for every key by construction: the bounded re-ask could never
+  fire, and the `✅ 解消を確認` confirmation would fire on every open question, every tick. The agent
+  hit the same wall from the other side — acting on `needs_agent` after the run returns, it had to
+  re-invoke every step to see what the tick had found, which is extra network and clock in a
+  container nobody is watching, and a second reading of steps whose window moves between
+  invocations. One defect, two symptoms: a report that named how much there was and not what it was.
 - **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
   non-zero exit → `degraded`/`step_error`; empty or unparseable output → `degraded`/`no_output` or
   `bad_output`; a status outside the log vocabulary → `degraded`/`bad_output`. A step never
@@ -2680,6 +2740,11 @@ and nothing written anywhere but its own tick-log line.
 - **Heading** — *`<unit>` is finished, `main` has moved under it, and both sides changed the
   same files*, then the branch, the pull request, and the colliding files by name.
 - **Body** — the one act: *decide which side keeps its behaviour and merge `main` in.*
+- **And it says why this one is yours** (2026-09-01, ticket `20260901082633`): the loop clears
+  the other class itself — `catch-up-claim.sh` on a claim, `settle-stranded-publication.sh` on a
+  publication, both from `/implement` — so this question is the residue that reaches a person,
+  not the whole of what conflicts. Step 6's `conflict` row now names both actors generically,
+  and this one names the class it read. One voice, two grains.
 - **Never alone**: `content_conflict`, `mechanical`, `clean`. The distinction this question
   rests on — *the loop looked and only you can decide*, against `merge-conflicts`' *nobody has
   looked yet* — has to be in the sentence, because the two questions are otherwise about the

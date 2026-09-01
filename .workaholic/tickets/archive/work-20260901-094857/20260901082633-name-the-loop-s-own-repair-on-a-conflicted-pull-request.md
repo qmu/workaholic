@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T08:26:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -107,3 +108,52 @@ wording and nothing else.
 - The escalation budget the ask names (20 findings held, ten questions a day) is the
   subject of the active mission `say-when-the-check-in-queue-is-stuck-and-bound-the-hold`;
   do not re-solve it here.
+
+## Final Report
+
+Development completed as planned.
+
+The reproduction ran first and showed the defect exactly as the ticket described it. This
+repository's five conflicted pull requests all rendered the same `decision` —
+*the claim holder must resolve the conflict — nobody else may push to that branch* —
+while `claim-mergeability.sh` classified them into two different classes: #832
+(`.workaholic/stories/index.md` alone) and #755 (six generated indexes and manifests) read
+**`mechanical`**, which `/implement`'s own catch-up clears, and #774, #633 and #622 read
+**`content`**. Two pull requests the loop repairs itself were announced to a person as
+theirs.
+
+Localizing confirmed the second half: the `decision` string is composed in
+`step-stuck-prs.sh`'s `awk` block from `blocked_by` alone, and `blocked_by` carries no
+class — so the sentence could not distinguish the two cases.
+
+**Where the class could come from, decided in the ticket's own terms.** The class lives in
+`ship/scripts/lib/conflict-class.sh` via `claim-mergeability.sh`, which needs the branch
+**ref**; this step reads GitHub over REST through `pulls-state.sh`, which carries no class,
+and the reader that fetches (`list-claims.sh`) is not composed here — `run.sh` shares only
+`WORKAHOLIC_TICK_REPORTS` and `WORKAHOLIC_TICK_PULLS_STATE`, neither of which holds a
+class. So the ticket's named fallback applies: the wording is corrected **generically**,
+naming both actors, and the per-branch judgement stays with `catchup-blocked` (§26), which
+reads the class off a claim row that already has it.
+
+Wording only. `stuck:<digest>`, the `blocked_by` set, `headline` and the `needs_agent`
+shape are byte-identical — the diff touches no line that computes any of them. No acting
+step was added to `/moderate`: it still merges nothing, pushes into no claim branch and
+makes no new network read.
+
+### Discovered Insights
+
+- **Insight**: `step-stuck-prs.sh`'s decision strings live inside a single-quoted shell
+  string wrapping an `awk` program, and `step-merge-conflicts.sh`'s summaries live inside
+  single-quoted `printf` formats. An apostrophe in either — `the loop's`, `the holder's` —
+  terminates the shell quote, and `awk` fails with *runaway string constant* at runtime
+  rather than at `sh -n`.
+  **Context**: Any future wording change to these rows has to be written without
+  apostrophes, or the quoting has to change first. `sh -n` passes either way, so the only
+  proof is running the step.
+
+- **Insight**: The step's `stuck:<digest>` changed between the before and after runs
+  (`stuck-2009658084` → `stuck-342529036`) for a **data** reason, not a wording one: three
+  rows that read `unknown` in the first run had settled to nothing-blocking by the second.
+  **Context**: A digest comparison across two live runs proves nothing about a wording
+  change. What proves it is the diff — the lines that compute `pairs`, `digest`, `kinds`
+  and `headline` are untouched.

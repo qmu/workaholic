@@ -16418,6 +16418,88 @@ function testEffectivePolicy() {
   } finally { cleanup(dir); }
 }
 
+// ---------- mission/create.sh: the slug check reads the unmerged branches too ----------
+//
+// The local check reads the tree it is WRITING INTO, which is a publish tree cut from the
+// base: correct when the tree is built, arbitrarily stale by the time it merges. Measured on
+// this repository — two records with the slug `say-when-the-loop-has-run-out-of-direction`
+// both on `main`, created 60 minutes apart in two publish trees, the second merged six days
+// after the first, with the local check RIGHT at both moments.
+//
+// THE ASSERTIONS ARE THE TWO DIRECTIONS AND THE TWO THINGS THAT MUST NOT MOVE: a slug taken
+// only on an unmerged branch is refused by its own word; a walk that could not complete
+// REPORTS AND PROCEEDS, because the walk over-reads on every ambiguity by design and a gate
+// built on an over-read refuses legitimate missions; and neither `close.sh`'s existing
+// `archive_slug_conflict` answer nor the local both-areas check changes.
+function testMissionSlugAcrossBranches() {
+  const origin = mkdtempSync(join(tmpdir(), "workaholic-slug-origin-"));
+  execSync("git init -q --bare .", { cwd: origin });
+  const dir = makeRepo("main");
+  const seedMission = (root, area, slug) => {
+    const d = join(root, `.workaholic/missions/${area}/${slug}`);
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, "mission.md"),
+      `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nmerge_policy: auto\n`
+      + `created_at: 2026-08-26T07:19:28+00:00\nauthor: test@example.com\n`
+      + `assignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nx\n\n## Acceptance\n\n`
+      + `- [ ] a\n\n## Changelog\n\n- 2026-08-26 — mission created — mission.md\n`);
+  };
+  try {
+    execSync(`git remote add origin ${origin} && git push -q -u origin main`, { cwd: dir });
+
+    // A branch that ADDS a mission and never merges — the shape that produced the defect.
+    execSync("git checkout -q -b work-20260826-000000", { cwd: dir });
+    seedMission(dir, "active", "beta");
+    execSync("git add -A && git commit -q -m 'claim beta'"
+      + " && git push -q -u origin work-20260826-000000", { cwd: dir });
+    execSync("git checkout -q main", { cwd: dir });
+    assertTrue("the base carries no such mission, so the local check sees nothing",
+      !existsSync(join(dir, ".workaholic/missions/active/beta")));
+
+    const taken = run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Beta"`);
+    const takenOut = JSON.parse(taken.stdout);
+    assertEq("a slug taken only on an unmerged branch is refused by its own word",
+      { created: takenOut.created, reason: takenOut.reason, slug: takenOut.slug, ref: takenOut.ref },
+      { created: false, reason: "exists_on_branch", slug: "beta", ref: "origin/work-20260826-000000" });
+    assertTrue("and the refusal writes nothing",
+      !existsSync(join(dir, ".workaholic/missions/active/beta")), "a mission was created");
+
+    // The ordinary case is untouched: a slug nobody holds is created.
+    assertEq("a slug held nowhere is still created",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Gamma"`).stdout).created, true);
+
+    // And the local both-areas check is unchanged — it fires first, by its own word.
+    assertEq("a slug held in the local tree still reports exists",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionCreate} "Gamma"`).stdout).reason, "exists");
+
+    // A WALK THAT COULD NOT COMPLETE REPORTS AND PROCEEDS. Here there is no base ref to walk
+    // from at all, which is the same class as a shallow clone: the reading was not made, and
+    // refusing on a reading we could not make would block legitimate missions.
+    const noBase = makeRepo("trunk");
+    try {
+      const r = run(noBase, `${POSIX_SH} ${SCRIPTS.missionCreate} "Delta"`);
+      assertEq("a degraded branch walk never refuses creation",
+        JSON.parse(r.stdout).created, true);
+      // The report rides stderr so stdout stays exactly the line every caller parses; a
+      // successful command's stderr is not captured by `run`, so it is redirected here.
+      const said = run(noBase, `${POSIX_SH} ${SCRIPTS.missionCreate} "Epsilon" 2>&1 >/dev/null`);
+      assertTrue("and it says on stderr that the check could not be made",
+        /unmerged-branch slug check was no_base_ref/.test(said.stdout), JSON.stringify(said));
+    } finally { cleanup(noBase); }
+
+    // `close.sh`'s occupied-destination answer is UNCHANGED — it is not the defect, and a
+    // repair aimed at it would be aimed at a seam that is already closed.
+    seedMission(dir, "active", "alpha");
+    seedMission(dir, "archive", "alpha");
+    const closed = JSON.parse(run(dir,
+      `${POSIX_SH} ${SCRIPTS.missionClose} alpha achieved 2026-09-01`).stdout);
+    assertEq("close.sh still reports archive_slug_conflict",
+      { closed: closed.closed, reason: closed.reason }, { closed: true, reason: "archive_slug_conflict" });
+    assertTrue("and still leaves the mission where it is",
+      existsSync(join(dir, ".workaholic/missions/active/alpha/mission.md")), "the mission moved");
+  } finally { cleanup(dir); cleanup(origin); }
+}
+
 // ---------- drive/verification-handoff.sh: the declared-handoff axis ----------
 // The second routing input, read BEFORE merge policy (drive SKILL §6): a unit whose
 // artifact declared `verification_handoff:` at creation is handed to a person instead
@@ -21172,6 +21254,7 @@ const tests = [
   ["drive claim protocol: a long mission slug round-trips", testLongSlugClaimRoundTrip],
   ["drive claim protocol: a refused claim leaves no debris", testRefusedClaimLeavesNoDebris],
   ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
+  ["mission/create.sh (the unmerged-branch slug check)", testMissionSlugAcrossBranches],
   ["drive/verification-handoff.sh (declared handoff)", testVerificationHandoff],
   ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
   ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],

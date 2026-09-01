@@ -7,7 +7,6 @@
 * [leave-only-live-work-in-the-unmerged-branch-list](active/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
 * [let-the-tick-add-to-a-standing-thread-instead-of-restating-itself](active/let-the-tick-add-to-a-standing-thread-instead-of-restating-itself/mission.md) - Let the tick add to a standing thread instead of restating itself
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
-* [make-workaholify-converge-the-account-s-routines](active/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
 * [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
@@ -74,6 +73,7 @@
 * [make-the-tick-s-root-earn-its-hour](archive/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-the-two-executors-agree-about-a-proved-empty-claim](archive/make-the-two-executors-agree-about-a-proved-empty-claim/mission.md) - Make the two executors agree about a proved-empty claim
 * [make-the-workflow-scripts-survive-a-graphql-restricted-gh](archive/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh
+* [make-workaholify-converge-the-account-s-routines](archive/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [make-workaholify-converge-the-repository-state](archive/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [name-the-session-type-that-cannot-merge](archive/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge

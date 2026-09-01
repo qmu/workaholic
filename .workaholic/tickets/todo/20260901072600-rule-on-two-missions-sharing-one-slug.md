@@ -7,7 +7,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: 20260826071745-say-when-the-loop-has-run-out-of-direction.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md
-claim: work-20260901-074324
+claim: work-20260901-112108
 ---
 
 # Rule on two missions sharing one slug

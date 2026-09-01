@@ -10,7 +10,7 @@ assignees: [tamura.yoshiya@gmail.com]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md]
+feedback: [20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:

@@ -35,7 +35,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-standup --json` | this checkout's strategies and their attributable work — proves the daily digest reads soundly, names its silence and writes nothing |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-moderate --json` | one `[Moderate]` tick against a throwaway root — proves every step reports, the log carries one section per tick, and the checkout is untouched |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-propose --json` | a throwaway strategy tree and a synthetic open-proposal list — proves every gate of `/propose`'s brake refuses by name, and that it writes nothing |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction and one dormant one — proves the four lifecycle readings, the three question keys, the asked-once gate, and that nothing was written |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-direction-health --json` | a throwaway strategy tree, one overdue direction, one dormant one and one carrying no date at all — proves the four lifecycle readings, the question keys, the asked-once gate, and that nothing was written, with one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-arrival --json` | a throwaway **git** strategy tree carrying landed work — proves `arrived`, that it outranks `overdue`, that `dormant`, `overdue` and `live` are unchanged, the `direction-arrived:<slug>` key and its asked-once gate, and that no reading closes a direction, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-residue --json` | a throwaway **git** strategy tree whose attributed work has all landed beside an **unattributed** active mission — proves the honest and the degraded residue read, that only an unreadable residue refuses the arrival, that the question names the residue by slug, the asked-once gate, that no gate moved, and the attribution carry landing and refusing, with no network and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-corpus-boundary --json` | a throwaway **git** strategy tree whose corpus is grown past the `xargs` batching boundary — the boundary derived by probing `xargs` rather than hard-coded — proves both hops attribute across it, that the survey brakes on a real reading, that the residue excludes the citing mission and no arrival question is asked over work the tree attributes, and, beside it, the degraded direction: a named reason, a refused row, a residue that lists nothing and no question at all, with no network and **two** rows that deliberately break the seam, one per hop |
@@ -397,9 +397,18 @@ that gets worse every hour it runs.
 ## 5h. The direction layer's own health (the `direction-health` step)
 
 `verify-direction-health` needs no seed, no fire, no issue number and **no network**: it
-builds a throwaway strategy tree — one direction **past its date while carrying landed
-work**, one live and unanswered — hands the survey a synthetic open-proposal list through
-`--open-proposals`, and reads `direction-state.sh` and `step-direction-health.sh` over it.
+builds a throwaway strategy tree — one direction **past its date**, one live and unanswered,
+and one carrying **no `target_date` at all** — hands the survey a synthetic open-proposal
+list through `--open-proposals`, and reads `direction-state.sh` and
+`step-direction-health.sh` over it.
+
+The undated direction is the drill's **breaker**, and it is there because the boundary it
+pins is one jq will silently invert: `overdue` is `days_to_target < 0` **and the date
+resolves**, and an undated direction's `days_to_target` is `null` — which jq answers `null
+< 0` with `true`. Drop the null guard and an undated direction earns an hourly
+`direction-overdue` question about a date it never had. Neither other fixture can notice:
+one has a past date and one a future date, so both read the same with the guard or without
+it.
 
 The overdue fixture is the one that matters: it is the case `pace` *cannot* carry, because
 `late` requires nothing to have landed, so a direction that sailed past its date while
@@ -417,6 +426,7 @@ does not exist.
 | `direction_state_quiet` | a live, in-date, legible direction with nothing landed and nothing waiting does not read `dormant` | the `dormant` conjunction in `survey-strategies.sh` — one term of it stopped holding |
 | `direction_state_none` | a tree with no `active` strategy does not read `none` at the repository level | `direction-state.sh`'s repository field, which reads the survey's `active_count` |
 | `direction_state_unreadable` | a survey that refused was not reported `unreadable` | `direction-state.sh`'s degrade path — a reader that could not read must never render as quiet |
+| `direction_health_undated_is_never_overdue` (**breaker**) | a direction with no `target_date` reads anything but `dormant` — `overdue` above all | the `overdue` derivation in `survey-strategies.sh`: its `(.days_to_target != null)` guard has gone, and jq answers `null < 0` with `true` |
 | `direction_health_keys` | the step's question keys are not exactly `direction-overdue:<slug>` and `direction-dormant:<slug>` | `step-direction-health.sh`; the keys are what the asked-once ledger keys on, so a drifted key is a question asked twice or never |
 | `direction_health_key_none` | an empty tree does not ask `direction-none` | the repository-level branch of the same step |
 | `direction_health_asked_once` | the same key is asked again on a later tick | `ask-question.sh`'s ledger, not this step — the step supplies subjects and the check-in owns the gate |

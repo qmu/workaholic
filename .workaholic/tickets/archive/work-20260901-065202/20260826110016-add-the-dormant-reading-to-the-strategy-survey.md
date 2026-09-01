@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:00:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826110016-add-the-overdue-reading-to-the-strategy-survey.md
@@ -76,3 +77,23 @@ counter, no new field on any artifact, and no second derivation of `pace`.
   nothing proposed*. A direction can be dormant and not yet late.
 - Reporting it is not asking about it — that is ticket 4, deliberately separate so the
   reading can land and be argued with before anybody is messaged.
+
+## Final Report
+
+Development completed as planned — the reading was already present on the base when this
+ticket was driven and was verified here against its own Quality Gate rather than assumed.
+
+`survey-strategies.sh` derives `dormant` from terms the row already holds: legible, `active`,
+`mine`, in date, cited, nothing landed in the window, nothing waiting at either grain, and no
+open proposal. Any term that cannot be read makes the answer `false` rather than `dormant`,
+which is the refusal `pace`'s `unknown` already makes. It is emitted on every row, and no
+gate, refusal or ordering moved.
+
+### Discovered Insights
+
+- **Insight**: `dormant` excludes an overdue row itself, and `direction-state.sh` also ranks
+  `overdue` above `dormant` — two independent guards on the same boundary.
+  **Context**: Breaking either one alone leaves the reading correct, which is good for
+  robustness and misleading for testing: a drill row aimed at the precedence passes even
+  when one guard is gone. What a fixture can actually pin here is the term neither guard
+  covers, which is the undated case.

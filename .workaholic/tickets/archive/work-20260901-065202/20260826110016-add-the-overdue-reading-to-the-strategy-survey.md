@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:00:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -74,3 +75,24 @@ does today. This is the reading half only; the asking half is ticket 4.
   giving one state two refusals would double-count it.
 - Ticket 3 composes this rather than re-deriving it — there must be exactly one place where
   a negative `days_to_target` becomes a word.
+
+## Final Report
+
+Development completed as planned — the reading was already present on the base when this
+ticket was driven, having landed through the mission's later work, and was verified here
+against this ticket's own Quality Gate rather than assumed.
+
+`survey-strategies.sh` emits `overdue` on every surveyed row, eligible and refused alike,
+derived from `days_to_target` beside `pace` in the same row builder. A row whose date has
+passed reads `overdue: true` regardless of its `pace`; a row with no resolvable date reads
+neither value. `refusal`, ordering and `selected[]` are unchanged.
+
+### Discovered Insights
+
+- **Insight**: `overdue`'s null guard is not defensive decoration — jq answers `null < 0`
+  with `true`, so `(.days_to_target != null) and (.days_to_target < 0)` is the only thing
+  keeping an undated direction out of the overdue set.
+  **Context**: The guard reads like a redundant nil-check and is the kind of clause a later
+  simplification removes. Removing it makes every undated direction earn an hourly
+  `direction-overdue` question about a date it never had, and no fixture with a real date —
+  past or future — notices. `verify-direction-health` now carries a breaker row for it.

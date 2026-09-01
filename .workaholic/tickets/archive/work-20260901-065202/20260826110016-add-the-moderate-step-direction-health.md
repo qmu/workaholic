@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-26T11:00:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260826110016-write-the-one-reader-of-a-direction-s-lifecycle-state.md
@@ -82,3 +83,24 @@ and **never asked about** — spending a person's attention on our own degradati
   assignee can be resolved the step reports it rather than asking nobody.
 - The step count appears in several documents; missing one is the documentation defect this
   repository's own rule names.
+
+## Final Report
+
+Development completed as planned — the step was already present on the base when this ticket
+was driven and was verified here against its own Quality Gate rather than assumed.
+
+`moderate/scripts/step-direction-health.sh` reads `direction-state.sh --with-leaving` and
+hands every non-`live` reading to the check-in as a question addressed to that direction's
+assignee, keyed per reading and per slug so one subject costs one question however many ticks
+see it. `unreadable` is reported in the step summary and asked about by nobody. The step is
+in `run.sh`'s `STEPS` with `human-checkin` still last, and it asks and nothing else — it
+closes no direction, writes nothing under `strategies/`, and lifts no `/propose` gate.
+
+### Discovered Insights
+
+- **Insight**: The step's key set grew from the three this ticket named to eight
+  (`-arrived`, `-cutover`, `-settled`, `-overdue`, `-expiring`, `-dormant`, `-last`,
+  `-none`) without the asked-once ledger or the addressee rule moving.
+  **Context**: `lib/question-id.sh` derives the id from the key alone, so a new reading is a
+  new key and nothing else — no ledger migration, no re-ask of an existing subject. That is
+  why five readings could be added to a live step one at a time.

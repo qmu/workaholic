@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:34:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,40 @@ became five merged missions in one day.
   finding about something other than the loop's own apparatus. Stating it in the pull
   request rather than encoding it is the honest shape, and it matches how
   `describing_move` already lives beside the mechanical gates.
+
+## Final Report
+
+Development completed as planned.
+
+- **The refusal sits at the judgment, and the reason is recorded** (step 1). At discovery the
+  ask is never taken in hand and **no record is written**; at the judgment *the record is
+  written whatever this step concludes* is a standing contract of the seam, so the capture
+  stays honest and the triggering issue still closes. Discovery's own `self_originated`
+  exclusion (issue #864) is a **different test on a different signal** — a `source: moderate`
+  body header — and is untouched; the two are stated side by side so a later reader does not
+  fold one into the other.
+- **The reading comes from the sibling ticket's one reader** (step 2), and the second
+  condition — *is its subject the loop's own apparatus?* — is the run's own judgement, written
+  into the pull-request body where a person can argue with it. It is not encoded, and the
+  document says why: a machine can write a genuine finding about something else.
+- **The outcome is record-only, reported `self_authored`** (step 3) — not silence, not an
+  error.
+- **`unreadable` never refuses** (step 4): a grandfathered record with no `subject:` is an
+  ordinary ask, and the reading is reported by its reason.
+- **The sweep is not caught** (step 5): a person's channel message filed as an issue by a
+  routine carries `subject: person:<author>`, so the reader answers `human`. Pinned explicitly
+  in the suite — it is the loop's main inbound path and the one regression that would matter.
+- **Stated in `workaholic:specificate`'s judgment bar, in `reference/workflow.md` step 7 and in
+  `CLAUDE.md`, in the same change** (step 6), and pinned: the suite asserts all three name the
+  same word and the same reader, that each states the three safety properties, and that **no
+  script under `specificate/scripts/` parses the `subject:` axis itself**.
+
+### Discovered Insights
+
+- **Insight**: The drift pin worth having here is not "the rule exists" but "**no second parser
+  grew**". The refusal is prose a model applies, so nothing can check that a run asked the
+  question — but a `subject:` parse appearing inside `/specificate` would be a second reading
+  of the axis, and that is mechanically checkable and is the failure that actually costs
+  something.
+  **Context**: The same shape suits every prose refusal in this repository that rests on a
+  script's single reading.

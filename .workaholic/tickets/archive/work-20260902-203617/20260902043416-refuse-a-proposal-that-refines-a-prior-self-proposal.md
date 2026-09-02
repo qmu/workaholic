@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:34:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,36 @@ later.
   limit `describing_move` and `invented_obligation` already carry. What it buys is that a
   proposal deepening the loop's own invention is visibly non-conformant, and that the
   operator can point at the rule rather than re-explaining the failure.
+
+## Final Report
+
+Development completed as planned. **`self_refining`** now stands beside `describing_move` and
+`invented_obligation` in `workaholic:propose`, *A move that deepens the loop's own invention*,
+with its measurement written next to it: a chain five links long in one day — a verdict, then
+where its difference is seen, then what present practice it is measured from, then recording
+that practice — each link a defensible `depth` move, each merged by the next ticks, the
+direction abandoned mid-drive and the whole day reported as waste.
+
+- **The test is stated in words** (step 2): does the thing this move deepens trace back to a
+  human's ask or a human-authored strategy, or only to a previous proposal this loop wrote?
+- **It has its own word** (step 3), reported like every other refusal so a tick refused for it
+  never reads as idle. It is **not** folded into `describing_move` — one word answering two
+  questions is how two questions drift.
+- **It is a judgement, not a gate** (step 4). No propose script changed: `git diff` over
+  `propose/scripts/` against the base is empty, and a survey run over the current strategies
+  is byte-identical. The suite pins that none of the three refusal words appears in an
+  expression in `survey-strategies.sh`.
+- **What it must not catch is named in the same paragraph** (step 5): a second mission
+  answering a **human's** ask on the same subject, and the follow-up repair mission the
+  strategy's own scale allows. Depth is not banned; depth on the loop's own invention is.
+- `reference/loop.md` step 4 and `CLAUDE.md`'s gate list moved in the same change (step 6).
+
+### Discovered Insights
+
+- **Insight**: `survey-strategies.sh`'s header names `describing_move` twice, in comments,
+  because it explains which question is *not* its own and hands that answer in as
+  `--aim-kind`. A drift pin over the raw file therefore fails on the healthy arrangement; the
+  pin has to strip comments, exactly as this suite's other seam checks do.
+  **Context**: The distinction worth pinning is *the word in an expression*, never *the word in
+  the file* — a script explaining what it deliberately does not decide is the shape this
+  repository wants more of, not less.

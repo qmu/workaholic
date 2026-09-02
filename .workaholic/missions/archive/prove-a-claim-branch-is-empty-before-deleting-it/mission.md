@@ -2,7 +2,7 @@
 type: Mission
 title: Prove a claim branch is empty before deleting it
 slug: prove-a-claim-branch-is-empty-before-deleting-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T20:34:43+00:00
 author: a@qmu.jp
@@ -42,7 +42,7 @@ told once — while a branch that really is empty retires exactly as it does tod
       the moment of each act. (#20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md)
 - [x] A branch whose tickets landed but whose diff is not empty is its own state and reaches
       a person once, naming the files. (#20260831203454-tell-a-person-about-a-stranded-claim-branch.md)
-- [ ] A drill proves both offline and fails if a branch still holding work is offered for
+- [x] A drill proves both offline and fails if a branch still holding work is offered for
       deletion. (#20260831203454-drill-the-stranded-branch-refusal-offline.md)
 
 ## Changelog
@@ -54,3 +54,5 @@ told once — while a branch that really is empty retires exactly as it does tod
 - 2026-09-02 — ticket archived — 20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md
 - 2026-09-02 — ticket archived — 20260831203454-tell-a-person-about-a-stranded-claim-branch.md
 - 2026-09-02 — ticket archived — 20260831203454-make-the-retirement-s-stated-recovery-true.md
+- 2026-09-02 — ticket archived — 20260831203454-drill-the-stranded-branch-refusal-offline.md
+- 2026-09-02 — mission achieved — mission.md

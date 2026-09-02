@@ -2,7 +2,7 @@
 type: Mission
 title: Refuse ok under a placeholder identity
 slug: refuse-ok-under-a-placeholder-identity
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-21T15:12:42+09:00
 author: a@qmu.jp
@@ -50,9 +50,11 @@ carrying the hook but not the mapping is told, and the mapping can be installed.
 ## Acceptance
 
 - [x] A placeholder identity is a named survey fact and forbids `ok` (#20260821151250-forbid-ok-under-a-placeholder-identity.md)
-- [ ] `/workaholify` installs and audits the mapping the hook requires (#20260821151250-install-and-audit-the-identity-mapping.md)
+- [x] `/workaholify` installs and audits the mapping the hook requires (#20260821151250-install-and-audit-the-identity-mapping.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260821151250-forbid-ok-under-a-placeholder-identity.md
+- 2026-09-02 — ticket archived — 20260821151250-install-and-audit-the-identity-mapping.md
+- 2026-09-02 — mission achieved — mission.md

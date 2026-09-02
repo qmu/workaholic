@@ -41,6 +41,20 @@ for (const k of Object.keys(process.env)) {
   if (k.startsWith("WORKAHOLIC_")) delete process.env[k];
 }
 
+// ONE `WORKAHOLIC_*` IS SET RATHER THAN STRIPPED, and it is set for the opposite reason
+// (2026-09-02, ticket `install-and-audit-the-identity-mapping`). `check-bootstrap.sh` grew a
+// question only the network can answer — which GitHub account this session runs as, the key
+// step 0b of the web bootstrap looks the mapping up by — and it resolves that with
+// `gh api user` when nothing tells it otherwise. In a container where `gh` IS installed and
+// authenticated, every fixture that runs the check or the apply would then make a real call,
+// which breaks this suite's standing promise to touch no network. Stripping the variable is
+// exactly wrong here: absent means *ask*. So it is set to EMPTY, which the script reads as
+// *do not ask* and reports as an unchecked account with its own reason — the honest answer
+// for a fixture that has no session behind it. A test that needs a login sets one on its own
+// `run`, and one case deliberately leaves it unset behind a stubbed `gh` so the resolution
+// itself stays covered.
+process.env.WORKAHOLIC_BOOTSTRAP_ACCOUNT = "";
+
 const SCRIPTS = {
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
@@ -21242,6 +21256,7 @@ const tests = [
   ["gather/migrate-assignee-aliases.sh (the recovery)", testMigrateAssigneeAliases],
   ["the survey says when it excluded its whole backlog", testSurveySaysItExcludedEverything],
   ["the survey refuses ok under a placeholder identity", testSurveyRefusesOkUnderPlaceholderIdentity],
+  ["workaholify: the mapping's account check", testIdentityMapAccountCheck],
   ["workaholify: the mapping's coverage audit", testIdentityCoverageAudit],
   ["/moderate asks about work nothing can drive", testModerateAsksAboutUndrivableUnits],
   ["the identity hand-off, end to end", testIdentityHandOffEndToEnd],
@@ -29349,6 +29364,174 @@ function testSurveyRefusesOkUnderPlaceholderIdentity() {
   assertTrue("and the run report is required to name the fact",
     /placeholder_identity[\s\S]{0,600}?names? (?:it|the fact)/.test(skill),
     "nothing requires the report to name the fact behind the withheld token");
+}
+
+// ---------- workaholify: the mapping's account check (2026-09-02) ----------
+//
+// The coverage audit next door asks two questions about `.claude/git-identities`, and step
+// 0b of the web bootstrap asks NEITHER of them. It resolves the session's GitHub LOGIN and
+// looks up `^<login>=`; the audit walks the addresses the TREE carries. Those come apart in
+// exactly the state this mission measured: a mapping that names every `assignees:` value in
+// the repository, no `identity_map_uncovered`, and still no line for the account a routine
+// runs as — so the hook logs `no entry`, keeps `noreply@anthropic.com`, and the survey
+// answers `owned_by_other` for everything.
+//
+// `gh` IS STUBBED ON PATH, always: this suite calls no network, and the login is the one
+// thing the check reaches outside the tree for.
+function testIdentityMapAccountCheck() {
+  const AUDIT = `${POSIX_SH} ${SCRIPTS.auditIdentityCoverage}`;
+  const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
+  const APPLY = `${POSIX_SH} ${SCRIPTS.applyBootstrap}`;
+
+  const seed = (dir, mapBody) => {
+    const t = join(dir, ".workaholic/tickets/todo/20260902000000-t.md");
+    mkdirSync(dirname(t), { recursive: true });
+    writeFileSync(t, "---\nassignees: [a@qmu.jp]\n---\n\n# t\n");
+    if (mapBody !== null) {
+      mkdirSync(join(dir, ".claude"), { recursive: true });
+      writeFileSync(join(dir, ".claude/git-identities"), mapBody);
+    }
+  };
+  // The login normally reaches the check through `WORKAHOLIC_BOOTSTRAP_ACCOUNT` — the
+  // override that keeps this suite off the network (see the note beside it at the top).
+  const accountEnv = (login) => ({ ...process.env, WORKAHOLIC_BOOTSTRAP_ACCOUNT: login });
+  // One case leaves the override UNSET so the `gh api user` resolution itself is covered,
+  // with `gh` stubbed on PATH: `null` is a `gh` that is not there at all.
+  const ghEnv = (dir, login) => {
+    const bin = join(dir, "stub-bin");
+    mkdirSync(bin, { recursive: true });
+    const p = join(bin, "gh");
+    writeFileSync(p, login === null ? `#!/bin/sh\nexit 127\n` : `#!/bin/sh\necho '${login}'\n`);
+    chmodSync(p, 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+    delete env.WORKAHOLIC_BOOTSTRAP_ACCOUNT;
+    return env;
+  };
+
+  // THE MEASURED STATE. Every address the tree uses is covered, so the coverage half is
+  // silent — and step 0b's own lookup still finds nothing.
+  let dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const a = JSON.parse(run(dir, `${AUDIT} . --account somebody-else`).stdout);
+    assertEq("the tree's addresses are all covered", a.covered, 1);
+    assertEq("so the coverage half raises nothing", a.uncovered, []);
+    assertEq("but the account is checked", a.account.checked, true);
+    assertEq("and is not covered", a.account.covered, false);
+    assertTrue("which is its own named problem",
+      a.problems.some((p) => p.startsWith("identity_map_no_entry_for_account")),
+      JSON.stringify(a.problems));
+    assertTrue("and no coverage problem rides with it",
+      !a.problems.some((p) => p.startsWith("identity_map_uncovered")), JSON.stringify(a.problems));
+    // The repair's placeholder is on the OTHER side of the `=` from the coverage repair's:
+    // here the login is what is known and the address is what only a person can supply.
+    assertEq("named with the line that would cover it",
+      a.account.line, "somebody-else=<canonical-email>");
+  } finally { cleanup(dir); }
+
+  // A mapping that DOES name the account raises nothing.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const a = JSON.parse(run(dir, `${AUDIT} . --account tamurayoshiya`).stdout);
+    assertEq("an account the mapping names is covered", a.account.covered, true);
+    assertEq("and raises nothing", a.problems, []);
+  } finally { cleanup(dir); }
+
+  // THREE-VALUED: a check that could not run is never a check that passed. Asked with no
+  // login, and not asked at all, are different reasons and neither is a problem.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const unasked = JSON.parse(run(dir, `${AUDIT} .`).stdout);
+    assertEq("not asking leaves the account unchecked", unasked.account.checked, false);
+    assertEq("by its own reason", unasked.account.reason, "not_requested");
+    assertEq("and raises no problem", unasked.problems, []);
+    assertEq("and never reads as covered", unasked.account.covered, false);
+
+    const unresolved = JSON.parse(run(dir, `${AUDIT} . --account ""`).stdout);
+    assertEq("an unresolvable login is its own reason", unresolved.account.reason, "login_unresolved");
+    assertEq("and still raises no problem", unresolved.problems, []);
+  } finally { cleanup(dir); }
+
+  // An ABSENT map is already `identity_map_missing`; saying it twice about one file is what
+  // the one-named-problem-set rule exists to prevent.
+  dir = makeRepo("main");
+  try {
+    seed(dir, null);
+    const a = JSON.parse(run(dir, `${AUDIT} . --account somebody`).stdout);
+    assertEq("an absent map does not also raise the account problem", a.account.reason, "map_missing");
+    assertEq("the absence is named once",
+      a.problems.filter((p) => p.startsWith("identity_map_no_entry_for_account")), []);
+  } finally { cleanup(dir); }
+
+  // The check carries it through, and `ok` does not move — the ruling this ticket owed.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const env = accountEnv("somebody-else");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env }).stdout);
+    assertTrue("check-bootstrap.sh carries the account problem verbatim",
+      c.advisories.some((p) => p.startsWith("identity_map_no_entry_for_account")),
+      JSON.stringify(c.advisories));
+    assertEq("and no mapping problem gates `ok`",
+      c.problems.filter((p) => p.startsWith("identity_map")), []);
+    assertEq("and the account's own state rides beside the hook's",
+      c.identity_map.account.login, "somebody-else");
+
+    // The repair proposes a COMMENT and never an entry, and is idempotent.
+    const applied = JSON.parse(run(dir, `${APPLY} .`, { env }).stdout);
+    assertEq("the apply is not refused", applied.refused, "");
+    assertTrue("it proposes the account's line",
+      applied.applied.includes("identity_map_no_entry_for_account"), JSON.stringify(applied));
+    const map = readFileSync(join(dir, ".claude/git-identities"), "utf8");
+    assertTrue("as a comment", /^# proposed: somebody-else=<canonical-email>/m.test(map), map);
+    assertTrue("so it is not an entry", !/^somebody-else=/m.test(map), map);
+    assertTrue("and the existing entry is untouched", /^tamurayoshiya=a@qmu\.jp$/m.test(map), map);
+
+    run(dir, `${APPLY} .`, { env });
+    const twice = readFileSync(join(dir, ".claude/git-identities"), "utf8");
+    assertEq("a second apply repeats nothing",
+      (twice.match(/proposed: somebody-else/g) || []).length, 1);
+  } finally { cleanup(dir); }
+
+  // THE RESOLUTION ITSELF, with the override unset and `gh` stubbed on PATH — the one case
+  // that covers the `gh api user` line rather than routing around it.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env: ghEnv(dir, "resolved-login") }).stdout);
+    assertEq("with no override the login is resolved from the session",
+      c.identity_map.account.login, "resolved-login");
+    assertEq("and checked against the mapping", c.identity_map.account.checked, true);
+  } finally { cleanup(dir); }
+
+  // NO `gh`, NO NETWORK: the login cannot be resolved, and the check must not then report
+  // the account as fine. A reading that could not be taken is named, never passed.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env: ghEnv(dir, null) }).stdout);
+    assertEq("an unresolvable login leaves the account unchecked",
+      c.identity_map.account.checked, false);
+    assertEq("and raises no problem it cannot stand behind",
+      c.advisories.filter((p) => p.startsWith("identity_map_no_entry_for_account")), []);
+  } finally { cleanup(dir); }
+
+  // The documented problem list stays complete — the ticket's own step 5.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/reference/bootstrap.md"), "utf8");
+  for (const [name, body] of [["SKILL.md §4", skill], ["reference/bootstrap.md", ref]]) {
+    assertTrue(`${name} names the account problem`,
+      /identity_map_no_entry_for_account/.test(body), `${name} does not list it`);
+  }
+  // And the deferred ruling is recorded rather than left open a second time.
+  assertTrue("the ruling on whether identity_map_missing gates `ok` is recorded",
+    /identity_map_missing[\s\S]{0,900}?(does not gate|Neither gates|None of the three gates)/.test(skill),
+    "SKILL.md still defers the gating ruling this ticket owns");
+  assertTrue("and no document still defers it to this ticket",
+    !/belongs to the queued ticket `install-and-audit-the-identity-mapping`/.test(skill + ref),
+    "a document still defers the ruling to the ticket that has now been driven");
 }
 
 // ---------- workaholify: the mapping's coverage audit (2026-08-26) ----------

@@ -385,6 +385,60 @@ word. `scripts/test-workflow-scripts.mjs` fails when the table and either consum
 about a word, or when a consumer acts on one classified `judgement` — the split is a fact a
 change can lose, not a claim in prose.
 
+### Whether a claim branch holds work of its own (`claims_branch_emptiness`)
+
+**A reading, not a verdict word.** It adds no row to the resumability table and is emitted by
+nothing: `claims_superseded` composes it, and what a consumer sees is `superseded` or
+`stranded`. It is recorded here because it is the term that makes those two words mean what
+they say (2026-09-01, issue #788), and because a later change that removed it would leave the
+verdict asserting a fact nobody reads.
+
+`claims_branch_emptiness <base> <ref> [files]` prints one tab-separated line —
+`<verdict>\t<reason>\t<count>\t<bounded comma-joined file list>` — and
+`claims_branch_empty_against_base` is the thin wrapper every existing caller reads, returning
+the first field alone.
+
+| Value | Meaning |
+| ----- | ------- |
+| `true` | the branch's diff against its merge base with the base is empty **outside `.workaholic/`**. The exclusion is the whole precision of the test: the ordinary `superseded` shape is a twin branch that archived the same tickets under its own `archive/<branch>/` directory, so a bare diff would call every genuinely superseded claim stranded |
+| `false` | the branch carries content the base does not have, with the **true count** and the first `WORKAHOLIC_CLAIM_STRANDED_FILES_MAX` (default 5) names. A branch differing in a thousand files reports a count and a few names, never a thousand names into a question |
+| `unknown` | the reading could not be made: `no_args`, `no_ref`, `no_base_ref`, `no_merge_base` (a shallow clone or an unrelated history), `diff_failed` (git itself failed — `git diff --quiet` exits 1 for *differs* and >1 for *failed*, and collapsing the two would report a git error to a person as "this branch holds work") |
+
+**Cost, measured 2026-09-02** on a throwaway repository, 50 readings of a non-empty branch:
+373 ms for the raw derivation, 553 ms through the wrapper, **1484 ms with the file listing**.
+So the listing is **opt-in** — the verdict path runs once per claim per scan and never needs
+it, and only the one consumer that must NAME the files asks.
+
+**Consumers.** `claims_superseded` (the word, at both grains — the whole of the safety
+property); `list-claims.sh` (the word plus the files, for a `stranded` row alone, on
+`claim-mergeability.sh`'s own precedent that the one consumer which must name something reads
+it from the row rather than calling the reader a second time);
+`delete-retired-claim-branch.sh` (the word, re-derived at the moment of the act, as
+`branch_holds_work` / `emptiness_unanswerable`). Nothing else may read it, and nothing may act
+on `unknown`: an absence of a reading licenses no delete.
+
+#### What the narrowing did to every consumer of `superseded`
+
+Narrowing a proof does not delete the rows it stops covering — they become **something else**,
+and the risk of the change lives there rather than in the diff term. Every consumer was walked
+when the term landed (2026-09-01, issue #788) and the walk is recorded here rather than
+re-derived, because a later consumer must be added to this table rather than discovered by a
+reader wondering what happens to it. Hermetic rows pin the ones with observable behaviour
+(`scripts/test-workflow-scripts.mjs`, *drive: superseded narrowed to a branch that is actually
+empty*).
+
+| Consumer | Under `superseded` | Under `stranded` |
+| -------- | ------------------ | ---------------- |
+| `claim.sh` | the row is **stepped over**, so a fresh claim over proved-empty work goes through | refuses `already_claimed`, unchanged. The branch still holds work nobody has ruled on, so claiming over it would strand that work behind a second branch |
+| `plan-units.sh` | the unit's work is named in `resurveyed[]` and driven again | excluded **`claimed_stranded`**, and it enters `resurveyed[]` **never** — re-driving the tickets would put a second copy of the work in flight beside the copy already orphaned |
+| `list-retirable-claims.sh` | a `superseded_only` candidate | **no candidate**, so neither `retire-claim.sh` nor `delete-retired-claim-branch.sh` is ever handed it |
+| `retire-claim.sh` / `delete-retired-claim-branch.sh` | act, re-deriving the proof at the moment of the act | refuse by their own word — `not_superseded:stranded` on the act, `branch_holds_work` / `emptiness_unanswerable` where the emptiness is a gate rather than the row's own evidence |
+| `retry-undelivered.sh` | refuses `not_undelivered:superseded` | refuses `not_undelivered:stranded` — one rule, one word each, nothing special-cased |
+| `catch-up-claim.sh` | not offered (`list-catchable-claims.sh` takes only `report_undelivered` and `queue_drained`) | not offered either, and it carries **no `stranded` bound of its own** — stated rather than implied. That is safe because its act merges the base *into* the branch and pushes; it deletes nothing, so a stranded branch reached by a hand invocation would be brought forward, never lost |
+| `/moderate` `retire-claims` | hands the row to `retire-claim.sh` | **asks its holder** (`stranded-unit:<unit>`) what should happen to the work, and never suggests deleting the branch |
+| `/moderate` `stalled-units` | filters and counts it | filters and counts it, on the same pairing rule — one step asks and the other filters, and either half alone is a defect |
+| `/implement` §7's token | `superseded` does not forbid `ok` | `stranded` does not forbid `ok` either: the branch holds work, but nothing this run drove, and the person who must rule on it is reached by the question above rather than by a token nobody reads |
+
 ### Whether the base still accepts a claim branch (`claim-mergeability.sh`)
 
 A **third vocabulary in the same home** (2026-08-29, mission
@@ -921,6 +975,28 @@ remote branch and reaps the worktree — three acts, each reporting its own word
 `{retired, unit, branch, pull_request, pull_request_closed, remote_branch_deleted,
 worktree_reaped, reason}` and **always exits 0**: a refusal is an answer, and its caller reports
 it rather than dying on it.
+
+**What makes the delete safe is two proofs, not one, and the documents say so since 2026-09-02**
+(ticket `20260831203454-make-the-retirement-s-stated-recovery-true`). The act's own header used
+to offer as recovery that a deleted branch is recoverable from the base's history *because its
+content is on the base — that is what `superseded` means*. It did not mean that. Two separate
+facts are involved and neither implies the other:
+
+- **the unit's tickets are archived on the base** — `claims_archived_on_base` at the batch
+  grain, `claims_mission_landed` or the merged-pull-request lookup at the mission grain;
+- **the branch holds no work** — `claims_branch_empty_against_base`.
+
+The step from the first to the second holds only when a branch carries nothing but its own
+unit's tickets, and the measured branches did not. Since the emptiness term joined the verdict
+the recovery sentence is true **by construction**, and the term must not be removed as redundant
+with the archive test: they answer different questions. **The 403 belongs in the record too** —
+the delete never actually ran against those branches, so this is a near miss rather than a
+history, and repairing the transport without the verdict would have turned a reported nuisance
+into a silent loss on the first tick after the fix. `delete-retired-claim-branch.sh`'s
+`not_on_base` therefore refuses on **both** facts while naming only the first; the word is kept
+rather than renamed because it is a wire string reaching CI annotations, the record reader and
+`/moderate`'s asked-once question key, and renaming it would re-ask every standing question about
+a branch nothing had changed about.
 
 `superseded` has been *reported, never acted on* since it shipped, and that left the claim table
 only ever growing — measured on this repository on 2026-08-27: 7 claims, **4 of them

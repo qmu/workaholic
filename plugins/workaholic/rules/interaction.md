@@ -94,6 +94,24 @@ language.
 names, `<@U…>` tokens, and every URL. Translating a machine word makes it unsearchable and
 breaks the dedup that keys on it.
 
+**And the Japanese must be read on first sight, not decoded** (2026-09-02). Which language a post
+is written in was settled here on 2026-09-01; what good Japanese *is* was not, and the measured
+result was posts composed by translating the English record title word for word, with English word
+order preserved around them, so the post reads as a riddle. The bar is an **outcome a reader can
+check, not a style preference**: *a channel reader must understand what is being asked without
+opening the English record behind the link.* Three rules follow from it — an established technical
+term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the repository's own
+`terms/` entries); the **meaning** of a title is translated, never its words; and a title that
+resists translation is **paraphrased** in plain Japanese rather than transliterated. Measured
+2026-09-02: 「組み立てを止める」 for *fail the build* — a reader cannot tell it means CI — belongs as
+「ビルドが落ちる」; a bare 「形」 for *shape* as 「投稿の型」; 「示せるという判定」 for *demonstrable verdict* as
+「実証できたかどうかの判定」.
+
+Nothing mechanical can check the Japanese a run actually emits: the composition happens at run time
+and never appears in this tree's markdown. What is checkable is that the bar is stated everywhere a
+session reads what to emit, and that is deliberately all this claims — the same limit the language
+rule above already records for itself.
+
 **A session's own reasoning and its run report follow the same rule** — the language the
 repository's `CLAUDE.md` names for the surface it is speaking on, Japanese where it names none.
 A routine's result is read by the same person the channel is read by.

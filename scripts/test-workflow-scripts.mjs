@@ -20685,6 +20685,38 @@ function testPostLanguageRuleShipsWithThePlugin() {
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   assertTrue("the catalog says its English is the instruction, not the wire text",
     /the instruction, never the wire text/.test(catalog), "the catalog leaves its placeholders ambiguous");
+
+  // WHICH LANGUAGE WAS SETTLED; WHAT GOOD JAPANESE IS WAS NOT (2026-09-02, ticket
+  // `20260902042419`). Measured: posts composed by translating the English record title word for
+  // word — 「組み立てを止める」 for *fail the build*, where a reader cannot tell it means CI — with
+  // English word order kept around them, so the post reads as a riddle. The bar goes on every
+  // surface that already carries the language rule, in ONE wording, because four divergent
+  // statements of a style bar is the drift this repository pins its post formats against.
+  const BAR = "**And that Japanese must be read on first sight, not decoded** — the bar is an outcome, not a style preference: *a channel reader must understand what is being asked without opening the English record behind the link.* An established technical term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the repository's own `terms/` entries); the **meaning** of a title is translated, never its words; a title that resists translation is **paraphrased** in plain Japanese rather than transliterated. Measured: 「組み立てを止める」 for *fail the build* belongs as 「ビルドが落ちる」, a bare 「形」 for *shape* as 「投稿の型」, 「示せるという判定」 for *demonstrable verdict* as 「実証できたかどうかの判定」.";
+  for (const id of ["implement", "specificate", "propose", "moderate"]) {
+    const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
+    assertTrue(`/${id} carries the quality bar byte-identically`, cmd.includes(BAR),
+      `${id}: the bar is absent or has drifted from the catalog's wording`);
+  }
+  assertTrue("and so does the catalog, beside the blocks a session copies",
+    catalog.includes(BAR), "the catalog does not carry the bar");
+
+  // The RULE's own home states it too, with the reasoning and the limit the four ceilings do not
+  // repeat. It is deliberately NOT the byte-identical string: `rules/` carries the measurement and
+  // the why, and a ceiling carries the instruction.
+  assertTrue("the always-loaded rules carry the bar as an outcome, not a preference",
+    /must be read on first sight, not decoded/.test(rules)
+      && /without\s+opening the English record behind the link/.test(rules),
+    "rules/interaction.md states no quality bar");
+  for (const worked of ["ビルドが落ちる", "投稿の型", "実証できたかどうかの判定"]) {
+    assertTrue(`the rule carries the worked repair ${worked}`, rules.includes(worked), worked);
+  }
+  // AND THE LIMIT, stated rather than implied: nothing can check the emitted Japanese, because the
+  // composition happens at run time and never appears in this tree. A pin that implied otherwise
+  // would be the false comfort the language rule already refuses for itself.
+  assertTrue("and says plainly what it cannot check",
+    /Nothing mechanical can check the Japanese a run actually emits/.test(rules),
+    "the rule claims more than it can enforce");
 }
 
 

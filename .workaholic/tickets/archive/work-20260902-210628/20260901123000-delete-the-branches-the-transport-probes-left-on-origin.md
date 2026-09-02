@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:30:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -151,3 +152,41 @@ above does not make true — step 4 says so in its own words: **do not mark this
 on the strength of having written the instruction down.** It is `blocked` on that push, by a
 person, and closes the moment `git ls-remote` answers empty. Step 5 (removing the standing ask from
 the mechanism ticket's *Residue* paragraph) is that same person's closing move, or the next run's.
+
+## Final Report
+
+**Step 1 answered the ticket: both refs are already gone.** Re-read on 2026-09-02, pushing
+nothing:
+
+```
+$ git ls-remote origin 'refs/heads/wh-probe-*' 'refs/heads/wk-transport-probe-*'
+(no output)
+```
+
+`wh-probe-20260831194543` and `wk-transport-probe-1788104778` are both absent, and so is
+`work-20260901-144612`, the third residue a later reading added. The ticket's own first step
+names this outcome and what to do with it: *if both refs are already gone, the work is done by
+somebody else — say so, delete the Residue paragraph's standing ask from the mechanism ticket,
+and archive this one.*
+
+- **No executor was chosen and none was needed** (steps 2-4). Nothing was widened: no scheduled
+  job gained the ability to delete a branch it discovered rather than one it was handed, and
+  `delete-retired-claim-branch.sh`'s refusal set is byte-identical.
+- **No new ref was pushed in the course of this work.** The ticket forbids re-probing to
+  re-establish the finding, and nothing here did. (This run *did* probe `refs/claims/*` for the
+  mechanism ticket, under that ticket's own reasoning and in a different namespace; every probe
+  it made was released, confirmed by `git ls-remote origin 'refs/claims/*'` returning empty.)
+- **The mechanism ticket's Residue paragraph no longer asks for a spent act** (step 5): it now
+  says the refs are gone and who settled it, while the **measurements are left exactly as they
+  were** — they are the finding, and they are still the reason nobody should re-probe.
+
+Who deleted them is not recorded anywhere this run can read, and it is not invented here.
+
+### Discovered Insights
+
+- **Insight**: A cleanup ticket whose first step is *check whether it is already done* is worth
+  writing even when the work looks certain. This one cost one read and closed, where the
+  paragraph it was lifted out of would have sent a later reader chasing three branches that no
+  longer exist.
+  **Context**: The pattern generalises to any residue a run records but cannot remove — name it
+  as its own ticket with a re-read as step 1, rather than as a note inside a blocked one.

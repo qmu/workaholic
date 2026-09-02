@@ -2,7 +2,7 @@
 type: Mission
 title: Stop two runs from claiming and driving one unit
 slug: stop-two-runs-from-claiming-and-driving-one-unit
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-30T08:20:09+00:00
 author: a@qmu.jp
@@ -83,3 +83,5 @@ happens, one person is told once, both branches named.
 - 2026-09-02 — ticket archived — 20260830082251-make-the-claim-contend-for-one-ref-per-unit.md
 - 2026-09-02 — ticket archived — 20260830082251-refuse-the-losing-claim-by-its-own-word.md
 - 2026-09-02 — ticket archived — 20260830082251-extend-the-drill-to-prove-the-repair.md
+- 2026-09-02 — ticket archived — 20260901123000-delete-the-branches-the-transport-probes-left-on-origin.md
+- 2026-09-02 — mission achieved — mission.md

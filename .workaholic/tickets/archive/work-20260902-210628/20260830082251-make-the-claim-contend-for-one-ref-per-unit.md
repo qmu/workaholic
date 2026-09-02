@@ -142,9 +142,13 @@ tree byte-identical, and a live race reaches a person through `list-raced-units.
 `/moderate`'s `raced-units` step. Mission acceptance items 2 and 3 are checked on that work;
 this item is the one the transport forbids.
 
-**Residue the measurements have left.** Two undeletable branches on origin, neither matching
-`work-*` nor `release/*` (so no claim scan sees them), neither removable from this container —
-a human, or the CI job that holds `contents: write`, must delete both:
+**Residue the measurements have left — SETTLED 2026-09-02, and the ask below is spent.** Both
+refs, and the third a later reading added (`work-20260901-144612`), are gone from origin,
+confirmed by `git ls-remote` on 2026-09-02 without pushing anything. Nobody need act on the list
+that follows; it is kept because the **measurements** are the finding and are still the reason
+nobody should re-probe. (The standing ask was lifted into
+`20260901123000-delete-the-branches-the-transport-probes-left-on-origin.md`, which records who
+settled it.) The list as it stood:
 
 - `wk-transport-probe-1788104778` → `304652b2` (left by the earlier reading)
 - `wh-probe-20260831194543` → `5b6427654b3c3ad955755e446a3474c81e22cfe8` (left by this one)

@@ -44,7 +44,7 @@ happens, one person is told once, both branches named.
 
 ## Acceptance
 
-- [ ] The claim contends for one ref per unit: the first push wins, the second is refused
+- [x] The claim contends for one ref per unit: the first push wins, the second is refused
       by its own word, and the loser holds no branch, worktree or commit. (#20260830082251-make-the-claim-contend-for-one-ref-per-unit.md)
 - [x] A unit whose content landed through a racing twin reads `superseded` at the mission
       grain from the tree, so the existing retirement path reaches it. (#20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md)
@@ -80,3 +80,4 @@ happens, one person is told once, both branches named.
 - 2026-09-01 — story reported — work-20260901-105657
 - 2026-09-01 — run recorded (+0.6h) — cse_012LjmkqXe5bhzNL5W1UW794
 - 2026-09-01 — story reported — work-20260901-121939
+- 2026-09-02 — ticket archived — 20260830082251-make-the-claim-contend-for-one-ref-per-unit.md

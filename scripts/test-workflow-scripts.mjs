@@ -36785,6 +36785,47 @@ function testNoMustReadPluginReference() {
 }
 T("no command or skill body sends a session to read a plugin file by reference", testNoMustReadPluginReference);
 
+// THE COMMAND CARRIES WHAT THE RUN MUST READ, BYTE-IDENTICAL (2026-09-02, ticket
+// `20260902043747`). The pin above catches a reference phrased as *see `workaholic:notify`,
+// <section>*; it cannot catch a command that tells a run to perform "the `workaholic:notify`
+// lookup" without carrying it, which is the same reach in prose the pattern does not recognise.
+// So the two commands whose runs actually perform the stateless thread lookup carry its
+// paragraphs verbatim, and this asserts the copies have not drifted apart -- exactly as the post
+// formats are pinned. Byte-identical is what keeps two copies from becoming two rules.
+//
+// `/propose` and `/moderate` are deliberately NOT in this list: neither performs the search.
+// The inbound sweep replies on a coordinate it already holds (case 1, no query), and the
+// moderation root is found by a key the tick derives. Inlining a lookup they never run would be
+// three copies of a rule with two readers.
+function testLookupIsCarriedByTheCommands() {
+  const notify = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8");
+  const lines = notify.split("\n");
+  // The model's ordered cases and its two bounds: the lead sentence through the fuzzy-matching
+  // prohibition, taken as a contiguous run so the assertion cannot silently narrow.
+  const start = lines.findIndex((l) => l.startsWith("Finding the thread is **stateless**"));
+  const end = lines.findIndex((l) => l.startsWith("**Fuzzy matching is prohibited by name**"));
+  assertTrue("the lookup's own paragraphs are locatable in workaholic:notify",
+    start > 0 && end > start, `start=${start} end=${end}`);
+  const source = lines.slice(start, end + 1).join("\n");
+
+  for (const id of ["implement", "specificate"]) {
+    const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
+    assertTrue(`/${id} carries the thread lookup byte-identical to workaholic:notify`,
+      cmd.includes(source),
+      `/${id} names the lookup without carrying it, or its copy has drifted from the source`);
+    assertTrue(`/${id} says the copy is pinned rather than a second rule`,
+      /byte-identical/.test(cmd) && /drift to fix, never a second rule/.test(cmd), id);
+  }
+
+  // A COMMAND THAT NEVER RUNS THE LOOKUP DOES NOT CARRY IT, and that is asserted rather than
+  // left to inference: a later contributor extending the list is making a decision, not a fix.
+  for (const id of ["propose", "moderate"]) {
+    const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
+    assertTrue(`/${id} does not carry a lookup it never performs`, !cmd.includes(source), id);
+  }
+}
+T("the routine-fired commands carry the lookup they perform", testLookupIsCarriedByTheCommands);
+
 // THE RUNNER IS THE LAST THING IN THE FILE, AND MUST STAY THERE (2026-09-02, ticket
 // `20260902143137`). Registration is now a `T(…)` call beside each declaration, so it happens
 // in FILE ORDER at module load -- and 115 of the 400 tests are declared BELOW where the old

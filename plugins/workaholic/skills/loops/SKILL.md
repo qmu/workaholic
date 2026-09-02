@@ -63,6 +63,8 @@ already writes through a publish tree, and the clone is what keeps two loops' tr
   running, whether its clone exists, and the last lines of its pane.
 - **`scripts/stop-loops.sh [--only <loop>,…]`** — kill each session; clones stay.
 
+**The trust dialog is answered before the session starts.** A fresh clone whose `.claude/settings.json` carries permission rules makes Claude Code ask *do you trust this folder?* before anything runs, and `--dangerously-skip-permissions` does not answer it — measured 2026-09-02, all three loops parked on it at their first spawn. Claude Code records the answer per project in `~/.claude.json` (`projects.<path>.hasTrustDialogAccepted`), and `spawn-loops.sh` records it for the clone it launches into; a `~/.claude.json` it cannot write refuses the spawn `trust_unwritable` rather than park a session.
+
 **Permission prompts are off in these sessions.** An unattended run never waits for a person
 (`rules/interaction.md`); on this server the sessions are the developer's own, in clones the
 developer owns, and `--dangerously-skip-permissions` is the honest spelling of that contract —

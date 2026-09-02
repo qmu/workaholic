@@ -244,9 +244,15 @@ is only what a line is allowed to prove.
   unit; it is one of the three unit-less writer designs `workaholic:ship` §7 measured and refused.
   Rebasing only *unclaimed* branches would need a staleness rule the claim protocol deliberately
   refuses to have (it reports staleness and never acts on it), and rebasing anything accepts the
-  race knowingly. The drive loop already assigns this repair to its owner: a merge-conflict notice
-  tells the **claim holder** to resolve it, which is the person who knows which side keeps its
-  behaviour.
+  race knowingly. **This step still rebases nothing, and that bound is unchanged** — what changed
+  on 2026-09-02 (mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) is where
+  the repair goes. It used to be assigned to the **claim holder**, and the operator's correction
+  was that this is wrong because a claim holder never comes: parked pull requests read as
+  progress to the loop and as stagnation to them. The repair belongs to the next **`[Implement]`**
+  tick, which attaches the branch's own worktree and **merges** — never rebases, so the race this
+  bullet is about does not arise — through `catch-up-claim.sh` and
+  `settle-stranded-publication.sh`, on this identity's own claim and never a colleague's. Only a
+  hunk the merge itself cannot settle reaches a person, and it reaches them by name.
 - **Aborts**: `gh_unavailable` — conflict state unknown is reported as unknown.
 
 ## 5. `issue-triage` — stale issues, and GitHub↔`.workaholic/` drift
@@ -2808,7 +2814,7 @@ request can see.
 `brake_unreadable`, `brake_<reason>` from the brake, and the candidate reader's own
 `unattributed_unreadable:<reason>` / `identity_unreadable:<reason>`. Each drafts nothing.
 
-## 26. `catchup-blocked` — the conflict the loop looked at and must not resolve
+## 26. `catchup-blocked` — the conflict the loop attempts and cannot settle
 
 ```bash
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-catchup-blocked.sh --tick <id> [--root <repo-root>]
@@ -2822,11 +2828,28 @@ That refusal reached nobody: `/implement` may not ask, and no step of this tick 
 **A branch nothing has attempted is not this question, and that is the whole point of the
 split.** `merge-conflicts` (step 4) reports a pull request GitHub calls conflicted — *nobody
 has looked yet*. This asks about a branch the shared classification rule
-(`ship/scripts/lib/conflict-class.sh`) examined and declared a person's — *the loop looked and
-only you can decide*. Those tell somebody different things, and one word for both is how four
-conflicted pull requests went unread for three days (measured 2026-08-29). So the candidate set
-is the **reading** (`mergeability: content` on the claim row), never the pull request's own
-`mergeable: false`.
+(`ship/scripts/lib/conflict-class.sh`) examined — *the loop looked*. Those tell somebody
+different things, and one word for both is how four conflicted pull requests went unread for
+three days (measured 2026-08-29). So the candidate set is the **reading**
+(`mergeability: content` on the claim row), never the pull request's own `mergeable: false`.
+
+**Since 2026-09-02 the loop ATTEMPTS what this step asks about** (mission
+`resolve-a-conflicted-pull-request-in-the-tick-not-report-it`). The step is unchanged in
+candidate set, key, addressee and cap; what changed is what it may say. `mergeability: content`
+is a **prediction** — `claim-mergeability.sh` computes it with the repository's own
+`.gitattributes` out of reach, so it predicts GitHub rather than the writer — and the next
+`[Implement]` tick now hands the branch to `catch-up-claim.sh`, which merges in a real checkout
+and refuses only on the residue the merge itself could not settle. So the question no longer
+says *this is yours because nothing here will touch it*; it says *the loop has this and only a
+hunk it cannot settle needs you*.
+
+**The cost is that the first sighting may be one hour early**, and it is accepted rather than
+engineered away. The reader cannot tell a `content` branch nobody has attempted from one the
+writer has already refused — the class is identical either way and the branch is byte-identical
+after a refusal, by design. Distinguishing them would need a store this tick must not add. The
+standing rule applies (`retire-claims`' own): **an over-eager question beats a silently dropped
+one**, and the over-eagerness here is bounded to one tick, because after that attempt the
+refusal is real.
 
 **Which sibling it follows, on each axis.** Whose question: `undelivered-units`' — the claim
 **holder** drove this unit and knows which side of the conflict keeps its behaviour, which is
@@ -2872,14 +2895,18 @@ and nothing written anywhere but its own tick-log line.
 
 - **Heading** — *`<unit>` is finished, `main` has moved under it, and both sides changed the
   same files*, then the branch, the pull request, and the colliding files by name.
-- **Body** — the one act: *decide which side keeps its behaviour and merge `main` in.*
-- **And it says why this one is yours** (2026-09-01, ticket `20260901082633`): the loop clears
-  the other class itself — `catch-up-claim.sh` on a claim, `settle-stranded-publication.sh` on a
-  publication, both from `/implement` — so this question is the residue that reaches a person,
-  not the whole of what conflicts. Step 6's `conflict` row now names both actors generically,
-  and this one names the class it read. One voice, two grains.
+- **Body** — the one act: *the loop merged `main` in and could not settle this hunk; decide
+  which side keeps its behaviour.*
+- **And it says why this one is yours** (2026-09-01, ticket `20260901082633`; rewritten
+  2026-09-02): the loop **attempts every class** — `catch-up-claim.sh` on a claim,
+  `settle-stranded-publication.sh` on a publication, both from `/implement`, and since
+  2026-09-02 `content` among them — so this question is the residue **left after the merge
+  itself could not settle a hunk**, not a class the loop declined to touch. The body must say
+  that the loop tried: *this is yours because the merge could not settle it*, never *this is
+  yours because nobody here may push to your branch*, which is the sentence the operator
+  corrected and which is now false.
 - **Never alone**: `content_conflict`, `mechanical`, `clean`. The distinction this question
-  rests on — *the loop looked and only you can decide*, against `merge-conflicts`' *nobody has
+  rests on — *the loop tried and only you can decide*, against `merge-conflicts`' *nobody has
   looked yet* — has to be in the sentence, because the two questions are otherwise about the
   same pull request and a reader cannot tell them apart from the identifier.
 

@@ -210,7 +210,7 @@ needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
         b = $0; sub(/.*"blocked_by": "/, "", b); sub(/".*/, "", b)
         u = $0; sub(/.*"url": "/, "", u); sub(/".*/, "", u)
         decision = "a human decision"
-        if (b == "conflict") decision = "a generated-index conflict is cleared by the catch-up on the next [Implement] tick; a real content collision belongs to the claim holder, and nobody else may push to that branch"
+        if (b == "conflict") decision = "the next [Implement] tick attempts this conflict itself and merges what it settles; only a hunk that merge cannot settle needs a person, and it says so by name"
         else if (b == "review") decision = "a required review or gate is unsatisfied — somebody must review it"
         else if (b == "checks") decision = "a check is failing — the author must fix it or say it is expected"
         else if (b == "draft")  decision = "it is still a draft — the author must mark it ready or close it"

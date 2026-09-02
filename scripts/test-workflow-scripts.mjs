@@ -27658,8 +27658,20 @@ esac
     // Step 6: one reminder per distinct state, and the decision is named per row.
     let s6 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
     assertEq("both stuck pull requests are reported", s6.needs_agent.length, 2);
-    assertTrue("the conflicted one names the claim holder as the decision",
-      s6.needs_agent.find((n) => n.pull === 12).decision.includes("claim holder"), JSON.stringify(s6.needs_agent));
+    // THE CONFLICT ROW NO LONGER HANDS THE CONFLICT TO A PERSON (2026-09-02, mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`). This row asserted the
+    // opposite — that the decision text names the "claim holder" — and that sentence is exactly
+    // what the operator corrected: a claim holder never comes, so a conflict said to be theirs
+    // is a conflict nobody resolves. The loop now attempts every conflict class itself; only a
+    // hunk the merge cannot settle reaches a person, and it says so.
+    //
+    // ASSERTED IN BOTH DIRECTIONS, because the positive half alone would pass a sentence that
+    // named the next tick AND still told the holder it was theirs.
+    const conflictDecision = s6.needs_agent.find((n) => n.pull === 12).decision;
+    assertTrue("the conflicted one names the acting tick, not a person to hand it to",
+      /\[Implement\]/.test(conflictDecision), conflictDecision);
+    assertTrue("and no longer defers the conflict to the claim holder",
+      !/claim holder/.test(conflictDecision), conflictDecision);
     assertTrue("the blocked one names the review", s6.needs_agent.find((n) => n.pull === 13).decision.includes("review"));
     // NO POST KEY LEAVES THIS STEP any more (2026-08-19): the 🔧 root it used to key is
     // retired, so the top-level `key` is empty and the state rides an `ask_key` into step

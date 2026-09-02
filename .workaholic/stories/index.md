@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260902-215723](work-20260902-215723.md) - Made the layout classifier read the repository root instead of the absolute path's text, and repaired the same defect in the mission root deriver
 * [work-20260902-212324](work-20260902-212324.md) - Repaired the drill that guards the tick log's move off main — it had looked for the ref's scripts in the wrong directory and exited skipped on every run since it was written
 * [work-20260902-203617](work-20260902-203617.md) - Ask who wanted this — one reader over the subject axis, three refusals (`self_authored`, `self_refining`, `only_the_loop_spoke`), and the rule stated once instead of re-derived
 * [work-20260902-200652](work-20260902-200652.md) - Verified the base walk already passes a checkless tip, said where the colour was read on both report surfaces, and gave the drill's two new assertions their blame rows

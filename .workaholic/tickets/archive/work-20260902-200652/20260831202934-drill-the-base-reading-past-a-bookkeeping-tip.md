@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:29:34+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -70,3 +71,42 @@ the behaviour, which is what lets `/moderate`'s `drill-health` step name it.
   check runs, and the reader's own limit (check runs only, never legacy commit statuses) is
   untouched by this mission and stays stated where it already is.
 - Reuse whatever seeder the first ticket's reproduction built rather than writing a second one.
+
+## Final Report
+
+Development completed as planned, with one deliberate departure from step 1 that the ticket's own
+Considerations already called for: **the assertions were added to `verify-base-health` rather than
+to a new `verify-*` arm.** That drill already seeds exactly the fixture this behaviour needs — a
+bare origin, a five-commit base and a per-commit `gh` stub answering out of a fixture directory —
+and "reuse whatever seeder the first ticket's reproduction built rather than writing a second one"
+is what the ticket asks for. A second arm would have been a second seeder for one mechanism, and
+the register's own rule (one drill, one breaker, one mission) reads worse split in two.
+
+What the drive found already present, and verified rather than rewrote:
+
+- `base_health_walks_past_a_checkless_tip` — a tip nothing ran on resolves to the newest checked
+  ancestor, and the verdict names that commit (`checked_at` == `last_green`, != `tip`) and its
+  distance (`checked_behind: 2`).
+- `base_health_only_no_checks_is_walked_past` — an unanswerable that is a fact about **us** stays
+  terminal and names no checked ancestor.
+- The two controls the ticket names are the drill's existing rows: a checked tip
+  (`base_health_reads_green` / `_reads_red_with_names`) and the bound
+  (`base_health_unattributable_tail`).
+
+What this drive wrote:
+
+- The blame table in `docs/loop-drill-runbook.md` gained a row per new assertion — the
+  failure-reason to file mapping step 5 asks for, each written against the behaviour and naming
+  the measured failure it guards.
+- The runbook's operator-procedure line and the drill's own `WHAT IT PROVES` header now name the
+  bookkeeping tip, so the drill's coverage is legible before reading its body.
+- No matrix leg was added, and none was needed: `loop-drills.yml` derives its matrix from
+  `verify-all --list --kind hermetic`, and `verify-base-health` is already in it as `hermetic`
+  with `Breaker: yes`.
+
+### Discovered Insights
+
+- **Insight**: The register's breaker column is a fact about the drill, not about each assertion.
+  **Context**: Adding load rows to a drill that already carries a breaker keeps it `proved`; a
+  reverted walk turns the two new load rows red and fails the drill just the same, which is the
+  ticket's "reverting the walk change turns the drill red" criterion without a second breaker.

@@ -2,7 +2,7 @@
 type: Mission
 title: Retire a claim whose work is finished or abandoned
 slug: retire-a-claim-whose-work-is-finished-or-abandoned
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-02T06:28:07+00:00
 author: a@qmu.jp
@@ -45,7 +45,7 @@ stuck work. What is reported as stuck is only what somebody could still act on.
       from the tree, and CI deletes its branch. (#20260902062857-name-a-claim-whose-mission-ended-as-a-retirement-candidate.md)
 - [x] A claim whose pull request is closed, or whose mission is not active, is filtered
       out of the stuck-work questions and counted instead. (#20260902062857-filter-a-retired-by-definition-claim-out-of-the-stuck-work-questions.md)
-- [ ] Both readings are drilled offline and stated where the claim vocabularies are read. (#20260902062857-drill-the-two-retirement-readings-offline.md)
+- [x] Both readings are drilled offline and stated where the claim vocabularies are read. (#20260902062857-drill-the-two-retirement-readings-offline.md)
 
 ## Changelog
 
@@ -53,3 +53,5 @@ stuck work. What is reported as stuck is only what somebody could still act on.
 - 2026-09-02 — ticket archived — 20260902062857-read-a-claim-s-mission-status-from-the-tree.md
 - 2026-09-02 — ticket archived — 20260902062857-name-a-claim-whose-mission-ended-as-a-retirement-candidate.md
 - 2026-09-02 — ticket archived — 20260902062857-filter-a-retired-by-definition-claim-out-of-the-stuck-work-questions.md
+- 2026-09-02 — ticket archived — 20260902062857-drill-the-two-retirement-readings-offline.md
+- 2026-09-02 — mission achieved — mission.md

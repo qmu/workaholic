@@ -6,6 +6,7 @@ depends_on:
 mission: take-the-moderation-tick-s-log-off-main
 merge_policy:
 verification_handoff: 
+claim: work-20260903-013925
 ---
 
 # Refuse the base as a destination in the tick log writer

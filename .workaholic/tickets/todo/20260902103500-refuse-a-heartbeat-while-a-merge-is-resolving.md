@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260903-013925
 ---
 
 # Refuse a heartbeat while a merge is resolving

@@ -1,7 +1,34 @@
 #!/bin/sh
-# Check if a "Bump version" commit already exists in the current branch
+# Check whether this branch has bumped the version, AND whether the number it bumped to is
+# still ahead of the base.
 # Usage: check-version-bump.sh [<base-ref>]
-# Output: JSON — {ok, already_bumped, base, reason}
+# Output: JSON — {ok, already_bumped, version_ahead, branch_version, base_version, base, reason}
+#
+# ═══ TWO QUESTIONS, BECAUSE ONE OF THEM WAS NEVER ASKED ══════════════════════════════
+# `already_bumped` answers *did this branch make a bump commit*. That is true of the branch and
+# says nothing about **which number it landed on** — and when several branches are cut from one
+# base, each bumps `N -> N+1` and each is individually right. The first to merge takes `N+1`;
+# every later squash then contains its own bump commit whose CONTENT is already the value the
+# base holds, so it produces **no version diff at all** and nothing anywhere reports it.
+#
+# MEASURED on this repository's `main`, 2026-09-02 — five consecutive merges, two versions:
+#
+#   #896 Resolve a conflicted pull request in the tick -> 1.0.285
+#   #897 Settle a claim race at the remote            -> 1.0.285
+#   #898 Take the moderation tick's log off main      -> 1.0.285
+#   #894 Read the base's colour past a bookkeeping tip-> 1.0.284
+#   #895 Refuse an ask the loop wrote to itself       -> 1.0.284
+#
+# `.claude-plugin/marketplace.json` is what a consumer installs from and CI publishes a Release
+# per version, so a published `1.0.285` and a `main` carrying two further merges are different
+# trees under one number. Nothing is broken; what is lost is the ability to say which code a
+# version is. Since 2026-09-02 (`/spawn-loops`, three loops plus the developer's own sessions)
+# concurrent branches are the normal state, so this is what the rule produces rather than a slip.
+#
+# `version_ahead` IS THREE-VALUED and its unknown is a real third answer: an unreadable manifest
+# on either side answers `null` with a reason, never `false`. The caller's rule is the same
+# direction the base resolution already takes — **bump when unsure**, because a redundant bump is
+# a no-op commit a human drops while a skipped one ships changes on a spent number.
 #
 # THE BASE IS RESOLVED, NEVER DEFAULTED TO LOCAL `main` (2026-08-18). This asks
 # "has THIS branch already bumped?", so the answer is only as good as the ref the
@@ -33,11 +60,46 @@ set -eu
 
 SCRIPT_DIR=$(dirname "$0")
 
+# THE MANIFEST IS THE SOURCE OF TRUTH, and it is read at exactly one path here — the same one
+# CLAUDE.md's *Version Management* names first. The three files that follow it are checked by
+# `validate-metadata.mjs`, so a second reader of a second file would be a second answer.
+MANIFEST=".claude-plugin/marketplace.json"
+
+_version_at() { # $1 = a git revision, or "" for the working tree
+  if [ -z "${1:-}" ]; then
+    [ -f "$MANIFEST" ] || { printf ''; return 0; }
+    sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" | sed -n '1p'
+  else
+    git show "$1:$MANIFEST" 2>/dev/null \
+      | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n '1p'
+  fi
+}
+
+# GREATER, NOT MERELY DIFFERENT. A branch cut from a base that has since moved PAST it must bump
+# again; one whose number equals the base's must too. Compared field-wise as integers so
+# `1.0.9` < `1.0.10`, which a string compare gets wrong.
+_version_gt() { # $1 > $2 ?
+  printf '%s\n%s\n' "$1" "$2" | awk -F. '
+    NR == 1 { split($0, a, ".") ; next }
+    { split($0, b, ".") }
+    END {
+      for (i = 1; i <= 3; i++) {
+        x = a[i] + 0; y = b[i] + 0
+        if (x > y) { print "true"; exit }
+        if (x < y) { print "false"; exit }
+      }
+      print "false"
+    }'
+}
+
 emit() {
   cat <<EOF
 {
   "ok": $1,
   "already_bumped": $2,
+  "version_ahead": ${5:-null},
+  "branch_version": "${6:-}",
+  "base_version": "${7:-}",
   "base": "$3",
   "reason": "$4"
 }
@@ -77,8 +139,19 @@ fi
 # prose about a commit, never the commit itself.
 COUNT=$(git log "${BASE}..HEAD" --format=%s | grep -c '^Bump version' || true)
 
-if [ "$COUNT" -gt 0 ]; then
-  emit true true "$BASE" ""
+BRANCH_V=$(_version_at "")
+BASE_V=$(_version_at "$BASE")
+if [ -z "$BRANCH_V" ] || [ -z "$BASE_V" ]; then
+  # UNREADABLE IS NOT `false`, and it is not `true` either. The caller bumps when unsure.
+  AHEAD=null
+  AHEAD_REASON="manifest_unreadable"
 else
-  emit true false "$BASE" ""
+  AHEAD=$(_version_gt "$BRANCH_V" "$BASE_V")
+  AHEAD_REASON=""
+fi
+
+if [ "$COUNT" -gt 0 ]; then
+  emit true true "$BASE" "$AHEAD_REASON" "$AHEAD" "$BRANCH_V" "$BASE_V"
+else
+  emit true false "$BASE" "$AHEAD_REASON" "$AHEAD" "$BRANCH_V" "$BASE_V"
 fi

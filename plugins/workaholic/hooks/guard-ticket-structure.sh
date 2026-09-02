@@ -56,7 +56,7 @@ for p in $paths; do
   [ -z "$p" ] && continue
 
   # Path relative to the tickets root, then its top-level segment.
-  rel=${p#*.workaholic/tickets/}
+  rel=${p##*.workaholic/tickets/}
   [ -z "$rel" ] && continue
   [ "$rel" = "$p" ] && continue
   first=${rel%%/*}

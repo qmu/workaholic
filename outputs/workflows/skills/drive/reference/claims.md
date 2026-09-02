@@ -860,6 +860,99 @@ origin:
   confirming the ref **survives** both. So the release is refused in the one namespace whose
   create is permitted, measured here rather than carried over from the branch-delete row.
 
+**AND THAT MEASUREMENT IS THE CLOUD ROUTINE'S, NOT THE REPOSITORY'S** (2026-09-02, mission
+`stop-two-runs-from-claiming-and-driving-one-unit`). Every probe above was taken **from a
+routine-fired container**, whose proxy is what answers 403 — a fact the readings state and which
+stopped mattering the day the loop moved onto the developer's own server (`loops`,
+2026-09-02). Re-measured there, over SSH, against this same origin:
+
+- `refs/claims/*` create → `* [new reference]`, confirmed by `ls-remote`;
+- the **create-only lease** (`--force-with-lease=<ref>:`, empty expected value = *must not
+  exist*) → a second push on the same ref is `! [rejected] … (stale info)` and the ref keeps the
+  winner's value;
+- compare-and-swap on the known value → accepted;
+- **delete** → `- [deleted]`, `ls-remote` empty.
+
+No residue was left by any of it. **Both readings are true of their own environment**, so the
+mechanism does not choose between them: it tries, and a refusal is reported as `unavailable`
+rather than treated as a stop.
+
+### The arbitration, as built
+
+`drive/scripts/claim-arbitrate.sh` — `take` / `release` / `reap` / `refname`, exit 0 in every
+case. `claim.sh` §3b runs it **after** the oracle's refusal and **before** the worktree exists,
+which is what makes the mission's Experience true: a loser "stops within its survey, having
+written nothing".
+
+**The ref is derived from the ARTIFACTS, not from the unit id.** The ticket proposed the unit
+id; that reaches one grain only, because `claim.sh` mints `batch-<timestamp>` **inside** the
+claim act, so two runners racing over the same tickets would push two different unit-keyed refs
+and both would still win — the defect, one layer down. The artifacts are what two racing runners
+actually share and what §3's existing overlap refusal already keys on, so **one ref per
+artifact** settles both grains: `refs/claims/artifact/<sanitised repo-relative path>`.
+
+**The value must be unique per claimant**, and that cost a real bug: git treats a push of the
+value a ref already holds as `Everything up-to-date` and exits 0, so with a shared base sha two
+successive takes both answered `won` (measured 2026-09-02). Each `take` now mints one commit of
+its own and pushes that, so the lease genuinely arbitrates.
+
+**All or nothing.** A take wins every ref or releases what it won and answers `lost`; a partial
+hold is the race with extra steps.
+
+**Where the locks are released**, named per path, because *a ref nothing deletes makes an
+artifact claimable exactly once, forever*:
+
+| Path | How |
+| ---- | --- |
+| a claim that fails after winning | `claim.sh`'s `arb_release`, folded into `abort_claim` |
+| `release-claim.sh` | explicit, from the claim row's own artifact list |
+| `retire-claim.sh` | explicit, from the same row |
+| **the merge**, which releases a claim by definition and runs nothing in the container | the arbiter's **reap**: a lock no live claim stands behind (the oracle decides) **and** older than `WORKAHOLIC_CLAIM_ARBITER_STALE_MINUTES` (default 10). Both terms are required — between winning a lock and pushing the branch there are seconds in which the first is true of a perfectly healthy claim, and the age is what keeps the sweep from eating it |
+
+The reap is run by `claim.sh` **lazily**, only when a take is lost, then the take is retried
+once: the ordinary claim pays nothing, and a leak cannot make an artifact permanently
+unclaimable. **The residual cost, stated**: a process killed between winning a lock and pushing
+its branch leaves a lock the next lost take sweeps — seconds of exposure against an hour of
+duplicated driving.
+
+### `claim_race_lost` — the losing claim's own word
+
+Beside `resume_race_lost`, whose shape it follows, and **the claim act's vocabulary rather than
+the oracle's**: `lib/claims.sh` emits nothing new for it and the proofs-and-judgements tables do
+not move.
+
+**It is distinct from the two words it could have been folded into, and the distinction is the
+next action.** `branch_collision` means *two units minted one name inside one second — retry the
+same claim*; `push_failed` means *the remote did not take it*. A lost race is neither: it is the
+protocol **working**, and the runner should **survey again** rather than retry this claim. One
+word answering two next actions is what makes a state invisible — the precedent is
+`report_undelivered` beside `queue_drained`.
+
+**It is emitted only when the contended ref's create was refused BECAUSE THE REF EXISTS.** The
+arbiter classifies the push's own output: a rejected lease is `lost`, and any transport refusal —
+a proxy 403, an unreachable remote — is `unavailable`, which is not a refusal at all and lets the
+claim proceed. Collapsing them would tell a runner the protocol worked when the remote was simply
+out of reach.
+
+**The refusal is re-derived at the moment of the act**: the losing push *is* the evidence, never
+a reading handed in from the survey.
+
+**The loser holds nothing, by placement rather than by teardown.** §3b runs before §4 creates the
+worktree, so on `claim_race_lost` there is no `.worktrees/<unit-id>/`, no local `work-*` branch
+and no claim commit to unwind, and nothing of the loser reaches origin. Its next survey sees the
+winner's pushed branch and excludes the unit as an ordinary `already_claimed`.
+
+**What the refusal can and cannot name.** It carries `held_by_ref` — the contended ref — and
+`stale_lock`, which says the oracle knew of no claim behind that lock at that instant. It does
+**not** name the winner's branch, and does not guess one: the winner pushes moments after
+arbitrating, so at that instant the branch does not exist yet. `/moderate`'s `raced-units`
+question is what names both branches, once both exist.
+
+**`claims_scan` reads `work-*` refs and nothing else.** The contended ref is the **arbiter**,
+not a second oracle; no reader consults it, no verdict word was added, and the
+proofs-and-judgements tables do not move. The losing claim's own refusal — `claim_race_lost`,
+the claim act's vocabulary rather than the oracle's — is below, beside `resume_race_lost`.
+
 So the only writable namespace is the one the branch-name gate holds to two literal patterns,
 and a ref there could never be released either (the delete is the same 403, now measured on
 both transports), which is the condition the repair must not create: *a ref nothing deletes

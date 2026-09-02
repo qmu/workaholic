@@ -32,10 +32,15 @@
 #   5. commit the claim (fixed subject, `Unit: <unit-id>` trailer) and push -u at once.
 #
 # Output: {"claimed": true, "unit": "...", "branch": "work-...", "worktree_path": "...",
-#          "artifacts": [...], "announced": bool, "announce_reason": "..."}
+#          "artifacts": [...], "announced": bool, "announce_reason": "...",
+#          "arbitrated": bool, "arbitration_reason": "..."}
 #     or: {"claimed": false, "reason": "...", ...} on stderr with a non-zero exit.
-# Refusal reasons: already_claimed (names the holding branch and unit), no_origin,
+# Refusal reasons: already_claimed (names the holding branch and unit), claim_race_lost
+# (another runner won the unit's arbitration at the remote -- §3b), no_origin,
 # origin_unreachable, mission_missing, artifact_missing, no_frontmatter, push_failed.
+#
+# `arbitrated` says whether §3b's remote arbitration ran and was won; `arbitration_reason`
+# names why it did not where it could not (a cloud routine's proxy refuses the ref write).
 #
 # NEVER PROMPTS. It is the coordination step of an unattended runner.
 #
@@ -397,6 +402,76 @@ $rows
 EOF
 fi
 
+# --- 3b. Win the arbitration BEFORE anything is written --------------------
+# THE RACE IS SETTLED AT THE REMOTE, NOT BY TWO CLOCKS (2026-09-02, mission
+# `stop-two-runs-from-claiming-and-driving-one-unit`). §3 above asks the oracle, which reads
+# pushed `work-*` branches — so it cannot see a runner that has surveyed and not yet pushed.
+# MEASURED 2026-08-30: `work-20260830-055314` and `work-20260830-055318` were both claimed for
+# one unit four seconds apart and each drove the same four tickets for over an hour.
+#
+# IT SITS HERE, BEFORE §4, ON PURPOSE. The mission's Experience says the loser "stops within
+# its survey, having written nothing — no branch, no worktree, no archive", and where the
+# contention is inserted is what decides that. Arbitrating after the worktree exists would
+# leave the loser a teardown to get right; arbitrating here leaves it nothing to tear down.
+#
+# A REFUSAL IS NOT A STOP. Where the transport refuses the ref write — every routine-fired
+# cloud container, measured twice — this answers `unavailable` and the claim proceeds exactly
+# as it did before the mechanism existed, with `archive.sh`'s re-derivation and `/moderate`'s
+# `raced-units` question as the bounded-later repair. The answer rides the success payload so
+# a reader can tell an arbitrated claim from an unarbitrated one.
+arbitrated=false
+arbitration_reason=""
+arb_refs=""
+ARBITER="${SCRIPT_DIR}/claim-arbitrate.sh"
+if [ -f "$ARBITER" ]; then
+    arb_out=$(sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
+    arb_state=$(printf '%s' "$arb_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
+    # A LOST TAKE IS SWEPT ONCE, LAZILY, AND ONLY THEN RE-TRIED. Reaching here means §3's
+    # oracle saw no claim, so a standing lock is either the seconds-long window between a
+    # winner's arbitration and its push (healthy — the reap's age term protects it) or a leak
+    # from a run that died inside it. Sweeping only on a lost take keeps the ordinary claim at
+    # zero extra reads, and re-trying once is what stops a leak making an artifact claimable
+    # exactly once, forever.
+    if [ "$arb_state" = "lost" ]; then
+        sh "$ARBITER" reap >/dev/null 2>&1 || true
+        arb_out=$(sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
+        arb_state=$(printf '%s' "$arb_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
+    fi
+    case "$arb_state" in
+        won)
+            arbitrated=true
+            arb_refs="$artifact_rels"
+            ;;
+        lost)
+            # ITS OWN WORD, distinct from `branch_collision` (two units minted one name in one
+            # second — retry) and from `push_failed` (the remote did not take it). A lost race
+            # is the protocol WORKING: the runner should survey again, not retry this claim.
+            # The winner's BRANCH is deliberately not guessed — it is pushed moments after the
+            # arbitration, so at this instant only the contended ref is knowable; `/moderate`'s
+            # `raced-units` names both branches once both exist.
+            _arb_held=$(printf '%s' "$arb_out" | sed -n 's/.*"held_by_ref": "\([^"]*\)".*/\1/p')
+            _arb_stale=$(printf '%s' "$arb_out" | sed -n 's/.*"stale_lock": \([a-z]*\).*/\1/p')
+            fail "claim_race_lost" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "detail": "another runner won this unit'"'"'s arbitration at the remote; nothing was written here -- survey again"'
+            ;;
+        *)
+            arbitration_reason=$(printf '%s' "$arb_out" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+            [ -n "$arbitration_reason" ] || arbitration_reason="arbiter_unreadable"
+            ;;
+    esac
+else
+    arbitration_reason="no_arbiter_script"
+fi
+
+# Give the locks back on any later failure. A won arbitration whose claim never published is
+# exactly the leak the mechanism must not create, and this run is the only thing that knows
+# it happened.
+arb_release() {
+    [ "$arbitrated" = "true" ] || return 0
+    [ -n "${arb_refs:-}" ] || return 0
+    sh "$ARBITER" release $arb_refs >/dev/null 2>&1 || true
+    arbitrated=false
+}
+
 # --- 4. Create the unit's worktree + branch --------------------------------
 # The sanctioned creator: it cuts from the FETCHED origin/main, mints the canonical
 # work-* branch name, and reports the worktree's real HEAD. The worktree directory is
@@ -426,6 +501,7 @@ fi
 # because this script knows which paths it touched and wrote them seconds ago; anything
 # else in the worktree still stops the cleaner, as it should.
 abort_claim() {
+    arb_release
     if [ -n "${worktree_path:-}" ] && [ -d "$worktree_path" ]; then
         for _ac_rel in ${artifact_rels:-}; do
             git -C "$worktree_path" checkout -- "$_ac_rel" >/dev/null 2>&1 || true
@@ -562,8 +638,8 @@ case "$announced" in
     *) announced=false; announce_reason="notifier_failed" ;;
 esac
 
-printf '{"claimed": true, "unit": "%s", "branch": "%s", "worktree_path": "%s", "announced": %s, "announce_reason": "%s", "artifacts": [' \
-    "$unit" "$branch" "$worktree_path" "$announced" "$announce_reason"
+printf '{"claimed": true, "unit": "%s", "branch": "%s", "worktree_path": "%s", "announced": %s, "announce_reason": "%s", "arbitrated": %s, "arbitration_reason": "%s", "artifacts": [' \
+    "$unit" "$branch" "$worktree_path" "$announced" "$announce_reason" "$arbitrated" "$arbitration_reason"
 sep=""
 for rel in $artifact_rels; do
     printf '%s"%s"' "$sep" "$rel"

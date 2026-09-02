@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260902-073545](work-20260902-073545.md) - Write down the routine record field by field, build its request body in one place, and give the environment resolution a rule and a named refusal
 * [work-20260902-070115](work-20260902-070115.md) - Stated the natural-Japanese quality bar on every surface a session reads what to emit from, in one wording pinned byte-identical across five files
 * [work-20260902-054507](work-20260902-054507.md) - Made a survey run under a placeholder git identity say so and forbid ok, and made the bootstrap audit the mapping lookup its own hook actually performs
 * [work-20260901-144612](work-20260901-144612.md) - Measured that the transport refuses the delete of a live claim branch too, so the leaked-ref objection to the named mechanism is a reading rather than a forecast

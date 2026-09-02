@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 feedback: [20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -55,3 +55,4 @@ resolve an environment says so by name, and still renders no setup sheet.
 - 2026-09-02 — ticket archived — 20260821150359-build-the-routine-api-body-in-one-place.md
 - 2026-09-02 — ticket archived — 20260821150359-state-the-environment-rule-and-its-named-refusal.md
 - 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.6h) — work-20260902-073545

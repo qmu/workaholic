@@ -21725,6 +21725,48 @@ function testOneSessionLoop() {
   const receipt = (t) => { const m = t.match(/```\n(📥 受理 [^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
   assertTrue("the tick carries the receipt with a reply line", receipt(tick) !== "", "missing from infinite-development.md");
   assertEq("and the catalog carries it byte-identically", receipt(catalog), receipt(tick));
+
+  // THE FINISH LINE FOR AN ASK THAT LANDED OUTSIDE A UNIT (2026-09-03, mission
+  // `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). The shape and every
+  // bound stated with it live in two files, and the two must not drift by one byte: the catalog
+  // decides the shape, the command is the ceiling a routine-fired session actually reads.
+  const finish = (t) => {
+    const i = t.indexOf("```\n🟢 Implemented [<ask title>](<issue url>)");
+    if (i < 0) return "";
+    const j = t.indexOf("never a second wording.\n", i);
+    return j < 0 ? "" : t.slice(i, j + "never a second wording.\n".length);
+  };
+  assertTrue("the tick carries the outside-a-unit finish line", finish(tick) !== "",
+    "missing from infinite-development.md");
+  assertEq("and the catalog carries it byte-identically", finish(catalog), finish(tick));
+
+  // NO FIFTH FINISH COLOUR. The shape reuses 🟢 Implemented and is marked by its sentence —
+  // the precedent `thread-reconcile` set — so a channel reader's vocabulary does not grow.
+  assertTrue("the shape reuses the green circle rather than minting a colour",
+    /reuses `🟢 Implemented`/u.test(finish(tick)), finish(tick).slice(0, 200));
+
+  // THE BOUNDS ARE STATED WITH THE SHAPE, not left to a reader to infer. Each is a refusal.
+  for (const [what, re] of [
+    ["no mention token", /No mention token/],
+    ["a reply and never a root", /A reply, never a root/],
+    ["once ever per item", /Once ever per item/],
+    ["the connector as the only transport", /The connector carries it, and nothing else does/],
+    ["an unresolvable field stated as unresolved", /stated as unresolved/],
+  ]) assertTrue(`the shape states ${what}`, re.test(finish(tick)), what);
+
+  // THE READER EMITS NO UNCLASSIFIED OUTCOME WORD, the pattern the claim vocabularies use:
+  // every word the tick may report for a candidate is named in the ceiling, and the ceiling
+  // names no word the run has no way to produce.
+  const OUTCOMES = ["announced", "already_announced", "thread_unresolved", "post_failed", "held",
+    "no_candidates"];
+  for (const w of OUTCOMES)
+    assertTrue(`the ceiling names the outcome ${w}`, tick.includes(w), w);
+  const reader = readFileSync(
+    P("plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"), "utf8");
+  for (const w of ["stems_unresolvable", "timeline_unreadable", "gh_unavailable",
+    "slug_unresolved", "list_failed"])
+    assertTrue(`the reader's own word ${w} is documented in its header`,
+      reader.split("set -eu")[0].includes(w), w);
 }
 
 

@@ -96,7 +96,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
 
 LIMIT="${WORKAHOLIC_ANNOUNCE_CLOSED_MAX:-10}"
 LANDED_MAX="${WORKAHOLIC_ANNOUNCE_LANDED_MAX:-5}"

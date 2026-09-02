@@ -2,7 +2,7 @@
 type: Mission
 title: Announce an ask that landed outside a unit route in its own thread
 slug: announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T05:27:53+09:00
 author: a@qmu.jp
@@ -52,3 +52,5 @@ posts nothing, and a reading the tick could not make leaves the thread alone.
 - 2026-09-03 — ticket archived — 20260903052915-state-the-finish-line-for-an-ask-that-landed-outside-a-unit.md
 - 2026-09-03 — ticket archived — 20260903052915-post-the-finish-line-from-the-tick-once-per-ask.md
 - 2026-09-03 — ticket archived — 20260903052915-hold-the-tick-silent-where-it-cannot-see.md
+- 2026-09-03 — ticket archived — 20260903052915-pin-the-finish-line-shape-and-update-the-documents.md
+- 2026-09-03 — mission achieved — mission.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T05:29:15+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -69,3 +70,27 @@ untrue, in the same change — an outdated document is a defect here, not a foll
 
 - The pinning reaches the shape and not the behaviour; whether a run actually posts is checkable
   by nothing, and this repository already says so about the Japanese rule.
+
+## Final Report
+
+Development completed as planned. `testOneSessionLoop` — where the tick's other two shapes are
+already pinned — now extracts the finish-line region from both files and asserts them
+byte-identical, plus the five bounds stated with the shape and the refusal to mint a fifth
+colour. Beside it, the outcome vocabulary is pinned in both directions: every word the tick may
+report for a candidate is named in the ceiling, and every reason word the reader emits is
+documented in the reader's own header.
+
+`skills/loops/SKILL.md`, `CLAUDE.md`'s *Loops* section and `README.md`'s
+`/infinite-development` row all describe the announce step. `outputs/` is regenerated;
+`build.mjs`, `verify.mjs` and `validate-metadata.mjs` pass, the suite is at 6361/0, and
+`verify-announced-asks` passes with 8 load-bearing rows and its breaker.
+
+### Discovered Insights
+
+- **Insight**: The vocabulary pin is worth more in the direction nobody writes first — asserting
+  that the *reader's* reason words appear in its own header caught `stems_unresolvable`, which
+  the script emitted and documented nowhere. A word a script can produce and no document names
+  is a word an operator meets for the first time in a failure.
+  **Context**: The claim vocabularies are pinned the same way, and the same gap opens whenever a
+  new reason word is added to a script without touching its header.
+

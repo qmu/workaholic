@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260901-144612](work-20260901-144612.md) - Measured that the transport refuses the delete of a live claim branch too, so the leaked-ref objection to the named mechanism is a reading rather than a forecast
 * [work-20260901-123859](work-20260901-123859.md) - The moderation tick's root is keyed on the day and each later hour replies into it, and the post gate stops firing on values a transport merely re-answered.
 * [work-20260901-121939](work-20260901-121939.md) - Decided the probe-branch cleanup is a person's two commands rather than a standing branch-deleting CI capability, and named them where a person reads
 * [work-20260901-112108](work-20260901-112108.md) - A mission slug is now checked against the unmerged branches as well as the local tree, so a publish tree stranded for days can no longer mint a slug a second time in silence.

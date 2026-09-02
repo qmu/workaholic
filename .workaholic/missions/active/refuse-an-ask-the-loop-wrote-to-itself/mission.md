@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-203617
 ---
 
 # Refuse an ask the loop wrote to itself

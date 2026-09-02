@@ -48,3 +48,5 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — prompt cause diagnosed — two candidates ranked, the Moderate case's own cause absent from this path — 20260902043117-name-what-raises-the-prompt-in-the-propose-tick-from-evidence.md
+- 2026-09-02 — ticket archived — 20260902043117-name-what-raises-the-prompt-in-the-propose-tick-from-evidence.md

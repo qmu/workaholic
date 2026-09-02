@@ -905,6 +905,7 @@ artifact claimable exactly once, forever*:
 | Path | How |
 | ---- | --- |
 | a claim that fails after winning | `claim.sh`'s `arb_release`, folded into `abort_claim` |
+| a **`superseded`** claim, when a fresh claim steps over it | `claim.sh` §3 releases that row's locks on the **proof** — the one verdict this protocol calls a proof that the claim holds nothing, and the same licence `retire-claim.sh` deletes a whole branch on. No age is involved and nothing is guessed. **Measured 2026-09-02**: without it, seven rows went red the moment the arbitration landed, because `plan-units.sh` resurveys exactly that work and the fresh claim met a lock standing for a claim already proved empty |
 | `release-claim.sh` | explicit, from the claim row's own artifact list |
 | `retire-claim.sh` | explicit, from the same row |
 | **the merge**, which releases a claim by definition and runs nothing in the container | the arbiter's **reap**: a lock no live claim stands behind (the oracle decides) **and** older than `WORKAHOLIC_CLAIM_ARBITER_STALE_MINUTES` (default 10). Both terms are required — between winning a lock and pushing the branch there are seconds in which the first is true of a perfectly healthy claim, and the age is what keeps the sweep from eating it |

@@ -381,6 +381,16 @@ if [ -n "$rows" ]; then
     while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff held_arts; do
         [ -n "$held_unit" ] || continue
         if [ "$_held_reason" = "superseded" ]; then
+            # AND ITS ARBITRATION LOCK GOES WITH IT (2026-09-02). §3b contends on one ref per
+            # claimed artifact, and a `superseded` row is the one verdict this protocol calls a
+            # PROOF that the claim holds nothing — the same licence `retire-claim.sh` deletes a
+            # whole branch on. Stepping over the row without releasing its locks would leave the
+            # fresh claim `plan-units.sh` explicitly resurveys refused by a lock standing for a
+            # claim already proved empty: measured here as seven red rows the moment the
+            # arbitration landed. Releasing on the proof needs no age and guesses nothing.
+            if [ -f "${SCRIPT_DIR}/claim-arbitrate.sh" ] && [ -n "$held_arts" ]; then
+                sh "${SCRIPT_DIR}/claim-arbitrate.sh" release $(printf '%s' "$held_arts" | tr ',' ' ') >/dev/null 2>&1 || true
+            fi
             continue
         fi
         if [ "$held_unit" = "$unit" ]; then

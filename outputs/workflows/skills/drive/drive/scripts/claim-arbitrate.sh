@@ -119,7 +119,10 @@ if [ "$cmd" = "reap" ]; then
     if [ -f "${SCRIPT_DIR}/lib/claims.sh" ]; then
         . "${SCRIPT_DIR}/lib/claims.sh"
         _rows=$(claims_scan "origin/main" 2>/dev/null || printf '')
-        held=$(printf '%s\n' "$_rows" | awk -F'\t' 'NF > 1 { print $10 }' | tr ',' '\n' | grep . || printf '')
+        # A `superseded` ROW HOLDS NOTHING, so its artifacts are not held. That is the
+        # protocol's own proof — `claim.sh` §3 steps over such a row for the same reason — and
+        # reading it as held would make the sweep refuse to free work the survey resurveys.
+        held=$(printf '%s\n' "$_rows" | awk -F'\t' 'NF > 1 && $7 != "superseded" { print $10 }' | tr ',' '\n' | grep . || printf '')
     fi
     held_refs=""
     for h in $held; do held_refs="${held_refs}$(_refname "$h")

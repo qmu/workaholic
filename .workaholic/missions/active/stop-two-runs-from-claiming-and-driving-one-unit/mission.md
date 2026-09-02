@@ -81,3 +81,4 @@ happens, one person is told once, both branches named.
 - 2026-09-01 — run recorded (+0.6h) — cse_012LjmkqXe5bhzNL5W1UW794
 - 2026-09-01 — story reported — work-20260901-121939
 - 2026-09-02 — ticket archived — 20260830082251-make-the-claim-contend-for-one-ref-per-unit.md
+- 2026-09-02 — ticket archived — 20260830082251-refuse-the-losing-claim-by-its-own-word.md

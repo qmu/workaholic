@@ -915,6 +915,39 @@ unclaimable. **The residual cost, stated**: a process killed between winning a l
 its branch leaves a lock the next lost take sweeps — seconds of exposure against an hour of
 duplicated driving.
 
+### `claim_race_lost` — the losing claim's own word
+
+Beside `resume_race_lost`, whose shape it follows, and **the claim act's vocabulary rather than
+the oracle's**: `lib/claims.sh` emits nothing new for it and the proofs-and-judgements tables do
+not move.
+
+**It is distinct from the two words it could have been folded into, and the distinction is the
+next action.** `branch_collision` means *two units minted one name inside one second — retry the
+same claim*; `push_failed` means *the remote did not take it*. A lost race is neither: it is the
+protocol **working**, and the runner should **survey again** rather than retry this claim. One
+word answering two next actions is what makes a state invisible — the precedent is
+`report_undelivered` beside `queue_drained`.
+
+**It is emitted only when the contended ref's create was refused BECAUSE THE REF EXISTS.** The
+arbiter classifies the push's own output: a rejected lease is `lost`, and any transport refusal —
+a proxy 403, an unreachable remote — is `unavailable`, which is not a refusal at all and lets the
+claim proceed. Collapsing them would tell a runner the protocol worked when the remote was simply
+out of reach.
+
+**The refusal is re-derived at the moment of the act**: the losing push *is* the evidence, never
+a reading handed in from the survey.
+
+**The loser holds nothing, by placement rather than by teardown.** §3b runs before §4 creates the
+worktree, so on `claim_race_lost` there is no `.worktrees/<unit-id>/`, no local `work-*` branch
+and no claim commit to unwind, and nothing of the loser reaches origin. Its next survey sees the
+winner's pushed branch and excludes the unit as an ordinary `already_claimed`.
+
+**What the refusal can and cannot name.** It carries `held_by_ref` — the contended ref — and
+`stale_lock`, which says the oracle knew of no claim behind that lock at that instant. It does
+**not** name the winner's branch, and does not guess one: the winner pushes moments after
+arbitrating, so at that instant the branch does not exist yet. `/moderate`'s `raced-units`
+question is what names both branches, once both exist.
+
 **`claims_scan` reads `work-*` refs and nothing else.** The contended ref is the **arbiter**,
 not a second oracle; no reader consults it, no verdict word was added, and the
 proofs-and-judgements tables do not move. The losing claim's own refusal — `claim_race_lost`,

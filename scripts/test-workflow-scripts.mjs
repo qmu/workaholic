@@ -21782,8 +21782,47 @@ function testAskOriginReader() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the self-authored refusal, stated where the run reads it ----------
+// The refusal is prose the running model applies — nothing mechanical can check that a run
+// actually asked "did a person want this". What IS checkable is that the rule is stated at
+// the two surfaces the run reads, that both name the same word and the same reader, and that
+// no second parser of the `subject:` axis grew beside it.
+function testSelfAuthoredRefusalIsStated() {
+  const bar = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  const flow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  for (const [name, text] of [["the judgment bar", bar], ["step 7", flow], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the refusal by its own word`, text.includes("self_authored"), name);
+    assertTrue(`${name} names the one reader rather than a second test`,
+      text.includes("ask-origin.sh"), name);
+  }
+  // THE THREE PROPERTIES THAT MAKE IT SAFE, each stated where the run reads it.
+  assertTrue("the bar says an unreadable origin does not refuse",
+    /`unreadable`, do not refuse|unreadable.{0,40}(never refuses|do not refuse)/.test(bar), "bar");
+  assertTrue("step 7 says an unreadable origin proceeds unchanged",
+    /unreadable.{0,60}proceed unchanged/s.test(flow), "flow");
+  assertTrue("both say the inbound sweep is never caught",
+    /sweep is never caught|not catch the inbound sweep/.test(bar)
+    && /not catch the inbound sweep|sweep is never caught/.test(flow), "sweep");
+  assertTrue("and both say why it sits at the judgment rather than at discovery",
+    /at the judgment, not at discovery|at the judgment and not at discovery/.test(bar)
+    && /at the judgment and not at discovery|at the judgment, not at discovery/.test(flow), "seam");
+
+  // NO SECOND PARSER. `subject:` is read by `ask-origin.sh` and by the validate hook, and by
+  // nothing inside /specificate — two readers of one axis is how the two start to disagree.
+  const specDir = join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts");
+  for (const f of readdirSync(specDir).filter((n) => n.endsWith(".sh"))) {
+    const src = readFileSync(join(specDir, f), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue(`${f} does not parse the subject axis itself`,
+      !/subject:/.test(src), `${f} grew a second parser of subject:`);
+  }
+}
+
 const tests = [
   ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
+  ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],
   ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
   ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
   ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],

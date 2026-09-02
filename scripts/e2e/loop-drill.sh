@@ -1346,14 +1346,12 @@ cmd_verify_moderate() {
     _log="${_root}/.workaholic/moderations/${_day}.md"
     if [ -f "$_log" ]; then
         _sections=$(grep -c '^## ' "$_log" || true)
-        # One line per registered step plus BOTH persists' own lines — the closing
-        # `persist-log` and, since 2026-08-31, the opening `persist-log-opening` that puts a
-        # dying tick's opening on the base (mission
-        # `stop-an-unattended-tick-from-waiting-on-a-person`). Derived from `run.sh`'s `STEPS`
-        # for the same reason the count above is (2026-08-26): a literal here goes stale on the
-        # next step and turns the drill red for a reason that has nothing to do with what it
-        # drills.
-        _want_lines=$((_want + 2))
+        # One line per registered step plus the closing `persist-log`'s own line. There used to
+        # be a second, `persist-log-opening`; it is gone with the log branch it served
+        # (`persist-log.sh`'s header). Derived from `run.sh`'s `STEPS` for the same reason the
+        # count above is (2026-08-26): a literal here goes stale on the next step and turns the
+        # drill red for a reason that has nothing to do with what it drills.
+        _want_lines=$((_want + 1))
         _lines=$(grep -c '^- `' "$_log" || true)
         if [ "$_sections" = "1" ] && [ "$_lines" = "$_want_lines" ]; then
             add_row "moderate_log" true "one tick section carrying ${_want} step lines and both persists" load
@@ -6899,119 +6897,6 @@ cmd_verify_return_path() {
     emit_verdict "return-path" 0 "pass" 0
 }
 
-# --- verify-log-branch ------------------------------------------------------------------
-# THE TICK LOG LIVES OFF `main` (2026-09-01, issue #782). Two properties, and the drill exists
-# because either one alone is worse than neither: the log must REACH its own branch, and it must
-# NOT reach `main`. A move that only stopped writing to `main` would take the dedup's memory with
-# it; a move that only added a branch would double the noise it was meant to remove.
-#
-# Hermetic: a bare origin in a temp dir, no `gh`, no network beyond the local file remote.
-cmd_verify_log_branch() {
-    _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
-    # THE REF IS DERIVED IN `gather`, NOT IN `moderate` (2026-09-02). `log-ref.sh` and
-    # `ensure-log-ref.sh` live beside the other repository-shaped readers because the ref is a
-    # fact about the repository, not about the tick; `hydrate-log.sh` and `persist-log.sh` are the
-    # tick's own and stay here. This drill looked for all four in `moderate/scripts` and so exited
-    # `log_branch_seam_unreadable` on every run since it was written -- `skipped`, never `fail`,
-    # which is exactly the shape a drill must not have: the guard for the whole move had never
-    # once executed. Naming the two directories separately is what keeps that visible.
-    _gth="${REPO_ROOT}/plugins/workaholic/skills/gather/scripts"
-    for _f in "${_gth}/log-ref.sh" "${_gth}/ensure-log-ref.sh" "${_mod}/hydrate-log.sh" "${_mod}/persist-log.sh"; do
-        [ -f "$_f" ] || emit_err "log_branch_seam_unreadable" 4 "${_f} is not present in this checkout"
-    done
-
-    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
-    _tmp=$(mktemp -d)
-    _origin="${_tmp}/origin.git"
-    _work="${_tmp}/w"
-    git init -q --bare -b main "$_origin" >/dev/null 2>&1
-    git init -q -b main "$_work" >/dev/null 2>&1
-    ( cd "$_work" && git config user.email d@example.com && git config user.name D \
-        && git config commit.gpgsign false \
-        && printf 'seed\n' > README.md && git add README.md && git commit -q -m seed \
-        && git remote add origin "$_origin" && git push -q -u origin main ) >/dev/null 2>&1
-
-    # Run the seam from inside the fixture, never from the operator's checkout: a persist that
-    # resolved the wrong repository root would publish a drill's log into real history.
-    _in() { ( cd "$_work" && "$@" ) 2>&1 || true; }
-
-    _ref=$(sh "${_gth}/log-ref.sh")
-    if [ "$_ref" != "main" ] && [ -n "$_ref" ]; then
-        add_row "log_ref_is_not_the_base" true "the log branch is named ${_ref}, which is not the base" load
-    else
-        add_row "log_ref_is_not_the_base" false "the log branch resolves to the base or to nothing: ${_ref}" load
-    fi
-
-    mkdir -p "${_work}/.workaholic/moderations"
-    printf '# 2026-09-01\n\n## 20260901-050000\n\n- `open-log`: ok — drilled\n' \
-        > "${_work}/.workaholic/moderations/2026-09-01.md"
-    _mainbefore=$(git -C "$_origin" rev-parse refs/heads/main 2>/dev/null || printf '')
-    _p=$(_in sh "${_mod}/persist-log.sh" --tick 20260901-050000 --root "$_work")
-
-    if printf '%s' "$_p" | grep -q '"persisted": true'; then
-        add_row "log_reaches_its_branch" true "the tick's log was filed on ${_ref}" load
-    else
-        add_row "log_reaches_its_branch" false "the persist did not file: $(one_line "$_p")" load
-    fi
-
-    # THE HALF THAT WOULD SILENTLY UNDO THE CHANGE: `main` must be exactly where it was.
-    _mainafter=$(git -C "$_origin" rev-parse refs/heads/main 2>/dev/null || printf '')
-    if [ "$_mainbefore" = "$_mainafter" ]; then
-        add_row "log_never_reaches_main" true "the base did not move; a tick log is not a commit on main" load
-    else
-        add_row "log_never_reaches_main" false "the base moved (${_mainbefore} -> ${_mainafter}); the log is back on main" load
-    fi
-
-    if git -C "$_origin" ls-tree -r --name-only "refs/heads/${_ref}" 2>/dev/null \
-        | grep -q '^\.workaholic/moderations/2026-09-01\.md$'; then
-        add_row "log_day_file_on_the_branch" true "the day file is on ${_ref}" load
-    else
-        add_row "log_day_file_on_the_branch" false "the day file is not on ${_ref}" load
-    fi
-
-    # THE OTHER HALF OF THE MOVE. A fresh clone of `main` has no log; a tick that could not
-    # hydrate has no memory and every dedup re-fires. This is what makes the move survivable.
-    _fresh="${_tmp}/fresh"
-    git clone -q "$_origin" "$_fresh" >/dev/null 2>&1
-    ( cd "$_fresh" && git config user.email d@example.com && git config user.name D ) >/dev/null 2>&1
-    if [ -f "${_fresh}/.workaholic/moderations/2026-09-01.md" ]; then
-        add_row "fresh_clone_carries_no_log" false "a clone of main still carries the log" load
-    else
-        add_row "fresh_clone_carries_no_log" true "a clone of main carries no log, as intended" load
-    fi
-    _h=$(_in sh "${_mod}/hydrate-log.sh" --root "$_fresh")
-    if printf '%s' "$_h" | grep -q '"state": "hydrated"' \
-        && grep -q '20260901-050000' "${_fresh}/.workaholic/moderations/2026-09-01.md" 2>/dev/null; then
-        add_row "hydrate_restores_the_memory" true "the log branch's day files were carried into the checkout" load
-    else
-        add_row "hydrate_restores_the_memory" false "the tick would run with no memory of earlier ticks: $(one_line "$_h")" load
-    fi
-
-    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR RATHER THAN THE RETURN SHAPE. Point the seam at
-    # a log ref that names the base and the whole move is undone -- the log goes straight back
-    # onto `main`. `persist-log.sh` refuses that, and when it stops refusing, this row goes false
-    # and the drill exits 1 exactly as it does for any other failure.
-    _brk=$(cd "$_work" && WORKAHOLIC_LOG_REF=main sh "${_mod}/persist-log.sh" --tick 20260901-060000 --root "$_work" 2>&1 || true)
-    if printf '%s' "$_brk" | grep -q '"reason": "log_ref_is_the_base"'; then
-        add_row "log_ref_may_not_be_the_base" true "a log ref naming the base is refused -- this drill can fail" breaker
-    else
-        add_row "log_ref_may_not_be_the_base" false "a log ref naming the base was accepted, which puts the log back on main: $(one_line "$_brk")" breaker
-    fi
-
-    rm -rf "$_tmp"
-    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
-    if [ "$_before" = "$_after" ]; then
-        add_row "log_branch_drill_touches_nothing" true "the operator's checkout is byte-identical" load
-    else
-        add_row "log_branch_drill_touches_nothing" false "the drill changed the operator's checkout" load
-    fi
-
-    if [ "$LOAD_FAILED" -gt 0 ]; then
-        emit_verdict "log-branch" 0 "fail" 1
-    fi
-    emit_verdict "log-branch" 0 "pass" 0
-}
-
 cmd_verify_reconcile() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"
     _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"
@@ -9171,19 +9056,21 @@ cmd_verify_blocked_tick() {
     _day=$(date -u +%Y-%m-%d)
     _tick="$(date -u +%Y%m%d)-100000"
     _r=$(sh "$_run" --root "${_fx}/clone" --tick "$_tick" --only open-log 2>&1 || true)
-    # THE OPENING LANDS ON THE LOG BRANCH, NOT ON `main` (2026-09-01, issue #782). What this
-    # drill asserts is unchanged -- a tick that stopped after its first step still left a trace
-    # a later tick can read -- only where that trace lives moved.
-    _logref=$(sh "${REPO_ROOT}/plugins/workaholic/skills/gather/scripts/log-ref.sh")
-    _base=$(git -C "${_fx}/origin.git" show "${_logref}:.workaholic/moderations/${_day}.md" 2>/dev/null || true)
-    case "${_r}|${_base}" in
-        *'"opening_persist": {"status": "filed"'*'|'*"## ${_tick}"*)
+    # THE OPENING IS WRITTEN WHERE IT IS READ (2026-09-03). It used to be pushed to an orphan log
+    # branch by an opening persist, because a routine-fired tick's container was discarded. That
+    # branch is retired and must not be reintroduced (`persist-log.sh`'s header); the log is
+    # git-ignored and stays in the checkout, which is a checkout that persists between ticks. What
+    # this drill asserts is unchanged -- a tick stopped after its first step still leaves a trace a
+    # later tick can read -- only the place it looks moved, from a remote ref to the file itself.
+    _base=$(cat "${_fx}/clone/.workaholic/moderations/${_day}.md" 2>/dev/null || true)
+    case "${_base}" in
+        *"## ${_tick}"*)
             case "$_base" in
                 *'- `open-log`'*)
-                    add_row "blocked_tick_opening_reaches_the_base" true "a tick stopped after its first step leaves its opening on the base" load ;;
-                *) add_row "blocked_tick_opening_reaches_the_base" false "the section landed with no open-log line: $(one_line "$_base")" load ;;
+                    add_row "blocked_tick_opening_is_recorded" true "a tick stopped after its first step leaves its opening in the log" load ;;
+                *) add_row "blocked_tick_opening_is_recorded" false "the section landed with no open-log line: $(one_line "$_base")" load ;;
             esac ;;
-        *) add_row "blocked_tick_opening_reaches_the_base" false "the opening did not reach the base: $(one_line "$_r")" load ;;
+        *) add_row "blocked_tick_opening_is_recorded" false "the opening was not recorded: $(one_line "$_r")" load ;;
     esac
 
     # 2. THE READING, over a log written by the real writer: the TICK BEFORE LAST opened and
@@ -10860,7 +10747,6 @@ case "$CMD" in
     verify-base-health) cmd_verify_base_health "$@" ;;
     verify-return-path) cmd_verify_return_path "$@" ;;
     verify-reconcile) cmd_verify_reconcile "$@" ;;
-    verify-log-branch) cmd_verify_log_branch "$@" ;;
     verify-checkin-delivery) cmd_verify_checkin_delivery "$@" ;;
     verify-findings-to-work) cmd_verify_findings_to_work "$@" ;;
     verify-stage) cmd_verify_stage "$@" ;;

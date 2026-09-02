@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 feedback: [20260831202854-base-health-never-reads-a-base-whose-tip-is-a-bookkeeping-commit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ reasons stays terminal, named, and never walked past.
 - 2026-09-02 — ticket archived — 20260831202934-say-how-far-back-the-base-s-colour-was-read.md
 - 2026-09-02 — ticket archived — 20260831202934-drill-the-base-reading-past-a-bookkeeping-tip.md
 - 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.6h) — run-20260902-200652

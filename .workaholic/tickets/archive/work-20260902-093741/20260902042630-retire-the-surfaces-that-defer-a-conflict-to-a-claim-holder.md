@@ -93,6 +93,17 @@ Development completed as planned. The operator's words about the step — *"was 
 and is not working; it must not be used"* — are the whole warrant, and it is **retired, not
 disabled behind a flag**.
 
+**Which step step 1 names, because the previous run read it differently and blocked on that
+reading.** That run took the *reporting-only step* to be `step-stuck-prs.sh` and stopped: four
+of its five readings (`review`, `checks`, `draft`, `behind`) are named by no other step, so
+retiring it would lose signal — exactly what the ticket's Considerations forbid. But step 1's own
+words are *"the step the diagnosis ticket named as the composer of the 'belongs to the claim
+holder' line"*, and that is **`catchup-blocked`**: its question is the one that said a conflict
+is the claim holder's. `stuck-prs` reports that a pull request is stuck; it never says a conflict
+belongs to somebody, and it is **untouched here** — all five of its readings survive. On that
+reading the Considerations' test is satisfied rather than blocked: `catchup-blocked`'s single
+reading is named elsewhere already, by `merge-conflicts` and by the act's own report.
+
 - **`catchup-blocked` is gone** (step 1): the script deleted, its row removed from `run.sh`'s
   `STEPS`, its spec §26 removed from `moderate/reference/workflow.md`, its `needs_ruling` row
   removed from the findings table, and its entries removed from both step tables

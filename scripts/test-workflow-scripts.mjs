@@ -22145,7 +22145,7 @@ const tests = [
   ["branching: a stranded publication, localized seam by seam", testStrandedPublicationReproduction],
   ["branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader],
   ["branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication],
-  ["moderate/stranded-publications: the collision only a person can settle", testStrandedPublicationsStep],
+  ["moderate/stranded-publications: the collision counted, and asked about by nobody", testStrandedPublicationsStep],
   ["moderate/stranded-publications: a publication old enough that its plan may be stale", testStrandedPublicationStaleQuestion],
   ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
   ["drive/claim-mergeability.sh: the reader predicts the remote's merge, not this checkout's", testMergeabilityIgnoresLocalMergeAttributes],
@@ -34306,14 +34306,21 @@ function testStrandedPublicationsStep() {
       `${POSIX_SH} ${SCRIPTS.stepStrandedPublications} --tick 20260831T1300 --root ${fx.A}`,
       { env }).stdout);
     const out = step();
-    assertEq("the step reports ok and asks about the one content collision",
+    assertEq("the step reports ok and counts the one content collision",
       [out.step, out.status], ["stranded-publications", "ok"]);
-    assertTrue("naming the pull request and the files both sides changed",
-      /"number": *31/.test(JSON.stringify(out.needs_agent))
-      && /src\/app\.txt/.test(JSON.stringify(out.needs_agent)), JSON.stringify(out.needs_agent));
-    assertTrue("keyed once per pull request",
-      /stranded-publication:31/.test(JSON.stringify(out.needs_agent)),
+    // IT ASKS NOBODY ABOUT IT (2026-09-02, ticket
+    // `20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md`). The
+    // question used to name the pull request and the colliding files and address the
+    // publication's author; the operator ruled that a conflict handed to somebody who never
+    // comes makes parked work read as progress. `/implement` attempts every class, and what
+    // the merge itself cannot settle is reported where the attempt happened.
+    assertTrue("the content collision draws no question",
+      !/stranded-publication:31/.test(JSON.stringify(out.needs_agent)),
       JSON.stringify(out.needs_agent));
+    // THE READING SURVIVES THE SILENCE — without this the row would pass just as well if the
+    // step had stopped seeing content collisions at all, which is worse than the deferral.
+    assertTrue("but it is still counted in the summary",
+      /colliding on content/.test(out.summary), out.summary);
     assertTrue("and it supplies an event, so the root carries a line",
       typeof out.event === "string" && out.event.length > 0, JSON.stringify(out));
     assertTrue("the summary carries no age and no timestamp",

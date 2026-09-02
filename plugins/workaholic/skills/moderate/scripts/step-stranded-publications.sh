@@ -6,18 +6,18 @@
 # `settle-stranded-publication.sh` settles what a generator can settle, what is left is a
 # conflict that genuinely needs a person — and the measured failure is that nobody was told,
 # for a day, while the hourly tick reported the blockage to nobody in particular.
-# `catchup-blocked` asks about a `content` conflict on a REPORTED CLAIM only, and a publication
+# `catchup-blocked` (retired 2026-09-02) asked about a `content` conflict on a REPORTED CLAIM only, and a publication
 # is not a claim: it has no claim commit, so the oracle gives it no row and it reached no
 # question at all.
 #
 # WHICH SIBLING IT FOLLOWS, ON EACH AXIS:
 #
-#   whose question           `catchup-blocked`'s. The publication's AUTHOR opened it and is the
+#   whose question           the retired `catchup-blocked`'s. The publication's AUTHOR opened it and is the
 #                            person who knows which side of the collision keeps its meaning.
 #   running identity         Never consulted. A publication that no longer merges is a fact
 #                            about the repository, so an hourly question that depended on which
 #                            container asked it would answer differently per account.
-#   what it may read         `catchup-blocked`'s. `list-stranded-publications.sh` is a pure
+#   what it may read         that step's. `list-stranded-publications.sh` is a pure
 #                            read; `plan-units.sh` is REFUSED, because the survey reaches the
 #                            mission readers, which carry the living migrations and STAGE what
 #                            they converge.
@@ -25,10 +25,10 @@
 # ═══ THE TWO CANDIDATE SETS ARE DISJOINT BY CONSTRUCTION, AND NO FILTER IS ADDED ═════
 # The ticket asked for the `retire-claims` / `stalled-units` division — one step asks, the
 # other filters and counts. It does not apply here, and recording why is worth more than a
-# counter that can only ever be zero (`step-catchup-blocked.sh`'s own header sets the
+# counter that can only ever be zero (the retired step's own header set the
 # precedent, for the widening whose honest outcome was a finding and no change):
 #
-#   * `catchup-blocked`'s candidates come from `list-claims.sh`, whose rows are branches
+#   * the claim-side candidates come from `list-claims.sh`, whose rows are branches
 #     carrying a `Claim …` COMMIT. A publication carries none — that is what makes it a
 #     publication — so it can never be a row there, and there is nothing to subtract.
 #   * This step's own reader applies the term in the other direction too: a branch the claim
@@ -142,28 +142,23 @@ stale=$(printf '%s' "$out" | jq -c --argjson h "$STALE_HOURS" '[.publications[]?
     | select((.age_hours|type) == "number" and .age_hours >= $h)]' 2>/dev/null || printf '[]')
 sn=$(printf '%s' "$stale" | jq 'length' 2>/dev/null || printf 0)
 
-summary="${total} open publication(s); ${n} colliding on content"
+summary="${total} open publication(s); ${n} colliding on content — the next [Implement] tick attempts each, and asks nobody"
 [ "$settleable" -eq 0 ] || summary="${summary}; ${settleable} settleable by the loop itself"
 [ "$sn" -eq 0 ] || summary="${summary}; ${sn} of those open long enough for its plan to be stale"
 [ "$unreadable" -eq 0 ] || summary="${summary}; ${unreadable} whose mergeability could not be read"
-[ "$n" -eq 0 ] && [ "$sn" -eq 0 ] && emit ok "" "$summary"
+[ "$sn" -eq 0 ] && [ -z "${event:-}" ] && [ "$n" -eq 0 ] && emit ok "" "$summary"
 
-rows=""
-rsep=""
-for number in $(printf '%s' "$candidates" | jq -r '.[].number'); do
-    age=$(read_age "stranded-publication:${number}")
-    row=$(printf '%s' "$candidates" | jq -c --argjson num "$number" --argjson age "$age" '
-        .[] | select(.number == $num)
-        | {number, branch, url, title,
-           author: (if (.author // "") == "" then "unknown" else .author end),
-           conflicted_files: (.mergeability_content_files // []),
-           age: $age,
-           key: ("stranded-publication:" + (.number | tostring))}' 2>/dev/null || printf '')
-    [ -n "$row" ] || continue
-    rows="${rows}${rsep}${row}"
-    rsep=","
-done
-rows="[${rows}]"
+# ── A `content` COLLISION IS COUNTED AND ASKED ABOUT BY NOBODY (2026-09-02, mission
+# `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) ─────────────────────────
+# The operator's words about the step that did this: it "was never asked for and is not
+# working; it must not be used". `/implement` now ATTEMPTS every class including `content`
+# (`settle-stranded-publication.sh`), because the class is a *prediction* computed with the
+# repository's `.gitattributes` out of reach while the writer merges in a real checkout where
+# those drivers are in force. What the merge itself cannot settle is the ACT's residue, and it
+# is reported where the act happened — `/implement`'s run report, `settle_refused:
+# content_conflict`, with the colliding files — never handed to a publication's author who
+# never comes. The COUNT stays in the summary below: a reading is not a deferral.
+rows="[]"
 
 stalerows=""
 srsep=""
@@ -183,20 +178,18 @@ for number in $(printf '%s' "$stale" | jq -r '.[].number'); do
 done
 stalerows="[${stalerows}]"
 
-needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_publication_author_to_resolve_the_conflict_the_loop_must_not_resolve",
-    bound: "one question per pull request, addressed to its author, keyed on `key` so it is asked once; the tick asks and never merges, catches up, pushes or closes anything",
-    compose: "lead with what happened in words a reader outside the repository understands -- an artifact the loop published is waiting because its change and the base changed the same lines -- then the pull request, then the files both sides changed. Say the loop already brought back everything a generator could settle and stopped here because only a person can judge this collision, and name the one act asked of them: resolve it on the pull request. `age` is how long this has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`) and never how long the pull request has been open; say nothing about it when `age.first_seen` is null and the reading is readable, and when `age.readable` is false name it as an age we could not read, by its `age.reason`.",
-    stranded: .}' 2>/dev/null || echo '{}')
-
 staleneeds=$(printf '%s' "$stalerows" | jq -c '{action: "ask_the_publication_author_whether_the_plan_this_would_queue_is_still_wanted",
     bound: "one question per pull request, addressed to its author, keyed on `key` so it is asked once. The tick asks and NOTHING else: it does not hold, delay, close or merge the publication, and `/implement` may settle it this same hour — the question is the record that it was not landed silently, never a gate in front of it.",
     compose: "lead with what happened in words a reader outside the repository understands -- something the loop wrote days ago is about to be published, and what it plans may already be done -- then the pull request and how long it has been open (`open_hours`). Say that merging it queues the plan it carries, and name the one act asked of them: say whether that plan is still wanted, or close the pull request. `open_hours` is how long the PULL REQUEST has been open; `age` is how long this has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`) -- never conflate them, say nothing about `age` when `age.first_seen` is null and the reading is readable, and when `age.readable` is false name it as an age we could not read, by its `age.reason`.",
     stale: .}' 2>/dev/null || echo '{}')
 
+# THE EVENT NAMES A REPOSITORY FACT, NOT A PERSON'S TASK. It used to read "waiting on a
+# person", which was the deferral in the root's own voice; the next `[Implement]` tick attempts
+# every one of these.
 if [ "$n" -eq 1 ]; then
-    event="a published artifact is waiting on a person — the loop brought back everything a generator could settle and stopped at a collision only somebody can judge"
+    event="a published artifact collides with the base; the next [Implement] tick attempts it"
 elif [ "$n" -gt 1 ]; then
-    event="${n} published artifacts are waiting on a person — the loop brought back everything a generator could settle and stopped at collisions only somebody can judge"
+    event="${n} published artifacts collide with the base; the next [Implement] tick attempts each"
 else
     event=""
 fi
@@ -210,10 +203,6 @@ if [ "$sn" -gt 0 ]; then
 fi
 
 all_needs=""
-[ "$n" -eq 0 ]  || all_needs="$needs"
-if [ "$sn" -gt 0 ]; then
-    [ -z "$all_needs" ] || all_needs="${all_needs},"
-    all_needs="${all_needs}${staleneeds}"
-fi
+[ "$sn" -eq 0 ] || all_needs="$staleneeds"
 
 emit ok "" "$summary" "$all_needs" "$event"

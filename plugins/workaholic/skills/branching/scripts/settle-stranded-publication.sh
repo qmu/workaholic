@@ -36,11 +36,14 @@
 #                               operator-facing publication, closed, or not a publication
 #   reader_unreadable:<reason>  the reader degraded; an absence it could not establish is never
 #                               read as *nothing to settle*
-#   not_mechanical:<class>      `content` needs a person and `unanswerable` is the ABSENCE of a
-#                               reading — never actable. `clean` and `mechanical` are the two
+#   not_mechanical:<class>      `unanswerable` is the ABSENCE of a reading — never actable.
+#                               `clean`, `mechanical` and (since 2026-09-02) `content` are the
 #                               accepted classes; the word is kept as it is because every report
 #                               surface quotes it.
-#   content_conflict            the writer met a content conflict the reader did not predict
+#   content_conflict            the MERGE ITSELF left a hunk only a person can judge. Since
+#                               2026-09-02 this is the ONLY place a content collision refuses:
+#                               the reader's prediction is attempted, the writer's residue is
+#                               what stops the act.
 #   has_claim_commit            the branch is a claim; the catch-up owns it, not this
 #   not_a_work_branch           the publish seam mints exactly one branch shape
 #   scan_held:<tier>            a `hard` (`secret`) or `confirm` (`leak`) finding holds the pull
@@ -193,13 +196,28 @@ if git log --format='%s%x09%(trailers:key=Unit,valueonly,separator=%x20)' \
     refuse has_claim_commit
 fi
 
-# TWO CLASSES ARE ACCEPTED AND EVERY OTHER ONE IS REFUSED BY ITS OWN WORD. `NEEDS_CATCHUP`
+# THREE CLASSES ARE ACCEPTED AND EVERY OTHER ONE IS REFUSED BY ITS OWN WORD. `NEEDS_CATCHUP`
 # is the only thing the class decides below: `clean` skips the merge, the regeneration and the
 # push because each of them has nothing to do, and skips NOTHING else — the gate, the delivery
-# seam, the refusal words and the teardown are one code path for both classes.
+# seam, the refusal words and the teardown are one code path for every class.
+#
+# `content` JOINED THEM ON 2026-09-02 (mission
+# `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`), on `catch-up-claim.sh`'s own
+# reasoning and in the same change. The class here is `claim-mergeability.sh`'s, a READER's
+# PREDICTION computed with the repository's `.gitattributes` deliberately out of reach — so that
+# it predicts GitHub, which applies no merge driver — while the merge below runs in a real
+# checkout where `merge=union` on the generated indexes is in force. The reader is therefore
+# pessimistic by construction against the writer, and every publication in that gap was refused
+# `not_mechanical:content` without anyone ever attempting it.
+#
+# THE REFUSAL MOVED, IT DID NOT GO. A hunk the merge itself cannot settle still refuses
+# `content_conflict` below, with nothing pushed and the branch byte-identical, and its author is
+# still reached by `/moderate`'s `stranded-publication:<number>` question. What is gone is
+# refusing on a guess. `unanswerable` keeps its refusal: it is the ABSENCE of a reading, and
+# acting on an absence is what the three-valued class exists to prevent.
 NEEDS_CATCHUP=true
 case "$CLASS" in
-    mechanical) ;;
+    mechanical | content) ;;
     clean) NEEDS_CATCHUP=false ;;
     *) refuse "not_mechanical:${CLASS:-unreadable}" ;;
 esac

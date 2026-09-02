@@ -2,20 +2,21 @@
 type: Mission
 title: Resolve a conflicted pull request in the tick, not report it
 slug: resolve-a-conflicted-pull-request-in-the-tick-not-report-it
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-02T04:26:04+00:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 3.7
 feedback: [20260902042549-the-moderation-tick-resolves-and-merges-it-does-not-report-stuckness.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-093741
 ---
 
 # Resolve a conflicted pull request in the tick, not report it
@@ -38,13 +39,22 @@ of the pass silently. Nothing is parked for a claim holder.
 
 ## Acceptance
 
-- [ ] A conflicted pull request the tick can settle is settled and merged by it, content
+- [x] A conflicted pull request the tick can settle is settled and merged by it, content
       conflicts included. (#20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it.md)
-- [ ] An uncomputed mergeable state drops the pull request from the pass and notifies
+- [x] An uncomputed mergeable state drops the pull request from the pass and notifies
       nobody. (#20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state.md)
-- [ ] No step and no prose defers a conflict to a claim holder or reports stuckness in
+- [x] No step and no prose defers a conflict to a claim holder or reports stuckness in
       place of resolving it. (#20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260902042630-localize-which-step-posted-each-of-the-three-corrected-lines.md
+- 2026-09-02 — ticket archived — 20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it.md
+- 2026-09-02 — ticket archived — 20260902042630-let-the-tick-merge-what-it-resolved.md
+- 2026-09-02 — ticket archived — 20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state.md
+- 2026-09-02 — run recorded (+2.2h) — work-20260902-093741
+- 2026-09-02 — ticket archived — 20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md
+- 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+1.5h) — work-20260902-093741-resume
+- 2026-09-02 — story updated for the finished mission — work-20260902-093741.md

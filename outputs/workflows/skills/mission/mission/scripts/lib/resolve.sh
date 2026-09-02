@@ -61,7 +61,12 @@ missions_root_default() {
 # segment. Always absolute.
 missions_root_from_artifact() {
     case "$1" in
-        *.workaholic/*) _mwh="${1%%.workaholic/*}.workaholic" ;;
+        # `%` (shortest suffix) cuts at the LAST `.workaholic/`, never the first:
+        # a `/spawn-loops` clone lives under `~/.workaholic/loops/<repo>/<loop>`, so
+        # `%%` answered `/home/ec2-user/.workaholic` and every missioned ticket
+        # written from a loop session was refused `mission relation does not
+        # resolve`. Identical for a checkout carrying one occurrence.
+        *.workaholic/*) _mwh="${1%.workaholic/*}.workaholic" ;;
         *) missions_root_default; return 0 ;;
     esac
     _missions_abs "$_mwh"

@@ -4,7 +4,6 @@
 
 * [adjust-the-plan-hourly-not-only-report-it](active/adjust-the-plan-hourly-not-only-report-it/mission.md) - Adjust the plan hourly, not only report it
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](active/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 
@@ -98,6 +97,7 @@
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies
 * [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](archive/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
 * [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
+* [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](archive/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
 * [retire-a-claim-whose-work-is-finished-or-abandoned](archive/retire-a-claim-whose-work-is-finished-or-abandoned/mission.md) - Retire a claim whose work is finished or abandoned
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set

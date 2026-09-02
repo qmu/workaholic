@@ -3834,7 +3834,7 @@ cmd_verify_claim_race() {
     # the raced claims are FRESH, so with the protocol's own threshold no sibling would list
     # them at all and the row would pass vacuously. `WORKAHOLIC_CLAIM_STALE_HOURS=0` puts
     # both rows squarely inside its candidate set, so the row fails the moment the filter is
-    # removed. (`undelivered-units` and `catchup-blocked` carry the same filter through the
+    # removed. (`undelivered-units` carries the same filter through the
     # same shared helper; reaching their candidate sets would need a recorded merge refusal
     # and a real content conflict, which this fixture deliberately does not stage.)
     _sib_out=$( ( cd "$_B" && WORKAHOLIC_CLAIM_STALE_HOURS=0 \
@@ -4332,9 +4332,8 @@ cmd_verify_catch_up() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"
     _writer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"
     _catchable="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"
-    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"
     _recorder="${REPO_ROOT}/plugins/workaholic/skills/story/scripts/record-merge-outcome.sh"
-    for _f in "$_reader" "$_writer" "$_catchable" "$_step" "$_recorder"; do
+    for _f in "$_reader" "$_writer" "$_catchable" "$_recorder"; do
         [ -f "$_f" ] || emit_err "catch_up_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
 
@@ -4497,7 +4496,7 @@ GH_STUB_EOF
     # `catch-a-reported-claim-up-before-its-conflict-hardens`) -------------------------------
     # The candidate reader is what changed; the writer is untouched. These rows run BEFORE the
     # catch-up rows below, because a caught-up branch contains the base and leaves the candidate
-    # set by itself — which is exactly the self-correction `step-catchup-blocked.sh` records.
+    # set by itself — which is exactly the self-correction the catch-up's own report records.
     _cands=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
         WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_catchable" ) 2>&1 || true )
     _names() { printf '%s' "$_cands" | grep -q "\"unit\": \"$1\""; }
@@ -4513,10 +4512,31 @@ GH_STUB_EOF
         add_row "catch_up_offers_a_drained_claim" false "the reader did not offer the queue_drained mechanical claim: $(one_line "$_cands")" breaker
     fi
 
-    # AND NOTHING ELSE IS OFFERED. `content` is a person's, and a colleague's claim is
-    # untouchable at any age — neither may reach an act that pushes.
-    if ! _names batch-content && ! _names batch-foreign; then
-        add_row "catch_up_offer_is_bounded" true "a content conflict and a colleague's claim are not candidates -- the reader offers only what the act may take" load
+    # A CONTENT PREDICTION IS OFFERED, AND A COLLEAGUE'S CLAIM STILL IS NOT (2026-09-02, mission
+    # `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`).
+    #
+    # This row asserted that `batch-content` was NOT a candidate, on the reasoning that a content
+    # conflict is a person's. The operator's correction was that deferring it to a claim holder
+    # is wrong, because a claim holder never comes — and the mechanism behind the correction is
+    # that `mergeability` is a PREDICTION: the reader computes with the repository's
+    # `.gitattributes` deliberately out of reach (its job is to predict GitHub, which applies no
+    # merge driver) while the writer merges in a real checkout where those drivers are in force.
+    # So the reader over-reports `content`, and the act now tests the prediction instead of
+    # trusting it. The refusal did not go — it moved to the writer's own residue.
+    #
+    # THE TWO HALVES ARE SPLIT ON PURPOSE, because they are different facts and one of them must
+    # never move. Collapsing them back into a single row is how the identity bound would be lost
+    # silently the next time this one is widened.
+    if _names batch-content; then
+        add_row "catch_up_offers_a_content_prediction" true "a content-classed claim is offered to the act -- the class is a prediction and the writer decides" breaker
+    else
+        add_row "catch_up_offers_a_content_prediction" false "the reader withheld the content-classed claim, so the act can never test the prediction: $(one_line "$_cands")" breaker
+    fi
+
+    # AND THE IDENTITY BOUND DID NOT MOVE WITH IT. A colleague's claim is untouchable at any age
+    # and at any class — it may never reach an act that pushes.
+    if ! _names batch-foreign; then
+        add_row "catch_up_offer_is_bounded" true "a colleague's claim is not a candidate -- the reader never offers what no act of ours may take" load
     else
         add_row "catch_up_offer_is_bounded" false "the reader offered a unit no act may take: $(one_line "$_cands")" load
     fi
@@ -4600,17 +4620,20 @@ GH_STUB_EOF
         add_row "catch_up_second_run_noop" false "the second run was not a reported no-op: $(one_line "$_s")" load
     fi
 
-    # ROW 5: THE REFUSED CONFLICT REACHES ITS CLAIM HOLDER, keyed once, naming the branch and
-    # the files both sides changed -- and the unit the loop CAUGHT UP draws no question, which
-    # is the split the whole mission rests on.
-    _stepout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
-        sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
-    if printf '%s' "$_stepout" | grep -q 'catchup-blocked:batch-content' \
-        && printf '%s' "$_stepout" | grep -q 'src/app.txt' \
-        && ! printf '%s' "$_stepout" | grep -q 'catchup-blocked:batch-mechanical'; then
-        add_row "catch_up_blocked_asks_once" true "the refused conflict reaches its claim holder keyed once, naming the files, and the caught-up unit draws no question" load
+    # ROW 5: NO STEP OF THE TICK ASKS ANYBODY ABOUT A CONFLICT (2026-09-02, ticket
+    # `20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md`). The
+    # operator's words about the step that did: it "was never asked for and is not working; it
+    # must not be used" -- a conflict handed to a claim holder is handed to somebody who never
+    # comes, and parked work then reads as progress to the loop and as stagnation to its
+    # operator. So the residue is reported where the ACT met it, and the drill asserts the
+    # absence: no `catchup-blocked` step, and no step id emitting that key.
+    _retired="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"
+    _regkeys=$( ( cd "$REPO_ROOT" && grep -rl 'catchup-blocked:' plugins/workaholic/skills 2>/dev/null ) || true )
+    if [ ! -f "$_retired" ] && [ -z "$_regkeys" ] \
+        && ! grep -q 'catchup-blocked' "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh"; then
+        add_row "catch_up_conflict_asks_nobody" true "the step that deferred a conflict to a claim holder is gone, its key is emitted nowhere, and the registry no longer names it" load
     else
-        add_row "catch_up_blocked_asks_once" false "the question was not asked as specified: $(one_line "$_stepout")" load
+        add_row "catch_up_conflict_asks_nobody" false "a surface still defers a conflict to a claim holder (script=$([ -f "$_retired" ] && echo present || echo gone) keys=$(one_line "$_regkeys"))" load
     fi
 
     # THE DELIBERATELY BROKEN ROW -- written against the BEHAVIOUR. A claim this identity does
@@ -9888,12 +9911,18 @@ cmd_verify_stranded_publication() {
         add_row "stranded_clean_rerun_is_a_noop" false "a re-run over the delivered publication was not a refusing no-op: $(one_line "$_cl_again")" load
     fi
 
-    # 7. THE PERSON IS TOLD ABOUT WHAT THE LOOP MUST NOT SETTLE, exactly once and keyed.
+    # 7. A CONTENT COLLISION IS COUNTED AND ASKED ABOUT BY NOBODY (2026-09-02, ticket
+    # `20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md`). It used
+    # to draw a question keyed `stranded-publication:<n>`; the operator's ruling is that a
+    # conflict handed to an author who never comes makes parked work read as progress. The act
+    # now attempts every class, and what the merge itself cannot settle is reported where the
+    # attempt happened. The reading survives — the count is still in the summary and the event
+    # still names the repository fact — and only the DEFERRAL is gone.
     _s=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260831-130000 --root "$_wt" 2>&1 || true)
-    if printf '%s' "$_s" | jq -e '(.status == "ok") and ([.needs_agent[]?.stranded[]? | select(.key == "stranded-publication:42")] | length == 1) and (.event | length > 0)' >/dev/null 2>&1; then
-        add_row "stranded_content_reaches_a_person" true "the content collision is one candidate keyed stranded-publication:42, with an event" load
+    if printf '%s' "$_s" | jq -e '(.status == "ok") and ([.needs_agent[]?.stranded[]?] | length == 0) and (.summary | test("colliding on content"))' >/dev/null 2>&1; then
+        add_row "stranded_content_asks_nobody" true "the content collision is counted in the summary and reaches no question -- the next tick attempts it and the act reports what it cannot settle" load
     else
-        add_row "stranded_content_reaches_a_person" false "the content collision did not reach the check-in: $(one_line "$_s")" load
+        add_row "stranded_content_asks_nobody" false "a content collision still defers to the publication author, or stopped being counted: $(one_line "$_s")" load
     fi
 
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
@@ -10124,8 +10153,15 @@ STUB
     ln -s "${REPO_ROOT}/plugins/workaholic/skills/gather" "${_bskills}/gather"
     _broken="${_bskills}/moderate/scripts"
     sed 's|TTK_KEY="tick-day:${_ttk_day}"|TTK_KEY="tick:${1:-}"|' "$_key" > "${_broken}/lib/tick-thread-key.sh"
+    #     THE ARGUMENT LINE CARRIES `$uncomputed` SINCE 2026-09-02 (mission
+    #     `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`), so the anchor matches
+    #     it. This is the failure mode a breaker has that an ordinary assertion does not: when
+    #     the anchor stops matching, half B silently does not apply and the drill reports
+    #     `noisy=no` — which is the breaker doing its job, saying the rows above no longer prove
+    #     anything. Re-anchor it rather than relaxing the pattern; a loose anchor is a breaker
+    #     that stops noticing.
     sed -e 's|"summary": "%s — candidates for step 10|"summary": "%s (%s) — candidates for step 10|' \
-        -e 's|^    "\$HEADLINE" "\$HEADLINE" "\$needs" "\$ASK_KEY"$|    "$HEADLINE" "$pairs" "$HEADLINE" "$needs" "$ASK_KEY"|' \
+        -e 's|^    "\$HEADLINE" "\$HEADLINE" "\$needs" "\$ASK_KEY" "\$uncomputed"$|    "$HEADLINE" "$pairs" "$HEADLINE" "$needs" "$ASK_KEY" "$uncomputed"|' \
         "$_stuck" > "${_broken}/step-stuck-prs.sh"
     chmod +x "${_broken}/lib/tick-thread-key.sh" "${_broken}/step-stuck-prs.sh"
 

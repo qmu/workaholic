@@ -11,7 +11,7 @@
 #
 # No other step could see it. `stuck-prs` and `merge-conflicts` read the open pull requests and
 # find this one perfectly healthy — it is not stuck, it is WAITING, which is what it was opened
-# to do. Every claim-side verdict (`undelivered-units`, `handoff-units`, `catchup-blocked`,
+# to do. Every claim-side verdict (`undelivered-units`, `handoff-units`,
 # `stalled-units`) is bounded to a CLAIM, and a publication carries none: `publish-tree-pr.sh`
 # pushes `publish-main` to a `work-*` name with no `Claim` commit in it, which is exactly what
 # keeps a publication invisible to the claim protocol.

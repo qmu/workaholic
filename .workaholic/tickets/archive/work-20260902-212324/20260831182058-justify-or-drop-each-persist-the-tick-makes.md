@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -106,3 +107,32 @@ changed enough to keep all three, and writes the answer down.
 - Do not turn a persist into a conditional on some notion of "did anything
   change" — `already_current` is that condition, derived at the seam, and a second
   copy of it in `run.sh` is how two readings of one fact start to disagree.
+
+## Final Report
+
+Development completed as planned. All three persists survive, and each is justified **by name** —
+which is what the ask required, since the count only mattered while every persist was a commit on
+`main`.
+
+1. **The opening persist** (`run.sh` immediately after `open-log`, reported under `opening_persist`,
+   logged `persist-log-opening`). Its purpose is *reaching the remote early*: `blocked-tick` reads
+   for an opening with no closing, and the record that would show a stopped tick is the record the
+   stop prevents. Kept — the argument is unchanged by the move, and it is never fatal.
+2. **The closing persist** — the tick's own act, what makes the log survive a discarded container.
+   Kept; this is the persist the whole mechanism exists for.
+3. **The post-agent persist** — after the agent records what it filed, because a `<step>-filed`
+   line is appended *after* the closing persist would have run. Kept; without it the filing is
+   invisible to the next tick's dedup, which is the line-wise union's own reason for existing.
+
+**What changed is the cost, not the count.** Three persists were three commits on `main` per tick
+— roughly 50 a day, `main`'s largest author. On `workaholic-log` they are three commits on a branch
+nothing merges and no release reads, so the number that made the count worth auditing is gone.
+Dropping one would trade a real property (an early record, a durable log, a visible filing) for
+nothing.
+
+### Discovered Insights
+
+- **Insight**: The persist count was never the defect — its **destination** was.
+  **Context**: An audit framed as "justify or drop each" can end with everything justified, and
+  that is a legitimate outcome when the underlying cost has moved. The measurement to re-check is
+  commits on `main`, not persists per tick.

@@ -117,11 +117,15 @@ is the one nothing answered.
 - **Insight**: `mission/scripts/summary.sh` — the composition point the ticket named — could not
   be the one: it reports only the **active** missions that are the caller's business, so an
   archived mission is invisible to it by construction and an ownership gate would decide a
-  question that has nothing to do with ownership. `list.sh` enumerates **both** areas and
-  already carries `slug`, `status` and `path`, so it is the composition that adds no second
-  parser.
-  **Context**: The two readers are one directory apart and read almost the same tree; the
-  difference is what each was written to exclude.
+  question that has nothing to do with ownership. `list.sh` was the second choice and was
+  **withdrawn while driving the next ticket**: it enumerates every mission and computes each
+  one's progress, and `list-retirable-claims.sh` calls this reader once per unit, so composing
+  it made the candidate scan O(units × missions) in a path that runs every tick. The composition
+  is `mission/scripts/lib/resolve.sh` — the one resolver every mission script already uses,
+  which searches `active/` then `archive/`, so the **area** falls out of the path it returns.
+  **Context**: Three candidate compositions, and what ruled each out was different: an ownership
+  gate, a cost, and finally none. The area — this reader's whole answer — needs no frontmatter
+  at all, and only the ride-along `status:` does.
 - **Insight**: `active` and `not_active` are **not** the same class of reading, and the table
   says so. `not_active` cannot become false by looking again — `close.sh` is the only writer of
   an end state and re-opening is offered nowhere — which is exactly the `pull_request_closed_unmerged`

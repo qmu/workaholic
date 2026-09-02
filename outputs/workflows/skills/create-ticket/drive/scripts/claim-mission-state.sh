@@ -48,20 +48,30 @@
 # live branch, a wrong `ok: false` only makes a caller wait. So every degradation emits no
 # `state` key and a named reason — `mission_list_unreadable`, `mission_not_found`, `no_unit`.
 #
-# ═══ IT COMPOSES `mission/scripts/list.sh`, ADDING NO SECOND PARSER ══════════════════
-# That reader already enumerates BOTH areas and already carries each mission's `slug`,
-# `status` and `path`; a second walk over `missions/*/` would be a second parser of mission
-# frontmatter, which is what this repository refuses by name everywhere else. `summary.sh` is
-# deliberately NOT the composition point: it reports only the ACTIVE missions that are the
-# caller's business, so an archived mission — the whole subject here — is invisible to it, and
-# an ownership gate has no place in a question about whether work is wanted.
+# ═══ IT COMPOSES `mission/scripts/lib/resolve.sh`, THE ONE RESOLVER ══════════════════
+# `mission_resolve` is what every mission script already uses to turn a slug into a file, and
+# it searches `active/` then `archive/` — so the AREA, which is this reader's whole answer,
+# falls out of the path it returns. No walk over `missions/*/` of its own, and the worktree
+# question (`missions_root_default` resolves through git, so a worktree resolves to its OWN
+# tree) is answered by the resolver rather than re-decided here.
+#
+# `summary.sh` is deliberately NOT the composition point: it reports only the ACTIVE missions
+# that are the caller's business, so an archived mission — the whole subject here — is
+# invisible to it, and an ownership gate has no place in a question about whether work is
+# wanted. `list.sh` was the first choice and was measured too expensive: it enumerates every
+# mission and computes each one's progress, and `list-retirable-claims.sh` calls this reader
+# ONCE PER UNIT, so composing it made the candidate scan O(units × missions) in a path that
+# runs every tick.
+#
+# `status:` is read with the four-line `fm_field` idiom this repository already carries in five
+# scripts, off the one file the resolver named — a bounded read of one field, not a second walk.
 #
 # The vocabulary and its proof/judgement classification: `../reference/claims.md`.
 
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-MISSION_LIST="${SCRIPT_DIR}/../../mission/scripts//list.sh"
+MISSION_RESOLVE="${SCRIPT_DIR}/../../mission/scripts//lib/resolve.sh"
 
 UNIT="${1:-}"
 
@@ -75,7 +85,6 @@ emit_err() {
 }
 
 [ -n "$UNIT" ] || emit_err "no_unit"
-command -v jq >/dev/null 2>&1 || emit_err "jq_unavailable"
 
 # A `batch-<ts>` unit names no mission. Answered, never degraded.
 case "$UNIT" in
@@ -85,19 +94,22 @@ case "$UNIT" in
         ;;
 esac
 
-[ -f "$MISSION_LIST" ] || emit_err "mission_list_unreadable"
+[ -f "$MISSION_RESOLVE" ] || emit_err "mission_list_unreadable"
+. "$MISSION_RESOLVE"
 
-listed="$(sh "$MISSION_LIST" 2>/dev/null || printf '')"
-[ -n "$listed" ] || emit_err "mission_list_unreadable"
-printf '%s' "$listed" | jq -e . >/dev/null 2>&1 || emit_err "mission_list_unreadable"
-
-row="$(printf '%s' "$listed" | jq -c --arg s "$UNIT" 'map(select(.slug == $s)) | .[0] // empty' \
-    2>/dev/null || printf '')"
-[ -n "$row" ] || emit_err "mission_not_found"
-
-path="$(printf '%s' "$row" | jq -r '.path // ""' 2>/dev/null || printf '')"
-status="$(printf '%s' "$row" | jq -r '.status // ""' 2>/dev/null || printf '')"
+path="$(mission_resolve "$(missions_root_default)" "$UNIT" 2>/dev/null || printf '')"
 [ -n "$path" ] || emit_err "mission_not_found"
+[ -f "$path" ] || emit_err "mission_not_found"
+
+# The frontmatter idiom this repository already carries in five scripts: the first `key:` line
+# inside the leading `---` block, whitespace trimmed. One field, one file, no walk.
+fm_field() {
+    sed -n '/^---$/,/^---$/p' "$1" 2>/dev/null \
+        | sed -n "s/^$2:[[:space:]]*//p" \
+        | head -n 1 \
+        | sed -e 's/[[:space:]]*$//'
+}
+status="$(fm_field "$path" status)"
 
 case "$path" in
     *"/missions/active/"*)

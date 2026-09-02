@@ -41,7 +41,7 @@ stuck work. What is reported as stuck is only what somebody could still act on.
 
 ## Acceptance
 
-- [ ] A claim whose mission is no longer active is its own retirement candidate, proved
+- [x] A claim whose mission is no longer active is its own retirement candidate, proved
       from the tree, and CI deletes its branch. (#20260902062857-name-a-claim-whose-mission-ended-as-a-retirement-candidate.md)
 - [ ] A claim whose pull request is closed, or whose mission is not active, is filtered
       out of the stuck-work questions and counted instead. (#20260902062857-filter-a-retired-by-definition-claim-out-of-the-stuck-work-questions.md)
@@ -51,3 +51,4 @@ stuck work. What is reported as stuck is only what somebody could still act on.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260902062857-read-a-claim-s-mission-status-from-the-tree.md
+- 2026-09-02 — ticket archived — 20260902062857-name-a-claim-whose-mission-ended-as-a-retirement-candidate.md

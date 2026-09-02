@@ -490,6 +490,22 @@ a person has learned to skip. Measured — three merged pull requests were each 
 The keying is untouched: `stalled-unit:<unit>` still keys a genuine stall, and only which rows
 reach it moved.
 
+**And a claim the RETIREMENT PATH already owns is a fact with no question on it at all**
+(2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`). The same argument as
+`superseded`, extended to the classes that joined it: measured, the operator closed a pull
+request and closed its mission `abandoned`, and this step asked them about that branch every hour
+until they deleted it by hand — a question asking a person to do the tick's own job. The set is
+**composed** from `drive/scripts/list-retirable-claims.sh`, never re-derived: its four classes
+(`superseded_only`, `pull_request_merged`, `pull_request_closed_unmerged`, `mission_not_active`)
+are defined once, and restating them here would be two definitions of one set. What was
+subtracted is **counted** in the summary (`N already owned by the retirement path`), because
+filtering is not silence. **An unreadable retirement read filters nothing** and says so in the
+summary: a gate that cannot be read is not a gate, and an over-eager question beats a silently
+dropped one. **It is read only when there is something to subtract from** — the retirement
+reader makes its own claim scan and a bounded pull-request read per `work-*` ref, and a
+subtraction over an empty candidate set changes nothing — so the common tick, with nothing past
+the staleness threshold, pays none of it.
+
 **The summary carries no age, and that is a correctness requirement** (same change). The root
 calls a step changed when its summary differs from the same step's an hour ago, and
 `render-tick-post.sh` normalises out a timestamp, a bare hex object name and a clock time — and
@@ -2783,6 +2799,15 @@ left whose own drive meets the conflict, `awaiting_verification` draws `handoff-
 drops a pull request whose head branch is asked about here. One step asks and the others count,
 exactly as `handoff-units` and `stalled-units` divide — either half alone is a defect, because
 *retry your merge* is the wrong instruction for a branch that no longer merges.
+
+**And a claim the RETIREMENT PATH already owns draws nothing here either** (2026-09-02, mission
+`retire-a-claim-whose-work-is-finished-or-abandoned`). Asking somebody to resolve a conflict on
+a branch the tick is about to delete is asking them to do work that will be thrown away — the
+shape `raced-units` above already carves out, one class over. The set is **composed** from
+`drive/scripts/list-retirable-claims.sh` rather than re-derived, what is subtracted is
+**counted** in the summary, and an **unreadable** retirement read filters nothing and says so:
+a gate that cannot be read is not a gate. It is read **only when there is something to subtract
+from**, for the cost reason `stalled-units` records.
 
 **The conflicted files ride the claim row.** A question that cannot name what collided does not
 say what to look at, and reading the mergeability a second time here would be a second

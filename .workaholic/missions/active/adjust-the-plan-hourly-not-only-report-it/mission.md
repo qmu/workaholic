@@ -40,7 +40,7 @@ by the loop itself.
 ## Acceptance
 
 - [ ] New divergence is held while work in flight is above a declared limit. (#20260901123357-hold-new-divergence-above-a-work-in-progress-limit.md)
-- [ ] The executor is offered work in an order derived from the board, not walk order. (#20260901123357-offer-the-executor-work-in-a-derived-order.md)
+- [x] The executor is offered work in an order derived from the board, not walk order. (#20260901123357-offer-the-executor-work-in-a-derived-order.md)
 - [x] A date the arithmetic says cannot hold reaches its owner before it passes. (#20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md)
 
 ## Changelog
@@ -49,3 +49,4 @@ by the loop itself.
 - 2026-09-02 — ticket archived — 20260901123357-say-which-directions-the-arithmetic-says-cannot-land.md
 - 2026-09-02 — ticket archived — 20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md
 - 2026-09-02 — ticket archived — 20260901123357-name-a-mission-at-full-acceptance-with-tickets-left.md
+- 2026-09-02 — ticket archived — 20260901123357-offer-the-executor-work-in-a-derived-order.md

@@ -291,6 +291,49 @@ visibly outstanding, never that nothing else is. It is **evidence for a decision
 assertion that closing is correct** — it closes nothing, proposes nothing, amends nothing and
 lifts no gate, and the artifact keeps its three writers.
 
+### What remains against how long is left
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/landing-arithmetic.sh [window-days] [workaholic-root]
+```
+
+Every reading above says **what** is outstanding; none of them does the **arithmetic** over it.
+Measured 2026-09-01: 30 queued tickets against three directions all dated the same day, six days
+out, and no reading in this repository said that will not land. This answers, per direction,
+**what remains** against **how long is left**, and gives one of four verdicts — `clears`,
+`does_not_clear`, `no_target_date`, `unreadable`.
+
+**It composes; it does not walk.** `standup/scripts/digest.sh` already assembles, per direction,
+its missions with `checked`/`total`/`queued` and its `days_to_target`, over `attributed-work.sh` —
+the one attribution reader. This calls that reading and divides: no second walker, no relation
+parsed, **no field on any artifact**. The digest's render caps are raised for the read, because an
+arithmetic over a truncated mission set would under-count what remains and answer `clears` for a
+direction it had not finished reading.
+
+**The rate is the direction's own, never a constant.** "Will it land" needs a rate, and every way
+of supplying one from outside is the tunable constant this layer has refused before. So the rate
+is **measured** — the tickets this direction actually landed inside the window, over the window —
+and a direction that has moved nothing reads `per_day: 0` and `does_not_clear`, which is the
+honest answer rather than a special case. The window is expressed in **days** because the
+denominator has to be a number, and its default is read from `default-target-date.sh`, where the
+operator's week already lives: **seven is not re-declared here**.
+
+**Two grains, counted separately, and only one is divided.** Unchecked acceptance items and queued
+tickets are not the same unit, and the reading does not pretend they are: the observed rate counts
+artifacts that landed, so `queued` is the numerator it can honestly divide and
+`unchecked_acceptance` rides beside it, reported and never folded in.
+
+**A degraded read is named with null counts and gets no verdict** (`unreadable`) — a zero would
+read as *nothing remains*, and a wrong *this will land* is the answer that costs the operator the
+date. A **dateless** direction has no denominator, so it is named `no_target_date` rather than
+ranked against dated ones on a number nothing measured.
+
+**It is evidence: it ranks and gates nothing.** Nothing here holds work, orders an offer, closes a
+mission, moves a stage or writes a strategy. `/moderate`'s `date-will-not-hold` step asks a person
+about a `does_not_clear` direction, and that question is the only act anybody takes on it.
+Attribution is transitive and lossy, so work no direction claims is outside this reading by
+construction.
+
 ### Carrying an attribution the operator ruled
 
 Some of that residue answers a direction and was published with the carry-forward link dropped.
@@ -358,6 +401,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/carry-attribution.sh <strateg
 # Closing residue — WHAT A DIRECTION LEAVES BEHIND, composed from the three readers above.
 # Pure read; `--state-row` carries a direction-state row already in hand instead of re-reading.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/closing-residue.sh [--state-row <file|->] <slug> [window] [workaholic-root]
+
+# Landing arithmetic — WHAT REMAINS against HOW LONG IS LEFT, per direction. Pure read;
+# composes `standup/scripts/digest.sh` and divides. Evidence: it ranks and gates nothing.
+bash ${CLAUDE_PLUGIN_ROOT}/skills/strategy/scripts/landing-arithmetic.sh [window-days] [workaholic-root]
 ```
 
 Every script is POSIX `#!/bin/sh -eu`, takes an optional trailing `.workaholic` root so it can be

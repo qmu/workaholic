@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-083726
 ---
 
 # Adjust the plan hourly, not only report it
@@ -38,10 +39,18 @@ by the loop itself.
 
 ## Acceptance
 
-- [ ] New divergence is held while work in flight is above a declared limit. (#20260901123357-hold-new-divergence-above-a-work-in-progress-limit.md)
-- [ ] The executor is offered work in an order derived from the board, not walk order. (#20260901123357-offer-the-executor-work-in-a-derived-order.md)
-- [ ] A date the arithmetic says cannot hold reaches its owner before it passes. (#20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md)
+- [x] New divergence is held while work in flight is above a declared limit. (#20260901123357-hold-new-divergence-above-a-work-in-progress-limit.md)
+- [x] The executor is offered work in an order derived from the board, not walk order. (#20260901123357-offer-the-executor-work-in-a-derived-order.md)
+- [x] A date the arithmetic says cannot hold reaches its owner before it passes. (#20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260901123357-say-which-directions-the-arithmetic-says-cannot-land.md
+- 2026-09-02 — ticket archived — 20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md
+- 2026-09-02 — ticket archived — 20260901123357-name-a-mission-at-full-acceptance-with-tickets-left.md
+- 2026-09-02 — ticket archived — 20260901123357-offer-the-executor-work-in-a-derived-order.md
+- 2026-09-02 — ticket archived — 20260901123357-hold-new-divergence-above-a-work-in-progress-limit.md
+- 2026-09-02 — ticket archived — 20260901123358-drill-the-divergence-hold-and-the-offer-order-offline.md
+- 2026-09-02 — ticket archived — 20260901123358-carry-the-plan-s-delta-in-the-hourly-post.md
+- 2026-09-02 — ticket archived — 20260901123358-say-where-planning-lives-and-what-authority-it-has.md

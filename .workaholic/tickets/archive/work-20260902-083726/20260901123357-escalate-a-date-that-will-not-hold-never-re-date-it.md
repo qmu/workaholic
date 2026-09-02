@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:33:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,28 @@ the date, or within a window of it. Nothing asks *before*, on the arithmetic.
 - Getting the *before* boundary right matters: too early and this asks about every direction
   every week, too late and it is `expiring` with extra words. Tune it against the measured day
   (three directions, same date, six days out, 30 queued) rather than by picking a number.
+
+## Final Report
+
+Development completed as planned, with the re-dating half refused by name, as the ticket
+required. `/moderate`'s new `date-will-not-hold` step (33rd) reads `landing-arithmetic.sh`'s
+`does_not_clear` rows, keeps only those `direction-state.sh` reads `live`, and asks the
+direction's assignee once per direction (`date-will-not-hold:<slug>`), carrying the age. It
+writes nothing: no `amend.sh` call, no `target_date`, no stage, no mission, no held work.
+
+### Discovered Insights
+
+- **Insight**: "Do not ask twice about the same thing" was implementable two ways, and only one
+  of them is safe. Re-deriving the `expiring` boundary here (`days_to_target <= 14`) would have
+  been cheaper and would have put a second copy of that constant in the tree. Reading
+  `direction-state.sh`'s own `live` verdict instead means the sibling step's cases are excluded
+  *by that step's reading*, so the two can never disagree — at the cost of a second attribution
+  walk (36s). **Context**: the same choice recurs whenever a new question sits beside an old one.
+- **Insight**: A filter that fails must not silently pass everything or silently drop everything.
+  The first draft treated a refused `direction-state.sh` read as an empty live set, which asks
+  nobody — safe-looking, and wrong: without the filter the step has not found *nothing to
+  escalate*, it has found nothing at all. It now reports `degraded` by the reader's own reason,
+  which is exactly what `direction-health` does with the same refusal.
+- **Insight**: `direction-state.sh` needs an open-proposals read, so it answers
+  `inbox_unreadable` in any hermetic fixture. Its callers take an optional `--open-proposals`
+  file; a test that does not supply one is testing the degradation path without meaning to.

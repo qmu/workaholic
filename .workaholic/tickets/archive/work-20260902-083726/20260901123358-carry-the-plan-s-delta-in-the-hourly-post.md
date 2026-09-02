@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:33:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,38 @@ beside the anomaly lines rather than instead of them.
   blindness for another. What changes is that the plan is on the post at all.
 - Resist letting this grow into a second digest. The daily digest exists and is deliberately
   daily; an unchanged board restated every hour is the failure this repository keeps retiring.
+
+## Final Report
+
+Development completed as planned, with one part of the ask narrowed by name. `strategy-pace` now
+carries a `plan` block — `advancing`, `held`, `held_reasons`, `wip` — lifted off the one survey it
+already makes, and puts the same numbers in its own summary, because that string is what the
+root's change diff compares. `render-tick-post.sh` renders one `📋` line from the block, beside the
+change lines: gated on the diff, earning no post of its own, carrying no identifier and no mention
+token, naming a degraded reading as degraded, and saying so with the count and the limit when the
+repository's own `wip_limit` is holding the tick.
+
+**What the ticket asked for and this does not give**: *what is next in the executor's order*. That
+order is `plan-units.sh`'s, which no `/moderate` step may reach — the survey runs the living
+migrations and **stages** what they converge — and naming which unit is next would put an
+identifier on a line addressed to nobody, which the root's own rule forbids. Both rules are older
+than this clause and neither is worth bending for it, so the delta says how the board moved and
+the question says which artifact needs a person. The narrowing is stated in the clause's own
+header, in `reference/workflow.md` and in `CLAUDE.md` rather than left to be rediscovered.
+
+### Discovered Insights
+
+- **Insight**: The delta's *gate* and the delta's *content* have to come from the same string.
+  The root's change diff compares a step's `summary` against the last **speaking** tick's, read
+  from the log — and the log carries only `status` and `summary`, never a structured payload. So a
+  clause whose content lives in a JSON block can only be diffed if the same numbers are also in
+  the summary. One derivation, two renderings; the impairment clause has exactly this shape and
+  for exactly this reason.
+- **Insight**: `render-tick-post.sh`'s three existing passes tokenise the input with `tr '{'`, one
+  row per line, which works for scalar fields and **tears a nested object apart**. The `plan`
+  block therefore has to be read with `jq`, and its extraction has to tolerate both shapes the
+  script is fed (`{rows: [...]}` from the tests, `{steps: [...]}` from `run.sh`).
+- **Insight**: The morning digest could not be the source. `step-strategy-digest.sh` fires only
+  after 09:00 JST and only once a day, so an hourly delta composed over it would be silent for
+  twenty-three hours out of twenty-four. `strategy-pace` is the step that reads the board every
+  tick, which is why the block lives there.

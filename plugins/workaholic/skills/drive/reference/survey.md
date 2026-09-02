@@ -81,6 +81,43 @@ each backlog row `{path, title, merge_policy, depends_on, mission_closed}` —
 the unclaimed active missions this runner may take and the unclaimed todo tickets, with
 everything a claim already holds subtracted through the shared claim reader.
 
+**The offer order is derived and stated here** (2026-09-01, ticket
+`20260901123357-offer-the-executor-work-in-a-derived-order`). Before it, `missions[]` came back
+in whatever order the directory walk produced and nothing anywhere said so — with 30 tickets
+queued against three directions dated the same day, that was the difference between converging
+one direction and touching all three. The terms, in order:
+
+1. **A mission unit before loose backlog.** This one needs no code: `missions[]` and `backlog[]`
+   are separate fields and `../SKILL.md` §3 already says *prefer a mission over backlog tickets*.
+   It is written here so the whole order reads in one place.
+2. **The nearest `target_date` of the direction the mission serves**, ascending — resolved
+   through `strategy/scripts/mission-strategy.sh`, the existing inverse reader, so this adds no
+   relation, no field on any artifact and no second walker. A mission serving more than one
+   direction takes the **nearest** of their dates: attribution is not a partition, and the
+   earliest date is the one that constrains it.
+3. **The mission's own ticket order**, untouched — ordering within a unit is
+   `ticket-workflow.md`'s and happens after the claim.
+
+**Ordering changes order, never eligibility** — `pace`'s own wording in `survey-strategies.sh`.
+Which units are offered, which are excluded and every exclusion reason are byte-identical.
+
+**A term that could not be read takes a stated fallback position and says why.** Each mission row
+carries `direction`, `direction_target_date`, `days_to_target` and `order_reason`, and the four
+groups run in this order:
+
+| `order_reason` | Meaning |
+| -------------- | ------- |
+| `direction_date` | a direction with a date — ordered ascending by that date |
+| `direction_undated` | the direction declares none: there is no key to sort on, and inventing one would rank it against dated directions |
+| `unattributed` | no direction claims it — attribution is transitive and lossy, so this is an ordinary answer and not a fault |
+| `direction_unreadable` | the resolution itself failed — **last**, and named, because a reading we could not make must never be ordered as though we had |
+
+Inside every group the walk order (slug, `LC_ALL=C`) breaks the tie, so the order is total and
+deterministic. A resolver that fails outright puts every row in the last group, which is exactly
+the pre-existing walk order with the reason named; the survey never fails on it. Cost, stated:
+`mission-strategy.sh` composes the attribution walk and measured **21s** here, once per survey —
+a **local** read, so the survey stays offline by construction.
+
 **`excluded[]` names every drop and why**: `claimed_active`, `claimed_reported`,
 `claimed_undelivered`, `claimed_awaiting_verification`,
 `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`, `no_plan`,

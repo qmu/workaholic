@@ -10,7 +10,7 @@ assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours: 0.5
-feedback: [20260831181658-take-the-moderation-tick-s-log-off-main.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
+feedback: [20260831181658-take-the-moderation-tick-s-log-off-main.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md, 20260902041934-a-machine-log-must-never-land-on-the-base-and-the-move-must-not-wait-for-a-human.md]
 tickets: []
 stories: []
 gate_type:

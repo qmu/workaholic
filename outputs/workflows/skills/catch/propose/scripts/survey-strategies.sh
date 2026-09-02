@@ -291,6 +291,73 @@ RESIDUE="$(printf '%s' "$RESIDUE" | jq -c '{readable: (.readable // false),
                                             mission_count: .mission_count,
                                             ticket_count: .ticket_count}')"
 
+# --- THE REPOSITORY'S OWN WORK-IN-PROGRESS BOUND ------------------------------------
+# (2026-09-01, ticket `20260901123357-hold-new-divergence-above-a-work-in-progress-limit`.)
+#
+# `work_waiting` and `open_proposal` together give ONE MISSION PER STRATEGY in flight, and
+# nothing bounded the REPOSITORY: N directions each inside their own gate still put N missions
+# in flight together. Measured 2026-09-01 — six missions running in parallel with no
+# sequencing, and every merge to the base re-conflicting five open pull requests on the loop's
+# own generated index, reported hourly as an external fact. Two in flight and four queued would
+# have produced the same work with none of the conflicts.
+#
+# ABSENT MEANS NO LIMIT, and that is the whole safety property. A repository that declares
+# nothing is BYTE-IDENTICAL to one before this existed: the count is not even taken, the gate
+# reports `skipped` by name, and `/propose` behaves exactly as it does today. A brake nobody
+# asked for is worse than none, and picking a number for every consuming repository is the
+# tunable constant this file already refuses in three other places.
+#
+# WHERE IT IS DECLARED: `WORKAHOLIC_WIP_LIMIT` in the repository's own `.claude/settings.json`
+# `env` block — the same home, and for the same reason, as `WORKAHOLIC_CADENCES`: a routine
+# declares no environment variables of its own and its cloud environment record is
+# account-level and shared by every repository that selects it.
+#
+# WHAT IS COUNTED: active missions that still have queued work. NOT open pull requests, which
+# conflate the loop's own paperwork with the product's work, and not a sum over the per-row
+# `waiting_missions` — a mission serving two directions would be counted twice, and the bound
+# is about the repository rather than about any direction.
+#
+# A GATE THAT CANNOT BE READ IS NOT A GATE. An unreadable count reports its reason and holds
+# NOTHING, matching `attribution_unreadable` and `inbox_unreadable`: holding origination on a
+# failed read would silently stop the loop, which is a worse outcome than one extra mission.
+#
+# IT HOLDS ORIGINATION ONLY. Inbound work is judged and emitted by `/specificate` regardless,
+# exactly as the `観察中` stage gates origination and nothing else — a limit that swallowed the
+# operator's own instructions on a busy day would be a defect, not a brake.
+WIP_LIMIT="${WORKAHOLIC_WIP_LIMIT:-}"
+WIP_COUNT=null
+WIP_READABLE=true
+WIP_REASON=""
+case "$WIP_LIMIT" in
+    '') WIP_LIMIT=-1; WIP_REASON="not_declared" ;;
+    *[!0-9]*) WIP_LIMIT=-1; WIP_READABLE=false; WIP_REASON="bad_limit" ;;
+    *)
+        # Counted from the tree: an active mission with at least one queued ticket naming it.
+        # `queue-size.sh` is the reader `plan-units.sh` itself uses for that number, so this
+        # composes the survey's own queue read rather than a second one.
+        _wip_n=0
+        _wip_ok=true
+        if [ -d "${ROOT}/missions/active" ]; then
+            for _wip_d in $(find "${ROOT}/missions/active" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort); do
+                [ -f "${_wip_d}/mission.md" ] || continue
+                _wip_q=$(sh "${SCRIPT_DIR}/../../mission/scripts//queue-size.sh" "$(basename "$_wip_d")" "$ROOT" 2>/dev/null || true)
+                _wip_todo=$(printf '%s' "$_wip_q" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
+                if [ -z "$_wip_todo" ]; then _wip_ok=false; continue; fi
+                [ "$_wip_todo" -gt 0 ] && _wip_n=$((_wip_n + 1))
+            done
+        else
+            _wip_ok=false
+        fi
+        if [ "$_wip_ok" = true ]; then
+            WIP_COUNT=$_wip_n
+        else
+            WIP_READABLE=false
+            WIP_REASON="wip_count_unreadable"
+            WIP_LIMIT=-1
+        fi
+        ;;
+esac
+
 jq -sc \
   --argjson list "$(printf '%s' "$LIST")" \
   --argjson open "$(printf '%s' "$OPEN")" \
@@ -300,6 +367,10 @@ jq -sc \
   --arg identity "$IDENTITY" \
   --argjson cap "$CAP" \
   --argjson window_days "$WINDOW_DAYS" \
+  --argjson wip_limit "$WIP_LIMIT" \
+  --argjson wip_count "$WIP_COUNT" \
+  --argjson wip_readable "$WIP_READABLE" \
+  --arg wip_reason "$WIP_REASON" \
   --arg aim_kind "$AIM_KIND" '
   def days($t): if ($t | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
       then (((($t + "T00:00:00Z") | fromdateiso8601) - (($today + "T00:00:00Z") | fromdateiso8601)) / 86400 | floor)
@@ -590,6 +661,13 @@ jq -sc \
                        + (.waiting_advancing // .waiting_count // 0)
                   else (.waiting_missions // 0) + (.waiting_count // 0) end) > 0) then "work_waiting"
            elif ($held | index($w.slug)) then "open_proposal"
+           # THE REPOSITORY'"'"'S WIP BOUND, LAST IN THE LADDER (2026-09-01). Placed here on
+           # purpose: a direction refused by ANY earlier gate never reaches this rung, so a
+           # direction that was never going to originate anything is not also reported as
+           # held by the repository'"'"'s bound. `$wip_limit < 0` means not declared, a bad
+           # declaration, or a count we could not take — in all three the gate holds nothing.
+           elif ($wip_limit >= 0 and $wip_count != null and $wip_count >= $wip_limit)
+                then "wip_limit"
            else "" end)} ]
   # THE WHOLE ORDERING, STATED HERE AND NOWHERE ELSE, so no consumer re-derives it:
   #
@@ -626,6 +704,12 @@ jq -sc \
   | (if $cap < 0 then $ok else $ok[0:$cap] end) as $take
   | (if $cap < 0 then [] else ($ok[$cap:] | map({slug, reason: "over_cap"})) end) as $spill
   | {ok: true, identity: $identity, window: $window, cap: $cap,
+     # THE GATE REPORTS ITSELF WHETHER OR NOT IT FIRED, so a held tick says WHY rather than
+     # looking idle — which is what makes a quieter loop distinguishable from a stopped one,
+     # the failure this repository has already measured twice.
+     wip: {declared: ($wip_limit >= 0 or $wip_reason == "bad_limit" or $wip_reason == "wip_count_unreadable"),
+           limit: (if $wip_limit >= 0 then $wip_limit else null end),
+           count: $wip_count, readable: $wip_readable, reason: $wip_reason},
      active_count: ([.[] | select(.status == "active")] | length),
      surveyed_count: ($list.strategies | length),
      eligible: ($take | map(del(.refusal, .unreadable, .owns))),

@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-02T14:31:37+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy: review
 verification_handoff: 
+claim: work-20260902-234711
 ---
 
 # Derive the suite's test list instead of listing it
@@ -115,3 +117,54 @@ Whoever rules on the third should be the operator.
 - Since the `catchup-blocked` step was retired, no `/moderate` surface asks anybody about a
   `content` conflict. The three stuck pull requests are named only in `/implement`'s run
   report. That is a separate gap and is not repaired here.
+
+## Final Report
+
+Development completed as planned. The `const tests = [` array is gone; each test is registered by a
+`T("<label>", testFn);` call on the line **above** its own declaration, and the runner walks what
+the file declared.
+
+**The Open Decision is ruled: removing the array alone, not name-ordered placement.** Reason: the
+measurement in this ticket says the array is the anchor *every* unit touches, while
+append-at-end-of-file is one that only collides when two units append in the same window — and the
+residual conflict there is a genuine "keep both functions", which a person can resolve in seconds
+and which `conflict-class.sh` is right to call `content`. Name-ordered placement buys rarer
+collisions at the price of a convention nothing enforces and a reviewer's diff that no longer shows
+new tests together; that trade is not worth making for a residue this small. The third side —
+splitting the suite into one file per area — stays the operator's, untouched.
+
+**Two real defects surfaced during the conversion, and both are recorded in the file's own header
+because either would have been silent.**
+
+1. **Registering below the body cannot be done by scanning for the next column-0 `}`.** 115 of the
+   400 bodies contain one inside a template literal (a shell snippet, a JSON fixture), so the
+   insertion landed mid-body and the `T(…)` call then only ran if that test ran. Measured: 285 of
+   400 registered. Registration moved **above** the declaration, which is unambiguous and works
+   because a function declaration is hoisted.
+2. **The runner had to move to the end of the file.** Registration now happens in file order at
+   module load, and 115 tests are declared *below* where the array sat — so leaving the loop there
+   ran 285 and skipped the rest, exactly the failure the file's own `await` note was written
+   against: a test that does not run is worse than one that fails. The header now says anything
+   appended after the runner never executes.
+
+**Verified, not asserted**: the 400 labels are byte-identical to the array's (compared
+mechanically against `HEAD`'s copy — 0 missing, 0 added), the run prints 400 sections, and
+`6236 passed, 0 failed`. Order changed from array order to file order; nothing depends on it, since
+every row builds its own fixture in a fresh temp dir and shares no state.
+
+`CLAUDE.md`'s *Local Verification* section is unchanged — the invocation did not move.
+
+**This does not resolve #890, #899 or #900**, as the ticket states: those three still need a person
+to merge `origin/main` keeping both sides in the suite file.
+
+### Discovered Insights
+
+- **Insight**: A conversion that changes *when* code runs can silently reduce coverage, and the
+  suite's own pass count is the only thing that shows it.
+  **Context**: Both defects here produced a green run — 285 tests passing, 115 never executed. The
+  check that caught it was comparing the section count against the array's length, which is worth
+  keeping in mind for any future move of this file's structure.
+- **Insight**: `^}` at column 0 is not a function boundary in this file.
+  **Context**: Template literals carrying shell and JSON fixtures put unindented braces at line
+  start, which defeats every line-based structural edit. Anchor on the declaration, never on the
+  body's end.

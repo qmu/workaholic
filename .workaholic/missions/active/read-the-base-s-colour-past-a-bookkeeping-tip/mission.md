@@ -39,7 +39,7 @@ reasons stays terminal, named, and never walked past.
 
 ## Acceptance
 
-- [ ] A `no_checks` tip continues into the existing walk under its existing bound and reports
+- [x] A `no_checks` tip continues into the existing walk under its existing bound and reports
       the newest checked ancestor's colour. (#20260831202933-continue-the-base-walk-past-a-commit-nothing-ran-on.md)
 - [ ] Every other unanswerable reason stays terminal, and the distance is stated wherever the
       colour is read. (#20260831202934-say-how-far-back-the-base-s-colour-was-read.md)
@@ -48,3 +48,4 @@ reasons stays terminal, named, and never walked past.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260831202933-continue-the-base-walk-past-a-commit-nothing-ran-on.md

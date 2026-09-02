@@ -21615,59 +21615,57 @@ function testWorkaholifyRepoSettings() {
 
 
 
-// ---------- loops: the local tmux premise (2026-09-02, the developer's instruction) ----------
-// The loop turns on the developer's server in minutes, one clone per loop. What is pinned:
-// the table is declared once and read by all three scripts; a dry run plans every loop and
-// runs nothing; the command spawns with permission prompts off and repeats the table's own
-// prompt; and the propose command and the catalog carry the Slack turn's shape byte-identically.
-T("loops: the local tmux premise, one clone per loop, planned before run", testLocalLoops);
-function testLocalLoops() {
-  const LOOPS = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts");
-  const dir = mkdtempSync(join(tmpdir(), "wh-loops-"));
-  try {
-    execSync("git init -q", { cwd: dir });
-    execSync("git remote add origin https://github.com/o/r.git", { cwd: dir });
-    const env = { ...process.env, WORKAHOLIC_LOOPS_HOME: join(dir, "home") };
-    const plan = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run`, { env }).stdout);
-    assertEq("a dry run is ok and names the repository", [plan.ok, plan.repo_name, plan.dry_run], [true, "r", true]);
-    assertEq("it plans every declared loop", plan.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
-    assertTrue("and runs nothing", plan.loops.every((l) => l.state === "planned"), JSON.stringify(plan.loops));
-    assertTrue("no clone was made by a dry run", !existsSync(join(dir, "home")), "dry run wrote a clone");
-    for (const l of plan.loops) {
-      assertTrue(`${l.loop} runs in its own clone under the loops home`,
-        l.path === join(dir, "home", "r", l.loop), l.path);
-      assertTrue(`${l.loop}'s session is named after the repository and the loop`, l.session === `wh-r-${l.loop}`, l.session);
-      assertTrue(`${l.loop} spawns with permission prompts off and repeats its own prompt`,
-        /--dangerously-skip-permissions/.test(l.command) && l.command.includes(`/loop ${l.interval} ${l.prompt}`), l.command);
-    }
-    const table = Object.fromEntries(plan.loops.map((l) => [l.loop, [l.interval, l.prompt]]));
-    assertEq("propose supplies the ask and then ingests it, every five minutes",
-      table.propose, ["5m", "Run /propose, then run /specificate."]);
-    assertEq("implement drives every five minutes", table.implement, ["5m", "Run /implement."]);
-    assertEq("moderate ticks every thirty minutes", table.moderate, ["30m", "Run /moderate."]);
-    const only = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run --only propose`, { env }).stdout);
-    assertEq("--only narrows the plan", only.loops.map((l) => l.loop), ["propose"]);
-    const status = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/loop-status.sh`, { env }).stdout);
-    assertEq("status reads every declared loop", status.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
-    assertTrue("and a loop never spawned is neither running nor cloned",
-      status.loops.every((l) => l.running === false && l.exists === false), JSON.stringify(status.loops));
-    // THE TABLE IS ONE DECLARATION: the three scripts source it and carry no cadence of their own.
-    for (const f of ["spawn-loops.sh", "loop-status.sh", "stop-loops.sh"]) {
-      const src = readFileSync(join(LOOPS, f), "utf8");
-      assertTrue(`${f} reads the loop table`, /lib\/loop-table\.sh/.test(src), f);
-      assertTrue(`${f} declares no cadence of its own`, !/'(propose|implement|moderate)\|/.test(src), f);
-    }
-    // THE SLACK TURN'S SHAPE is byte-identical between the command and the catalog.
-    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
-    const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-    const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
-    assertTrue("the propose command carries the Slack turn's reply shape", shape(cmd) !== "", "missing from propose.md");
-    assertEq("and the catalog carries it byte-identically", shape(catalog), shape(cmd));
-    assertTrue("the turn reads the thread before replying", /read the thread first/i.test(cmd) && /Read the thread first/.test(catalog), "dedup rule unwritten");
-    assertTrue("and the Web routines are named as the fallback",
-      /no_tmux/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/spawn-loops.md"), "utf8")), "fallback unnamed");
-  } finally { cleanup(dir); }
+// ---------- loops: one session, one tick, nothing waited on (2026-09-03) ----------
+// The three-tmux-session premise is retired. What is pinned is what a reader of the tree can
+// still get wrong: the retired surface is GONE (not merely undocumented), the tick owns the
+// Slack turn (not `/propose`), the reply shape is byte-identical between the command and the
+// catalog, and the tick states the concurrency rule it needs no store for.
+T("loops: one session, one tick, and the retired premise is gone", testOneSessionLoop);
+function testOneSessionLoop() {
+  const P = (...r) => join(REPO_ROOT, ...r);
+  // THE RETIRED SURFACE IS DELETED, not left behind for a reader to follow.
+  for (const gone of [
+    "plugins/workaholic/commands/spawn-loops.md",
+    "plugins/workaholic/skills/loops/scripts/spawn-loops.sh",
+    "plugins/workaholic/skills/loops/scripts/loop-status.sh",
+    "plugins/workaholic/skills/loops/scripts/stop-loops.sh",
+    "plugins/workaholic/skills/loops/scripts/lib/loop-table.sh",
+  ]) assertTrue(`${gone} is deleted with the tmux premise`, !existsSync(P(gone)), gone);
+
+  const tick = readFileSync(P("plugins/workaholic/commands/infinite-development.md"), "utf8");
+  const loops = readFileSync(P("plugins/workaholic/skills/loops/SKILL.md"), "utf8");
+  const propose = readFileSync(P("plugins/workaholic/commands/propose.md"), "utf8");
+  const catalog = readFileSync(P("plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+
+  // THE TICK DOES NOT WAIT, and says so where a run reads it.
+  assertTrue("the tick spawns background subagents", /general-purpose/.test(tick), "no subagent contract");
+  assertTrue("and it does not wait for them", /do not poll, do not await/i.test(tick), "the non-blocking rule is unwritten");
+  // THE CONCURRENCY RULE NEEDS NO STORE, and both surfaces name the reader it uses instead.
+  for (const [name, t] of [["the tick", tick], ["workaholic:loops", loops]])
+    assertTrue(`${name} states the ListAgents concurrency rule`, /ListAgents/.test(t), name);
+  // MODERATE KEEPS ITS CADENCE, off its own log rather than a tick counter.
+  assertTrue("moderate is gated on its own log, not a counter",
+    /log-read\.sh/.test(tick) && /30 minutes/.test(tick), "the moderate gate is unwritten");
+
+  // THE SLACK TURN IS THE TICK'S, AND `/propose` MUST NOT TAKE IT BACK.
+  assertTrue("the tick owns the Slack turn", /Slack turn/.test(tick), "the turn left no owner");
+  assertTrue("and /propose posts nothing to Slack", /posts nothing to Slack/.test(propose), "propose still claims the channel");
+  assertTrue("/propose takes the channel reading handed in, never a second query",
+    /only_the_loop_spoke/.test(propose) === false, "the brake's word leaked back into the command");
+
+  // THE REPLY SHAPE is byte-identical between the command and the catalog.
+  const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
+  assertTrue("the tick carries the Slack turn's reply shape", shape(tick) !== "", "missing from infinite-development.md");
+  assertEq("and the catalog carries it byte-identically", shape(catalog), shape(tick));
+  assertTrue("the turn reads the thread before replying",
+    /Read the thread first/i.test(tick) && /Read the thread first/.test(catalog), "dedup rule unwritten");
+
+  // THE RECEIPT ANSWERS RATHER THAN STAMPS: its middle line is the loop's own sentence.
+  const receipt = (t) => { const m = t.match(/```\n(📥 受理 [^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
+  assertTrue("the tick carries the receipt with a reply line", receipt(tick) !== "", "missing from infinite-development.md");
+  assertEq("and the catalog carries it byte-identically", receipt(catalog), receipt(tick));
 }
+
 
 // ---------- the reading a claim branch's emptiness is derived from ----------
 // `claims_branch_emptiness` is the term that makes `superseded` mean what its header claims —
@@ -22478,7 +22476,8 @@ function testVersionAheadOfTheBase() {
   } finally { cleanup(dir); }
 }
 
-// A `/spawn-loops` CLONE CARRIES `.workaholic/` TWICE, AND EVERY PATH CUT MUST TAKE THE LAST
+// A PATH MAY CARRY `.workaholic/` TWICE, AND EVERY CUT MUST TAKE THE LAST (measured on the
+// retired per-loop clone home; the cut stays because the shape can recur)
 // (2026-09-02). The local-loops premise clones each loop under `$WORKAHOLIC_LOOPS_HOME`,
 // default `~/.workaholic/loops/<repo>/<loop>` -- so an absolute path to any artifact inside a
 // loop clone contains the segment twice, and a shortest-match `#`/longest-match `%%` cut lands
@@ -35596,7 +35595,7 @@ function testClaimMissionState() {
 // got -- identical whether the branch is broken, the environment leaked, or the run lost to load.
 // Measured: two consecutive catch-ups on `work-20260902-043932` refused over the suite, and the
 // script's OWN invocation re-run byte-for-byte in the same worktree answered `6236 passed, 0
-// failed`, exit 0, twice. Under `/spawn-loops` several loops run that suite on one machine, so
+// failed`, exit 0, twice. Several of the loop's runs share one machine, so
 // this stopped being rare. The bytes are kept in a file whose path rides the JSON; stdout stays
 // the single line every caller parses.
 T("drive/catch-up-claim.sh: a refused check keeps its output", testCatchUpKeepsTheFailingCheckOutput);

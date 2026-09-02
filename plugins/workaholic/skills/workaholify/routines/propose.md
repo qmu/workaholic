@@ -57,14 +57,15 @@ reads the inbound ask channel, and feedback stays the only input that can origin
 A tick whose propose half opened nothing and whose discovery returns nothing still reports
 `nothing_in_hand` and ends — the honest answer, meaning "the inbox is empty".
 
-**It carries the Slack connector to read the channel** (2026-08-23, the developer's
-instruction to drop the Claude Tag dependency). The inbound sweep reads the repository's
-designated channel (`WORKAHOLIC_INBOUND_SLACK_CHANNEL`, default `<repo_name>`) for asks a
-person wrote **without mentioning any bot**, and files each as an `[FB]` issue assigned to the
-running identity — which the same run's `/specificate` half then ingests. The sweep posts its
-receipt (the `📥 受理` reply and the `:inbox_tray:` reaction) and its result reaches its one
-reader as a Claude notification (`notifications: push`); this is the only template declaring
-the field.
+**The Slack turn is NOT this routine's, and the fallback pays for that** (2026-09-03). Reading
+the channel, answering a question in its own thread and capturing an ask belong to the local
+tick (`commands/infinite-development.md`, `workaholic:loops`); `/propose` posts nothing and
+reads nothing there. A repository running on this fallback therefore captures asks **through
+GitHub issues only** — a message written on Slack and nowhere else reaches nobody. That is the
+stated cost of the fallback, not a defect to repair here: the repair is running the local loop.
+The template keeps `mcp: [Slack]` so a session that needs the connector has it, and its result
+reaches its one reader as a Claude notification (`notifications: push`); this is the only
+template declaring the field.
 
 **The prompt names the commands and nothing else** (2026-09-01, the developer's instruction).
 Everything a session running this routine may do — the post shapes, the transports, what it may

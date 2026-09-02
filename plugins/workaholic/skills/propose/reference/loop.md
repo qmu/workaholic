@@ -1,62 +1,14 @@
-# The run, the clock, and the name
+# The run, and what was refused
 
-## The run — the inbound sweep, then five steps, no prompt at any of them
+## The run — five steps, no prompt at any of them
 
-0. **Sweep the channel** (2026-08-23, the developer's instruction to drop the Claude Tag
-   dependency; the full rules are the skill's *The inbound sweep* section). Read
-   `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default `<repo_name>`; this repository sets it to
-   `dev-workaholic` in `.claude/settings.json`) through the Slack
-   connector over the last `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) hours.
-   Fetch the dedup ledger first — `list-swept-slack-refs.sh`; `ok: false` skips the sweep
-   as `sweep_dedup_unreadable`, never runs it blind. For each human message that clears
-   the feedback skill's filing bar and is not the loop's own post, not already in the
-   ledger, and not an answer to a tick's question: file it with `file-inbound-ask.sh`
-   (`--slack-ref <channel>:<ts>`, `--subject person:<author>`, `--assignee` the running
-   identity). No mention is required — that is the point.
-
-   **Then acknowledge it where it was written** (2026-08-26): for each message this run
-   filed, post the `📥 受理` shape as a reply into that message's own thread **and add the
-   catalog's reaction to the message itself** — both coordinates are the `slack-ref` just
-   written, so no lookup runs (`workaholic:notify`, *The inbound sweep's receipt*). The
-   reply carries the issue link for whoever opens the thread; the reaction says the same
-   thing to whoever is only scrolling the channel. Only a message this run filed: an
-   already-swept one, an exclusion and a degradation get neither. Neither is ever
-   load-bearing — the issue is already open, and a failure of either is reported per
-   message as `ack_failed`.
-
-   Report each filed URL **and whether its receipt landed** (reply and reaction each), and each
-   named exclusion; a missing connector is `no_slack_transport`, an unreadable channel
-   `channel_unreadable`, and **every sweep outcome leaves steps 1-5 untouched**.
-
-   **And answer one more question off the read you just made** (2026-09-02, mission
-   `refuse-an-ask-the-loop-wrote-to-itself`): over this same window, **was there any human
-   message at all** — filed, excluded or ignored? Three values, and no second query:
-   **`human_spoke`** / **`only_the_loop_spoke`** / **`unreadable:<reason>`**. The sweep
-   already tells the loop's own posts from a person's by shape, which is the same
-   distinction; a run that reached no transport, or could not read the channel, answers
-   `unreadable` by that reason. **Report the reading whether or not it fires**, so a reader
-   can tell a quiet channel from a quiet loop. What it does with the answer is step 9's.
-
-0b. **Stop if only the loop has spoken.** When step 0's reading is
-   **`only_the_loop_spoke`**, originate nothing this tick: skip steps 1-5 entirely, open no
-   proposal, post nothing, and end the run reporting the refusal by that word — never as
-   idle and never as an error. This is the one **run-level** brake: it refuses every
-   direction at once, where every other gate is per-direction.
-
-   **`unreadable` never brakes.** A channel that could not be read is not silence — the rule
-   `inbox_unreadable` already holds — and a repository with no Slack transport at all reads
-   `unreadable`, never `only_the_loop_spoke`. Report the reason and continue.
-
-   **The reactive half is untouched.** An issue somebody filed, an ask this very sweep just
-   captured, a `/specificate` run: all still work. The brake is on **origination**, exactly
-   as `observing` and `arrived` are, and that asymmetry is the whole point.
-
-   **The cost is accepted, not tuned away.** A legitimately quiet stretch — a weekend, a
-   holiday — reads as abandonment and costs one tick of proposals; the alternative, measured,
-   was a day of merged work the operator tore out. No threshold is introduced against it, and
-   the window is the sweep's own `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) because
-   that is the evidence the judgment is made against — a second, different number would be a
-   constant nobody can defend.
+0. **Take the channel reading the tick hands in.** The Slack turn and the inbound sweep belong
+   to `/infinite-development`, not here (`workaholic:loops`). What reaches this run is one
+   word — **`human_spoke`**, **`only_the_loop_spoke`** or **`unreadable:<reason>`**. On
+   `only_the_loop_spoke` originate nothing: skip steps 1-5, open no proposal, and report the
+   refusal by that word — never as idle and never as an error. It is the one **run-level**
+   brake, refusing every direction at once where every other gate is per-direction.
+   `unreadable` never brakes, and a run handed no reading at all treats it as `unreadable`.
 
 1. **Survey.**
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-strategies.sh [window]`
@@ -156,57 +108,6 @@
    which refuses such a row and cannot select it.
    Post nothing.
 
-## Where it lands in the hour, and why the loop closes across hours
-
-| Minute | Routine | What it does |
-| ------ | ------- | ------------ |
-| `:15` | `[Specificate]` | takes an ask in hand → record + the work it warrants, in one PR |
-| `:30` | `[Implement]` | drives the queued work → pull request → merge |
-| `:40` | **`[Propose]`** | reads the strategies → opens the next ask |
-| `:50` | `[Moderate]` | the maintenance tick |
-
-**`:40` is after `[Implement]`, deliberately.** The judgment is made against what has actually
-landed, so it must run after the hour's driving rather than before it — a proposal written at
-`:20` would be judged against a base the same hour was about to change.
-
-**The loop closes ACROSS hours, not within one, and that is the design rather than a
-limitation.** A proposal opened at 14:40 is ingested at 15:15 and driven at 15:30: one turn is
-one hour. Closing it inside a single hour would mean `[Propose]` running before `[Specificate]`
-on the same tick, which inverts the dependency — the proposal would be judged against the
-previous hour's state and then wait 24 hours in the ordering rather than 35 minutes. The API's
-minimum interval is one hour, so an hourly turn is also the floor, not a compromise.
-
-**No two routines share a minute** — the same stagger rule the other four follow — and `:40`
-is not `:00`, which the routines API rewrites to server jitter.
-
-## Taking the name back
-
-`/propose` and `[Propose]` were both vacated on 2026-08-19 (issue #526) and this change takes
-them back. Confirming that a reclaimed name collides with nothing is a real step, not a
-formality, because **convergence matches an account's routines by rendered `name`** and two
-routines rendering one name can be neither told apart nor repaired by it.
-
-- **The command `/propose`** — the former name of `/specificate`. `plugins/workaholic/commands/`
-  holds no `propose.md` and the rename registry holds no `propose` row (a row is deleted once
-  the fleet has cut over, which is the signal that it has).
-- **The skill `workaholic:propose`** — the former namespace of `workaholic:specificate`.
-  `skills/propose/` did not exist before this change.
-- **The routine `[Propose] {repo_name}`** — the former rendered name of `[Moderate]`. No live
-  template claims it: `workaholic:workaholify` §5 records that the tick was renamed again the
-  same day, "vacating `[Propose]` for nobody", and that no template carries `renamed_from:` at
-  all.
-
-**What a reclaimed name owes the operator is the inverse of what a rename owes them.** A
-`renamed_from:` template says *rename your old routine, do not create a second*. A reclaimed
-name says *delete any routine still rendering this name before converging, because convergence
-will otherwise adopt it* — a `[Propose] <repo>` left over from before the 2026-08-19 cutover
-fires `/moderate` on a repository-scoped record, and this template would silently converge that
-record into a developer-scoped `/propose` at `:40`. The fleet is one account and it cut over,
-so **no template carries the field today** and this is a statement rather than a mechanism.
-The mechanical guard that does ship is narrower and permanent: `test-workflow-scripts.mjs`
-pins that **no two templates render the same `name:`**, which is the collision itself rather
-than one occasion of it.
-
 ## What was refused, and why
 
 - **A per-day post/proposal bound**, copied from `deploy-day:<token>`. It answers a different
@@ -222,7 +123,6 @@ than one occasion of it.
   fail to be discovered and suppress the issue's discovery. Measured once already on `/fb`.
 - **A Slack post.** One person, already notified by GitHub, and the same-noise-twice argument
   that gave the retired `[Workaholic]` no connector.
-- **A repository scope for the routine.** `/propose` acts on strategies assigned to the
-  running identity and opens issues assigned to it; one repository-wide copy would route every
-  developer's directions through whichever account created it — the measured 2026-08-14
-  reasoning (issue #451) that kept `[Specificate]` developer-scoped.
+- **A repository-wide propose.** `/propose` acts on strategies assigned to the running
+  identity and opens issues assigned to it; one repository-wide copy would route every
+  developer's directions through whichever account ran it (issue #451, 2026-08-14).

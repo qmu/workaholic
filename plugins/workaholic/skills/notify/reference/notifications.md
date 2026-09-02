@@ -102,9 +102,9 @@ The token is **the unit's own addressee, never the runner** — resolved from th
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
-### `/propose` — the Slack turn's reply: a question answered in its own thread, within five minutes
+### `/infinite-development` — the Slack turn's reply: a question answered in its own thread, within five minutes
 
-**The loop is a bot a person can talk to, at a five-minute latency** (2026-09-02, the developer's instruction). The loop now turns locally every five minutes (`workaholic:loops`), and the first thing `/propose` does each turn is read the inbound channel for what moved since the last turn. A person's **question** — what a command does, where something stands, why a run did what it did — gets one reply in its own thread; an **ask** is the inbound sweep's and gets the `📥 受理` receipt below; anything else a person wrote gets `:eyes:` on the message. Not the Claude Tag's instant reply, and the developer ruled that a reply inside five minutes is enough.
+**The loop is a bot a person can talk to, at a five-minute latency** (2026-09-02, the developer's instruction). The loop turns locally every five minutes in one session (`workaholic:loops`), and the **first** thing each tick does — before it spawns any work — is read the inbound channel for what moved since the last turn. A person's **question** — what a command does, where something stands, why a run did what it did — gets one reply in its own thread; an **ask** is the inbound sweep's and gets the `📥 受理` receipt below; anything else a person wrote gets `:eyes:` on the message. Not the Claude Tag's instant reply, and the developer ruled that a reply inside five minutes is enough.
 
 ```
 💬 [<the question, one line>]
@@ -114,20 +114,25 @@ Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implemen
 
 **Read the thread first, and post nothing if it already carries a reply of ours after the message** — the dedup is the thread itself, not a marker, because a reply is not a filing and writes no `slack-ref`. **No mention token**, by the standing rule; **no question back**, because a run that asks is a run that waits; **no promise of an act** — an act is the sweep's issue or nothing. The window is `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10) so consecutive turns overlap. A failed read or post is `slack_turn_failed: <reason>` and never blocks the sweep.
 
-### `/propose` — the inbound sweep's receipt: a reply in the swept message's thread, a reaction on the message
+### `/infinite-development` — the inbound sweep's receipt: a conversational reply in the swept message's thread, a reaction on the message
 
 **A capture the channel cannot see did not happen, as far as the person who wrote it is concerned** (2026-08-26, the developer's instruction). The sweep filed the `[FB]` issue and left **nothing** on the message it filed — so from `#dev-<repo>` a message that became an issue and a message nobody read are byte-identical. Measured the same day: two asks written at 18:56 and 19:20 JST were both captured as issues #620 and #621 within the hour, and the developer, seeing no trace in the channel, asked why neither had been treated as feedback. The capture worked; only its receipt was missing.
 
 ```
 📥 受理 - [#123 [FB] Issue title](<repo-url>/issues/123)
+<その人に話しかける言葉で、この依頼をどう受け取ったかと次に何が起きるか。最大80語、平易な日本語>
 <session URL>
 ```
+
+**The middle line is the reply, and the receipt is not a stamp** (2026-09-02, the developer's instruction: 「単に受理という形で返すのではなく、会話として応えるような形で反応してもらいたい」). Until then the shape was a label, a link and a URL — three lines with **no sentence of the loop's own in any of them** — so a person who wrote a paragraph asking for something got back a filing stamp, and from the thread *understood* and *logged* looked identical. The line says, in the writer's own language, **what the run understood the ask to be** and **what happens to it next**: the reply a colleague would give.
+
+**What it may say is bounded by what is already true.** It names only the next step the filed issue *already* commits to (`/specificate` がこれを読み、ミッションかチケットになります) — never a schedule, never a completion date, never a second act. It asks the person **nothing**, and carries **no mention token**. When the run cannot tell what was asked, it says so there rather than composing a confident paraphrase. Everything mechanical is untouched: one reply, the same coordinate, no lookup, only a message this run filed, never load-bearing.
 
 **One reply per filed issue, into the swept message's own thread** — `thread_ts` is the `ts` half of the `slack-ref` the run just wrote into the issue body, so the coordinates are already in hand and **no lookup runs**: this is the model's case 1 (SKILL, *One thread per feedback item*), not a search, and the two-query bound is untouched because no query is made. A message with no thread gets one, rooted on itself, which is exactly where a person looking at that message will find it.
 
 **It carries no mention token**, by the standing rule: the reply reaches Slack as the developer's own account and the person it would name is normally the message's own author, so a `<@U…>` there notifies nobody. Slack's own thread-participation notice reaches the author, which is the whole mechanism this receipt relies on.
 
-**And a reaction on the message itself: `:inbox_tray:`** (2026-08-26). A reply lives *inside* a thread, so from a channel scroll a captured ask and an ignored one still look identical — a person has to open the thread to find out which happened. The reaction is the same receipt at a glance, in the one place someone scrolling the channel is already looking. It is the emoji the reply already speaks with (`📥`), so one event keeps one vocabulary, and **this line is the single source for the name**: `/propose` and the drift pin read it from here rather than restating it.
+**And a reaction on the message itself: `:inbox_tray:`** (2026-08-26). A reply lives *inside* a thread, so from a channel scroll a captured ask and an ignored one still look identical — a person has to open the thread to find out which happened. The reaction is the same receipt at a glance, in the one place someone scrolling the channel is already looking. It is the emoji the reply already speaks with (`📥`), so one event keeps one vocabulary, and **this line is the single source for the name**: `/infinite-development` and the drift pin read it from here rather than restating it.
 
 It rides the same coordinate and the same bounds as the reply — `<channel>:<ts>` from the `slack-ref` the run just wrote, so still **no lookup and no second query**; **only a message this run filed**, so an already-swept one gets neither reply nor reaction; and **never load-bearing**, reported per message as `ack_failed: <reason>` beside the reply's own outcome, so a landed reaction and a failed one are two facts exactly as a landed reply and a failed one are. It is a **second signal for a second audience**, never a substitute for the reply: a reaction carries no link and is invisible to anyone reading the issue rather than the channel.
 

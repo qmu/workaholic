@@ -8,7 +8,6 @@
 * [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [refuse-an-ask-the-loop-wrote-to-itself](active/refuse-an-ask-the-loop-wrote-to-itself/mission.md) - Refuse an ask the loop wrote to itself
 * [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](active/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
-* [retire-a-claim-whose-work-is-finished-or-abandoned](active/retire-a-claim-whose-work-is-finished-or-abandoned/mission.md) - Retire a claim whose work is finished or abandoned
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 * [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
@@ -101,6 +100,7 @@
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies
 * [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](archive/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
 * [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
+* [retire-a-claim-whose-work-is-finished-or-abandoned](archive/retire-a-claim-whose-work-is-finished-or-abandoned/mission.md) - Retire a claim whose work is finished or abandoned
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity

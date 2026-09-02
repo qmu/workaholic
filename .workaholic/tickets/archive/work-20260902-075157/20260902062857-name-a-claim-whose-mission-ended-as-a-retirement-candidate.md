@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T06:28:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,49 @@ retired by nobody. Add that third class, bounded exactly as the other two are.
   `abandoned` is the operator saying that work is not wanted — the same reasoning
   `pull_request_closed_unmerged` already rests on — and `branch_empty` records how often it
   actually happens.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — reproduced and localized before adding the class
+
+A branch whose unit's mission is archived and whose pull request is **open** yielded no candidate,
+and the arm that dropped it is the **second class's live-row test**, not the pull-request state
+test the ticket's overview assumed. `list-retirable-claims.sh`'s per-ref arm walks
+`refs/remotes/origin/work-*` and `continue`s on `live | single | ambiguous` — and a claim branch
+carries a `Claim` commit by construction, so the oracle always holds a row for it and its
+resolution is `single`. Every claim branch was therefore dropped before its pull request was read
+at all, which is why even a *closed-unmerged* claim — the measured case — reached no class.
+
+So the fourth class is enumerated from the **oracle's rows** rather than from the refs, and the
+bounds are re-derived rather than inherited.
+
+### Step 4 — the decision the ticket required, written down
+
+**The `pull_request_open` bound is not widened.** Deleting the head branch of an open pull request
+leaves it unmergeable by anybody forever — the headless shape this repository measured on `#813`,
+`#799`, `#688`, `#635` and `#625`, every one of which a person had to close by hand. So the act's
+bound stays exactly as it is, and `list-retirable-claims.sh` declines to offer such a branch at
+all rather than handing the act a refusal it would repeat hourly. Closing the pull request is the
+operator's own act; once they take it, the branch reaches the class on its own terms. Recorded in
+`claims.md` beside the class, not only here.
+
+### Discovered Insights
+
+- **Insight**: The act's blanket `live | single | ambiguous` refusal had to be **narrowed per
+  class, not loosened**. For the two pull-request classes any claim row at all is a live claim
+  beating a fact about old work, because those classes exist for branches the oracle holds no row
+  for. This class is enumerated *from* the rows, so refusing every row made it unreachable by
+  construction.
+  **Context**: What it refuses instead is exactly what the reader refuses — `live`, `ambiguous`,
+  and a `claim_active` verdict. The hermetic row that proves the last one is the one that cost a
+  fixture iteration: pushing an ordinary commit to build the *emptiness* case made the tip fresh,
+  and the act correctly refused `not_superseded:claim_active` before reaching the gate under test.
+- **Insight**: The emptiness gate is what keeps this class safe, and it is also what keeps its
+  reach modest. An abandoned mission's claim branch usually still holds the work that was driven
+  on it, so the act will refuse `branch_holds_work` and CI's record will name it — which is the
+  signal a person needs. The class deletes the empty leftovers; the mission's other half (the
+  stuck-work filter) is what stops the hourly question about the rest.
+  **Context**: Issue #788 measured what assuming otherwise costs — two branches with ~300 lines
+  present on no other ref, offered for deletion.

@@ -202,6 +202,53 @@ if [ "$SKIP_STAGING" = "false" ] && [ "$ALLOW_EMPTY" = "false" ]; then
             git add "$file"
             echo "    + $file"
         done
+        # THE OTHER HALF OF A MOVE IS REFUSED HERE TOO (2026-09-03).
+        #
+        # The guard below keyed on `git add -u`'s blind spot -- a staged deletion beside an
+        # untracked file -- and its own comment asserted that a caller naming its set "has
+        # already made this decision". That was wrong in the one direction the caller cannot
+        # correct: a move's DELETION side has no path the caller can name it by, because
+        # `workaholic:commit` tells a caller that has just written a NEW file to pass that
+        # file in `files...`, and `git add <the new path>` stages the addition alone. The
+        # deletion is then left in the working tree and the commit reports success without it.
+        #
+        # MEASURED 2026-09-03: pull request #910 published a mission's archive copy and left
+        # the active copy standing on `main`, so one slug named two missions -- the collision
+        # `layout-doctor.sh` reports as an advisory precisely because it must not fail a merge
+        # over history that harms nothing. A second pull request (#911) removed the other half
+        # by hand. Whether that particular run reached this branch is NOT established, and
+        # what would settle it is the run's own transcript; the hole is real either way, and
+        # its own comment claimed it was not.
+        #
+        # THE SIGNAL IS THE SAME CO-EXISTENCE, read from the other side: an ADDITION among the
+        # named paths, beside a tracked file DELETED in the working tree and not staged. A
+        # named path that was itself a deletion is already staged by `git add` above, so it
+        # never appears here -- the only deletions this sees are ones the caller did not name.
+        # An addition alone is routine; a deletion alone rides in no commit and hurts nothing.
+        ADDED=$(git diff --cached --name-only --diff-filter=A)
+        DROPPED=$(git ls-files --deleted)
+        if [ -n "$ADDED" ] && [ -n "$DROPPED" ]; then
+            echo "" >&2
+            echo "Error: refusing to commit -- this looks like half a move." >&2
+            echo "  staged addition(s) from the named paths:" >&2
+            printf '%s\n' "$ADDED" | sed 's/^/    + /' >&2
+            echo "  deleted file(s) NOT staged, because no named path covers them:" >&2
+            printf '%s\n' "$DROPPED" | sed 's/^/    - /' >&2
+            echo "" >&2
+            echo "A move published as its addition alone leaves both copies on the base." >&2
+            echo "Nothing was committed and the tree is unchanged." >&2
+            echo "" >&2
+            echo "Repair, whichever is true:" >&2
+            BOTH=$(printf '%s\n%s\n' "$*" "$DROPPED" | grep -v '^$' | tr '\n' ' ' | sed 's/ $//')
+            echo "  - both halves belong together -> re-run naming the deletion too:" >&2
+            echo "      commit.sh \"<subject>\" ... ${BOTH}" >&2
+            echo "  - the deletion belongs to a different commit -> stage this set yourself" >&2
+            echo "    and re-run with --skip-staging" >&2
+            # NO `git reset`, for the reason the guard below states: the index may hold what
+            # the CALLER staged before invoking this script, and this branch cannot tell that
+            # from what the loop above just added.
+            exit 1
+        fi
     else
         echo "==> Staging all tracked changes (git add -u)..."
         git add -u
@@ -243,8 +290,11 @@ if [ "$SKIP_STAGING" = "false" ] && [ "$ALLOW_EMPTY" = "false" ]; then
             # the outcome this guard wants in both cases, so the "false" positive still ends
             # somewhere better than the silent half-commit did.
             #
-            # IT NEVER FIRES WHEN THE CALLER NAMED FILES: that branch is above, and a caller
-            # that named its set has already made this decision.
+            # IT NEVER FIRES WHEN THE CALLER NAMED FILES: that branch is above, and it now
+            # carries the mirror of this guard. The sentence that used to stand here -- "a
+            # caller that named its set has already made this decision" -- was wrong, and it
+            # was wrong in the one direction a caller cannot correct: a move's deletion side
+            # has no path the caller can name it by. See the 2026-09-03 block above.
             DELETED=$(git diff --cached --name-only --diff-filter=D)
             if [ -n "$DELETED" ]; then
                 echo "" >&2

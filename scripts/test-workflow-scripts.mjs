@@ -2500,9 +2500,17 @@ function testExpiringGatesNothing() {
     // this can live — the report is written by the run, not by a script.
     const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
     const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
-    assertTrue("the command states the report line", /expiring/.test(cmd) && /gates nothing either/.test(cmd), "");
+    // Pinned on the CLAIM, not on its wording: `expiring` is named in the command's report
+    // contract and said to gate nothing. The literal "gates nothing either" was pinned here
+    // until 2026-09-03 and broke on an honest rewording that kept the claim intact -- which
+    // is the failure mode this repository already rules against for prose.
+    assertTrue("the command states the report line", /expiring/.test(cmd) && /gates? nothing/.test(cmd), "");
+    // The QUESTION KEY is a machine token and stays pinned, but in the one file that owns it.
+    // `/propose`'s body named it until the Slack sweep moved out of that command on
+    // 2026-09-03; the question is `/moderate`'s, and the run report contract in loop.md is
+    // where it belongs. Pinning it in the command body too pinned a cross-reference.
     assertTrue("and names the question that does reach a person",
-      /direction-expiring:<slug>/.test(cmd) && /direction-expiring:<slug>/.test(loop), "");
+      /direction-expiring:<slug>/.test(loop), "");
     assertTrue("the run report contract names the term beside the proposal",
       /`expiring: true`/.test(loop), "");
 
@@ -3656,6 +3664,57 @@ function testCommitStaging() {
       assertEq("named deleted path: exit 0", r.status, 0);
       assertEq("named deleted path: gone.md is no longer tracked", execSync(`git ls-files gone.md`, { cwd: dir, encoding: "utf8" }).trim(), "");
       assertTrue("named deleted path: deletion is in the commit", committedFiles(dir).includes("gone.md"));
+    } finally { cleanup(dir); }
+  }
+
+  // Row: HALF A MOVE, named-files side (2026-09-03). A caller moves a tracked file and
+  // names only the new path -- which is what `workaholic:commit` tells it to do for a NEW
+  // file, and the deletion side has no path it can be named by. Before the fix this
+  // committed the addition alone and reported success, and both copies reached the base
+  // (measured: pull request #910 left a closed mission's active copy standing, so one slug
+  // named two missions). Asserted on the commit and the tree, never on the message.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`mkdir -p active archive`, { cwd: dir });
+      writeFileSync(join(dir, "active/mission.md"), "body\n");
+      execSync(`git add active/mission.md && git commit -q -m "add mission"`, { cwd: dir });
+      const headBefore = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+      // The move, done as a plain mv whose deletion the caller cannot name.
+      writeFileSync(join(dir, "archive/mission.md"), "body\n");
+      rmSync(join(dir, "active/mission.md"));
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Archive the mission" "" "None" "None" "None" "None" archive/mission.md`);
+      assertTrue("half a move: non-zero exit", r.status !== 0, `status=${r.status}`);
+      const out = r.stdout + r.stderr;
+      assertTrue("half a move: the addition is named", out.includes("archive/mission.md"), out);
+      assertTrue("half a move: the dropped deletion is named", out.includes("active/mission.md"), out);
+      assertEq("half a move: no commit was created",
+        execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim(), headBefore);
+      // The tree is untouched: the file the caller wrote is still there, unharmed.
+      assertTrue("half a move: the written file is left alone", existsSync(join(dir, "archive/mission.md")));
+    } finally { cleanup(dir); }
+  }
+
+  // Row: THE GUARD ABOVE MUST NOT FIRE ON THE WHOLE MOVE. Naming both halves is the
+  // repair the refusal prints, and it has to work -- otherwise the guard has no exit.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`mkdir -p active archive`, { cwd: dir });
+      writeFileSync(join(dir, "active/mission.md"), "body\n");
+      execSync(`git add active/mission.md && git commit -q -m "add mission"`, { cwd: dir });
+      writeFileSync(join(dir, "archive/mission.md"), "body\n");
+      rmSync(join(dir, "active/mission.md"));
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Archive the mission" "" "None" "None" "None" "None" archive/mission.md active/mission.md`);
+      assertEq("whole move: exit 0", r.status, 0);
+      // `--no-renames`: git reports a whole move as one `old => new` line, which is the
+      // right rendering and the wrong shape to assert two halves against.
+      const files = execSync(`git show --name-only --no-renames --format= HEAD`, { cwd: dir, encoding: "utf8" })
+        .split("\n").map((s) => s.trim()).filter(Boolean);
+      assertTrue("whole move: the addition is in the commit", files.includes("archive/mission.md"), files.join(","));
+      assertTrue("whole move: the deletion is in the commit", files.includes("active/mission.md"), files.join(","));
+      assertEq("whole move: the old path is no longer tracked",
+        execSync(`git ls-files active/mission.md`, { cwd: dir, encoding: "utf8" }).trim(), "");
     } finally { cleanup(dir); }
   }
 

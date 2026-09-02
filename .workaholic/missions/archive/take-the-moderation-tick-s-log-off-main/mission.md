@@ -2,7 +2,7 @@
 type: Mission
 title: Take the moderation tick's log off main
 slug: take-the-moderation-tick-s-log-off-main
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T18:20:03+00:00
 author: a@qmu.jp
@@ -58,3 +58,5 @@ puts a tick log back on `main` fails a drill.
 - 2026-09-02 — ticket archived — 20260831182058-read-the-tick-log-through-one-reader.md
 - 2026-09-02 — ticket archived — 20260831182058-keep-the-tick-s-feedback-records-on-the-base.md
 - 2026-09-02 — ticket archived — 20260831182058-justify-or-drop-each-persist-the-tick-makes.md
+- 2026-09-02 — ticket archived — 20260831182058-rule-on-the-moderations-history-left-on-main.md
+- 2026-09-02 — mission achieved — mission.md

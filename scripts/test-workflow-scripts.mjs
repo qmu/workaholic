@@ -21712,7 +21712,78 @@ function testStrandedClaimReachesItsHolder() {
   }
 }
 
+// ---------- feedback/ask-origin.sh: did a person want this? ----------
+// The reading the whole `refuse-an-ask-the-loop-wrote-to-itself` mission rests on. It must
+// answer from the `subject` axis and NEVER from the author: a human's channel message swept
+// into an issue by a routine is a HUMAN ask, and keying on the runner would refuse the loop's
+// main inbound path. `unreadable` is a real third value — a grandfathered record has no
+// subject at all, and `other` is inside the closed set and does not decide.
+function testAskOriginReader() {
+  const SCRIPT = join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/ask-origin.sh");
+  const dir = mkdtempSync(join(tmpdir(), "wh-ask-origin-"));
+  const read = (path) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPT} ${path}`).stdout);
+  // `run()` pins stdin to "ignore", so a body on stdin needs the pipe re-opened explicitly —
+  // otherwise the reader is handed an empty ask and answers `unreadable` for the right reason
+  // about the wrong thing.
+  const readBody = (body) => JSON.parse(
+    run(dir, `${POSIX_SH} ${SCRIPT}`, { input: body, stdio: ["pipe", "pipe", "pipe"] }).stdout);
+  try {
+    const rec = (name, fm) => {
+      const f = join(dir, name);
+      writeFileSync(f, `---\ntype: Feedback\n${fm}---\n\n# ask\n`);
+      return f;
+    };
+    let r = read(rec("person.md", "subject: person:a@qmu.jp\nauthor: a@qmu.jp\n"));
+    assertEq("a person's record is human", [r.origin, r.reason], ["human", ""]);
+    assertEq("and names the evidence it used", [r.subject_kind, r.author], ["person", "a@qmu.jp"]);
+
+    r = read(rec("machine.md", "subject: observer_ai:bot@example.com\nauthor: bot@example.com\n"));
+    assertEq("an observer_ai record is machine", [r.origin, r.subject_kind], ["machine", "observer_ai"]);
+
+    // A GRANDFATHERED RECORD IS NEITHER. `validate-feedback.sh` floors the subject on new
+    // writes only, so history has records with none; calling one `human` would let the loop's
+    // own past records through and calling it `machine` would silence real history.
+    r = read(rec("old.md", "author: a@qmu.jp\n"));
+    assertEq("a grandfathered record is unreadable, never human and never machine",
+      [r.origin, r.reason], ["unreadable", "no_subject"]);
+    assertTrue("...and still carries the author as evidence", r.author === "a@qmu.jp", r.author);
+
+    r = read(rec("other.md", "subject: other\nauthor: a@qmu.jp\n"));
+    assertEq("`other` is declared and indecisive, so it does not pick a side",
+      [r.origin, r.reason], ["unreadable", "subject_kind_other"]);
+
+    r = read(rec("bad.md", "subject: martian\nauthor: a@qmu.jp\n"));
+    assertEq("a kind outside the closed set is unreadable by name",
+      [r.origin, r.reason], ["unreadable", "bad_subject_kind"]);
+
+    r = read(join(dir, "absent.md"));
+    assertEq("an absent record is unreadable, not machine", [r.origin, r.reason], ["unreadable", "not_found"]);
+
+    // THE REGRESSION THAT WOULD BREAK THE LOOP'S MAIN INBOUND PATH. `/propose`'s sweep files
+    // a person's channel message as an issue whose body carries the three axes on one line;
+    // the subject is the PERSON, and the reader must say so even though a routine filed it.
+    r = readBody("# Ask\n\nkind: instruction / source: slack / subject: person:someone@example.com\n");
+    assertEq("a human message swept by a routine is a human ask",
+      [r.origin, r.subject_kind, r.subject_identity],
+      ["human", "person", "someone@example.com"]);
+
+    r = readBody("# Finding\n\nkind: instruction / source: moderate / subject: observer_ai:bot@example.com\n");
+    assertEq("and the tick's own finding is machine", r.origin, "machine");
+
+    assertEq("an empty ask is unreadable", readBody("").origin, "unreadable");
+
+    // A PURE READ. Nothing is written, and the exit status is 0 in every case above.
+    assertEq("the reader writes nothing",
+      readdirSync(dir).filter((f) => !f.endsWith(".md")).length, 0);
+    for (const path of ["person.md", "absent.md"]) {
+      assertEq(`exit 0 for ${path}`,
+        run(dir, `${POSIX_SH} ${SCRIPT} ${join(dir, path)}`).status, 0);
+    }
+  } finally { cleanup(dir); }
+}
+
 const tests = [
+  ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
   ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
   ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
   ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],

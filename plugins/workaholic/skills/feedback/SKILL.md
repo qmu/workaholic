@@ -44,6 +44,33 @@ supersedes:               # OPTIONAL: filename of an earlier feedback this entry
 
 Fill it from the ask itself, and **never default it** — least of all to the runner. `create.sh` refuses (`no_subject`) rather than guess, because `/specificate` and the routines write most of this stream and a defaulted subject would record every opinion in the project as the machine's (the failure `assignees` had before P6). `/fb` takes it from the human whose words these are; `/specificate` from the triggering issue's **author**; the ship-time extractor writes `observer_ai:<author email>` because the loop genuinely observed its own leftover. The kind prefix is closed so the field stays readable; the identity after the colon is free text so it stays specific. Full statement: [`reference/schema.md`](reference/schema.md), *The subject axis*.
 
+### Whether a person wanted this — `ask-origin.sh`
+
+**One reader, three values, no new field** (2026-09-02, mission
+`refuse-an-ask-the-loop-wrote-to-itself`). `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/ask-origin.sh <record-path>`
+— or the ask's body on stdin, because a GitHub issue has no file to name — answers
+**`human` / `machine` / `unreadable:<reason>`** with the evidence it used (`subject_kind`,
+`subject_identity`, `author`), and exits 0 in every case.
+
+It is derived from the three axes above and adds none: a record whose subject kind is
+`observer_ai` is a machine's opinion **by this schema's own definition**, and `person`,
+`meeting`, `customer` and `team` are a person's. `other` is inside the closed set and does not
+decide, so it answers `unreadable:subject_kind_other` rather than picking a side; a
+grandfathered record with no `subject:` answers `unreadable:no_subject`. **`unreadable` never
+collapses into either other value** — what to do with it belongs to the consumer, and
+`/specificate`'s bar treats it as an ordinary ask.
+
+**It answers *who*, never *about what*.** The operator's rule has two halves — a routine wrote
+it **and** its subject is the loop's own apparatus — and only the first is mechanical. A script
+guessing the second would refuse the real asks about the loop that people write, which is most
+of this repository's inbox; the bar applies that half as the run's own judgement, in words.
+
+**The author is evidence, never the answer.** A routine session's capture carries its own
+author, so keying on it would mark a human's ask swept from Slack as machine-written — the
+loop's main inbound path. Measured origin: five `[FB]` roots in one day that no human wrote,
+each proposed, ticketed and merged by the next ticks while the operator's own development
+stopped.
+
 ### Whether this merits filing
 
 A separate, prior question from *Choosing the kind* below (which classifies content already judged worth filing) and from *Any legitimate invocation is authorized* (which governs who may invoke `/fb`, not whether the content merits it): file only when the content is **genuine user feedback** — a real problem, bug, or improvement idea a user wants addressed — or **something important that must not be overlooked**. Do not file a routine request, a clarifying question, or a passing remark just because it was clearly stated in conversation; act on it in-session instead, without registering a record. When in doubt, the bar is the ask itself: would leaving it unrecorded risk losing a genuine problem or a real improvement idea, or would it just be one more log line for something already actioned?

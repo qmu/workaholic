@@ -48,3 +48,4 @@ spoken stops origination instead of feeding it.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260902043415-read-whether-an-ask-is-the-loop-talking-to-itself.md

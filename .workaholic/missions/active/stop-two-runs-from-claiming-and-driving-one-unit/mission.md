@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260901-121939
+claim: work-20260901-144612
 ---
 
 # Stop two runs from claiming and driving one unit

@@ -31446,6 +31446,47 @@ function testProofJudgementSplit() {
     wholeTable.includes("#### The resolution strategy, per class"),
     "claims.md no longer says which side wins for each class of conflict");
 
+  // ---- WHAT THE ACT RESOLVED, IT ALSO DELIVERS — BEHIND THE GATE (2026-09-02, ticket
+  // `20260902042630-let-the-tick-merge-what-it-resolved`) ----
+  //
+  // Resolving and stopping leaves the pull request open, which is the stagnation the operator
+  // named: a parked pull request reads as progress to the loop and as stagnation to them. The
+  // rows below pin the three properties that make the delivery admissible rather than reckless.
+  //
+  //   the delivery deleted from the act          -> `... delivers what it made mergeable`
+  //   the merge moved above the scan             -> `... runs the scan before the merge`
+  //   `secret`/`leak` allowed to proceed         -> `... lets no scan finding through`
+  //   the method spelled at the call site        -> `... reads the merge method`
+  //   the `queue_drained` bound dropped          -> `... delivers only what no other act owns`
+  const deliveryAt = catchUp.indexOf('DELIVERY="merged"');
+  assertTrue("the catch-up delivers what it made mergeable",
+    deliveryAt > 0, "catch-up-claim.sh no longer merges the pull request it caught up");
+
+  // THE ORDER IS THE SAFETY PROPERTY, so it is asserted as an order and not as a presence: a
+  // scan that runs after the merge has gated nothing at all.
+  const scanAt = catchUp.indexOf('sh "$SCAN"');
+  assertTrue("and runs the scan before the merge",
+    scanAt > 0 && scanAt < deliveryAt,
+    "catch-up-claim.sh merges before it scans, which gates nothing");
+
+  // The tier policy, not the binary verdict: `secret` is a hard stop and `leak` holds the pull
+  // request open. Only the `override_only` granularity nudge proceeds.
+  assertTrue("and lets no scan finding through",
+    /scan_held:hard/.test(catchUp) && /scan_held:confirm/.test(catchUp)
+      && /override_only/.test(catchUp),
+    "catch-up-claim.sh does not stop on a secret or hold on a leak");
+
+  // One derivation of the merge method; the suite already fails on a literal at a call site.
+  assertTrue("and reads the merge method rather than spelling it",
+    /merge-method\.sh/.test(catchUp), "catch-up-claim.sh spells its own merge method");
+
+  // ONE ACT OWNS ONE DELIVERY. A `report_undelivered` unit's merge is `retry-undelivered.sh`'s,
+  // which `/implement` runs straight after a `caught_up`; delivering here too would attempt one
+  // pull request twice in a turn and report the second as a refusal over a landed merge.
+  assertTrue("and delivers only what no other act already owns",
+    /\[ "\$VERDICT" = "queue_drained" \] \|\| report caught_up/.test(catchUp),
+    "catch-up-claim.sh delivers a unit whose merge belongs to retry-undelivered.sh");
+
   // ---- WHEN A BOUNDED ACT MAY READ A JUDGEMENT (2026-08-30, mission
   // `catch-a-reported-claim-up-before-its-conflict-hardens`) ----
   //

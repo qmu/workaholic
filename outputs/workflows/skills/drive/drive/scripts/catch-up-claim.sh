@@ -7,7 +7,12 @@
 #   {"outcome": "caught_up"|"already_current"|"catch_up_refused", "unit": "...",
 #    "branch": "...", "reason": "...", "class": "...", "conflicted_files": [...],
 #    "worktree_path": "...", "merged": bool, "regenerated": bool, "validated": bool,
-#    "pushed": bool}
+#    "pushed": bool,
+#    "delivery": "merged"|"merge_refused: <word>"|"not_attempted[: <reason>]"}
+#
+# `delivery` is the pull request's fate, `outcome` is the branch's. They are two facts and are
+# never collapsed: a branch can be caught up and pushed — a real repair — while the merge is
+# held by a gate, refused by the transport, or not this act's to make.
 #
 # WHY IT EXISTS (2026-08-29, mission `land-the-loop-s-own-work-when-the-base-moves-under-it`).
 # `retry-undelivered.sh` re-attempts the MERGE of a unit the transport refused, which is the
@@ -22,9 +27,12 @@
 # merge, resolves append-only `.workaholic/` conflicts by shape and classifies the rest;
 # `land-unit.sh` already composes it in exactly this order. What was missing is a caller an
 # unattended run can reach — `land-unit.sh` refuses `headless_context` FIRST and unoverridably,
-# by design, because it LANDS a `review` unit on a present developer's ruling. This script
-# lands nothing: it merges the base INTO the claim branch and pushes that branch. The
-# authorization it would need is the one the unit already has.
+# by design, because it LANDS a `review` unit on a present developer's ruling. This script does
+# something narrower: it merges the base INTO the claim branch, pushes that branch, and — since
+# 2026-09-02, on a `queue_drained` claim only — delivers the pull request the catch-up itself
+# just made mergeable. The authorization it needs is the one the unit already has, and the gate
+# it may not override is the one `land-unit.sh` may not either: the scan runs BEFORE the merge,
+# `secret` stops it and `leak` holds the pull request open.
 #
 # IT NARROWS A STANDING RULE RATHER THAN REVERSING IT. `step-merge-conflicts.sh`'s header
 # refuses to rebase a claim branch because "a third party rebasing it races the claim holder's
@@ -88,9 +96,13 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
 MERGEABILITY="${SCRIPT_DIR}/claim-mergeability.sh"
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GATHER="${SCRIPT_DIR}/../../gather/scripts/"
+GH_REST="${GATHER}/gh-rest.sh"
 CATCHUP="${SCRIPT_DIR}/../../ship/scripts//catchup-main.sh"
 MAKE_WORKTREE="${SCRIPT_DIR}/../../branching/scripts//create-mission-worktree.sh"
+MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts//merge-reason.sh"
+SCAN="${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh"
+GATE="${SCRIPT_DIR}/../../release-scan/scripts//gate-decision.sh"
 
 unit="${1:-}"
 base="${2:-main}"
@@ -107,16 +119,17 @@ MERGED=false
 REGENERATED=false
 VALIDATED=false
 PUSHED=false
+DELIVERY="not_attempted"
 
 json_str() {
     printf '%s' "${1:-}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/[[:cntrl:]]/ /g'
 }
 
 report() {
-    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s}\n' \
+    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s"}\n' \
         "$1" "$(json_str "$unit")" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" \
         "$(json_str "$CLASS")" "$CONFLICTED" "$(json_str "$WORKTREE")" \
-        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED"
+        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")"
     exit 0
 }
 refuse() { report catch_up_refused "$1"; }
@@ -374,5 +387,74 @@ VALIDATED=true
 git -C "$WORKTREE" push --quiet origin "HEAD:refs/heads/${BRANCH}" >/dev/null 2>&1 \
     || refuse push_failed
 PUSHED=true
+
+# --- Deliver what this act just made mergeable ---------------------------------------
+# RESOLVING AND STOPPING THERE IS THE STAGNATION THE OPERATOR NAMED (2026-09-02, mission
+# `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`, ticket
+# `20260902042630-let-the-tick-merge-what-it-resolved`). This script's header used to say it
+# "lands nothing", and that was true and was the defect: it brought a branch back onto the base,
+# pushed it, and left the pull request open for a claim holder who never comes. A parked pull
+# request reads as progress to the loop and as stagnation to its operator.
+#
+# IT DELIVERS ONLY A `queue_drained` CLAIM, AND THE BOUND IS OWNERSHIP OF THE ACT, NOT CAUTION.
+# A `report_undelivered` unit's delivery already belongs to `retry-undelivered.sh`, which
+# `/implement` runs immediately after a `caught_up` (`workaholic:drive` §6). Merging here too
+# would make two attempts at one pull request in one turn, and the second would answer on an
+# already-merged pull request — reported as `merge_refused` and withholding `ok` from a run that
+# had in fact delivered. One act owns one delivery.
+#
+# NO GATE IS OVERRIDDEN AND NO NEW VOCABULARY IS INVENTED. The scan runs BEFORE the merge and is
+# read through `gate-decision.sh`'s severity tier, never the binary verdict: `secret` is a hard
+# stop, `leak` holds the pull request open, and only the `override_only` granularity nudge lets
+# a delivery through — the `review` route's own rule, unchanged. The outcome words are
+# `merge-reason.sh`'s own.
+#
+# A DELIVERY THIS ENVIRONMENT COULD NOT ATTEMPT IS NEVER A REFUSAL OF THE CATCH-UP. The branch
+# IS caught up and pushed; that is a real repair and it is reported as one. So a missing
+# transport, an unresolved slug, an unreadable gate or a held gate all report `caught_up` with
+# the reason on `delivery`, exactly as the publication act does.
+[ "$VERDICT" = "queue_drained" ] || report caught_up ""
+
+if [ -f "$SCAN" ] && [ -f "$GATE" ]; then
+    gate="$( ( cd "$WORKTREE" && sh "$SCAN" "origin/${base}" 2>/dev/null || printf '' ) \
+             | sh "$GATE" 2>/dev/null || printf '')"
+    if [ -z "$gate" ]; then
+        DELIVERY="not_attempted: scan_unreadable"
+        report caught_up ""
+    fi
+    case "$gate" in
+        *'"decision": "pass"'*) ;;
+        *'"override_only": true'*) ;;
+        *'"overridable": false'*) DELIVERY="not_attempted: scan_held:hard"; report caught_up "" ;;
+        *'"decision": "block"'*)  DELIVERY="not_attempted: scan_held:confirm"; report caught_up "" ;;
+        *) DELIVERY="not_attempted: scan_unreadable"; report caught_up "" ;;
+    esac
+fi
+
+sh "$GH_REST" available >/dev/null 2>&1 \
+    || { DELIVERY="not_attempted: gh_unavailable"; report caught_up ""; }
+slug="$(sh "$GH_REST" slug 2>/dev/null || printf '')"
+[ -n "$slug" ] || { DELIVERY="not_attempted: slug_unresolved"; report caught_up ""; }
+owner=${slug%%/*}
+pr_json=$(sh "$GH_REST" api \
+    "repos/${slug}/pulls?head=${owner}:${BRANCH}&state=open&per_page=1" 2>/dev/null || true)
+PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf '')
+[ -n "$PR" ] || { DELIVERY="not_attempted: no_open_pull_request"; report caught_up ""; }
+
+# The method is READ, never spelled — `gather/scripts/merge-method.sh` is the one derivation
+# and the suite fails on a literal at a call site (`CLAUDE.md`, *Enforcement gates*).
+method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
+set +e
+merge_resp="$(sh "$GH_REST" api "repos/${slug}/pulls/${PR}/merge" \
+    --method PUT -f "merge_method=${method}" 2>&1)"
+merge_status=$?
+set -e
+
+if [ "$merge_status" -eq 0 ]; then
+    DELIVERY="merged"
+else
+    word="$(sh "$MERGE_REASON" "$merge_resp" 2>/dev/null || printf 'merge_failed')"
+    DELIVERY="merge_refused: ${word}"
+fi
 
 report caught_up ""

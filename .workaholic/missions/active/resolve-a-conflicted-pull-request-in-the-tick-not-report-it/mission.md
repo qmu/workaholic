@@ -51,3 +51,4 @@ of the pass silently. Nothing is parked for a claim holder.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260902042630-localize-which-step-posted-each-of-the-three-corrected-lines.md
 - 2026-09-02 — ticket archived — 20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it.md
+- 2026-09-02 — ticket archived — 20260902042630-let-the-tick-merge-what-it-resolved.md

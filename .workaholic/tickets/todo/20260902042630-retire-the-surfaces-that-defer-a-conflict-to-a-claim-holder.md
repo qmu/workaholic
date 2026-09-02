@@ -1,0 +1,87 @@
+---
+created_at: 2026-09-02T04:26:30+00:00
+author: a@qmu.jp
+assignees: [a@qmu.jp]
+depends_on:
+mission: resolve-a-conflicted-pull-request-in-the-tick-not-report-it
+merge_policy:
+verification_handoff: 
+---
+
+# Retire the surfaces that defer a conflict to a claim holder
+
+## Overview
+
+PROPOSED. The operator's third correction: the step that reports stuckness "was never asked
+for and is not working; it must not be used". Once the tick resolves and merges, the steps
+and the prose that hand a conflict to a claim holder are not merely redundant — they are
+false, and they are what makes parked work read as progress.
+
+This ticket removes them, and removes the sentences elsewhere in the tree that say a
+conflict "belongs to" someone who never comes.
+
+## Policies
+
+- `workaholic:implementation` / `policies/directory-structure.md` — conventional project layout
+- `workaholic:implementation` / `policies/coding-standards.md` — style and structure conventions
+
+## Key Files
+
+- The step the diagnosis ticket named as the composer of the "belongs to the claim holder"
+  line — its script, its spec, its question key.
+- `plugins/workaholic/skills/moderate/reference/workflow.md` — the step table and the
+  per-step specs.
+- `plugins/workaholic/skills/moderate/scripts/run.sh` — the step registry; a retired step
+  leaves it, and the count stated in the prose moves with it.
+- `plugins/workaholic/skills/moderate/SKILL.md` — *What the tick repairs, on what licenses
+  it, and who does the rest*: the section that today routes a `content` conflict to a person.
+- `CLAUDE.md` — the `/moderate` section's step table and bounds.
+- `plugins/workaholic/skills/drive/reference/claims.md` — the refusal vocabularies whose
+  consumers change.
+- `scripts/test-workflow-scripts.mjs` — the suite that fails on a step id nothing emits and
+  on a table row nothing produces.
+
+## Implementation Steps
+
+1. Remove the reporting-only step the diagnosis ticket named: its script, its row in the
+   step registry, its spec, its question key, and its entries in the two step tables
+   (`workaholic:moderate` and `CLAUDE.md`). Retire it — do not leave it disabled behind a
+   flag, which is how a retired step comes back.
+2. Rewrite *What the tick repairs, on what licenses it, and who does the rest* so the
+   `content` conflict class is named as the tick's own work rather than a person's, and so
+   the section's count of acting steps is correct.
+3. Search the tree for every sentence that defers a conflict to a claim holder or a
+   publication's author, and correct each: `moderate/reference/workflow.md`, `claims.md`,
+   `drive/SKILL.md`, `CLAUDE.md`. A surviving sentence is what a later session will obey.
+4. Where a question key disappears, check the answer machinery: a key nothing asks must
+   also not be re-asked or counted as held. Assert that with the suite.
+5. Run the suite's own consistency rows — a step id nothing emits, a table classifying a
+   word nothing emits — and let them fail before the removal is complete, so the removal is
+   proved rather than believed.
+
+## Quality Gate
+
+**Acceptance criteria** — the checkable conditions that must hold:
+
+- The reporting-only step is gone from the registry, the specs and both step tables.
+- No prose surface defers a conflict to a claim holder or a publication's author.
+- No orphan question key remains in the ask, hold or re-ask machinery.
+
+**Verification method** — the commands/tests/probes that prove them:
+
+- `node scripts/test-workflow-scripts.mjs`
+- `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs`
+- A tree search for the deferral wording returns nothing.
+
+**Gate** — what must pass before approval:
+
+- The suite's step-id and vocabulary consistency rows pass.
+- `outputs/` regenerated; the `Outputs Freshness` check is clean.
+
+## Considerations
+
+- Removing a step removes a reading. Where the removed step was the only thing that named a
+  real condition, the reading moves into the acting step's own report rather than
+  disappearing — say which, in the change, so nothing is quietly lost.
+- Sequenced last on purpose: retiring the report before the act exists would leave the
+  condition invisible in the gap.

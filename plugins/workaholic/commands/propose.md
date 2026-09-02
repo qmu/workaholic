@@ -27,13 +27,13 @@ issue, assigned to the running identity so `/specificate`'s discovery ingests it
 tick's, not this command's (`commands/infinite-development.md`); a proposal is announced by
 nobody, because the issue is assigned to exactly one person and GitHub already delivers it.
 
-**Every skill section or reference file this run consults is read with the Read tool**, never
-with `sed`, `grep`, `cat` or `head` (2026-09-02, issue #865): a shell read under the plugin
-cache is a permission prompt an unattended run cannot answer.
+**Every skill section or reference file this run consults is read with the Read tool**,
+never with `sed`, `grep`, `cat` or `head` (2026-09-02, issue #865): a shell read under the
+plugin cache is a permission prompt an unattended run cannot answer.
 
-**This run's reasoning and report are written in Japanese** — status words, reason words, slugs,
-branch names and URLs are never translated, and a GitHub artifact stays English
-(`rules/interaction.md`). The Japanese must be read on first sight, not decoded.
+**Every free-text slot below is written in Japanese, and so is this run's own reasoning and report** — the shape's label, step ids, status and reason words, slugs, branch names, `<@U…>` tokens and URLs are never translated, and a GitHub artifact stays English (`rules/interaction.md`, *The language of a post is the language its readers use*).
+
+**And that Japanese must be read on first sight, not decoded** — the bar is an outcome, not a style preference: *a channel reader must understand what is being asked without opening the English record behind the link.* An established technical term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the repository's own `terms/` entries); the **meaning** of a title is translated, never its words; a title that resists translation is **paraphrased** in plain Japanese rather than transliterated. Measured: 「組み立てを止める」 for *fail the build* belongs as 「ビルドが落ちる」, a bare 「形」 for *shape* as 「投稿の型」, 「示せるという判定」 for *demonstrable verdict* as 「実証できたかどうかの判定」.
 
 **It is not housekeeping, and it is not a document about the aim.** A drifted document, a
 missing test, an inconsistent name are `/moderate`'s work. A proposal must commit to the

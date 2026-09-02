@@ -10,6 +10,9 @@
    brake, refusing every direction at once where every other gate is per-direction.
    `unreadable` never brakes, and a run handed no reading at all treats it as `unreadable`.
 
+**The reactive half is untouched.** An issue somebody filed, an ask the tick just captured,
+a `/specificate` run: all still work. The brake is on **origination** alone.
+
 1. **Survey.**
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-strategies.sh [window]`
    It makes the one network read itself. A run that already called

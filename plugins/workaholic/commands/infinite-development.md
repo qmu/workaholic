@@ -98,6 +98,12 @@ happens to it next, naming only what the filed issue already commits to (`/speci
 back, and carries no mention token. When the run cannot tell what was asked, it says so there
 rather than composing a confident paraphrase.
 
+**An answer to one of the loop's own questions is not an ask.** A reply under a `🙋` question is
+answering the tick that asked it, and `/moderate`'s `question-answers` step records it through
+`record-answer.sh` — the one writer of an answer. The sweep must not open a second issue for it:
+that turns one person's reply into a proposal nobody asked for, and the question stays `asked`
+forever because nothing recorded the answer. Reacting to it is fine; filing it is not.
+
 **Anything else a person wrote** gets the reaction `:eyes:` and no reply.
 
 **Which direction an ask answers** rides the filed issue through

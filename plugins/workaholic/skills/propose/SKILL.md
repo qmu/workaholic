@@ -55,13 +55,14 @@ one talking in the channel, that is the signal to stop, not to propose*). The me
 proposing into that silence was a day of merged work the operator tore out by hand.
 
 **The reading is handed in, not taken.** The tick already read the channel, so it passes its own
-answer down: **`human_spoke`**, **`only_the_loop_spoke`** or **`unreadable:<reason>`**. No second
-query, no second window, no cursor — and a run given no reading at all treats it as
+answer down: **`human_spoke`**, **`only_the_loop_spoke`** or **`unreadable:<reason>`**. The window
+is the sweep's own — `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS`, default 26 — so there is
+no second query, no second window and no cursor, and a run given no reading at all treats it as
 `unreadable`.
 
 **On `only_the_loop_spoke` the tick originates nothing**: it opens no proposal and reports the
-refusal by that word. It is the one brake that refuses **every** direction at once — every other
-gate is per-direction.
+refusal by that word. It is the one **run-level** brake, refusing **every** direction at once —
+every other gate is per-direction.
 
 **`unreadable` never brakes.** A channel that could not be read is not silence, and a repository
 with no Slack transport at all reads `unreadable`, never `only_the_loop_spoke`. Report the
@@ -73,6 +74,12 @@ reason and continue.
 
 **The cost is accepted, not tuned away.** A legitimately quiet stretch — a weekend, a holiday —
 costs one tick of proposals. No threshold is introduced against it.
+
+**What may originate a mission at all is not this skill's rule.** It is stated once, at
+`rules/workaholic.md`, *What May Originate a Mission*, and cited here rather than restated: a
+human's ask or a human-authored strategy may; a record a routine wrote about the loop's own
+apparatus (`self_authored`), a proposal refining a prior self-proposal (`self_refining`) and a
+tick into a window where only the loop has spoken (`only_the_loop_spoke`) may not.
 
 ## The unit is a mission, not a change
 

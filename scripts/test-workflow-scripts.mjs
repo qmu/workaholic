@@ -27737,10 +27737,13 @@ function testAnswerReturnPath() {
     // ---- 8. THE PROSE THAT KEEPS THE SWEEP OUT OF IT ----
     // Weaker than a script assertion and labelled as such: it catches the rule being deleted,
     // not the rule being misapplied.
-    const proposeSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
-    assertTrue("the `:40` sweep still routes answers to record-answer.sh, not to a new issue",
-      /answers to the tick's own questions[\s\S]{0,200}record-answer\.sh/.test(proposeSkill),
-      "the exclusion is gone from propose/SKILL.md");
+    // The sweep left `/propose` for the tick on 2026-09-03 and this rule went with it:
+    // `commands/infinite-development.md` is the one place the sweep's use is specified, so it
+    // is where the exclusion has to be readable by the run that performs it.
+    const tickBody = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+    assertTrue("the sweep still routes answers to record-answer.sh, not to a new issue",
+      /answer to one of the loop's own questions is not an ask[\s\S]{0,400}record-answer\.sh/.test(tickBody),
+      "the exclusion is gone from the tick that owns the sweep");
     const workflow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
     assertTrue("and the judgement's bar is written down, not left to the reader",
       /a machine's post is never an answer/.test(workflow), "the bar is missing from the workflow reference");

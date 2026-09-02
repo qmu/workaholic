@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-073545
 ---
 
 # Make the routine create body documented and buildable

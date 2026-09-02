@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy: review
 verification_handoff: 
+claim: work-20260902-234711
 ---
 
 # Derive the suite's test list instead of listing it

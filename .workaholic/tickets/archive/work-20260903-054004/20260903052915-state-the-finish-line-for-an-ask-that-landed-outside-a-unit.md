@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T05:29:15+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,27 @@ colour — the precedent `thread-reconcile` set for a merged item announced late
 
 - Reusing `🟢 Implemented` keeps a channel reader's vocabulary at four colours. A new colour
   for the same event read from a different reader is a distinction only the loop cares about.
+
+## Final Report
+
+Development completed as planned. The shape is stated in `notify/reference/notifications.md`
+beside the existing finish lines and written verbatim into `commands/infinite-development.md`,
+the two byte-identical from the code fence through the closing paragraph.
+
+It **reuses `🟢 Implemented`**, marked by its sentence rather than by a new colour — the
+precedent `thread-reconcile` set for a merged item announced late. The bounds are stated with
+it, each as a refusal rather than a preference: no mention token, a reply and never a root
+(case 4's keyed root is refused by name here), once ever per item with the dedup read from the
+thread, the connector as the only transport that can resolve the thread at all, and an
+unresolvable field stated as unresolved rather than filled in.
+
+### Discovered Insights
+
+- **Insight**: Byte-identity across two files is broken by exactly the words that make prose
+  read naturally in place — "the precedent `thread-reconcile` set **above**" is true in the
+  catalog and false in the command, and a cross-reference naming *the other file* differs by
+  construction. The repair is to write the shared region so it is positionless: name both files
+  in both copies, and drop every "above"/"below".
+  **Context**: Every future block pinned byte-identical across the catalog and a command ceiling
+  faces this, and the failure is silent until the pin runs.
+

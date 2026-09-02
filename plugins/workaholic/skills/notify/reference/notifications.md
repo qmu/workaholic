@@ -140,6 +140,27 @@ It rides the same coordinate and the same bounds as the reply — `<channel>:<ts
 
 **The receipt never gates the capture.** The issue is already open when the reply is attempted; a reply that fails is reported as `ack_failed: <reason>` per message and changes nothing about the filing, the dedup marker, or what `/specificate` ingests next. A capture that landed and a receipt that did not are two facts, and the run states both.
 
+### `/infinite-development` — the finish line for an ask that landed outside a unit
+
+**An ask whose work landed outside an `/implement` unit is announced by nobody** (2026-09-03, mission `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). `🟢 Implemented` above is a **per-unit** post of the route step, so an ask a session worked directly reaches no route step at all: its thread ends at the `📥 受理` receipt, and from the channel an ask that shipped three hours ago and one nobody has started are byte-identical. Measured 2026-09-02: three merged pull requests, the issue closed, and the operator learned of it by asking a session.
+
+```
+🟢 Implemented [<ask title>](<issue url>)
+<one sentence, max 30 words, what landed and by whom.>
+```
+
+**It reuses `🟢 Implemented` and is marked by its sentence, never by a fifth colour** — the precedent `thread-reconcile` set for a merged item announced late. A channel reader's finish vocabulary stays at the colours it already has; a new colour for the same event, differing only in which reader noticed it, is a distinction only the loop cares about.
+
+**The bounds, each of them a refusal rather than a preference:**
+
+- **No mention token.** It is addressed to the thread, not to a person — the standing rule of this catalog, unchanged.
+- **A reply, never a root.** The thread is resolved by the `fb:<stem>` **exact string** (SKILL, *One thread per feedback item*, case 2), and an item whose thread cannot be resolved — no match, or more than one — is **left alone** rather than announced somewhere else. Case 4's keyed root is deliberately **not** available here: a root would be a top-level post about an item whose own thread the run could not find, which is the wrong-thread outcome one step removed.
+- **Once ever per item.** The dedup is **structural and read from the thread**: the thread is read before anything is posted, and a thread already carrying a finish line of ours for this item is skipped. No ledger, no cursor, no field on any artifact — a store would have to survive a fresh container, which is the property this loop has repeatedly failed to keep.
+- **The connector carries it, and nothing else does.** It is the only transport that can **search**, so it is the only one that can resolve the thread at all; the tokened fallback posts nothing here, because a caller with no connector never resolved a thread to reply into.
+- **What landed, or nothing about it.** The sentence is composed from the reader's `landed[]` — what merged and by whom — and an unresolvable field is **stated as unresolved**, never filled with a plausible name or time.
+
+**The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins. The command is the ceiling a routine-fired session actually reads; the catalog is where the shape is decided. A diff between them is a drift to fix, never a second wording.
+
 ### `/prepare-release` — retired, and nothing replaced it
 
 **The `📦 Release Preparation` root is gone** (2026-08-19, the developer's instruction). The

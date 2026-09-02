@@ -118,6 +118,26 @@ open before either is attempted. Degradations are named: `no_slack_transport`,
 `channel_unreadable` (naming the channel it resolved — Slack answers *not found* for a channel
 the token cannot see, so absent and invisible are one response), `sweep_dedup_unreadable`.
 
+**And an ask whose work landed outside an `/implement` unit gets its finish line here** — the one step positioned to post it, because this tick already reads the channel and already resolves threads. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-unannounced-closed-asks.sh`, and for each candidate resolve its thread by the `fb:<stem>` exact string, **read that thread first**, and reply once:
+
+```
+🟢 Implemented [<ask title>](<issue url>)
+<one sentence, max 30 words, what landed and by whom.>
+```
+
+**It reuses `🟢 Implemented` and is marked by its sentence, never by a fifth colour** — the precedent `thread-reconcile` set for a merged item announced late. A channel reader's finish vocabulary stays at the colours it already has; a new colour for the same event, differing only in which reader noticed it, is a distinction only the loop cares about.
+
+**The bounds, each of them a refusal rather than a preference:**
+
+- **No mention token.** It is addressed to the thread, not to a person — the standing rule of this catalog, unchanged.
+- **A reply, never a root.** The thread is resolved by the `fb:<stem>` **exact string** (SKILL, *One thread per feedback item*, case 2), and an item whose thread cannot be resolved — no match, or more than one — is **left alone** rather than announced somewhere else. Case 4's keyed root is deliberately **not** available here: a root would be a top-level post about an item whose own thread the run could not find, which is the wrong-thread outcome one step removed.
+- **Once ever per item.** The dedup is **structural and read from the thread**: the thread is read before anything is posted, and a thread already carrying a finish line of ours for this item is skipped. No ledger, no cursor, no field on any artifact — a store would have to survive a fresh container, which is the property this loop has repeatedly failed to keep.
+- **The connector carries it, and nothing else does.** It is the only transport that can **search**, so it is the only one that can resolve the thread at all; the tokened fallback posts nothing here, because a caller with no connector never resolved a thread to reply into.
+- **What landed, or nothing about it.** The sentence is composed from the reader's `landed[]` — what merged and by whom — and an unresolvable field is **stated as unresolved**, never filled with a plausible name or time.
+
+**The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins. The command is the ceiling a routine-fired session actually reads; the catalog is where the shape is decided. A diff between them is a drift to fix, never a second wording.
+
+
 ## 2. Spawn the work, and do not wait for it
 
 Call `ListAgents` once. It is the whole record — no cursor, no lock file, no stored state — and

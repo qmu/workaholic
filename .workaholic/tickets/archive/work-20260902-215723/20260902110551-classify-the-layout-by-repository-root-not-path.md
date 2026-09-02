@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-02T19:00:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260902-215723
 ---
 
 # Classify the layout by repository root, not by path text
@@ -85,3 +87,50 @@ nothing, and a session that trusted it would stop. The defect is the classifier'
   widen it — a classifier that resolves a root should refuse more precisely, never less.
 - This was found while driving an unrelated mission, so nothing here is urgent in itself; what
   makes it worth a ticket is that a guard which fires on every edit is a guard nobody reads.
+
+## Final Report
+
+Development completed as planned, and a second instance of the same defect was found and repaired
+in the same change.
+
+**Reproduced first**, offline, before anything moved: a throwaway repository under a directory
+literally named `.workaholic/loops/wh/implement`, and a write to
+`plugins/workaholic/skills/drive/scripts/lib/claims.sh` inside it — answered
+`Workaholic layout: undesignated subdirectory 'loops/'`, exactly the measured failure.
+
+**The classifier is now repository-relative.** `rel_path` is derived once, near the top of
+`validate-ticket.sh`: the nearest existing ancestor directory is resolved to a repository root
+through `git rev-parse --show-toplevel`, and the path is expressed relative to it. All three tests
+that ask *where does this file sit inside the repository* — the ticket-shape check, the layout gate
+and the ticket-location check — read `rel_path`; the `Got:` line keeps the absolute path, which is
+what a person needs. **A path whose root cannot be resolved keeps today's answer**: a hook that
+fell silent there would trade a noisy false positive for a quiet false negative.
+
+**The same defect, one layer down.** `missions_root_from_artifact` (`mission/scripts/lib/resolve.sh`)
+used `${1%%.workaholic/*}` — longest-suffix removal, which cuts at the **earliest** occurrence —
+so an artifact inside a loop clone resolved to `/home/<user>/.workaholic`, a tree that is not a
+repository at all, and every mission lookup for it read the wrong root. `%` cuts at the last
+occurrence; for a path with one occurrence the two are identical, so no ordinary checkout changes
+behaviour. It is reached from this very hook and from `archive.sh`, so repairing only the hook
+would have left the loop's own archive path wrong.
+
+**The other allowlist readers are unaffected, and this was checked rather than assumed.**
+`layout-doctor.sh` takes a root and enumerates its children — it never classifies an absolute path
+by string. The sibling validators anchor on a **designated area name**
+(`*.workaholic/missions/*/mission.md`, `*.workaholic/stories/*.md`, …), which a loop clone's outer
+path cannot match; only `validate-ticket.sh` matched on the bare `*.workaholic/*`.
+
+**Moving the loop home is not the repair**, and that is a ruling rather than an omission: a clone
+may sit anywhere a developer puts it, so the next such path would reopen this.
+
+### Discovered Insights
+
+- **Insight**: `${x%%pattern}` and `${x%pattern}` differ exactly when a path segment repeats —
+  which is what a nested clone makes routine rather than exotic.
+  **Context**: Both forms read as "strip from `.workaholic/`" and are identical on every ordinary
+  checkout, so the defect is invisible to review and to tests until a fixture nests. Worth grepping
+  for `%%.workaholic` and `#*.workaholic` as a class rather than one site at a time.
+- **Insight**: A guard that fires on every edit is worse than one that never fires.
+  **Context**: The false positive did not block anything, so it looked harmless — but it makes the
+  one signal that means *you wrote outside the layout* mean nothing, and a session that trusted it
+  would stop.

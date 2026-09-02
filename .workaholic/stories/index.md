@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260902-215723](work-20260902-215723.md) - Made the layout classifier read the repository root instead of the absolute path's text, and repaired the same defect in the mission root deriver
 * [work-20260902-220412](work-20260902-220412.md) - Converge a routine's notification setting — the field was in the create path and not in the diff, so a live routine was never corrected; the reported symptom came from elsewhere and is named
 * [work-20260902-070115](work-20260902-070115.md) - Stated the natural-Japanese quality bar on every surface a session reads what to emit from, in one wording pinned byte-identical across five files
 * [work-20260902-234711](work-20260902-234711.md) - Removed the suite's hand-maintained test array so a test is registered where it is declared, ending the collision every concurrently-driven unit hit by construction

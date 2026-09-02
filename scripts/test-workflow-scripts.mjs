@@ -22256,6 +22256,74 @@ function testProposeJudgementRefusals() {
   }
 }
 
+// A LAYOUT CLASSIFIER READS THE REPOSITORY ROOT, NEVER THE ABSOLUTE PATH'S TEXT
+// (2026-09-02, ticket `20260902110551`). `validate-ticket.sh` asked "is this file inside
+// `.workaholic/`?" of the absolute path, which is the same question only while no directory
+// ABOVE the repository root is called `.workaholic`. The loops run in clones under
+// `~/.workaholic/loops/<repo>/<loop>`, so every path in one carries `.workaholic/` before the
+// root is reached, and `${file_path#*.workaholic/}` stripped to `loops/<repo>/...` -- an
+// undesignated area on EVERY edit a loop session makes. A guard that fires on everything is a
+// guard nobody reads, which is worse than one that never fires: it teaches a reader to ignore
+// the one signal that means "you wrote outside the layout".
+//
+// The three rows are the ticket's three acceptance criteria, in its order.
+function testLayoutClassifierIsRepositoryRelative() {
+  const outer = mkdtempSync(join(tmpdir(), "workaholic-loops-"));
+  const clone = join(outer, ".workaholic", "loops", "wh", "implement");
+  mkdirSync(clone, { recursive: true });
+  execSync(`git -c init.defaultBranch=main init -q`, { cwd: clone });
+  execSync(`git config user.email test@example.com`, { cwd: clone });
+  execSync(`git config user.name Test`, { cwd: clone });
+  const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
+  const run = (abs) => {
+    try {
+      execSync(`${POSIX_SH} ${HOOK}`, {
+        cwd: clone, input: JSON.stringify({ tool_input: { file_path: abs } }),
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      });
+      return 0;
+    } catch (e) { return e.status ?? 1; }
+  };
+
+  // 1. A write OUTSIDE `.workaholic/` inside a clone whose absolute path contains
+  //    `.workaholic/` raises nothing. This is the measured false positive.
+  const outside = join(clone, "plugins/workaholic/skills/drive/scripts/lib/claims.sh");
+  mkdirSync(dirname(outside), { recursive: true });
+  writeFileSync(outside, "#!/bin/sh\n");
+  assertEq("a file outside .workaholic/ in a loop clone raises nothing",
+    run(outside), 0);
+
+  // 2. The true positive is UNCHANGED: an undesignated `.workaholic/` subdirectory INSIDE
+  //    the repository is still refused. A repair that widened the gate would be worse than
+  //    the noise it removed.
+  const inside = join(clone, ".workaholic/nonsense/f.md");
+  mkdirSync(dirname(inside), { recursive: true });
+  writeFileSync(inside, "x\n");
+  assertEq("an undesignated .workaholic/ subdirectory inside the repo is still refused",
+    run(inside), 2);
+
+  // 3. A path whose repository root cannot be resolved is answered EXACTLY as it is today,
+  //    never passed. A classifier that could not resolve a root and therefore fell silent
+  //    would trade a noisy false positive for a quiet false negative.
+  const norepo = join(mkdtempSync(join(tmpdir(), "workaholic-noroot-")), ".workaholic", "nonsense");
+  mkdirSync(norepo, { recursive: true });
+  const orphan = join(norepo, "f.md");
+  writeFileSync(orphan, "x\n");
+  assertEq("a path with no repository root keeps today's answer",
+    run(orphan), 2);
+
+  // AND THE MISSION ROOT DERIVED FROM AN ARTIFACT CUTS AT THE LAST `.workaholic/`, not the
+  // first: `%%` removes the longest suffix, so a nested path resolved to the OUTER directory
+  // and every mission lookup for that artifact read a tree that is not a repository.
+  const resolve = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh"), "utf8");
+  assertTrue("missions_root_from_artifact cuts at the last .workaholic/",
+    /_mwh="\$\{1%\.workaholic\/\*\}\.workaholic"/.test(resolve),
+    "the deriver still uses %% and resolves a nested path to the outer directory");
+}
+
+T("validate-ticket.sh: the layout classifier is repository-relative", testLayoutClassifierIsRepositoryRelative);
+
 // ---------- the claim race is settled at the remote ----------
 // The defect: `create.sh` mints `work-$(date …)`, so two runners that survey before either
 // pushes name two different refs and BOTH win — measured 2026-08-30, two branches drove the

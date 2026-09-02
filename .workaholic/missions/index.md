@@ -3,6 +3,7 @@
 ## active
 
 * [announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread](active/announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread/mission.md) - Announce an ask that landed outside a unit route in its own thread
+* [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](active/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
 * [pay-only-the-operative-cost-on-every-tick](active/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick

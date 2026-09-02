@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -103,3 +104,30 @@ the split — a `<step>-filed` line on the log ref is not evidence of a filing.
 - Watch the OKF index refresh: a record commit still regenerates the feedback
   area's index, and that regeneration must not drag the log area's absence into
   the same diff.
+
+## Final Report
+
+Development completed as planned. The seam carries two payloads and only one moved: the log goes to
+`workaholic-log`, the **feedback records go to `main`**, in their own commit.
+
+Verified in `persist-log.sh`:
+
+- `--record <repo-relative-path>` is **repeatable and named one by one** — never a sweep of
+  whatever is staged, which is what would let an unrelated container file reach the base.
+- The records take the base's road in a commit of their own, so a record is never mixed into a log
+  commit and a `feedback:` ref the loop later writes always resolves.
+- Each record is reported by its own word: `carried` / `already_on_base` / `missing` /
+  `unreadable` / `unlanded`. A record already on the base is left untouched, because a feedback
+  record is immutable once written.
+- `filed-records.sh` asks the tree rather than trusting a `<step>-filed` line, and an `unlanded`
+  record counts as not filed.
+
+Had the records followed the log onto an operational branch, every `feedback:` relation the loop
+writes afterwards would resolve to nothing — the reason the split is explicit rather than incidental.
+
+### Discovered Insights
+
+- **Insight**: The split is what makes the log branch safe to be *operational*.
+  **Context**: An orphan branch nobody merges is the right home for a log and the wrong home for
+  anything the OKF floor indexes. Naming the two payloads separately is what lets one move without
+  dragging the other.

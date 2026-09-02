@@ -224,6 +224,7 @@ const SCRIPTS = {
   proposeListOpen: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-open-proposals.sh"),
   strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
+  buildRoutineBody: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/build-routine-body.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
@@ -594,6 +595,101 @@ function testClosableMissionsStep() {
     assertTrue("and never reads as nothing waiting",
       !/no mission is waiting/.test(bad.summary), bad.summary);
   } finally { cleanup(A); }
+}
+
+// ---------- moderate/step-unrecorded-missions.sh (2026-09-02) ----------
+// §12's PHOTOGRAPHIC NEGATIVE. `closable-missions` proves a mission finished by arithmetic;
+// this names the mission whose acceptance is `0/N` with a full queue because the branch that
+// would have RECORDED its work was closed unmerged. Measured 2026-09-01/02: three such
+// missions, 17 queued tickets between them, all three offered by the /implement survey, and
+// the behaviour each asked for already on `main` by a person's own commit.
+// Pinned: only `closed_unmerged` is a candidate; `merged` and `open` are named by NOBODY; a
+// mission failing any tree term never costs a pull-request read; the step writes nothing.
+function testUnrecordedMissionsStep() {
+  // The step resolves its two readers by relative path, so the whole skills tree is copied and
+  // ONE reader is replaced by a stub. Stubbing the transport rather than the step keeps every
+  // tree term under test for real, and keeps the row hermetic — no `gh`, no network.
+  const sandbox = mkdtempSync(join(tmpdir(), "workaholic-unrecorded-"));
+  const A = makeRepo("main");
+  try {
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills"), join(sandbox, "skills"), { recursive: true });
+    const stub = join(sandbox, "skills/drive/scripts/branch-pull-request-state.sh");
+    writeFileSync(stub, `#!/bin/sh -eu
+# Test stub: the branch NAME carries the state, so a fixture states what it means to test.
+case "\${1:-}" in
+  *-merged)  printf '{"ok": true, "branch": "%s", "number": 11, "state": "merged", "reason": ""}\\n' "\$1" ;;
+  *-open)    printf '{"ok": true, "branch": "%s", "number": 12, "state": "open", "reason": ""}\\n' "\$1" ;;
+  *-closed)  printf '{"ok": true, "branch": "%s", "number": 13, "state": "closed_unmerged", "reason": ""}\\n' "\$1" ;;
+  *)         printf '{"ok": false, "branch": "%s", "number": null, "reason": "stub_unreadable"}\\n' "\$1" ;;
+esac
+`);
+    chmodSync(stub, 0o755);
+    const STEP = `${POSIX_SH} ${join(sandbox, "skills/moderate/scripts/step-unrecorded-missions.sh")}`;
+
+    // `claim: <branch>` is the mission's own recorded branch; `null` writes no line at all,
+    // which is the measured state of every mission this step is actually about.
+    const mk = (slug, { ticked, queued, claim, archived }) => {
+      mkdirSync(join(A, `.workaholic/missions/active/${slug}`), { recursive: true });
+      const acc = ticked ? "- [x] one (#a.md)" : "- [ ] one (#a.md)";
+      const claimLine = claim ? `claim: ${claim}\n` : "";
+      const log = archived ? "- 2026-09-01 — ticket archived — a.md\n" : "";
+      writeFileSync(join(A, `.workaholic/missions/active/${slug}/mission.md`),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\n${claimLine}---\n\n# ${slug}\n\n## Experience\n\nx\n\n## Acceptance\n\n${acc}\n\n## Changelog\n\n${log}`);
+      if (queued) {
+        mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
+        writeFileSync(join(A, `.workaholic/tickets/todo/${slug}-queued.md`),
+          `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: ${slug}\n---\n\n# q\n`);
+      }
+    };
+    mk("wasclosed", { ticked: false, queued: true, claim: "work-a-closed" });   // the candidate
+    mk("wasmerged", { ticked: false, queued: true, claim: "work-a-merged" });   // work landed
+    mk("driving", { ticked: false, queued: true, claim: "work-a-open" });       // still in flight
+    mk("ticked", { ticked: true, queued: true, claim: "work-b-closed" });       // acceptance moved
+    mk("drained", { ticked: false, queued: false, claim: "work-c-closed" });    // §12's or nobody's
+    mk("recorded", { ticked: false, queued: true, claim: "work-d-closed", archived: true }); // a seam recorded work
+    mk("nobranch", { ticked: false, queued: true, claim: null });               // neither source names it
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const env = { ...process.env, WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" };
+    const j = JSON.parse(run(A, `${STEP} --tick 20260902-000000 --root ${A}`, { env }).stdout);
+    assertEq("the step reports", [j.step, j.status], ["unrecorded-missions", "ok"]);
+    assertEq("exactly the closed-unmerged mission is named",
+      j.needs_agent[0].missions.map((m) => m.slug), ["wasclosed"]);
+    assertEq("addressed to its assignee, under its own key",
+      [j.needs_agent[0].missions[0].assignee, j.needs_agent[0].missions[0].key],
+      ["test@example.com", "unrecorded-mission:wasclosed"]);
+    // A MERGED pull request and one still OPEN are each named by NOBODY. The first is work
+    // that landed; the second is a unit somebody is driving right now.
+    assertTrue("a merged pull request is counted, never asked about",
+      /1 whose pull request merged/.test(j.summary), j.summary);
+    assertTrue("and a unit still being driven likewise",
+      /1 still being driven/.test(j.summary), j.summary);
+    // THE BRANCH IS TWO SOURCES, and neither resolving is a NAMED ABSENCE rather than a
+    // candidate: `claim.sh` writes `claim:` on the claim branch, so a branch closed unmerged
+    // never carries it to the base — the measured state of all three real missions.
+    assertTrue("a mission neither source names a branch for is counted, not asked about",
+      /1 whose claim branch neither the mission nor the claim scan names/.test(j.summary), j.summary);
+    // IT WRITES NOTHING. Closing is `close.sh`'s, on a person's intent.
+    assertEq("and the step wrote nothing at all",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // AN UNREADABLE PULL REQUEST IS DEGRADED BY NAME, never "nothing to close".
+    const B = makeRepo("main");
+    try {
+      mkdirSync(join(B, ".workaholic/missions/active/opaque"), { recursive: true });
+      writeFileSync(join(B, ".workaholic/missions/active/opaque/mission.md"),
+        `---\ntype: Mission\ntitle: opaque\nslug: opaque\nstatus: active\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nclaim: work-z-unknown\n---\n\n# opaque\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] one (#a.md)\n\n## Changelog\n\n`);
+      mkdirSync(join(B, ".workaholic/tickets/todo"), { recursive: true });
+      writeFileSync(join(B, ".workaholic/tickets/todo/opaque-q.md"),
+        `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: opaque\n---\n\n# q\n`);
+      execSync("git add -A && git commit -q -m seed", { cwd: B });
+      const bad = JSON.parse(run(B, `${STEP} --tick 20260902-000000 --root ${B}`, { env }).stdout);
+      assertEq("an unreadable pull request is degraded, by name",
+        [bad.status, bad.reason], ["degraded", "pull_request_unreadable"]);
+      assertTrue("and never reads as nothing to close",
+        /could not be read/.test(bad.summary), bad.summary);
+    } finally { cleanup(B); }
+  } finally { cleanup(A); rmSync(sandbox, { recursive: true, force: true }); }
 }
 
 // ---------- direction-health: the three refusals, pinned (2026-08-26) ----------
@@ -21609,6 +21705,7 @@ const tests = [
   ["strategy/work-kind.sh: describing work does not gate a building aim", testDescribingWorkDoesNotGateABuildingAim],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
+  ["moderate/step-unrecorded-missions.sh: closed unmerged, nothing recorded", testUnrecordedMissionsStep],
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
   ["the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization],
   ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
@@ -25186,6 +25283,54 @@ function testWorkaholifyRoutines() {
     assertEq("propose declares the schedule trigger",
       tpl.templates.find((t) => t.id === "propose").trigger, "schedule-hourly");
 
+    // ---- `sources:` is DATA, and the body is built in ONE place (2026-09-02) ----
+    // Which repository a routine checks out used to be readable only as prose in one
+    // template's paragraphs, so a caller converging the set had to read English to build a
+    // request body -- and every caller rebuilt that body itself, parsing the display
+    // strings (`"[Bash, Read]"`) back into arrays on the way. Both halves are pinned: the
+    // field exists on every template AND both readers of the frontmatter know it, which is
+    // the drift `scope:` was centralised to avoid.
+    assertTrue("every template declares the repository it checks out",
+      tpl.templates.every((t) => t.sources === "[{repo}]"),
+      JSON.stringify(tpl.templates.map((t) => [t.id, t.sources])));
+    const renderedAll = tpl.templates.map((t) =>
+      JSON.parse(run(dir, `${RENDER} ${t.id} ${WH}`).stdout));
+    assertTrue("the renderer resolves it to the repository being wired",
+      renderedAll.every((r) => JSON.stringify(r.sources_json) === JSON.stringify([WH])),
+      JSON.stringify(renderedAll.map((r) => [r.id, r.sources_json])));
+    // The JSON twins are ADDED, never a mode: the display spellings keep their bytes, which
+    // is what leaves the setup sheet and the four existing callers untouched.
+    const prop = renderedAll.find((r) => r.id === "propose");
+    assertEq("the display spelling a human pastes is unchanged",
+      prop.allowed_tools, "[Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]");
+    assertEq("and its JSON twin is the shape the record stores",
+      prop.allowed_tools_json,
+      ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch"]);
+    assertEq("a one-element list renders as an array, not a bare string", prop.mcp_json, ["Slack"]);
+    // ONE place builds the body, and the environment id is an ARGUMENT -- a script that
+    // defaulted one would be the aspirational configuration this skill refuses elsewhere.
+    const BODY = `${POSIX_SH} ${SCRIPTS.buildRoutineBody}`;
+    const built = JSON.parse(run(dir, `${BODY} implement ${WH} env_TEST`).stdout);
+    assertEq("the body carries the environment id it was given",
+      built.body.session_request.environment_id, "env_TEST");
+    assertEq("and the repository as a source object, not a string",
+      built.body.session_request.config.sources, [{ git_repository: { url: WH } }]);
+    assertEq("and the tool list as an array", built.body.session_request.config.allowed_tools,
+      ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch"]);
+    assertEq("and autofix as a boolean rather than the template's text",
+      built.body.session_request.config.autofix_on_pr_create, true);
+    assertTrue("the prompt reaches the body verbatim",
+      built.body.session_request.events[0].payload.internal_anthropic_catchall.message.content
+        === JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout).prompt, "prompt diverged");
+    // The nesting is the one a LIVE RECORD reads back in, and the create body's own key
+    // paths are not established by that read -- the API silently drops unknown fields, so a
+    // 200 proves nothing. The script says so rather than presenting a guess as settled.
+    assertEq("the body names the nesting it used", built.body_shape, "session_request");
+    assertEq("and reports that the nesting is unproven", built.body_shape_verified, false);
+    assertEq("no environment id is refused by name rather than defaulted",
+      JSON.parse(run(dir, `${BODY} implement ${WH}`).stdout).error,
+      "no_environment_id");
+
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
     assertEq("the routine name uses the BARE repo name, as the live routines do",
@@ -27004,6 +27149,10 @@ function testModerateRun() {
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
     // proves, through close.sh in a publish tree — the single writer never multiplied.
     "closable-missions",
+    // `unrecorded-missions` runs beside it (2026-09-02, ticket `20260902065500`): the same
+    // mission readers, one state over — a mission whose acceptance is `0/N` with a full queue
+    // because the branch that would have recorded its work was closed unmerged.
+    "unrecorded-missions",
     // `base-health` (2026-08-27): the base's own checks. The loop merges onto `main` every
     // half hour and nothing read a check run, so a green base and a base nobody looked at were
     // one reading — and no other step could see it, because `stuck-prs` and `merge-conflicts`
@@ -28385,6 +28534,33 @@ function testWorkaholifyConvergesRoutines() {
   assertTrue("over every scope, not one", /every\*{0,2} scope/i.test(cmd), cmd.slice(0, 600));
   assertTrue("and names the one refusal that falls back to a sheet",
     /no_transport: `?RemoteTrigger-family tool/.test(cmd), cmd);
+
+  // THE SECOND NAMED REFUSAL (2026-09-02, ticket `20260821150359-state-the-environment-
+  // rule-and-its-named-refusal`). A create needs an environment id and §5 never said where
+  // one comes from, so a session carrying the transport reached the create, had nothing to
+  // put in that field, and stopped -- with `no_transport` as its only vocabulary, which was
+  // the WRONG word: the transport was present and was used. What is pinned is that the word
+  // exists in every command that states its own outcomes, and that it does NOT inherit
+  // `no_transport`'s sheet fallback -- a session that reached the account is not helped by
+  // paste-by-hand instructions, and rendering one there is the "renders rather than
+  // converges" behaviour this whole section exists to forbid.
+  const envRefusalCommands = [
+    "plugins/workaholic/commands/workaholify.md",
+    "plugins/workaholic/commands/setup-dev-routines.md",
+    "plugins/workaholic/commands/setup-repo-routines.md",
+  ];
+  for (const rel of envRefusalCommands) {
+    const body = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${rel} names the environment refusal`, /`?no_environment`?/.test(body), body.slice(0, 400));
+    assertTrue(`${rel} states that it renders no sheet`,
+      /no sheet fallback|never falls back to a setup sheet|renders nothing/i.test(body), body.slice(0, 400));
+  }
+  assertTrue("the skill states the four environment branches, so no command re-derives them",
+    /Which environment a routine is created in/.test(skill) &&
+    /Exactly one/.test(skill) && /More than one/.test(skill) && /None reachable/.test(skill),
+    skill.slice(0, 400));
+  assertTrue("and that the environment refusal renders no sheet",
+    /`no_environment` never renders a setup sheet/.test(skill), skill.slice(0, 400));
   assertTrue("stating plainly that a sheet is not the ordinary outcome",
     /never the outcome|never the ordinary outcome/i.test(cmd), cmd);
   assertTrue("the skill carries the same contract, so the command is not the only place it lives",

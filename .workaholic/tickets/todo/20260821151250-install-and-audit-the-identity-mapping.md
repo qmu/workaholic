@@ -1,7 +1,7 @@
 ---
 created_at: 2026-08-21T15:12:50+09:00
 author: a@qmu.jp
-assignees: [tamura.yoshiya@gmail.com]
+assignees: [a@qmu.jp]
 depends_on:
 mission: refuse-ok-under-a-placeholder-identity
 merge_policy:

@@ -51,3 +51,4 @@ puts a tick log back on `main` fails a drill.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260831182058-drill-that-a-tick-s-log-reaches-its-ref.md

@@ -597,6 +597,101 @@ function testClosableMissionsStep() {
   } finally { cleanup(A); }
 }
 
+// ---------- moderate/step-unrecorded-missions.sh (2026-09-02) ----------
+// §12's PHOTOGRAPHIC NEGATIVE. `closable-missions` proves a mission finished by arithmetic;
+// this names the mission whose acceptance is `0/N` with a full queue because the branch that
+// would have RECORDED its work was closed unmerged. Measured 2026-09-01/02: three such
+// missions, 17 queued tickets between them, all three offered by the /implement survey, and
+// the behaviour each asked for already on `main` by a person's own commit.
+// Pinned: only `closed_unmerged` is a candidate; `merged` and `open` are named by NOBODY; a
+// mission failing any tree term never costs a pull-request read; the step writes nothing.
+function testUnrecordedMissionsStep() {
+  // The step resolves its two readers by relative path, so the whole skills tree is copied and
+  // ONE reader is replaced by a stub. Stubbing the transport rather than the step keeps every
+  // tree term under test for real, and keeps the row hermetic — no `gh`, no network.
+  const sandbox = mkdtempSync(join(tmpdir(), "workaholic-unrecorded-"));
+  const A = makeRepo("main");
+  try {
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills"), join(sandbox, "skills"), { recursive: true });
+    const stub = join(sandbox, "skills/drive/scripts/branch-pull-request-state.sh");
+    writeFileSync(stub, `#!/bin/sh -eu
+# Test stub: the branch NAME carries the state, so a fixture states what it means to test.
+case "\${1:-}" in
+  *-merged)  printf '{"ok": true, "branch": "%s", "number": 11, "state": "merged", "reason": ""}\\n' "\$1" ;;
+  *-open)    printf '{"ok": true, "branch": "%s", "number": 12, "state": "open", "reason": ""}\\n' "\$1" ;;
+  *-closed)  printf '{"ok": true, "branch": "%s", "number": 13, "state": "closed_unmerged", "reason": ""}\\n' "\$1" ;;
+  *)         printf '{"ok": false, "branch": "%s", "number": null, "reason": "stub_unreadable"}\\n' "\$1" ;;
+esac
+`);
+    chmodSync(stub, 0o755);
+    const STEP = `${POSIX_SH} ${join(sandbox, "skills/moderate/scripts/step-unrecorded-missions.sh")}`;
+
+    // `claim: <branch>` is the mission's own recorded branch; `null` writes no line at all,
+    // which is the measured state of every mission this step is actually about.
+    const mk = (slug, { ticked, queued, claim, archived }) => {
+      mkdirSync(join(A, `.workaholic/missions/active/${slug}`), { recursive: true });
+      const acc = ticked ? "- [x] one (#a.md)" : "- [ ] one (#a.md)";
+      const claimLine = claim ? `claim: ${claim}\n` : "";
+      const log = archived ? "- 2026-09-01 — ticket archived — a.md\n" : "";
+      writeFileSync(join(A, `.workaholic/missions/active/${slug}/mission.md`),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\n${claimLine}---\n\n# ${slug}\n\n## Experience\n\nx\n\n## Acceptance\n\n${acc}\n\n## Changelog\n\n${log}`);
+      if (queued) {
+        mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
+        writeFileSync(join(A, `.workaholic/tickets/todo/${slug}-queued.md`),
+          `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: ${slug}\n---\n\n# q\n`);
+      }
+    };
+    mk("wasclosed", { ticked: false, queued: true, claim: "work-a-closed" });   // the candidate
+    mk("wasmerged", { ticked: false, queued: true, claim: "work-a-merged" });   // work landed
+    mk("driving", { ticked: false, queued: true, claim: "work-a-open" });       // still in flight
+    mk("ticked", { ticked: true, queued: true, claim: "work-b-closed" });       // acceptance moved
+    mk("drained", { ticked: false, queued: false, claim: "work-c-closed" });    // §12's or nobody's
+    mk("recorded", { ticked: false, queued: true, claim: "work-d-closed", archived: true }); // a seam recorded work
+    mk("nobranch", { ticked: false, queued: true, claim: null });               // neither source names it
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const env = { ...process.env, WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" };
+    const j = JSON.parse(run(A, `${STEP} --tick 20260902-000000 --root ${A}`, { env }).stdout);
+    assertEq("the step reports", [j.step, j.status], ["unrecorded-missions", "ok"]);
+    assertEq("exactly the closed-unmerged mission is named",
+      j.needs_agent[0].missions.map((m) => m.slug), ["wasclosed"]);
+    assertEq("addressed to its assignee, under its own key",
+      [j.needs_agent[0].missions[0].assignee, j.needs_agent[0].missions[0].key],
+      ["test@example.com", "unrecorded-mission:wasclosed"]);
+    // A MERGED pull request and one still OPEN are each named by NOBODY. The first is work
+    // that landed; the second is a unit somebody is driving right now.
+    assertTrue("a merged pull request is counted, never asked about",
+      /1 whose pull request merged/.test(j.summary), j.summary);
+    assertTrue("and a unit still being driven likewise",
+      /1 still being driven/.test(j.summary), j.summary);
+    // THE BRANCH IS TWO SOURCES, and neither resolving is a NAMED ABSENCE rather than a
+    // candidate: `claim.sh` writes `claim:` on the claim branch, so a branch closed unmerged
+    // never carries it to the base — the measured state of all three real missions.
+    assertTrue("a mission neither source names a branch for is counted, not asked about",
+      /1 whose claim branch neither the mission nor the claim scan names/.test(j.summary), j.summary);
+    // IT WRITES NOTHING. Closing is `close.sh`'s, on a person's intent.
+    assertEq("and the step wrote nothing at all",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // AN UNREADABLE PULL REQUEST IS DEGRADED BY NAME, never "nothing to close".
+    const B = makeRepo("main");
+    try {
+      mkdirSync(join(B, ".workaholic/missions/active/opaque"), { recursive: true });
+      writeFileSync(join(B, ".workaholic/missions/active/opaque/mission.md"),
+        `---\ntype: Mission\ntitle: opaque\nslug: opaque\nstatus: active\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nclaim: work-z-unknown\n---\n\n# opaque\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] one (#a.md)\n\n## Changelog\n\n`);
+      mkdirSync(join(B, ".workaholic/tickets/todo"), { recursive: true });
+      writeFileSync(join(B, ".workaholic/tickets/todo/opaque-q.md"),
+        `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: opaque\n---\n\n# q\n`);
+      execSync("git add -A && git commit -q -m seed", { cwd: B });
+      const bad = JSON.parse(run(B, `${STEP} --tick 20260902-000000 --root ${B}`, { env }).stdout);
+      assertEq("an unreadable pull request is degraded, by name",
+        [bad.status, bad.reason], ["degraded", "pull_request_unreadable"]);
+      assertTrue("and never reads as nothing to close",
+        /could not be read/.test(bad.summary), bad.summary);
+    } finally { cleanup(B); }
+  } finally { cleanup(A); rmSync(sandbox, { recursive: true, force: true }); }
+}
+
 // ---------- direction-health: the three refusals, pinned (2026-08-26) ----------
 // The three refusals are the reason this reading was admissible at all, and PROSE HAS NOT HELD
 // THEM: the writer rule on the strategy artifact has been re-decided three times. A test is
@@ -21609,6 +21704,7 @@ const tests = [
   ["strategy/work-kind.sh: describing work does not gate a building aim", testDescribingWorkDoesNotGateABuildingAim],
   ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
   ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
+  ["moderate/step-unrecorded-missions.sh: closed unmerged, nothing recorded", testUnrecordedMissionsStep],
   ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
   ["the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization],
   ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
@@ -26982,6 +27078,10 @@ function testModerateRun() {
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
     // proves, through close.sh in a publish tree — the single writer never multiplied.
     "closable-missions",
+    // `unrecorded-missions` runs beside it (2026-09-02, ticket `20260902065500`): the same
+    // mission readers, one state over — a mission whose acceptance is `0/N` with a full queue
+    // because the branch that would have recorded its work was closed unmerged.
+    "unrecorded-missions",
     // `base-health` (2026-08-27): the base's own checks. The loop merges onto `main` every
     // half hour and nothing read a check run, so a green base and a base nobody looked at were
     // one reading — and no other step could see it, because `stuck-prs` and `merge-conflicts`

@@ -53,3 +53,4 @@ told once — while a branch that really is empty retires exactly as it does tod
 - 2026-09-02 — ticket archived — 20260831203453-read-a-claim-branch-s-own-diff-against-the-base.md
 - 2026-09-02 — ticket archived — 20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md
 - 2026-09-02 — ticket archived — 20260831203454-tell-a-person-about-a-stranded-claim-branch.md
+- 2026-09-02 — ticket archived — 20260831203454-make-the-retirement-s-stated-recovery-true.md

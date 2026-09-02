@@ -7,6 +7,7 @@ mission:
 merge_policy:
 verification_handoff: 
 feedback: [20260902042405-a-slack-post-s-japanese-must-be-read-on-first-sight-not-decoded.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
+claim: work-20260902-070115
 ---
 
 # State the natural-Japanese bar where the post shapes are written

@@ -389,7 +389,7 @@ fi
 # byte-for-byte in the same worktree answered `6236 passed, 0 failed`, exit 0, twice. Nothing
 # distinguished a real failure from that, because nothing was kept.
 #
-# Under `/spawn-loops` this stopped being rare: several loops run the same multi-minute suite
+# Under the loop's subagents this stopped being rare: several runs share the multi-minute suite
 # on one machine, so a check can lose to load in a way no single-session premise ever showed.
 #
 # THE OUTPUT IS KEPT, NOT PRINTED. It goes to a file beside the worktree whose path rides the

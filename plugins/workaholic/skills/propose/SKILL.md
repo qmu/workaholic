@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Use when a session runs `/propose` — by hand, or as the opening half of the `[Propose]` routine's tick — read the running identity's own active strategies, plan the one mission whose evolutionary move would bring the nearest one closer to its aim, and open that plan as a GitHub issue the next `/specificate` tick will ingest. Defines the mission grain, the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
+description: Use when a session runs `/propose` — by hand, or as the `propose` subagent of an `/infinite-development` tick — read the running identity's own active strategies, plan the one mission whose evolutionary move would bring the nearest one closer to its aim, and open that plan as a GitHub issue the next `/specificate` tick will ingest. Defines the mission grain, the eligibility gates, the three moves, the refusal of housekeeping, and the scripts.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -11,12 +11,11 @@ metadata:
 
 # Propose
 
-The act that supplies the loop's own ask — so the loop turns without a person having to
-write the next ticket, and what a person supplies instead is the **direction**. Since
-2026-09-02 the `[Propose]` routine (`:15`) runs `/propose` then `/specificate` in one
-session: the ask this command supplies is in the inbox `/specificate`'s discovery reads
-seconds later, and `[Implement]` (`:30`) drives what it queued — the loop is
-**Propose → Implement**. The standing `[Specificate]` routine is retired into it.
+The act that supplies the loop's own ask — so the loop turns without a person having to write
+the next ticket, and what a person supplies instead is the **direction**. It runs as the
+`propose` subagent of an `/infinite-development` tick, followed in the same subagent by
+`/specificate`: the ask this command supplies is in the inbox that discovery reads seconds
+later, and the `implement` subagent drives what it queued (`workaholic:loops`).
 
 It reads the running identity's own `status: active` strategies, plans the single **mission**
 whose **evolutionary move** would bring the nearest one closer to its aim before its date, and
@@ -29,188 +28,58 @@ merge, no deployment, and no `AskUserQuestion` at any step. Its only writes are 
 every one lands on GitHub, not in the tree — the same contract `/standup` and
 `/prepare-release` hold, and the reason it adds no unattended-`main`-writer class.
 
-## The inbound sweep — the channel is read, not mentioned
+## The channel is the tick's, not this command's
 
-**Since 2026-09-02 the sweep is preceded by the Slack turn** (the developer's instruction, with the local five-minute loops — `workaholic:loops`): the same channel read, over the last `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10), answers a person's **question** in its own thread with the `💬` shape, reacts `:eyes:` to what is neither a question nor an ask, and hands every **ask** to the sweep below unchanged. The dedup for a reply is the thread itself — read first, post nothing if a reply of ours already follows the message — because a reply is not a filing and writes no `slack-ref`. The shape, its bounds and its degradations live in `commands/propose.md` and `workaholic:notify`'s catalog; this section owns the sweep and is otherwise unchanged.
+**The Slack turn and the inbound sweep moved out of `/propose` on 2026-09-03** (the developer's
+instruction; `workaholic:loops`). The tick reads the channel, answers a question in its own
+thread, files every ask as an `[FB]` issue and posts the receipt — all before this run starts,
+so a person's redirection is captured in the same five minutes it was written rather than
+waiting behind a strategy judgement.
 
-**Before the strategy judgment, the run sweeps the repository's designated Slack channel for
-asks nobody addressed to any bot** (2026-08-23, the developer's instruction). The loop's two
-inbound surfaces are now **GitHub issues** — which `[Specificate]`'s hourly discovery already
-reads — and **the channel**, which this sweep converges onto that same issue surface. The
-Claude Tag route (an ask captured only when a person wrote `@Claude`) is retired as a
-dependency: it cost a tagged session per ask and stopped capturing entirely at the usage
-limit, so an ask's arrival depended on a budget. This sweep reads the channel **as the running
-identity through the Slack connector** — no mention required, no tagged session spent — and
-files the same `[FB]` issue the tag produced, so the deliverable is unchanged and everything
-downstream (`[Specificate]`'s ingestion, the record, the proposal) is untouched.
+**This command's scripts stayed here** — `list-swept-slack-refs.sh` (the dedup ledger) and
+`file-inbound-ask.sh` (the one writer of a captured ask, stamping the three-axis header, the
+`slack-ref:` marker and the permalink) — because moving them would be churn for nothing.
+`commands/infinite-development.md` is the one place their use is specified.
 
-**The channel** is `WORKAHOLIC_INBOUND_SLACK_CHANNEL`, defaulting to the repository's own
-name, `<repo_name>` — the channel `workaholic:notify` already holds standing consent to read
-(the `dev-` prefix convention was retired 2026-08-28; no prefix is expected or required).
-**A repository whose channel is named otherwise sets the variable**, which is the escape
-hatch that retirement documented; this one sets it to `dev-workaholic` in its own
-`.claude/settings.json` `env` block, because no `#workaholic` exists in the workspace. The
-default derivation does not move and no routine prompt gains a repository name (P7).
-**The window** is `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26): wider than the hourly
-tick by a day so a missed tick drops nothing, and the dedup below is what makes the overlap
-free. **This read is a bounded channel-history read, and it is the one place that has
-one**: `workaholic:notify`'s no-history-read bound governs thread *lookups*, where history is a
-guessing surface — here the history *is* the inbox, the developer instructed it read, and the
-bound that replaces the lookup rule is the window plus the one designated channel. `/moderate`'s
-Slack half keeps its two-query search bound unchanged; and unlike that step's record-writing
-sweep, this one files **only the issue** — the `/fb` shape, chosen for the same measured reason
-(`/fb`, *One artifact, two addresses*): a record written before its issue exists can never name
-it, and would be re-discovered forever.
-
-**What is FB-worthy is the feedback skill's own bar** (`workaholic:feedback`, *Whether this
-merits filing*): a genuine ask, instruction, concern or must-not-miss item written by a
-person. Three exclusions, each by shape rather than judgment: **the loop's own posts** (the
-routine roots, replies and finish lines this plugin's skills emit — a machine's post is never
-an opinion to capture); **messages a filed issue already names**, matched by the
-`slack-ref: <channel>:<ts>` marker `list-swept-slack-refs.sh` reads back out of the issue
-ledger; and **answers to the tick's own questions**, which belong to `/moderate`'s
-`record-answer.sh`, not to a new issue **opened here** — since 2026-08-28 that sentence names a
-path that exists: `/moderate`'s `question-answers` step reads the question's own thread, records
-the answer through that writer, and files the ones that ask for work through this same
-`file-inbound-ask.sh`, stamping the answer message's own `slack-ref` so the ledger this sweep
-reads already names it. When unsure whether a message is an ask, the standing
-bar applies — this sweep captures, it does not originate, so *when unsure, skip and say what
-made you unsure* costs one hour, not the ask.
-
-**Each capture goes through one writer**: `file-inbound-ask.sh` stamps the three-axis header
-(`source: slack` fixed; `subject` is the message author's — `person:<display name>`, never the
-machine), the `slack-ref:` dedup marker and the message's permalink, then hands the body to
-`feedback/scripts/open-issue.sh` — same title stamp, same `--assignee <running identity>`, same
-REST transport as every other capture. The next `[Specificate]` tick ingests it like any
-issue.
-
-**And it carries the direction the ask answers** (2026-08-26). Until then the sweep — the loop's
-own writer and its majority inbound path — filed an issue with no `feedback:` line at all, so
-work born on the channel intersected every strategy's `feedback[]` at nothing. Measured on this
-repository the same day: a message became issue #604, `/specificate` emitted a five-ticket
-mission from it, and `attributed-work.sh` still reported that strategy's `waiting_count: 0` — the
-in-flight brake stood open over a whole queued mission.
-
-**The judgment, in order.** A message naming an explicit strategy **slug** is attributed to it —
-explicit slug only, the same rule the lifecycle recognition already holds, never a title and
-never a paraphrase. A message naming none is judged against the `active` set read through
-`strategy/scripts/list.sh`, the same read the strategy half already makes. A message that answers
-no live direction is **`unattributed`** — an ordinary answer, never forced, because nothing is
-refused for naming no direction.
-
-**What rides the issue is the strategy's own refs**, passed as `file-inbound-ask.sh --feedback`
-and emitted through `feedback/scripts/ask-feedback-line.sh`, the one writer of that line — never
-a strategy slug, never a new field, so the retired `strategy:` relation stays retired. With no
-direction the flag is absent and the composed body is byte-identical to what it was before the
-flag existed.
-
-**It is reported, not enforced.** Every filed issue's line in the run report carries
-`direction:<slug>` or `direction:unattributed` beside its existing outcome — the judgment can be
-wrong, and the only new obligation is that the loop say which direction it decided or that it
-decided none. An **unreadable strategy set is named** (`strategy_list_unreadable`) rather than
-collapsed into `unattributed`: reading nothing and finding nothing are different facts, and
-blurring them is the invisible loss this whole change exists to remove.
-
-**And every capture is acknowledged where it was written** (2026-08-26, the developer's
-instruction). Filing an issue and leaving no trace on the message makes a captured ask and an
-ignored one **byte-identical from the channel** — the person who wrote it cannot tell which
-happened without going to look on GitHub. Measured the same day: the developer's 18:56 and
-19:20 JST messages became issues #620 and #621 within the hour, and, seeing nothing in the
-thread, they asked why neither had been treated as feedback. The capture had worked; only its
-receipt was missing.
-
-After `file-inbound-ask.sh` returns `ok: true`, the run posts **one reply into that message's
-own thread** — the `📥 受理` shape in `workaholic:notify`'s catalog, carrying the issue link and
-the session URL. It needs **no lookup**: the `slack-ref` the wrapper just wrote *is*
-`<channel>:<ts>`, so the thread coordinate is the sweep's own input and the model's
-two-query bound is never touched (`workaholic:notify`, *The inbound sweep's receipt*). A
-message with no thread gets one rooted on itself, which is where a person reading that message
-looks.
-
-**And a reaction on the message itself, beside the reply** (2026-08-26). The reply closed half
-the gap and left the other half open: a reply lives *inside* a thread, so from a channel scroll
-a captured ask and an ignored one still look identical — a person has to open the thread to find
-out which happened. The reaction is the same receipt at a glance, in the place someone scrolling
-the channel is already looking. The emoji is named **once**, in `workaholic:notify`'s catalog
-(*The inbound sweep's receipt*), so the skill, the routine template and the drift pin read one
-source; it is the emoji the reply already speaks with, because one event keeps one vocabulary.
-
-It is added **after** `file-inbound-ask.sh` returns `ok: true`, on the `slack-ref` that wrapper
-just wrote — so, like the reply, **no lookup, no search and no second query**. It is a **second
-signal for a second audience**, never a substitute: a reaction carries no link and is invisible
-to anyone reading the issue rather than the channel, while the reply carries the issue URL and
-is invisible to anyone scrolling past.
-
-**Only a message this run filed, and never load-bearing.** An **already-swept** message gets
-nothing — **neither reply nor reaction**; its receipt is on the issue that already exists, and a
-second one an hour later is the hourly restatement this repository retires posts for; an
-exclusion, a degradation and the strategy half of the tick post nothing at all. The issue is
-open before either is attempted, so a reply or a reaction that fails is reported per message as
-`ack_failed: <reason>` — one outcome each, so a landed reaction and a failed one are two facts —
-and changes nothing about the filing, the dedup marker or what `/specificate` ingests. A capture
-that landed and a receipt that did not are two facts and the run report states both.
-
-**Degradations are named, and the strategy flow never waits for them**: no Slack connector in
-the session → `no_slack_transport`, sweep skipped and said; an unreadable channel →
-`channel_unreadable` with the transport's own error; an unreadable issue ledger →
-`sweep_dedup_unreadable`, and the sweep is **skipped** rather than run blind — filing against
-an unreadable dedup is how the same ask arrives twice an hour. The run report names every
-message filed (issue URL **and** whether its receipt landed), every one excluded (reason), and
-every degradation. The sweep happening or not never changes what the strategy half proposes.
-
-**`channel_unreadable` never claims the channel is absent, and it names the channel it resolved**
-(2026-08-29, mission `point-the-inbound-readers-at-the-channel-that-exists`). Slack answers *not
-found* for a channel the calling token cannot **see**, so absent and invisible are one response —
-the distinction `check-slack-channel.sh` exists to preserve. It is also distinct from *the channel
-was read and held nothing*, which is an ordinary quiet window and is reported as one. Naming the
-resolved channel in the report is what makes a divergence between the channel the loop posts to
-and the one it reads legible without anyone re-deriving the default; the person who must act on a
-persistent one is reached by `/moderate`'s `inbound-channel-unreadable:<channel>` question, asked
-once, never by an hourly line here.
-
-**It is not the `/propose` this repository retired.** That name belonged to what is now
-`/specificate` (renamed 2026-08-19), and `[Propose]` belonged to what is now `[Moderate]`.
-Both were vacated in the same change and neither is claimed by any live template
-(`reference/loop.md`, *Taking the name back*).
-
-**What may originate a mission at all is stated once and cited, never restated here** — `rules/workaholic.md`, *What May Originate a Mission*: only a human's ask, or a strategy a human authored. This routine's two self-referential refusals (`self_refining` below, and the run-level brake beneath it) are that rule's consequences at this seam.
+**`/propose` posts nothing to Slack and reads nothing from it.** The proposal is announced by
+nobody: the issue is assigned to exactly one person and GitHub already delivers it, and a
+status line addressed to nobody is the noise that retired `🔧 Needs a decision` and
+`📦 Release Preparation`.
 
 ## When only the loop has spoken, stop — the one run-level brake
 
-**Every other brake in `/propose` reads the repository** — a strategy's status, its date, its
-attributed work, its open proposals. None of them reads whether **anybody is still there**
-(2026-09-02, mission `refuse-an-ask-the-loop-wrote-to-itself`; the operator's instruction:
-*when the loop is the only one talking in the channel, that is the signal to stop, not to
-propose*). A loop whose channel carries only its own posts is a loop with no one to serve, and
-the measured cost of proposing into that silence was a day of merged work the operator tore
-out by hand.
+**Every other brake here reads the repository** — a strategy's status, its date, its attributed
+work, its open proposals. None reads whether **anybody is still there** (2026-09-02, mission
+`refuse-an-ask-the-loop-wrote-to-itself`; the operator's instruction: *when the loop is the only
+one talking in the channel, that is the signal to stop, not to propose*). The measured cost of
+proposing into that silence was a day of merged work the operator tore out by hand.
 
-**The reading comes off the sweep the run already makes** — no second query, no second window,
-no cursor. Over the sweep's own window, was there any human message at all? Three values:
-**`human_spoke`**, **`only_the_loop_spoke`**, **`unreadable:<reason>`**. The sweep already
-tells the loop's own posts from a person's by shape (`workaholic:notify`'s catalog), which is
-the same distinction this needs.
+**The reading is handed in, not taken.** The tick already read the channel, so it passes its own
+answer down: **`human_spoke`**, **`only_the_loop_spoke`** or **`unreadable:<reason>`**. The window
+is the sweep's own — `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS`, default 26 — so there is
+no second query, no second window and no cursor, and a run given no reading at all treats it as
+`unreadable`.
 
-**On `only_the_loop_spoke` the tick originates nothing**: it opens no proposal, posts nothing,
-and reports the refusal by that word. It is the one brake that refuses **every** direction at
-once — every other gate is per-direction — and that difference is stated here so it is not
-mistaken for one of them.
+**On `only_the_loop_spoke` the tick originates nothing**: it opens no proposal and reports the
+refusal by that word. It is the one **run-level** brake, refusing **every** direction at once —
+every other gate is per-direction.
 
-**An unreadable channel never brakes.** A gate that cannot be read is not a gate, the rule
-`inbox_unreadable` already holds; a repository with **no Slack transport at all** reads
-`unreadable`, never silence. The reading is reported whether or not it fires, so a reader can
-tell a quiet channel from a quiet loop.
+**`unreadable` never brakes.** A channel that could not be read is not silence, and a repository
+with no Slack transport at all reads `unreadable`, never `only_the_loop_spoke`. Report the
+reason and continue.
 
-**The reactive half is untouched.** An issue somebody filed, an ask the sweep just captured, a
+**The reactive half is untouched.** An issue somebody filed, an ask the tick just captured, a
 `/specificate` run: all still work. The brake is on **origination**, exactly as `observing` and
 `arrived` are.
 
-**The cost is stated rather than tuned against.** A weekend or a holiday reads as abandonment
-and costs one tick of proposals. That is the operator's own framing accepted deliberately — a
-stopped origination costs an hour, and the alternative cost a day of work they tore out. The
-window is the sweep's own `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26), reused because
-it is the evidence the judgment is made against; a second number would be a constant nobody
-can defend.
+**The cost is accepted, not tuned away.** A legitimately quiet stretch — a weekend, a holiday —
+costs one tick of proposals. No threshold is introduced against it.
+
+**What may originate a mission at all is not this skill's rule.** It is stated once, at
+`rules/workaholic.md`, *What May Originate a Mission*, and cited here rather than restated: a
+human's ask or a human-authored strategy may; a record a routine wrote about the loop's own
+apparatus (`self_authored`), a proposal refining a prior self-proposal (`self_refining`) and a
+tick into a window where only the loop has spoken (`only_the_loop_spoke`) may not.
 
 ## The unit is a mission, not a change
 
@@ -891,40 +760,17 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/open-proposal.sh \
 #   body sections: What to change / Why this commits to the strategy /
 #                  What this is chosen against / Experience / Tickets (two or more)
 
-# The inbound sweep's dedup ledger: which channel messages are already an issue.
+# The inbound sweep's dedup ledger and its ONE writer. BOTH ARE CALLED BY THE TICK, not by
+# this command (`commands/infinite-development.md`); they live here because moving them would
+# be churn for nothing.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-swept-slack-refs.sh
-
-# The inbound sweep's ONE writer: one FB-worthy message -> one [FB] issue.
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
   --slack-ref <channel>:<ts> --permalink <url> \
   --subject 'person:<name>' --assignee <login> <owner/name> "<title>" <body-file>
 ```
 
 The run itself is five steps: [reference/loop.md](reference/loop.md) carries them, together
-with the clock placement, the name reclamation, and the alternatives that were refused.
-
-## The one thing it posts to Slack, and everything it still does not
-
-**It posts exactly one shape — the sweep's `📥 受理` receipt, with its reaction — and nothing
-else** (2026-08-26).
-It read Slack and posted nothing at all from 2026-08-23 until then; what changed is narrow and
-the reasons that kept it silent are unchanged for everything else, so they are restated rather
-than dropped.
-
-**The proposal is still announced by nobody.** The issue is assigned to exactly one person, who
-is the running identity, and GitHub already delivers it to them. A Slack copy would be the same
-noise twice — the argument that gives the retired `[Workaholic]` no connector — and a status
-line addressed to nobody is the noise that retired `🔧 Needs a decision` and `📦 Release
-Preparation`. The routine's result reaches its one reader as a **Claude notification**
-(`notifications: push`) — since `[Workaholic]` retired on 2026-08-22 (issue #557), the only
-template that declares the field. Nothing about the strategy half posts, and neither does a
-refusal, a degradation or an idle tick.
-
-**Why the receipt is not that same noise, stated rather than assumed.** It is **addressed to the
-one person who wrote the message**, in the thread they wrote it in, **exactly once**, and only
-when this run captured something — it is a reply to a human, not a status line. The three
-properties every retired post lacked are each present, and the failure it fixes was measured:
-without it, a captured ask and an ignored one look identical from the channel.
+with the alternatives that were refused.
 
 ## Describing work does not gate a building aim
 

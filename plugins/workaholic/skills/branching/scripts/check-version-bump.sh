@@ -22,7 +22,7 @@
 # `.claude-plugin/marketplace.json` is what a consumer installs from and CI publishes a Release
 # per version, so a published `1.0.285` and a `main` carrying two further merges are different
 # trees under one number. Nothing is broken; what is lost is the ability to say which code a
-# version is. Since 2026-09-02 (`/spawn-loops`, three loops plus the developer's own sessions)
+# version is. Since the loop's subagents run beside the developer's own sessions
 # concurrent branches are the normal state, so this is what the rule produces rather than a slip.
 #
 # `version_ahead` IS THREE-VALUED and its unknown is a real third answer: an unreadable manifest

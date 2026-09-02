@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T06:55:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -108,3 +109,63 @@ is a route the loop cannot see, and this ticket is about what the loop does **af
   rule on those three, and driving them as they stand would re-implement `main`.
 - Do not reach for a *has this already been implemented* test over the code. That is a judgement
   about behaviour, and this repository has already refused one by name for the same reason.
+
+## Final Report
+
+Development completed as planned.
+
+### The shape, decided first and recorded
+
+**A question to a person, exactly as step 1 predicted.** The available reading is *the acceptance
+is unticked and the queued tickets describe behaviour the base already has*, and the second half
+is a judgement about behaviour rather than a file test —
+`list-stranded-publications.sh`'s own history records a survey-side *already implemented* test
+refused by name for that reason. So `unrecorded-missions` closes nothing, excludes nothing and
+touches no claim: it establishes that nothing **recorded** the work, never that the work is
+undone, and whether to close or re-drive is the assignee's.
+
+### The measurement that changed the reading
+
+**The ticket's third term cannot be read for the missions it is about, and the repair is a second
+source.** Step 2 says *the mission's recorded `claim:` branch* — and `claim.sh` does write that
+field, **on the claim branch**. A branch closed unmerged never reaches the base, so `main`'s copy
+carries no `claim:` line at all: all three measured missions
+(`take-the-moderation-tick-s-log-off-main`, `read-the-base-s-colour-past-a-bookkeeping-tip`,
+`prove-a-claim-branch-is-empty-before-deleting-it`) read `status: active` with no `claim:` field
+today. The field is therefore read first and the **claim oracle's own row for the unit** second
+(`list-claims.sh`, keyed on the `Claim <unit>` commit).
+
+**And the three measured missions are still named by nobody, which is reported rather than worked
+around.** Their branches have since been deleted — by the `pull_request_closed_unmerged`
+retirement this same mission shipped — so neither source resolves a branch and the step counts
+them **`claim_branch_unresolved`**: a named absence, never a candidate, because this step may not
+name a mission whose pull request it never read. Verified live against this repository: `10 active
+mission(s) scanned; 0 ... closed unmerged with nothing recorded; 1 still being driven; 6 whose
+claim branch neither the mission nor the claim scan names`. Inventing a branch for them — by
+matching a slug against closed pull-request bodies, say — would be a guess dressed as a proof, and
+the three are already live work somebody must rule on, which the ticket itself says.
+
+The four tree terms gate the one bounded pull-request read, so a mission failing any of them costs
+no network call: `active`; `checked == 0` with `total > 0`; the changelog records no archived
+ticket; the queue is non-empty (a drained one is `closable-missions`' candidate or nobody's).
+`merged` and `open` are each counted and named by nobody; an unreadable pull request is `degraded`
+with reason `pull_request_unreadable` and never *nothing to close*, while every candidate the step
+did prove is still handed over.
+
+Registered in `run.sh`'s `STEPS`, in `moderate/reference/workflow.md` (§12a, the classification
+table as `needs_ruling`, and the transport-derived-count table), and in `CLAUDE.md`'s step table
+and prose. The hermetic test stubs the **transport** rather than the step, so every tree term is
+under test for real with no `gh` call.
+
+### Discovered Insights
+
+- **Insight**: a mission's `claim:` field is only ever true of a branch that merged.
+  **Context**: `claim.sh` writes it into the mission on the claim branch, so the base learns the
+  branch's name only if that branch lands. Any future reading that wants *which branch drove this
+  mission* has the same hole, and the claim oracle — keyed on the `Claim <unit>` commit rather than
+  on any field — is the only source that answers for a branch still standing.
+- **Insight**: the retirement and this reading are in tension by construction.
+  **Context**: deleting a `closed_unmerged` branch is right (it can never merge) and it destroys
+  the last evidence linking that branch to its mission. Both shipped on this mission. Anything
+  that wants to keep the link has to record it at claim time on a ref that survives, which is a
+  ruling nobody has made.

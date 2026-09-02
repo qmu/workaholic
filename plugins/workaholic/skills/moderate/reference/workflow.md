@@ -50,7 +50,7 @@ The distinction is **where the number comes from**, not what type it is:
 
 ### The audit (2026-09-01, ticket `20260901122448-name-every-step-summary-carrying-transport-derived-volatility`)
 
-Every one of the thirty-two `step-*.sh` summary compositions was read. Each is a literal format
+Every one of the thirty-three `step-*.sh` summary compositions was read. Each is a literal format
 string over named shell variables, so **none is unauditable** — there is no step whose summary is
 built by interpolation this audit could not follow, and none is recorded as unaudited.
 
@@ -64,6 +64,7 @@ Three carried a transport-derived term. All three are repaired; every other step
 | `base-health`, `drill-health` | cleared — a check-run *conclusion*, not a lazily computed field: it does not flip between two identical reads, and when it does flip a check really was re-run. |
 | `catchup-blocked`, `stranded-publications`, `stalled-units`, `undelivered-units`, `handoff-units`, `raced-units`, `retire-claims` | cleared — every count comes from the claim scan and `claim-mergeability.sh`, which is a local `merge-tree` with no network. |
 | `closable-missions`, `undrivable-units`, `direction-health`, `strategy-pace`, `doc-drift`, `thread-reconcile`, `standing-rulings`, `file-findings`, `question-answers`, `unanswered-asks`, `blocked-tick`, `cadence-lapse`, `human-checkin` | cleared — tree, tick log, or this loop's own gate words. |
+| `unrecorded-missions` | cleared — the tree terms are the tree's, and a pull request's closed/unmerged state is a repository fact GitHub stores rather than recomputes (`issue-triage`'s row, for its reason). |
 | `issue-triage`, `operator-pulls` | cleared — an issue's or pull request's open/closed state is a repository fact GitHub stores rather than recomputes. |
 | `inbound-sweep`, `strategy-digest` | cleared, with a caveat named rather than repaired: both are **window-relative**, so their counts move as the window slides. That is clock-derived, not transport-derived, and in both cases the movement tracks activity that really happened. |
 | `note-cadence`, `workload-logs` | cleared, with the term to watch named: `note-cadence`'s *due* is a JST-day boundary over a draft release CI alone writes, and `workload-logs`'s `readable` is an environment capability. Neither recomputes remotely today; a target whose log endpoint flaked would make `readable` the fourth finding. |
@@ -700,6 +701,54 @@ construction — and it goes out as the same `🙋 <@U…>` reply, with its age 
 sentence (`first_asked` rides the gate's answer). The root's wording does not move, so the copy in
 `notify/reference/notifications.md` and the copy in `/moderate` stay byte-identical (the shapes
 left the routine template on 2026-09-01 — `workaholic:notify`, *The command is the ceiling*).
+
+## 12a. `unrecorded-missions` — the pull request was closed, so nothing recorded the work
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-unrecorded-missions.sh --tick <id> [--root <repo-root>]
+```
+
+**§12's photographic negative** (2026-09-02, ticket `20260902065500`). That step's proof is
+arithmetic — `checked == total`, `unlinked == 0`, an empty queue — and these missions satisfy
+none of it: acceptance `0/N`, nothing ticked, the queue still full. **Measured 2026-09-01/02**:
+three missions read `status: active` with `0/3` acceptance and **17 queued tickets** between
+them, the `/implement` survey offered all three, and the behaviour each asked for was already on
+`main` — put there by a person's own single commit while the loop's own pull request was closed
+unmerged (#790/#789, #801/#800, #802/#800). Only the **bookkeeping** is missing: no branch
+archived the tickets, so no seam ticked the acceptance and `close.sh` was never reached.
+Drivability is *active area + plan + queued tickets*, and all three terms still hold — so the
+loop is queued to re-implement `main`.
+
+- **Reads**: `summary.sh`, `progress.sh`, `queue-size.sh` and the mission's own `## Changelog`
+  from the tree; then **one** bounded `branch-pull-request-state.sh` read per mission that
+  passes all four tree terms. `list-claims.sh` is read once for the whole step, as the second
+  branch source below.
+- **Four tree terms, then one read**: `active`; acceptance entirely unticked (`checked == 0`,
+  `total > 0`); the changelog records **no archived ticket**; and the queue is **non-empty** — a
+  drained one is §12's candidate or nobody's. Only `closed_unmerged` is a candidate: `merged` is
+  work that landed and `open` is a unit still being driven, and each is **counted** and named by
+  nobody.
+- **The branch is resolved from two sources, and the second is why the step works at all.** The
+  ticket says *the mission's recorded `claim:` branch*, and `claim.sh` does write that field —
+  **on the claim branch**. A branch closed unmerged never reaches the base, so for precisely
+  these missions `main`'s copy carries no `claim:` line: all three measured missions read
+  `status: active` with no `claim:` field. The field is read first, the claim oracle's own row
+  for the unit second. When **neither** resolves — closed unmerged *and* since deleted, which is
+  what CI's retirement now does — the mission is counted **`claim_branch_unresolved`** and asked
+  about by nobody. A named absence, never a candidate: this step may not name a mission whose
+  pull request it never read.
+- **Question key**: `unrecorded-mission:<slug>`, addressed to the mission's **assignee**, asked
+  once. Lead with what happened, the slug after it, one act named: close it, or drive it again.
+- **Writes nothing, closes nothing, excludes nothing, touches no claim.** `close.sh` writes
+  `abandoned` and `carried` on a person's intent alone, and an automatic exclusion would hide a
+  mission whose work genuinely still needs driving. The available reading is *the acceptance is
+  unticked and the queued tickets describe behaviour the base already has*, whose second half is
+  a **judgement about behaviour** — and `list-stranded-publications.sh`'s history records a
+  survey-side *already implemented* test refused by name for exactly that reason.
+- **A degraded read is named**: an unreadable pull request makes the step `degraded` with reason
+  `pull_request_unreadable`, and it is never rendered as *nothing to close*. Candidates the step
+  **did** prove are still handed over — losing a question because a different mission was
+  unreadable trades one silence for another (`cadence-lapse`'s rule, applied here).
 
 ## 13. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
@@ -2271,6 +2320,7 @@ decide something before any change is the right one*.
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
 | `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
+| `unrecorded-missions` | `needs_ruling` | **Whether to close the mission or drive it again is the assignee's**, and the step exists because the loop cannot tell them apart: what it establishes is that nothing *recorded* the work, never that the work is undone. `closable-missions`' row, one state over — and filing it as work would have the loop closing a mission on a reading its own header refuses to treat as a proof. |
 | `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
 | `drill-health` | `needs_ruling` | `base-health`'s row, for `base-health`'s reason: it composes the same check-run reader, so every value it carries is a judgement a re-run can turn green. The finding reaches the person who shipped the mechanism as that step's own keyed question, which is the delivery the mission asked for. |
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |

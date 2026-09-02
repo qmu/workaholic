@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:29:34+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,27 @@ and into both surfaces that read it.
 - Whether the existing `base-red:<commit>` question should mention the distance is a judgement
   this ticket makes explicitly. The question's contract is to lead with what happened in plain
   words and put the identifier after it; a distance belongs on the heading if anywhere.
+
+## Final Report
+
+Development completed as planned. The walk and the tick step already carried the two
+coordinates (`checked_at`, `checked_behind`, both absent when the colour was read at the tip)
+from issue #785; what was missing was the reader-facing half this ticket names in step 4 and 5,
+and that is what this drive wrote:
+
+- `plugins/workaholic/skills/drive/SKILL.md` §7 now states where the colour was read beside the
+  colour itself — which commit, how far behind, absent at the tip so a repository whose tip
+  carries checks reports exactly what it reported before — and that the distance is stated and
+  never thresholded, gating nothing and moving no token.
+- `CLAUDE.md`'s run-report clause carries the same sentence, in the same words.
+- Verified the pre-existing halves rather than rewriting them: `attribute-base-red.sh` emits both
+  fields beside `tip` / `last_green` / `walked` / `bound`; `step-base-health.sh` renders them in
+  its `summary` only, with no timestamp and no age, and its `event` stays empty for a green base
+  whatever the distance.
+
+### Discovered Insights
+
+- **Insight**: The distance belongs in the `summary` and never in the `event`.
+  **Context**: The tick post's change diff normalises timestamps out and compares summaries; a
+  green base read two commits back is the healthy steady state, so an event there would open a
+  root addressed to nobody every hour — the failure two retired status roots were retired for.

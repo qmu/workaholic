@@ -13,7 +13,9 @@ and every abort reports a machine-readable reason.
    — the open GitHub issues assigned to this session's own identity, oldest-first,
    minus those a feedback record already names, on the base (`already_captured`) or on
    an unmerged remote branch (`captured_on_branch` — an ask whose proposal is open as a
-   pull request is in flight, not new). Each
+   pull request is in flight, not new), and minus the tick's own findings (`self_originated`
+   — a body header reading `source: moderate`; the loop never takes its own output as an
+   ask, issue #864). Each
    returned issue is an ask in hand: run steps 2–13 **once per issue**, in the order
    returned, its URL carried into step 3's record (the exclusion's contract) and its
    number into step 10's `Closes #<N>`. An empty list is

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.1
 feedback: [20260821151227-a-survey-run-under-a-placeholder-git-identity-returns-an-indistinguishable-ok.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -58,3 +58,4 @@ carrying the hook but not the mapping is told, and the mapping can be installed.
 - 2026-09-02 — ticket archived — 20260821151250-forbid-ok-under-a-placeholder-identity.md
 - 2026-09-02 — ticket archived — 20260821151250-install-and-audit-the-identity-mapping.md
 - 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+1.1h) — implement-20260902-0535

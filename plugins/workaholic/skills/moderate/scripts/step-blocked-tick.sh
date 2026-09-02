@@ -101,21 +101,87 @@ fi
 subject=$(printf '%s' "$out" | jq -r --arg now "$TICK" \
     '[.entries[].tick] | unique | reverse | map(select(. != $now)) | .[1] // ""' 2>/dev/null || true)
 
-if [ -z "$subject" ]; then
+# AND THE SECOND SUBJECT: THE PROPOSE TICK (2026-09-02, ticket `20260902043117`). `[Propose]` is the
+# routine that ORIGINATES the loop's work, and it was the one measured parked hourly on a permission
+# prompt — while leaving no trace anywhere, because it wrote no log at all. A parked tick spends its
+# fire, produces nothing and reads as scheduled and healthy; a person noticed days later.
+#
+# It is read HERE rather than in a step of its own because the question is identical — *this opened
+# and never closed* — and the log is already in hand from the one read above. A sibling step would
+# be a second reader of one file answering one question, which is how two readings start to
+# disagree. Same structural bound as the moderate subject: the tick BEFORE LAST, never a threshold,
+# so a propose tick still running when the next one starts is never called stopped.
+#
+# The pair it looks for is `propose-open` / `propose-close`, which `/propose` writes and nothing
+# else does. A repository whose propose tick predates that contract simply has no `propose-open`
+# line, and this arm stays silent rather than reporting a stop it cannot see.
+propose_subject=$(printf '%s' "$out" | jq -r --arg now "$TICK" \
+    '[.entries[] | select(.step == "propose-open") | .tick] | unique | reverse
+     | map(select(. != $now)) | .[1] // ""' 2>/dev/null || true)
+
+if [ -z "$subject" ] && [ -z "$propose_subject" ]; then
     emit ok "" "the log holds no tick before last yet; nothing to read for a stop"
 fi
 
-opened=$(printf '%s' "$out" | jq -r --arg t "$subject" \
-    '[.entries[] | select(.tick == $t and .step == "open-log")] | length' 2>/dev/null || printf 0)
-closed=$(printf '%s' "$out" | jq -r --arg t "$subject" \
-    '[.entries[] | select(.tick == $t and .step == "human-checkin")] | length' 2>/dev/null || printf 0)
-reached=$(printf '%s' "$out" | jq -r --arg t "$subject" \
-    '[.entries[] | select(.tick == $t)] | length' 2>/dev/null || printf 0)
+opened=0; closed=0; reached=0
+if [ -n "$subject" ]; then
+    opened=$(printf '%s' "$out" | jq -r --arg t "$subject" \
+        '[.entries[] | select(.tick == $t and .step == "open-log")] | length' 2>/dev/null || printf 0)
+    closed=$(printf '%s' "$out" | jq -r --arg t "$subject" \
+        '[.entries[] | select(.tick == $t and .step == "human-checkin")] | length' 2>/dev/null || printf 0)
+    reached=$(printf '%s' "$out" | jq -r --arg t "$subject" \
+        '[.entries[] | select(.tick == $t)] | length' 2>/dev/null || printf 0)
+fi
 
-if [ "$opened" -eq 0 ] || [ "$closed" -gt 0 ]; then
-    # Either it never opened (nothing this step can say about it) or it closed. Both are the
-    # healthy reading, and a step with no event renders no root line.
-    emit ok "" "the tick before last opened and closed; ${reached} step(s) recorded"
+# THE PROPOSE ARM, ANSWERED FIRST BECAUSE IT IS COMPOSED THE SAME WAY AND ASKED THE SAME ONCE.
+# `propose-close` is the closing signal for the same reason `human-checkin` is the moderate one: it
+# is the LAST line the propose tick writes, and unlike a persist it is written before the push
+# rather than after it, so a healthy tick's closing line really does reach the branch.
+propose_needs=""
+propose_event=""
+propose_summary=""
+if [ -n "$propose_subject" ]; then
+    p_closed=$(printf '%s' "$out" | jq -r --arg t "$propose_subject" \
+        '[.entries[] | select(.tick == $t and .step == "propose-close")] | length' 2>/dev/null || printf 0)
+    p_reached=$(printf '%s' "$out" | jq -r --arg t "$propose_subject" \
+        '[.entries[] | select(.tick == $t) | .step | select(startswith("propose-"))] | length' 2>/dev/null || printf 0)
+    if [ "$p_closed" -gt 0 ]; then
+        propose_summary="the propose tick before last opened and closed"
+    else
+        p_last=$(printf '%s' "$out" | jq -r --arg t "$propose_subject" \
+            '[.entries[] | select(.tick == $t) | .step | select(startswith("propose-"))] | last // "propose-open"' 2>/dev/null || printf propose-open)
+        propose_needs=$(jq -cn --arg tick "$propose_subject" --arg last "$p_last" --arg reached "$p_reached" \
+            '{action: "ask_about_a_propose_tick_that_never_closed",
+              bound: "one question, keyed on `key`, exactly as the moderate arm is. The step asks and nothing else — it re-runs no tick, files no issue and touches no claim. Addressed to nobody: a stopped tick is a fact about the repository.",
+              compose: "say that the propose tick opened and never closed, naming the tick id and the last propose step it recorded. The REASON is not on the base by construction — the record that would carry it is the one the stop prevented — so do not guess one. `[Propose]` is the routine that originates the loop'"'"'s work, so a stopped one means no new direction was proposed that hour.",
+              tick: $tick, last_step: $last, steps_recorded: ($reached | tonumber),
+              key: ("blocked-tick:propose:" + $tick)}' 2>/dev/null || echo '{}')
+        propose_event="a propose tick opened and never closed"
+        propose_summary="the propose tick before last opened and never closed"
+    fi
+fi
+
+# THE MODERATE HALF'S OWN SENTENCE, SAID ONLY WHERE THERE IS A TICK TO SAY IT ABOUT. With a
+# propose subject and no moderate one — a log that carries propose lines and no moderate tick
+# before last — asserting *the tick before last opened and closed* would report a reading this
+# step never made, which is the collapse every other reader here is written against.
+if [ -n "$subject" ]; then
+    moderate_summary="the tick before last opened and closed; ${reached} step(s) recorded"
+else
+    moderate_summary="the log holds no moderate tick before last"
+fi
+
+if [ -z "$subject" ] || [ "$opened" -eq 0 ] || [ "$closed" -gt 0 ]; then
+    # The moderate arm is healthy (or has nothing to say). Either it never opened, or it closed,
+    # or there is no tick before last — and a step with no event renders no root line. The propose
+    # arm is still reported on its own terms.
+    if [ -n "$propose_needs" ]; then
+        emit ok "" "${propose_summary}" "$propose_needs" "$propose_event"
+    fi
+    if [ -n "$propose_summary" ]; then
+        emit ok "" "${moderate_summary} — ${propose_summary}"
+    fi
+    emit ok "" "${moderate_summary}"
 fi
 
 last_step=$(printf '%s' "$out" | jq -r --arg t "$subject" \
@@ -128,5 +194,9 @@ needs=$(jq -cn --arg tick "$subject" --arg last "$last_step" --arg reached "$rea
       tick: $tick, last_step: $last, steps_recorded: ($reached | tonumber),
       key: ("blocked-tick:" + $tick)}' 2>/dev/null || echo '{}')
 
+if [ -n "$propose_needs" ]; then
+    emit ok "" "the tick before last opened and never closed; ${reached} step(s) recorded — ${propose_summary}" \
+        "${needs},${propose_needs}" "a tick opened and never closed, and so did a propose tick"
+fi
 emit ok "" "the tick before last opened and never closed; ${reached} step(s) recorded" \
     "$needs" "a tick opened and never closed"

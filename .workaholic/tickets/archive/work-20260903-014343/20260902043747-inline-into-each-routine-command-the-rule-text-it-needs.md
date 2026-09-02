@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:37:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,47 @@ the rules they cite.
 - The judgement in step 1 is the whole ticket. Inlining every citation would bloat the
   commands to no purpose; inlining none leaves the reach. Say which references were judged
   must-read and why.
+
+## Final Report
+
+**Outcome**: implemented.
+
+**The enumeration (step 1).** Across the four routine-fired ceilings, the by-reference
+instructions divide in two. **Provenance citations** — `(`workaholic:notify`, *The command is the
+ceiling*)`, `rules/interaction.md`, the measured-origin notes — are left exactly as they are: a
+session does not open them to act, and stripping them would cost the repository its traceability
+for no gain (step 4). The **must-read** class had one survivor that the existing pin cannot see:
+`/implement` and `/specificate` each told the run to post "into its reply thread (the
+`workaholic:notify` lookup)" — an instruction to **perform** a lookup whose rules lived one file
+away. The pin added by ticket `20260902043747-pin-…` matches *see `X`, *section**; a lookup named
+in prose is the same reach in a shape that pattern cannot recognise, which is exactly the residue
+its own assertion name warns about.
+
+**The inlining (step 2).** `workaholic:notify`, *One thread per feedback item* — the four ordered
+cases, the private-inclusive search rule, the fuzzy-matching prohibition and the two-query bound —
+is now carried **byte-identical** in `commands/implement.md` and `commands/specificate.md`, with a
+new suite pin (`the routine-fired commands carry the lookup they perform`) asserting the copies
+against the source. Byte-identical is what keeps two copies from becoming two rules.
+
+**What is deliberately NOT inlined.** `/propose` and `/moderate` never run the search — the
+inbound sweep replies on a coordinate it already holds (case 1, no query) and the moderation root
+is found by a key the tick derives — so carrying the lookup there would be three copies of a rule
+with two readers. The suite asserts that in **both** directions, so a later contributor extending
+the list is making a decision rather than repairing an omission.
+
+**Nothing was too large to inline** (step 3), so nothing is reported unscoped; the block is
+~4 KB.
+
+**Templates untouched** (step 5): no routine template was edited.
+
+**The principle restated (step 6)**: `CLAUDE.md`'s template-rules bullet and
+`workaholic:notify`'s *The command is the ceiling* now read *the command carries what the run must
+read*, not merely *the command names the shapes* — with the must-read / provenance distinction,
+the byte-identical requirement, and the too-large-is-reported rule stated in both.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` → 6380 passed, 0 failed (7 new rows).
+**The gate was proven, not assumed**: changing `at most two search queries per lookup` to `three`
+in `/implement` alone fails the pin (`FAIL /implement carries the thread lookup byte-identical to
+workaholic:notify`); the edit was reverted and the suite re-run green. `build.mjs` + `verify.mjs`
+clean with `outputs/` unchanged — `notify` is not a bundled skill, so the `Outputs Freshness`
+check is clean.

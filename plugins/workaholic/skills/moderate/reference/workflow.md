@@ -3375,7 +3375,28 @@ reported; one that has outlived a whole further tick is. **The cost is stated ra
 a stopped tick is named one hour later than the earliest possible moment, and the measured failure
 lasted hours.
 
-**What it asks.** One question per stopped tick, keyed `blocked-tick:<tick-id>` through the
+**IT READS TWO SUBJECTS, NOT ONE** (2026-09-02, ticket `20260902043117`). The second is the
+**propose tick**, which writes `propose-open` at the start of its run and `propose-close` as its
+last act (`plugins/workaholic/commands/propose.md`, where that widening of `/propose`'s pure-reader
+contract is stated). `[Propose]` originates the loop's work and was the one measured parked hourly
+on a permission prompt — spending its fire, producing nothing, and reading as scheduled and healthy
+because it wrote no trace anywhere at all.
+
+It is read **here rather than in a step of its own**: the question is identical — *this opened and
+never closed* — and the log is already in hand from the one read this step makes. A sibling step
+would be a second reader of one file answering one question, which is how two readings of one fact
+start to disagree. The bound is the same **structural** one, the tick **before last**, so a propose
+tick still running when the next starts is never called stopped, and the closing signal is
+`propose-close` for the same reason the moderate arm's is `human-checkin`: it is the last line the
+run writes, and it is written **before** the push rather than after it.
+
+**A log with no `propose-open` line anywhere is silent, never a stop.** That is the ordinary state
+of every checkout that has not yet run the widened `/propose`, and reporting it as a stop would fire
+on every one of them. Drilled: `blocked_tick_no_propose_line_is_silent`.
+
+**What it asks.** One question per stopped tick, keyed `blocked-tick:<tick-id>` — or
+`blocked-tick:propose:<tick-id>` for the propose arm, a key of its own so the two are asked and
+settled separately — through the
 existing gate, so a stopped hour costs exactly one question however many later ticks see it;
 `ask-question.sh` is untouched. **Addressed to nobody** — a stopped tick is a fact about the
 repository, and the running identity is never consulted (`undrivable-units`' axis). The question

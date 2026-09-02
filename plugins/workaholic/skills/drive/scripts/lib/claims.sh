@@ -875,8 +875,16 @@ claims_branch_emptiness() {
     # `superseded` and can still be deleted. That is accepted rather than overlooked — the unit's
     # tickets are proved archived on the base, `.workaholic/` is the loop's own record, and
     # tightening this further would cost the verdict its ordinary case.
-    git diff --quiet "$_cbe_mb" "$_cbe_ref" -- . ':(exclude).workaholic' 2>/dev/null
-    _cbe_rc=$?
+    # THE STATUS IS CAPTURED INSIDE AN `if`, NOT AFTER A BARE CALL. This library is sourced by
+    # scripts running under `set -e`, where a bare `git diff --quiet` exiting 1 — the ordinary
+    # *this branch differs* answer — aborts the caller. Measured 2026-09-02: the bare form made
+    # `delete-retired-claim-branch.sh` answer `emptiness_unanswerable` for every non-empty
+    # branch, which still refuses the delete but tells a person the wrong reason.
+    if git diff --quiet "$_cbe_mb" "$_cbe_ref" -- . ':(exclude).workaholic' 2>/dev/null; then
+        _cbe_rc=0
+    else
+        _cbe_rc=$?
+    fi
     if [ "$_cbe_rc" -eq 0 ]; then
         printf 'true\t\t0\t'
         return 0

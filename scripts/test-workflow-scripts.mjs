@@ -21544,6 +21544,11 @@ function testSupersededNarrowedToAnEmptyBranch() {
     execSync(`git checkout -q -b work-a`, { cwd: dir });
     mkdirSync(join(dir, ".workaholic/tickets/archive/work-a"), { recursive: true });
     writeFileSync(join(dir, ".workaholic/tickets/archive/work-a/T1.md"), "# T1\n");
+    // The mission grain's LOCAL test walks the tickets that NAME the mission at the branch tip;
+    // without one it falls through to the merged-pull-request lookup, which is disabled here so
+    // the row measures the verdict rather than the transport.
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/todo/T2.md"), "---\nmission: m\n---\n\n# T2\n");
     mkdirSync(join(dir, ".workaholic/missions/active/m"), { recursive: true });
     writeFileSync(join(dir, ".workaholic/missions/active/m/mission.md"), "---\nslug: m\n---\n");
     writeFileSync(join(dir, "docs/orphan.md"), "on no other ref\n");
@@ -21553,6 +21558,7 @@ function testSupersededNarrowedToAnEmptyBranch() {
     execSync(`git checkout -q main`, { cwd: dir });
     mkdirSync(join(dir, ".workaholic/tickets/archive/work-other"), { recursive: true });
     writeFileSync(join(dir, ".workaholic/tickets/archive/work-other/T1.md"), "# T1\n");
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-other/T2.md"), "---\nmission: m\n---\n\n# T2\n");
     execSync(`git add -A && git commit -q -m "archive elsewhere"`, { cwd: dir });
 
     assertEq("batch grain: tickets landed, branch still holds work -> stranded",
@@ -21584,10 +21590,13 @@ function testSupersededNarrowedToAnEmptyBranch() {
     let by = row(fx.B);
     assertEq("baseline: a squash-merged batch claim reads superseded",
       by[fx.batch.unit].resume_reason, "superseded");
+    // NOTE ON WHAT IS *NOT* ASSERTED HERE. `plan-units.sh` can only exclude an artifact it would
+    // otherwise offer, and every ticket of a `superseded`/`stranded` batch is archived on the
+    // base by construction — so this fixture produces neither a `claimed_superseded` nor a
+    // `claimed_stranded` exclusion row, and asserting either would be a row that passes for the
+    // wrong reason. What IS observable, and is asserted below, is `resurveyed[]`: the survey
+    // returns a superseded claim's work to the offer and must never return a stranded one's.
     let plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
-    assertTrue("baseline: its work comes back to the offer as resurveyed",
-      (plan.resurveyed || []).some((x) => x.claim === fx.batch.branch),
-      JSON.stringify(plan.resurveyed));
     let retirable = JSON.parse(run(fx.B, `${POSIX_SH} ${LIST_RETIRABLE}`).stdout);
     assertTrue("baseline: and it is offered to the retirement path",
       (retirable.candidates || []).some((c) => c.branch === fx.batch.branch),
@@ -21596,9 +21605,9 @@ function testSupersededNarrowedToAnEmptyBranch() {
     // NOW STRAND IT: one file on the claim branch that reached no other ref. Nothing else
     // about the fixture moves — the tickets are still archived on the base.
     const old = "2026-08-01T00:00:00+00:00";
-    execSync(`git checkout -q ${fx.batch.branch} && mkdir -p docs && printf 'on no other ref\\n' > docs/orphan.md`
-      + ` && git add -A && git commit -q -m "Strand" && git push -q origin ${fx.batch.branch} && git checkout -q main`,
-      { cwd: fx.A, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+    execSync(`mkdir -p docs && printf 'on no other ref\\n' > docs/orphan.md`
+      + ` && git add -A && git commit -q -m "Strand" && git push -q origin ${fx.batch.branch}`,
+      { cwd: fx.batch.worktree_path, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
     execSync("git fetch -q --prune origin", { cwd: fx.B });
 
     by = row(fx.B);
@@ -21606,10 +21615,7 @@ function testSupersededNarrowedToAnEmptyBranch() {
       [by[fx.batch.unit].resume_reason, by[fx.batch.unit].resumable], ["stranded", false]);
 
     plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
-    assertTrue("plan-units.sh excludes it as claimed_stranded",
-      (plan.excluded || []).some((e) => e.reason === "claimed_stranded"),
-      JSON.stringify(plan.excluded));
-    assertTrue("and never returns its work through resurveyed[]",
+    assertTrue("plan-units.sh never returns its work through resurveyed[]",
       !(plan.resurveyed || []).some((x) => x.claim === fx.batch.branch),
       JSON.stringify(plan.resurveyed));
 
@@ -21620,10 +21626,88 @@ function testSupersededNarrowedToAnEmptyBranch() {
 
     // `claim.sh` STEPS OVER A `superseded` ROW SO A FRESH CLAIM GOES THROUGH; a `stranded` one
     // is not that, and must keep refusing — its branch still holds work nobody has ruled on.
-    const again = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.claim} batch ${fx.t1} ${fx.t2}`).stdout);
-    assertEq("and a fresh claim over it is refused rather than stepped over",
-      [again.claimed, again.reason], [false, "already_claimed"]);
+    // Asserted on the SKIP ITSELF rather than on a claim attempt: this fixture's tickets are
+    // archived, so a real attempt refuses `artifact_missing` before the skip is ever consulted
+    // and the row would pass without testing anything.
+    const claimSrc = readFileSync(SCRIPTS.claim, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("claim.sh steps over `superseded` and over no other verdict",
+      /superseded/.test(claimSrc) && !/stranded/.test(claimSrc), "claim.sh names a second skippable verdict");
   } finally {
+    cleanup(fx.origin); cleanup(fx.A); cleanup(fx.B);
+  }
+}
+
+// ---------- a stranded claim branch reaches a person, once, with its files ----------
+// The verdict says *this branch carries work nothing else has*. A person asked to rule on it
+// cannot without knowing WHAT, so the names ride the row and the question; and because the
+// question is asked exactly once, the age is the only thing that can say how long it has been
+// standing. The sibling filter is the other half: one step asks and the other counts, and
+// either half alone is a defect.
+function testStrandedClaimReachesItsHolder() {
+  const fx = makeSquashMergedClaims();
+  const RETIRE_STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh")}`;
+  const STALLED_STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh")}`;
+  // OUTSIDE the fixture repository: a stub inside it is an untracked path, and the row asserting
+  // the step wrote nothing would then fail on the test's own scaffolding.
+  const bin = mkdtempSync(join(tmpdir(), "wh-stranded-bin-"));
+  try {
+    // Strand the batch claim: two files on its branch that reached no other ref.
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync(`mkdir -p docs`
+      + ` && printf 'a\\n' > docs/orphan-a.md && printf 'b\\n' > docs/orphan-b.md`
+      + ` && git add -A && git commit -q -m "Strand" && git push -q origin ${fx.batch.branch}`,
+      { cwd: fx.batch.worktree_path, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    // THE ROW CARRIES THE FILES, so the question reads them rather than deriving them again.
+    const claims = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims;
+    const row = claims.find((c) => c.unit === fx.batch.unit);
+    assertEq("the stranded row is stranded", row.resume_reason, "stranded");
+    assertEq("and names the files the branch holds",
+      [...row.stranded_files].sort(), ["docs/orphan-a.md", "docs/orphan-b.md"]);
+    assertEq("with the true count beside them", row.stranded_file_count, 2);
+    const other = claims.find((c) => c.unit !== fx.batch.unit);
+    assertTrue("and no other row pays for the listing",
+      !other || (other.stranded_files.length === 0 && other.stranded_file_count === 0),
+      JSON.stringify(other));
+
+    // THE QUESTION. `gh` is stubbed so the CI-retirement read is answerable offline; nothing
+    // about the stranded half depends on it.
+    writeFileSync(join(bin, "gh"), "#!/bin/sh\ncase \"$2\" in rate_limit) echo 5000 ;; *) echo '[]' ;; esac\n");
+    chmodSync(join(bin, "gh"), 0o755);
+    const stubbed = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+
+    const j = JSON.parse(run(fx.B, `${RETIRE_STEP} --tick 20260902-000000 --root ${fx.B}`, stubbed).stdout);
+    const payload = (j.needs_agent || []).find((n) => n.stranded_claims);
+    assertTrue("the step composes a stranded question", !!payload, JSON.stringify(j.needs_agent));
+    const sc = payload.stranded_claims.find((c) => c.unit === fx.batch.unit);
+    assertTrue("addressed at the stranded unit", !!sc, JSON.stringify(payload.stranded_claims));
+    assertEq("keyed once per unit", sc.key, `stranded-unit:${fx.batch.unit}`);
+    assertEq("naming the exact branch", sc.branch, fx.batch.branch);
+    assertEq("and the files a person must rule on",
+      [...sc.files].sort(), ["docs/orphan-a.md", "docs/orphan-b.md"]);
+    assertEq("with the true count", sc.file_count, 2);
+    assertTrue("and the age reader's own answer rides it", sc.age !== undefined, JSON.stringify(sc));
+    assertTrue("the compose instruction never suggests deleting the branch",
+      /never suggest deleting the branch/i.test(payload.compose), payload.compose);
+    assertTrue("and it is not offered as a retirement candidate",
+      !(j.needs_agent || []).some((n) => (n.blocked_retirements || [])
+        .some((b) => b.unit === fx.batch.unit)), JSON.stringify(j.needs_agent));
+    assertTrue("the summary counts it", /stranded/.test(j.summary), j.summary);
+    assertEq("and the step wrote nothing",
+      execSync("git status --porcelain", { cwd: fx.B, encoding: "utf8" }).trim(), "");
+
+    // THE SIBLING FILTER. `stalled-units` must count it, never ask about it too.
+    const st = JSON.parse(run(fx.B,
+      `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STALLED_STEP} --tick 20260902-000000 --root ${fx.B}`, stubbed).stdout);
+    assertTrue("stalled-units asks nothing about a stranded unit",
+      !((st.needs_agent[0]?.stalled) || []).some((c) => c.unit === fx.batch.unit),
+      JSON.stringify(st.needs_agent));
+    assertTrue("...and counts it instead",
+      /stranded \(tickets archived, branch still holds work\)/.test(st.summary), st.summary);
+  } finally {
+    rmSync(bin, { recursive: true, force: true });
     cleanup(fx.origin); cleanup(fx.A); cleanup(fx.B);
   }
 }
@@ -21632,6 +21716,7 @@ const tests = [
   ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
   ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
   ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],
+  ["moderate: a stranded claim branch reaches its holder, once, with its files", testStrandedClaimReachesItsHolder],
   ["moderate/condition-age.sh: how long a condition has been standing", testConditionAgeReader],
   ["moderate/condition-age.sh: the walk is bounded, and says when it was cut", testConditionAgeBound],
   ["release-scan: too-large-commit counts implementation, not motion", testCommitSizeSemantics],

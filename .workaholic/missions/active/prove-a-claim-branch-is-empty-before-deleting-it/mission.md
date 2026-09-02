@@ -38,7 +38,7 @@ told once — while a branch that really is empty retires exactly as it does tod
 
 ## Acceptance
 
-- [ ] `superseded` holds only when the branch's diff against the base is empty, re-derived at
+- [x] `superseded` holds only when the branch's diff against the base is empty, re-derived at
       the moment of each act. (#20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md)
 - [ ] A branch whose tickets landed but whose diff is not empty is its own state and reaches
       a person once, naming the files. (#20260831203454-tell-a-person-about-a-stranded-claim-branch.md)
@@ -51,3 +51,4 @@ told once — while a branch that really is empty retires exactly as it does tod
 - 2026-09-02 — Reproduced offline: a branch whose tickets landed elsewhere and still holds a file present on no other ref reads stranded at both grains, an absent ref/no merge base reads unknown and never true, the CI act re-derives the same term, and the reading costs ~7.5 ms per branch — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
 - 2026-09-02 — ticket archived — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
 - 2026-09-02 — ticket archived — 20260831203453-read-a-claim-branch-s-own-diff-against-the-base.md
+- 2026-09-02 — ticket archived — 20260831203453-refuse-to-retire-a-branch-that-still-holds-work.md

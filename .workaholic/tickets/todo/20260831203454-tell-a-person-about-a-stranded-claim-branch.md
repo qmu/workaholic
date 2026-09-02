@@ -82,3 +82,49 @@ holder, and does nothing else — no merge, no close, no delete, no claim touche
 - A branch stranded for weeks with nobody answering is a real possibility. Say in the step spec
   what happens then — the age rides the question and the question is asked once — rather than
   letting a silent backlog accumulate unremarked.
+
+## Final Report
+
+Development completed as planned. Steps 1–3 had landed with the verdict (2026-09-01, issue #788):
+the state is named by a **verdict word** rather than a field, emitted only by `lib/claims.sh`,
+classified as a **judgement** in one table, and asked about by `/moderate`'s `retire-claims` step
+keyed `stranded-unit:<unit>`. What was missing was everything that makes the question answerable
+— steps 4, 5 and 6.
+
+- **The files ride the question** (step 4). `list-claims.sh` renders `stranded_files` (bounded)
+  and `stranded_file_count` (the true total) on a `stranded` row and on **no other** — the
+  listing costs a second `git diff`, and every other row's emptiness is already `true` or is not
+  about emptiness at all. `step-retire-claims.sh` reads them off the row rather than calling the
+  emptiness reader again, on `mergeability_content_files`' own precedent: the one consumer that
+  must name something reads it from the row, because two reads of one fact drift. The `compose`
+  instruction was rewritten to the catalog's contract — lead with what happened in ordinary
+  words, the identifier **after** it, name the files, and never suggest deleting the branch.
+- **The sibling filter** (step 5). `stalled-units` now filters `stranded` in the **same
+  expression** as `superseded` and `awaiting_verification` — one rule with three verdicts, not
+  three mechanisms — and **counts** it in the summary. A stranded unit is not stalled: it has
+  been *orphaned*, and *a claimed unit has not moved for a day or more* sends a person looking
+  for a run that died. **One step asks and the other filters, and either half alone is a
+  defect**; without this the same branch drew two differently-worded questions.
+- **The age** (step 6), through `lib/read-age.sh`, keyed on the key the step already composed,
+  the reader's words verbatim. The question is asked **once**, so the age is the only thing that
+  can say how long a branch has been standing unanswered — which is what the ticket's own
+  Considerations asked be said rather than left to a silent backlog. The step summary carries no
+  age and no timestamp, so the moderation root's change diff is untouched.
+- **Hermetic rows** over a real claim fixture prove the row carries the files, the question is
+  keyed once and names branch, files and age, the step writes nothing and offers no retirement,
+  and `stalled-units` asks nothing while counting it.
+
+### Discovered Insights
+
+- **Insight**: The two payloads (`blocked_retirements` and `stranded_claims`) must stay separate
+  inside one `needs_agent`, and the reason is not tidiness: a blocked retirement asks *please
+  delete this branch* and a stranded claim asks *do not delete this, it holds work nothing else
+  has*. One payload carrying both would be a single instruction with two contradictory actions.
+  **Context**: A later refactor merging them "because they are both about branches" would produce
+  questions that tell a person to delete work.
+- **Insight**: `moderate/reference/workflow.md` had no `stranded` spec at all — the verdict, the
+  question key and the payload all existed in the script while the document that governs what a
+  question must carry said nothing. That is how a question ends up composed from whatever
+  identifier the step happened to hold.
+  **Context**: A step's question is specified in the workflow reference, not in the script; a key
+  that exists in only one of the two is a question nobody has ruled on the content of.

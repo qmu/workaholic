@@ -3706,8 +3706,57 @@ cmd_verify_claim_race() {
     # the ref surgery above, and a same-second collision would be `branch_collision` -- the
     # narrower case this drill is deliberately not about.
     sleep 1
+
+    # --- 1a. THE REPAIR: THE SECOND RUNNER LOSES AT THE REMOTE ------------------------
+    # (2026-09-02, ticket `20260830082251-make-the-claim-contend-for-one-ref-per-unit.md`.)
+    # B's oracle sees nothing — the ref surgery above removed A's branch — so this is exactly
+    # the window the old defect lived in. The arbitration is what stops it now: A holds one
+    # ref per claimed artifact, B's create-only push is refused at the server, and B stops
+    # before §4 has created anything at all.
+    _arbiter="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh"
+    _outB_lost=$( ( cd "$_B" && env $_env sh "$_claimsh" mission raced ) 2>&1 || true )
+    if printf '%s' "$_outB_lost" | grep -q '"reason": "claim_race_lost"'; then
+        add_row "claim_race_loser_refused" true "the second runner is refused by its own word at the remote, in the very window the defect lived in" load
+    else
+        add_row "claim_race_loser_refused" false "the loser was not refused claim_race_lost: $(one_line "$_outB_lost")" load
+    fi
+    _b_wt=$(ls -1 "${_B}/.worktrees" 2>/dev/null | wc -l | tr -d ' ')
+    _b_br=$( ( cd "$_B" && git branch --list 'work-*' ) 2>/dev/null | wc -l | tr -d ' ')
+    _b_remote=$( ( cd "$_B" && git ls-remote origin 'refs/heads/work-*' ) 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${_b_wt:-0}" -eq 0 ] && [ "${_b_br:-0}" -eq 0 ] && [ "${_b_remote:-0}" -eq 0 ]; then
+        add_row "claim_race_loser_wrote_nothing" true "the loser holds no worktree, no local work-* branch, and nothing of it reached origin" load
+    else
+        add_row "claim_race_loser_wrote_nothing" false "the loser left debris (worktrees=${_b_wt} branches=${_b_br} remote=${_b_remote})" load
+    fi
+
+    # A LEAKED LOCK IS WORSE THAN THE RACE — it makes an artifact claimable exactly once,
+    # forever — so the release is asserted on the path this drill can reach, and the sweep
+    # that covers the merge (which runs nothing in the container) is asserted beside it.
+    _arts_ref=$( ( cd "$_A" && sh "${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh" refname ".workaholic/missions/active/raced/mission.md" ) 2>/dev/null || true )
+    _lock_before=$( ( cd "$_A" && git ls-remote origin "$_arts_ref" ) 2>/dev/null | wc -l | tr -d ' ')
+    ( cd "$_A" && WORKAHOLIC_CLAIM_ARBITER_STALE_MINUTES=0 sh "${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh" reap ) >/dev/null 2>&1 || true
+    _lock_after_reap=$( ( cd "$_A" && git ls-remote origin "$_arts_ref" ) 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${_lock_before:-0}" -eq 1 ] && [ "${_lock_after_reap:-0}" -eq 1 ]; then
+        add_row "claim_race_lock_survives_its_own_claim" true "the sweep leaves a lock a LIVE claim stands behind, however old it is -- the oracle is the first term, not the age" load
+    else
+        add_row "claim_race_lock_survives_its_own_claim" false "the sweep mishandled a held lock (before=${_lock_before} after=${_lock_after_reap})" load
+    fi
+
+    # --- 1b. THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR -------------------------------
+    # Release A's locks and repeat B's claim verbatim: that is the pre-repair contention —
+    # two clock-derived branch names and no unit-keyed ref — and B must now WIN. If it did
+    # not, every row above would be passing for some reason other than the arbitration, and
+    # a breaker written against a return shape would never notice.
+    _arts=".workaholic/missions/active/raced/mission.md"
+    ( cd "$_A" && sh "$_arbiter" release "$_arts" ) >/dev/null 2>&1 || true
+    sleep 1
     _outB=$(_claim "$_B")
     _brB=$(_branch_of "$_outB")
+    if [ -n "$_brB" ] && [ "$_brA" != "$_brB" ]; then
+        add_row "claim_race_breaker_arbitration" true "with the contended ref released the same claim wins, so the rows above measure the arbitration and not something else -- this drill can fail" breaker
+    else
+        add_row "claim_race_breaker_arbitration" false "the pre-repair contention did not reproduce, so the refusal rows prove nothing: $(one_line "$_outB")" breaker
+    fi
     ( cd "$_origin" && git update-ref "refs/heads/${_brA}" "$_shaA" ) >/dev/null 2>&1 || true
 
     if [ -n "$_brB" ] && [ "$_brA" != "$_brB" ]; then

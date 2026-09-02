@@ -1057,7 +1057,7 @@ as `branch_delete_failed` already is.
 
 #### What made a branch a retirement candidate (`candidate_reason`)
 
-A **third keyed vocabulary in this home** (2026-09-01, mission
+**Another keyed vocabulary in this home** (2026-09-01, mission
 `leave-only-live-work-in-the-unmerged-branch-list`), emitted by `list-retirable-claims.sh` on
 every candidate row. It is not a claim verdict and enters no precedence: it says **which proof
 put this branch on the list**, so a reader of the list, and the act that consumes it, can tell
@@ -1068,6 +1068,26 @@ the classes apart without inferring them.
 | `superseded_only` | **proof** | Every claim for this unit reads `superseded` — the content reached the base and the branch is empty against it. The original class, unchanged; the act's `not_on_base` gate re-derives it. |
 | `pull_request_merged` | **proof** | This branch's own pull request has a non-null `merged_at`, read through `branch-pull-request-state.sh`. The tree established it and looking again cannot make it false, which is the same standing `superseded` has and the reason a destructive act may rest on it. |
 | `pull_request_closed_unmerged` | **proof** | A **person** closed this branch's pull request without merging it. The argument is different from the two above and is written out rather than borrowed: what makes it safe is **authorship**, not emptiness — closing a pull request unmerged is a recorded decision about that branch by somebody entitled to make it, and it does not become false by looking again. |
+
+**What each class licenses, and what refuses it.** `delete-retired-claim-branch.sh` re-derives
+its own class at the moment of the act — the `--reason` flag says *which* proof to re-derive and
+is never trusted as the proof — and every bound refuses by its own word with nothing deleted and
+exit 0. The bounds that hold for **all three** are the shape and transport ones:
+`not_a_repository`, `no_origin`, `origin_unreachable`, `no_branch`, `release_branch`,
+`not_a_work_branch`, `gh_unavailable`, `slug_unresolved`, `pull_request_open`, and the act's own
+`branch_delete_failed`. Beyond those:
+
+| Class | What else must hold | Its own refusals |
+| ----- | ------------------- | ---------------- |
+| `superseded_only` | the unit resolves to a claim, and the branch is on the base | `no_claims`, `no_such_claim`, `ambiguous_claim`, `not_on_base` |
+| `pull_request_merged` | no live row for the unit, and the pull request still reads `merged` | `not_superseded:<verdict>`, `pull_request_unreadable:<reason>` (including `:no_reader_script`), `not_merged:<state>` |
+| `pull_request_closed_unmerged` | the same, plus the pull request still reads `closed_unmerged` **and the branch is empty against the base** | `not_superseded:<verdict>`, `pull_request_unreadable:<reason>`, `not_closed_unmerged:<state>`, **`branch_holds_work`**, **`emptiness_unanswerable`** |
+
+**The emptiness term is evidence on the row and a gate in the act, and only on the third class.**
+On the candidate row `branch_empty` is three-valued evidence so CI's record can answer *how often
+does a hand-closed branch still hold work* from real data; in the act it **fails closed**, because
+a person's decision to close a pull request asserts nothing about the base — an `unanswerable`
+emptiness refuses, which is the direction issue #788 turned `superseded`.
 
 **The third class is never folded into the second.** They answer different questions — *the loop
 delivered this* and *a person discarded this* — and one word answering two questions is how two

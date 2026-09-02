@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-054004
 ---
 
 # Announce an ask that landed outside a unit route in its own thread

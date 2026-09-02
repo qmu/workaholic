@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.5
 feedback: [20260831181658-take-the-moderation-tick-s-log-off-main.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -60,3 +60,4 @@ puts a tick log back on `main` fails a drill.
 - 2026-09-02 — ticket archived — 20260831182058-justify-or-drop-each-persist-the-tick-makes.md
 - 2026-09-02 — ticket archived — 20260831182058-rule-on-the-moderations-history-left-on-main.md
 - 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.5h) — run-20260902-212324

@@ -22087,7 +22087,48 @@ function testVersionAheadOfTheBase() {
   } finally { cleanup(dir); }
 }
 
+// A `/spawn-loops` CLONE CARRIES `.workaholic/` TWICE, AND EVERY PATH CUT MUST TAKE THE LAST
+// (2026-09-02). The local-loops premise clones each loop under `$WORKAHOLIC_LOOPS_HOME`,
+// default `~/.workaholic/loops/<repo>/<loop>` -- so an absolute path to any artifact inside a
+// loop clone contains the segment twice, and a shortest-match `#`/longest-match `%%` cut lands
+// on the CLONE HOME instead of the repository. Measured in a live loop session: the layout gate
+// refused a well-formed ticket with `undesignated subdirectory 'loops/'`, and
+// `missions_root_from_artifact` answered `/home/ec2-user/.workaholic`, which would refuse every
+// missioned ticket with `mission relation does not resolve`. Both readings are of the wrong tree.
+//
+// The fixture is the shape itself: a repository nested under a directory literally named
+// `.workaholic`. Nothing here is specific to this machine's home directory.
+function testWorkaholicPathCutsAtTheLastOccurrence() {
+  const home = mkdtempSync(join(tmpdir(), "workaholic-loophome-"));
+  const repo = join(home, ".workaholic/loops/r/implement");
+  try {
+    mkdirSync(repo, { recursive: true });
+    execSync(`git -c init.defaultBranch=main init -q`, { cwd: repo });
+    execSync(`git config user.email test@example.com`, { cwd: repo });
+    execSync(`git config user.name Test`, { cwd: repo });
+    execSync(`git config commit.gpgsign false`, { cwd: repo });
+
+    const ticket = join(repo, ".workaholic/tickets/todo/20260902150000-nested.md");
+    mkdirSync(dirname(ticket), { recursive: true });
+    writeFileSync(ticket,
+      `---\ncreated_at: 2026-09-02T15:00:00+00:00\nauthor: test@example.com\nassignees: [test@example.com]\n---\n\n# Nested\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
+
+    const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`;
+    const r = run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${ticket}"}}' | ${HOOK}`, { shell: "/bin/sh" });
+    assertEq("a ticket inside a loop clone is not refused as an undesignated layout",
+      { status: r.status, first: r.stderr.split("\n")[0] }, { status: 0, first: "" });
+
+    const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
+    const root = run(repo, `. ${RESOLVE}; missions_root_from_artifact ${ticket}`, { shell: "/bin/sh" }).stdout.trim();
+    assertEq("missions_root_from_artifact answers the repository's own .workaholic, not the clone home",
+      root, join(repo, ".workaholic"));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
 const tests = [
+  ["hooks: a `.workaholic/` path cut takes the last occurrence, not the first", testWorkaholicPathCutsAtTheLastOccurrence],
   ["branching/check-version-bump.sh: is the number this branch bumped to still free?", testVersionAheadOfTheBase],
   ["drive claim protocol: the race is settled at the remote", testClaimRaceSettledAtTheRemote],
   ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],

@@ -106,6 +106,29 @@ A failed beat is **reported, never fatal** — the branch tip is a liveness sign
 the beat adds no store, no cursor and no field on any artifact: it is the empty commit
 `heartbeat.sh` already makes against a scratch index.
 
+**The one moment the beat does not apply: a merge in progress** (2026-09-02, ticket
+`20260902103500`). A run catching its branch up with the base is *between* tickets, and while that
+merge is unresolved `git commit --allow-empty` does not write an empty commit — it writes the
+**merge commit**, second parent from `MERGE_HEAD`, tree from the scratch index, which holds the
+branch's own **pre-merge** tree. The branch then records the base as a parent while carrying none
+of the base's content, and `git merge origin/main` is a no-op ever after. **Measured on
+`work-20260902-083726`**: `4c7749ef`, titled `Refresh heartbeat`, two parents, an empty diff
+against its first — a branch that claimed to have merged a base whose 97 changed files it had
+silently reverted.
+
+`heartbeat.sh` refuses it by name — **`merge_in_progress`, nothing written, exit 0** — so this is a
+statement of *why*, not an instruction to remember: a beat attempted mid-merge is simply reported
+as refused, like any other failed beat, and the next one after the resolution carries the tip
+forward. **Refusing rather than repairing** is the whole of the fix: a heartbeat clever enough to
+write the *right* merge commit would be a second authority beside the branch tip, which
+[claims.md](claims.md) reserves to one.
+
+The survey the ticket asked for, named either way: `claim.sh`'s `Claim <unit-id>` marker takes the
+same `commit.sh --allow-empty` path and **cannot reach the hazard** — the act creates the worktree
+it commits in, so there is no `MERGE_HEAD` to find. `archive.sh` commits real content through the
+ordinary path and beats only by pushing what it already committed; a run does not archive a ticket
+mid-merge, because the catch-up resolves before any ticket work begins. Neither was changed.
+
 ### 1. Read and understand the ticket
 
 - Read the ticket: requirements, Key Files, implementation steps.

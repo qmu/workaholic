@@ -87,3 +87,32 @@ executor's offer the same treatment: an explicit, derived, stated order.
   measured mechanism.
 - Sequencing missions strictly (one at a time) was **not** chosen here: that is ticket 2's
   limit, declared by the operator, and doing it twice in two places is how two brakes disagree.
+
+## Final Report
+
+Development completed as planned. `plan-units.sh` now returns `missions[]` in a derived order
+stated in its own header: a mission unit before loose backlog, then the nearest `target_date` of
+the direction the mission serves (through `mission-strategy.sh`), then the mission's own ticket
+order. Each row carries `direction`, `direction_target_date`, `days_to_target` and
+`order_reason`; the four groups run `direction_date` → `direction_undated` → `unattributed` →
+`direction_unreadable`, with the walk order breaking every tie. Which units are offered and every
+exclusion reason are unchanged.
+
+### Discovered Insights
+
+- **Insight**: `2>/dev/null` on an embedded jq program hid a real defect for a whole test cycle.
+  `$bad | index(.slug)` indexes the *array* with a string — a jq runtime error (exit 5), not a
+  compile error, so `moderate/scripts/lib/jq-guard.sh` would not have caught it either. The
+  survey silently kept its walk order and the new fields came back `null`. **Context**:
+  `rules/shell.md` classifies compile errors as our defect; this is the same class one exit code
+  over, and the only thing that surfaced it was reading the output rather than the exit status.
+- **Insight**: The fix for a failed derivation is to *say so on every row*, not to fall back
+  quietly. An unannotated walk order is indistinguishable from a derived one that happened to
+  agree, which is precisely the state this ticket exists to end — so the same jq program is run
+  again with the reason forced, yielding the walk order with `direction_unreadable` on each row.
+  Extracting the program into `order_missions()` is what makes the fallback the *same* ordering
+  rather than a second copy.
+- **Insight**: `mission-strategy.sh` costs ~21s here and now runs once per survey, on the
+  executor's hot path. It is a local read, so `plan-units.sh` stays offline by construction —
+  that property mattered more than the seconds, and it is why the resolver was called from the
+  caller's side of the survey rather than being given a network fallback.

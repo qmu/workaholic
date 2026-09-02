@@ -89,3 +89,36 @@ own gate still put N missions in flight together. This adds that bound as a decl
 - Holding divergence makes the loop quieter, which looks like the loop stopping. Ticket 6's
   post must say *held, N in flight against a limit of M* — otherwise this ships a silence
   indistinguishable from the outage this repository has already measured twice.
+
+## Final Report
+
+Development completed as planned, with one part left to a person by the ticket's own verification
+handoff. `/propose`'s refusal ladder gains `wip_limit` as its last rung: a direction that would
+otherwise be eligible is held when the repository already has at least `WORKAHOLIC_WIP_LIMIT`
+active missions carrying queued work. The bound is declared in the repository's own
+`.claude/settings.json` `env` block, where `WORKAHOLIC_CADENCES` lives and for the same reason;
+**absent means no limit**, and such a repository is byte-identical to one before this existed.
+The survey carries `wip: {declared, limit, count, readable, reason}` whether or not the gate
+fires, so a held tick says why rather than looking idle.
+
+**What a person must still do** (the ticket's declared handoff): write the limit into
+`.claude/settings.json`'s `env` block — a path Claude Code classifies as sensitive, which an
+unattended run has nobody to approve — and confirm a real `/propose` tick at, above and below it.
+Until they do, the gate is a named no-op and the loop is unchanged.
+
+### Discovered Insights
+
+- **Insight**: The rung's *placement* is the whole of "a direction refused by an earlier gate is
+  not also counted here". Putting `wip_limit` last means a direction already refused
+  `not_active`, `observing`, `arrived` or `work_waiting` never reaches it — so the repository's
+  bound is only ever reported for a direction that was genuinely about to originate something.
+  Any earlier placement would have made the report unreadable without a second exclusion rule.
+- **Insight**: The count must not be a sum over the per-row `waiting_missions`. Attribution is
+  not a partition, so a mission serving two directions would be counted twice — and the whole
+  point of the bound is that it is about the **repository**, which includes the missions no
+  direction claims at all. Counting active missions with queued work directly is both correct
+  and the only version that sees unattributed work.
+- **Insight**: Exercising this gate needs a fixture where the direction is otherwise eligible,
+  which is harder than it sounds: cite it from an **archived** mission and use a short window, or
+  the direction reads `quiescent` and is refused `arrived` by the rung above — and the test then
+  silently proves nothing about this one.

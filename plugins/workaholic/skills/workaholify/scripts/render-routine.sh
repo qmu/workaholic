@@ -5,8 +5,17 @@
 #   render-routine.sh <template-id> <repo-url>
 #
 # Output (one JSON line):
-#   {"id","name","trigger","cron_expression","model","allowed_tools","mcp","notifications","prompt"}
+#   {"id","name","scope","trigger","cron_expression","autofix_on_pr_create","model",
+#    "allowed_tools","mcp","sources","notifications",
+#    "allowed_tools_json","mcp_json","sources_json","repo","repo_name","repo_slug","prompt"}
 #   {"error": "unknown_template"|"no_repo_url", ...}
+#
+# TWO SPELLINGS OF THE SAME THREE LISTS, AND BOTH ARE EMITTED. `allowed_tools`, `mcp` and
+# `sources` come back as the frontmatter's own display string (`"[Bash, Read]"`) — what the
+# setup sheet prints for a human to paste — AND as `*_json` twins, which is the shape the
+# record actually stores. The twins are ADDED, never a mode: every pre-existing key keeps
+# its bytes, so the sheet and every other caller are untouched, and `build-routine-body.sh`
+# never has to parse a display string back apart.
 #
 # THREE SUBSTITUTIONS, AND ONLY THREE — each one demanded by the live routines:
 #   {repo}       the full repository URL   — https://github.com/qmu/workaholic
@@ -87,6 +96,33 @@ fm_field() {
   ' "$1"
 }
 
+# `[Bash, Read]` -> `["Bash","Read"]`. The frontmatter's list spelling is what the setup
+# sheet prints for a human to paste; the record stores a real array
+# (reference/routines.md, *Template field -> record field*). Both are emitted, so no caller
+# ever parses the display string back apart. An absent or empty field is `[]`, never null.
+json_array() {
+  printf '%s' "$1" | awk '
+    {
+      s = $0
+      sub(/^[ \t]*\[/, "", s); sub(/\][ \t]*$/, "", s)
+      gsub(/^[ \t]+|[ \t]+$/, "", s)
+      if (s == "") { print "[]"; exit }
+      n = split(s, parts, ",")
+      out = ""
+      for (i = 1; i <= n; i++) {
+        v = parts[i]
+        gsub(/^[ \t]+|[ \t]+$/, "", v)
+        gsub(/^"|"$/, "", v)
+        if (v == "") continue
+        gsub(/\\/, "\\\\", v); gsub(/"/, "\\\"", v)
+        out = out (out == "" ? "" : ", ") "\"" v "\""
+      }
+      print "[" out "]"
+    }
+    END { if (NR == 0) print "[]" }
+  '
+}
+
 subst() {
   printf '%s' "$1" \
     | sed -e "s#{repo_name}#${REPO_NAME}#g" \
@@ -107,6 +143,13 @@ mcp=$(fm_field "$FILE" mcp)
 # also the only person who can act on its refusal. Absent means off, which is every other
 # template — a routine whose result already reaches a channel must not also push.
 notifications=$(fm_field "$FILE" notifications)
+# WHICH REPOSITORY THE ROUTINE CHECKS OUT, as data rather than prose (2026-09-02). It lands
+# at `session_request.config.sources[].git_repository.url` on the record. Every template
+# declares the repository being wired (`{repo}`); the field exists as a field, not a
+# constant, because the one template that named a DIFFERENT repository — the retired
+# `[Workaholic]` — stated it only in a paragraph, which is what made a caller read prose to
+# build a body. A template declaring none renders `[]` and the body builder refuses.
+sources=$(subst "$(fm_field "$FILE" sources)")
 
 # Everything after the `## Prompt` heading, verbatim, with the substitutions applied.
 prompt_raw=$(awk '
@@ -115,5 +158,7 @@ prompt_raw=$(awk '
 ' "$FILE" | sed -e '1{/^$/d}')
 prompt=$(subst "$prompt_raw")
 
-printf '{"id": "%s", "name": "%s", "scope": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "notifications": "%s", "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
-  "$ID" "$name" "$scope" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$notifications" "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"
+printf '{"id": "%s", "name": "%s", "scope": "%s", "trigger": "%s", "cron_expression": "%s", "autofix_on_pr_create": "%s", "model": "%s", "allowed_tools": "%s", "mcp": "%s", "sources": "%s", "notifications": "%s", "allowed_tools_json": %s, "mcp_json": %s, "sources_json": %s, "repo": "%s", "repo_name": "%s", "repo_slug": "%s", "prompt": "%s"}\n' \
+  "$ID" "$name" "$scope" "$trigger" "$cron" "$autofix" "$model" "$tools" "$mcp" "$sources" "$notifications" \
+  "$(json_array "$tools")" "$(json_array "$mcp")" "$(json_array "$sources")" \
+  "$REPO" "$REPO_NAME" "$REPO_SLUG" "$(json_escape "$prompt")"

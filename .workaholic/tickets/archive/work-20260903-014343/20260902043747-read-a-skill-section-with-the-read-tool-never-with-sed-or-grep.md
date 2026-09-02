@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:37:47+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,27 @@ the surfaces a routine session actually reads.
 - This ticket alone is not the repair, and the operator said so: the rule already existed in
   weaker form and was not obeyed, because the **reference** is what makes the session reach.
   Naming the shape narrows the failure; the sibling ticket removes the reach.
+
+## Final Report
+
+**Outcome**: implemented — and most of it was **already standing when this ticket was driven**,
+which is reported rather than re-claimed.
+
+**What was already on the base** (`#875`, and `#846` before it): `rules/shell.md`, *A skill or
+reference file is read with the Read tool, never with a shell*, names the shape (`sed`, `grep`,
+`cat`, `head` or any other shell reader over a plugin path), names the tool to use instead, and
+states the reason — the container classifies a path under `~/.claude` as Claude's own
+configuration, so a shell read of it prompts and an unattended run cannot answer. All four
+routine-fired ceilings (`propose.md`, `implement.md`, `specificate.md`, `moderate.md`) carry it,
+and `test-workflow-scripts.mjs` pins per command that they do. No hook blocks the shape.
+
+**The residue this ticket closed** was step 4: `CLAUDE.md`'s own enforcement-gate bullet stated
+the **principle** ("a read tool, never a Bash text pipeline") and named no shape, so the
+repository's statement was weaker than the plugin's. It now names the shape, the tools that raise
+the prompt, the reason, the measured line, where the rule lives, why it is carried into the
+ceilings, and that no hook enforces it.
+
+**Nothing was added that the ticket forbids**: no `PreToolUse` deny, no retry, no fallback.
+
+**Verification**: `node scripts/test-workflow-scripts.mjs` → 6373 passed, 0 failed;
+`build.mjs` + `verify.mjs` clean, `outputs/` unchanged (this change touches `CLAUDE.md` only).

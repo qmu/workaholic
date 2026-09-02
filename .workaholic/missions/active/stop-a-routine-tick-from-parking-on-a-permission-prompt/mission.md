@@ -9,14 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.6
+actual_hours: 1.3
 feedback: [20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260902-043932
+claim: work-20260903-014343
 ---
 
 # Stop a routine tick from parking on a permission prompt
@@ -42,8 +42,8 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 
 - [ ] What raises the prompt in the `/propose` path is named from evidence and removed at
       its source. (#20260902043117-remove-the-prompt-raising-read-at-its-source-in-the-propose-path.md)
-- [ ] A tick that parked is visible as parked rather than as scheduled and healthy. (#20260902043117-make-a-parked-routine-tick-visible-as-parked.md)
-- [ ] A regression that reintroduces a prompt-raising shape fails a check before it ships. (#20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md)
+- [x] A tick that parked is visible as parked rather than as scheduled and healthy. (#20260902043117-make-a-parked-routine-tick-visible-as-parked.md)
+- [x] A regression that reintroduces a prompt-raising shape fails a check before it ships. (#20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md)
 
 ## Changelog
 
@@ -51,3 +51,8 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - 2026-09-02 — prompt cause diagnosed — two candidates ranked, the Moderate case's own cause absent from this path — 20260902043117-name-what-raises-the-prompt-in-the-propose-tick-from-evidence.md
 - 2026-09-02 — ticket archived — 20260902043117-name-what-raises-the-prompt-in-the-propose-tick-from-evidence.md
 - 2026-09-02 — run recorded (+0.6h) — implement-20260902-0439
+- 2026-09-03 — ticket archived — 20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md
+- 2026-09-03 — ticket archived — 20260902043117-make-a-parked-routine-tick-visible-as-parked.md
+- 2026-09-03 — ticket archived — 20260902043747-read-a-skill-section-with-the-read-tool-never-with-sed-or-grep.md
+- 2026-09-03 — ticket archived — 20260902043747-inline-into-each-routine-command-the-rule-text-it-needs.md
+- 2026-09-03 — run recorded (+0.7h) — implement-20260903-0400

@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.6
 feedback: [20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-043932
 ---
 
 # Stop a routine tick from parking on a permission prompt
@@ -47,3 +48,6 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — prompt cause diagnosed — two candidates ranked, the Moderate case's own cause absent from this path — 20260902043117-name-what-raises-the-prompt-in-the-propose-tick-from-evidence.md
+- 2026-09-02 — ticket archived — 20260902043117-name-what-raises-the-prompt-in-the-propose-tick-from-evidence.md
+- 2026-09-02 — run recorded (+0.6h) — implement-20260902-0439

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:24:19+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -102,3 +103,49 @@ to every surface that already carries the language rule, in one change.
 - Keep the never-translated list untouched. Shape labels, status and reason words, slugs,
   branch names, `<@U…>` tokens and URLs stay as they are; the bar governs prose slots only,
   and widening it to machine words would break the dedup that keys on them.
+
+## Final Report — 2026-09-02 (implemented)
+
+**Step 1 — read first, so the clause is added to one wording rather than four.** The four
+routine-fired ceilings already carry the language rule as a **single byte-identical sentence**
+(`commands/{implement,specificate,propose,moderate}.md`), and the suite already pins its
+*presence* per command. So the bar was written once and carried into all four by substitution on
+that anchor, not composed four times.
+
+**Step 2 — the bar, in `rules/interaction.md`.** Stated as an outcome a reader can check rather
+than a style preference: *a channel reader must understand what is being asked without opening the
+English record behind the link.* Under it the three rules the operator named — an established
+technical term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the
+repository's own `terms/` entries); the **meaning** of a title is translated, never its words; a
+title that resists translation is **paraphrased** rather than transliterated. The never-translated
+list above it is untouched.
+
+**Step 3 — carried byte-identically** into the notify catalog (immediately under the paragraph that
+already says its English is the instruction, so it sits with the fenced blocks a session copies)
+and into the four command ceilings.
+
+**Step 4 — the worked pairs are in the wording itself**, not in a separate table: 「組み立てを止める」
+→ 「ビルドが落ちる」, 「形」 → 「投稿の型」, 「示せるという判定」 → 「実証できたかどうかの判定」. Putting them in
+the carried string is what makes them reach the composition site; a rule with no example is
+re-decided by every run.
+
+**Step 5 — the drift pin, and the gate is demonstrated rather than asserted.** The existing
+language-rule assertion gained a byte-identical comparison of the bar across the four ceilings and
+the catalog, plus three assertions on `rules/interaction.md`'s own home (which is deliberately
+*not* the identical string — `rules/` carries the measurement and the why, a ceiling carries the
+instruction) and one on the stated limit. **Proved by breaking it**: editing one word of
+`/moderate`'s clause alone turned the suite red with `FAIL /moderate carries the quality bar
+byte-identically` (5975 passed, 1 failed); restored, it is green.
+
+**Step 6 — `CLAUDE.md`'s own bullet** carries the bar, names the one wording and the five surfaces
+it ships on, and states that what a run emits is checkable by nothing.
+
+**What this deliberately does not claim.** Nothing mechanical can check the *emitted* Japanese —
+the composition happens at run time and never appears in this tree — and `rules/interaction.md`
+now says exactly that in its own paragraph, with a pinned assertion on the sentence. What is
+checkable is that the bar is stated everywhere a session reads what to emit.
+
+**Verification.** `node scripts/test-workflow-scripts.mjs` → **5976 passed, 0 failed** (13 new
+assertions). `node scripts/build-plugins/build.mjs` regenerated `outputs/` with no diff;
+`verify.mjs` and `validate-metadata.mjs` pass; `layout-doctor.sh` reports `conforming: true` with
+no findings.

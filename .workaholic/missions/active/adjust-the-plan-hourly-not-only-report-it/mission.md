@@ -48,3 +48,4 @@ by the loop itself.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260901123357-say-which-directions-the-arithmetic-says-cannot-land.md
 - 2026-09-02 — ticket archived — 20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md
+- 2026-09-02 — ticket archived — 20260901123357-name-a-mission-at-full-acceptance-with-tickets-left.md

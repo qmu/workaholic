@@ -126,13 +126,22 @@ json_str() {
 }
 
 report() {
-    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s"}\n' \
+    # `check_log` is the path to the FAILING check's captured output, and it is empty on every
+    # other exit path -- a field, not a second vocabulary. It is written only when a check went
+    # red, so a caller that finds it non-empty has the bytes; a caller that finds it empty is
+    # not being told the checks passed, only that none of them left a log to read.
+    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "check_log": "%s"}\n' \
         "$1" "$(json_str "$unit")" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" \
         "$(json_str "$CLASS")" "$CONFLICTED" "$(json_str "$WORKTREE")" \
-        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")"
+        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")" \
+        "$(json_str "${CHECK_LOG:-}")"
     exit 0
 }
 refuse() { report catch_up_refused "$1"; }
+
+# Declared here, beside the emitter that reads it, so every earlier refusal renders "" rather
+# than tripping `set -u` on a path that never reaches the checks.
+CHECK_LOG=""
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || refuse not_a_repository
 REPO_ROOT=$(git rev-parse --show-toplevel)
@@ -371,15 +380,34 @@ fi
 # push was refused `validation_failed:test-workflow-scripts.mjs` over a branch whose suite
 # passed. Unsetting them is the narrow fix: the tunables belong to the claim reading, which
 # is already done by this point, and never to the repository's own verification.
+# A REFUSAL THAT DISCARDS THE OUTPUT CANNOT BE DIAGNOSED, AND THIS ONE HAD TO BE
+# (2026-09-03). `>/dev/null 2>&1` threw away the only evidence of WHY a check went red, so a
+# refusal read `validation_failed:test-workflow-scripts.mjs` and nothing else — the same six
+# words whether the branch is genuinely broken, the environment leaked (the case the note above
+# records), or the run was simply unlucky. Measured here: two consecutive catch-ups on
+# `work-20260902-043932` refused over that suite, and re-running the script's OWN invocation
+# byte-for-byte in the same worktree answered `6236 passed, 0 failed`, exit 0, twice. Nothing
+# distinguished a real failure from that, because nothing was kept.
+#
+# Under `/spawn-loops` this stopped being rare: several loops run the same multi-minute suite
+# on one machine, so a check can lose to load in a way no single-session premise ever showed.
+#
+# THE OUTPUT IS KEPT, NOT PRINTED. It goes to a file beside the worktree whose path rides the
+# refusal, so stdout stays the one JSON line every caller parses and a reader is sent to the
+# bytes rather than to a guess. The gate itself does not move: the same three checks, the same
+# clean environment, the same refusal with nothing pushed. What changes is only that the next
+# occurrence can be read.
 if command -v node >/dev/null 2>&1; then
     for check in build-plugins/verify.mjs build-plugins/validate-metadata.mjs \
                  test-workflow-scripts.mjs; do
         [ -f "${WORKTREE}/scripts/${check}" ] || continue
+        _cul="${WORKTREE}/../.catch-up-check-${check##*/}.log"
         ( cd "$WORKTREE" \
           && unset WORKAHOLIC_CLAIM_STALE_HOURS WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES \
                    WORKAHOLIC_CLAIM_MERGED_LOOKUP \
-          && node "scripts/${check}" ) >/dev/null 2>&1 \
-            || refuse "validation_failed:${check##*/}"
+          && node "scripts/${check}" ) >"$_cul" 2>&1 \
+            || { CHECK_LOG="$_cul"; refuse "validation_failed:${check##*/}"; }
+        rm -f "$_cul"
     done
 fi
 VALIDATED=true

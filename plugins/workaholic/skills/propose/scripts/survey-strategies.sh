@@ -564,7 +564,20 @@ jq -sc \
            elif ((.feedback_refs | length) == 0) then "no_feedback_refs"
            # ARRIVED (2026-09-02, issue #860): a direction whose work is all in receives no
            # machine-originated proposal. See the `quiescent` block for the full record.
-           elif .quiescent then "arrived"
+           # A DIRECTION YOUNGER THAN THE WINDOW CANNOT HAVE ARRIVED. Arrival is judged over
+           # `$window_days` of landed work, and a successor inherits its predecessor records
+           # through the carry (`verify-succession`), so on its first hour it reads `quiescent`
+           # over work that landed before it existed -- history it was born citing, not an
+           # arrival of its own, and the operator created it precisely so origination would
+           # resume. A date compare against `last_change` cannot tell the two apart (the carry
+           # and the landing can share a day), so the term is the direction AGE: it must have
+           # stood for a full window before its quiescence is read as arrival. An unreadable
+           # `created_at` reads as old, erring toward the refusal the issue asked for.
+           elif (.quiescent
+                 and ((((($today + "T00:00:00Z") | fromdateiso8601)
+                        - (try (((($s.created_at // "") | .[0:10]) + "T00:00:00Z") | fromdateiso8601) catch 0))
+                       / 86400 | floor) >= $window_days))
+                then "arrived"
            # WORK_WAITING AT THE MISSION GRAIN (2026-08-26). A proposal is a whole mission,
            # so the brake asks whether one is already in flight. Two terms, OR'"'"'d, and both
            # are needed: the MISSION term (an active attributed mission) is what makes the

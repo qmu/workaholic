@@ -28,7 +28,7 @@
 # `mergeability` says whether the BASE still accepts this branch, which is a different question
 # from `resume_reason`'s *whose business is this claim* and was asked by nothing until
 # 2026-08-29. `content` is the one value that needs a person -- a conflict the loop must not
-# resolve -- and `/moderate`'s `catchup-blocked:<unit>` step is what reaches them. It is derived
+# resolve -- and the acting caller's own run report is what names it. It is derived
 # offline through `claim-mergeability.sh` (`git merge-tree`, no worktree, no ref, no network
 # call this scan has not already made), and every one of its four values is a JUDGEMENT: a base
 # that moves is exactly a reading that becomes false by looking again.
@@ -158,7 +158,7 @@ if [ -n "$rows" ]; then
         # scan has not already made), and it is REPORTED here, never acted on: all four values
         # are judgements, and `catch-up-claim.sh` re-derives its own at the moment of its act.
         # The conflicted paths ride the row for the same reason `merge_outcome` does: the one
-        # consumer that must NAME them (`/moderate`'s `catchup-blocked` question) would
+        # consumer that must NAME them (the acting caller's own report) would
         # otherwise call the reader a second time, and two reads of one fact drift.
         mergeability=unanswerable
         mergeability_reason=no_reader_script

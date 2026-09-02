@@ -179,6 +179,7 @@ esac
 row=$(claims_unit_row "$ROWS" "$unit")
 [ -n "$row" ] || refuse no_such_claim
 BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
+
 verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
 
 # THE PROOF GATE. Nothing but `superseded` reaches the three acts.

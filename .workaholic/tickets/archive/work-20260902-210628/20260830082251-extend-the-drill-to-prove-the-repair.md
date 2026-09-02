@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T08:22:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -113,3 +114,41 @@ not have, which is a broken mechanism rather than the coverage gap this ticket e
 Unblocked by: a ruling on the mechanism ticket's re-scope. The drill as it stands proves the
 repair that **did** land (the `archive.sh` re-check and the `raced-units` question) and its
 breaker row is written against that behaviour.
+
+## Final Report — 2026-09-02 (implemented)
+
+The upstream block was lifted this run — the transport measurement it rested on was the cloud
+routine's, and the loop now runs on the developer's own server, where `refs/claims/*` create,
+create-only lease, compare-and-swap and delete all succeed (full re-measurement in
+`20260830082251-make-the-claim-contend-for-one-ref-per-unit.md`). So steps 1-6 became reachable.
+
+- **The assertions are inverted to their post-repair form** (step 1): in the window the defect
+  lived in — A claimed, A's branch removed from origin so B's oracle sees what A saw — B is now
+  refused and holds no worktree, no local `work-*` branch and nothing on origin.
+- **The loser's refusal WORD is asserted** (step 2), not merely that it failed, and the lock's
+  release is covered from the other direction: a lock a **live** claim stands behind survives the
+  sweep however old it is, because the oracle is the sweep's first term and the age only its
+  second.
+- **Steps 3-5 were already covered** by the rows this drill came in with — the mission-grain
+  reading with `gh` stubbed to answer nothing, the retirement path, `list-raced-units.sh`,
+  `/moderate`'s asked-once question and the sibling's silence — and they are **kept**, because
+  the bounded-later repair still has to work wherever the arbitration answers `unavailable`,
+  which is every routine-fired container. The drill now proves **both halves**, and the release
+  of A's lock is what stages the second.
+- **The breaker is written against the behaviour** (step 6) and **proved able to fail**: pointing
+  `claim.sh` at a non-existent arbiter turns five rows red including the breaker, with the loser
+  leaving `worktrees=1 branches=1 remote=1` — the defect itself — and restoring it turns them
+  green.
+- **Registered** (step 7): the register row was already there (`hermetic`, breaker `yes`), so what
+  this run added is the drill's own runbook section §5t-c with the row→file blame table. `verify-all
+  --list --kind hermetic` enumerates it, so `Loop Drills` runs it as its own matrix leg.
+
+### Discovered Insights
+
+- **Insight**: The breaker for this drill is the **release of the contended lock**, which is also
+  how the second half of the fixture is staged. That is not a coincidence worth hiding: releasing
+  the lock *is* the pre-repair mechanism, so one act both proves the refusal rows are measuring
+  the arbitration and sets up the rows that cover the environment where the arbitration cannot
+  run.
+  **Context**: A breaker that doubles as a fixture stage is cheaper and harder to fake than one
+  bolted on at the end.

@@ -2,21 +2,21 @@
 type: Mission
 title: Stop two runs from claiming and driving one unit
 slug: stop-two-runs-from-claiming-and-driving-one-unit
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-30T08:20:09+00:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 6.9
+actual_hours: 7.3
 feedback: [20260830081659-stop-two-runs-from-claiming-and-driving-one-unit.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260901-144612
+claim: work-20260902-210628
 ---
 
 # Stop two runs from claiming and driving one unit
@@ -44,7 +44,7 @@ happens, one person is told once, both branches named.
 
 ## Acceptance
 
-- [ ] The claim contends for one ref per unit: the first push wins, the second is refused
+- [x] The claim contends for one ref per unit: the first push wins, the second is refused
       by its own word, and the loser holds no branch, worktree or commit. (#20260830082251-make-the-claim-contend-for-one-ref-per-unit.md)
 - [x] A unit whose content landed through a racing twin reads `superseded` at the mission
       grain from the tree, so the existing retirement path reaches it. (#20260830082251-answer-superseded-at-the-mission-grain-from-the-tree.md)
@@ -80,3 +80,10 @@ happens, one person is told once, both branches named.
 - 2026-09-01 — story reported — work-20260901-105657
 - 2026-09-01 — run recorded (+0.6h) — cse_012LjmkqXe5bhzNL5W1UW794
 - 2026-09-01 — story reported — work-20260901-121939
+- 2026-09-02 — ticket archived — 20260830082251-make-the-claim-contend-for-one-ref-per-unit.md
+- 2026-09-02 — ticket archived — 20260830082251-refuse-the-losing-claim-by-its-own-word.md
+- 2026-09-02 — ticket archived — 20260830082251-extend-the-drill-to-prove-the-repair.md
+- 2026-09-02 — ticket archived — 20260901123000-delete-the-branches-the-transport-probes-left-on-origin.md
+- 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.4h) — work-20260902-210628
+- 2026-09-02 — story written and pull request opened — work-20260902-210628.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T08:22:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -109,3 +110,45 @@ that one word answering two next actions is what makes a state invisible.
 
 Unblocked by: a ruling on that ticket's re-scope. Nothing here needs re-deriving — the teardown
 audit above is the answer to step 1 and stands whatever the ruling.
+
+## Final Report
+
+Development completed as planned, and **the teardown step turned out to be unnecessary by
+construction** — which is the better answer, not a skipped one.
+
+- **`abort_claim` was read before anything was added** (step 1). It already handles
+  `commit_failed` and `push_failed`, and what it does is unwind a worktree, its branch and this
+  script's own stamps. The lost race never reaches it: §3b arbitrates **before** §4 creates the
+  worktree, so the loser has no worktree, no local `work-*` branch and no commit to unwind.
+  `abort_claim` gained one line — releasing the arbitration locks — for the *other* failures,
+  which can happen after a lock is won.
+- **`claim_race_lost` is its own word** (step 2), distinct from `branch_collision` (*two units
+  minted one name in one second — retry*) and `push_failed` (*the remote did not take it*),
+  because the next action differs: a lost race is the protocol **working**, and the runner should
+  **survey again**. It is emitted **only** when the contended ref's create was refused because
+  the ref exists — the arbiter classifies the push's own output, and a transport refusal answers
+  `unavailable`, which is not a refusal at all.
+- **The refusal names what it can and guesses nothing** (step 3): `held_by_ref`, the contended
+  ref, and `stale_lock`, which says the oracle knew of no claim behind that lock. It does **not**
+  name the winner's branch, because at that instant the winner has arbitrated and not yet pushed
+  — the branch does not exist. `/moderate`'s `raced-units` names both once both exist, and that
+  limit is written down rather than papered over.
+- **The teardown is asserted** (step 4): after the refusal the loser holds no `.worktrees/<unit>/`,
+  no local `work-*` branch, and nothing of it reached origin.
+- **Documented beside `resume_race_lost`** in `claims.md` and named in `drive/SKILL.md` §3 as a
+  refusal a run may see (step 5). `lib/claims.sh` emits nothing new and the proofs-and-judgements
+  tables did not move — it is the **claim act's** vocabulary.
+- **The loser's next survey sees an ordinary claim** (step 6), asserted: once the winner pushes,
+  a second attempt refuses `already_claimed`. The arbitration hands the unit to the oracle; it
+  does not replace it.
+
+### Discovered Insights
+
+- **Insight**: A hermetic test of a claim race must reproduce **the window**, not the sequence. A
+  second `claim.sh` run after the winner has pushed is refused by the ORACLE
+  (`already_claimed`) and never reaches the arbitration at all — the case that already worked.
+  The race is the interval where the winner has arbitrated and not yet pushed, and the only way
+  to hold a fixture there is to take the locks directly and then run a real claim against them.
+  **Context**: The first version of this row asserted `claim_race_lost` against the sequential
+  shape and failed for the right reason; a test that had passed there would have been measuring
+  the old refusal.

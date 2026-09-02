@@ -46,7 +46,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-merged-claim --json` | a throwaway repository carrying a **squash-merged** mission claim and batch claim — proves all four merged-claim readings (merged batch, merged mission, live, unanswerable) **and that the work a `superseded` claim frees can actually be claimed**, with the transport stubbed, so no `gh` call is made, and **one row that deliberately breaks the seam** |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-identity-handoff --json` | a throwaway repository with a two-address mapping — walks issue assignee → the address the writer stamps → the survey that offers the unit, for a canonical address, a mapped alias and an unmapped login, with no network and no credential |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, the refused conflict reaching its claim holder exactly once, and — since 2026-08-30 — the widened trigger: a `queue_drained` claim still `mechanical` offered and caught up, a reviewed pull request refused, and a degraded scan answering null counts; with the transport stubbed and two rows that deliberately break the identity bound and the widening |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one **attempted and then** refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, the refused conflict reaching its claim holder exactly once, and — since 2026-08-30 — the widened trigger: a `queue_drained` claim still `mechanical` offered and caught up, a reviewed pull request refused, and a degraded scan answering null counts; and — since 2026-09-02 — that a `content` **prediction** is offered to the act while a colleague's claim still is not; with the transport stubbed and three rows that deliberately break the identity bound and the two widenings |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-stranded-claim-branch --json` | a throwaway repository whose bare origin permits a real branch delete — proves the ordinary superseded twin is still deleted, that a branch holding a file on no other ref is refused at both grains with the file still on origin afterwards, that an unreadable emptiness licenses nothing, and that the row names the files a person must rule on, with the pull-request half stubbed and one breaker asserting surviving content rather than a return word |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-ci-retirement --json` | a throwaway repository whose bare origin refuses the container's branch delete and permits CI's — proves the act the container is refused is taken where the write is permitted, re-proved at the moment of it, bounded four ways, and asked about only once CI has also refused, with the transport stubbed and one row that deliberately breaks the seam |
@@ -993,7 +993,8 @@ gets through.
 | `catch_up_no_network` | `gh` does not resolve to the stub | the drill would reach the network; every row below it would be measuring GitHub rather than the seam |
 | `catch_up_fixture` | the reader does not answer `mechanical` and `content` over the two branches | the fixture is not the shape under test; every row below it would prove nothing |
 | `catch_up_offers_a_drained_claim` | `list-catchable-claims.sh` does not offer the `queue_drained` + `mechanical` unit | **the second deliberately broken seam** (2026-08-30), written against the behaviour: wire the candidate reader back at the delivery verdict alone — `report_undelivered` only, the pre-widening set — and `batch-drained` disappears from the offer while every other row stays green. Verified red, then reverted. Asserting a return shape would survive exactly that narrowing, which is why the assertion is on the **unit being named** |
-| `catch_up_offer_is_bounded` | a `content` conflict or a colleague's claim is offered | the reader offers only what the act may take. `content` is a person's and a foreign claim is untouchable at any age; neither may reach a writer that pushes |
+| `catch_up_offers_a_content_prediction` | `list-catchable-claims.sh` does not offer the `content`-classed unit | **the third deliberately broken seam** (2026-09-02, mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`): narrow the reader back to `mechanical` alone and `batch-content` leaves the offer while every other row stays green. `mergeability` is a **prediction** — the reader computes with the repository's `.gitattributes` out of reach, because its job is to predict GitHub, which applies no merge driver, while the writer merges in a real checkout where they are in force — so the act tests it rather than deferring on it. Asserted on the **unit being named**, for `catch_up_offers_a_drained_claim`'s reason |
+| `catch_up_offer_is_bounded` | a colleague's claim is offered | the identity bound, which did **not** move with the 2026-09-02 widening: a foreign claim is untouchable at any age and at any class, and may never reach a writer that pushes. Split from the `content` row above on purpose — they are different facts, and collapsing them is how this one would be lost silently the next time the other is widened |
 | `catch_up_degraded_reads_null` | a scan that could not be made yields an empty candidate list with a **zeroed** count | a healthy quiet run and a scan that could not reach the remote would otherwise be byte-identical, and the second has not found "nothing to catch up" — it has found nothing at all |
 | `catch_up_drained_caught_up` | a `queue_drained` unit still `mechanical` and unreviewed is not caught up and pushed | the widening's own subject: before 2026-08-30 no run would touch it, because `catch-up-claim.sh`'s only caller was the `undelivered[]` loop |
 | `catch_up_reviewed_refused` | a pull request carrying a submitted **human** review is caught up, or the branch tip moves | the one bound the widening added: an `undelivered` unit's pull request was refused by a transport and nobody is looking at it, while a `queue_drained` unit's may be one a person is mid-review on — and a push resets an approval. A **bot's** review is not a person's, which row 1's own pull request proves by being caught up with one |
@@ -1001,7 +1002,7 @@ gets through.
 | `catch_up_content_refused` | a `content` conflict is not refused by its own word, or the branch tip moves | the contested case stays a person's; a refusal that writes anything is not a refusal |
 | `catch_up_scan_held_refused` | a `merge_not_attempted: <tier>` unit is caught up | the catch-up is **not a route around a gate**: a `hard`/`confirm` finding holding a pull request open is the gate working |
 | `catch_up_second_run_noop` | a branch that already contains the base does not report `already_current`, or a ref moves | idempotence, and the reason `already_current` is checked before liveness: reporting a no-op protects nothing |
-| `catch_up_blocked_asks_once` | the refused conflict does not reach its claim holder keyed once with the files named, or the **caught-up** unit also draws a question | `step-catchup-blocked.sh` — the split the mission rests on: *nobody has looked yet* and *the loop looked and only you can decide* tell somebody different things |
+| `catch_up_conflict_asks_nobody` | a surface still defers a conflict to a claim holder — the retired step is back, its key is emitted somewhere, or the registry names it again | `step-catchup-blocked.sh` should not exist (retired 2026-09-02); the residue of a merge the writer could not settle is reported by the **act**, in `/implement`'s run report, not asked about |
 | `catch_up_refuses_a_foreign_claim` | a colleague's claim branch tip **moves**, or the refusal is not named | **the deliberately broken seam**, written against the behaviour rather than a return shape. Verified by dropping `foreign_identity` from the verdict gate and neutering the `not_my_claim` comparison: the drill merged into `work-20260101-000004` and pushed it, failing exactly this row while the other eight stayed green — and restoring both turned it green again |
 | `catch_up_checkout_untouched` | the drill changed the checkout | every fixture lives outside the checkout |
 
@@ -1483,7 +1484,7 @@ repository may be on a different plugin version; this exercises this checkout's 
 | `stranded_rerun_is_a_noop` | `settle-stranded-publication.sh` — the act is no longer idempotent |
 | `stranded_clean_is_settled` | `settle-stranded-publication.sh` — the class gate narrowed back to `mechanical`, or the `clean` path started taking a catch-up it has nothing to do |
 | `stranded_clean_rerun_is_a_noop` | `settle-stranded-publication.sh` or `list-stranded-publications.sh` — a delivered publication is being acted on a second time, or the reader started naming a pull request nobody has open |
-| `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
+| `stranded_content_asks_nobody` | `step-stranded-publications.sh` — a content collision is deferring to the publication's author again (retired 2026-09-02), or it stopped being counted in the summary |
 | `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
 ## 5t-b. The stranded claim branch (does the loop refuse to delete work nothing else has?)
@@ -1537,6 +1538,57 @@ refusal and the derivation behind it.
 | `stranded_proved_branch_is_deleted` | `retire-claim.sh` — the act stopped acting on a real proof |
 | `stranded_holding_branch_survives_the_act` | the drill can no longer fail, **or work was actually deleted** — the one row here whose red means loss rather than doubt |
 | `stranded_branch_checkout_untouched` | the drill wrote outside its own fixture |
+
+## 5t-c. The claim race (is it settled at the remote, and does the loser write nothing?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-claim-race [--json]
+```
+
+**Measured 2026-08-30**: `work-20260830-055314` and `work-20260830-055318` were both claimed for
+one unit four seconds apart and each drove the same four tickets for over an hour. `create.sh`
+mints `work-$(date …)`, so two runners that survey before either pushes name **two different
+refs** and both win — the protocol contended for nothing.
+
+It needs **no seed, no issue number, no credential and no network**: a bare local origin, two
+clones, and the GitHub transport stubbed to answer nothing (so every mission-grain row below is
+about the **local** test rather than the merged-pull-request fallback).
+
+**How the window is staged**, which is the whole difficulty: A claims for real, then A's branch is
+removed from the origin so B's oracle sees exactly what A saw. No sleep, no concurrency — both
+runs are the real claim act, in the interval the defect lived in.
+
+**What it proves, in two halves.** First the **repair** (2026-09-02): B is refused
+`claim_race_lost` at the remote, and holds no worktree, no local `work-*` branch and nothing on
+origin; a lock a **live** claim stands behind survives the sweep however old it is, because the
+oracle is the sweep's first term and the age only its second. Then the **bounded-later** repair,
+which still has to work wherever the arbitration is `unavailable` (every routine-fired container,
+whose proxy refuses the ref write): with A's lock released the same claim wins, two branches hold
+one unit, `list-raced-units.sh` names both, `/moderate`'s `raced-units` asks once, `stalled-units`
+stays silent on it, and `archive.sh` refuses the first write that the base would see.
+
+**The breaker is that release.** Repeating B's claim verbatim with the contended ref given back is
+the pre-repair contention — two clock-derived names and no unit-keyed ref — and B must then win.
+If it did not, every refusal row above would be passing for some reason other than the
+arbitration. **Proved able to fail, not argued**: pointing `claim.sh` at a non-existent arbiter
+turns five rows red including the breaker, with the loser leaving `worktrees=1 branches=1
+remote=1` — the defect itself — and restoring it turns them green.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `claim_race_loser_refused` | `claim.sh` §3b or `claim-arbitrate.sh` — the arbitration stopped running, or its refusal stopped being its own word |
+| `claim_race_loser_wrote_nothing` | `claim.sh` — the arbitration moved after §4, so the loser now has a teardown to get right |
+| `claim_race_lock_survives_its_own_claim` | `claim-arbitrate.sh`'s reap — the oracle term was dropped and the sweep is eating live claims' locks |
+| `claim_race_breaker_arbitration` | the drill can no longer fail, so every refusal row above proves nothing |
+| `claim_race_two_branches` / `claim_race_one_unit_twice` | the pre-repair state cannot be staged, so the bounded-later repair is no longer covered |
+| `claim_race_reader_names_both` / `claim_race_question_asked` / `claim_race_question_asked_once` | `list-raced-units.sh` or `step-raced-units.sh` — a live race reaches nobody, or reaches them repeatedly |
+| `claim_race_siblings_filter` | `step-stalled-units.sh` — one unit, two questions, two vocabularies |
+| `claim_race_archive_refuses` / `claim_race_refusal_writes_nothing` | `archive.sh`'s claim re-check — the last gate before a duplicated write reaches the base |
+
+**What it does not prove** is the transport. The arbitration is exercised against a **local bare
+origin**, where the ref write is permitted; whether a given remote permits it is what
+`claim-arbitrate.sh` answers `unavailable` for, and that path is the one every cloud routine
+takes.
 
 ## 5u. The retirement candidates (does the loop offer only branches it may delete?)
 

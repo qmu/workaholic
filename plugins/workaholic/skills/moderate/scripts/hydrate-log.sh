@@ -63,6 +63,17 @@ emit() {
     exit 0
 }
 
+# The log branch is the tick's memory ACROSS DISCARDED CONTAINERS, and nothing else. Where the
+# loop turns locally in a checkout that persists (`workaholic:loops`), that checkout already holds
+# every day file this would fetch, and `persist-log.sh` is writing none of them to a branch — so
+# there is nothing to hydrate FROM and hydrating would only re-fetch what is already here.
+# Declared, not derived, and by the same variable that turns the writer off, so the two halves
+# cannot disagree about whether a branch exists: **absent means hydrate**. `skipped` is the honest
+# word — the read did not fail, it was not owed.
+case "${WORKAHOLIC_LOG_PERSIST:-1}" in
+    0|no|false) emit true skipped log_persist_disabled ;;
+esac
+
 repo_root=$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || printf '')
 [ -n "$repo_root" ] || emit false skipped not_a_repo
 git -C "$repo_root" config --get remote.origin.url >/dev/null 2>&1 || emit false skipped no_origin

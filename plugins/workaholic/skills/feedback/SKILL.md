@@ -73,6 +73,9 @@ stopped.
 
 ### Whether this merits filing
 
+**Whose ask it is decides whether it can originate anything**, and that rule is stated once at `rules/workaholic.md`, *What May Originate a Mission* and cited here rather than restated: only a human's ask, or a strategy a human authored, originates a mission. Filing is wider than origination — a machine's observation is still worth recording — so this bar and that rule answer different questions, and `subject:` is what tells the two apart.
+
+
 A separate, prior question from *Choosing the kind* below (which classifies content already judged worth filing) and from *Any legitimate invocation is authorized* (which governs who may invoke `/fb`, not whether the content merits it): file only when the content is **genuine user feedback** — a real problem, bug, or improvement idea a user wants addressed — or **something important that must not be overlooked**. Do not file a routine request, a clarifying question, or a passing remark just because it was clearly stated in conversation; act on it in-session instead, without registering a record. When in doubt, the bar is the ask itself: would leaving it unrecorded risk losing a genuine problem or a real improvement idea, or would it just be one more log line for something already actioned?
 
 ### Choosing the kind

@@ -2,7 +2,7 @@
 type: Mission
 title: Refuse an ask the loop wrote to itself
 slug: refuse-an-ask-the-loop-wrote-to-itself
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-02T04:33:50+00:00
 author: a@qmu.jp
@@ -52,3 +52,5 @@ spoken stops origination instead of feeding it.
 - 2026-09-02 — ticket archived — 20260902043416-refuse-a-machine-authored-ask-at-the-proposal-seam.md
 - 2026-09-02 — ticket archived — 20260902043416-refuse-a-proposal-that-refines-a-prior-self-proposal.md
 - 2026-09-02 — ticket archived — 20260902043416-stop-origination-when-only-the-loop-has-spoken.md
+- 2026-09-02 — ticket archived — 20260902043416-state-in-one-place-what-may-originate-a-mission.md
+- 2026-09-02 — mission achieved — mission.md

@@ -173,6 +173,8 @@ once, never by an hourly line here.
 Both were vacated in the same change and neither is claimed by any live template
 (`reference/loop.md`, *Taking the name back*).
 
+**What may originate a mission at all is stated once and cited, never restated here** — `rules/workaholic.md`, *What May Originate a Mission*: only a human's ask, or a strategy a human authored. This routine's two self-referential refusals (`self_refining` below, and the run-level brake beneath it) are that rule's consequences at this seam.
+
 ## When only the loop has spoken, stop — the one run-level brake
 
 **Every other brake in `/propose` reads the repository** — a strategy's status, its date, its

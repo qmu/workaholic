@@ -21826,6 +21826,43 @@ function testSelfAuthoredRefusalIsStated() {
 // none of them leaked into the mechanical gates — a refusal that became an expression in
 // `survey-strategies.sh` would change which directions are eligible, which is the one thing
 // these three must never do.
+// ---------- what may originate a mission, stated once and cited ----------
+// The rule lived only as three consequences in three skills, and the next session
+// re-derived it wrong — five self-authored roots merged in one day. This pins the shape the
+// repair depends on: the statement exists at its one home with its measurement, the three
+// consuming skills CITE it rather than restating it, and the drift pin fails when a citing
+// surface starts saying something different.
+function testWhatMayOriginateAMission() {
+  const HOME = join(REPO_ROOT, "plugins/workaholic/rules/workaholic.md");
+  const home = readFileSync(HOME, "utf8");
+  assertTrue("the rule is stated at its one home",
+    /Only a human's ask, or a strategy a human authored, originates a mission/.test(home), "home");
+  assertTrue("with its measurement beside it",
+    /five consecutive `\[FB\]` roots in one day/.test(home), "measurement");
+  for (const w of ["self_authored", "self_refining", "only_the_loop_spoke"]) {
+    assertTrue(`and names what may not originate: ${w}`, home.includes(w), w);
+  }
+  assertTrue("and says why the home is this file rather than a skill or a CLAUDE.md",
+    /ships \*\*in the plugin\*\*|belongs to none of them/.test(home), "why here");
+
+  // THE CITING SURFACES REFERENCE IT. Three restatements is how the rule drifted into three
+  // consequences in the first place, so each must point at the home rather than re-say it.
+  const CITE = "rules/workaholic.md`, *What May Originate a Mission*";
+  for (const [name, rel] of [
+    ["specificate", "plugins/workaholic/skills/specificate/SKILL.md"],
+    ["propose", "plugins/workaholic/skills/propose/SKILL.md"],
+    ["feedback", "plugins/workaholic/skills/feedback/SKILL.md"],
+  ]) {
+    const text = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${name} cites the rule's home`, text.includes(CITE), `${name} does not cite it`);
+    assertTrue(`${name} says it is cited rather than restated`,
+      /cited here rather than restated|cited, never restated|never restated here/.test(text), name);
+  }
+  assertTrue("CLAUDE.md's Sources names whose input each source carries",
+    /Sources\*\*, each named with \*\*whose input it carries/.test(
+      readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8")), "sources");
+}
+
 // ---------- the run-level brake: only the loop has spoken ----------
 // A brake nothing mechanical can fire, so what is pinned is that it is stated at the three
 // surfaces the run reads, that it never brakes on an unreadable channel, that it costs no
@@ -21894,6 +21931,7 @@ const tests = [
   ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],
   ["propose: the judgement refusals are named, and stay out of the gates", testProposeJudgementRefusals],
   ["propose: the run-level brake when only the loop has spoken", testOnlyTheLoopSpokeBrake],
+  ["what may originate a mission is stated once and cited", testWhatMayOriginateAMission],
   ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
   ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
   ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],

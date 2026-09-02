@@ -48,6 +48,7 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, the refused conflict reaching its claim holder exactly once, and — since 2026-08-30 — the widened trigger: a `queue_drained` claim still `mechanical` offered and caught up, a reviewed pull request refused, and a degraded scan answering null counts; with the transport stubbed and two rows that deliberately break the identity bound and the widening |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-stranded-claim-branch --json` | a throwaway repository whose bare origin permits a real branch delete — proves the ordinary superseded twin is still deleted, that a branch holding a file on no other ref is refused at both grains with the file still on origin afterwards, that an unreadable emptiness licenses nothing, and that the row names the files a person must rule on, with the pull-request half stubbed and one breaker asserting surviving content rather than a return word |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-ci-retirement --json` | a throwaway repository whose bare origin refuses the container's branch delete and permits CI's — proves the act the container is refused is taken where the write is permitted, re-proved at the moment of it, bounded four ways, and asked about only once CI has also refused, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
@@ -1484,6 +1485,58 @@ repository may be on a different plugin version; this exercises this checkout's 
 | `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
 | `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
+## 5t-b. The stranded claim branch (does the loop refuse to delete work nothing else has?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-stranded-claim-branch [--json]
+```
+
+The one mechanism in this loop whose regression **destroys work rather than delaying it**
+(2026-09-02, mission `prove-a-claim-branch-is-empty-before-deleting-it`). `superseded` licenses
+`retire-claim.sh` to delete a remote branch; until 2026-09-01 it proved only that the unit's
+tickets were archived on the base, and that implies *the branch holds no work* only when a branch
+carries nothing but its own unit's tickets. Measured: two branches whose tickets had landed
+through **different** branches still held ~300 lines of code and a documentation section present
+on no other ref, and the tick was asking for both to be deleted. Only a 403 on `push --delete`
+had prevented the loss, for five days — which is precisely why the drill is owed: **the day the
+transport is repaired is the day a regression here becomes a silent loss instead of a reported
+nuisance.**
+
+It needs **no seed, no issue number, no credential and no network**: the origin is a bare local
+repository and the GitHub transport is a stub on `PATH` — stubbed for the pull-request half
+alone. **The branch delete is real**, over the file transport, so a regression actually removes
+the refs and the rows below can see it.
+
+**What it proves.** Three seeded cases at both grains: a branch differing from the base only
+inside `.workaholic/` — the ordinary superseded twin, which a bare `diff --quiet` would wrongly
+call stranded — is still proved empty and is really deleted from origin; a branch holding a file
+that is on no other ref reads `stranded` at the batch grain *and* at the mission grain, is
+refused `not_superseded:stranded` by the act, and **its file is still on origin afterwards**; an
+emptiness nobody could read answers `unknown` and the verdict answers `stranded`, so no delete is
+licensed by an absence. The row a person is asked from carries the **file names**, because a
+holder cannot rule on work they cannot see.
+
+**The breaker asserts surviving content, not a return word.** It hands the work-holding branches
+straight to the act at both grains with the delete permitted, and asserts the refs and their file
+**contents** are still on origin. Measured with the diff term reverted: both branches came back
+`retired: true, remote_branch_deleted: deleted` — the loss reproduced on demand — and restoring
+the term turns it green. A row asserting the JSON shape instead would have passed over exactly
+that.
+
+**What this drill does not prove** is the transport. It cannot show that the production 403 is
+gone, or that a real remote delete behaves identically to a file-transport one; it proves the
+refusal and the derivation behind it.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `stranded_empty_branch_is_superseded` | `lib/claims.sh` — the `:(exclude).workaholic` term went, so the ordinary retirement stopped firing and every claim reads stranded |
+| `stranded_holding_branch_is_stranded` | `lib/claims.sh` — the emptiness term left `claims_superseded` at one of the two grains |
+| `stranded_row_names_the_files` | `list-claims.sh` or `claims_branch_emptiness` — the question can no longer say what the branch holds |
+| `stranded_unreadable_is_never_superseded` | `lib/claims.sh` — an absence of a reading started licensing the act |
+| `stranded_proved_branch_is_deleted` | `retire-claim.sh` — the act stopped acting on a real proof |
+| `stranded_holding_branch_survives_the_act` | the drill can no longer fail, **or work was actually deleted** — the one row here whose red means loss rather than doubt |
+| `stranded_branch_checkout_untouched` | the drill wrote outside its own fixture |
+
 ## 5u. The retirement candidates (does the loop offer only branches it may delete?)
 
 ```sh
@@ -1653,6 +1706,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
+| `verify-stranded-claim-branch` | `hermetic` | yes | `prove-a-claim-branch-is-empty-before-deleting-it` |
 | `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |
 | `verify-retired-claim` | `hermetic` | yes | `retire-a-claim-whose-work-is-finished-or-abandoned` |
 | `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |

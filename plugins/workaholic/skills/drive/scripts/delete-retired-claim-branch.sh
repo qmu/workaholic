@@ -102,6 +102,19 @@
 # own proof (merged) or by the emptiness term above (closed unmerged), never by a bound that
 # would silently read as satisfied because there was nothing to evaluate.
 #
+# `not_on_base` NOW REFUSES MORE THAN ITS NAME SAYS, AND THE NAME IS KEPT DELIBERATELY
+# (2026-09-01, issue #788; re-documented 2026-09-02). Since the emptiness term joined
+# `claims_superseded`, re-deriving that verdict refuses on TWO facts, not one: the unit's
+# tickets are not archived on the base, OR the branch still holds content the base does not
+# have. The word says only the first. It is not renamed because a refusal word is a wire
+# string — it reaches `record-ci-retirement-turn.sh`'s annotations, `read-ci-retirement-record.sh`,
+# `/moderate`'s `retire-blocked:<unit>:<word>` question key and its asked-once ledger, so
+# renaming it would re-ask every standing question under a new key and orphan every record
+# written under the old one. What it costs is this paragraph; what renaming would cost is a
+# person being asked twice about a branch nothing changed about. A reader chasing `not_on_base`
+# is sent here, and `branch_holds_work` / `emptiness_unanswerable` below are the SAME question
+# asked where the emptiness is a gate of its own rather than the row's evidence.
+#
 # NO NEW TRANSPORT, NO NEW PERMISSION. It is the same REST seam run by the same executor, two
 # candidate classes over.
 

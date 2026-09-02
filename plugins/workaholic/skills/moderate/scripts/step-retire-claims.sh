@@ -188,6 +188,16 @@ stranded=$(printf '%s' "$out" | jq -r '[.claims[]? | select(.resume_reason == "s
 sn=0
 for _ in $stranded; do sn=$((sn + 1)); done
 
+# THE BRANCH AND THE FILES IT HOLDS RIDE THE QUESTION (2026-09-02, ticket
+# `20260831203454-tell-a-person-about-a-stranded-claim-branch`). Under the catalog's
+# composition contract the question must lead with what happened and then name the identifier;
+# "this unit's branch holds work nothing else has" is unanswerable to a person who cannot see
+# WHAT. `list-claims.sh` already put the bounded names and the true count on the row, so this
+# reads them there rather than calling the emptiness reader a second time.
+stranded_detail=$(printf '%s' "$out" | jq -c '[.claims[]? | select(.resume_reason == "stranded")
+    | {unit: .unit, branch: .branch, files: (.stranded_files // []), file_count: (.stranded_file_count // 0),
+       key: ("stranded-unit:" + .unit)}] | unique_by(.unit)' 2>/dev/null || printf '[]')
+
 n=0
 for _ in $units; do n=$((n + 1)); done
 
@@ -474,11 +484,22 @@ fi
 # carrying both would be one instruction with two contradictory actions.
 stranded_needs=""
 if [ "$sn" -gt 0 ]; then
-    stranded_rows=$(printf '%s\n' "$stranded" | jq -R 'select(length > 0)' | jq -sc \
-        '[.[] | {unit: ., key: ("stranded-unit:" + .)}]' 2>/dev/null || printf '[]')
+    # THE AGE RIDES IT TOO, through the one reader every other aged question in this tick uses,
+    # keyed on the key the step already composed. A branch stranded for weeks with nobody
+    # answering is a real possibility, and the question is asked ONCE — so the only thing that
+    # can say how long it has been standing is the age.
+    stranded_rows=$(
+        printf '%s' "$stranded_detail" | jq -c '.[]?' 2>/dev/null | while IFS= read -r row; do
+            [ -n "$row" ] || continue
+            key=$(printf '%s' "$row" | jq -r '.key // ""' 2>/dev/null || printf '')
+            age=$(read_age "$key" "$ROOT")
+            printf '%s' "$row" | jq -c --argjson a "$age" '. + {age: $a}' 2>/dev/null || printf '%s' "$row"
+        done | jq -sc '.' 2>/dev/null || printf '%s' "$stranded_detail"
+    )
+    [ -n "$stranded_rows" ] || stranded_rows="$stranded_detail"
     stranded_needs=$(printf '%s' "$stranded_rows" | jq -c '{action: "tell_the_claim_holder_their_branch_holds_work_nothing_else_has",
         bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once. The tick asks and does nothing else: it never deletes the branch, never merges it, never releases the claim and never re-drives a ticket. THIS UNIT IS NOT A RETIREMENT CANDIDATE and must never be offered as one.",
-        compose: "say that this unit'"'"'s tickets are archived on the base while its branch still carries content found on no other ref, name the unit and the exact branch, and say plainly that deleting it would lose that work. Ask what should happen to it -- landed on the base, or discarded deliberately. Never suggest deleting the branch.",
+        compose: "lead with what happened in words a reader outside the repository understands -- this unit'"'"'s tickets are archived on the base while its branch still carries files that exist on no other ref -- and name the unit and the exact branch AFTER that, never before. Name the files from `files` (they are already bounded; when `file_count` is larger, say `and N more`), because a person cannot rule on work they cannot see. Say plainly that deleting the branch would lose it. Ask what should happen to it -- landed on the base, or discarded deliberately -- and never suggest deleting the branch. When `age.first_seen` is set, say how long this has been ASKED ABOUT (`age.ticks` ticks since `age.first_seen`, `at least` that when `age.first_seen_is_floor`); when `age.readable` is false, name it as an age we could not read, by its `age.reason`.",
         stranded_claims: .}' 2>/dev/null || echo '')
 fi
 

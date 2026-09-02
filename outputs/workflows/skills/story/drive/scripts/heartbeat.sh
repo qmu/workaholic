@@ -75,6 +75,34 @@ if [ -z "$branch" ] || [ "$branch" = "HEAD" ]; then
     report false "" no_branch
 fi
 
+# A MERGE IN PROGRESS REFUSES THE BEAT, AND THE REASON IS GIT'S OWN BEHAVIOUR (2026-09-02,
+# ticket `20260902103500`). During an unresolved merge `git commit --allow-empty` does not write
+# an empty commit: it writes the MERGE COMMIT, taking its second parent from `MERGE_HEAD` and its
+# tree from the index it was handed -- the scratch one, which holds the branch's own PRE-MERGE
+# tree. The result records the base as a parent while carrying none of the base's content, and
+# `git merge origin/main` is a no-op ever after, because the base is now an ancestor.
+#
+# MEASURED on `work-20260902-083726`: a run resolving a four-file content conflict beat between
+# the resolution and the commit. Commit `4c7749ef` is titled `Refresh heartbeat`, has
+# `origin/main`'s tip as its second parent, and has an EMPTY DIFF against its first parent -- the
+# branch claimed to have merged a base whose 97 changed files it had silently reverted. It was
+# repaired forward; a run that had not looked would have pushed a branch that reverts the base.
+# Reproduced offline: two parents, `1 deletion(-)` against the first, and the other side an
+# ancestor from then on.
+#
+# REFUSING IS THE FIX, NOT REPAIRING. A failed beat is already reported and never fatal, and the
+# window is exactly the stretch a run spends resolving a conflict -- between tickets, where the
+# beat's own contract says it is a step of a ticket. Teaching the heartbeat to write the RIGHT
+# merge commit would give the liveness signal a second job and make the branch tip two
+# authorities instead of one (`reference/claims.md`).
+#
+# The test is on the UNIT'S OWN WORKTREE, never the caller's: `-C "$worktree_path"` is where the
+# commit would be written, and a caller standing in the main checkout has no `MERGE_HEAD` of its
+# own to find.
+if git -C "$worktree_path" rev-parse --verify --quiet MERGE_HEAD >/dev/null 2>&1; then
+    report false "$branch" merge_in_progress
+fi
+
 # A DIRTY WORKTREE STILL BEATS. The run is plainly alive -- that is what dirty means --
 # and the empty commit records nothing from the working tree, so uncommitted work is
 # neither staged, committed, nor disturbed.

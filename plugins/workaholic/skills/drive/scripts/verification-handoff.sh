@@ -114,7 +114,7 @@ fm_field() {
 # unattended container has no human. **Seven runs, five hours, nothing landed** — while `/propose`
 # and `/specificate`, which only read and open issues, kept producing proposals every hour. The
 # freeze was SILENT: no Slack post, no finding, no `needs_agent`; `stalled-units` counted the unit
-# as healthy because the resume beats the heartbeat before the edit, and `catchup-blocked` read 0.
+# as healthy because the resume beats the heartbeat before the edit, and the conflict step read 0.
 # The operator found it by asking why proposals were piling up.
 #
 # THE FIELD ALREADY ROUTES THIS CORRECTLY, which is why it is reused rather than duplicated: the

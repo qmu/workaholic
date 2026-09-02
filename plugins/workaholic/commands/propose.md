@@ -31,7 +31,19 @@ routine on the next run with no routine edit (`workaholic:notify`, *The command 
 
 **Every free-text slot below is written in Japanese, and so is this run's own reasoning and report** — the shape's label, step ids, status and reason words, slugs, branch names, `<@U…>` tokens and URLs are never translated, and a GitHub artifact stays English (`rules/interaction.md`, *The language of a post is the language its readers use*).
 
+**And that Japanese must be read on first sight, not decoded** — the bar is an outcome, not a style preference: *a channel reader must understand what is being asked without opening the English record behind the link.* An established technical term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the repository's own `terms/` entries); the **meaning** of a title is translated, never its words; a title that resists translation is **paraphrased** in plain Japanese rather than transliterated. Measured: 「組み立てを止める」 for *fail the build* belongs as 「ビルドが落ちる」, a bare 「形」 for *shape* as 「投稿の型」, 「示せるという判定」 for *demonstrable verdict* as 「実証できたかどうかの判定」.
+
 Read Slack only through the Slack connector; the inbound sweep needs no mention to capture an ask.
+
+**The Slack turn comes first** (2026-09-02, the developer's instruction): read the inbound channel for what moved since the previous turn — messages and thread replies in the last `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10, so consecutive 5-minute turns overlap and nothing falls between them) — and, for each message a **person** wrote that is not already answered, do exactly one of three things. A **question the repository can answer** (what a command does, where something stands, why a run did what it did) gets one reply in its own thread; **read the thread first**, and if it already carries a reply of ours after that message, post nothing. An **ask** — something to build, change or fix — is the inbound sweep's, below; it gets the `📥 受理` receipt and nothing from this step. Anything else a person wrote gets the reaction `:eyes:` on the message and no reply. The reply shape:
+
+```
+💬 [<the question, one line>]
+<the answer, max 80 words, in plain Japanese, what the repository says and where>
+<session URL>
+```
+
+A reply never carries a mention token, never asks the person anything, and never promises an act — an act is the sweep's issue or nothing. The loop's own posts (`📝 FB`, `🔎 Moderation`, `🔵 Proposed`, `🟢 Implemented`, this shape) are skipped by shape, never answered. A read or a post that fails is reported as `slack_turn_failed: <reason>` and the run continues into the sweep. Report per message what was done — `replied`, `reacted`, `swept`, `already_answered`, `skipped_own_post` — or the named degradation.
 
 For each ask the sweep files **in this run**, post one reply into that message's own thread — its
 `thread_ts` is the `ts` half of the `slack-ref` just written, so run no lookup and no search:

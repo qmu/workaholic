@@ -34,7 +34,7 @@
 #                        are driving it.
 #   `undelivered-units`  filters and counts. A raced loser's refused merge is the race's
 #                        CONSEQUENCE, and asking about the consequence hides the cause.
-#   `catchup-blocked`    filters and counts. Catching one of two racing branches up onto the
+#   the catch-up          attempts one of two racing branches onto the
 #                        base is not the act a person needs, and the branch to keep is exactly
 #                        what has not been decided yet.
 #   `retire-claims`      needs no change and gets none. Its candidates are `superseded` rows,

@@ -5,7 +5,7 @@
 #   list-stranded-publications.sh [--limit <n>] [--base <branch>]
 #
 # Output: {"ok": true, "slug": "<owner/name>", "limit": n, "total_open": n, "candidates": n,
-#          "read": n, "truncated": bool, "count": n,
+#          "read": n, "truncated": bool, "count": n, "headless": n,
 #          "publications": [{"number": N, "url": "...", "title": "...", "branch": "work-…",
 #                            "created_at": "...", "author": "...",
 #                            "mergeability": "clean"|"mechanical"|"content"|"unanswerable",
@@ -35,6 +35,12 @@
 #   2. the claim oracle names no claim on it — COMPOSED from `list-claims.sh`, never a second
 #      reading of the claim commit. A branch the oracle owns is a claim and is the catch-up's
 #      business, not this reader's;
+#   2b. the head branch STILL EXISTS on the remote (2026-09-01). GitHub leaves a pull request
+#      open when its head branch is deleted, so such a publication can never be merged by
+#      anybody and this reader would be offering an act that cannot succeed.
+#      `list-headless-pulls.sh` is its reader and asks the operator to close it, under
+#      `headless-pull:<number>`; reporting it here as well would ask twice about one pull
+#      request, which is the doubling term 3 already exists to prevent.
 #   3. the publish seam's own refusal word is EMPTY. A `strategy_touching` or `ruling_touching`
 #      publication is open ON PURPOSE — merging it is the operator's ruling and closing it is
 #      their refusal — and `list-operator-facing-pulls.sh` is already its reader. Reporting it
@@ -148,6 +154,7 @@ total=0
 candidates=0
 read_count=0
 count=0
+headless=0
 pubs=""
 
 while IFS="$TAB" read -r number url title created author head; do
@@ -163,6 +170,20 @@ while IFS="$TAB" read -r number url title created author head; do
 
     # TERM 2: the claim oracle owns it, or it does not.
     if printf '%s\n' "$CLAIM_BRANCHES" | grep -qx -- "$head" 2>/dev/null; then
+        continue
+    fi
+
+    # TERM 2b: THE BRANCH STILL EXISTS (2026-09-01, ticket
+    # `20260901112558-name-an-open-pull-request-with-no-head-branch.md`). A pull request whose
+    # head branch was deleted stays open on GitHub and can never be merged by anybody, so
+    # offering it here would ask `settle-stranded-publication.sh` for an act that cannot
+    # succeed — and would ask a second person about a pull request
+    # `branching/scripts/list-headless-pulls.sh` already names under `headless-pull:<number>`.
+    # The remote-tracking refs are exact for this test because `list-claims.sh` above has
+    # already run `git fetch --prune`; a stale read can only DROP a publication for one tick,
+    # never invent one, and the reading that sends somebody to close something is the REST one.
+    if ! git rev-parse --verify --quiet "refs/remotes/origin/${head}^{commit}" >/dev/null 2>&1; then
+        headless=$((headless + 1))
         continue
     fi
 
@@ -214,5 +235,5 @@ EOF
 truncated=false
 [ "$candidates" -le "$LIMIT" ] || truncated=true
 
-printf '{"ok": true, "slug": "%s", "limit": %s, "total_open": %s, "candidates": %s, "read": %s, "truncated": %s, "count": %s, "publications": [%s]}\n' \
-    "$(json_escape "$slug")" "$LIMIT" "$total" "$candidates" "$read_count" "$truncated" "$count" "$pubs"
+printf '{"ok": true, "slug": "%s", "limit": %s, "total_open": %s, "candidates": %s, "read": %s, "truncated": %s, "count": %s, "headless": %s, "publications": [%s]}\n' \
+    "$(json_escape "$slug")" "$LIMIT" "$total" "$candidates" "$read_count" "$truncated" "$count" "$headless" "$pubs"

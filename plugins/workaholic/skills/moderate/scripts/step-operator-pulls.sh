@@ -11,7 +11,7 @@
 #
 # No other step could see it. `stuck-prs` and `merge-conflicts` read the open pull requests and
 # find this one perfectly healthy — it is not stuck, it is WAITING, which is what it was opened
-# to do. Every claim-side verdict (`undelivered-units`, `handoff-units`, `catchup-blocked`,
+# to do. Every claim-side verdict (`undelivered-units`, `handoff-units`,
 # `stalled-units`) is bounded to a CLAIM, and a publication carries none: `publish-tree-pr.sh`
 # pushes `publish-main` to a `work-*` name with no `Claim` commit in it, which is exactly what
 # keeps a publication invisible to the claim protocol.
@@ -60,6 +60,16 @@
 # differs from the same step's an hour ago, and `open 18h` increments every tick, so it would
 # make this step changed HOURLY by construction. The age still reaches the person, in the
 # question that names the pull request.
+#
+# AND SINCE 2026-09-01 IT CARRIES A SECOND, DIFFERENT QUESTION (ticket
+# `20260901112558-name-an-open-pull-request-with-no-head-branch.md`): `headless-pull:<number>`,
+# an open pull request whose head branch no longer exists on the remote. It rides this step
+# because this is where pull requests waiting on a person are read, and it takes its OWN key
+# because the act asked for is different — `operator-pull:` asks for a RULING on a diff, this
+# asks for a CLOSE, since merging it is impossible rather than undesirable. The reader is
+# `branching/scripts/list-headless-pulls.sh`, whose ref set is one repository-scoped REST
+# listing and never the local remote-tracking refs; the existing `operator-pull:` candidates,
+# key and addressee did not move for it.
 #
 # IT ASKS AND NOTHING ELSE. No merge, no close, no comment, no gate, no hold of work, no lifted
 # gate, and nothing written anywhere but its own log line (`run.sh` writes that).
@@ -112,10 +122,41 @@ candidates=$(printf '%s' "$out" | jq -c '.pulls // []')
 n_candidates=$(printf '%s' "$candidates" | jq 'length')
 truncated=$(printf '%s' "$out" | jq -r '.truncated // false')
 
-if [ "$n_candidates" -eq 0 ]; then
-    summary="no open pull request waits on the operator"
-    [ "$truncated" = "true" ] && summary="${summary} (the open set was read to the cap)"
-    emit ok "" "$summary"
+# ── THE SECOND READING: A PULL REQUEST WHOSE HEAD BRANCH IS GONE ─────────────────────
+# A DIFFERENT QUESTION UNDER A DIFFERENT KEY, deliberately. `operator-pull:<number>` asks for
+# a RULING on a diff — merging it is the ruling and closing it is the refusal. This one asks
+# for a CLOSE, because merging is not available to anybody: GitHub leaves a pull request open
+# when its head branch is deleted, and such a pull request is unmergeable by construction.
+# Measured 2026-09-01: five of them (`#813`, `#799`, `#688`, `#635`, `#625`) sat in the open
+# set until a person closed them by hand. One act asked, one key, one addressee.
+#
+# It rides AFTER the operator-facing reading's own degradation exits: both readings go through
+# the same transport, so a failure of one is all but always a failure of both, and the existing
+# `operator-pull:` candidates, key and addressee do not move for this.
+#
+# AN UNREADABLE HEADLESS READING IS NAMED IN THE SUMMARY AND ASKS NOBODY — `strategy-pace`'s
+# rule that a person's attention is not spent on our own degradation. It is never rendered as
+# *nothing headless*.
+headless_rows="[]"
+hl_readable=true
+hl_reason=""
+hl_n=0
+headless_lister="${BRANCHING_SCRIPTS}/list-headless-pulls.sh"
+if [ ! -f "$headless_lister" ]; then
+    hl_readable=false
+    hl_reason="no_headless_reader"
+else
+    hl_out=$( ( cd "$ROOT" && sh "$headless_lister" ) 2>/dev/null || true )
+    if [ -z "$hl_out" ] || ! printf '%s' "$hl_out" | jq -e '.ok // false' >/dev/null 2>&1; then
+        hl_readable=false
+        hl_reason=$(printf '%s' "$hl_out" | jq -r '.reason // ""' 2>/dev/null || printf '')
+        [ -n "$hl_reason" ] || hl_reason="headless_unreadable"
+    else
+        headless_rows=$(printf '%s' "$hl_out" | jq -c '[.pulls[]?
+            | {number, url, title, branch, open_hours: .age_hours,
+               key: ("headless-pull:" + (.number | tostring))}]' 2>/dev/null || printf '[]')
+        hl_n=$(printf '%s' "$headless_rows" | jq 'length' 2>/dev/null || printf '0')
+    fi
 fi
 
 # WHAT THE RULING HOLDS, from the hold's own reader and not from a second derivation.
@@ -194,25 +235,64 @@ for number in $(printf '%s' "$candidates" | jq -r '.[].number'); do
 done
 rows="[${rows}]"
 
-summary="${n_candidates} operator-facing pull request(s); ${open_n} un-acted"
-[ "$settled_n" -eq 0 ] || summary="${summary}; ${settled_n} already merged or closed"
-[ "$unreadable_n" -eq 0 ] || summary="${summary}; ${unreadable_n} unreadable (asked about by nobody)"
-[ "$held_readable" = "true" ] || summary="${summary}; what they hold could not be read"
-[ "$truncated" = "true" ] && summary="${summary}; the open set was read to the cap"
+# The headless rows take the SAME addressee — the operator — resolved once above.
+if [ "$hl_n" -gt 0 ]; then
+    headless_rows=$(printf '%s' "$headless_rows" | jq -c --arg who "$addressees" \
+        'map(. + {addressees: (if $who == "" then [] else ($who | split(" ")) end)})' \
+        2>/dev/null || printf '%s' "$headless_rows")
+fi
 
-if [ "$open_n" -eq 0 ]; then
+if [ "$n_candidates" -eq 0 ]; then
+    summary="no open pull request waits on the operator"
+    [ "$truncated" = "true" ] && summary="${summary} (the open set was read to the cap)"
+else
+    summary="${n_candidates} operator-facing pull request(s); ${open_n} un-acted"
+    [ "$settled_n" -eq 0 ] || summary="${summary}; ${settled_n} already merged or closed"
+    [ "$unreadable_n" -eq 0 ] || summary="${summary}; ${unreadable_n} unreadable (asked about by nobody)"
+    [ "$held_readable" = "true" ] || summary="${summary}; what they hold could not be read"
+    [ "$truncated" = "true" ] && summary="${summary}; the open set was read to the cap"
+fi
+if [ "$hl_readable" = "true" ]; then
+    [ "$hl_n" -eq 0 ] || summary="${summary}; ${hl_n} open with no head branch left"
+else
+    summary="${summary}; whether any pull request has lost its head branch could not be read (${hl_reason})"
+fi
+
+if [ "$open_n" -eq 0 ] && [ "$hl_n" -eq 0 ]; then
     emit ok "" "$summary"
 fi
 
-needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_operator_to_rule_on_this_pull_request",
-    bound: "one question per pull request, addressed to the operator named in `addressees` (empty means addressed to nobody), keyed on `key` so it is asked once; the tick asks and never merges, closes, comments on or gates anything",
-    compose: "name the pull request, how long it has been open and what merging it would unblock -- merging it IS the ruling and closing it IS the refusal, so it needs a decision rather than a review",
-    pulls: .}' 2>/dev/null || echo '{}')
+needs=""
+nsep=""
+if [ "$open_n" -gt 0 ]; then
+    needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_operator_to_rule_on_this_pull_request",
+        bound: "one question per pull request, addressed to the operator named in `addressees` (empty means addressed to nobody), keyed on `key` so it is asked once; the tick asks and never merges, closes, comments on or gates anything",
+        compose: "name the pull request, how long it has been open and what merging it would unblock -- merging it IS the ruling and closing it IS the refusal, so it needs a decision rather than a review",
+        pulls: .}' 2>/dev/null || echo '{}')
+    nsep=","
+fi
+if [ "$hl_n" -gt 0 ]; then
+    hneeds=$(printf '%s' "$headless_rows" | jq -c '{action: "ask_the_operator_to_close_this_pull_request",
+        bound: "one question per pull request, addressed to the operator named in `addressees` (empty means addressed to nobody), keyed on `key` so it is asked once; the tick asks and never closes, merges, comments on or gates anything",
+        compose: "lead with what happened -- this pull request has no branch left on the remote, so nobody can ever merge it -- then the number, and ask for it to be closed; never open with the number and never emit a bare verdict word",
+        pulls: .}' 2>/dev/null || echo '{}')
+    needs="${needs}${nsep}${hneeds}"
+fi
 
+event=""
 if [ "$open_n" -eq 1 ]; then
     event="a pull request opened for the operator is still unanswered — merging it is the ruling, closing it is the refusal"
-else
+elif [ "$open_n" -gt 1 ]; then
     event="${open_n} pull requests opened for the operator are still unanswered — merging them is the ruling, closing them is the refusal"
+fi
+if [ "$hl_n" -eq 1 ]; then
+    esep=""
+    [ -z "$event" ] || esep="; "
+    event="${event}${esep}an open pull request has lost its branch and can never be merged"
+elif [ "$hl_n" -gt 1 ]; then
+    esep=""
+    [ -z "$event" ] || esep="; "
+    event="${event}${esep}${hl_n} open pull requests have lost their branches and can never be merged"
 fi
 
 emit ok "" "$summary" "$needs" "$event"

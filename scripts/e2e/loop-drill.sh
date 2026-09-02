@@ -3706,8 +3706,61 @@ cmd_verify_claim_race() {
     # the ref surgery above, and a same-second collision would be `branch_collision` -- the
     # narrower case this drill is deliberately not about.
     sleep 1
+
+    # --- 1a. THE REPAIR: THE SECOND RUNNER LOSES AT THE REMOTE ------------------------
+    # (2026-09-02, ticket `20260830082251-make-the-claim-contend-for-one-ref-per-unit.md`.)
+    # B's oracle sees nothing — the ref surgery above removed A's branch — so this is exactly
+    # the window the old defect lived in. The arbitration is what stops it now: A holds one
+    # ref per claimed artifact, B's create-only push is refused at the server, and B stops
+    # before §4 has created anything at all.
+    _arbiter="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh"
+    _arts=".workaholic/missions/active/raced/mission.md"
+    # THE LOCK'S LIFETIME IS THE CLAIM ACT: A released its locks the moment its branch reached
+    # the remote, because from then on the oracle sees the claim and the lock stands for
+    # nothing. So the window has to be held open explicitly — which is also the assertion
+    # below that A left no lock behind.
+    _lock_ref=$( ( cd "$_A" && sh "$_arbiter" refname "$_arts" ) 2>/dev/null || true )
+    _lock_after_claim=$( ( cd "$_A" && git ls-remote origin "$_lock_ref" ) 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${_lock_after_claim:-1}" -eq 0 ]; then
+        add_row "claim_race_lock_ends_with_the_act" true "a published claim leaves no lock behind -- the oracle sees it from then on, so nothing outlives what it stands for" load
+    else
+        add_row "claim_race_lock_ends_with_the_act" false "a lock outlived the claim act (${_lock_ref}); a merge releases a claim and runs nothing here, so that lock would make the artifact claimable exactly once" load
+    fi
+    ( cd "$_A" && sh "$_arbiter" take "$_arts" ) >/dev/null 2>&1 || true
+    _outB_lost=$( ( cd "$_B" && env $_env sh "$_claimsh" mission raced ) 2>&1 || true )
+    if printf '%s' "$_outB_lost" | grep -q '"reason": "claim_race_lost"'; then
+        add_row "claim_race_loser_refused" true "the second runner is refused by its own word at the remote, in the very window the defect lived in" load
+    else
+        add_row "claim_race_loser_refused" false "the loser was not refused claim_race_lost: $(one_line "$_outB_lost")" load
+    fi
+    _b_wt=$(ls -1 "${_B}/.worktrees" 2>/dev/null | wc -l | tr -d ' ')
+    _b_br=$( ( cd "$_B" && git branch --list 'work-*' ) 2>/dev/null | wc -l | tr -d ' ')
+    _b_remote=$( ( cd "$_B" && git ls-remote origin 'refs/heads/work-*' ) 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${_b_wt:-0}" -eq 0 ] && [ "${_b_br:-0}" -eq 0 ] && [ "${_b_remote:-0}" -eq 0 ]; then
+        add_row "claim_race_loser_wrote_nothing" true "the loser holds no worktree, no local work-* branch, and nothing of it reached origin" load
+    else
+        add_row "claim_race_loser_wrote_nothing" false "the loser left debris (worktrees=${_b_wt} branches=${_b_br} remote=${_b_remote})" load
+    fi
+
+    # THE SWEEP'S OWN TWO TERMS are pinned hermetically in `scripts/test-workflow-scripts.mjs`
+    # (*the race is settled at the remote*) rather than here: from A's own clone the oracle
+    # still sees A's claim, so a sweep run here would correctly refuse to collect the lock and
+    # the row would assert the fixture rather than the mechanism.
+
+    # --- 1b. THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR -------------------------------
+    # Release A's locks and repeat B's claim verbatim: that is the pre-repair contention —
+    # two clock-derived branch names and no unit-keyed ref — and B must now WIN. If it did
+    # not, every row above would be passing for some reason other than the arbitration, and
+    # a breaker written against a return shape would never notice.
+    ( cd "$_A" && sh "$_arbiter" release "$_arts" ) >/dev/null 2>&1 || true
+    sleep 1
     _outB=$(_claim "$_B")
     _brB=$(_branch_of "$_outB")
+    if [ -n "$_brB" ] && [ "$_brA" != "$_brB" ]; then
+        add_row "claim_race_breaker_arbitration" true "with the contended ref gone the same claim wins, so the rows above measure the arbitration and not something else -- this drill can fail" breaker
+    else
+        add_row "claim_race_breaker_arbitration" false "the pre-repair contention did not reproduce, so the refusal rows prove nothing: $(one_line "$_outB")" breaker
+    fi
     ( cd "$_origin" && git update-ref "refs/heads/${_brA}" "$_shaA" ) >/dev/null 2>&1 || true
 
     if [ -n "$_brB" ] && [ "$_brA" != "$_brB" ]; then
@@ -3781,7 +3834,7 @@ cmd_verify_claim_race() {
     # the raced claims are FRESH, so with the protocol's own threshold no sibling would list
     # them at all and the row would pass vacuously. `WORKAHOLIC_CLAIM_STALE_HOURS=0` puts
     # both rows squarely inside its candidate set, so the row fails the moment the filter is
-    # removed. (`undelivered-units` and `catchup-blocked` carry the same filter through the
+    # removed. (`undelivered-units` carries the same filter through the
     # same shared helper; reaching their candidate sets would need a recorded merge refusal
     # and a real content conflict, which this fixture deliberately does not stage.)
     _sib_out=$( ( cd "$_B" && WORKAHOLIC_CLAIM_STALE_HOURS=0 \
@@ -4279,9 +4332,8 @@ cmd_verify_catch_up() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/claim-mergeability.sh"
     _writer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"
     _catchable="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"
-    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"
     _recorder="${REPO_ROOT}/plugins/workaholic/skills/story/scripts/record-merge-outcome.sh"
-    for _f in "$_reader" "$_writer" "$_catchable" "$_step" "$_recorder"; do
+    for _f in "$_reader" "$_writer" "$_catchable" "$_recorder"; do
         [ -f "$_f" ] || emit_err "catch_up_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
 
@@ -4444,7 +4496,7 @@ GH_STUB_EOF
     # `catch-a-reported-claim-up-before-its-conflict-hardens`) -------------------------------
     # The candidate reader is what changed; the writer is untouched. These rows run BEFORE the
     # catch-up rows below, because a caught-up branch contains the base and leaves the candidate
-    # set by itself — which is exactly the self-correction `step-catchup-blocked.sh` records.
+    # set by itself — which is exactly the self-correction the catch-up's own report records.
     _cands=$( ( cd "$_read" && PATH="${_bin}:$PATH" \
         WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 sh "$_catchable" ) 2>&1 || true )
     _names() { printf '%s' "$_cands" | grep -q "\"unit\": \"$1\""; }
@@ -4460,10 +4512,31 @@ GH_STUB_EOF
         add_row "catch_up_offers_a_drained_claim" false "the reader did not offer the queue_drained mechanical claim: $(one_line "$_cands")" breaker
     fi
 
-    # AND NOTHING ELSE IS OFFERED. `content` is a person's, and a colleague's claim is
-    # untouchable at any age — neither may reach an act that pushes.
-    if ! _names batch-content && ! _names batch-foreign; then
-        add_row "catch_up_offer_is_bounded" true "a content conflict and a colleague's claim are not candidates -- the reader offers only what the act may take" load
+    # A CONTENT PREDICTION IS OFFERED, AND A COLLEAGUE'S CLAIM STILL IS NOT (2026-09-02, mission
+    # `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`).
+    #
+    # This row asserted that `batch-content` was NOT a candidate, on the reasoning that a content
+    # conflict is a person's. The operator's correction was that deferring it to a claim holder
+    # is wrong, because a claim holder never comes — and the mechanism behind the correction is
+    # that `mergeability` is a PREDICTION: the reader computes with the repository's
+    # `.gitattributes` deliberately out of reach (its job is to predict GitHub, which applies no
+    # merge driver) while the writer merges in a real checkout where those drivers are in force.
+    # So the reader over-reports `content`, and the act now tests the prediction instead of
+    # trusting it. The refusal did not go — it moved to the writer's own residue.
+    #
+    # THE TWO HALVES ARE SPLIT ON PURPOSE, because they are different facts and one of them must
+    # never move. Collapsing them back into a single row is how the identity bound would be lost
+    # silently the next time this one is widened.
+    if _names batch-content; then
+        add_row "catch_up_offers_a_content_prediction" true "a content-classed claim is offered to the act -- the class is a prediction and the writer decides" breaker
+    else
+        add_row "catch_up_offers_a_content_prediction" false "the reader withheld the content-classed claim, so the act can never test the prediction: $(one_line "$_cands")" breaker
+    fi
+
+    # AND THE IDENTITY BOUND DID NOT MOVE WITH IT. A colleague's claim is untouchable at any age
+    # and at any class — it may never reach an act that pushes.
+    if ! _names batch-foreign; then
+        add_row "catch_up_offer_is_bounded" true "a colleague's claim is not a candidate -- the reader never offers what no act of ours may take" load
     else
         add_row "catch_up_offer_is_bounded" false "the reader offered a unit no act may take: $(one_line "$_cands")" load
     fi
@@ -4547,17 +4620,20 @@ GH_STUB_EOF
         add_row "catch_up_second_run_noop" false "the second run was not a reported no-op: $(one_line "$_s")" load
     fi
 
-    # ROW 5: THE REFUSED CONFLICT REACHES ITS CLAIM HOLDER, keyed once, naming the branch and
-    # the files both sides changed -- and the unit the loop CAUGHT UP draws no question, which
-    # is the split the whole mission rests on.
-    _stepout=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
-        sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
-    if printf '%s' "$_stepout" | grep -q 'catchup-blocked:batch-content' \
-        && printf '%s' "$_stepout" | grep -q 'src/app.txt' \
-        && ! printf '%s' "$_stepout" | grep -q 'catchup-blocked:batch-mechanical'; then
-        add_row "catch_up_blocked_asks_once" true "the refused conflict reaches its claim holder keyed once, naming the files, and the caught-up unit draws no question" load
+    # ROW 5: NO STEP OF THE TICK ASKS ANYBODY ABOUT A CONFLICT (2026-09-02, ticket
+    # `20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md`). The
+    # operator's words about the step that did: it "was never asked for and is not working; it
+    # must not be used" -- a conflict handed to a claim holder is handed to somebody who never
+    # comes, and parked work then reads as progress to the loop and as stagnation to its
+    # operator. So the residue is reported where the ACT met it, and the drill asserts the
+    # absence: no `catchup-blocked` step, and no step id emitting that key.
+    _retired="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"
+    _regkeys=$( ( cd "$REPO_ROOT" && grep -rl 'catchup-blocked:' plugins/workaholic/skills 2>/dev/null ) || true )
+    if [ ! -f "$_retired" ] && [ -z "$_regkeys" ] \
+        && ! grep -q 'catchup-blocked' "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh"; then
+        add_row "catch_up_conflict_asks_nobody" true "the step that deferred a conflict to a claim holder is gone, its key is emitted nowhere, and the registry no longer names it" load
     else
-        add_row "catch_up_blocked_asks_once" false "the question was not asked as specified: $(one_line "$_stepout")" load
+        add_row "catch_up_conflict_asks_nobody" false "a surface still defers a conflict to a claim holder (script=$([ -f "$_retired" ] && echo present || echo gone) keys=$(one_line "$_regkeys"))" load
     fi
 
     # THE DELIBERATELY BROKEN ROW -- written against the BEHAVIOUR. A claim this identity does
@@ -5872,6 +5948,10 @@ STUB
 #   1. the reader's three states       green, red with the failing check names, and every
 #                                      `unanswerable` reason -- including a commit with NO
 #                                      checks at all, which must never read as green
+#   1b. the bookkeeping tip            a tip no workflow ran on is walked past to the newest
+#                                      checked ancestor, which the verdict names along with how
+#                                      far behind it is -- and ONLY a `no_checks` tip is, since
+#                                      every other unanswerable reason is a fact about us
 #   2. the walk's two outcomes         a red tip attributed to a mid-walk merge with its pull
 #                                      request and author, and the `unattributable` tail
 #   3. the asked-once gate             two ticks over one red commit, one question, keyed
@@ -6828,7 +6908,15 @@ cmd_verify_return_path() {
 # Hermetic: a bare origin in a temp dir, no `gh`, no network beyond the local file remote.
 cmd_verify_log_branch() {
     _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
-    for _f in "${_mod}/log-ref.sh" "${_mod}/ensure-log-ref.sh" "${_mod}/hydrate-log.sh" "${_mod}/persist-log.sh"; do
+    # THE REF IS DERIVED IN `gather`, NOT IN `moderate` (2026-09-02). `log-ref.sh` and
+    # `ensure-log-ref.sh` live beside the other repository-shaped readers because the ref is a
+    # fact about the repository, not about the tick; `hydrate-log.sh` and `persist-log.sh` are the
+    # tick's own and stay here. This drill looked for all four in `moderate/scripts` and so exited
+    # `log_branch_seam_unreadable` on every run since it was written -- `skipped`, never `fail`,
+    # which is exactly the shape a drill must not have: the guard for the whole move had never
+    # once executed. Naming the two directories separately is what keeps that visible.
+    _gth="${REPO_ROOT}/plugins/workaholic/skills/gather/scripts"
+    for _f in "${_gth}/log-ref.sh" "${_gth}/ensure-log-ref.sh" "${_mod}/hydrate-log.sh" "${_mod}/persist-log.sh"; do
         [ -f "$_f" ] || emit_err "log_branch_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
 
@@ -6847,7 +6935,7 @@ cmd_verify_log_branch() {
     # resolved the wrong repository root would publish a drill's log into real history.
     _in() { ( cd "$_work" && "$@" ) 2>&1 || true; }
 
-    _ref=$(sh "${_mod}/log-ref.sh")
+    _ref=$(sh "${_gth}/log-ref.sh")
     if [ "$_ref" != "main" ] && [ -n "$_ref" ]; then
         add_row "log_ref_is_not_the_base" true "the log branch is named ${_ref}, which is not the base" load
     else
@@ -9404,6 +9492,184 @@ cmd_verify_cadence_lapse() {
 #
 # WHAT THIS DRILL DOES NOT PROVE: that the consuming repository's own incident is gone. That
 # repository may be on a different plugin version; this exercises this checkout's scripts only.
+# ------------------------------------------- verify-stranded-claim-branch
+# THE ONE MECHANISM IN THIS LOOP WHOSE REGRESSION DESTROYS WORK RATHER THAN DELAYING IT
+# (2026-09-02, mission `prove-a-claim-branch-is-empty-before-deleting-it`).
+#
+# `superseded` licenses `retire-claim.sh` to DELETE a remote branch. Until 2026-09-01 it proved
+# only that the unit's tickets were archived on the base, and the step from there to *the branch
+# holds no work* holds only when a branch carries nothing but its own unit's tickets. Measured:
+# two branches whose tickets had landed through DIFFERENT branches still held ~300 lines of code
+# and a documentation section present on no other ref, and the tick was asking for both to be
+# deleted. Only a 403 on `push --delete` had prevented the loss, for five days — which is exactly
+# why this drill is owed: the day the transport is repaired is the day a regression here becomes
+# a silent loss instead of a reported nuisance.
+#
+# THE DELETE IS ALLOWED TO ACTUALLY RUN. The origin is a real bare repository over the file
+# transport, so `retire-claim.sh`'s `push --delete` succeeds when the proof holds. Asserting a
+# return word instead would pass over a delete that happened anyway; the rows below assert the
+# REFS and the FILE CONTENT on origin afterwards.
+#
+# THREE SEEDED CASES, AT BOTH GRAINS: a branch empty against the base outside `.workaholic/`
+# (retired), a branch holding a file that is on no other ref (refused, and the file survives),
+# and a branch whose emptiness cannot be read (never `superseded`, so the act is never reached).
+#
+# WHAT IT DOES NOT PROVE, stated rather than implied: it proves the REFUSAL and the derivation
+# behind it, not the transport. It cannot show that the production 403 is gone or that a real
+# remote delete behaves identically to a file-transport one.
+cmd_verify_stranded_claim_branch() {
+    _lib="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/lib/claims.sh"
+    _lister="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/list-claims.sh"
+    _retirer="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/retire-claim.sh"
+    for _f in "$_lib" "$_lister" "$_retirer"; do
+        [ -f "$_f" ] || emit_err "stranded_branch_seam_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+
+    _tmp=$(mktemp -d)
+    _origin="${_tmp}/origin"; _work="${_tmp}/work"; _read="${_tmp}/read"; _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+    _me=$(cd "$REPO_ROOT" && git config user.email 2>/dev/null || echo drill@example.com)
+    _git() { git -c user.email="$_me" -c user.name=Drill -c commit.gpgsign=false "$@"; }
+
+    # The transport is stubbed for the PULL REQUEST half alone. The branch delete is real.
+    printf '#!/bin/sh\ncase "$2" in rate_limit) echo 5000 ;; *) echo "[]" ;; esac\n' > "${_bin}/gh"
+    chmod +x "${_bin}/gh"
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) || true
+    ( cd "$_tmp" && git clone -q "$_origin" work ) || true
+    mkdir -p "${_work}/.workaholic/tickets/todo" "${_work}/.workaholic/missions/active/m-stranded" "${_work}/src"
+    for _n in 1 2; do
+        printf -- '---\ncreated_at: 2026-01-01T00:00:0%s+09:00\nauthor: %s\n---\n\n# T%s\n' \
+            "$_n" "$_me" "$_n" > "${_work}/.workaholic/tickets/todo/2026010100000${_n}-t.md"
+    done
+    # THE MISSION GRAIN'S LOCAL TEST NEEDS A TICKET THAT NAMES THE MISSION. Without one
+    # `claims_mission_landed` cannot answer and the verdict falls through to the
+    # merged-pull-request lookup, which is deliberately disabled here so the drill measures the
+    # verdict rather than the transport.
+    printf -- '---\ncreated_at: 2026-01-01T00:00:03+09:00\nauthor: %s\nmission: m-stranded\n---\n\n# T3\n' \
+        "$_me" > "${_work}/.workaholic/tickets/todo/20260101000003-t.md"
+    printf -- '---\ntype: Mission\ntitle: M\nslug: m-stranded\nstatus: active\nassignees: [%s]\n---\n\n# M\n\n## Acceptance\n\n- [ ] x\n' \
+        "$_me" > "${_work}/.workaholic/missions/active/m-stranded/mission.md"
+    printf 'on the base\n' > "${_work}/src/base.txt"
+    ( cd "$_work" && _git add -A && _git commit -qm seed && git push -q origin main ) || true
+
+    _stamp() { # $1 = branch, $2 = ticket basename
+        printf -- '---\ncreated_at: 2026-01-01T00:00:00+09:00\nauthor: %s\nclaim: %s\n---\n\n# T\n\nclaimed\n' \
+            "$_me" "$1" > "${_work}/.workaholic/tickets/todo/$2"
+    }
+
+    # CASE 1 -- EMPTY AGAINST THE BASE. Its own archive directory and nothing else, which is
+    # what the ordinary superseded twin looks like: the two trees differ inside `.workaholic/`
+    # BY CONSTRUCTION, and a bare diff would call every genuine retirement stranded.
+    ( cd "$_work" && git checkout -q -b work-20260101-000010 main \
+      && _stamp work-20260101-000010 20260101000001-t.md \
+      && _git commit -qam "Claim a PR-unit" -m "Unit: batch-empty" \
+      && git push -q origin work-20260101-000010 ) >/dev/null 2>&1 || true
+
+    # CASE 2 -- HOLDS WORK, BATCH GRAIN. A file on this branch and on no other ref.
+    ( cd "$_work" && git checkout -q -b work-20260101-000011 main \
+      && _stamp work-20260101-000011 20260101000002-t.md \
+      && printf 'work that exists on no other ref\n' > src/orphan.txt \
+      && _git add -A && _git commit -qm "Claim a PR-unit" -m "Unit: batch-holds" \
+      && git push -q origin work-20260101-000011 ) >/dev/null 2>&1 || true
+
+    # CASE 3 -- HOLDS WORK, MISSION GRAIN. The artifact is `mission.md`, which routes through a
+    # different arm of `claims_superseded`; both arms must reach the same refusal.
+    ( cd "$_work" && git checkout -q -b work-20260101-000012 main \
+      && printf -- '---\ntype: Mission\ntitle: M\nslug: m-stranded\nstatus: active\nassignees: [%s]\nclaim: work-20260101-000012\n---\n\n# M\n\n## Acceptance\n\n- [ ] x\n' \
+         "$_me" > .workaholic/missions/active/m-stranded/mission.md \
+      && printf 'a verifier nothing else has\n' > src/verifier.mjs \
+      && _git add -A && _git commit -qm "Claim a PR-unit" -m "Unit: m-stranded" \
+      && git push -q origin work-20260101-000012 ) >/dev/null 2>&1 || true
+
+    # THE BASE LANDS EVERY UNIT'S TICKETS THROUGH ANOTHER BRANCH -- the measured shape, and the
+    # only reason any of these read as finished at all.
+    ( cd "$_work" && git checkout -q main \
+      && mkdir -p .workaholic/tickets/archive/work-20260101-000099 \
+      && git mv .workaholic/tickets/todo/20260101000001-t.md .workaholic/tickets/archive/work-20260101-000099/ \
+      && git mv .workaholic/tickets/todo/20260101000002-t.md .workaholic/tickets/archive/work-20260101-000099/ \
+      && git mv .workaholic/tickets/todo/20260101000003-t.md .workaholic/tickets/archive/work-20260101-000099/ \
+      && _git commit -qm "Archive the tickets elsewhere" && git push -q origin main ) >/dev/null 2>&1 || true
+
+    ( cd "$_tmp" && git clone -q "$_origin" read ) >/dev/null 2>&1 || true
+    ( cd "$_read" && git config user.email "$_me" && git config user.name Drill ) >/dev/null 2>&1 || true
+
+    _rows=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        WORKAHOLIC_CLAIM_MERGED_LOOKUP=0 sh "$_lister" ) 2>/dev/null || printf '' )
+    _verdict() { printf '%s' "$_rows" | jq -r --arg u "$1" '[.claims[]? | select(.unit == $u) | .resume_reason] | first // ""' 2>/dev/null || printf ''; }
+
+    if [ "$(_verdict batch-empty)" = "superseded" ]; then
+        add_row "stranded_empty_branch_is_superseded" true "a branch differing from the base only inside .workaholic/ is still proved empty" load
+    else
+        add_row "stranded_empty_branch_is_superseded" false "the ordinary retirement stopped firing: batch-empty read '$(_verdict batch-empty)'" load
+    fi
+    if [ "$(_verdict batch-holds)" = "stranded" ] && [ "$(_verdict m-stranded)" = "stranded" ]; then
+        add_row "stranded_holding_branch_is_stranded" true "at both grains a branch whose tickets landed while it still holds work reads stranded, never superseded" load
+    else
+        add_row "stranded_holding_branch_is_stranded" false "a branch holding work was not named stranded: batch=$(_verdict batch-holds) mission=$(_verdict m-stranded)" load
+    fi
+
+    # THE FILES RIDE THE ROW, so the question that reaches a person can name them.
+    _files=$(printf '%s' "$_rows" | jq -r '[.claims[]? | select(.unit == "batch-holds") | .stranded_files[]?] | join(",")' 2>/dev/null || printf '')
+    if printf '%s' "$_files" | grep -q 'src/orphan.txt'; then
+        add_row "stranded_row_names_the_files" true "the row names what the branch holds, so a person can rule on the work" load
+    else
+        add_row "stranded_row_names_the_files" false "the row named no files: [$_files]" load
+    fi
+
+    # AN EMPTINESS THAT CANNOT BE READ IS NEVER `superseded`. Asserted on the derivation, where
+    # the absence is reproducible offline: a ref the reader cannot resolve.
+    _unknown=$( ( cd "$_read" && sh -c ". \"$_lib\"; claims_branch_emptiness origin/main origin/work-does-not-exist" ) 2>/dev/null | cut -f1,2 || printf '' )
+    _unreadable_verdict=$( ( cd "$_read" && WORKAHOLIC_CLAIM_MERGED_LOOKUP=0 sh -c ". \"$_lib\"; claims_superseded origin/main '.workaholic/tickets/todo/20260101000001-t.md' work-does-not-exist origin/work-does-not-exist" ) 2>/dev/null || printf '' )
+    if printf '%s' "$_unknown" | grep -q '^unknown' && [ "$_unreadable_verdict" = "stranded" ]; then
+        add_row "stranded_unreadable_is_never_superseded" true "an emptiness nobody could read answers unknown and the verdict answers stranded, so no delete is licensed" load
+    else
+        add_row "stranded_unreadable_is_never_superseded" false "an unreadable emptiness did not refuse: reading=[$_unknown] verdict=[$_unreadable_verdict]" load
+    fi
+
+    # THE ACT, WITH THE DELETE ALLOWED TO RUN. The proved-empty branch really goes.
+    _r1=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        WORKAHOLIC_CLAIM_MERGED_LOOKUP=0 sh "$_retirer" batch-empty ) 2>&1 || true )
+    if ! ( cd "$_origin" && git rev-parse --verify --quiet refs/heads/work-20260101-000010 >/dev/null 2>&1 ); then
+        add_row "stranded_proved_branch_is_deleted" true "the proof still licenses the delete and the branch is gone from origin" load
+    else
+        add_row "stranded_proved_branch_is_deleted" false "the proved-empty branch was not deleted: $(one_line "$_r1")" load
+    fi
+
+    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR AND NOT AGAINST A RETURN SHAPE. The branch
+    # holding work is handed straight to the act, at both grains, with the delete permitted. The
+    # assertion is that the REF and its FILE CONTENT are still on origin afterwards -- a refactor
+    # that keeps the JSON and loses the emptiness term deletes them and this row goes red.
+    _r2=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        WORKAHOLIC_CLAIM_MERGED_LOOKUP=0 sh "$_retirer" batch-holds ) 2>&1 || true )
+    _r3=$( ( cd "$_read" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES=0 \
+        WORKAHOLIC_CLAIM_MERGED_LOOKUP=0 sh "$_retirer" m-stranded ) 2>&1 || true )
+    _kept_b=$( ( cd "$_origin" && git show work-20260101-000011:src/orphan.txt ) 2>/dev/null || printf '' )
+    _kept_m=$( ( cd "$_origin" && git show work-20260101-000012:src/verifier.mjs ) 2>/dev/null || printf '' )
+    if [ -n "$_kept_b" ] && [ -n "$_kept_m" ] \
+        && printf '%s' "$_r2" | grep -q 'not_superseded' && printf '%s' "$_r3" | grep -q 'not_superseded'; then
+        add_row "stranded_holding_branch_survives_the_act" true "at both grains the act refuses by name and the work that would have been lost is still on origin -- this drill can fail" breaker
+    else
+        add_row "stranded_holding_branch_survives_the_act" false "work was lost or the refusal was not named: batch=$(one_line "$_r2") mission=$(one_line "$_r3")" breaker
+    fi
+
+    # NOTHING OUTSIDE THE FIXTURE IS WRITTEN.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "stranded_branch_checkout_untouched" true "the drill left this checkout exactly as it found it" load
+    else
+        add_row "stranded_branch_checkout_untouched" false "the drill changed this checkout" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -eq 0 ]; then
+        emit_verdict "stranded-claim-branch" 0 "pass" 0
+    fi
+    emit_verdict "stranded-claim-branch" 0 "fail" 1
+}
+
 cmd_verify_stranded_publication() {
     _br="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts"
     _reader="${_br}/list-stranded-publications.sh"
@@ -9645,12 +9911,18 @@ cmd_verify_stranded_publication() {
         add_row "stranded_clean_rerun_is_a_noop" false "a re-run over the delivered publication was not a refusing no-op: $(one_line "$_cl_again")" load
     fi
 
-    # 7. THE PERSON IS TOLD ABOUT WHAT THE LOOP MUST NOT SETTLE, exactly once and keyed.
+    # 7. A CONTENT COLLISION IS COUNTED AND ASKED ABOUT BY NOBODY (2026-09-02, ticket
+    # `20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md`). It used
+    # to draw a question keyed `stranded-publication:<n>`; the operator's ruling is that a
+    # conflict handed to an author who never comes makes parked work read as progress. The act
+    # now attempts every class, and what the merge itself cannot settle is reported where the
+    # attempt happened. The reading survives — the count is still in the summary and the event
+    # still names the repository fact — and only the DEFERRAL is gone.
     _s=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260831-130000 --root "$_wt" 2>&1 || true)
-    if printf '%s' "$_s" | jq -e '(.status == "ok") and ([.needs_agent[]?.stranded[]? | select(.key == "stranded-publication:42")] | length == 1) and (.event | length > 0)' >/dev/null 2>&1; then
-        add_row "stranded_content_reaches_a_person" true "the content collision is one candidate keyed stranded-publication:42, with an event" load
+    if printf '%s' "$_s" | jq -e '(.status == "ok") and ([.needs_agent[]?.stranded[]?] | length == 0) and (.summary | test("colliding on content"))' >/dev/null 2>&1; then
+        add_row "stranded_content_asks_nobody" true "the content collision is counted in the summary and reaches no question -- the next tick attempts it and the act reports what it cannot settle" load
     else
-        add_row "stranded_content_reaches_a_person" false "the content collision did not reach the check-in: $(one_line "$_s")" load
+        add_row "stranded_content_asks_nobody" false "a content collision still defers to the publication author, or stopped being counted: $(one_line "$_s")" load
     fi
 
     # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
@@ -9881,8 +10153,15 @@ STUB
     ln -s "${REPO_ROOT}/plugins/workaholic/skills/gather" "${_bskills}/gather"
     _broken="${_bskills}/moderate/scripts"
     sed 's|TTK_KEY="tick-day:${_ttk_day}"|TTK_KEY="tick:${1:-}"|' "$_key" > "${_broken}/lib/tick-thread-key.sh"
+    #     THE ARGUMENT LINE CARRIES `$uncomputed` SINCE 2026-09-02 (mission
+    #     `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`), so the anchor matches
+    #     it. This is the failure mode a breaker has that an ordinary assertion does not: when
+    #     the anchor stops matching, half B silently does not apply and the drill reports
+    #     `noisy=no` — which is the breaker doing its job, saying the rows above no longer prove
+    #     anything. Re-anchor it rather than relaxing the pattern; a loose anchor is a breaker
+    #     that stops noticing.
     sed -e 's|"summary": "%s — candidates for step 10|"summary": "%s (%s) — candidates for step 10|' \
-        -e 's|^    "\$HEADLINE" "\$HEADLINE" "\$needs" "\$ASK_KEY"$|    "$HEADLINE" "$pairs" "$HEADLINE" "$needs" "$ASK_KEY"|' \
+        -e 's|^    "\$HEADLINE" "\$HEADLINE" "\$needs" "\$ASK_KEY" "\$uncomputed"$|    "$HEADLINE" "$pairs" "$HEADLINE" "$needs" "$ASK_KEY" "$uncomputed"|' \
         "$_stuck" > "${_broken}/step-stuck-prs.sh"
     chmod +x "${_broken}/lib/tick-thread-key.sh" "${_broken}/step-stuck-prs.sh"
 
@@ -9912,6 +10191,184 @@ STUB
         emit_verdict "tick-thread" 0 "fail" 1
     fi
     emit_verdict "tick-thread" 0 "pass" 0
+}
+
+# ------------------------------------------------------- verify-retired-claim
+
+# A CLAIM WHOSE MISSION HAS ENDED, AND THE QUESTION IT MUST NO LONGER DRAW (2026-09-02, mission
+# `retire-a-claim-whose-work-is-finished-or-abandoned`).
+#
+# Measured: the operator closed a pull request and closed its mission `abandoned`, and the tick
+# reported that branch as stuck work every hour until a person deleted it by hand. Two readings
+# ship for it and they are two halves of one behaviour — the retirement path must OWN such a
+# claim, and the stuck-work question must stop being asked about it — so one drill walks both.
+# Split in two, each half would pass while the pair stayed broken: a candidate nobody filters on
+# and a filter with nothing to filter are each individually green.
+#
+# THE MECHANISM IS DESTRUCTIVE, so what is drilled is precisely what must not happen: a branch
+# whose mission is still ACTIVE being offered, and a claim a run is DRIVING being offered however
+# ended its mission.
+#
+# IT IS HERMETIC. Everything but the pull-request state is derived from a local fixture; that one
+# fact is stubbed at the `gh` seam. No network, no credential.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR: the ended mission is moved back to `active/` and
+# the candidate must disappear. A reader that ignored the mission — the whole defect — would
+# offer the branch in both states, so a refactor that keeps the JSON shape and loses the bound
+# still turns this row red.
+cmd_verify_retired_claim() {
+    _dr="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts"
+    _mstate="${_dr}/claim-mission-state.sh"
+    _reader="${_dr}/list-retirable-claims.sh"
+    _act="${_dr}/delete-retired-claim-branch.sh"
+    _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh"
+    for _f in "$_mstate" "$_reader" "$_act" "$_step"; do
+        [ -f "$_f" ] || emit_err "retired_claim_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    # The origin path's last two segments ARE the slug `gh-rest.sh` derives — the sibling drill's
+    # reason, kept identical: a rewritten URL is unfetchable and `claims_fetch` would answer
+    # `origin_unreachable` before any question here was asked.
+    _origin="${_tmp}/acme-org/source-repo"
+    _wt="${_tmp}/A"
+    _bin="${_tmp}/bin"
+    mkdir -p "$_origin" "$_bin"
+
+    _ended=work-20260902-200000
+    _living=work-20260902-200001
+    _old="2026-08-01T00:00:00+00:00"
+
+    ( cd "$_origin" && git -c init.defaultBranch=main init -q --bare ) >/dev/null 2>&1 \
+        || emit_err "retired_claim_fixture" 4 "could not create the bare origin"
+    (
+        git clone -q "$_origin" "$_wt" \
+            && cd "$_wt" \
+            && git config user.email drill@example.invalid \
+            && git config user.name Drill \
+            && git config commit.gpgsign false \
+            && mkdir -p .workaholic/missions/archive/ended-mission \
+                        .workaholic/missions/active/living-mission src \
+            && printf 'base\n' > src/app.txt \
+            && printf -- '---\ntype: Mission\nslug: ended-mission\nstatus: abandoned\nassignees: [drill@example.invalid]\n---\n\n# Ended\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n' \
+                 > .workaholic/missions/archive/ended-mission/mission.md \
+            && printf -- '---\ntype: Mission\nslug: living-mission\nstatus: active\nassignees: [drill@example.invalid]\n---\n\n# Living\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n' \
+                 > .workaholic/missions/active/living-mission/mission.md \
+            && git add -A && git commit -q -m 'Seed the base' && git push -q origin main
+    ) >/dev/null 2>&1 || emit_err "retired_claim_fixture" 4 "could not seed the fixture"
+
+    # Two claims, identical in every respect but the state of the mission each names, and both
+    # aged out of the heartbeat window so neither reads `claim_active`. Each is EMPTY against the
+    # base outside `.workaholic/`, so the act's emptiness gate is not what tells them apart.
+    _seed_claim() {
+        ( cd "$_wt" && git checkout -q -B "$1" origin/main \
+            && GIT_COMMITTER_DATE="$_old" GIT_AUTHOR_DATE="$_old" \
+               git commit -q --allow-empty -m "Claim a PR-unit" -m "Unit: $2" \
+            && mkdir -p .workaholic/tickets \
+            && printf 'bookkeeping\n' > ".workaholic/tickets/$1.md" \
+            && git add -A \
+            && GIT_COMMITTER_DATE="$_old" GIT_AUTHOR_DATE="$_old" \
+               git commit -q -m 'Archive a ticket' \
+            && git push -q origin "$1" && git checkout -q main ) >/dev/null 2>&1
+    }
+    _seed_claim "$_ended" ended-mission || emit_err "retired_claim_fixture" 4 "could not seed $_ended"
+    _seed_claim "$_living" living-mission || emit_err "retired_claim_fixture" 4 "could not seed $_living"
+    ( cd "$_wt" && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+
+    # The transport. Neither branch's pull request is OPEN — an open one is deliberately offered
+    # to nothing, so it would hide the mission bound behind a different refusal.
+    {
+        printf '#!/bin/sh\ncase "$*" in\n'
+        printf "  *rate_limit*) printf '5000\\\\n'; exit 0 ;;\n"
+        printf "  *DELETE*) printf '{}\\\\n'; exit 0 ;;\n"
+        printf "  *state=open*) printf '[]\\\\n'; exit 0 ;;\n"
+        printf 'esac\n'
+        printf "printf '[]\\\\n'\n"
+    } > "${_bin}/gh"
+    chmod +x "${_bin}/gh"
+
+    # 1. THE READING ITSELF: the area decides, `status` rides along, a batch unit is a real
+    #    answer and an unknown mission is a named absence with no `state` key at all.
+    _ms() { cd "$_wt" && sh "$_mstate" "$1" 2>&1 || true; }
+    if printf '%s' "$(_ms ended-mission)" | jq -e '.ok and .state == "not_active" and .status == "abandoned"' >/dev/null 2>&1 \
+       && printf '%s' "$(_ms living-mission)" | jq -e '.ok and .state == "active"' >/dev/null 2>&1 \
+       && printf '%s' "$(_ms batch-20260902-010203)" | jq -e '.ok and .kind == "batch" and (has("state") | not)' >/dev/null 2>&1 \
+       && printf '%s' "$(_ms no-such-mission)" | jq -e '(.ok == false) and (has("state") | not)' >/dev/null 2>&1; then
+        add_row "retired_claim_mission_state" true "an archived mission reads not_active with its status, an active one active, a batch unit its own kind, and an unknown one a named absence" load
+    else
+        add_row "retired_claim_mission_state" false "the mission reading is wrong: ended=$(one_line "$(_ms ended-mission)") living=$(one_line "$(_ms living-mission)")" load
+    fi
+
+    # 2. THE CANDIDATE: the ended mission's claim is offered under its own word, and the living
+    #    mission's — identical in every other respect — is offered by nothing.
+    _r=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_reader" 2>&1 || true)
+    if printf '%s' "$_r" | jq -e --arg e "$_ended" --arg l "$_living" '
+            (.ok == true)
+            and ([.candidates[] | select(.branch == $e and .candidate_reason == "mission_not_active"
+                                         and .mission_status == "abandoned")] | length == 1)
+            and ([.candidates[] | select(.branch == $l)] | length == 0)' >/dev/null 2>&1; then
+        add_row "retired_claim_is_a_candidate" true "the ended mission's claim is offered as mission_not_active with its status; the living one is offered by nothing" load
+    else
+        add_row "retired_claim_is_a_candidate" false "the candidate reading is wrong: $(one_line "$_r")" load
+    fi
+
+    # 3. THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Move the ended mission back to `active/`:
+    #    the candidate must vanish. A reader that ignored the mission would offer the branch in
+    #    both states, which is exactly the defect this class exists to close — so rows 1-2 prove
+    #    nothing unless this row can fail.
+    ( cd "$_wt" && git checkout -q main && git pull -q --ff-only origin main \
+        && git mv .workaholic/missions/archive/ended-mission .workaholic/missions/active/ended-mission \
+        && git commit -q -m 'Reopen the mission' && git push -q origin main \
+        && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+    _rb=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_reader" 2>&1 || true)
+    if printf '%s' "$_rb" | jq -e --arg e "$_ended" '[.candidates[] | select(.branch == $e)] | length == 0' >/dev/null 2>&1; then
+        add_row "retired_claim_breaker" true "with the mission back in active/ the candidate disappears, so the reader is reading the mission and this drill can fail" breaker
+    else
+        add_row "retired_claim_breaker" false "the breaker did not break: the branch is still a candidate with its mission active, so rows 1-2 prove nothing: $(one_line "$_rb")" breaker
+    fi
+    # Put it back for the acting and filtering rows.
+    ( cd "$_wt" && git mv .workaholic/missions/active/ended-mission .workaholic/missions/archive/ended-mission \
+        && git commit -q -m 'End the mission again' && git push -q origin main \
+        && git fetch -q --prune origin ) >/dev/null 2>&1 || true
+
+    # 4. THE ACT re-derives the class and refuses the living mission by its own word, while
+    #    taking the ended one — the two answers a candidate list alone cannot prove.
+    _a_live=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" living-mission --branch "$_living" --reason mission_not_active 2>&1 || true)
+    _a_end=$(cd "$_wt" && PATH="${_bin}:$PATH" sh "$_act" ended-mission --branch "$_ended" --reason mission_not_active 2>&1 || true)
+    if printf '%s' "$_a_live" | jq -e '(.deleted == false) and (.reason | startswith("mission_still_active"))' >/dev/null 2>&1 \
+       && printf '%s' "$_a_end" | jq -e '(.deleted == true) and (.state == "deleted")' >/dev/null 2>&1; then
+        add_row "retired_claim_act_re_derives" true "the act refuses a living mission's branch by name and takes the ended one" load
+    else
+        add_row "retired_claim_act_re_derives" false "living=$(one_line "$_a_live") ended=$(one_line "$_a_end")" load
+    fi
+
+    # 5. AND THE STUCK-WORK QUESTION STOPS BEING ASKED. Both claims are past the staleness
+    #    threshold; only the one the retirement path owns must be subtracted, and the
+    #    subtraction must be COUNTED rather than silent.
+    _s=$(cd "$_wt" && PATH="${_bin}:$PATH" WORKAHOLIC_CLAIM_STALE_HOURS=0 \
+        sh "$_step" --tick 20260902-200000 --root "$_wt" 2>&1 || true)
+    _asked=$(printf '%s' "$_s" | jq -r '[.needs_agent[]?.stalled[]?.unit] | sort | join(",")' 2>/dev/null || printf '?')
+    if [ "$_asked" = "living-mission" ] \
+       && printf '%s' "$_s" | jq -e '.summary | test("1 already owned by the retirement path")' >/dev/null 2>&1; then
+        add_row "retired_claim_draws_no_question" true "only the living mission's claim is asked about, and the subtraction is counted in the summary" load
+    else
+        add_row "retired_claim_draws_no_question" false "asked=[$_asked] summary=$(printf '%s' "$_s" | jq -r '.summary // ""' 2>/dev/null)" load
+    fi
+
+    # 6. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "retired_claim_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "retired_claim_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "retired-claim" 0 "fail" 1
+    fi
+    emit_verdict "retired-claim" 0 "pass" 0
 }
 
 # ------------------------------------------------- verify-retirement-candidates
@@ -10153,7 +10610,7 @@ cmd_verify_retirement_candidates() {
     emit_verdict "retirement-candidates" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -10220,10 +10677,12 @@ case "$CMD" in
     verify-cadence-lapse) cmd_verify_cadence_lapse "$@" ;;
     verify-blocked-tick) cmd_verify_blocked_tick "$@" ;;
     verify-stranded-publication) cmd_verify_stranded_publication "$@" ;;
+    verify-stranded-claim-branch) cmd_verify_stranded_claim_branch "$@" ;;
     verify-directed-notification) cmd_verify_directed_notification "$@" ;;
     verify-impairment) cmd_verify_impairment "$@" ;;
     verify-tick-thread) cmd_verify_tick_thread "$@" ;;
     verify-retirement-candidates) cmd_verify_retirement_candidates "$@" ;;
+    verify-retired-claim) cmd_verify_retired_claim "$@" ;;
     *)
         echo "$USAGE" >&2
         exit 2

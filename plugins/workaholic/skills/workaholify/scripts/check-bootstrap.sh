@@ -30,13 +30,19 @@
 # failure, `marketplace add --scope user`, no idempotence) is reported as drift rather than
 # passing because a file happens to exist at the path.
 #
-# THE MAPPING IS PART OF THE BOOTSTRAP, AND IT IS ONE CHECK, NOT TWO (2026-08-26). The
-# hook's step 0b reads `.claude/git-identities`; a repository with the hook and without the
-# mapping therefore looks configured while that step is a permanent no-op. Two questions
-# about one file — does it EXIST, and does it COVER the addresses this tree uses — are
-# emitted as one named-problem set by `audit-identity-coverage.sh` and carried through here:
-# `identity_map_missing` and `identity_map_uncovered`. An operator told twice about one
-# file, in two vocabularies, fixes one and assumes the other followed.
+# THE MAPPING IS PART OF THE BOOTSTRAP, AND IT IS ONE CHECK, NOT THREE (2026-08-26,
+# extended 2026-09-02). The hook's step 0b reads `.claude/git-identities`; a repository with
+# the hook and without a usable mapping therefore looks configured while that step is a
+# permanent no-op. Three questions about one file — does it EXIST, does it COVER the
+# addresses this tree uses, and does it NAME THE ACCOUNT this session runs as — are emitted
+# as one named-problem set by `audit-identity-coverage.sh` and carried through here:
+# `identity_map_missing`, `identity_map_uncovered` and `identity_map_no_entry_for_account`.
+# An operator told three times about one file, in three vocabularies, fixes one and assumes
+# the others followed.
+#
+# The third is the one step 0b actually performs, and it is not implied by the second: a
+# mapping can name every `assignees:` value in the tree and still have no line for the login
+# a routine runs as, which is the measured state the mission behind it exists to close.
 #
 # EVERY PROBLEM IS NAMED SEPARATELY. "Not bootstrapped" could mean the hook file is
 # missing, the settings entry is missing, the matcher is wrong (SessionStart also fires on
@@ -67,10 +73,36 @@ if [ -f "$HOOK" ]; then
   fi
 fi
 
+# THE ACCOUNT THE SESSION RUNS AS, resolved HERE and passed in (2026-09-02, ticket
+# `install-and-audit-the-identity-mapping`). Step 0b's lookup key is the GitHub login, not
+# any address in the tree, so the audit cannot answer its third question without one. The
+# resolution lives here rather than inside the audit for two reasons: the audit stays a pure
+# local read that the suite can drive hermetically, and this is already the layer that knows
+# about the session. It is BOUNDED AND NON-FATAL — no `gh`, no network, or a malformed
+# answer all yield an empty login, and the audit then reports the account check as unrun by
+# name rather than as passing. The login is validated to GitHub's own alphanumeric-plus-
+# hyphen shape before it is passed, exactly as step 0b validates it before interpolating.
+#
+# `WORKAHOLIC_BOOTSTRAP_ACCOUNT` IS AN OVERRIDE, NOT A DEFAULT — the shape
+# `WORKAHOLIC_CLAIM_IDENTITY` already has. Set (even to empty) it is used verbatim and no
+# call is made; unset, the login is resolved. It exists because this is the one place in the
+# whole audit that leaves the machine, and a caller that already knows the login — or a test
+# suite that must never touch the network — should not have to intercept a subprocess to say
+# so. Tri-state on PRESENCE, not on emptiness, so an explicit empty means *do not ask*
+# rather than *ask again*.
+if [ -n "${WORKAHOLIC_BOOTSTRAP_ACCOUNT+set}" ]; then
+  ACCOUNT_LOGIN="$WORKAHOLIC_BOOTSTRAP_ACCOUNT"
+else
+  ACCOUNT_LOGIN=$(gh api user --jq .login 2>/dev/null || true)
+fi
+case "$ACCOUNT_LOGIN" in
+  ""|*[!A-Za-z0-9-]*) ACCOUNT_LOGIN="" ;;
+esac
+
 # The mapping's own audit is a separate reader (it walks the tree's `assignees:` values
 # through the field's one parser); its problems are carried through verbatim so the two
 # checks speak one vocabulary.
-IDENTITY_AUDIT=$(sh "${SCRIPT_DIR}/audit-identity-coverage.sh" "$ROOT" 2>/dev/null || printf '{"problems": []}')
+IDENTITY_AUDIT=$(sh "${SCRIPT_DIR}/audit-identity-coverage.sh" "$ROOT" --account "$ACCOUNT_LOGIN" 2>/dev/null || printf '{"problems": []}')
 
 # The settings side is JSON, so it is read with python3 rather than grepped: a SessionStart
 # entry can be nested several ways and a grep would report a commented-out or unrelated
@@ -160,9 +192,23 @@ if "index.md merge=union" not in attrs:
 # human: which GitHub account an address belongs to is a fact this plugin does not have, so
 # gating a completion signal on it makes `ok` unreachable by any machine, and
 # `/workaholify`'s report-only outcome is a named refusal's recovery path rather than the
-# ordinary one. Whether `identity_map_missing` should gate belongs to the queued ticket
-# `install-and-audit-the-identity-mapping`, which owns the existence check — deliberately
-# left to it rather than decided here, so one mission does not land another's ruling.
+# ordinary one.
+#
+# AND `identity_map_missing` DOES NOT GATE EITHER — the ruling 2026-08-26 deferred to the
+# ticket that owns the existence check, made 2026-09-02 by the run that drove it. The case
+# FOR gating is that, unlike its neighbour, the repair is machine-reachable: a scaffold is
+# something `apply-bootstrap.sh` can write unaided. That is exactly what defeats it. The
+# scaffold carries a header and NO ENTRIES, so a repository that applies it still logs
+# `no entry for '<login>'` at step 0b and still keeps `noreply@anthropic.com` — the gate
+# would go green on a file that leaves the hook precisely as dead as the missing one did,
+# which is worse than the advisory it replaced, because a green gate is read as an answer.
+# What actually closes that state is a human writing one line, and that is `ok`-unreachable
+# for the same reason its neighbour is.
+#
+# `identity_map_no_entry_for_account` (2026-09-02) rides with them, for the strongest form
+# of the same reason: the missing line names an account, and only a person can say which
+# address that account commits as. All three are advisories, and `ok` is byte-identical to
+# what it was before any of them existed.
 try:
     identity = json.loads(identity_audit)
 except Exception:
@@ -181,6 +227,8 @@ print(json.dumps({
         "addresses": identity.get("addresses"),
         "covered": identity.get("covered"),
         "uncovered": identity.get("uncovered") or [],
+        # Three-valued by construction: `checked: false` with a reason is never a pass.
+        "account": identity.get("account") or {},
     },
     "ok": not problems,
     "problems": problems,

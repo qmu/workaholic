@@ -4,17 +4,8 @@
 
 * [adjust-the-plan-hourly-not-only-report-it](active/adjust-the-plan-hourly-not-only-report-it/mission.md) - Adjust the plan hourly, not only report it
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [leave-only-live-work-in-the-unmerged-branch-list](active/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
-* [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
-* [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
-* [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
-* [refuse-an-ask-the-loop-wrote-to-itself](active/refuse-an-ask-the-loop-wrote-to-itself/mission.md) - Refuse an ask the loop wrote to itself
-* [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
-* [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](active/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
-* [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
-* [take-the-moderation-tick-s-log-off-main](active/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 
 ## archive
 
@@ -51,6 +42,7 @@
 * [give-the-tick-a-route-for-the-records-it-writes](archive/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [keep-the-closing-link-readable-as-the-corpus-grows](archive/keep-the-closing-link-readable-as-the-corpus-grows/mission.md) - Keep the closing link readable as the corpus grows
 * [land-the-loop-s-own-work-when-the-base-moves-under-it](archive/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it
+* [leave-only-live-work-in-the-unmerged-branch-list](archive/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
 * [let-an-answer-in-the-thread-turn-back-into-the-loop-s-work](archive/let-an-answer-in-the-thread-turn-back-into-the-loop-s-work/mission.md) - Let an answer in the thread turn back into the loop's work
 * [let-the-operator-revise-a-live-direction-through-the-loop](archive/let-the-operator-revise-a-live-direction-through-the-loop/mission.md) - Let the operator revise a live direction through the loop
 * [let-the-tick-add-to-a-standing-thread-instead-of-restating-itself](archive/let-the-tick-add-to-a-standing-thread-instead-of-restating-itself/mission.md) - Let the tick add to a standing thread instead of restating itself
@@ -72,6 +64,7 @@
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](archive/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 * [make-the-propose-implement-loop-drillable-on-demand](archive/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
+* [make-the-routine-create-body-documented-and-buildable](archive/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [make-the-tick-s-questions-readable-and-close-them-in-the-thread](archive/make-the-tick-s-questions-readable-and-close-them-in-the-thread/mission.md) - Make the tick's questions readable and close them in the thread
 * [make-the-tick-s-root-earn-its-hour](archive/make-the-tick-s-root-earn-its-hour/mission.md) - Make the tick's root earn its hour
 * [make-the-two-executors-agree-about-a-proved-empty-claim](archive/make-the-two-executors-agree-about-a-proved-empty-claim/mission.md) - Make the two executors agree about a proved-empty claim
@@ -85,21 +78,27 @@
 * [notify-the-person-a-directed-question-addresses](archive/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
 * [point-the-inbound-readers-at-the-channel-that-exists](archive/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
+* [prove-a-claim-branch-is-empty-before-deleting-it](archive/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
 * [prove-the-loop-s-closing-link](archive/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
 * [put-the-loop-s-standing-rulings-on-one-pull-request](archive/put-the-loop-s-standing-rulings-on-one-pull-request/mission.md) - Put the loop's standing rulings on one pull request
 * [read-a-strategy-s-pace-against-its-date](archive/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date
 * [read-back-whether-the-loop-s-own-act-took-effect](archive/read-back-whether-the-loop-s-own-act-took-effect/mission.md) - Read back whether the loop's own act took effect
+* [read-the-base-s-colour-past-a-bookkeeping-tip](archive/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [read-whether-the-base-survived-what-the-loop-merged](archive/read-whether-the-base-survived-what-the-loop-merged/mission.md) - Read whether the base survived what the loop merged
 * [reconcile-a-stale-thread-with-the-unit-s-real-state](archive/reconcile-a-stale-thread-with-the-unit-s-real-state/mission.md) - Reconcile a stale thread with the unit's real state
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
 * [refresh-the-outdated-documentation-to-match-current-behavior](archive/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
 * [refuse-a-commit-that-splits-a-rename](archive/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
+* [refuse-an-ask-the-loop-wrote-to-itself](archive/refuse-an-ask-the-loop-wrote-to-itself/mission.md) - Refuse an ask the loop wrote to itself
+* [refuse-ok-under-a-placeholder-identity](archive/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [refuse-the-move-that-describes-the-aim-instead-of-advancing-it](archive/refuse-the-move-that-describes-the-aim-instead-of-advancing-it/mission.md) - Refuse the move that describes the aim instead of advancing it
 * [register-every-fb-as-an-issue](archive/register-every-fb-as-an-issue/mission.md) - Register every /fb as an issue
 * [rename-the-routine-pair-and-add-a-per-user-updater](archive/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies
 * [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](archive/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
 * [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
+* [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](archive/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
+* [retire-a-claim-whose-work-is-finished-or-abandoned](archive/retire-a-claim-whose-work-is-finished-or-abandoned/mission.md) - Retire a claim whose work is finished or abandoned
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set
 * [right-size-report-to-single-ticket-per-pr-granularity](archive/right-size-report-to-single-ticket-per-pr-granularity/mission.md) - Right-size /report to single-ticket-per-PR granularity
@@ -117,7 +116,9 @@
 * [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
+* [stop-two-runs-from-claiming-and-driving-one-unit](archive/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
+* [take-the-moderation-tick-s-log-off-main](archive/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 * [tell-a-merged-claim-from-a-live-one-at-both-grains](archive/tell-a-merged-claim-from-a-live-one-at-both-grains/mission.md) - Tell a merged claim from a live one at both grains
 * [tell-an-unanswered-question-from-an-answered-one](archive/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
 * [turn-the-loop-at-mission-granularity](archive/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity

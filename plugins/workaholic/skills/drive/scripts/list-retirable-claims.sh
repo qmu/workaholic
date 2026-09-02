@@ -6,14 +6,17 @@
 #          "candidates": [{"unit": "...", "branch": "work-...",
 #                          "state": "present"|"already_gone",
 #                          "candidate_reason": "superseded_only"|"pull_request_merged"
-#                                              |"pull_request_closed_unmerged",
+#                                              |"pull_request_closed_unmerged"
+#                                              |"mission_not_active",
+#                          "mission_status": "achieved"|"abandoned"|"carried"|"",
 #                          "branch_empty": "true"|"false"|"unanswerable"}],
 #          "pull_request_unreadable": [{"branch": "work-...", "reason": "<named>"}]}
 #         Always exit 0 — a degraded read is an answer, and its caller (a workflow step)
 #         reports it rather than failing the job on it.
 #
-# THREE CANDIDATE CLASSES, EACH CARRYING ITS OWN WORD (2026-09-01, mission
-# `leave-only-live-work-in-the-unmerged-branch-list`). `candidate_reason` rides every row so
+# FOUR CANDIDATE CLASSES, EACH CARRYING ITS OWN WORD (2026-09-01, mission
+# `leave-only-live-work-in-the-unmerged-branch-list`; the fourth 2026-09-02, mission
+# `retire-a-claim-whose-work-is-finished-or-abandoned`). `candidate_reason` rides every row so
 # the classes stay told apart at a glance and no caller loses information:
 #
 #   superseded_only                 the claim oracle proved the unit's content reached the base
@@ -21,6 +24,8 @@
 #                                   unchanged
 #   pull_request_merged             this branch's own pull request MERGED
 #   pull_request_closed_unmerged    a person CLOSED this branch's pull request without merging
+#   mission_not_active              the unit's MISSION has ended — `close.sh` moved it into
+#                                   `missions/archive/`, and `mission_status` rides the row
 #
 # THE THIRD CLASS IS NEVER FOLDED INTO THE SECOND. They answer different questions — *the loop
 # delivered this* and *a person discarded this* — and one word answering two questions is how
@@ -109,6 +114,7 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 
 LISTER="${SCRIPT_DIR}/list-claims.sh"
 PR_STATE="${SCRIPT_DIR}/branch-pull-request-state.sh"
+MISSION_STATE="${SCRIPT_DIR}/claim-mission-state.sh"
 
 FETCHED=false
 SHALLOW=false
@@ -245,6 +251,92 @@ if [ -f "$PR_STATE" ]; then
 
         candidates="${candidates}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"state\": \"present\", \"candidate_reason\": \"${why}\", \"branch_empty\": \"${empty}\"}"
         sep=", "
+        named="${named}${branch}
+"
+    done
+fi
+
+# --- The fourth class: the unit's MISSION has ended -----------------------------------------
+# (2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`.)
+#
+# WHAT THE OTHER THREE CANNOT REACH. Measured: the operator closed a pull request and closed
+# its mission `abandoned`, and the tick reported that branch as stuck work hourly until a
+# person deleted it. `superseded` needs the branch empty AND its tickets on the base; and the
+# per-ref arm above skips every unit the ORACLE has a row for — the `live | single | ambiguous`
+# test — which is exactly a claim branch, because a claim branch carries a `Claim` commit by
+# construction. So a claim whose mission has ended was reachable by no class at all.
+#
+# IT IS ENUMERATED FROM THE ORACLE'S ROWS, not from the refs: the subject is a UNIT (a mission
+# slug), and the refs arm above has no unit for the branches it walks.
+#
+# THE BOUNDS, EACH ONE A REFUSAL RATHER THAN A JUDGEMENT CALL:
+#
+#   resolution `single`   exactly one claim row for the unit. `live` and `ambiguous` are
+#                         refused — a live row governs, which is the rule every class here
+#                         already reads from `claims_unit_resolution` — and `superseded_only`
+#                         belongs to the first class.
+#   not `claim_active`    the heartbeat is fresh, so a run is driving this branch NOW. An
+#                         ended mission is not a licence to delete work in flight, and this is
+#                         the one bound that cannot be recovered from.
+#   mission `not_active`  `claim-mission-state.sh`, composed and never reimplemented. `active`
+#                         and `kind: batch` yield nothing; an `ok: false` yields NO candidate
+#                         and its reason on `pull_request_unreadable[]`.
+#   pull request not open THE BOUND IS NOT WIDENED, and the argument is written here and in
+#                         `../reference/claims.md`: deleting the head branch of an OPEN pull
+#                         request leaves it unmergeable by anybody forever — the headless
+#                         shape this repository measured on #813, #799, #688, #635 and #625
+#                         and had to have a person close by hand. So an open pull request is
+#                         skipped rather than handed to an act that would refuse it hourly,
+#                         and the act's own `pull_request_open` bound stays exactly as it is.
+#
+# `branch_empty` RIDES AS EVIDENCE HERE AND IS A GATE IN THE ACT, exactly as it is for
+# `pull_request_closed_unmerged`: a mission's end state is a person's decision about the WORK
+# and says nothing about what this BRANCH holds. Issue #788 measured the cost of assuming
+# otherwise — two branches with ~300 lines present on no other ref, offered for deletion.
+if [ -f "$MISSION_STATE" ] && [ -f "$PR_STATE" ]; then
+    mission_units=$(printf '%s\n' "$rows" | awk -F'\t' '$1 != "" { print $1 }' | sort -u)
+    for unit in $mission_units; do
+        [ -n "$unit" ] || continue
+        [ "$(claims_unit_resolution "$rows" "$unit")" = "single" ] || continue
+        row=$(claims_unit_row "$rows" "$unit")
+        [ -n "$row" ] || continue
+        verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
+        [ "$verdict" != "claim_active" ] || continue
+        branch=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
+        [ -n "$branch" ] || continue
+        printf '%s\n' "$named" | grep -qx "$branch" && continue
+
+        ms=$(sh "$MISSION_STATE" "$unit" 2>/dev/null || true)
+        if [ "$(printf '%s' "$ms" | jq -r '.ok // false' 2>/dev/null || printf 'false')" != "true" ]; then
+            why=$(printf '%s' "$ms" | jq -r '.reason // "mission_unreadable"' 2>/dev/null || printf 'mission_unreadable')
+            UNREADABLE="${UNREADABLE}${unreadable_sep}{\"branch\": \"${branch}\", \"reason\": \"${why}\"}"
+            unreadable_sep=", "
+            continue
+        fi
+        [ "$(printf '%s' "$ms" | jq -r '.state // ""' 2>/dev/null || printf '')" = "not_active" ] || continue
+        mstatus=$(printf '%s' "$ms" | jq -r '.status // ""' 2>/dev/null || printf '')
+
+        pr=$(sh "$PR_STATE" "$branch" 2>/dev/null || true)
+        if [ "$(printf '%s' "$pr" | jq -r '.ok // false' 2>/dev/null || printf 'false')" != "true" ]; then
+            why=$(printf '%s' "$pr" | jq -r '.reason // "unreadable"' 2>/dev/null || printf 'unreadable')
+            UNREADABLE="${UNREADABLE}${unreadable_sep}{\"branch\": \"${branch}\", \"reason\": \"${why}\"}"
+            unreadable_sep=", "
+            continue
+        fi
+        [ "$(printf '%s' "$pr" | jq -r '.state // ""' 2>/dev/null || printf '')" != "open" ] || continue
+
+        if git rev-parse --verify --quiet "refs/remotes/origin/${branch}" >/dev/null 2>&1; then
+            state=present
+        else
+            state=already_gone
+        fi
+        empty=$(claims_branch_empty_against_base "$(claims_base)" "origin/${branch}")
+        case "$empty" in true|false) ;; *) empty=unanswerable ;; esac
+
+        candidates="${candidates}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"state\": \"${state}\", \"candidate_reason\": \"mission_not_active\", \"mission_status\": \"${mstatus}\", \"branch_empty\": \"${empty}\"}"
+        sep=", "
+        named="${named}${branch}
+"
     done
 fi
 

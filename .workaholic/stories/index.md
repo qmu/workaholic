@@ -3,6 +3,21 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260902-234711](work-20260902-234711.md) - Removed the suite's hand-maintained test array so a test is registered where it is declared, ending the collision every concurrently-driven unit hit by construction
+* [work-20260902-225923](work-20260902-225923.md) - Ask whether the version a branch bumped to is still free — five merges had carried two numbers between them, every branch having bumped correctly against its own base
+* [work-20260902-212324](work-20260902-212324.md) - Repaired the drill that guards the tick log's move off main — it had looked for the ref's scripts in the wrong directory and exited skipped on every run since it was written
+* [work-20260902-210628](work-20260902-210628.md) - Settle a claim race at the remote — one ref per claimed artifact, won before anything is written, with the loser refused by its own word and the whole path drilled
+* [work-20260902-203617](work-20260902-203617.md) - Ask who wanted this — one reader over the subject axis, three refusals (`self_authored`, `self_refining`, `only_the_loop_spoke`), and the rule stated once instead of re-derived
+* [work-20260902-200652](work-20260902-200652.md) - Verified the base walk already passes a checkless tip, said where the colour was read on both report surfaces, and gave the drill's two new assertions their blame rows
+* [work-20260902-193702](work-20260902-193702.md) - Make `superseded` mean the branch is empty — the reading gains its files and its reason, the stranded holder is told what is on the branch, the documents state both proofs, and a drill fails when work is deleted
+* [work-20260902-093741](work-20260902-093741.md) - Let the loop attempt and merge every conflict it can, instead of telling a claim holder the conflict is theirs
+* [work-20260902-083315](work-20260902-083315.md) - Name a mission whose pull request was closed unmerged, so nothing recorded its work and its tickets are still queued
+* [work-20260902-075157](work-20260902-075157.md) - A claim whose mission the operator ended is retired by the tick and asked about by nobody, proved from the tree and drilled offline
+* [work-20260902-073545](work-20260902-073545.md) - Write down the routine record field by field, build its request body in one place, and give the environment resolution a rule and a named refusal
+* [work-20260902-070115](work-20260902-070115.md) - Stated the natural-Japanese quality bar on every surface a session reads what to emit from, in one wording pinned byte-identical across five files
+* [work-20260902-063614](work-20260902-063614.md) - Names an open pull request that lost its branch, localizes why one defect was implemented twice, and states the three retirement candidate classes where they are read
+* [work-20260902-054507](work-20260902-054507.md) - Made a survey run under a placeholder git identity say so and forbid ok, and made the bootstrap audit the mapping lookup its own hook actually performs
+* [work-20260901-144612](work-20260901-144612.md) - Measured that the transport refuses the delete of a live claim branch too, so the leaked-ref objection to the named mechanism is a reading rather than a forecast
 * [work-20260901-123859](work-20260901-123859.md) - The moderation tick's root is keyed on the day and each later hour replies into it, and the post gate stops firing on values a transport merely re-answered.
 * [work-20260901-121939](work-20260901-121939.md) - Decided the probe-branch cleanup is a person's two commands rather than a standing branch-deleting CI capability, and named them where a person reads
 * [work-20260901-112108](work-20260901-112108.md) - A mission slug is now checked against the unmerged branches as well as the local tree, so a publish tree stranded for days can no longer mint a slug a second time in silence.

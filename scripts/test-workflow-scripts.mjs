@@ -41,6 +41,20 @@ for (const k of Object.keys(process.env)) {
   if (k.startsWith("WORKAHOLIC_")) delete process.env[k];
 }
 
+// ONE `WORKAHOLIC_*` IS SET RATHER THAN STRIPPED, and it is set for the opposite reason
+// (2026-09-02, ticket `install-and-audit-the-identity-mapping`). `check-bootstrap.sh` grew a
+// question only the network can answer — which GitHub account this session runs as, the key
+// step 0b of the web bootstrap looks the mapping up by — and it resolves that with
+// `gh api user` when nothing tells it otherwise. In a container where `gh` IS installed and
+// authenticated, every fixture that runs the check or the apply would then make a real call,
+// which breaks this suite's standing promise to touch no network. Stripping the variable is
+// exactly wrong here: absent means *ask*. So it is set to EMPTY, which the script reads as
+// *do not ask* and reports as an unchecked account with its own reason — the honest answer
+// for a fixture that has no session behind it. A test that needs a login sets one on its own
+// `run`, and one case deliberately leaves it unset behind a stubbed `gh` so the resolution
+// itself stays covered.
+process.env.WORKAHOLIC_BOOTSTRAP_ACCOUNT = "";
+
 const SCRIPTS = {
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
@@ -121,7 +135,6 @@ const SCRIPTS = {
   catchUpClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   retryUndelivered: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"),
-  stepCatchupBlocked: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"),
   stepMergeConflicts: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-merge-conflicts.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   landUnit: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/land-unit.sh"),
@@ -210,6 +223,7 @@ const SCRIPTS = {
   proposeListOpen: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-open-proposals.sh"),
   strategyCreate: join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/create.sh"),
   renderRoutine: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/render-routine.sh"),
+  buildRoutineBody: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/build-routine-body.sh"),
   checkSlackChannel: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-channel.sh"),
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
@@ -240,6 +254,13 @@ const SCRIPTS = {
 // rejects bashisms), falling back to `sh`. Running the suite under this shell is
 // what turns these behavioral tests into a real POSIX gate: a script that
 // regressed to a bashism fails here instead of passing under a permissive bash.
+// THE TEST REGISTRY, WRITTEN WHERE EACH TEST IS DECLARED (2026-09-02, ticket `20260902143137`).
+// `T` is called immediately above each `function test…()` declaration, so a new test is one
+// function plus one adjacent line -- never a second edit 22,000 lines away, which is what made
+// every concurrently-driven unit collide on this file.
+const tests = [];
+function T(label, fn) { tests.push([label, fn]); }
+
 const POSIX_SH = (() => {
   for (const sh of ["dash", "sh"]) {
     try { execSync(`command -v ${sh}`, { stdio: "ignore" }); return sh; }
@@ -336,6 +357,7 @@ function makeInstalledSkillsTree(skillNames) {
 }
 
 // ---------- 1. branching/check.sh ----------
+T("branching/check.sh", testBranchCheck);
 function testBranchCheck() {
   const dir = makeRepo("main");
   try {
@@ -354,6 +376,7 @@ function testBranchCheck() {
 // separator silently drops the final block. With one worktree that read as
 // "no worktrees exist" — the guards in /drive Phase 0 and /ticket Step 0 never
 // fired — so the single-worktree case is THE regression case, not an edge.
+T("branching worktree counters see the last block", testWorktreeCountersLastBlock);
 function testWorktreeCountersLastBlock() {
   const dir = makeRepo("main");
   try {
@@ -383,6 +406,7 @@ function testWorktreeCountersLastBlock() {
 }
 
 // ---------- 2. branching/detect-context.sh ----------
+T("branching/detect-context.sh", testDetectContext);
 function testDetectContext() {
   const dir = makeRepo("main");
   try {
@@ -489,6 +513,7 @@ function testDetectContext() {
 }
 
 // ---------- 3. branching/check-workspace.sh ----------
+T("branching/check-workspace.sh", testCheckWorkspace);
 function testCheckWorkspace() {
   const dir = makeRepo("main");
   try {
@@ -514,6 +539,7 @@ function testCheckWorkspace() {
 // commit_hash / category); with those gone (2026-08-07) nothing calls it, so the
 // script is deleted rather than kept as a field-less shell. This pin keeps a
 // stray copy from riding back in without a caller.
+T("drive/update.sh", testUpdate);
 function testUpdate() {
   assertTrue("drive/scripts/update.sh stays deleted with the retired fields",
     !existsSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/update.sh")));
@@ -535,6 +561,7 @@ function testUpdate() {
 // that reached full acceptance any other way. Eleven had accumulated with nobody told.
 // Pinned: exactly the closable one is named, the report WRITES NOTHING, and an unreadable
 // survey is degraded by name rather than an empty set.
+T("moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep);
 function testClosableMissionsStep() {
   const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-closable-missions.sh")}`;
   // A plain repository, not the claim fixture: this step reads no claims (that was the
@@ -582,6 +609,102 @@ function testClosableMissionsStep() {
   } finally { cleanup(A); }
 }
 
+// ---------- moderate/step-unrecorded-missions.sh (2026-09-02) ----------
+// §12's PHOTOGRAPHIC NEGATIVE. `closable-missions` proves a mission finished by arithmetic;
+// this names the mission whose acceptance is `0/N` with a full queue because the branch that
+// would have RECORDED its work was closed unmerged. Measured 2026-09-01/02: three such
+// missions, 17 queued tickets between them, all three offered by the /implement survey, and
+// the behaviour each asked for already on `main` by a person's own commit.
+// Pinned: only `closed_unmerged` is a candidate; `merged` and `open` are named by NOBODY; a
+// mission failing any tree term never costs a pull-request read; the step writes nothing.
+T("moderate/step-unrecorded-missions.sh: closed unmerged, nothing recorded", testUnrecordedMissionsStep);
+function testUnrecordedMissionsStep() {
+  // The step resolves its two readers by relative path, so the whole skills tree is copied and
+  // ONE reader is replaced by a stub. Stubbing the transport rather than the step keeps every
+  // tree term under test for real, and keeps the row hermetic — no `gh`, no network.
+  const sandbox = mkdtempSync(join(tmpdir(), "workaholic-unrecorded-"));
+  const A = makeRepo("main");
+  try {
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills"), join(sandbox, "skills"), { recursive: true });
+    const stub = join(sandbox, "skills/drive/scripts/branch-pull-request-state.sh");
+    writeFileSync(stub, `#!/bin/sh -eu
+# Test stub: the branch NAME carries the state, so a fixture states what it means to test.
+case "\${1:-}" in
+  *-merged)  printf '{"ok": true, "branch": "%s", "number": 11, "state": "merged", "reason": ""}\\n' "\$1" ;;
+  *-open)    printf '{"ok": true, "branch": "%s", "number": 12, "state": "open", "reason": ""}\\n' "\$1" ;;
+  *-closed)  printf '{"ok": true, "branch": "%s", "number": 13, "state": "closed_unmerged", "reason": ""}\\n' "\$1" ;;
+  *)         printf '{"ok": false, "branch": "%s", "number": null, "reason": "stub_unreadable"}\\n' "\$1" ;;
+esac
+`);
+    chmodSync(stub, 0o755);
+    const STEP = `${POSIX_SH} ${join(sandbox, "skills/moderate/scripts/step-unrecorded-missions.sh")}`;
+
+    // `claim: <branch>` is the mission's own recorded branch; `null` writes no line at all,
+    // which is the measured state of every mission this step is actually about.
+    const mk = (slug, { ticked, queued, claim, archived }) => {
+      mkdirSync(join(A, `.workaholic/missions/active/${slug}`), { recursive: true });
+      const acc = ticked ? "- [x] one (#a.md)" : "- [ ] one (#a.md)";
+      const claimLine = claim ? `claim: ${claim}\n` : "";
+      const log = archived ? "- 2026-09-01 — ticket archived — a.md\n" : "";
+      writeFileSync(join(A, `.workaholic/missions/active/${slug}/mission.md`),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\n${claimLine}---\n\n# ${slug}\n\n## Experience\n\nx\n\n## Acceptance\n\n${acc}\n\n## Changelog\n\n${log}`);
+      if (queued) {
+        mkdirSync(join(A, ".workaholic/tickets/todo"), { recursive: true });
+        writeFileSync(join(A, `.workaholic/tickets/todo/${slug}-queued.md`),
+          `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: ${slug}\n---\n\n# q\n`);
+      }
+    };
+    mk("wasclosed", { ticked: false, queued: true, claim: "work-a-closed" });   // the candidate
+    mk("wasmerged", { ticked: false, queued: true, claim: "work-a-merged" });   // work landed
+    mk("driving", { ticked: false, queued: true, claim: "work-a-open" });       // still in flight
+    mk("ticked", { ticked: true, queued: true, claim: "work-b-closed" });       // acceptance moved
+    mk("drained", { ticked: false, queued: false, claim: "work-c-closed" });    // §12's or nobody's
+    mk("recorded", { ticked: false, queued: true, claim: "work-d-closed", archived: true }); // a seam recorded work
+    mk("nobranch", { ticked: false, queued: true, claim: null });               // neither source names it
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const env = { ...process.env, WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" };
+    const j = JSON.parse(run(A, `${STEP} --tick 20260902-000000 --root ${A}`, { env }).stdout);
+    assertEq("the step reports", [j.step, j.status], ["unrecorded-missions", "ok"]);
+    assertEq("exactly the closed-unmerged mission is named",
+      j.needs_agent[0].missions.map((m) => m.slug), ["wasclosed"]);
+    assertEq("addressed to its assignee, under its own key",
+      [j.needs_agent[0].missions[0].assignee, j.needs_agent[0].missions[0].key],
+      ["test@example.com", "unrecorded-mission:wasclosed"]);
+    // A MERGED pull request and one still OPEN are each named by NOBODY. The first is work
+    // that landed; the second is a unit somebody is driving right now.
+    assertTrue("a merged pull request is counted, never asked about",
+      /1 whose pull request merged/.test(j.summary), j.summary);
+    assertTrue("and a unit still being driven likewise",
+      /1 still being driven/.test(j.summary), j.summary);
+    // THE BRANCH IS TWO SOURCES, and neither resolving is a NAMED ABSENCE rather than a
+    // candidate: `claim.sh` writes `claim:` on the claim branch, so a branch closed unmerged
+    // never carries it to the base — the measured state of all three real missions.
+    assertTrue("a mission neither source names a branch for is counted, not asked about",
+      /1 whose claim branch neither the mission nor the claim scan names/.test(j.summary), j.summary);
+    // IT WRITES NOTHING. Closing is `close.sh`'s, on a person's intent.
+    assertEq("and the step wrote nothing at all",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // AN UNREADABLE PULL REQUEST IS DEGRADED BY NAME, never "nothing to close".
+    const B = makeRepo("main");
+    try {
+      mkdirSync(join(B, ".workaholic/missions/active/opaque"), { recursive: true });
+      writeFileSync(join(B, ".workaholic/missions/active/opaque/mission.md"),
+        `---\ntype: Mission\ntitle: opaque\nslug: opaque\nstatus: active\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nclaim: work-z-unknown\n---\n\n# opaque\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] one (#a.md)\n\n## Changelog\n\n`);
+      mkdirSync(join(B, ".workaholic/tickets/todo"), { recursive: true });
+      writeFileSync(join(B, ".workaholic/tickets/todo/opaque-q.md"),
+        `---\ncreated_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: opaque\n---\n\n# q\n`);
+      execSync("git add -A && git commit -q -m seed", { cwd: B });
+      const bad = JSON.parse(run(B, `${STEP} --tick 20260902-000000 --root ${B}`, { env }).stdout);
+      assertEq("an unreadable pull request is degraded, by name",
+        [bad.status, bad.reason], ["degraded", "pull_request_unreadable"]);
+      assertTrue("and never reads as nothing to close",
+        /could not be read/.test(bad.summary), bad.summary);
+    } finally { cleanup(B); }
+  } finally { cleanup(A); rmSync(sandbox, { recursive: true, force: true }); }
+}
+
 // ---------- direction-health: the three refusals, pinned (2026-08-26) ----------
 // The three refusals are the reason this reading was admissible at all, and PROSE HAS NOT HELD
 // THEM: the writer rule on the strategy artifact has been re-decided three times. A test is
@@ -600,6 +723,7 @@ function testClosableMissionsStep() {
 // INDIRECTLY — through a helper that itself writes — would pass. It catches the failure that has
 // actually happened three times (a new script that writes the file directly), not every possible
 // one.
+T("moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals);
 function testDirectionHealthRefusals() {
   const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
   const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
@@ -772,6 +896,7 @@ function testDirectionHealthRefusals() {
 // tested over one tree because they are two halves of the same moment: what a direction would
 // leave, said BEFORE the operator decides, and the direction whose close would leave the loop
 // originating nothing.
+T("direction-health names the leaving, and the last live direction", testDirectionHealthLeaving);
 function testDirectionHealthLeaving() {
   const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
   const A = makeRepo("main");
@@ -872,6 +997,7 @@ function testDirectionHealthLeaving() {
 // That is a property a later change can lose silently, so it is pinned here — the attribution
 // must be readable THROUGH the succession, and the suite must fail if the carry ever reaches
 // `create.sh` or if a fourth writer of the strategy artifact appears.
+T("the succession costs no fourth writer and no new field", testSuccessionCostsNoFourthWriter);
 function testSuccessionCostsNoFourthWriter() {
   const STRATEGY_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts");
   const ATTRIBUTED = join(STRATEGY_SCRIPTS, "attributed-work.sh");
@@ -1063,6 +1189,7 @@ function makeResidueFixture() {
 // `refuse-an-arrival-over-a-tree-we-could-not-see` is what adds the inverted case beside it —
 // a residue we could not READ refuses the arrival, while a residue we read and found
 // non-empty deliberately does not.
+T("the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization);
 function testFalseArrivalCharacterization() {
   const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
   const MISSION_STRATEGY = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/mission-strategy.sh");
@@ -1129,6 +1256,7 @@ function testFalseArrivalCharacterization() {
 //   the step-9b guard reworded so the default is taken
 //     unconditionally (the ticket's own breaker)        -> "the default is consulted only when
 //                                                          the ask states no date"
+T("strategy: a dateless ask takes the operator's one-week default", testDatelessAskDefault);
 function testDatelessAskDefault() {
   const DEFAULTER = join(REPO_ROOT,
     "plugins/workaholic/skills/strategy/scripts/default-target-date.sh");
@@ -1270,6 +1398,7 @@ function testDatelessAskDefault() {
     "the derivation now knows about merging, which is not its question");
 }
 
+T("strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader);
 function testUnattributedWorkReader() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/unattributed-work.sh");
   const { A } = makeResidueFixture();
@@ -1329,6 +1458,7 @@ function testUnattributedWorkReader() {
 // source carries its own reason and NULL counts, and makes the whole answer `readable:
 // false` naming which source it was. This output is rendered beside a decision to CLOSE a
 // direction, and half of it rendered as silence is worse than none of it.
+T("strategy/closing-residue.sh composes what a direction leaves", testClosingResidueReader);
 function testClosingResidueReader() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/closing-residue.sh");
   const { A, open } = makeResidueFixture();
@@ -1449,6 +1579,7 @@ function testClosingResidueReader() {
 // composed readers': every entry carries its EVIDENCE and its REPAIR, every entry reads
 // `undecided` because no script may judge either question, and a DEGRADED source contributes
 // no entries and carries NULL counts rather than zeroed ones.
+T("moderate/list-standing-rulings.sh names the standing rulings", testStandingRulingsReader);
 function testStandingRulingsReader() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
   const { A } = makeResidueFixture();
@@ -1559,6 +1690,7 @@ function testStandingRulingsReader() {
 // never authors one. So the reader takes an answer per candidate in `--aim-kind`'s shape and
 // derives none — and the breaker below is written against exactly the inference a later
 // refactor would be tempted by (one active direction, so surely that one).
+T("moderate/list-standing-rulings.sh takes the run's judgement and derives none", testStandingRulingsJudgement);
 function testStandingRulingsJudgement() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/list-standing-rulings.sh");
   const { A } = makeResidueFixture();
@@ -1638,6 +1770,7 @@ function testStandingRulingsJudgement() {
 // THE REFUSED ROW IS THE POINT. A direction refused `past_target_date` is exactly the one
 // whose residue the operator must still see, because it is the one they are about to be asked
 // to re-date or close — a reader taking only `eligible` would see none of them.
+T("the residue rides every survey row and moves no gate", testResidueOnSurveyRows);
 function testResidueOnSurveyRows() {
   const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
   const { A, open } = makeResidueFixture();
@@ -1701,6 +1834,7 @@ function testResidueOnSurveyRows() {
 // it exactly as it was. The asymmetry is deliberate and both halves are pinned, because the
 // tempting over-reach — letting a non-empty residue refuse the arrival — would let any
 // unrelated mission in the tree suppress every direction's arrival forever.
+T("an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue);
 function testArrivalRefusedOverUnreadableResidue() {
   const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
   const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
@@ -1768,6 +1902,7 @@ function testArrivalRefusedOverUnreadableResidue() {
 // A count alone costs the operator the same hand-read the defect costs them: they learn the
 // answer is partial and still cannot see what was missing. The question names each unattributed
 // mission BY SLUG with its queued count — and nothing else about the step moves.
+T("the arrival question names the residue by slug", testArrivalQuestionNamesResidue);
 function testArrivalQuestionNamesResidue() {
   const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
   const { A, open } = makeResidueFixture();
@@ -1839,6 +1974,7 @@ function testArrivalQuestionNamesResidue() {
 // is `quiescent`, which projects to `arrived` — a reading, and therefore not the silence under
 // test. The state this reproduces is the ordinary one: a direction that is running fine and is
 // about to run out of date.
+T("a direction is read before its date silences the loop", testExpiringDirectionIsRead);
 function testExpiringDirectionIsRead() {
   const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
   const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
@@ -1914,6 +2050,7 @@ function testExpiringDirectionIsRead() {
 // `overdue` AND `expiring` ARE EXHAUSTIVE AND DISJOINT over a resolvable date: `< 0` is
 // overdue, `0 <= d <= window` is expiring, and beyond the window is neither. A direction whose
 // date is TODAY is expiring, not overdue — the boundary the survey states rather than tunes.
+T("expiring: the boundary, and the window it is derived from", testExpiringBoundary);
 function testExpiringBoundary() {
   const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
   const A = makeRepo("main");
@@ -1995,6 +2132,7 @@ function testExpiringBoundary() {
 // a date that has gone is a stronger fact than one approaching and the act is the same one;
 // `dormant` below it because a silent direction near its date is about to be silenced by the
 // date first, and the date is the fact with a deadline on it.
+T("expiring, ranked in the lifecycle precedence", testExpiringPrecedence);
 function testExpiringPrecedence() {
   const STATE = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/direction-state.sh");
   const A = makeRepo("main");
@@ -2067,6 +2205,7 @@ function testExpiringPrecedence() {
 // composer through `--state-row`, so attaching the reading costs not one extra read of the tree.
 // That is a property a later edit can lose silently, so it is measured here by counting the
 // invocations of both walkers with the flag off and on rather than by reading the source.
+T("the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving);
 function testExpiringCarriesTheLeaving() {
   const A = makeRepo("main");
   const W = join(A, ".workaholic");
@@ -2158,6 +2297,7 @@ function testExpiringCarriesTheLeaving() {
 // EVERY EXISTING GATE APPLIES UNCHANGED, so what is pinned here is the key, the addressee, the
 // wording, the mutual exclusion with the other readings, and that the step still asks and does
 // nothing else.
+T("the assignee is asked once, before the date", testExpiringQuestion);
 function testExpiringQuestion() {
   const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
   const ASK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh");
@@ -2266,6 +2406,7 @@ function testExpiringQuestion() {
 // SO THE TEST IS A DIFF OVER FIXTURES THAT DIFFER IN EXACTLY `days_to_target`: one inside the
 // window, one outside it, everything else byte-identical. A passing diff cannot then be
 // explained by anything but the term itself.
+T("expiring is evidence in the report, and gates nothing", testExpiringGatesNothing);
 function testExpiringGatesNothing() {
   const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
   const A = makeRepo("main");
@@ -2347,6 +2488,7 @@ function testExpiringGatesNothing() {
 // The residue is REPORTED, never gated on: no refusal reads it, nothing is proposed or withheld
 // on it, and the one exception is stated rather than implied — `quiescent`, which is itself a
 // reading that lifts and closes no gate.
+T("the residue reaches no /propose gate", testResidueGatesNothing);
 function testResidueGatesNothing() {
   const PROPOSE_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts");
   const SURVEY = join(PROPOSE_SCRIPTS, "survey-strategies.sh");
@@ -2407,6 +2549,7 @@ function testResidueGatesNothing() {
 // the operator's ruling instead — and its whole admissibility is a set of refusals, so those are
 // what is pinned. The byte-identity assertions are the point, not decoration: the tempting shape
 // is to write first and revert on a breach, and a revert is a SECOND WRITE.
+T("strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution);
 function testCarryAttribution() {
   const CARRY = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/carry-attribution.sh");
   const A = makeRepo("main");
@@ -2514,6 +2657,7 @@ function testCarryAttribution() {
 // The byte-identity assertions are the point, not decoration. The tempting shape is to
 // write first and revert on a breach; a revert is a SECOND WRITE, and what this artifact
 // needs is the guarantee that a refusal never wrote at all.
+T("strategy/amend.sh: the third writer, bounded", testStrategyAmend);
 function testStrategyAmend() {
   const A = makeRepo("main");
   const F = join(A, ".workaholic/strategies/ship-the-platform.md");
@@ -2702,6 +2846,7 @@ function testStrategyAmend() {
 // NOTHING — one because there is nothing to say, the other because a reading we could not make is
 // not a finding about the repository — while a red base must always produce exactly one question,
 // keyed on the COMMIT, with `unattributable` still asking rather than vanishing.
+T("moderate/step-base-health.sh: a red base, asked exactly once per commit", testBaseHealthStep);
 function testBaseHealthStep() {
   const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-base-health.sh");
   const tmp = mkdtempSync(join(tmpdir(), "wh-base-health-"));
@@ -2858,6 +3003,7 @@ function testBaseHealthStep() {
 // shape (which is what makes the asked-once gate work at all), the already-asked set read out of
 // the tick log, the difference between an ABSENT log and an UNREADABLE one, the always-empty
 // event, and that the step writes nothing and files nothing.
+T("moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep);
 function testUnansweredAsksStep() {
   const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-unanswered-asks.sh")}`;
   const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
@@ -3021,6 +3167,7 @@ function testUnansweredAsksStep() {
 // the last one, so a finished mission sat `active` and the survey kept listing it. What is
 // pinned is the PROOF: every part arithmetic, no partial credit, and a mission failing any
 // part left byte-identical. `abandoned` and `carried` are never reachable from here.
+T("drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission);
 function testArchiveClosesAProvenMission() {
   const ARCHIVE = (dir, ticket, subject) =>
     run(dir, `${POSIX_SH} ${SCRIPTS.archive} ${ticket} "${subject}" https://example.com/r "why" "changes" "None" "None" "verify"`);
@@ -3082,6 +3229,7 @@ function testArchiveClosesAProvenMission() {
   }
 }
 
+T("drive/archive.sh converges the todo layout", testArchiveConvergesTodoLayout);
 function testArchiveConvergesTodoLayout() {
   const ARCHIVE = (dir, ticket, subject) =>
     run(dir, `${POSIX_SH} ${SCRIPTS.archive} ${ticket} "${subject}" https://example.com/r "why" "changes" "None" "None" "verify"`);
@@ -3225,6 +3373,7 @@ function testArchiveConvergesTodoLayout() {
 // commit.sh in one pass (the stamp-then-amend tail went with the retired
 // `category` field). Asserts on filesystem layout, commit message body, and
 // that the retired frontmatter fields are neither demanded nor written.
+T("drive/archive.sh", testArchive);
 function testArchive() {
   const dir = makeRepo("main");
   try {
@@ -3311,6 +3460,7 @@ Development completed as planned.
 // The property pinned here is ALL-OR-NOTHING: on a refusal the tree is byte-identical to
 // before the call, and the very same command with a conforming subject then succeeds with
 // no manual step in between.
+T("drive/archive.sh refuses an off-policy subject before moving", testArchiveSubjectGateBeforeMove);
 function testArchiveSubjectGateBeforeMove() {
   const dir = makeRepo("main");
   try {
@@ -3361,6 +3511,7 @@ function testArchiveSubjectGateBeforeMove() {
 // archive.sh now pushes right after the archive commit, the same non-blocking
 // convention heartbeat.sh already uses -- this pins that the remote branch tip carries
 // the archive commit with NO separate `git push` call from the caller.
+T("drive/archive.sh pushes the claim branch itself", testArchivePushesClaimBranch);
 function testArchivePushesClaimBranch() {
   const origin = mkdtempSync(join(tmpdir(), "wh-archive-push-origin-"));
   const dir = mkdtempSync(join(tmpdir(), "wh-archive-push-clone-"));
@@ -3412,6 +3563,7 @@ Development completed as planned.
 // no mention. Every assertion here is on ACTUAL commit contents (`git show --stat`,
 // `git ls-files`) or the exit code, NEVER on the script's own success message — the
 // whole defect is that the message and reality disagreed.
+T("commit/commit.sh never silently omits a file", testCommitStaging);
 function testCommitStaging() {
   // Helper: files (by path) present in HEAD's own diff.
   const committedFiles = (dir) =>
@@ -3592,6 +3744,7 @@ function testCommitStaging() {
 }
 
 // ---------- 6. gather/user-slug.sh ----------
+T("gather/user-slug.sh", testUserSlug);
 function testUserSlug() {
   const dir = makeRepo("main");
   try {
@@ -3613,6 +3766,7 @@ function testUserSlug() {
 // field. This replaces testSweepTodo, which asserted the OPPOSITE motion -- routing
 // strays INTO per-user directories -- and had no reason to exist once the flat root
 // became the canonical write target.
+T("gather/migrate-todo-owners.sh", testMigrateTodoOwners);
 function testMigrateTodoOwners() {
   const dir = makeRepo("main");
   try {
@@ -3690,6 +3844,7 @@ function testMigrateTodoOwners() {
 }
 
 // ---------- 7b. gather/owns.sh (the three-way ownership rule) ----------
+T("gather/owns.sh", testOwns);
 function testOwns() {
   const dir = makeRepo("main");
   try {
@@ -3767,6 +3922,7 @@ function testOwns() {
 // what has to be pinned at this end is that the ONE consumer that turns ownership
 // into an offer now sees it: a colleague's legacy ticket leaves the backlog as
 // `owned_by_other`, and the runner's own legacy ticket is still offered.
+T("the survey excludes a legacy path-owned ticket", testSurveyExcludesLegacyPathOwnedTickets);
 function testSurveyExcludesLegacyPathOwnedTickets() {
   const dir = makeRepo("main");
   try {
@@ -3791,6 +3947,7 @@ function testSurveyExcludesLegacyPathOwnedTickets() {
 }
 
 // ---------- 8. drive/list-todo.sh ----------
+T("drive/list-todo.sh", testListTodo);
 function testListTodo() {
   const dir = makeRepo("main");
   try {
@@ -3827,6 +3984,7 @@ function testListTodo() {
 // and nothing of another user's. Seed two users (A, B), each with their own
 // tickets and an active mission, plus an achieved mission for A that must not
 // surface. Then run each summarizer as A and as B and assert the exact sets.
+T("create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode);
 function testSummaryMode() {
   const dir = makeRepo("main");
   try {
@@ -3987,6 +4145,7 @@ concerns: []
 // the contract at its boundary: the rule is stated with its threshold, and a minted
 // ticket must pass the real validate-ticket.sh -- which is what stops "mint a ticket"
 // degrading into "mint a shell".
+T("drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems);
 function testDriveMintsTicketsForMidrunProblems() {
   // The row with teeth: a minted ticket answers to the same bar as a hand-written one.
   // (The sentence-level pins over the drive skill's minting prose are gone, 2026-08-12.)
@@ -4030,6 +4189,7 @@ function testDriveMintsTicketsForMidrunProblems() {
 //
 // Explicit approval is RELOCATED, never removed: a ticket is gate-free only when every
 // mission it names is IN FLIGHT (its pull request merged, K1) and carries a plan.
+T("mission/drive-authorized.sh (approval relocation)", testDriveAuthorized);
 function testDriveAuthorized() {
   const dir = makeRepo("main");
   try {
@@ -4138,6 +4298,7 @@ function testDriveAuthorized() {
 // exactly what a NEWER repository's vocabulary looks like to an OLDER build -- is left
 // alone. These rows pin that shape: the forward fold still works, an unknown/newer word
 // is untouched BYTE-FOR-BYTE, and nothing is staged for it.
+T("mission status migration is whitelist-only (never folds backwards)", testMissionStatusMigrationIsWhitelistOnly);
 function testMissionStatusMigrationIsWhitelistOnly() {
   const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
   const migrateStatus = (cwd, root) =>
@@ -4199,6 +4360,7 @@ function testMissionStatusMigrationIsWhitelistOnly() {
   }
 }
 
+T("mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket);
 function testMissionResolutionFollowsTicket() {
   const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
   // Invoke the resolver library directly ($0 is the lib, $1 the root, $2 the slug), so the
@@ -4344,6 +4506,7 @@ function testMissionResolutionFollowsTicket() {
 // skill, that the command routes to it rather than restating it, that the gate round is
 // gone, and -- the part that actually bites -- that a ticket the interrogation emits must
 // pass the real validate-ticket.sh. Rows the suite cannot reach are driven, not implied.
+T("mission creation interrogation protocol", testMissionInterrogationProtocol);
 function testMissionInterrogationProtocol() {
   // The part with teeth: a ticket the interrogation emits answers to the real hook.
   // (The sentence-level pins over the interrogation's prose are gone, 2026-08-12.)
@@ -4396,6 +4559,7 @@ Acceptance: pre-answered at mission time. Verification: the suite. Gate: green.
 //
 // The bug reproduces ONLY with a genuine worktree -- a fixture that fakes the directory
 // resolves through show-toplevel by accident and proves nothing. So this builds one.
+T("mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts);
 function testMissionGateWorktreePorts() {
   const dir = makeRepo("main");
   try {
@@ -4473,6 +4637,7 @@ function testMissionGateWorktreePorts() {
 //
 // The load-bearing assertions are the "empty gate is fully functional" ones: if an
 // absent gate broke any reader, "optional" would be a lie.
+T("mission describes experience, gate is optional", testMissionExperienceSection);
 function testMissionExperienceSection() {
   const dir = makeRepo("main");
   try {
@@ -4535,6 +4700,7 @@ function testMissionExperienceSection() {
 //
 // The gate is "not somebody else's", NOT "exactly mine": unclaimed work is closer to the
 // developer's business than a colleague's mission. Another developer's mission stays out.
+T("mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned);
 function testMissionSummaryUnassigned() {
   const dir = makeRepo("main");
   const ME = "me@example.com";
@@ -4594,6 +4760,7 @@ function testMissionSummaryUnassigned() {
 // that the mission was ABSENT from main afterwards. J1 inverted the invariant — a mission
 // is published TO main and the claim is the only thing that ever cuts a branch — so the
 // assertions are inverted rather than deleted.
+T("mission create never branches (J1)", testMissionCreateNeverBranches);
 function testMissionCreateNeverBranches() {
   // create.sh itself never branches, from any checkout — it is cwd-relative and was not
   // touched by J1. On main, the mission lands on main.
@@ -4661,6 +4828,7 @@ function testMissionCreateNeverBranches() {
 }
 
 // ---------- 8d. branching mission worktree primitive (create/cleanup/type) ----------
+T("branching mission worktree primitive", testMissionWorktreePrimitive);
 function testMissionWorktreePrimitive() {
   const dir = makeRepo("main");
   try {
@@ -4751,6 +4919,7 @@ function testMissionWorktreePrimitive() {
 // assumption -- a subdir-env project got a credential-less worktree that failed silently
 // and disguised itself as a "no credentials" finding. Cover all three layouts plus a
 // `.worktree-env` declaration, asserting on the reported JSON as well as the files.
+T("worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry);
 function testWorktreeEnvCarry() {
   const dir = makeRepo("main");
   try {
@@ -4852,6 +5021,7 @@ function makeNoLocalMainClone() {
 // `main`, the worktree must still land on the minted work-* branch (asserted
 // against GIT, never the script's stdout), leave no stray local `main`, and fail
 // loudly when the base resolves to nothing.
+T("mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain);
 function testMissionWorktreeNoLocalMain() {
   // Row: no local `main`, only a work-* branch (the desk / fresh-clone state).
   {
@@ -4923,6 +5093,7 @@ function testMissionWorktreeNoLocalMain() {
 // configured-but-unreachable origin must FAIL LOUD rather than silently fall back to that
 // stale local base (the ticket's quality gate: never resolve a base older than
 // origin/<base> without loudly reporting why).
+T("mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst);
 function testMissionWorktreeFetchFirst() {
   // Row A: local main behind origin/main -> worktree cut from the FRESH origin/main.
   {
@@ -4981,6 +5152,7 @@ function testMissionWorktreeFetchFirst() {
 // 2026-08-18 in worktree batch-20260818063646 (local main 6e0cb9e9 vs origin/main
 // a871103d). The failure is one-directional: a stale base can only ever produce the
 // false `true`, never a wrongly-forced bump.
+T("check-version-bump measures against the merged base", testCheckVersionBumpBaseResolution);
 function testCheckVersionBumpBaseResolution() {
   // Fixture: a real bare origin carrying a `Bump version` commit that local `main` lacks,
   // and a work branch cut from FRESH origin/main.
@@ -5111,6 +5283,7 @@ function testCheckVersionBumpBaseResolution() {
 // landed INSIDE .worktrees/<slug> and was absent from main; it now proves the batch
 // lands ON main, in ONE commit, visible to another clone, with no worktree and no
 // work-* branch anywhere and the caller's checkout untouched.
+T("mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow);
 function testMissionCreatePublishFlow() {
   const { origin, A, B } = makePublishFixture();
   try {
@@ -5198,6 +5371,7 @@ function testMissionCreatePublishFlow() {
 }
 
 // ---------- 8g. /ship resets a mission worktree instead of deleting it ----------
+T("mission worktree ship reset", testMissionWorktreeShipReset);
 function testMissionWorktreeShipReset() {
   const dir = makeRepo("main");
   try {
@@ -5237,6 +5411,7 @@ function testMissionWorktreeShipReset() {
 // leaves the tree exactly as it found it. What the surviving route actually moves is
 // testMissionCloseCarriedIntoExisting below -- since the ticket floor refused
 // `--successor-title`, `--successor <slug>` is the only route there is.
+T("mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried);
 function testMissionCloseCarried() {
   const PRED = `---
 type: Mission
@@ -5363,6 +5538,7 @@ In: the dashboard. Out: the API.
 // The mint route rebuilds a file from a template; this one APPENDS into a mission that
 // already has its own Goal, its own list, and possibly its own progress. So the assertions
 // are about what must NOT change as much as what must.
+T("mission/close.sh carried into an existing mission (the remainder actually moves)", testMissionCloseCarriedIntoExisting);
 function testMissionCloseCarriedIntoExisting() {
   const mission = (slug, title, accept, extra = "") => `---
 type: Mission
@@ -5458,6 +5634,7 @@ ${accept}
   }
 }
 
+T("mission close removes worktree", testMissionCloseRemovesWorktree);
 function testMissionCloseRemovesWorktree() {
   const seedMission = (dir, slug, title, checked) => {
     const mdir = join(dir, `.workaholic/missions/active/${slug}`);
@@ -5523,6 +5700,7 @@ concerns: []
 }
 
 // ---------- 8i. per-mission-worktree port assignment (collision-free) ----------
+T("mission worktree port assignment", testMissionWorktreePorts);
 function testMissionWorktreePorts() {
   const dir = makeRepo("main");
   try {
@@ -5559,6 +5737,7 @@ function testMissionWorktreePorts() {
 }
 
 // ---------- 8j. per-mission quality gate (declaration round-trip + port) ----------
+T("mission quality gate", testMissionQualityGate);
 function testMissionQualityGate() {
   const dir = makeRepo("main");
   try {
@@ -5618,6 +5797,7 @@ function testMissionQualityGate() {
 }
 
 // ---------- 8k. release-scan branch-safety engine ----------
+T("release-scan branch-safety engine", testReleaseScanEngine);
 function testReleaseScanEngine() {
   const dir = makeRepo("main");
   try {
@@ -5674,6 +5854,7 @@ function testReleaseScanEngine() {
 }
 
 // ---------- 8k1. release-scan per-commit changed-lines gate (too-large-commit) ----------
+T("release-scan per-commit changed-lines gate", testReleaseScanPerCommit);
 function testReleaseScanPerCommit() {
   const dir = makeRepo("main");
   try {
@@ -5747,6 +5928,7 @@ function testReleaseScanPerCommit() {
 // stamp-then-amend recorded a pre-amend commit that is orphaned and never pushed, which made
 // every /story commit link 404. The hash is derived from the commit that ADDED the archived
 // ticket. Reachability from the branch is the whole point — it is what "GitHub has it" means.
+T("report/ticket-commits.sh derivation", testTicketCommitsDerivation);
 function testTicketCommitsDerivation() {
   const dir = makeRepo("work-20260715-000001");
   try {
@@ -5797,6 +5979,7 @@ function testTicketCommitsDerivation() {
 // whether a line holds a secret or merely references one. Reading a key from the environment
 // or passing it in a variable is the correct way to handle secrets — flagging that punished
 // good code and hard-blocked /ship (secret is non-overridable) on pure false positives.
+T("release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords);
 function testReleaseScanSecretSuffixedKeywords() {
   // secret_grep is a sourced stdin filter, so drive it directly — no repo needed. The
   // candidate line goes in on stdin rather than as an argument: execSync runs its command
@@ -5856,6 +6039,7 @@ function testReleaseScanSecretSuffixedKeywords() {
   rmSync(tmp, { recursive: true, force: true });
 }
 
+T("release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference);
 function testReleaseScanSecretLiteralVsReference() {
   const dir = makeRepo("main");
   try {
@@ -5961,6 +6145,7 @@ function testReleaseScanSecretLiteralVsReference() {
 // bounded question. Both columns matter and they are not symmetric: a miss in the first
 // SHIPS A KEY, a hit in the second hard-blocks /ship with no bypass (secret is
 // non-overridable by design).
+T("release-scan secret value inversion", testReleaseScanSecretValueInversion);
 function testReleaseScanSecretValueInversion() {
   const LIB = join(REPO_ROOT, "plugins/workaholic/skills/release-scan/scripts/lib/secret-patterns.sh");
   const tmp = mkdtempSync(join(tmpdir(), "secretinv-"));
@@ -6042,6 +6227,7 @@ function testReleaseScanSecretValueInversion() {
 }
 
 // ---------- 8l0. release-scan allowlist (.workaholic/scan-allow) ----------
+T("release-scan allowlist", testReleaseScanAllowlist);
 function testReleaseScanAllowlist() {
   const dir = makeRepo("main");
   try {
@@ -6095,6 +6281,7 @@ function testReleaseScanAllowlist() {
 // in `record-evidence.sh` documenting the secret guard — byte-identical to a line on
 // `main` for weeks — was reported twice as a hard `secret` block, on the one tier that
 // has no override. The named regression case is that exact line.
+T("release-scan: generated paths are exempt from the secret rule", testReleaseScanGeneratedSecretExemption);
 function testReleaseScanGeneratedSecretExemption() {
   // The real line from plugins/workaholic/skills/ship/scripts/record-evidence.sh:19.
   // `password=` followed by `/token=` satisfies the "6+ value chars to end of line"
@@ -6172,6 +6359,7 @@ function testReleaseScanGeneratedSecretExemption() {
 }
 
 // ---------- 8l. release-scan gate decision (ship tier enforcement) ----------
+T("release-scan gate decision", testReleaseScanGateDecision);
 function testReleaseScanGateDecision() {
   const dir = makeRepo("main");
   try {
@@ -6227,6 +6415,7 @@ function testReleaseScanGateDecision() {
 }
 
 // ---------- gather/commit-kpi.sh (orchestration-throughput KPI) ----------
+T("gather/commit-kpi.sh orchestration throughput", testCommitKpi);
 function testCommitKpi() {
   const dir = makeRepo("main");
   try {
@@ -6273,6 +6462,7 @@ function testCommitKpi() {
 }
 
 // ---------- mission duration: predict-duration.sh + record-run-hours.sh ----------
+T("mission duration predict + record", testMissionDuration);
 function testMissionDuration() {
   const dir = makeRepo("main");
   try {
@@ -6330,6 +6520,7 @@ function testMissionDuration() {
 //
 // Every fixture points the whole chain at its own table through WORKAHOLIC_RENAMES_TABLE,
 // so the shipped table is never mutated by a test run.
+T("the rename registry (renames.tsv + its three consumers)", testRenameRegistry);
 function testRenameRegistry() {
   const dir = makeRepo("main");
   const table = join(dir, "fixture-renames.tsv");
@@ -6477,6 +6668,7 @@ const CONVERGE_EXCLUDED_MIGRATIONS = {
   // "migrate-example.sh": "why this must not run at the converge seam",
 };
 
+T("the living-migration registry contract", testMigrationRegistryContract);
 function testMigrationRegistryContract() {
   const dir = join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts");
   const registry = readFileSync(SCRIPTS.convergeLayout, "utf8");
@@ -6531,6 +6723,7 @@ function testMigrationRegistryContract() {
   assertEq("and every real migration still passes", walk().filter((m) => !registered(m)), []);
 }
 
+T("workaholify/converge-layout.sh (the migration seam)", testConvergeLayout);
 function testConvergeLayout() {
   // A fixture in the full pre-mission shape.
   const dir = makeRepo("main");
@@ -6609,6 +6802,7 @@ function testConvergeLayout() {
 // directories, a repo with neither, and a second run proving idempotence. Plus the
 // two properties the migration turns on: the body is untouched, and a ticket
 // carrying an end state is never offered as claimable work.
+T("gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates);
 function testMigrateTicketStates() {
   const dir = makeRepo("main");
   try {
@@ -6679,6 +6873,7 @@ function testMigrateTicketStates() {
 // staleness become visible. What is pinned here: it REPORTS and never writes, it
 // names a retired structure rather than guessing at prose, and it degrades to an
 // honest empty answer rather than an error.
+T("report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness);
 function testAreaFreshness() {
   const dir = makeRepo("main");
   try {
@@ -6742,6 +6937,7 @@ function testAreaFreshness() {
 // `dormant` to `dormant` in a fixed precedence, so a question added BESIDE those would either
 // double-ask one direction or never fire. The stage decides which question the same evidence
 // draws, and every other combination stays byte-identical.
+T("the two stage-transition questions", testDirectionTransitionQuestions);
 function testDirectionTransitionQuestions() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -6832,6 +7028,7 @@ function testDirectionTransitionQuestions() {
 // morning digest, the bare `/mission` roadmap, and the `direction-*` questions — which name a
 // READING (`arrived`, `overdue`, `expiring`) and never the phase the operator declared. All
 // three render from readers that already carry `stage`, so this is render work with NO new read.
+T("the stage is shown where directions are read", testStageShownWhereDirectionsAreRead);
 function testStageShownWhereDirectionsAreRead() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -6911,6 +7108,7 @@ function testStageShownWhereDirectionsAreRead() {
 // `sh -n` is the whole check. It costs one parse per file and it is exactly the check a person
 // runs by hand after editing one of these; making it a suite row means it runs for every file
 // on every change rather than for the file somebody remembered.
+T("every shipped shell script parses", testEveryShellScriptParses);
 function testEveryShellScriptParses() {
   const roots = ["plugins/workaholic", "scripts", "hooks"];
   const found = [];
@@ -6965,6 +7163,7 @@ function testEveryShellScriptParses() {
 // extracted without evaluating the shell, so it is counted and its count rides the
 // assertion's own name — visible on every run, never a number anybody has to keep current.
 // A `-f`/`--from-file` invocation has no inline program and is not a gap.
+T("every embedded jq program compiles", testEveryEmbeddedJqProgramCompiles);
 function testEveryEmbeddedJqProgramCompiles() {
   const OPTS_TWO = new Set(["--arg", "--argjson", "--slurpfile", "--rawfile"]);
   const OPTS_ONE = new Set(["--indent", "-f", "--from-file", "--arg-file"]);
@@ -7123,6 +7322,7 @@ function testEveryEmbeddedJqProgramCompiles() {
 // test is the loop in the shipped orchestrator, so a hand-written stand-in would prove
 // something about the stand-in. `--no-log --no-persist` keeps it hermetic — no repository,
 // no network, no `gh`.
+T("the jq compile guard (a step that could not read never reports ok)", testJqCompileGuard);
 function testJqCompileGuard() {
   const dir = mkdtempSync(join(tmpdir(), "jq-guard-"));
   try {
@@ -7188,6 +7388,7 @@ function testJqCompileGuard() {
 // Its own repository, deliberately: the strategy-skill test asserts counts over the whole
 // area, so creating four more strategies inside it would break assertions that are about
 // something else entirely.
+T("strategy: the operator's declared stage", testStrategyDeclaredStage);
 function testStrategyDeclaredStage() {
   const dir = makeRepo("main");
   try {
@@ -7259,6 +7460,7 @@ function testStrategyDeclaredStage() {
 // dated, owned shape. Two things are proved here: the scripts hold that floor,
 // and the retired erasing migration is really gone — a strategy must SURVIVE a
 // mission-script touch, which is what used to delete it.
+T("strategy skill (the artifact revived 2026-08-13)", testStrategySkill);
 function testStrategySkill() {
   const dir = makeRepo("main");
   try {
@@ -7330,6 +7532,7 @@ function testStrategySkill() {
 // ADDED. What is pinned here is that rule's two hops, its honesty about being lossy, and
 // its named empty results; a fixture is the only way to check any of it, since the
 // repository holds zero strategies.
+T("strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork);
 function testStrategyAttributedWork() {
   const dir = makeRepo("main");
   const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
@@ -7481,6 +7684,7 @@ function testStrategyAttributedWork() {
 // of the machine, so a fixture pinned at "1400 files" would quietly stop exercising the split
 // on a machine with a different limit and pass while proving nothing. The probe counts how
 // many times `xargs` invokes its command over exactly the corpus the script builds.
+T("strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary);
 function testStrategyAttributedWorkPastBatchBoundary() {
   const dir = makeRepo("main");
   const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
@@ -7558,6 +7762,7 @@ function testStrategyAttributedWorkPastBatchBoundary() {
 // filename contains a space arrives as two non-existent paths and `grep` exits 2. That is a
 // real input a real repository can hold, and the point of the reading is exactly that such
 // a walk must not be reported as one that found nothing.
+T("strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome);
 function testAttributedWorkWalkOutcome() {
   const dir = makeRepo("main");
   const READ = `${POSIX_SH} ${SCRIPTS.strategyAttributedWork}`;
@@ -7666,6 +7871,7 @@ function testAttributedWorkWalkOutcome() {
 // `eligible`, with `dormant: true`, `waiting_count: 0` and `selected: ["alpha","uncited"]` —
 // selecting a direction to propose against on a walk that read nothing, which is the failure
 // the ask names.
+T("the survey and the lifecycle refuse a row they could not read", testSurveyRefusesADegradedWalk);
 function testSurveyRefusesADegradedWalk() {
   const dir = makeRepo("main");
   const SURVEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh")}`;
@@ -7743,6 +7949,7 @@ function testSurveyRefusesADegradedWalk() {
 // The partial case is the one the old rule missed: `all_strategies_unreadable` fired only when
 // EVERY active direction failed, and a mission attributed only to the ONE that failed is named
 // as residue exactly the same way.
+T("the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk);
 function testResidueRefusesADegradedWalk() {
   const dir = makeRepo("main");
   const S = "plugins/workaholic/skills/strategy/scripts";
@@ -7840,6 +8047,7 @@ function testResidueRefusesADegradedWalk() {
 //
 // NO GATE MOVES HERE. The brake is the survey's (pinned by its own case above); this ticket
 // names what is already true, and the healthy digest is unchanged.
+T("the run reports name a degraded direction reading", testRunReportsNameADegradedReading);
 function testRunReportsNameADegradedReading() {
   const dir = makeRepo("main");
   const DIGEST = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/standup/scripts/digest.sh")}`;
@@ -7903,6 +8111,7 @@ function testRunReportsNameADegradedReading() {
 // strategies, which is itself the first case: the SILENCE RULE (what is not news), the
 // NAMED no-op (an empty digest is never posted as one), and the pure-read property, which
 // the ticket's gate requires be demonstrated rather than asserted.
+T("standup/digest.sh (the daily per-strategy digest)", testStandupDigest);
 function testStandupDigest() {
   const dir = makeRepo("main");
   const DIGEST = `${POSIX_SH} ${SCRIPTS.standupDigest}`;
@@ -8006,6 +8215,7 @@ function testStandupDigest() {
 // `progress.sh` says how far each is, `queue-size.sh` says what is queued under it, and
 // `list-todo.sh` is the repository's queue. Nothing here may become a second walker, and no
 // artifact may gain a field to make the join legible — that relation is retired by name.
+T("standup/digest.sh reports the mission grain and the whole queue", testStandupDigestMissionGrain);
 function testStandupDigestMissionGrain() {
   const dir = makeRepo("main");
   const DIGEST = `${POSIX_SH} ${SCRIPTS.standupDigest}`;
@@ -8108,6 +8318,7 @@ function testStandupDigestMissionGrain() {
 // is a DIFF AGAINST THE PREVIOUS TICK rather than a restatement of the current state.
 // `📦 Release Preparation` was retired for exactly the failure this test exists to
 // prevent: ten posts in ten hours for one unchanged request, none answered.
+T("moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost);
 function testModerateTickPost() {
   const dir = makeRepo("main");
   const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
@@ -8271,6 +8482,7 @@ function testModerateTickPost() {
 // The working-week gate, and the reason it is not cosmetic: a question posted at 10:00 on
 // a Sunday reaches nobody, and the asked-once gate then guarantees it is never posted
 // again on a day somebody is reading. Held is not dropped — it waits for Monday.
+T("moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays);
 function testModerateWorkingDays() {
   const dir = makeRepo("main");
   const ASK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh")}`;
@@ -8297,6 +8509,7 @@ function testModerateWorkingDays() {
 // The deadline cuts steps IN ORDER and the asking step is last, so the one step whose
 // absence nobody can see was the first to go. A tick that reads nine things and says
 // nothing is the failure this exemption exists to prevent.
+T("moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline);
 function testModerateAskSurvivesDeadline() {
   const run_sh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
   const gate = run_sh.slice(run_sh.indexOf("$DEADLINE") - 400, run_sh.indexOf("$DEADLINE") + 200);
@@ -8322,6 +8535,7 @@ function testModerateAskSurvivesDeadline() {
 // across all three stages over an otherwise-identical fixture — because the gate that acts on
 // 観察中 is the NEXT ticket, and a reading that quietly started gating here would be
 // indistinguishable from that one having shipped early.
+T("strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside);
 function testStrategyStageRidesBeside() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -8410,6 +8624,7 @@ function testStrategyStageRidesBeside() {
 // that improve as a blend. The survey already has the seam for exactly that and no other — the
 // eligible ORDER, admitted on the ground that it is a proposal about attention and never a gate
 // (which is how `pace` was admitted) — so the stage joins the sort key and nothing else.
+T("propose: 改良中 sorts before 進行中, and that is all it does", testProposeStageOrdering);
 function testProposeStageOrdering() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -8473,6 +8688,7 @@ function testProposeStageOrdering() {
 // and that is what makes it admissible where a derived silence was refused: `pace` gates
 // nothing, because a machine's guess must not silence the one routine that originates work —
 // and the operator's own word is not a guess.
+T("propose: 観察中 stops origination and nothing else", testProposeObservingGate);
 function testProposeObservingGate() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -8540,6 +8756,7 @@ function testProposeObservingGate() {
   } finally { cleanup(dir); }
 }
 
+T("propose: the gates that replace the dropped judgment bar", testProposeGates);
 function testProposeGates() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -8674,6 +8891,7 @@ function testProposeGates() {
 // The write floor. `open-proposal.sh` is the ONE writer, its only write is a GitHub issue,
 // and everything asserted here happens BEFORE any network call -- which is also why the
 // suite can hold it to its contract without touching `gh`.
+T("propose: the write floor and its named refusals", testProposeWriteFloor);
 function testProposeWriteFloor() {
   const dir = makeRepo("main");
   const WH = join(dir, ".workaholic");
@@ -8769,6 +8987,7 @@ function testProposeWriteFloor() {
 
 // The routine template and the two contracts that only its frontmatter can carry: what it
 // is allowed to write, and what it is allowed to say.
+T("propose: the standing [Specificate] routine is retired into [Propose]", testProposeRoutineTemplate);
 function testProposeRoutineTemplate() {
   // THE STANDING [Specificate] ROUTINE IS RETIRED (2026-09-02, the developer's instruction):
   // its act is the closing half of [Propose], whose prompt runs /propose then
@@ -8800,6 +9019,7 @@ function testProposeRoutineTemplate() {
 // post shape — which lives in exactly two places (the catalog and this prompt, the ceiling
 // on what a session may emit), so a drift between them ships either a documented shape
 // nobody is authorized to post or a posted shape nothing documents. Byte for byte.
+T("standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate);
 function testStandupRoutineTemplate() {
   // RETIRED 2026-08-24 (the developer's ruling): the standup is integrated into the
   // moderation tick — /moderate's strategy-digest step renders the per-strategy digest at
@@ -8827,6 +9047,7 @@ function testStandupRoutineTemplate() {
 
 // The command and the skill state the reader contract where a human and a diff can see it,
 // exactly as `/prepare-release` does — a write appearing here later has to contradict text.
+T("standup: the command and skill are a reader", testStandupIsAReader);
 function testStandupIsAReader() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/standup.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/standup/SKILL.md"), "utf8");
@@ -8847,6 +9068,7 @@ function testStandupIsAReader() {
 }
 
 // ---------- hooks/validate-strategy.sh (the write-time floor) ----------
+T("hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy);
 function testValidateStrategy() {
   const dir = makeRepo("main");
   try {
@@ -8882,6 +9104,7 @@ function testValidateStrategy() {
 }
 
 // ---------- 9. installed plugin helper resolution ----------
+T("installed plugin helper resolution", testInstalledPluginHelperResolution);
 function testInstalledPluginHelperResolution() {
   const dir = makeRepo("main");
   const installed = makeInstalledSkillsTree(["create-ticket", "drive", "gather"]);
@@ -8927,6 +9150,7 @@ function testInstalledPluginHelperResolution() {
 }
 
 // ---------- mission/create.sh + progress.sh + list.sh ----------
+T("mission/create.sh + progress.sh + list.sh", testMission);
 function testMission() {
   const dir = makeRepo("main");
   try {
@@ -9029,6 +9253,7 @@ concerns: []
 }
 
 // ---------- mission/append-changelog.sh + tick-acceptance.sh (shared mutators) ----------
+T("mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators);
 function testMissionMutators() {
   const dir = makeRepo("main");
   try {
@@ -9095,6 +9320,7 @@ concerns: []
 // closed `achieved` while what the item asserts had been verified by nobody. Measured
 // 2026-08-31 on a real mission. This reader is what the gate consults; it delegates the
 // declaration itself to verification-handoff.sh rather than reading the field again.
+T("mission/acceptance-handoffs.sh", testAcceptanceHandoffs);
 function testAcceptanceHandoffs() {
   const dir = makeRepo("main");
   try {
@@ -9159,6 +9385,7 @@ function testAcceptanceHandoffs() {
 // mission that ever reached the archive closed `abandoned` at 0/9. These pin the writer:
 // it preserves the item text, is idempotent, links a WRAPPED item, and refuses rather
 // than guessing when the selector does not resolve to exactly one unlinked item.
+T("mission/link-acceptance.sh (the acceptance-to-artifact link)", testLinkAcceptance);
 function testLinkAcceptance() {
   const dir = makeRepo("main");
   try {
@@ -9245,6 +9472,7 @@ author: test@example.com
 // not satisfied" and "this criterion is not addressable by me" — and a caller could not
 // tell them apart, so six boards sat at 0/N looking like stalled work. These pin the
 // split, the stranded count that rides on every read, and the audit that names the items.
+T("acceptance satisfaction semantics (ticker + progress + audit)", testAcceptanceSatisfactionSemantics);
 function testAcceptanceSatisfactionSemantics() {
   const dir = makeRepo("main");
   try {
@@ -9328,6 +9556,7 @@ ${acceptance}
 // worktree through the sanctioned creator while the create flow still dead-ends
 // on the existing mission.md, and a replan-emitted delta ticket answers to the
 // same validation bar as a hand-written one.
+T("mission replan seams", testMissionReplanSeams);
 function testMissionReplanSeams() {
   const dir = makeRepo("main");
   try {
@@ -9431,6 +9660,7 @@ Acceptance: the delta lands. Verification: the suite. Gate: green.
 }
 
 // ---------- mission layout: living migration + close.sh (end a mission) ----------
+T("mission layout migration + close.sh", testMissionLayoutMigrationAndClose);
 function testMissionLayoutMigrationAndClose() {
   const dir = makeRepo("main");
   try {
@@ -9543,6 +9773,7 @@ concerns: []
 }
 
 // ---------- drive/archive.sh mission seam (roll on archive) ----------
+T("drive/archive.sh mission seam", testMissionDriveSeam);
 function testMissionDriveSeam() {
   // A missioned ticket rolls its mission on archive: changelog + acceptance tick.
   const dir = makeRepo("main");
@@ -9726,6 +9957,7 @@ Development completed as planned.
 // ticket committed). Asserts on stdout, since the whole defect is that the outcome was not
 // there; the filesystem effects were already correct, so filesystem-only assertions passed
 // against the broken script.
+T("drive/archive.sh reports the mission roll (non-blocking, not silent)", testArchiveMissionReporting);
 function testArchiveMissionReporting() {
   const ticketName = "20260719120000-t.md";
   const seed = (dir, { missionVal, acceptance, changelog }) => {
@@ -9838,6 +10070,7 @@ function testArchiveMissionReporting() {
 }
 
 // ---------- ship/extract-deferred-concerns.sh mission seam ("stuck") ----------
+T("ship/extract-deferred-concerns.sh mission seam", testMissionShipSeam);
 function testMissionShipSeam() {
   const dir = makeRepo("main");
   try {
@@ -9862,6 +10095,7 @@ function testMissionShipSeam() {
 }
 
 // ---------- report/apply-deferred-concern-verdicts.sh mission seam ("unstuck") ----------
+T("report/apply-deferred-concern-verdicts.sh mission seam", testMissionReportSeam);
 function testMissionReportSeam() {
   const dir = makeRepo("main");
   try {
@@ -9891,6 +10125,7 @@ function testMissionReportSeam() {
 }
 
 // ---------- 9. drive/promote-icebox.sh ----------
+T("drive/promote-icebox.sh", testPromoteIcebox);
 function testPromoteIcebox() {
   const dir = makeRepo("main");
   try {
@@ -9915,6 +10150,7 @@ function testPromoteIcebox() {
 }
 
 // ---------- ship/publish-release.sh (CI-detection branch only — hermetic) ----------
+T("ship/publish-release.sh", testPublishRelease);
 function testPublishRelease() {
   // Repo with a GitHub Actions release publisher -> must defer to CI, never call gh.
   const ci = makeRepo("main");
@@ -9937,6 +10173,7 @@ function testPublishRelease() {
 }
 
 // ---------- ship/check-confirmation-capability.sh (advisory pre-deploy capability check) ----------
+T("ship/check-confirmation-capability.sh", testCheckCapability);
 function testCheckCapability() {
   // Unknown method -> not capable, deterministic regardless of installed tooling.
   const r1 = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkCapability} bogus`).stdout);
@@ -9960,6 +10197,7 @@ function testCheckCapability() {
 }
 
 // ---------- ship/read-deployments.sh (deployment-confirmation gate driver) ----------
+T("ship/read-deployments.sh", testReadDeployments);
 function testReadDeployments() {
   // No .workaholic/deployments/ dir -> no confirmation method (gate would halt).
   const none = makeRepo("main");
@@ -10037,6 +10275,7 @@ function testReadDeployments() {
 // The four cases the ticket named: no targets, one target with no prior note, one
 // target with a prior note and a non-empty range, and an unresolvable range. Each
 // degradation is a REPORTED reason — never an error and never an empty success.
+T("ship/read-deploy-state.sh", testReadDeployState);
 function testReadDeployState() {
   const seedTarget = (root, slug, extraFm = "") => {
     mkdirSync(join(root, ".workaholic/deployments"), { recursive: true });
@@ -10158,6 +10397,7 @@ function makePlanRepo(withLinks = true) {
   return { dir, note };
 }
 
+T("ship/draft-deploy-plan.sh", testDraftDeployPlan);
 function testDraftDeployPlan() {
   // A plan is drafted, and every field traces back to the consolidation.
   const { dir, note } = makePlanRepo();
@@ -10245,6 +10485,7 @@ function testDraftDeployPlan() {
 }
 
 // ---------- ship/record-evidence.sh (pre-merge deployment evidence capture) ----------
+T("ship/record-evidence.sh", testRecordEvidence);
 function testRecordEvidence() {
   // No story file -> records nothing, does not error.
   const noStory = makeRepo("main");
@@ -10313,6 +10554,7 @@ function testRecordEvidence() {
 // than merely absent. One writer fills both destinations, and the four statuses
 // are a closed set: `not_run` ("we could not check") must stay distinguishable
 // from `fail` ("we checked and it was wrong").
+T("ship/record-evidence.sh -> release note", testRecordEvidenceIntoNote);
 function testRecordEvidenceIntoNote() {
   const seed = () => {
     const dir = makeRepo("main");
@@ -10396,6 +10638,7 @@ function testRecordEvidenceIntoNote() {
 // and access_key entirely. It now sources release-scan's secret-patterns.sh for the
 // key group and pass-1 shapes, so this fixture list pins the shared coverage — every
 // shape the scanner's pass 1 / _SP_KEY flags must be refused by the evidence guard.
+T("ship/record-evidence.sh shared secret rules", testRecordEvidenceSharedRules);
 function testRecordEvidenceSharedRules() {
   const fixtures = [
     'SECRET_KEY = "abcdef123456"',                // suffixed keyword — the measured drift
@@ -10446,6 +10689,7 @@ function makeConflictClone(file, baseVal, mainVal, branchVal) {
 }
 
 // ---------- workaholify/audit-claude-md.sh + hooks/guard-working-directory.sh ----------
+T("workaholify/audit-claude-md.sh", testAuditClaudeMd);
 function testAuditClaudeMd() {
   const HOOK = SCRIPTS.auditClaudeMd;
   // Conformant: CLAUDE.md exists and refers to the workaholify gateway.
@@ -10484,6 +10728,7 @@ function testAuditClaudeMd() {
   }
 }
 
+T("hooks/guard-working-directory.sh", testGuardWorkingDirectory);
 function testGuardWorkingDirectory() {
   const HOOK = SCRIPTS.guardWorkingDir;
   let hasJq = true;
@@ -10535,6 +10780,7 @@ function testGuardWorkingDirectory() {
 }
 
 // ---------- hooks/guard-askuserquestion-label.sh (PreToolUse AskUserQuestion) ----------
+T("hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel);
 function testGuardAskUserQuestionLabel() {
   const HOOK = SCRIPTS.guardAskLabel;
   let hasJq = true;
@@ -10572,6 +10818,7 @@ function testGuardAskUserQuestionLabel() {
 }
 
 // ---------- ship/catchup-main.sh (pre-deploy branch sync) ----------
+T("ship/catchup-main.sh", testCatchupMain);
 function testCatchupMain() {
   // Build a bare "origin" with a main, clone it, branch off, and add an upstream
   // commit to origin/main. catchup-main must merge it cleanly (no conflict).
@@ -10712,6 +10959,7 @@ function testCatchupMain() {
 // clones shallow -- was offered a merged, shipped unit for takeover.
 //
 // Local clones ignore --depth unless the source is a file:// URL, so these use one.
+T("drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone);
 function testClaimScanShallowClone() {
   const { origin, A, B } = makeClaimFixture();
   const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
@@ -10798,6 +11046,7 @@ function testClaimScanShallowClone() {
 }
 
 // ---------- report/apply-deferred-concern-verdicts.sh (Bug 1: accept object + array) ----------
+T("report/apply-deferred-concern-verdicts.sh", testApplyVerdicts);
 function testApplyVerdicts() {
   // {"verdicts":[...]} object form must write a superseding record for a resolved concern.
   const repo = makeRepo("main");
@@ -10950,6 +11199,7 @@ function testApplyVerdicts() {
 // The refresh script owns only the bytes between the generated-region markers;
 // prose outside survives, empty/untracked directories are never linked, and a
 // per-entry description is never degraded to a bare link.
+T("okf/refresh-index.sh preserves content + prunes dead links", testRefreshIndexPreservesContent);
 function testRefreshIndexPreservesContent() {
   const R = SCRIPTS.refreshIndex;
 
@@ -11062,6 +11312,7 @@ function testRefreshIndexPreservesContent() {
 // two per-area knobs and nothing else: entries newest-first, and README.md is
 // not an entry. The last row is the one that keeps the skip from going global —
 // every other area indexes its own README.md as a real entry.
+T("okf/refresh-index.sh generates the stories area", testRefreshIndexStoriesArea);
 function testRefreshIndexStoriesArea() {
   const R = SCRIPTS.refreshIndex;
 
@@ -11130,6 +11381,7 @@ function testRefreshIndexStoriesArea() {
 // Source assertions pinning the fixed-path hazard shut: a future edit that
 // reintroduces a constant /tmp artifact path (the collision that fed one run
 // another repo's data) goes red here.
+T("report per-run artifacts (no shared /tmp paths)", testReportArtifacts);
 function testReportArtifacts() {
   const createOrUpdate = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/create-or-update.sh"), "utf8");
   assertTrue("create-or-update.sh has no constant /tmp/pr-body.md",
@@ -11141,6 +11393,7 @@ function testReportArtifacts() {
 }
 
 // ---------- ship/extract-deferred-concerns.sh (Bug 2: canonical dedup across PR prefixes) ----------
+T("ship/extract-deferred-concerns.sh", testExtractDeferredConcerns);
 function testExtractDeferredConcerns() {
   const repo = makeRepo("main");
   try {
@@ -11168,6 +11421,7 @@ function testExtractDeferredConcerns() {
 // branch and 6 on the next. A consumer keyed on the number fails SILENTLY: no match
 // looks exactly like a branch that raised no concerns. Every numbering a real story
 // can present must parse, including the pre-2026-08 stories that say "## 6.".
+T("story Concerns heading matched by name, not number", testConcernsHeadingByName);
 function testConcernsHeadingByName() {
   const heads = ["## 5. Concerns", "## 6. Concerns", "## Concerns", "## 12. Concerns"];
   for (const head of heads) {
@@ -11207,6 +11461,7 @@ function testConcernsHeadingByName() {
 // keeps every severity. A test that only checked the body would pass just as well
 // for the variant that deletes knowledge, so the story file is asserted untouched
 // and re-extracted here.
+T("report/filter-low-concerns.sh (render/extract split)", testFilterLowConcerns);
 function testFilterLowConcerns() {
   const dir = makeRepo("main");
   const FILTER = `${POSIX_SH} ${SCRIPTS.filterLowConcerns}`;
@@ -11295,6 +11550,7 @@ function testFilterLowConcerns() {
 // The template is stated in report/SKILL.md and mirrored in review-sections/SKILL.md.
 // A change applied to one mirror produces a story whose sections disagree with the
 // contract that generates them, which is invisible until a story is written.
+T("story template mirrors agree", testStoryTemplateMirrors);
 function testStoryTemplateMirrors() {
   const report = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/SKILL.md"), "utf8");
   const review = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/review-sections/SKILL.md"), "utf8");
@@ -11325,6 +11581,7 @@ function testStoryTemplateMirrors() {
 // later Japanese concern was silently dropped as a duplicate. Non-ASCII (and
 // word-less) titles now get a stable c-<hash> id, reported via fallback_ids;
 // the ASCII path stays byte-identical (ids are the stream's permanent keys).
+T("ship/extract-deferred-concerns.sh unicode titles", testExtractDeferredConcernsUnicodeTitles);
 function testExtractDeferredConcernsUnicodeTitles() {
   const repo = makeRepo("main");
   try {
@@ -11354,6 +11611,7 @@ function testExtractDeferredConcernsUnicodeTitles() {
 // ---------- feedback/migrate-concerns.sh (concern-corpus living migration) ----------
 // The H2 merger: active concerns/ files become open kind: concern records,
 // archived ones become closed:-stamped records, and the directory is removed.
+T("feedback/migrate-concerns.sh (H2 merger)", testMigrateConcerns);
 function testMigrateConcerns() {
   const dir = makeRepo("main");
   try {
@@ -11393,6 +11651,7 @@ function testMigrateConcerns() {
 // commit of 154, described by a message about the two (observed 2026-08-04). The index
 // is the caller's shared state; a message that does not describe its own diff is the
 // premise change history rests on.
+T("feedback: a read never enlarges the caller's next commit", testMigrationLeavesTheIndexAlone);
 function testMigrationLeavesTheIndexAlone() {
   const dir = makeRepo("main");
   try {
@@ -11436,6 +11695,7 @@ function testMigrationLeavesTheIndexAlone() {
 // rm` sat staged produced a `Refresh heartbeat` commit carrying three real deletions
 // (observed 2026-08-04). Nothing caught it: the commit succeeded and the branch content
 // was right; only the message was wrong, so the story attributed work to coordination.
+T("commit.sh --allow-empty commits nothing, whatever is staged", testAllowEmptyIsActuallyEmpty);
 function testAllowEmptyIsActuallyEmpty() {
   const dir = makeRepo("main");
   try {
@@ -11477,6 +11737,7 @@ function testAllowEmptyIsActuallyEmpty() {
 const STORY_WITH_CONCERN =
   "---\nbranch: work-x\n---\n## 6. Concerns\n\n### Some real concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n";
 
+T("ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush);
 function testExtractDeferredConcernsPush() {
   // With a reachable origin: the concern commit is pushed, so origin/main == main.
   const origin = mkdtempSync(join(tmpdir(), "wh-origin-"));
@@ -11583,6 +11844,7 @@ function testExtractDeferredConcernsPush() {
 // fatal: release_note_not_on_remote) with the local note commit left intact; only
 // no_remote stays a soft pushed:false. A note not on the remote is a note the
 // merged PR does not carry.
+T("ship/commit-release-note.sh push", testCommitReleaseNotePush);
 function testCommitReleaseNotePush() {
   const origin = mkdtempSync(join(tmpdir(), "wh-rn-origin-"));
   const clone = mkdtempSync(join(tmpdir(), "wh-rn-clone-"));
@@ -11650,6 +11912,7 @@ function testCommitReleaseNotePush() {
 // The single reader of the open concern set: kind: concern records minus
 // superseded minus migration-closed. Envelope keys match the retired
 // list-active-deferred-concerns.sh; should_triage is permanently false.
+T("feedback/list-open-concerns.sh", testListOpenConcerns);
 function testListOpenConcerns() {
   const dir = makeRepo("main");
   try {
@@ -11687,6 +11950,7 @@ function testListOpenConcerns() {
 }
 
 // ---------- report/shrink-pr-body.sh (GitHub 65,536-char PR-body bound) ----------
+T("report/shrink-pr-body.sh", testShrinkPrBody);
 function testShrinkPrBody() {
   const dir = makeRepo("main");
   try {
@@ -11719,6 +11983,7 @@ function testShrinkPrBody() {
 // ---------- ship/extract-deferred-concerns.sh (mission/tickets relation propagation) ----------
 // Each extracted concern inherits the shipped story's machine-readable relations:
 // mission: <slug> and tickets: [...]. Absent on the story -> empty mission + [].
+T("ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation);
 function testExtractConcernMissionRelation() {
   // Story WITH the relations -> concern carries them forward.
   const repo = makeRepo("main");
@@ -11764,6 +12029,7 @@ function testExtractConcernMissionRelation() {
 // ---------- ship/extract-deferred-concerns.sh: every severity is recorded ----------
 // The promotion floor retired with the concern merger (H2): the stream records
 // every section-6 concern regardless of severity; Keep: is tolerated and ignored.
+T("ship/extract-deferred-concerns.sh all severities", testExtractAllSeverities);
 function testExtractAllSeverities() {
   const dir = makeRepo("main");
   try {
@@ -11797,6 +12063,7 @@ function fs_readdirSafe(d) {
 }
 
 // ---------- report/doc-drift.sh (documentation-drift fact emitter) ----------
+T("report/doc-drift.sh", testDocDrift);
 function testDocDrift() {
   // Helper: seed a repo with CLAUDE.md + README.md committed on main, then
   // branch to work-x. Returns the repo dir; caller adds the branch's changes.
@@ -11947,6 +12214,7 @@ function testDocDrift() {
 // (and only when) a workflow command runs — i.e. the expanded command body carries the
 // `workaholic:policy-lens` sentinel. This proves delivery up to the model boundary; it does
 // NOT (and a unit test cannot) assert that the model then reasoned with the policy.
+T("hooks/policy-lens.sh", testPolicyLens);
 function testPolicyLens() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/policy-lens.sh");
   const PILLARS = ["Planning (企画)", "Design (設計)", "Implementation (実装)", "Operation (運用)"];
@@ -12009,6 +12277,7 @@ function testPolicyLens() {
 // Feed the real hook a {tool_input:{file_path}} payload on stdin (the PostToolUse
 // contract) and assert exit status / stderr. Resolving the hook by absolute path makes
 // its hook_dir the real hooks/ dir, so it reads the committed allowlist file.
+T("hooks/validate-ticket.sh", testValidateLayout);
 function testValidateLayout() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
 
@@ -12069,6 +12338,7 @@ function testValidateLayout() {
 }
 
 // ---------- hooks/layout-doctor.sh (one-shot .workaholic/ layout audit) ----------
+T("hooks/layout-doctor.sh", testLayoutDoctor);
 function testLayoutDoctor() {
   const DOCTOR = join(REPO_ROOT, "plugins/workaholic/hooks/layout-doctor.sh");
 
@@ -12168,6 +12438,7 @@ function testLayoutDoctor() {
 // The location/filename checks run BEFORE the file-exists check, so a canonical
 // path to a (deliberately absent) file exits 0, while a non-canonical path
 // exits 2 — letting us assert location rules without writing fixtures.
+T("hooks/validate-ticket.sh", testValidateTicket);
 function testValidateTicket() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
   let hasJq = true;
@@ -12262,6 +12533,7 @@ function testValidateTicket() {
 //
 // The check is scoped to todo/<user>/ -- the finished location. History is never
 // retro-blocked, which is the row below that matters most for a 309-line hook.
+T("hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections);
 function testValidateTicketSections() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
   let hasJq = true;
@@ -12352,6 +12624,7 @@ Acceptance: it works. Verification: the suite. Gate: green.
 // ---------- hooks/validate-ticket.sh (optional mission: field passes) ----------
 // The mission relation is optional and must never cause a validation failure —
 // whether it carries a slug, is empty, or is absent entirely.
+T("hooks/validate-ticket.sh mission field", testValidateTicketMission);
 function testValidateTicketMission() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
   let hasJq = true;
@@ -12453,6 +12726,7 @@ Acceptance: it works. Verification: the suite. Gate: green.
 // A /carry resumption ticket's Implementation Steps drive verbatim, and on a
 // mission-authorized queue no human gate remains to catch a completed step left
 // in the list. The prose rule gets a machine floor: no checked/struck steps.
+T("hooks/validate-ticket.sh resumption remaining-only", testValidateTicketResume);
 function testValidateTicketResume() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh");
   let hasJq = true;
@@ -12518,6 +12792,7 @@ Queue empty.
 // A mission stamped drive_authorized: true is the one artifact that authorizes
 // UNATTENDED work; the validator rejects the finished-but-empty states while
 // letting create.sh's deliberately empty scaffold pass.
+T("hooks/validate-mission.sh", testValidateMission);
 function testValidateMission() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh");
   let hasJq = true;
@@ -12598,6 +12873,7 @@ function testValidateMission() {
 // ---------- hooks/validate-story.sh + validate-trip.sh (OKF type floor) ----------
 // New writes must carry the OKF `type`; history (already-tracked files) is
 // grandfathered so a validator never fires on artifacts predating the convention.
+T("hooks/validate-story.sh + validate-trip.sh", testValidateStoryTrip);
 function testValidateStoryTrip() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -12655,6 +12931,7 @@ function testValidateStoryTrip() {
 // Asserts it BLOCKS (exit 2) mutating commands that place a ticket in a non-canonical
 // location, and ALLOWS (exit 0) canonical moves, variable destinations (archive.sh),
 // read-only commands, and unrelated commands.
+T("hooks/guard-ticket-structure.sh", testGuardTicketStructure);
 function testGuardTicketStructure() {
   const HOOK = join(REPO_ROOT, "plugins/workaholic/hooks/guard-ticket-structure.sh");
   let hasJq = true;
@@ -12739,6 +13016,7 @@ function makeStaleBaseClone(opts = {}) {
 // ---------- gather/base-ref.sh + base resolution across the report/scan pipeline ----------
 // The base ref must come from origin/<default>, never a local `main` a primary checkout
 // has pinned stale. Structurally-faithful fixture (real bare origin, real stale local main).
+T("gather/base-ref.sh base resolution (report/scan pipeline)", testBaseRefResolution);
 function testBaseRefResolution() {
   // 1. Happy path: resolver returns origin/main; the whole pipeline measures against it.
   {
@@ -12815,6 +13093,7 @@ function testBaseRefResolution() {
 // ---------- report/collect-commits.sh (commit body is emitted, not dropped) ----------
 // Regression guard for the historical bug where the script computed the body then
 // dropped it, starving /story of the structured commit content.
+T("report/collect-commits.sh", testCollectCommits);
 function testCollectCommits() {
   const dir = makeRepo("main");
   try {
@@ -12844,6 +13123,7 @@ function testCollectCommits() {
 // Asserts the scan groups commits per author email, tags tickets with their
 // frontmatter author + scope, lists stories (README excluded), and yields no
 // developers for a window that excludes all history.
+T("catch/scan-window.sh", testScanWindow);
 function testScanWindow() {
   const dir = makeRepo("main");
   try {
@@ -12918,6 +13198,7 @@ function testScanWindow() {
 // repositories. Use repository-scoped endpoints"), so the match moved client-side onto
 // `GET repos/{slug}/pulls`. These assertions pin that the question being asked is still
 // the same one, and that a refused read is never dressed up as an empty result.
+T("mission/list-related-prs.sh slug matching", testListRelatedPrs);
 function testListRelatedPrs() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -12992,6 +13273,7 @@ const GRAPHQL_GH_ALLOWLIST = [
   // "path/relative/to/repo/root.sh:LINE — why this call site cannot use REST",
 ];
 
+T("no workflow script reaches GitHub through GraphQL", testNoGraphqlGhCalls);
 function testNoGraphqlGhCalls() {
   const roots = [
     join(REPO_ROOT, "plugins/workaholic/skills"),
@@ -13059,6 +13341,7 @@ function testNoGraphqlGhCalls() {
 // The fixture is GENERATED, never committed, and sized from the measured limit rather
 // than a file-count guess: it keeps working as the real corpus grows because it does not
 // read `.workaholic/` at all.
+T("catch/scan-window.sh oversized corpus", testScanWindowOversizedCorpus);
 function testScanWindowOversizedCorpus() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -13141,6 +13424,7 @@ function testScanWindowOversizedCorpus() {
 // no network): (A) an unreachable remote degrades gracefully -- fetch_ok=false and
 // the local scan still runs; (B) a real remote's branch surfaces after the
 // scan's own internal fetch, with the branch name normalized (no origin/ prefix).
+T("catch/scan-window.sh remote fetch+scan", testScanWindowRemote);
 function testScanWindowRemote() {
   // --- Scenario A: unreachable remote -> fetch_ok false, local scan intact -----
   const a = makeRepo("main");
@@ -13192,6 +13476,7 @@ function testScanWindowRemote() {
 // that predate the stamp fall back to the git author of the last story-touching
 // commit. And the startup fetch is bounded: a hung remote or the
 // CATCH_FETCH_TIMEOUT=0 opt-out must degrade to fetch_ok=false, never a stall.
+T("catch/scan-window.sh deploy attribution + fetch bound", testScanWindowDeployAttribution);
 function testScanWindowDeployAttribution() {
   const dir = makeRepo("main");
   try {
@@ -13223,6 +13508,7 @@ function testScanWindowDeployAttribution() {
   } finally { cleanup(dir); }
 }
 
+T("catch/scan-window.sh fetch bound", testScanWindowFetchBound);
 function testScanWindowFetchBound() {
   let hasTimeout = true;
   try { execSync("command -v timeout", { stdio: "ignore" }); } catch { hasTimeout = false; }
@@ -13264,6 +13550,7 @@ function testScanWindowFetchBound() {
 // a real missioned ticket is archived in-window (via archive.sh, which stamps
 // commit_hash + rolls the changelog), a second missioned ticket stays in todo
 // (unmerged), and the scan must report merged progress distinctly from in-flight.
+T("catch/scan-window.sh mission join", testScanWindowMissions);
 function testScanWindowMissions() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -13396,6 +13683,7 @@ mission: ${slug}
 // The standing guard that keeps rules/shell.md from regressing. (1) the real
 // plugin tree must be conforming — the regression lock that only passes once
 // every script is POSIX; (2) a planted bash script must be flagged.
+T("hooks/posix-lint.sh", testPosixLint);
 function testPosixLint() {
   // 1. Real tree must be clean (this is the lock: it fails if any bashism returns).
   const real = run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.posixLint}`);
@@ -13451,6 +13739,7 @@ function collectHookCommands(hooksJson, root) {
   return paths;
 }
 
+T("hooks/hooks.json executable", testHooksExecutable);
 function testHooksExecutable() {
   const PLUGIN_ROOT = join(REPO_ROOT, "plugins/workaholic");
   const hooksJson = JSON.parse(readFileSync(join(PLUGIN_ROOT, "hooks/hooks.json"), "utf8"));
@@ -13486,6 +13775,7 @@ function testHooksExecutable() {
 // it BLOCKS (exit 2) only an off-policy inline subject (Conventional-Commit prefix,
 // [bracket] tag, or >50 chars) and ALLOWS conformant subjects, co-author trailers,
 // editor/-F commits, and non-commit commands. Co-Authored-By is explicitly allowed.
+T("hooks/guard-git-commit.sh", testGuardGitCommit);
 function testGuardGitCommit() {
   const HOOK = SCRIPTS.guardGitCommit;
   let hasJq = true;
@@ -13531,6 +13821,7 @@ function testGuardGitCommit() {
 // did NOT die is the mechanical backstop, which is why these assertions moved rather
 // than being deleted — its false-positive rate is a usability property, and each true
 // positive below is a rule someone would otherwise be told to "mask".
+T("the cross-repository backstop", testCrossRepoBackstop);
 function testCrossRepoBackstop() {
   const tmp = mkdtempSync(join(tmpdir(), "crossing-"));
   const src = join(tmp, "source-repo");
@@ -13672,6 +13963,7 @@ function testCrossRepoBackstop() {
 // THE REWRITE IS CONFIGURED HERE, NOT READ FROM THE AMBIENT ENVIRONMENT. CI runners have
 // no rewrite, so an environment-sensing test would be permanently vacuous on the one
 // surface that gates merges; a fixture makes the case run identically everywhere.
+T("the crossing checks under a git insteadOf URL rewrite", testCrossRepoUnderUrlRewrite);
 function testCrossRepoUnderUrlRewrite() {
   const tmp = mkdtempSync(join(tmpdir(), "crossing-rewrite-"));
   const src = join(tmp, "source-repo");
@@ -13755,6 +14047,7 @@ function testCrossRepoUnderUrlRewrite() {
 //   3. THE FOUR REAL LEAKED SENTENCES STILL PASS UNFLAGGED. Ported from the retired
 //      submit-request suite, and asserted rather than lamented — read the crossing
 //      section's §1 before "fixing" it.
+T("/fb's cross-repository issue mode", testFbCrossRepoIssueMode);
 function testFbCrossRepoIssueMode() {
   const tmp = mkdtempSync(join(tmpdir(), "fb-cross-"));
   const src = join(tmp, "source-repo");
@@ -14040,6 +14333,7 @@ function testFbCrossRepoIssueMode() {
 // the input that did it. Same for any typo'd flag. Usage must be reachable by
 // asking for it, and an unknown -* argument must be refused, never reinterpreted
 // as data.
+T("commit/commit.sh flag guard", testCommitFlagGuard);
 function testCommitFlagGuard() {
   const dir = makeRepo("main");
   try {
@@ -14100,6 +14394,7 @@ function testCommitFlagGuard() {
   } finally { cleanup(dir); }
 }
 
+T("hooks/guard-repo-confinement.sh", testGuardRepoConfinement);
 function testGuardRepoConfinement() {
   const HOOK = SCRIPTS.guardRepoConfinement;
   let hasJq = true;
@@ -14197,6 +14492,7 @@ function testGuardRepoConfinement() {
   rmSync(tmp, { recursive: true, force: true });
 }
 
+T("hooks/guard-git-branch.sh", testGuardGitBranch);
 function testGuardGitBranch() {
   const HOOK = SCRIPTS.guardGitBranch;
   let hasJq = true;
@@ -14276,6 +14572,7 @@ function waitForNextSecond() {
 // the three properties that make that true, because each is easy to lose in a later edit:
 // the branch carries no commits of its own, the cut never moves the caller's HEAD, and a
 // release branch is invisible to the claim protocol.
+T("branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch);
 function testCutReleaseBranch() {
   const { origin, A, B } = makePublishFixture();
   const CUT = `${POSIX_SH} ${SCRIPTS.cutReleaseBranch}`;
@@ -14363,6 +14660,7 @@ function testCutReleaseBranch() {
 // answerable with grep and git log alone. So these tests cut a real release branch,
 // record it, confirm it, and then ASK THAT QUESTION of the filesystem — asserting the
 // recorded range replays the commits actually carried, rather than asserting field names.
+T("ship: a release branch's durable record answers what shipped, and when", testReleaseRecord);
 function testReleaseRecord() {
   const { origin, A, B } = makePublishFixture();
   const CUT = `${POSIX_SH} ${SCRIPTS.cutReleaseBranch}`;
@@ -14496,6 +14794,7 @@ function testReleaseRecord() {
 // stale/partial install is visible instead of looking like a broken hook. It locates
 // the plugin root relative to its own path and degrades to {ok:true} when no manifest
 // is found (the cross-agent bundle), so source and bundle copies stay identical.
+T("check-deps/check.sh", testCheckDeps);
 function testCheckDeps() {
   // Always-true contract: ok is true regardless of jq/manifest presence.
   const real = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.checkDeps}`).stdout);
@@ -14545,6 +14844,7 @@ function testCheckDeps() {
 // tell them apart, so check.sh's `${CLAUDE_PLUGIN_ROOT:-}` — the read that learns what
 // the harness bound, which must come from OUTSIDE the plugin to be worth anything — was
 // rejected as an unresolved path. The distinguishing syntax is the trailing slash.
+T("build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead);
 async function testPluginRootPathVsRead() {
   const { UNRESOLVED_PLUGIN_ROOT_PATH } =
     await import(pathToFileURL(join(REPO_ROOT, "scripts/build-plugins/script-ref-patterns.mjs")).href);
@@ -14588,6 +14888,7 @@ async function testPluginRootPathVsRead() {
 // reads as terminate `pending`). The run would have been lost to the very failure the newer
 // code prevents, while reporting a version that was not the code it ran. The fix is a second
 // tie-break axis: on an EQUAL version prefer the immutable, version-addressed candidate.
+T("check-deps/plugin-src.sh: an equal version goes to the immutable tree", testPluginSrcTieBreak);
 function testPluginSrcTieBreak() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -14669,6 +14970,7 @@ function testPluginSrcTieBreak() {
   } finally { cleanup(dir); }
 }
 
+T("check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift);
 function testCheckDepsRegistryDrift() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -14788,6 +15090,7 @@ function testCheckDepsRegistryDrift() {
 // against Claude Code's own docs and confirmed there is no in-plugin fix, so the deliverable is
 // legibility: a genuine Claude Code session (CLAUDE_CODE_SESSION_ID set) where the harness's own
 // registry confirms an install, yet loaded_root_source never resolved past "none".
+T("check-deps: an unbound plugin in a genuine session is a stop", testCheckDepsUnboundSession);
 function testCheckDepsUnboundSession() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -14844,6 +15147,7 @@ function testCheckDepsUnboundSession() {
 // Hermetic: a repo with dated commits across two branches. Asserts the scanner
 // emits epoch bucket boundaries, tags each commit into a time-bucket, and builds
 // the per-developer branches[] axis (the --branches widening). Needs jq.
+T("catch/scan-window.sh buckets+branches", testScanWindowBuckets);
 function testScanWindowBuckets() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -14919,6 +15223,7 @@ function testScanWindowBuckets() {
 // ---------- branching/ensure-worktree.sh (branch-name self-defense) ----------
 // The script creates a branch (git worktree add -b), so it must itself reject a
 // non-canonical name before touching git — even if the PreToolUse gate is bypassed.
+T("branching/ensure-worktree.sh", testEnsureWorktreeGuard);
 function testEnsureWorktreeGuard() {
   const dir = makeRepo("main");
   try {
@@ -14953,6 +15258,7 @@ function testEnsureWorktreeGuard() {
 // ---------- hooks/lib/check-subject.sh (shared subject validator) ----------
 // The single source of the subject rules used by BOTH the Bash gate and the
 // git commit-msg hook. Exit 0 = conforming, exit 1 + reason on stdout otherwise.
+T("hooks/lib/check-subject.sh", testCheckSubject);
 function testCheckSubject() {
   const invoke = (subject) => {
     try {
@@ -14983,6 +15289,7 @@ function testCheckSubject() {
 // Feed the hook a temp message file (the git contract: $1 = message path) and
 // assert it rejects off-policy subjects and accepts conformant ones. Subject-only
 // (it never rewrites the message). Hermetic: no real git config is touched.
+T("hooks/git/commit-msg", testCommitMsgHook);
 function testCommitMsgHook() {
   const dir = mkdtempSync(join(tmpdir(), "workaholic-commitmsg-"));
   try {
@@ -15012,6 +15319,7 @@ function testCommitMsgHook() {
 }
 
 // ---------- hooks/install-git-hooks.sh (opt-in core.hooksPath installer) ----------
+T("hooks/install-git-hooks.sh", testInstallGitHooks);
 function testInstallGitHooks() {
   const HOOKS_DIR = join(REPO_ROOT, "plugins/workaholic/hooks/git");
 
@@ -15050,6 +15358,7 @@ function testInstallGitHooks() {
 }
 
 // ---------- explain/resolve-export-path.sh ----------
+T("explain/resolve-export-path.sh", testResolveExportPath);
 function testResolveExportPath() {
   const home = mkdtempSync(join(tmpdir(), "explain-home-"));
   const envHome = (h) => ({ env: { ...process.env, HOME: h } });
@@ -15092,6 +15401,7 @@ function testResolveExportPath() {
 // single parser of the field shape (bare + list); mission-owners.sh resolves the mission's
 // own assignees with a legacy fallback to the singular assignee. list.sh's relation and
 // summary.sh's gate both read through mission-owners.sh.
+T("mission ownership (read-assignees + mission-owners)", testMissionOwnership);
 function testMissionOwnership() {
   const dir = makeRepo("main");
   try {
@@ -15142,6 +15452,7 @@ function testMissionOwnership() {
 // The feedback stream: immutable inbound records (see feedback/SKILL.md). create.sh
 // is the only sanctioned writer; the validator holds NEW writes to the schema floor
 // and grandfathers tracked history exactly like validate-story.sh.
+T("feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback);
 function testFeedback() {
   const dir = makeRepo("main");
   try {
@@ -15251,6 +15562,7 @@ function testFeedback() {
 // thread (notify SKILL, *Which thread an /implement unit's posts land in*). This resolver
 // is the only path from a claimed unit to the `fb:<stem>` key, so what is pinned here is
 // the shape the poster depends on: dedup, order, and an empty answer that is an ANSWER.
+T("drive/unit-feedback-stems.sh: the unit's thread key", testUnitFeedbackStems);
 function testUnitFeedbackStems() {
   const dir = makeRepo("main");
   try {
@@ -15411,6 +15723,7 @@ function testUnitFeedbackStems() {
 // this script remains its unconditional fallback and the direct-apply path's own source of
 // the target state, so what must never survive is an UNCONDITIONAL call issued without
 // first detecting the tool.
+T("workaholify/render-setup-sheet.sh: the human's UI setup", testRenderSetupSheet);
 function testRenderSetupSheet() {
   const WH = "https://github.com/qmu/workaholic";
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
@@ -15580,6 +15893,7 @@ function testRenderSetupSheet() {
 // (2026-08-04 ruling): proposing happens in the session that receives the ask, so
 // there is no window to advance a cursor over. What survives is everything the
 // capture seam still needs — which is exactly what remains below.
+T("specificate: dedup set and draft scaffold", testSpecificateBatch);
 function testSpecificateBatch() {
   const dir = makeRepo("main");
   try {
@@ -15630,6 +15944,7 @@ function testSpecificateBatch() {
 // invisible to the dedup and issue #242 restated an ask already proposed ten minutes
 // earlier in PR #241. The oracle is the one the claim protocol already uses — an
 // unmerged remote branch — so this is network-free and needs no `gh`.
+T("specificate: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests);
 function testProposedRefsCoverOpenPullRequests() {
   const origin = mkdtempSync(join(tmpdir(), "wh-prefs-origin-"));
   const clone = mkdtempSync(join(tmpdir(), "wh-prefs-clone-"));
@@ -15702,6 +16017,7 @@ function testProposedRefsCoverOpenPullRequests() {
 // ---------- propose/notify-slack.sh (env-driven, never load-bearing, secret-safe) ----------
 // Network-free: the success/error paths run against a local file:// stub via
 // WORKAHOLIC_SLACK_API_URL — the suite never calls Slack.
+T("propose/notify-slack.sh", testNotifySlack);
 function testNotifySlack() {
   const dir = makeRepo("main");
   try {
@@ -15796,6 +16112,7 @@ printf '200'
 // answered. What must be pinned: the fold is a fold (files survive, one key changes),
 // legacy spellings still read as in-flight, `merge_policy` is now recorded at creation,
 // and the write-time floor moved from a status onto the ACTIVE AREA.
+T("mission status axis (draft retirement + creation-time policy + re-keyed readers)", testMissionStatusAxis);
 function testMissionStatusAxis() {
   const dir = makeRepo("main");
   try {
@@ -15979,6 +16296,7 @@ function tickSecond() { execSync("sleep 1.1"); }
 // 59 characters, so `Claim <slug>` is 65 -- past commit.sh's 50-character subject cap.
 const LONG_SLUG = "make-the-per-commit-changed-lines-ceiling-a-rule-that-holds";
 
+T("drive claim protocol: two clones, one unit", testClaimProtocol);
 function testClaimProtocol() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -16091,6 +16409,7 @@ function testClaimProtocol() {
 //
 // `receive.denyDeletes` reproduces exactly that asymmetry with no network, which is what
 // makes the production condition testable at all.
+T("drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes);
 function testReleaseClaimDenyDeletes() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -16139,6 +16458,7 @@ function testReleaseClaimDenyDeletes() {
 // minted mid-run sit on the claim branch until a human merges the PR out of band. land
 // closes that distance on a present developer's instruction, and the whole point of the
 // route is that the instruction IS the review, so the refusals matter as much as the land.
+T("drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit);
 function testLandUnit() {
   const { origin, A } = makeClaimFixture();
   // The suite itself runs inside the cloud container, where CLAUDE_CODE_REMOTE=true would
@@ -16231,6 +16551,7 @@ function testLandUnit() {
 // The reader DEGRADES offline; the writer FAILS. False "unclaimed" is the dangerous
 // error — it double-picks work — so a runner that cannot see origin must still be
 // told what it last knew, and must not be allowed to claim on that knowledge.
+T("drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry);
 function testClaimOfflineAsymmetry() {
   const { origin, A, B } = makeClaimFixture();
   try {
@@ -16272,6 +16593,7 @@ function testClaimOfflineAsymmetry() {
 // protocol working: without it the loser's claim commit would land on the winner's
 // branch and one unit would silently vanish from the reader, which reports only a
 // branch's newest `Claim` subject. It must be named, not reported as a dead remote.
+T("drive claim protocol: same-second branch collision", testClaimBranchCollision);
 function testClaimBranchCollision() {
   const { origin, A, B } = makeClaimFixture();
   try {
@@ -16311,6 +16633,7 @@ function testClaimBranchCollision() {
 // of decision G5 is asserted rather than described. The asymmetry under test is the
 // point: `auto` needs unanimous, explicit consent; every other state — a review
 // member, a silent one, a missing one — is `review`.
+T("drive/effective-policy.sh (G5 truth table)", testEffectivePolicy);
 function testEffectivePolicy() {
   const dir = makeRepo("main");
   const POLICY = `${POSIX_SH} ${SCRIPTS.effectivePolicy}`;
@@ -16393,6 +16716,7 @@ function testEffectivePolicy() {
 // REPORTS AND PROCEEDS, because the walk over-reads on every ambiguity by design and a gate
 // built on an over-read refuses legitimate missions; and neither `close.sh`'s existing
 // `archive_slug_conflict` answer nor the local both-areas check changes.
+T("mission/create.sh (the unmerged-branch slug check)", testMissionSlugAcrossBranches);
 function testMissionSlugAcrossBranches() {
   const origin = mkdtempSync(join(tmpdir(), "workaholic-slug-origin-"));
   execSync("git init -q --bare .", { cwd: origin });
@@ -16470,6 +16794,7 @@ function testMissionSlugAcrossBranches() {
 // `review`; here, silence is the ORDINARY case and only an explicit declaration
 // diverts the unit, because a field that stopped merges by default would stop them
 // for every artifact written before it existed.
+T("drive/verification-handoff.sh (declared handoff)", testVerificationHandoff);
 function testVerificationHandoff() {
   const dir = makeRepo("main");
   const VH = `${POSIX_SH} ${SCRIPTS.verificationHandoff}`;
@@ -16573,6 +16898,7 @@ function testVerificationHandoff() {
 // computed identically on every machine. The hermetic dry demo the ticket's Gate names
 // lives here: an approved mission + two backlog tickets, surveyed and routed, showing
 // the partition a run would take.
+T("drive/plan-units.sh (survey minus claims)", testPlanUnits);
 function testPlanUnits() {
   const { origin, A, B } = makeClaimFixture();
   const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
@@ -16627,6 +16953,7 @@ function testPlanUnits() {
 // a draft mission, a planless approved one, and a ticket a mission already owns.
 // Every drop is REPORTED — a queue item that vanishes from an unattended run's offer
 // with no trace is indistinguishable from one that was never there.
+T("drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions);
 function testPlanUnitsExclusions() {
   const dir = makeRepo("main");
   const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
@@ -16690,6 +17017,7 @@ function testPlanUnitsExclusions() {
 // rather than as broken. The retained half of this test is the tripwire in the other
 // direction -- a ticket of a LIVE mission must still be excluded, and a ticket naming one
 // of each must not be double-offered.
+T("drive/plan-units.sh (a ticket whose missions have all closed comes back)", testPlanUnitsClosedMission);
 function testPlanUnitsClosedMission() {
   const dir = makeRepo("main");
   const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
@@ -16763,6 +17091,7 @@ function testPlanUnitsClosedMission() {
 // and reported as a healthy, empty queue (the masked failure `workaholic:implementation`
 // / observability forbids, and the worst shape an unattended tick can take: identical
 // in the log to a correct idle tick).
+T("drive/plan-units.sh (an unidentified runner reads the queue and says so)", testPlanUnitsBacklogError);
 function testPlanUnitsBacklogError() {
   const dir = makeRepo("main");
   const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
@@ -16837,6 +17166,7 @@ function testPlanUnitsBacklogError() {
 // consumer answering differently from the roadmap the developer is shown — so an
 // unattended runner would claim a colleague's approved mission and, under
 // `merge_policy: auto`, drive it to `main`.
+T("drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership);
 function testPlanUnitsOwnership() {
   const dir = makeRepo("main");
   const ME = "test@example.com";
@@ -16940,6 +17270,7 @@ function snapshotCheckout(dir) {
   };
 }
 
+T("branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree);
 function testPublishTree() {
   const { origin, A, B } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
@@ -17056,6 +17387,7 @@ function testPublishTree() {
   }
 }
 
+T("branching/sync-main.sh (J3 freshness)", testSyncMain);
 function testSyncMain() {
   const { origin, A, B } = makePublishFixture();
   const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
@@ -17182,6 +17514,7 @@ function testSyncMain() {
 // the loop actually experiences it: origin/main advances by ARCHIVING a ticket (what a
 // merged unit does), and the assertion is that the next survey sees the base's real
 // queue rather than the ticket the run already drove.
+T("branching/sync-main.sh §1b: a detached checkout behind the base is fast-forwarded", testSyncMainDetachedBehind);
 function testSyncMainDetachedBehind() {
   const { origin, A, B } = makePublishFixture();
   const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
@@ -17271,6 +17604,7 @@ function testSyncMainDetachedBehind() {
 // checkout — and validate-ticket.sh resolves its mission relation against the publish
 // tree, not the caller's) and the contract the markdown must keep stating (no branch,
 // no worktree guard, no branch_created).
+T("/ticket publishes to main end to end (J1)", testTicketPublishesToMain);
 function testTicketPublishesToMain() {
   const { origin, A, B } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
@@ -17338,6 +17672,7 @@ function testTicketPublishesToMain() {
 // validate-ticket.sh fires PostToolUse on the WRITE, so a ticket written into the
 // publish tree must have its `mission:` relation resolved against the publish tree's
 // own .workaholic — not the caller's checkout, where the mission may not exist yet.
+T("hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree);
 function testValidateTicketResolvesInPublishTree() {
   const repo = makeRepo();
   const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`;
@@ -17358,6 +17693,7 @@ function testValidateTicketResolvesInPublishTree() {
   }
 }
 
+T("/ticket publish contract (no branch, no guard, no branch_created)", testTicketPublishContract);
 function testTicketPublishContract() {
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/create-ticket/SKILL.md"), "utf8");
 
@@ -17373,6 +17709,7 @@ function testTicketPublishContract() {
   }
 }
 
+T("branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree);
 function testCheckWorktreesIgnoresPublishTree() {
   const { origin, A } = makePublishFixture();
   try {
@@ -17397,6 +17734,7 @@ function testCheckWorktreesIgnoresPublishTree() {
 // distinguished from an origin/main read. Here clone A is deliberately held BEHIND, and
 // the assertions are: the stale survey misses the artifact and says so (`current: false`),
 // the freshness step fixes it, and every sync failure is a distinct visible reason.
+T("/drive surveys a current main (J3)", testDriveSurveysCurrentMain);
 function testDriveSurveysCurrentMain() {
   const { origin, A, B } = makePublishFixture();
   const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
@@ -17486,6 +17824,7 @@ function testDriveSurveysCurrentMain() {
 // claim.sh's stranded-artifact tolerance is gone: after J1 a missing mission.md is a
 // real error, and the invariants most at risk from that change (the stamp is branch-only,
 // the main checkout stays clean) must still hold.
+T("drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance);
 function testClaimNoStrandedTolerance() {
   const { origin, A } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -17520,6 +17859,7 @@ function testClaimNoStrandedTolerance() {
 // invoke the prompt-free /implement (pointed at /drive an unattended fire parks on the
 // selection prompt), and no live surface may resurrect the retired first-word forms.
 // The sentence-level pins over the commands' and skill's prose are gone.
+T("/drive: attended selection vs the unattended form (O1)", testDriveAttendedSelection);
 function testDriveAttendedSelection() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/drive.md"), "utf8");
   const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
@@ -17541,6 +17881,7 @@ function testDriveAttendedSelection() {
 // "self-contained" would be true of every script reference and false of the skill.
 // These assertions run over the COMMITTED artifacts, so they pin the seam without
 // re-running the build.
+T("build: skill reference/ companion files ship", testSkillReferenceFilesShip);
 function testSkillReferenceFilesShip() {
   const src = join(REPO_ROOT, "plugins/workaholic/skills/mission/reference");
   const out = join(REPO_ROOT, "outputs/workflows/skills/mission/reference");
@@ -17586,6 +17927,7 @@ function testSkillReferenceFilesShip() {
 // this repository's own PR #108.
 //
 // Every assertion below is made from clone B, which did none of the writing.
+T("drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive);
 function testClaimSurvivesArchive() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -17661,6 +18003,7 @@ function testClaimSurvivesArchive() {
 //
 // EVERY CASE IS DRIVEN THROUGH A STUBBED `gh` ON PATH, so the suite stays offline. What is
 // pinned is the vocabulary the consumer will report and the exit status the scan depends on.
+T("drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader);
 function testClaimMergedReader() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-merged.sh");
   const tmp = mkdtempSync(join(tmpdir(), "wh-claim-merged-"));
@@ -17798,6 +18141,7 @@ function testClaimMergedReader() {
 // WHAT IS PINNED is the four-state vocabulary, that `none` is a FACT the lookup established,
 // and — the load-bearing one — that a degraded read emits NO `state` KEY AT ALL, so no
 // consumer can read a failed transport as *provably no pull request*.
+T("drive/branch-pull-request-state.sh: what became of a branch's pull request", testBranchPullRequestState);
 function testBranchPullRequestState() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/branch-pull-request-state.sh");
   const tmp = mkdtempSync(join(tmpdir(), "wh-branch-pr-state-"));
@@ -17910,6 +18254,7 @@ function testBranchPullRequestState() {
 // passed, which is the whole defect the reader exists to close. So every degradation, a
 // commit with no checks at all, and a check still running are each asserted to be
 // `unanswerable` by name — never `green`, and never a non-zero exit.
+T("drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks);
 function testReadBaseChecks() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/read-base-checks.sh");
   const tmp = mkdtempSync(join(tmpdir(), "wh-base-checks-"));
@@ -18020,6 +18365,7 @@ function testReadBaseChecks() {
 // The load-bearing assertions are the negative ones: the tip is never blamed because the walk
 // ran out of room, and a commit the reader could not read STOPS the walk rather than promoting
 // whatever red it happened to have seen.
+T("drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed);
 function testAttributeBaseRed() {
   const WALK = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/attribute-base-red.sh");
   const tmp = mkdtempSync(join(tmpdir(), "wh-attribute-red-"));
@@ -18162,6 +18508,7 @@ function testAttributeBaseRed() {
 //
 // The byte-identity assertion is the load-bearing one: the offline output is PROVED
 // identical to the pre-lookup output rather than asserted to be.
+T("drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName);
 function testMergedLookupDegradesByName() {
   const LIB = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib");
   const tmp = mkdtempSync(join(tmpdir(), "wh-merged-degrade-"));
@@ -18311,6 +18658,7 @@ function makeSquashMergedClaims() {
   return { ...fx, mission, batch, t1, t2 };
 }
 
+T("drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains);
 function testMergedClaimShapeAtBothGrains() {
   const fx = makeSquashMergedClaims();
   try {
@@ -18381,6 +18729,7 @@ function testMergedClaimShapeAtBothGrains() {
 // work left on its branch, the other has a drained queue and never reported. And the last
 // assertion is the one that keeps this from being a blanket refusal — a claim that is
 // genuinely in flight is still offered.
+T("drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable);
 function testMergedClaimIsNeverResumable() {
   const fx = makeSquashMergedClaims();
   const bin = join(fx.B, ".stub-bin");
@@ -18479,6 +18828,7 @@ function testMergedClaimIsNeverResumable() {
 //
 // The last assertion is the guard: a mission behind a genuinely LIVE claim is still excluded,
 // so this is not a change that frees every claimed mission.
+T("drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed);
 function testSupersededMissionIsResurveyed() {
   const fx = makeSquashMergedClaims();
   const bin = join(fx.B, ".stub-bin");
@@ -18529,6 +18879,7 @@ function testSupersededMissionIsResurveyed() {
 // A MISSION unit's mission.md is not moved by archive.sh, so its artifact list was never
 // hit by this defect -- asserted rather than assumed, because the unit-id check would
 // mask an artifact-list regression there.
+T("drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected);
 function testMissionClaimArtifactsUnaffected() {
   const { origin, A, B } = makeClaimFixture();
   try {
@@ -18558,6 +18909,7 @@ function testMissionClaimArtifactsUnaffected() {
 // the handoff PR would drop the artifact from the claim WHILE THE PR IS STILL OPEN, since
 // lib/claims.sh sources artifacts from stamps at the tip. The second half of this test
 // asserts exactly that failure mode, so nobody re-proposes the strip without seeing it.
+T("drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim);
 function testMergedStampIsHistoryNotAClaim() {
   const { origin, A, B } = makeClaimFixture();
   try {
@@ -18630,6 +18982,7 @@ function testMergedStampIsHistoryNotAClaim() {
 // place the refusal text lives. Four creation seams share both -- four inline counts would
 // drift, and four hand-written refusals would drift the same way, invisibly, because each
 // seam is exercised separately.
+T("mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate);
 function testMissionTicketFloorGate() {
   const dir = makeRepo("main");
   try {
@@ -18684,6 +19037,7 @@ function testMissionTicketFloorGate() {
   } finally { cleanup(dir); }
 }
 
+T("drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue);
 function testPlanFloorCountsQueue() {
   const { origin, A } = makePublishFixture();
   const QUEUE = `${POSIX_SH} ${SCRIPTS.missionQueueSize}`;
@@ -18802,6 +19156,7 @@ function testPlanFloorCountsQueue() {
 //
 // The merge itself needs `gh`, so it is not exercised here. Everything below is the
 // non-network half, which is exactly the part that was never covered.
+T("ship: works from a claim worktree (merge + extraction destination)", testShipWorksFromAClaimWorktree);
 function testShipWorksFromAClaimWorktree() {
   const { origin, A } = makePublishFixture();
   try {
@@ -18898,6 +19253,7 @@ function testShipWorksFromAClaimWorktree() {
 }
 
 // On the base itself, the direct path is unchanged -- no publish tree involved.
+T("ship: extraction on the base stays direct", testShipExtractionOnBaseIsDirect);
 function testShipExtractionOnBaseIsDirect() {
   const { origin, A } = makePublishFixture();
   try {
@@ -18921,6 +19277,7 @@ function testShipExtractionOnBaseIsDirect() {
 // made "working" and "dead" look identical. What every assertion below is really about
 // is the OTHER half of the contract: a claim must survive every way the notifier can
 // fail, because a Slack outage that starts discarding claims is far worse than silence.
+T("drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces);
 function testClaimAnnounces() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19004,6 +19361,7 @@ function testClaimAnnounces() {
 // cloud runner whose worktree dies with its sandbox. The FIRST case below is the one
 // this feature must never get wrong -- taking over a unit that is still being driven
 // trades a recoverable stall for concurrent writes to one branch.
+T("drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume);
 function testClaimResume() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19107,6 +19465,7 @@ function testClaimResume() {
 // A REALISTIC WINDOW WITH AN AGED CLAIM, for `testResumeRace`'s reason: with a zero-minute
 // window every tip is instantly lapsed and the beat could not be shown to be the thing that
 // changed the answer.
+T("drive claim protocol: the beat keeps a long ticket's own claim", testHeartbeatKeepsALongTicketsClaim);
 function testHeartbeatKeepsALongTicketsClaim() {
   const { A } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19146,6 +19505,7 @@ function testHeartbeatKeepsALongTicketsClaim() {
     !/roughly every ten minutes or once per ticket \(each/.test(driveSkill), "the cadence survived");
 }
 
+T("drive claim protocol: two runners racing to resume, one takeover", testResumeRace);
 function testResumeRace() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19204,6 +19564,7 @@ function testResumeRace() {
 
 // heartbeat.sh keeps a WORKING unit out of the resumable offer. Without it a run that
 // spends an hour on one ticket looks abandoned and gets taken over underneath itself.
+T("drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat);
 function testHeartbeat() {
   const { origin, A, B } = makeClaimFixture();
   const HEARTBEAT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/heartbeat.sh")}`;
@@ -19268,6 +19629,7 @@ function testHeartbeat() {
 // shrink-pr-body.sh bounds an over-limit body by SHEDDING — and the one section a
 // handoff reader needs must never be what gets shed. Retention is explicit rather
 // than positional, so a template edit cannot silently drop it.
+T("report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff);
 function testShrinkKeepsHandoff() {
   const dir = mkdtempSync(join(tmpdir(), "wh-shrink-"));
   const SHRINK = `${POSIX_SH} ${SCRIPTS.shrinkPrBody}`;
@@ -19323,6 +19685,7 @@ function testShrinkKeepsHandoff() {
 
 // create-or-update.sh must take the UPDATE path for an existing PR — a handoff unit
 // that opened a second PR would split the record a person is meant to read.
+T("report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths);
 function testCreateOrUpdatePaths() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -19399,6 +19762,7 @@ esac
 // first -- so the run spent its opening ~40 minutes reopening a pull request the developer
 // considered finished. And `claim.sh resume` failed outright in the case resumption exists
 // for (your own claim, your own machine), because the worktree was still on disk.
+T("drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption);
 function testResumeParkedAndAdoption() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19487,6 +19851,7 @@ function setVerificationHandoff(worktree, rel, value) {
 // otherwise byte-identical branch with the field emptied still reads `parked_with_pr`.
 //
 // Hermetic: a bare origin and two clones, no `gh`, no network (`makeClaimFixture`).
+T("drive claim protocol: a declared handoff unit gets its own verdict", testDeclaredHandoffGetsItsOwnVerdict);
 function testDeclaredHandoffGetsItsOwnVerdict() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19584,6 +19949,7 @@ function testDeclaredHandoffGetsItsOwnVerdict() {
 // THE OTHER THREE LISTS MUST STAY EMPTY OF IT. It is not a takeover (`resumable[]`), not a merge
 // retry (`undelivered[]`, which takes only the `report_undelivered` proof), and not work that
 // came back (`resurveyed[]`, which takes only `superseded`).
+T("drive claim protocol: a declared handoff is excluded from the offer", testDeclaredHandoffIsExcludedFromTheOffer);
 function testDeclaredHandoffIsExcludedFromTheOffer() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19685,6 +20051,7 @@ function archiveOnBase(clone, basenames, underBranch) {
 // AND OFFLINE: the whole reading is `git ls-tree`/`git show` against an already-fetched ref plus
 // one local script, so the last arm runs the scan with the merged lookup disabled and the remote
 // unreachable and asserts the answer does not move.
+T("drive claim protocol: the claim scan reads the declared handoff", testClaimScanReadsTheDeclaredHandoff);
 function testClaimScanReadsTheDeclaredHandoff() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19762,6 +20129,7 @@ function testClaimScanReadsTheDeclaredHandoff() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+T("drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit);
 function testResumeSkipsDrainedUnit() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19840,6 +20208,7 @@ function testResumeSkipsDrainedUnit() {
 //
 // The distinguishing signal was already computed one branch below -- `claims_has_story`,
 // the same offline file check the `parked_with_pr` tier reads.
+T("drive claim protocol: a unit that died before reporting is recoverable", testReportIncompleteUnitIsRecoverable);
 function testReportIncompleteUnitIsRecoverable() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19916,6 +20285,7 @@ function testReportIncompleteUnitIsRecoverable() {
 //
 // The fixture is the hand-recovery shape exactly: drive the ticket on the claim branch,
 // then land the SAME ticket on the base from a DIFFERENT branch.
+T("drive claim protocol: a claim whose content reached the base is superseded", testSupersededClaimIsNotOffered);
 function testSupersededClaimIsNotOffered() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -19992,6 +20362,7 @@ function testSupersededClaimIsNotOffered() {
 // The verdict must not swallow the four it sits beside. Each is re-asserted on a fixture
 // that reaches it, because a new rung in a verdict ladder is exactly how the rung below
 // stops being reachable.
+T("drive claim protocol: superseded leaves every other verdict alone", testSupersededLeavesEveryOtherVerdictAlone);
 function testSupersededLeavesEveryOtherVerdictAlone() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -20067,6 +20438,7 @@ function testSupersededLeavesEveryOtherVerdictAlone() {
 // survey only reports what it saw), and claims_has_work fell through to its "no artifacts
 // means unknown" branch and called a drained unit resumable — inviting a takeover of a
 // branch whose PR was waiting on a human.
+T("drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename);
 function testClaimSurvivesUndetectedRename() {
   const { origin, A, B } = makeClaimFixture();
   const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
@@ -20126,6 +20498,7 @@ function testClaimSurvivesUndetectedRename() {
 // The by-filename fallback is scoped to tickets ON PURPOSE: every mission's artifact is
 // named `mission.md`, so an unscoped basename lookup could resolve one mission's claim
 // onto another mission's file. Asserted, because that would be a silent cross-claim.
+T("drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename);
 function testMissionArtifactNeverResolvesByBasename() {
   const { origin, A, B } = makeClaimFixture();
   try {
@@ -20152,6 +20525,7 @@ function testMissionArtifactNeverResolvesByBasename() {
 // through this entire defect. Absence is the observed condition, so absence is what is
 // reproduced: a PATH containing only a directory of the few real binaries these scripts
 // need.
+T("PR seams degrade when the runner has no gh", testGhAbsentDegrades);
 function testGhAbsentDegrades() {
   const repo = makeRepo("main");
   const binDir = mkdtempSync(join(tmpdir(), "wh-nogh-"));
@@ -20227,6 +20601,7 @@ function testGhAbsentDegrades() {
 // as nothing more informative than `commit_failed` (measured 2026-08-01).
 //
 // Every claim test passed throughout, because the fixture's only mission was `m1`.
+T("drive claim protocol: a long mission slug round-trips", testLongSlugClaimRoundTrip);
 function testLongSlugClaimRoundTrip() {
   const { origin, A, B } = makeClaimFixture();
   const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
@@ -20280,6 +20655,7 @@ function testLongSlugClaimRoundTrip() {
 // so the worktree is dirty with claim.sh's own edit, the cleaner correctly refuses to
 // discard it, and the unit strands a worktree plus a local branch. The next attempt then
 // fails as `worktree_creation_failed` and buries the real cause.
+T("drive claim protocol: a refused claim leaves no debris", testRefusedClaimLeavesNoDebris);
 function testRefusedClaimLeavesNoDebris() {
   const { origin, A, B } = makeClaimFixture();
   try {
@@ -20326,6 +20702,7 @@ function testRefusedClaimLeavesNoDebris() {
 // THE CORPUS IS BUILT BY SHAPE, NOT BY SHA. The suite runs in throwaway repositories and
 // may not reach into this repository's history, and a shape outlives the commits that
 // motivated it.
+T("release-scan: too-large-commit counts implementation, not motion", testCommitSizeSemantics);
 function testCommitSizeSemantics() {
   const repo = makeRepo("main");
   const SCAN = `${POSIX_SH} ${SCRIPTS.scanBranchSafety}`;
@@ -20430,6 +20807,7 @@ function testCommitSizeSemantics() {
 // THE LEDGER LINES ARE WRITTEN BY THE REAL WRITER. `ask-question.sh --record-ask` is
 // driven rather than hand-authored, so the test cannot pass against a line shape the
 // writer never produces (`verify-ci-retirement`'s measured lesson).
+T("moderate/condition-age.sh: how long a condition has been standing", testConditionAgeReader);
 function testConditionAgeReader() {
   const AGE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/condition-age.sh")}`;
   const ASK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh")}`;
@@ -20520,6 +20898,7 @@ function testConditionAgeReader() {
 // that a CUT walk is honest about being cut — a bound that silently understates an age is
 // worse than one that admits it — while a walk merely shorter than the bound is
 // byte-identical to an unbounded one.
+T("moderate/condition-age.sh: the walk is bounded, and says when it was cut", testConditionAgeBound);
 function testConditionAgeBound() {
   const AGE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/condition-age.sh")}`;
   const ASK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ask-question.sh")}`;
@@ -20625,6 +21004,7 @@ function cksum(s) {
 // The repair is the same one the post shapes just had: a rule governing what the plugin's own
 // shapes emit ships WITH the plugin. What is pinned is that placement, because the rule being
 // merely true somewhere is exactly the failure.
+T("a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin);
 function testPostLanguageRuleShipsWithThePlugin() {
   const rules = readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/interaction.md"), "utf8");
   assertTrue("the always-loaded rules carry the language rule",
@@ -20671,6 +21051,38 @@ function testPostLanguageRuleShipsWithThePlugin() {
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   assertTrue("the catalog says its English is the instruction, not the wire text",
     /the instruction, never the wire text/.test(catalog), "the catalog leaves its placeholders ambiguous");
+
+  // WHICH LANGUAGE WAS SETTLED; WHAT GOOD JAPANESE IS WAS NOT (2026-09-02, ticket
+  // `20260902042419`). Measured: posts composed by translating the English record title word for
+  // word — 「組み立てを止める」 for *fail the build*, where a reader cannot tell it means CI — with
+  // English word order kept around them, so the post reads as a riddle. The bar goes on every
+  // surface that already carries the language rule, in ONE wording, because four divergent
+  // statements of a style bar is the drift this repository pins its post formats against.
+  const BAR = "**And that Japanese must be read on first sight, not decoded** — the bar is an outcome, not a style preference: *a channel reader must understand what is being asked without opening the English record behind the link.* An established technical term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the repository's own `terms/` entries); the **meaning** of a title is translated, never its words; a title that resists translation is **paraphrased** in plain Japanese rather than transliterated. Measured: 「組み立てを止める」 for *fail the build* belongs as 「ビルドが落ちる」, a bare 「形」 for *shape* as 「投稿の型」, 「示せるという判定」 for *demonstrable verdict* as 「実証できたかどうかの判定」.";
+  for (const id of ["implement", "specificate", "propose", "moderate"]) {
+    const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
+    assertTrue(`/${id} carries the quality bar byte-identically`, cmd.includes(BAR),
+      `${id}: the bar is absent or has drifted from the catalog's wording`);
+  }
+  assertTrue("and so does the catalog, beside the blocks a session copies",
+    catalog.includes(BAR), "the catalog does not carry the bar");
+
+  // The RULE's own home states it too, with the reasoning and the limit the four ceilings do not
+  // repeat. It is deliberately NOT the byte-identical string: `rules/` carries the measurement and
+  // the why, and a ceiling carries the instruction.
+  assertTrue("the always-loaded rules carry the bar as an outcome, not a preference",
+    /must be read on first sight, not decoded/.test(rules)
+      && /without\s+opening the English record behind the link/.test(rules),
+    "rules/interaction.md states no quality bar");
+  for (const worked of ["ビルドが落ちる", "投稿の型", "実証できたかどうかの判定"]) {
+    assertTrue(`the rule carries the worked repair ${worked}`, rules.includes(worked), worked);
+  }
+  // AND THE LIMIT, stated rather than implied: nothing can check the emitted Japanese, because the
+  // composition happens at run time and never appears in this tree. A pin that implied otherwise
+  // would be the false comfort the language rule already refuses for itself.
+  assertTrue("and says plainly what it cannot check",
+    /Nothing mechanical can check the Japanese a run actually emits/.test(rules),
+    "the rule claims more than it can enforce");
 }
 
 
@@ -20684,6 +21096,7 @@ function testPostLanguageRuleShipsWithThePlugin() {
 // this repository forbids everywhere else, and the cost was concrete: the transport designated
 // to survive a connector outage needed a token AND a second variable nobody had a reason to set,
 // so it could not run during one.
+T("the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel);
 function testTokenedTransportResolvesTheChannel() {
   const NS = join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/notify-slack.sh");
   const dir = makeRepo("main");
@@ -20724,10 +21137,11 @@ function testTokenedTransportResolvesTheChannel() {
 // … /.claude/hooks/session-start.sh which is a sensitive file`. Claude Code classifies
 // `.claude/**` as sensitive and an unattended container has no human. Seven runs, five hours,
 // nothing landed, and the freeze was SILENT: the resume beats the heartbeat before the edit, so
-// `stalled-units` counted the unit healthy and `catchup-blocked` read 0.
+// `stalled-units` counted the unit healthy and the conflict step read 0.
 //
 // `verification_handoff:` already routes exactly this — the pull request opens and stays open,
 // the claim stays standing, a person is asked — so the field is reused rather than duplicated.
+T("a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff);
 function testSensitivePathIsAHandoff() {
   const dir = mkdtempSync(join(tmpdir(), "wh-sens-"));
   const HO = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh")}`;
@@ -20771,6 +21185,7 @@ function testSensitivePathIsAHandoff() {
 // What is pinned is the property, not the hour: one derivation, both halves, and HELD IS NOT
 // DROPPED — the diff's baseline is the last tick that SPOKE, so a change met in silence is still
 // news when somebody is listening.
+T("the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow);
 function testModerationRootIsHeldByTheSpeakingWindow() {
   const dir = makeRepo("main");
   const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
@@ -20841,6 +21256,7 @@ function testModerationRootIsHeldByTheSpeakingWindow() {
 // boundary => two, an unreadable id => a named refusal and NO key. The last is the one that
 // matters most -- a key derived from a date the tick could not read would thread an hour into
 // the WRONG day's root, which is worse than opening a new one.
+T("the tick root's thread key names the day", testTickThreadKeyNamesTheDay);
 function testTickThreadKeyNamesTheDay() {
   const KEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/tick-thread-key.sh")}`;
   const dir = makeRepo("main");
@@ -20898,6 +21314,7 @@ function testTickThreadKeyNamesTheDay() {
 // tick still rendered a full root — head and all — and a reader met a new top-level post every
 // hour. The two forms come off ONE reading: the body is built once, the root is that body under
 // a head, and the reply is the body. Two compositions would be two voices for one hour.
+T("the tick renders a root and a delta reply", testTickRendersARootAndADeltaReply);
 function testTickRendersARootAndADeltaReply() {
   const dir = makeRepo("main");
   const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
@@ -20962,6 +21379,7 @@ function testTickRendersARootAndADeltaReply() {
 // The move has two halves and shipping one is worse than shipping neither: the log goes to its
 // own branch, AND every tick hydrates that branch into the checkout before a reader runs.
 // Without the second half every dedup answers "no earlier tick ever ran" and re-fires hourly.
+T("the tick log lives on its own branch, not on main", testTickLogLivesOffMain);
 function testTickLogLivesOffMain() {
   // A bare origin, so the push paths are real rather than stubbed.
   const origin = mkdtempSync(join(tmpdir(), "wh-logref-origin-"));
@@ -21103,6 +21521,7 @@ function testTickLogLivesOffMain() {
 // What is pinned here is the SINGLE DERIVATION, not the word's presence at four call sites:
 // four copies drift, and a call site merging the other way would put the noise back for one
 // route only, which is the hardest inconsistency to notice.
+T("the merge method is one derivation, and it is squash", testMergeMethodIsSingleSourced);
 function testMergeMethodIsSingleSourced() {
   assertEq("the derivation answers squash",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.mergeMethod}`).stdout.trim(), "squash");
@@ -21160,6 +21579,7 @@ function testMergeMethodIsSingleSourced() {
 // HERMETIC BY CONSTRUCTION: every assertion below runs where the transport cannot answer, which
 // is the half that must never be guessed. What is pinned is that an unanswerable READING never
 // renders as a conforming repository, and that the apply writes nothing under it.
+T("workaholify: the remote setting the claim oracle reads", testWorkaholifyRepoSettings);
 function testWorkaholifyRepoSettings() {
   const dir = makeRepo("main");
   try {
@@ -21218,404 +21638,802 @@ function testWorkaholifyRepoSettings() {
 
 
 
-const tests = [
-  ["moderate/condition-age.sh: how long a condition has been standing", testConditionAgeReader],
-  ["moderate/condition-age.sh: the walk is bounded, and says when it was cut", testConditionAgeBound],
-  ["release-scan: too-large-commit counts implementation, not motion", testCommitSizeSemantics],
-  ["branching/check.sh", testBranchCheck],
-  ["branching worktree counters see the last block", testWorktreeCountersLastBlock],
-  ["explain/resolve-export-path.sh", testResolveExportPath],
-  ["branching/detect-context.sh", testDetectContext],
-  ["branching/check-workspace.sh", testCheckWorkspace],
-  ["drive/update.sh", testUpdate],
-  ["drive/archive.sh", testArchive],
-  ["drive/archive.sh converges the todo layout", testArchiveConvergesTodoLayout],
-  ["drive/archive.sh refuses an off-policy subject before moving", testArchiveSubjectGateBeforeMove],
-  ["drive/archive.sh pushes the claim branch itself", testArchivePushesClaimBranch],
-  ["commit/commit.sh never silently omits a file", testCommitStaging],
-  ["gather/user-slug.sh", testUserSlug],
-  ["gather/migrate-todo-owners.sh", testMigrateTodoOwners],
-  ["gather/identity.sh (the mapping's one reader)", testIdentityReader],
-  ["gather/owns.sh", testOwns],
-  ["gather/owns.sh resolves a person's other address", testOwnsResolvesAliases],
-  ["/specificate stamps only an address the loop can drive", testSpecificateStampsResolvableAddresses],
-  ["gather/migrate-assignee-aliases.sh (the recovery)", testMigrateAssigneeAliases],
-  ["the survey says when it excluded its whole backlog", testSurveySaysItExcludedEverything],
-  ["workaholify: the mapping's coverage audit", testIdentityCoverageAudit],
-  ["/moderate asks about work nothing can drive", testModerateAsksAboutUndrivableUnits],
-  ["the identity hand-off, end to end", testIdentityHandOffEndToEnd],
-  ["the survey excludes a legacy path-owned ticket", testSurveyExcludesLegacyPathOwnedTickets],
-  ["drive/list-todo.sh", testListTodo],
-  ["create-ticket/summary.sh + mission/summary.sh (summary mode)", testSummaryMode],
-  ["mission/summary.sh surfaces unassigned missions", testMissionSummaryUnassigned],
-  ["mission create never branches (J1)", testMissionCreateNeverBranches],
-  ["branching mission worktree primitive", testMissionWorktreePrimitive],
-  ["worktree env-file carrying (root/subdir/none/declaration)", testWorktreeEnvCarry],
-  ["mission worktree lands on the branch it reports", testMissionWorktreeNoLocalMain],
-  ["mission worktree starts from the merged base (fetch-first)", testMissionWorktreeFetchFirst],
-  ["check-version-bump measures against the merged base", testCheckVersionBumpBaseResolution],
-  ["mission create publish spine: batch to main, no worktree (J1)", testMissionCreatePublishFlow],
-  ["mission worktree ship reset", testMissionWorktreeShipReset],
-  ["mission/close.sh carried (carry the remainder forward)", testMissionCloseCarried],
-  ["mission/close.sh carried into an existing mission (the remainder actually moves)", testMissionCloseCarriedIntoExisting],
-  ["mission replan seams", testMissionReplanSeams],
-  ["mission close removes worktree", testMissionCloseRemovesWorktree],
-  ["mission worktree port assignment", testMissionWorktreePorts],
-  ["mission quality gate", testMissionQualityGate],
-  ["report/ticket-commits.sh derivation", testTicketCommitsDerivation],
-  ["release-scan branch-safety engine", testReleaseScanEngine],
-  ["release-scan per-commit changed-lines gate", testReleaseScanPerCommit],
-  ["release-scan secret literal vs reference", testReleaseScanSecretLiteralVsReference],
-  ["release-scan secret suffixed keywords", testReleaseScanSecretSuffixedKeywords],
-  ["release-scan secret value inversion", testReleaseScanSecretValueInversion],
-  ["release-scan allowlist", testReleaseScanAllowlist],
-  ["release-scan: generated paths are exempt from the secret rule", testReleaseScanGeneratedSecretExemption],
-  ["release-scan gate decision", testReleaseScanGateDecision],
-  ["gather/commit-kpi.sh orchestration throughput", testCommitKpi],
-  ["mission duration predict + record", testMissionDuration],
-  ["gather/migrate-ticket-states.sh (the two-state ticket tree)", testMigrateTicketStates],
-  ["the rename registry (renames.tsv + its three consumers)", testRenameRegistry],
-  ["workaholify/converge-layout.sh (the migration seam)", testConvergeLayout],
-  ["the living-migration registry contract", testMigrationRegistryContract],
-  ["report/area-freshness.sh (the two hand-maintained areas' upkeep seam)", testAreaFreshness],
-  ["strategy skill (the artifact revived 2026-08-13)", testStrategySkill],
-  ["every shipped shell script parses", testEveryShellScriptParses],
-  ["every embedded jq program compiles", testEveryEmbeddedJqProgramCompiles],
-  ["the jq compile guard (a step that could not read never reports ok)", testJqCompileGuard],
-  ["the stage is shown where directions are read", testStageShownWhereDirectionsAreRead],
-  ["the two stage-transition questions", testDirectionTransitionQuestions],
-  ["strategy: the operator's declared stage", testStrategyDeclaredStage],
-  ["strategy: the declared stage rides beside the derived readings", testStrategyStageRidesBeside],
-  ["propose: 改良中 sorts before 進行中, and that is all it does", testProposeStageOrdering],
-  ["propose: 観察中 stops origination and nothing else", testProposeObservingGate],
-  ["strategy/attributed-work.sh (the ONE attribution reader)", testStrategyAttributedWork],
-  ["strategy/attributed-work.sh past the xargs batching boundary", testStrategyAttributedWorkPastBatchBoundary],
-  ["strategy/attributed-work.sh tells found nothing from could not look", testAttributedWorkWalkOutcome],
-  ["the survey and the lifecycle refuse a row they could not read", testSurveyRefusesADegradedWalk],
-  ["the residue refuses a walk it could not complete", testResidueRefusesADegradedWalk],
-  ["the run reports name a degraded direction reading", testRunReportsNameADegradedReading],
-  ["standup/digest.sh (the daily per-strategy digest)", testStandupDigest],
-  ["standup/digest.sh reports the mission grain and the whole queue", testStandupDigestMissionGrain],
-  ["moderate: the tick's own root, and the diff that keeps it silent", testModerateTickPost],
-  ["moderate: the working-week gate holds the weekend without losing the question", testModerateWorkingDays],
-  ["moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline],
-  ["propose: the gates that replace the dropped judgment bar", testProposeGates],
-  ["propose: the write floor and its named refusals", testProposeWriteFloor],
-  ["propose: the standing [Specificate] routine is retired into [Propose]", testProposeRoutineTemplate],
-  ["standup: the command and skill are a reader", testStandupIsAReader],
-  ["standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate],
-  ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
-  ["mission ownership (read-assignees + mission-owners)", testMissionOwnership],
-  ["installed plugin helper resolution", testInstalledPluginHelperResolution],
-  ["mission/create.sh + progress.sh + list.sh", testMission],
-  ["mission describes experience, gate is optional", testMissionExperienceSection],
-  ["mission/gate.sh resolves worktree ports", testMissionGateWorktreePorts],
-  ["mission creation interrogation protocol", testMissionInterrogationProtocol],
-  ["mission/drive-authorized.sh (approval relocation)", testDriveAuthorized],
-  ["mission status axis (draft retirement + creation-time policy + re-keyed readers)", testMissionStatusAxis],
-  ["mission status migration is whitelist-only (never folds backwards)", testMissionStatusMigrationIsWhitelistOnly],
-  ["mission resolution follows the ticket, not the cwd", testMissionResolutionFollowsTicket],
-  ["drive mints tickets for mid-run problems", testDriveMintsTicketsForMidrunProblems],
-  ["mission/append-changelog.sh + tick-acceptance.sh", testMissionMutators],
-  ["mission/acceptance-handoffs.sh", testAcceptanceHandoffs],
-  ["mission/link-acceptance.sh (the acceptance-to-artifact link)", testLinkAcceptance],
-  ["acceptance satisfaction semantics (ticker + progress + audit)", testAcceptanceSatisfactionSemantics],
-  ["mission layout migration + close.sh", testMissionLayoutMigrationAndClose],
-  ["drive/archive.sh mission seam", testMissionDriveSeam],
-  ["drive/archive.sh reports the mission roll (non-blocking, not silent)", testArchiveMissionReporting],
-  ["ship/extract-deferred-concerns.sh mission seam", testMissionShipSeam],
-  ["report/apply-deferred-concern-verdicts.sh mission seam", testMissionReportSeam],
-  ["feedback/migrate-concerns.sh (H2 merger)", testMigrateConcerns],
-  ["feedback: a read never enlarges the caller's next commit", testMigrationLeavesTheIndexAlone],
-  ["commit.sh --allow-empty commits nothing, whatever is staged", testAllowEmptyIsActuallyEmpty],
-  ["feedback/list-open-concerns.sh", testListOpenConcerns],
-  ["drive/promote-icebox.sh", testPromoteIcebox],
-  ["ship/publish-release.sh", testPublishRelease],
-  ["ship/check-confirmation-capability.sh", testCheckCapability],
-  ["ship/read-deployments.sh", testReadDeployments],
-  ["ship/read-deploy-state.sh", testReadDeployState],
-  ["ship/draft-deploy-plan.sh", testDraftDeployPlan],
-  ["ship/record-evidence.sh", testRecordEvidence],
-  ["ship/record-evidence.sh -> release note", testRecordEvidenceIntoNote],
-  ["ship/record-evidence.sh shared secret rules", testRecordEvidenceSharedRules],
-  ["ship/catchup-main.sh", testCatchupMain],
-  ["report/apply-deferred-concern-verdicts.sh", testApplyVerdicts],
-  ["okf/refresh-index.sh preserves content + prunes dead links", testRefreshIndexPreservesContent],
-  ["okf/refresh-index.sh generates the stories area", testRefreshIndexStoriesArea],
-  ["report per-run artifacts (no shared /tmp paths)", testReportArtifacts],
-  ["ship/extract-deferred-concerns.sh", testExtractDeferredConcerns],
-  ["ship/extract-deferred-concerns.sh unicode titles", testExtractDeferredConcernsUnicodeTitles],
-  ["report/shrink-pr-body.sh", testShrinkPrBody],
-  ["ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush],
-  ["ship: works from a claim worktree (merge + extraction destination)", testShipWorksFromAClaimWorktree],
-  ["ship: extraction on the base stays direct", testShipExtractionOnBaseIsDirect],
-  ["ship/commit-release-note.sh push", testCommitReleaseNotePush],
-  ["ship/extract-deferred-concerns.sh mission/tickets relation", testExtractConcernMissionRelation],
-  ["ship/extract-deferred-concerns.sh all severities", testExtractAllSeverities],
-  ["story Concerns heading matched by name, not number", testConcernsHeadingByName],
-  ["report/filter-low-concerns.sh (render/extract split)", testFilterLowConcerns],
-  ["story template mirrors agree", testStoryTemplateMirrors],
-  ["report/doc-drift.sh", testDocDrift],
-  ["hooks/policy-lens.sh", testPolicyLens],
-  ["hooks/validate-ticket.sh", testValidateLayout],
-  ["hooks/layout-doctor.sh", testLayoutDoctor],
-  ["hooks/validate-ticket.sh", testValidateTicket],
-  ["hooks/validate-ticket.sh mission field", testValidateTicketMission],
-  ["hooks/validate-ticket.sh resumption remaining-only", testValidateTicketResume],
-  ["hooks/validate-mission.sh", testValidateMission],
-  ["hooks/validate-story.sh + validate-trip.sh", testValidateStoryTrip],
-  ["hooks/validate-ticket.sh mandatory body sections", testValidateTicketSections],
-  ["hooks/guard-ticket-structure.sh", testGuardTicketStructure],
-  ["hooks/posix-lint.sh", testPosixLint],
-  ["build: skill reference/ companion files ship", testSkillReferenceFilesShip],
-  ["hooks/hooks.json executable", testHooksExecutable],
-  ["gather/base-ref.sh base resolution (report/scan pipeline)", testBaseRefResolution],
-  ["report/collect-commits.sh", testCollectCommits],
-  ["catch/scan-window.sh", testScanWindow],
-  ["catch/scan-window.sh remote fetch+scan", testScanWindowRemote],
-  ["catch/scan-window.sh deploy attribution + fetch bound", testScanWindowDeployAttribution],
-  ["catch/scan-window.sh fetch bound", testScanWindowFetchBound],
-  ["catch/scan-window.sh mission join", testScanWindowMissions],
-  ["catch/scan-window.sh oversized corpus", testScanWindowOversizedCorpus],
-  ["mission/list-related-prs.sh slug matching", testListRelatedPrs],
-  ["no workflow script reaches GitHub through GraphQL", testNoGraphqlGhCalls],
-  ["hooks/guard-git-commit.sh", testGuardGitCommit],
-  ["hooks/guard-git-branch.sh", testGuardGitBranch],
-  ["hooks/guard-repo-confinement.sh", testGuardRepoConfinement],
-  ["commit/commit.sh flag guard", testCommitFlagGuard],
-  ["the cross-repository backstop", testCrossRepoBackstop],
-  ["the crossing checks under a git insteadOf URL rewrite", testCrossRepoUnderUrlRewrite],
-  ["/fb's cross-repository issue mode", testFbCrossRepoIssueMode],
-  ["hooks/guard-askuserquestion-label.sh", testGuardAskUserQuestionLabel],
-  ["drive/unit-authors.sh: the authorship disclosure", testUnitAuthorsDisclosure],
-  ["/fb files an issue, whatever the destination", testFbFilesAnIssue],
-  ["/fb's one degradation: the fallback decision", testFbFallbackDecision],
-  ["workaholify/audit-claude-md.sh", testAuditClaudeMd],
-  ["hooks/guard-working-directory.sh", testGuardWorkingDirectory],
-  ["build: a plugin-root PATH is a defect, a bare read is not", testPluginRootPathVsRead],
-  ["check-deps/check.sh", testCheckDeps],
-  ["check-deps: a superseded plugin binding is a stop, not a warning", testCheckDepsRegistryDrift],
-  ["check-deps/plugin-src.sh: an equal version goes to the immutable tree", testPluginSrcTieBreak],
-  ["check-deps: an unbound plugin in a genuine session is a stop", testCheckDepsUnboundSession],
-  ["catch/scan-window.sh buckets+branches", testScanWindowBuckets],
-  ["branching/ensure-worktree.sh", testEnsureWorktreeGuard],
-  ["hooks/lib/check-subject.sh", testCheckSubject],
-  ["hooks/git/commit-msg", testCommitMsgHook],
-  ["hooks/install-git-hooks.sh", testInstallGitHooks],
-  ["feedback/create.sh + list.sh + hooks/validate-feedback.sh", testFeedback],
-  ["drive/unit-feedback-stems.sh: the unit's thread key", testUnitFeedbackStems],
-  ["workaholify/render-setup-sheet.sh: the human's UI setup", testRenderSetupSheet],
-  ["specificate: dedup set and draft scaffold", testSpecificateBatch],
-  ["specificate: the dedup set covers open pull requests", testProposedRefsCoverOpenPullRequests],
-  ["propose/notify-slack.sh", testNotifySlack],
-  ["drive claim protocol: two clones, one unit", testClaimProtocol],
-  ["drive release-claim where the remote refuses deletes", testReleaseClaimDenyDeletes],
-  ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
-  ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
-  ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
-  ["drive/branch-pull-request-state.sh: what became of a branch's pull request", testBranchPullRequestState],
-  ["drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks],
-  ["drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed],
-  ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
-  ["drive claim protocol: the merged-claim shape at both grains", testMergedClaimShapeAtBothGrains],
-  ["drive claim protocol: a merged claim is never offered for resumption", testMergedClaimIsNeverResumable],
-  ["drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim],
-  ["drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch],
-  ["drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates],
-  ["drive: the base moves under a finished unit and nothing catches it up", testStrandedUnitReproduction],
-  ["branching: a stranded publication, localized seam by seam", testStrandedPublicationReproduction],
-  ["branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader],
-  ["branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication],
-  ["moderate/stranded-publications: the collision only a person can settle", testStrandedPublicationsStep],
-  ["moderate/stranded-publications: a publication old enough that its plan may be stale", testStrandedPublicationStaleQuestion],
-  ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
-  ["drive/claim-mergeability.sh: the reader predicts the remote's merge, not this checkout's", testMergeabilityIgnoresLocalMergeAttributes],
-  ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
-  ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
-  ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
-  ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
-  ["drive claim protocol: a merged pull request is its own retirement candidate", testRetirementCandidatePullRequestMerged],
-  ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
-  ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
-  ["moderate: the gap between a tick finding and the work queue", testFindingToWorkGap],
-  ["moderate: repairable or needing a ruling, pinned against STEPS", testFindingClassification],
-  ["moderate/file-findings: a repairable finding, filed as work", testFileFindingsStep],
-  ["moderate/file-findings: the brake, and the dedup that needs no store", testFindingBrakeAndDedup],
-  ["moderate/file-findings: the question a filing answers, held", testFindingSuppression],
-  ["moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep],
-  ["moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates],
-  ["moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep],
-  ["branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote],
-  ["drive survey: a mission behind a merged claim is surveyed again", testSupersededMissionIsResurveyed],
-  ["drive claim protocol: a mission claim's artifact is unaffected", testMissionClaimArtifactsUnaffected],
-  ["drive claim protocol: a merged stamp is history, not a claim", testMergedStampIsHistoryNotAClaim],
-  ["drive claim protocol: offline reader/writer asymmetry", testClaimOfflineAsymmetry],
-  ["drive claim protocol: same-second branch collision", testClaimBranchCollision],
-  ["drive claim protocol: a long mission slug round-trips", testLongSlugClaimRoundTrip],
-  ["drive claim protocol: a refused claim leaves no debris", testRefusedClaimLeavesNoDebris],
-  ["drive/effective-policy.sh (G5 truth table)", testEffectivePolicy],
-  ["mission/create.sh (the unmerged-branch slug check)", testMissionSlugAcrossBranches],
-  ["drive/verification-handoff.sh (declared handoff)", testVerificationHandoff],
-  ["drive/plan-units.sh (survey minus claims)", testPlanUnits],
-  ["drive/plan-units.sh (exclusions + the dry demo)", testPlanUnitsExclusions],
-  ["drive/plan-units.sh (a ticket whose missions have all closed comes back)", testPlanUnitsClosedMission],
-  ["drive/plan-units.sh (an unidentified runner reads the queue and says so)", testPlanUnitsBacklogError],
-  ["drive/plan-units.sh (missions are filtered by ownership)", testPlanUnitsOwnership],
-  ["mission: the ticket floor refuses a sub-floor mission and names the alternative", testMissionTicketFloorGate],
-  ["drive: the plan floor counts the ticket queue, not acceptance items", testPlanFloorCountsQueue],
-  ["branching/sync-main.sh (J3 freshness)", testSyncMain],
-  ["branching/sync-main.sh §1b: a detached checkout behind the base is fast-forwarded", testSyncMainDetachedBehind],
-  ["branching publish tree: publication never touches the caller's checkout (J2)", testPublishTree],
-  ["branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr],
-  ["branching merge-reason: a refused merge is classified by what a reader must do next", testMergeReason],
-  ["branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary],
-  ["propose extract-issue-number: captures a triggering GitHub issue number from env or argument", testExtractIssueNumber],
-  ["propose list-inbound-issues: the clock-fired discovery reads the inbox, never invents one", testListInboundIssues],
-  ["propose inbound sweep: one marker writer, and the ledger read never runs blind", testInboundSweep],
-  ["branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue],
-  ["branching publish-tree-pr: a strategy-touching publish never auto-merges", testPublishTreePrStrategyExemption],
-  ["branching publish-tree-pr: a ruling never auto-merges", testPublishTreePrRulingExemption],
-  ["moderate/draft-standing-rulings.sh drafts a judged ruling", testDraftStandingRulings],
-  ["moderate/step-standing-rulings.sh gives the tick the ruling step", testStepStandingRulings],
-  ["moderate: a ruling holds exactly the question its diff carries", testRulingQuestionSuppression],
-  ["the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject],
-  ["the reply thread is found, not carried (Q1)", testStatelessThreadLookup],
-  ["one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands],
-  ["a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain],
-  ["branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability],
-  ["ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus],
-  ["ship/report-deploy-status.sh: the refs it read are freshened, or named", testReportDeployStatusRefs],
-  ["ship/report-deploy-status.sh: the post rate is bounded to one ask a day", testReportDeployStatusRateBound],
-  ["prepare-release: the repository routine and its command are a reader", testPrepareReleaseIsAReader],
-  ["prepare-release: the routine is retired, and its post shape with it", testPrepareReleaseRetired],
-  ["release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi],
-  ["release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback],
-  ["release note: a story-less merge keeps its substance", testReleaseNoteStoryLessSubstance],
-  ["release note: the plan seam over the renderer", testReleaseNotePlanSeam],
-  ["release note: plan then release then verification, in one document", testReleaseNoteLifecycleJoin],
-  ["release plan: the planner, its gate, and its visible failure", testReleasePlannerChain],
-  ["workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines],
-  ["workaholify: the command converges routines, and a sheet is a refusal's recovery path", testWorkaholifyConvergesRoutines],
-  ["workaholify: the remote setting the claim oracle reads", testWorkaholifyRepoSettings],
-  ["the merge method is one derivation, and it is squash", testMergeMethodIsSingleSourced],
-  ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
-  ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
-  ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
-  ["the tick root's thread key names the day", testTickThreadKeyNamesTheDay],
-  ["the tick renders a root and a delta reply", testTickRendersARootAndADeltaReply],
-  ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
-  ["the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel],
-  ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
-  ["workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies],
-  ["workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity],
-  ["branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation],
-  ["mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms],
-  ["specificate: widened inputs, emitted tickets, and the mission_member safety property (J4)", testSpecificateWidenedBatch],
-  ["specificate: an atomic direction becomes one loose ticket, and dedup unions both sides", testSpecificateLooseTicket],
-  ["specificate: the capture seam publishes record and proposal in one commit", testSpecificateCaptureSeam],
-  ["branching/check-worktrees.sh ignores the publish tree", testCheckWorktreesIgnoresPublishTree],
-  ["/ticket publishes to main end to end (J1)", testTicketPublishesToMain],
-  ["hooks/validate-ticket.sh resolves a mission in the publish tree", testValidateTicketResolvesInPublishTree],
-  ["/ticket publish contract (no branch, no guard, no branch_created)", testTicketPublishContract],
-  ["/drive surveys a current main (J3)", testDriveSurveysCurrentMain],
-  ["drive/claim.sh drops its stranded-artifact tolerance", testClaimNoStrandedTolerance],
-  ["/drive: attended selection vs the unattended form (O1)", testDriveAttendedSelection],
-  ["drive/claim.sh announces the claim, never load-bearing", testClaimAnnounces],
-  ["drive claim protocol: a dropped unit is resumed, not stranded", testClaimResume],
-  ["drive claim protocol: the beat keeps a long ticket's own claim", testHeartbeatKeepsALongTicketsClaim],
-  ["drive claim protocol: two runners racing to resume, one takeover", testResumeRace],
-  ["drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat],
-  ["drive claim protocol: a finished unit is not resumed again", testResumeSkipsDrainedUnit],
-  ["drive claim protocol: a unit that died before reporting is recoverable", testReportIncompleteUnitIsRecoverable],
-  ["drive claim protocol: a claim whose content reached the base is superseded", testSupersededClaimIsNotOffered],
-  ["drive claim protocol: superseded leaves every other verdict alone", testSupersededLeavesEveryOtherVerdictAlone],
-  ["drive claim protocol: parked-at-PR is not died-mid-drive, and same-machine resume adopts", testResumeParkedAndAdoption],
-  ["drive claim protocol: a declared handoff unit gets its own verdict", testDeclaredHandoffGetsItsOwnVerdict],
-  ["drive claim protocol: the claim scan reads the declared handoff", testClaimScanReadsTheDeclaredHandoff],
-  ["drive claim protocol: a declared handoff is excluded from the offer", testDeclaredHandoffIsExcludedFromTheOffer],
-  ["drive claim protocol: an archive git cannot prove is a rename keeps its artifact", testClaimSurvivesUndetectedRename],
-  ["drive claim protocol: a mission artifact never resolves by basename", testMissionArtifactNeverResolvesByBasename],
-  ["PR seams degrade when the runner has no gh", testGhAbsentDegrades],
-  ["report/shrink-pr-body.sh never drops the Handoff section", testShrinkKeepsHandoff],
-  ["report/create-or-update.sh takes the update path for an existing PR", testCreateOrUpdatePaths],
-  ["branching/cut-release-branch.sh (the release/* staging tier)", testCutReleaseBranch],
-  ["ship: a release branch's durable record answers what shipped, and when", testReleaseRecord],
-  ["drive claim protocol: truncated history never invents a claim", testClaimScanShallowClone],
-  ["e2e/loop-drill.sh: every drill is reached, verdicted, wired into CI and read by the tick", testDrillVerdictPath],
-  ["e2e/loop-drill.sh: seed refuses a polluted base and mints a fresh pair", testLoopDrillSeed],
-  ["e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset],
-  ["e2e/loop-drill.sh: verify-specificate reads artifacts, and pending is not fail", testLoopDrillVerifySpecificate],
-  ["e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement],
-  ["moderate: the tick log is registered, append-only and idempotent", testModerateLog],
-  ["moderate: the tick runs every step, and every step reports", testModerateRun],
-  ["moderate: one tick, one reading of the open pull requests", testOneReadingOfTheOpenPullRequests],
-  ["moderate/merge-conflicts: an uncomputed mergeability is not \"none conflicted\"", testUncomputedMergeabilityIsNamed],
-  ["moderate: an uncomputed mergeability is re-read once before it is reported", testUncomputedMergeabilityIsReReadOnce],
-  ["moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep],
-  ["moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates],
-  ["moderate: an answer in a question's own thread reaches the writer", testAnswerReturnPath],
-  ["moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask],
-  ["moderate: the tick's records reach the base", testTickRecordsReachTheBase],
-  ["commit.sh: refuses a commit that splits a rename", testCommitRefusesSplitRename],
-  ["strategy/work-kind.sh: describing work does not gate a building aim", testDescribingWorkDoesNotGateABuildingAim],
-  ["drive/archive.sh: closes a mission it can prove is finished", testArchiveClosesAProvenMission],
-  ["moderate/step-closable-missions.sh: finished, and still open", testClosableMissionsStep],
-  ["moderate/step-direction-health.sh: the three refusals hold", testDirectionHealthRefusals],
-  ["the false arrival, characterized over an unattributed residue", testFalseArrivalCharacterization],
-  ["strategy/unattributed-work.sh reads what no direction claims", testUnattributedWorkReader],
-  ["strategy: a dateless ask takes the operator's one-week default", testDatelessAskDefault],
-  ["strategy/closing-residue.sh composes what a direction leaves", testClosingResidueReader],
-  ["moderate/list-standing-rulings.sh names the standing rulings", testStandingRulingsReader],
-  ["moderate/list-standing-rulings.sh takes the run's judgement and derives none", testStandingRulingsJudgement],
-  ["direction-health names the leaving, and the last live direction", testDirectionHealthLeaving],
-  ["the succession costs no fourth writer and no new field", testSuccessionCostsNoFourthWriter],
-  ["the residue rides every survey row and moves no gate", testResidueOnSurveyRows],
-  ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
-  ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
-  ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
-  ["the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls],
-  ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
-  ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
-  ["the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving],
-  ["the assignee is asked once, before the date", testExpiringQuestion],
-  ["expiring is evidence in the report, and gates nothing", testExpiringGatesNothing],
-  ["the residue reaches no /propose gate", testResidueGatesNothing],
-  ["strategy/carry-attribution.sh carries a ruling and refuses the rest", testCarryAttribution],
-  ["strategy/amend.sh: the third writer, bounded", testStrategyAmend],
-  ["moderate/step-unanswered-asks.sh: what is waiting, asked exactly once", testUnansweredAsksStep],
-  ["moderate/step-base-health.sh: a red base, asked exactly once per commit", testBaseHealthStep],
-  ["moderate: the tick log survives the container that wrote it", testModeratePersist],
-  ["moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines],
-  ["moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract],
-  ["propose steps 2-3: every surface is named, and nothing is executed", testProposeInboundSweep],
-  ["propose steps 4-7: report, never repair; remind once per state", testProposeHygieneSteps],
-  ["moderate: the gated strategy step is deleted, not carried", testStrategyStepIsDeleted],
-  ["propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn],
-  ["moderate/ask-question.sh: the day cap counts today, not all time", testCheckInDayCapIsToday],
-  ["moderate/step-human-checkin.sh: the arrears drain oldest-held first", testCheckInHeldOrder],
-  ["moderate/step-human-checkin.sh: what it delivered, and why it delivered none", testCheckInDeliveryReading],
-  ["[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate],
-  ["[Workaholic]: retired, and the scope retired with it", testUserScopeRetired],
-  ["specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs],
-  ["specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor],
-  ["no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable],
-  ["strategy/mission-strategy.sh: which direction a mission belongs to", testMissionStrategy],
-  ["feedback/ask-feedback-line.sh: one writer for the line one reader reads", testAskFeedbackLine],
-];
 
-// `await` matters even though almost every test is synchronous: without it an async
-// test's assertions run AFTER this loop finishes counting, so it contributes zero
-// passes, zero failures, and no output — a test that silently does not run, which is
-// strictly worse than one that fails. (Measured 2026-08-05, on the first async test.)
-// Top-level await is available here because this is an ES module.
-for (const [label, fn] of tests) {
-  console.log(`\n# ${label}`);
-  try { await fn(); }
-  catch (e) { fail(label, e.stack || String(e)); }
+// ---------- loops: the local tmux premise (2026-09-02, the developer's instruction) ----------
+// The loop turns on the developer's server in minutes, one clone per loop. What is pinned:
+// the table is declared once and read by all three scripts; a dry run plans every loop and
+// runs nothing; the command spawns with permission prompts off and repeats the table's own
+// prompt; and the propose command and the catalog carry the Slack turn's shape byte-identically.
+T("loops: the local tmux premise, one clone per loop, planned before run", testLocalLoops);
+function testLocalLoops() {
+  const LOOPS = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts");
+  const dir = mkdtempSync(join(tmpdir(), "wh-loops-"));
+  try {
+    execSync("git init -q", { cwd: dir });
+    execSync("git remote add origin https://github.com/o/r.git", { cwd: dir });
+    const env = { ...process.env, WORKAHOLIC_LOOPS_HOME: join(dir, "home") };
+    const plan = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run`, { env }).stdout);
+    assertEq("a dry run is ok and names the repository", [plan.ok, plan.repo_name, plan.dry_run], [true, "r", true]);
+    assertEq("it plans every declared loop", plan.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
+    assertTrue("and runs nothing", plan.loops.every((l) => l.state === "planned"), JSON.stringify(plan.loops));
+    assertTrue("no clone was made by a dry run", !existsSync(join(dir, "home")), "dry run wrote a clone");
+    for (const l of plan.loops) {
+      assertTrue(`${l.loop} runs in its own clone under the loops home`,
+        l.path === join(dir, "home", "r", l.loop), l.path);
+      assertTrue(`${l.loop}'s session is named after the repository and the loop`, l.session === `wh-r-${l.loop}`, l.session);
+      assertTrue(`${l.loop} spawns with permission prompts off and repeats its own prompt`,
+        /--dangerously-skip-permissions/.test(l.command) && l.command.includes(`/loop ${l.interval} ${l.prompt}`), l.command);
+    }
+    const table = Object.fromEntries(plan.loops.map((l) => [l.loop, [l.interval, l.prompt]]));
+    assertEq("propose supplies the ask and then ingests it, every five minutes",
+      table.propose, ["5m", "Run /propose, then run /specificate."]);
+    assertEq("implement drives every five minutes", table.implement, ["5m", "Run /implement."]);
+    assertEq("moderate ticks every thirty minutes", table.moderate, ["30m", "Run /moderate."]);
+    const only = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run --only propose`, { env }).stdout);
+    assertEq("--only narrows the plan", only.loops.map((l) => l.loop), ["propose"]);
+    const status = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/loop-status.sh`, { env }).stdout);
+    assertEq("status reads every declared loop", status.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
+    assertTrue("and a loop never spawned is neither running nor cloned",
+      status.loops.every((l) => l.running === false && l.exists === false), JSON.stringify(status.loops));
+    // THE TABLE IS ONE DECLARATION: the three scripts source it and carry no cadence of their own.
+    for (const f of ["spawn-loops.sh", "loop-status.sh", "stop-loops.sh"]) {
+      const src = readFileSync(join(LOOPS, f), "utf8");
+      assertTrue(`${f} reads the loop table`, /lib\/loop-table\.sh/.test(src), f);
+      assertTrue(`${f} declares no cadence of its own`, !/'(propose|implement|moderate)\|/.test(src), f);
+    }
+    // THE SLACK TURN'S SHAPE is byte-identical between the command and the catalog.
+    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+    const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+    const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
+    assertTrue("the propose command carries the Slack turn's reply shape", shape(cmd) !== "", "missing from propose.md");
+    assertEq("and the catalog carries it byte-identically", shape(catalog), shape(cmd));
+    assertTrue("the turn reads the thread before replying", /read the thread first/i.test(cmd) && /Read the thread first/.test(catalog), "dedup rule unwritten");
+    assertTrue("and the Web routines are named as the fallback",
+      /no_tmux/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/spawn-loops.md"), "utf8")), "fallback unnamed");
+  } finally { cleanup(dir); }
 }
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
+// ---------- the reading a claim branch's emptiness is derived from ----------
+// `claims_branch_emptiness` is the term that makes `superseded` mean what its header claims —
+// the branch holds no work — and `stranded` mean the opposite. It is the one mechanism in this
+// loop whose regression DESTROYS work rather than delaying it, so every case is pinned here:
+// the ordinary superseded twin (which differs from the base inside `.workaholic/` by
+// construction and must still read empty), a branch carrying a file on no other ref, the bound
+// on the file list, and every way the reading can fail to be made — each of which must answer
+// `unknown` and never `true`, because an absence of a reading licenses no delete.
+const CLAIMS_LIB = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claims.sh");
+const readEmptiness = (dir, args, env = "") =>
+  run(dir, `${env} ${POSIX_SH} -c '. ${CLAIMS_LIB}; claims_branch_emptiness ${args}'`).stdout.split("\t");
+
+T("drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading);
+function testClaimBranchEmptinessReading() {
+  const dir = makeRepo();
+  try {
+    mkdirSync(join(dir, "docs"), { recursive: true });
+    writeFileSync(join(dir, "docs/base.md"), "base\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: dir });
+
+    // THE ORDINARY SUPERSEDED TWIN: it archived the same tickets under its OWN branch
+    // directory, so it differs from the base inside `.workaholic/` and nowhere else.
+    execSync(`git checkout -q -b work-twin`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/tickets/archive/work-twin"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-twin/T1.md"), "# T1\n");
+    execSync(`git add -A && git commit -q -m twin`, { cwd: dir });
+
+    // THE MEASURED SHAPE: a file present on no other ref.
+    execSync(`git checkout -q -b work-holds main`, { cwd: dir });
+    writeFileSync(join(dir, "docs/orphan.md"), "forty six lines nobody else has\n");
+    execSync(`git add -A && git commit -q -m holds`, { cwd: dir });
+    execSync(`git checkout -q main`, { cwd: dir });
+
+    let r = readEmptiness(dir, "main work-twin files");
+    assertEq("a branch differing from the base only inside .workaholic/ reads empty", r[0], "true");
+    assertEq("an answered reading carries no reason", r[1], "");
+
+    r = readEmptiness(dir, "main work-holds files");
+    assertEq("a branch holding a file the base does not have reads non-empty", r[0], "false");
+    assertEq("and names it", r[3], "docs/orphan.md");
+    assertEq("with the count beside the names", r[2], "1");
+
+    // THE BOUND. A branch differing in many files reports the true count and a few names.
+    execSync(`git checkout -q -b work-many main`, { cwd: dir });
+    for (let i = 1; i <= 7; i++) writeFileSync(join(dir, `docs/f${i}.md`), `f${i}\n`);
+    execSync(`git add -A && git commit -q -m many`, { cwd: dir });
+    execSync(`git checkout -q main`, { cwd: dir });
+    r = readEmptiness(dir, "main work-many files", "WORKAHOLIC_CLAIM_STRANDED_FILES_MAX=2");
+    assertEq("the file list is bounded", r[3].split(",").length, 2);
+    assertEq("but the count is the true total", r[2], "7");
+
+    // THE LISTING IS OPT-IN — the verdict path runs once per claim per scan and pays nothing.
+    r = readEmptiness(dir, "main work-many");
+    assertEq("without `files` the verdict is unchanged", r[0], "false");
+    assertEq("and no names are listed", r[3], "");
+
+    // EVERY WAY THE READING CANNOT BE MADE ANSWERS `unknown`, NEVER `true`.
+    r = readEmptiness(dir, "main work-nope files");
+    assertEq("an absent ref is unanswerable", [r[0], r[1]], ["unknown", "no_ref"]);
+    r = readEmptiness(dir, "origin/nope work-many files");
+    assertEq("an absent base ref is unanswerable", [r[0], r[1]], ["unknown", "no_base_ref"]);
+    r = readEmptiness(dir, "'' ''");
+    assertEq("empty arguments are unanswerable", [r[0], r[1]], ["unknown", "no_args"]);
+
+    execSync(`git checkout -q --orphan unrelated && git rm -rqf . && echo x > x.md && git add -A && git commit -q -m unrelated`, { cwd: dir, shell: "/bin/bash" });
+    execSync(`git checkout -q main`, { cwd: dir });
+    r = readEmptiness(dir, "main unrelated files");
+    assertEq("an unrelated history has no merge base and is unanswerable", [r[0], r[1]], ["unknown", "no_merge_base"]);
+
+    // THE WRAPPER every existing caller reads returns the word ALONE.
+    const w = run(dir, `${POSIX_SH} -c '. ${CLAIMS_LIB}; claims_branch_empty_against_base main work-holds'`).stdout;
+    assertEq("claims_branch_empty_against_base returns the verdict word alone", w, "false");
+  } finally { cleanup(dir); }
+}
+
+// A SHALLOW CLONE IS ITS OWN FIXTURE. It is the case the routines actually run in, and the one
+// where a wrong answer is most expensive: the graph is truncated, `merge-base` cannot answer,
+// and reading that as `true` would delete a branch nobody proved was empty.
+T("drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory);
+function testClaimBranchEmptinessUnderShallowHistory() {
+  const origin = makeRepo();
+  let shallow = null;
+  try {
+    mkdirSync(join(origin, "docs"), { recursive: true });
+    writeFileSync(join(origin, "docs/base.md"), "base\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: origin });
+    execSync(`git checkout -q -b work-holds`, { cwd: origin });
+    writeFileSync(join(origin, "docs/orphan.md"), "orphan\n");
+    execSync(`git add -A && git commit -q -m holds`, { cwd: origin });
+    execSync(`git checkout -q main`, { cwd: origin });
+    for (let i = 0; i < 3; i++) {
+      writeFileSync(join(origin, `docs/m${i}.md`), `m${i}\n`);
+      execSync(`git add -A && git commit -q -m m${i}`, { cwd: origin });
+    }
+
+    shallow = mkdtempSync(join(tmpdir(), "workaholic-shallow-"));
+    execSync(`git clone -q --depth 1 --branch main file://${origin} ${shallow}/c`, { cwd: shallow });
+    const c = join(shallow, "c");
+    execSync(`git fetch -q --depth 1 origin work-holds:work-holds`, { cwd: c });
+    const truncated = run(c, `git rev-parse --is-shallow-repository`).stdout.trim();
+    assertEq("the fixture really is shallow", truncated, "true");
+    const r = readEmptiness(c, "main work-holds files");
+    assertEq("a truncated history is unanswerable, never empty", [r[0], r[1]], ["unknown", "no_merge_base"]);
+  } finally {
+    cleanup(origin);
+    if (shallow) cleanup(shallow);
+  }
+}
+
+// ---------- the narrowing: `superseded` now means the branch is EMPTY ----------
+// The change may only ever REMOVE a `superseded`, never add one — that is the direction that
+// matters when a proof gates a destructive act — so the rows below pin both halves: the
+// ordinary squash-merged claim still reads `superseded` and still retires, and the same claim
+// with one orphaned file on it reads `stranded` and reaches no destructive consumer.
+T("drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch);
+function testSupersededNarrowedToAnEmptyBranch() {
+  // FIRST, THE DERIVATION ITSELF, AT BOTH GRAINS, offline and network-free. The mission grain
+  // is exercised with the merged-pull-request lookup DISABLED: left enabled it would answer
+  // `unanswerable` here and the row would be measuring the transport rather than the verdict.
+  const dir = makeRepo();
+  try {
+    const lib = `. ${CLAIMS_LIB};`;
+    const verdict = (args, env = "WORKAHOLIC_CLAIM_MERGED_LOOKUP=0") =>
+      run(dir, `${env} ${POSIX_SH} -c '${lib} claims_superseded ${args}'`).stdout;
+
+    mkdirSync(join(dir, "docs"), { recursive: true });
+    writeFileSync(join(dir, "docs/base.md"), "base\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: dir });
+
+    // The claim branch: its own archive directory, plus a file present on no other ref.
+    execSync(`git checkout -q -b work-a`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/tickets/archive/work-a"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-a/T1.md"), "# T1\n");
+    // The mission grain's LOCAL test walks the tickets that NAME the mission at the branch tip;
+    // without one it falls through to the merged-pull-request lookup, which is disabled here so
+    // the row measures the verdict rather than the transport.
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/todo/T2.md"), "---\nmission: m\n---\n\n# T2\n");
+    mkdirSync(join(dir, ".workaholic/missions/active/m"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/m/mission.md"), "---\nslug: m\n---\n");
+    writeFileSync(join(dir, "docs/orphan.md"), "on no other ref\n");
+    execSync(`git add -A && git commit -q -m claim`, { cwd: dir });
+
+    // The base: the same ticket archived under ANOTHER branch's directory — the measured shape.
+    execSync(`git checkout -q main`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/tickets/archive/work-other"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-other/T1.md"), "# T1\n");
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-other/T2.md"), "---\nmission: m\n---\n\n# T2\n");
+    execSync(`git add -A && git commit -q -m "archive elsewhere"`, { cwd: dir });
+
+    assertEq("batch grain: tickets landed, branch still holds work -> stranded",
+      verdict("main '.workaholic/tickets/todo/T1.md' work-a work-a"), "stranded");
+    assertEq("mission grain: the same shape reads stranded too",
+      verdict("main '.workaholic/missions/active/m/mission.md' work-a work-a"), "stranded");
+
+    // The same branch with the orphaned file removed is the ordinary superseded twin.
+    execSync(`git checkout -q work-a && git rm -q docs/orphan.md && git commit -q -m drop && git checkout -q main`, { cwd: dir });
+    assertEq("batch grain: a branch empty outside .workaholic/ is still superseded",
+      verdict("main '.workaholic/tickets/todo/T1.md' work-a work-a"), "superseded");
+    assertEq("mission grain: likewise",
+      verdict("main '.workaholic/missions/active/m/mission.md' work-a work-a"), "superseded");
+
+    // AN UNANSWERABLE EMPTINESS IS NEVER `superseded`. A missing tip ref cannot be read, and
+    // the protocol never lets an absence of a reading license a delete.
+    assertEq("an unanswerable emptiness answers stranded, never superseded",
+      verdict("main '.workaholic/tickets/todo/T1.md' work-a work-gone"), "stranded");
+  } finally { cleanup(dir); }
+
+  // THEN THE CONSUMERS, over a real claim fixture. The baseline first: a squash-merged batch
+  // claim still reads `superseded`, is still resurveyed, and is still a retirement candidate.
+  const fx = makeSquashMergedClaims();
+  try {
+    const LIST_RETIRABLE = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
+    const row = (cwd) => Object.fromEntries(
+      JSON.parse(run(cwd, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.map((c) => [c.unit, c]));
+
+    let by = row(fx.B);
+    assertEq("baseline: a squash-merged batch claim reads superseded",
+      by[fx.batch.unit].resume_reason, "superseded");
+    // NOTE ON WHAT IS *NOT* ASSERTED HERE. `plan-units.sh` can only exclude an artifact it would
+    // otherwise offer, and every ticket of a `superseded`/`stranded` batch is archived on the
+    // base by construction — so this fixture produces neither a `claimed_superseded` nor a
+    // `claimed_stranded` exclusion row, and asserting either would be a row that passes for the
+    // wrong reason. What IS observable, and is asserted below, is `resurveyed[]`: the survey
+    // returns a superseded claim's work to the offer and must never return a stranded one's.
+    let plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    let retirable = JSON.parse(run(fx.B, `${POSIX_SH} ${LIST_RETIRABLE}`).stdout);
+    assertTrue("baseline: and it is offered to the retirement path",
+      (retirable.candidates || []).some((c) => c.branch === fx.batch.branch),
+      JSON.stringify(retirable.candidates || retirable));
+
+    // NOW STRAND IT: one file on the claim branch that reached no other ref. Nothing else
+    // about the fixture moves — the tickets are still archived on the base.
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync(`mkdir -p docs && printf 'on no other ref\\n' > docs/orphan.md`
+      + ` && git add -A && git commit -q -m "Strand" && git push -q origin ${fx.batch.branch}`,
+      { cwd: fx.batch.worktree_path, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    by = row(fx.B);
+    assertEq("a branch whose tickets landed but which still holds work reads stranded",
+      [by[fx.batch.unit].resume_reason, by[fx.batch.unit].resumable], ["stranded", false]);
+
+    plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("plan-units.sh never returns its work through resurveyed[]",
+      !(plan.resurveyed || []).some((x) => x.claim === fx.batch.branch),
+      JSON.stringify(plan.resurveyed));
+
+    retirable = JSON.parse(run(fx.B, `${POSIX_SH} ${LIST_RETIRABLE}`).stdout);
+    assertTrue("and the retirement path is offered no candidate for it",
+      !(retirable.candidates || []).some((c) => c.branch === fx.batch.branch),
+      JSON.stringify(retirable.candidates || retirable));
+
+    // `claim.sh` STEPS OVER A `superseded` ROW SO A FRESH CLAIM GOES THROUGH; a `stranded` one
+    // is not that, and must keep refusing — its branch still holds work nobody has ruled on.
+    // Asserted on the SKIP ITSELF rather than on a claim attempt: this fixture's tickets are
+    // archived, so a real attempt refuses `artifact_missing` before the skip is ever consulted
+    // and the row would pass without testing anything.
+    const claimSrc = readFileSync(SCRIPTS.claim, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("claim.sh steps over `superseded` and over no other verdict",
+      /superseded/.test(claimSrc) && !/stranded/.test(claimSrc), "claim.sh names a second skippable verdict");
+  } finally {
+    cleanup(fx.origin); cleanup(fx.A); cleanup(fx.B);
+  }
+}
+
+// ---------- a stranded claim branch reaches a person, once, with its files ----------
+// The verdict says *this branch carries work nothing else has*. A person asked to rule on it
+// cannot without knowing WHAT, so the names ride the row and the question; and because the
+// question is asked exactly once, the age is the only thing that can say how long it has been
+// standing. The sibling filter is the other half: one step asks and the other counts, and
+// either half alone is a defect.
+T("moderate: a stranded claim branch reaches its holder, once, with its files", testStrandedClaimReachesItsHolder);
+function testStrandedClaimReachesItsHolder() {
+  const fx = makeSquashMergedClaims();
+  const RETIRE_STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh")}`;
+  const STALLED_STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh")}`;
+  // OUTSIDE the fixture repository: a stub inside it is an untracked path, and the row asserting
+  // the step wrote nothing would then fail on the test's own scaffolding.
+  const bin = mkdtempSync(join(tmpdir(), "wh-stranded-bin-"));
+  try {
+    // Strand the batch claim: two files on its branch that reached no other ref.
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync(`mkdir -p docs`
+      + ` && printf 'a\\n' > docs/orphan-a.md && printf 'b\\n' > docs/orphan-b.md`
+      + ` && git add -A && git commit -q -m "Strand" && git push -q origin ${fx.batch.branch}`,
+      { cwd: fx.batch.worktree_path, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    // THE ROW CARRIES THE FILES, so the question reads them rather than deriving them again.
+    const claims = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims;
+    const row = claims.find((c) => c.unit === fx.batch.unit);
+    assertEq("the stranded row is stranded", row.resume_reason, "stranded");
+    assertEq("and names the files the branch holds",
+      [...row.stranded_files].sort(), ["docs/orphan-a.md", "docs/orphan-b.md"]);
+    assertEq("with the true count beside them", row.stranded_file_count, 2);
+    const other = claims.find((c) => c.unit !== fx.batch.unit);
+    assertTrue("and no other row pays for the listing",
+      !other || (other.stranded_files.length === 0 && other.stranded_file_count === 0),
+      JSON.stringify(other));
+
+    // THE QUESTION. `gh` is stubbed so the CI-retirement read is answerable offline; nothing
+    // about the stranded half depends on it.
+    writeFileSync(join(bin, "gh"), "#!/bin/sh\ncase \"$2\" in rate_limit) echo 5000 ;; *) echo '[]' ;; esac\n");
+    chmodSync(join(bin, "gh"), 0o755);
+    const stubbed = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+
+    const j = JSON.parse(run(fx.B, `${RETIRE_STEP} --tick 20260902-000000 --root ${fx.B}`, stubbed).stdout);
+    const payload = (j.needs_agent || []).find((n) => n.stranded_claims);
+    assertTrue("the step composes a stranded question", !!payload, JSON.stringify(j.needs_agent));
+    const sc = payload.stranded_claims.find((c) => c.unit === fx.batch.unit);
+    assertTrue("addressed at the stranded unit", !!sc, JSON.stringify(payload.stranded_claims));
+    assertEq("keyed once per unit", sc.key, `stranded-unit:${fx.batch.unit}`);
+    assertEq("naming the exact branch", sc.branch, fx.batch.branch);
+    assertEq("and the files a person must rule on",
+      [...sc.files].sort(), ["docs/orphan-a.md", "docs/orphan-b.md"]);
+    assertEq("with the true count", sc.file_count, 2);
+    assertTrue("and the age reader's own answer rides it", sc.age !== undefined, JSON.stringify(sc));
+    assertTrue("the compose instruction never suggests deleting the branch",
+      /never suggest deleting the branch/i.test(payload.compose), payload.compose);
+    assertTrue("and it is not offered as a retirement candidate",
+      !(j.needs_agent || []).some((n) => (n.blocked_retirements || [])
+        .some((b) => b.unit === fx.batch.unit)), JSON.stringify(j.needs_agent));
+    assertTrue("the summary counts it", /stranded/.test(j.summary), j.summary);
+    assertEq("and the step wrote nothing",
+      execSync("git status --porcelain", { cwd: fx.B, encoding: "utf8" }).trim(), "");
+
+    // THE SIBLING FILTER. `stalled-units` must count it, never ask about it too.
+    const st = JSON.parse(run(fx.B,
+      `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STALLED_STEP} --tick 20260902-000000 --root ${fx.B}`, stubbed).stdout);
+    assertTrue("stalled-units asks nothing about a stranded unit",
+      !((st.needs_agent[0]?.stalled) || []).some((c) => c.unit === fx.batch.unit),
+      JSON.stringify(st.needs_agent));
+    assertTrue("...and counts it instead",
+      /stranded \(tickets archived, branch still holds work\)/.test(st.summary), st.summary);
+  } finally {
+    rmSync(bin, { recursive: true, force: true });
+    cleanup(fx.origin); cleanup(fx.A); cleanup(fx.B);
+  }
+}
+
+// ---------- feedback/ask-origin.sh: did a person want this? ----------
+// The reading the whole `refuse-an-ask-the-loop-wrote-to-itself` mission rests on. It must
+// answer from the `subject` axis and NEVER from the author: a human's channel message swept
+// into an issue by a routine is a HUMAN ask, and keying on the runner would refuse the loop's
+// main inbound path. `unreadable` is a real third value — a grandfathered record has no
+// subject at all, and `other` is inside the closed set and does not decide.
+T("feedback/ask-origin.sh: did a person want this?", testAskOriginReader);
+function testAskOriginReader() {
+  const SCRIPT = join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/ask-origin.sh");
+  const dir = mkdtempSync(join(tmpdir(), "wh-ask-origin-"));
+  const read = (path) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPT} ${path}`).stdout);
+  // `run()` pins stdin to "ignore", so a body on stdin needs the pipe re-opened explicitly —
+  // otherwise the reader is handed an empty ask and answers `unreadable` for the right reason
+  // about the wrong thing.
+  const readBody = (body) => JSON.parse(
+    run(dir, `${POSIX_SH} ${SCRIPT}`, { input: body, stdio: ["pipe", "pipe", "pipe"] }).stdout);
+  try {
+    const rec = (name, fm) => {
+      const f = join(dir, name);
+      writeFileSync(f, `---\ntype: Feedback\n${fm}---\n\n# ask\n`);
+      return f;
+    };
+    let r = read(rec("person.md", "subject: person:a@qmu.jp\nauthor: a@qmu.jp\n"));
+    assertEq("a person's record is human", [r.origin, r.reason], ["human", ""]);
+    assertEq("and names the evidence it used", [r.subject_kind, r.author], ["person", "a@qmu.jp"]);
+
+    r = read(rec("machine.md", "subject: observer_ai:bot@example.com\nauthor: bot@example.com\n"));
+    assertEq("an observer_ai record is machine", [r.origin, r.subject_kind], ["machine", "observer_ai"]);
+
+    // A GRANDFATHERED RECORD IS NEITHER. `validate-feedback.sh` floors the subject on new
+    // writes only, so history has records with none; calling one `human` would let the loop's
+    // own past records through and calling it `machine` would silence real history.
+    r = read(rec("old.md", "author: a@qmu.jp\n"));
+    assertEq("a grandfathered record is unreadable, never human and never machine",
+      [r.origin, r.reason], ["unreadable", "no_subject"]);
+    assertTrue("...and still carries the author as evidence", r.author === "a@qmu.jp", r.author);
+
+    r = read(rec("other.md", "subject: other\nauthor: a@qmu.jp\n"));
+    assertEq("`other` is declared and indecisive, so it does not pick a side",
+      [r.origin, r.reason], ["unreadable", "subject_kind_other"]);
+
+    r = read(rec("bad.md", "subject: martian\nauthor: a@qmu.jp\n"));
+    assertEq("a kind outside the closed set is unreadable by name",
+      [r.origin, r.reason], ["unreadable", "bad_subject_kind"]);
+
+    r = read(join(dir, "absent.md"));
+    assertEq("an absent record is unreadable, not machine", [r.origin, r.reason], ["unreadable", "not_found"]);
+
+    // THE REGRESSION THAT WOULD BREAK THE LOOP'S MAIN INBOUND PATH. `/propose`'s sweep files
+    // a person's channel message as an issue whose body carries the three axes on one line;
+    // the subject is the PERSON, and the reader must say so even though a routine filed it.
+    r = readBody("# Ask\n\nkind: instruction / source: slack / subject: person:someone@example.com\n");
+    assertEq("a human message swept by a routine is a human ask",
+      [r.origin, r.subject_kind, r.subject_identity],
+      ["human", "person", "someone@example.com"]);
+
+    r = readBody("# Finding\n\nkind: instruction / source: moderate / subject: observer_ai:bot@example.com\n");
+    assertEq("and the tick's own finding is machine", r.origin, "machine");
+
+    assertEq("an empty ask is unreadable", readBody("").origin, "unreadable");
+
+    // A PURE READ. Nothing is written, and the exit status is 0 in every case above.
+    assertEq("the reader writes nothing",
+      readdirSync(dir).filter((f) => !f.endsWith(".md")).length, 0);
+    for (const path of ["person.md", "absent.md"]) {
+      assertEq(`exit 0 for ${path}`,
+        run(dir, `${POSIX_SH} ${SCRIPT} ${join(dir, path)}`).status, 0);
+    }
+  } finally { cleanup(dir); }
+}
+
+// ---------- the self-authored refusal, stated where the run reads it ----------
+// The refusal is prose the running model applies — nothing mechanical can check that a run
+// actually asked "did a person want this". What IS checkable is that the rule is stated at
+// the two surfaces the run reads, that both name the same word and the same reader, and that
+// no second parser of the `subject:` axis grew beside it.
+T("specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated);
+function testSelfAuthoredRefusalIsStated() {
+  const bar = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  const flow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  for (const [name, text] of [["the judgment bar", bar], ["step 7", flow], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the refusal by its own word`, text.includes("self_authored"), name);
+    assertTrue(`${name} names the one reader rather than a second test`,
+      text.includes("ask-origin.sh"), name);
+  }
+  // THE THREE PROPERTIES THAT MAKE IT SAFE, each stated where the run reads it.
+  assertTrue("the bar says an unreadable origin does not refuse",
+    /`unreadable`, do not refuse|unreadable.{0,40}(never refuses|do not refuse)/.test(bar), "bar");
+  assertTrue("step 7 says an unreadable origin proceeds unchanged",
+    /unreadable.{0,60}proceed unchanged/s.test(flow), "flow");
+  assertTrue("both say the inbound sweep is never caught",
+    /sweep is never caught|not catch the inbound sweep/.test(bar)
+    && /not catch the inbound sweep|sweep is never caught/.test(flow), "sweep");
+  assertTrue("and both say why it sits at the judgment rather than at discovery",
+    /at the judgment, not at discovery|at the judgment and not at discovery/.test(bar)
+    && /at the judgment and not at discovery|at the judgment, not at discovery/.test(flow), "seam");
+
+  // NO SECOND PARSER. `subject:` is read by `ask-origin.sh` and by the validate hook, and by
+  // nothing inside /specificate — two readers of one axis is how the two start to disagree.
+  const specDir = join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts");
+  for (const f of readdirSync(specDir).filter((n) => n.endsWith(".sh"))) {
+    const src = readFileSync(join(specDir, f), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue(`${f} does not parse the subject axis itself`,
+      !/subject:/.test(src), `${f} grew a second parser of subject:`);
+  }
+}
+
+// ---------- /propose's judgement refusals stay judgements ----------
+// `describing_move`, `self_refining` and `invented_obligation` are prose the running model
+// applies. What is checkable is that each is NAMED at the surfaces the run reads, and that
+// none of them leaked into the mechanical gates — a refusal that became an expression in
+// `survey-strategies.sh` would change which directions are eligible, which is the one thing
+// these three must never do.
+// ---------- what may originate a mission, stated once and cited ----------
+// The rule lived only as three consequences in three skills, and the next session
+// re-derived it wrong — five self-authored roots merged in one day. This pins the shape the
+// repair depends on: the statement exists at its one home with its measurement, the three
+// consuming skills CITE it rather than restating it, and the drift pin fails when a citing
+// surface starts saying something different.
+T("what may originate a mission is stated once and cited", testWhatMayOriginateAMission);
+function testWhatMayOriginateAMission() {
+  const HOME = join(REPO_ROOT, "plugins/workaholic/rules/workaholic.md");
+  const home = readFileSync(HOME, "utf8");
+  assertTrue("the rule is stated at its one home",
+    /Only a human's ask, or a strategy a human authored, originates a mission/.test(home), "home");
+  assertTrue("with its measurement beside it",
+    /five consecutive `\[FB\]` roots in one day/.test(home), "measurement");
+  for (const w of ["self_authored", "self_refining", "only_the_loop_spoke"]) {
+    assertTrue(`and names what may not originate: ${w}`, home.includes(w), w);
+  }
+  assertTrue("and says why the home is this file rather than a skill or a CLAUDE.md",
+    /ships \*\*in the plugin\*\*|belongs to none of them/.test(home), "why here");
+
+  // THE CITING SURFACES REFERENCE IT. Three restatements is how the rule drifted into three
+  // consequences in the first place, so each must point at the home rather than re-say it.
+  const CITE = "rules/workaholic.md`, *What May Originate a Mission*";
+  for (const [name, rel] of [
+    ["specificate", "plugins/workaholic/skills/specificate/SKILL.md"],
+    ["propose", "plugins/workaholic/skills/propose/SKILL.md"],
+    ["feedback", "plugins/workaholic/skills/feedback/SKILL.md"],
+  ]) {
+    const text = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${name} cites the rule's home`, text.includes(CITE), `${name} does not cite it`);
+    assertTrue(`${name} says it is cited rather than restated`,
+      /cited here rather than restated|cited, never restated|never restated here/.test(text), name);
+  }
+  assertTrue("CLAUDE.md's Sources names whose input each source carries",
+    /Sources\*\*, each named with \*\*whose input it carries/.test(
+      readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8")), "sources");
+}
+
+// ---------- the run-level brake: only the loop has spoken ----------
+// A brake nothing mechanical can fire, so what is pinned is that it is stated at the three
+// surfaces the run reads, that it never brakes on an unreadable channel, that it costs no
+// second query, and that it did not become a per-strategy gate.
+T("propose: the run-level brake when only the loop has spoken", testOnlyTheLoopSpokeBrake);
+function testOnlyTheLoopSpokeBrake() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  for (const [name, text] of [["the skill", skill], ["the loop reference", loop], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the brake by its own word`, text.includes("only_the_loop_spoke"), name);
+    assertTrue(`${name} names all three values`,
+      text.includes("human_spoke") && /unreadable/.test(text), name);
+    assertTrue(`${name} says an unreadable channel never brakes`,
+      /unreadable.{0,60}(never brake|never brakes)|never brakes/i.test(text), name);
+  }
+  assertTrue("the skill says it is run-level, unlike every per-direction gate",
+    /run-level/.test(skill) && /every other gate is per-direction/.test(skill), "run-level");
+  assertTrue("and that the reactive half is untouched",
+    /reactive half is untouched/.test(skill) && /reactive half is untouched/.test(loop), "reactive");
+  assertTrue("the window is the sweep's own, not a second constant",
+    /WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS/.test(skill)
+    && /no second query/.test(skill), "window");
+
+  // IT IS NOT A PER-STRATEGY GATE. The survey decides eligibility; a run-level brake that
+  // reached it would silently change which directions are eligible rather than stopping the
+  // tick, which is a different behaviour with the same name.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("survey-strategies.sh does not read the brake",
+    !mech.includes("only_the_loop_spoke") && !mech.includes("human_spoke"),
+    "the run-level brake leaked into the per-strategy gate");
+}
+
+T("propose: the judgement refusals are named, and stay out of the gates", testProposeJudgementRefusals);
+function testProposeJudgementRefusals() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  const WORDS = ["describing_move", "self_refining", "invented_obligation"];
+
+  for (const w of WORDS) {
+    assertTrue(`the skill names ${w}`, skill.includes(w), w);
+    assertTrue(`CLAUDE.md names ${w}`, claude.includes(w), w);
+  }
+  assertTrue("the loop's step 4 tells the run to report self_refining",
+    loop.includes("self_refining"), "loop.md");
+  assertTrue("and the refusal names what it must not catch",
+    /must not catch|does not catch/.test(skill) && /repair mission/.test(skill), "bounds");
+
+  // THE MECHANICAL GATES ARE UNTOUCHED. Not one of the three may appear in the survey, whose
+  // job is eligibility; a judgement that reached it would silently change `selected`.
+  // Comments are stripped: the survey's header EXPLAINS which question belongs to
+  // `describing_move` and hands the answer in as `--aim-kind`, which is the documented
+  // arrangement. What must not exist is the word in an expression.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const w of WORDS) {
+    assertTrue(`survey-strategies.sh does not read ${w}`, !mech.includes(w),
+      `${w} leaked into the mechanical gate`);
+  }
+}
+
+// ---------- the claim race is settled at the remote ----------
+// The defect: `create.sh` mints `work-$(date …)`, so two runners that survey before either
+// pushes name two different refs and BOTH win — measured 2026-08-30, two branches drove the
+// same four tickets for over an hour. The repair contends on one ref per claimed ARTIFACT
+// (not per unit id, which at the batch grain is itself minted from the clock), before the
+// worktree exists, so the loser writes nothing at all.
+T("drive claim protocol: the race is settled at the remote", testClaimRaceSettledAtTheRemote);
+function testClaimRaceSettledAtTheRemote() {
+  const ARB = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh");
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const arb = (cwd, args) => JSON.parse(run(cwd, `${POSIX_SH} ${ARB} ${args}`).stdout);
+
+    // THE ARBITER ITSELF. One ref per artifact, all-or-nothing, and the second take loses.
+    let r = arb(A, `take ${t1} ${t2}`);
+    assertEq("the first claimant wins every ref", [r.state, r.refs.length], ["won", 2]);
+    r = arb(B, `take ${t1} ${t2}`);
+    assertEq("the second is refused at the remote", [r.state, r.reason], ["lost", "held_by_another"]);
+    assertTrue("naming the ref it lost on", /refs\/claims\/artifact\//.test(r.held_by_ref), r.held_by_ref);
+
+    // A PARTIAL HOLD IS UNWOUND: two runners each holding half a batch is the race with extra
+    // steps, so an overlapping take gives back the refs it did win.
+    const t3 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000009-m1-step.md`;
+    r = arb(B, `take ${t3} ${t1}`);
+    assertEq("an overlapping batch loses", r.state, "lost");
+    const t3ref = run(B, `${POSIX_SH} ${ARB} refname ${t3}`).stdout.trim();
+    assertEq("and the ref it had already won is given back",
+      run(B, `git ls-remote origin ${t3ref}`).stdout.trim(), "");
+
+    // A DIFFERENT UNIT NEVER COLLIDES.
+    assertEq("a claimant for other artifacts still wins", arb(B, `take ${t3}`).state, "won");
+    arb(B, `release ${t3}`);
+
+    // THE REAP: both terms required. A lock no claim stands behind but younger than the
+    // window survives — between winning and pushing there are seconds where that is true of a
+    // perfectly healthy claim.
+    const t1ref = run(A, `${POSIX_SH} ${ARB} refname ${t1}`).stdout.trim();
+    arb(A, "reap");
+    assertTrue("a fresh unheld lock survives the sweep",
+      run(A, `git ls-remote origin ${t1ref}`).stdout.includes(t1ref),
+      "the sweep ate a lock inside the arbitration window");
+    run(A, `WORKAHOLIC_CLAIM_ARBITER_STALE_MINUTES=0 ${POSIX_SH} ${ARB} reap`);
+    assertEq("and a stale one is reaped", run(A, `git ls-remote origin ${t1ref}`).stdout.trim(), "");
+    arb(A, `release ${t1} ${t2}`);
+
+    // THE CLAIM ACT, IN THE RACE'S OWN SHAPE. A sequential second claim is refused by the
+    // ORACLE (`already_claimed`) and never reaches the arbitration — that is the case that
+    // already worked. The race is the window where the winner has arbitrated and NOT yet
+    // pushed, so the oracle sees nothing; it is reproduced by taking the locks directly and
+    // then running a real claim against them.
+    assertEq("the arbitration is held with no branch pushed yet", arb(A, `take ${t1} ${t2}`).state, "won");
+    const lost = run(B, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`);
+    const payload = JSON.parse(lost.stderr.trim().split("\n").pop());
+    assertEq("the loser refuses by its own word", payload.reason, "claim_race_lost");
+    assertTrue("distinct from branch_collision and push_failed",
+      !["branch_collision", "push_failed"].includes(payload.reason), payload.reason);
+    assertTrue("naming the ref that held it", /refs\/claims\/artifact\//.test(payload.held_by_ref),
+      payload.held_by_ref);
+    assertEq("the loser created no worktree",
+      existsSync(join(B, ".worktrees")) ? readdirSync(join(B, ".worktrees")) : [], []);
+    assertEq("and no local work-* branch",
+      run(B, "git branch --list 'work-*'").stdout.trim(), "");
+    assertEq("and nothing of the loser reached origin",
+      run(B, "git ls-remote origin 'refs/heads/work-*'").stdout.trim(), "");
+
+    // AND ONCE THE WINNER HAS PUSHED, the loser's next survey sees an ORDINARY claim rather
+    // than free backlog — the arbitration hands the unit to the oracle, it does not replace it.
+    arb(A, `release ${t1} ${t2}`);
+    const first = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`).stdout);
+    assertEq("the winning claim reports its arbitration", first.arbitrated, true);
+    run(B, "git fetch -q --prune origin");
+    const again = run(B, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`);
+    assertEq("the loser's next claim is an ordinary already_claimed",
+      JSON.parse(again.stderr.trim().split("\n").pop()).reason, "already_claimed");
+  } finally {
+    cleanup(origin); cleanup(A); cleanup(B);
+  }
+}
+
+// ---------- the version collision two branches from one base produce ----------
+// MEASURED on this repository's `main`, 2026-09-02: five consecutive merges carried two version
+// numbers between them. Every branch HAD bumped — `check-version-bump.sh` compares a branch
+// against its own base and each `N -> N+1` was individually right — and every later squash then
+// carried a bump commit whose CONTENT the base already held, so it produced no version diff and
+// nothing reported it. The reproduction is the defect; the second half is the reading that
+// catches it.
+T("branching/check-version-bump.sh: is the number this branch bumped to still free?", testVersionAheadOfTheBase);
+function testVersionAheadOfTheBase() {
+  const CHECK = join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-version-bump.sh");
+  const dir = makeRepo();
+  try {
+    const manifest = join(dir, ".claude-plugin/marketplace.json");
+    mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+    const setV = (v) => writeFileSync(manifest, `{\n  "version": "${v}"\n}\n`);
+    const check = (base) => JSON.parse(run(dir, `${POSIX_SH} ${CHECK} ${base}`).stdout);
+
+    setV("1.0.9");
+    execSync('git add -A && git commit -q -m "seed the manifest"', { cwd: dir });
+    execSync("git branch -f base", { cwd: dir });
+
+    // TWO BRANCHES FROM ONE BASE, each carrying its own work and each bumping correctly. The
+    // work matters to the fixture, not only to realism: two branches with identical trees and
+    // messages from one parent produce the SAME commit object, and the second is then an
+    // ancestor of the first rather than a sibling.
+    execSync("git checkout -q -b one base", { cwd: dir });
+    writeFileSync(join(dir, "one.txt"), "the first branch's work\n");
+    setV("1.0.10");
+    execSync('git add -A && git commit -q -m "Bump version to v1.0.10"', { cwd: dir });
+    let r = check("base");
+    assertEq("the first branch has bumped and is ahead",
+      [r.already_bumped, r.version_ahead], [true, true]);
+    // AND THE COMPARISON IS FIELD-WISE: a string compare calls 1.0.10 < 1.0.9.
+    assertEq("1.0.10 is ahead of 1.0.9, which a string compare gets wrong",
+      [r.branch_version, r.base_version], ["1.0.10", "1.0.9"]);
+
+    execSync("git checkout -q -b two base", { cwd: dir });
+    writeFileSync(join(dir, "two.txt"), "the second branch's work\n");
+    setV("1.0.10");
+    execSync('git add -A && git commit -q -m "Bump version to v1.0.10"', { cwd: dir });
+
+    // THE FIRST MERGES. Now the base holds 1.0.10 and the second branch's bump is spent.
+    execSync("git checkout -q main && git merge -q --no-edit one", { cwd: dir });
+    execSync("git checkout -q two", { cwd: dir });
+
+    r = check("main");
+    assertEq("the second branch STILL reports it bumped — the old question is unchanged",
+      r.already_bumped, true);
+    assertEq("but its number is no longer ahead, which is what nothing asked",
+      [r.version_ahead, r.branch_version, r.base_version], [false, "1.0.10", "1.0.10"]);
+
+    // THE DEFECT ITSELF, so the row is a reproduction and not only a reading: merging the second
+    // branch leaves the base's version exactly where the first put it, while carrying its work.
+    execSync("git checkout -q main && git merge -q --no-edit two", { cwd: dir });
+    assertEq("two merges, one version — the measured shape",
+      readFileSync(manifest, "utf8").includes('"1.0.10"'), true);
+    assertTrue("while the second branch's work did land",
+      existsSync(join(dir, "two.txt")), "the fixture did not reproduce the shape");
+
+    // UNREADABLE IS A THIRD VALUE, never `false` — the caller bumps when unsure.
+    execSync("git checkout -q -b three main && git rm -q .claude-plugin/marketplace.json"
+      + ' && git commit -q -m "drop the manifest"', { cwd: dir });
+    r = check("main");
+    assertEq("an unreadable manifest answers null, not false",
+      [r.version_ahead, r.reason], [null, "manifest_unreadable"]);
+
+    // THE CALLERS ARE TOLD, at the two seams that act on it.
+    const story = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/SKILL.md"), "utf8");
+    const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+    const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+    assertTrue("Phase 0 requires both answers", /version_ahead/.test(story), "story");
+    assertTrue("and says its unknown bumps", /`version_ahead: null` means bump/.test(story), "story");
+    assertTrue("the route re-reads before the merge and re-bumps",
+      /version_rebumped/.test(drive) && /version_already_ahead/.test(drive), "drive");
+    assertTrue("...and says it is a repair, never a gate",
+      /repair, never a gate/.test(drive) && /merge happens either way/.test(drive), "drive");
+    assertTrue("a failed re-bump moves no token", /version_rebump_failed/.test(drive), "drive token row");
+    assertTrue("CLAUDE.md carries the measurement and the ruling on the collided numbers",
+      /five consecutive merges carried two versions/.test(claude)
+      && /recorded and left/.test(claude), "CLAUDE.md");
+  } finally { cleanup(dir); }
+}
+
+// A `/spawn-loops` CLONE CARRIES `.workaholic/` TWICE, AND EVERY PATH CUT MUST TAKE THE LAST
+// (2026-09-02). The local-loops premise clones each loop under `$WORKAHOLIC_LOOPS_HOME`,
+// default `~/.workaholic/loops/<repo>/<loop>` -- so an absolute path to any artifact inside a
+// loop clone contains the segment twice, and a shortest-match `#`/longest-match `%%` cut lands
+// on the CLONE HOME instead of the repository. Measured in a live loop session: the layout gate
+// refused a well-formed ticket with `undesignated subdirectory 'loops/'`, and
+// `missions_root_from_artifact` answered `/home/ec2-user/.workaholic`, which would refuse every
+// missioned ticket with `mission relation does not resolve`. Both readings are of the wrong tree.
+//
+// The fixture is the shape itself: a repository nested under a directory literally named
+// `.workaholic`. Nothing here is specific to this machine's home directory.
+T("hooks: a `.workaholic/` path cut takes the last occurrence, not the first", testWorkaholicPathCutsAtTheLastOccurrence);
+function testWorkaholicPathCutsAtTheLastOccurrence() {
+  const home = mkdtempSync(join(tmpdir(), "workaholic-loophome-"));
+  const repo = join(home, ".workaholic/loops/r/implement");
+  try {
+    mkdirSync(repo, { recursive: true });
+    execSync(`git -c init.defaultBranch=main init -q`, { cwd: repo });
+    execSync(`git config user.email test@example.com`, { cwd: repo });
+    execSync(`git config user.name Test`, { cwd: repo });
+    execSync(`git config commit.gpgsign false`, { cwd: repo });
+
+    const ticket = join(repo, ".workaholic/tickets/todo/20260902150000-nested.md");
+    mkdirSync(dirname(ticket), { recursive: true });
+    writeFileSync(ticket,
+      `---\ncreated_at: 2026-09-02T15:00:00+00:00\nauthor: test@example.com\nassignees: [test@example.com]\n---\n\n# Nested\n\n## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
+
+    const HOOK = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`;
+    const r = run(repo, `printf '{"tool_name":"Write","tool_input":{"file_path":"${ticket}"}}' | ${HOOK}`, { shell: "/bin/sh" });
+    assertEq("a ticket inside a loop clone is not refused as an undesignated layout",
+      { status: r.status, first: r.stderr.split("\n")[0] }, { status: 0, first: "" });
+
+    const RESOLVE = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/lib/resolve.sh");
+    const root = run(repo, `. ${RESOLVE}; missions_root_from_artifact ${ticket}`, { shell: "/bin/sh" }).stdout.trim();
+    assertEq("missions_root_from_artifact answers the repository's own .workaholic, not the clone home",
+      root, join(repo, ".workaholic"));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
+// THE RUNNER WALKS WHAT THE FILE DECLARES (2026-09-02, ticket `20260902143137`).
+// Until now every test was registered TWICE -- a `function test…()` body and a row in a single
+// `const tests = [` array 22,000 lines away -- so two units driven concurrently collided by
+// construction, at the same two anchors, whatever they had changed. Measured: three pull
+// requests (#890, #899, #900) unmergeable for a day on exactly one file, two hunks, both
+// disjoint appends. `conflict-class.sh` calls that `content` and is right to -- a hand-written
+// file can carry a real disagreement -- so the repair removes the OCCASION rather than widening
+// the classifier, exactly as `merge=union` did for the generated indexes and, per
+// `.gitattributes`'s own header, must NOT do here.
+//
+// The label survives because a function name cannot carry a sentence; it now rides `T(…)` above
+// the body it names, so adding a test touches ONE region of the file.
+//
+// ORDER: the runner now walks file order rather than the array's. Nothing depends on it -- every
+// row builds its own fixture in a fresh temp dir and shares no state with any other.
 
 // ---------- branching/merge-reason.sh: the refused-merge ladder (2026-08-23) ----------
 // WHY THIS IS A SCRIPT AND NOT A REGEX OVER publish-tree-pr.sh. The ladder was inline, so
@@ -21630,6 +22448,7 @@ process.exit(failed ? 1 : 0);
 // pull request that is finished, green and correct. Measured: an [Implement] tick found a
 // `merge_policy: review` unit — the route that says merge immediately — and left it open with
 // no honest reason to give, because §6 named no other transport.
+T("branching merge-reason: a refused merge is classified by what a reader must do next", testMergeReason);
 function testMergeReason() {
   const cases = [
     // 405 first: GitHub refusing the merge itself.
@@ -21765,6 +22584,7 @@ function testMergeReason() {
 // step fails, namely that the ARTIFACT IS STILL PUSHED and the caller is told which
 // branch holds it. A recovery that re-publishes instead of opening the PR by hand
 // would duplicate the artifact, so this is the assertion that prevents it.
+T("branching publish-tree-pr: an artifact lands on a work-* branch behind a PR (J4)", testPublishTreePr);
 function testPublishTreePr() {
   const { origin, A } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
@@ -21826,6 +22646,7 @@ function testPublishTreePr() {
 // missions, tickets were touched), not the literal path of each one. `gh` is stubbed here
 // (unlike testPublishTreePr) so the body-file `gh pr create` is given can actually be
 // inspected — the fixture's origin is still a bare local repo with no GitHub behind it.
+T("branching publish-tree-pr: the ## Artifacts section is a counts summary, not a file-path list", testPublishTreePrArtifactsSummary);
 function testPublishTreePrArtifactsSummary() {
   const { origin, A } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
@@ -21951,6 +22772,7 @@ echo ""
   }
 }
 
+T("branching publish-tree-pr: a strategy-touching publish never auto-merges", testPublishTreePrStrategyExemption);
 function testPublishTreePrStrategyExemption() {
   // 1. A PUBLISH THAT TOUCHES `.workaholic/strategies/` DOES NOT MERGE.
   const held = publishOneArtifact(".workaholic/strategies/ship-it.md",
@@ -22043,6 +22865,7 @@ echo ""
   }
 }
 
+T("branching publish-tree-pr: a ruling never auto-merges", testPublishTreePrRulingExemption);
 function testPublishTreePrRulingExemption() {
   const mission = (refs) =>
     `---\ntype: Mission\ntitle: M\nslug: m2\nstatus: active\nfeedback: [${refs}]\n---\n\n` +
@@ -22158,6 +22981,7 @@ echo ""
   return { origin, A, binDir };
 }
 
+T("moderate/draft-standing-rulings.sh drafts a judged ruling", testDraftStandingRulings);
 function testDraftStandingRulings() {
   const DRAFT = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/draft-standing-rulings.sh");
   const { origin, A, binDir } = makeRulingRepo();
@@ -22313,6 +23137,7 @@ echo ""
   chmodSync(join(binDir, "gh"), 0o755);
 }
 
+T("moderate/step-standing-rulings.sh gives the tick the ruling step", testStepStandingRulings);
 function testStepStandingRulings() {
   const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-standing-rulings.sh");
   const { origin, A, binDir } = makeRulingRepo();
@@ -22392,6 +23217,7 @@ function testStepStandingRulings() {
 // perform by hand what they are being asked to merge. Hold exactly that one. The risk is
 // over-suppression, so every row here is about the BOUND: keyed on the subject, all-or-nothing
 // on a residue, unreadable holds nothing, and `ask-question.sh` is not touched at all.
+T("moderate: a ruling holds exactly the question its diff carries", testRulingQuestionSuppression);
 function testRulingQuestionSuppression() {
   const SUPP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/ruling-suppression.sh");
   const UNDRIVABLE = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh");
@@ -22476,6 +23302,7 @@ function testRulingQuestionSuppression() {
 // argument mention (it is the more specific signal), a non-numeric env var is treated
 // as absent rather than laundered into the body, and an ask with no issue anywhere is
 // the ordinary case, not an error.
+T("propose extract-issue-number: captures a triggering GitHub issue number from env or argument", testExtractIssueNumber);
 function testExtractIssueNumber() {
   const SCRIPT = SCRIPTS.proposeExtractIssueNumber;
   const here = process.cwd();
@@ -22515,6 +23342,7 @@ function testExtractIssueNumber() {
 // issue the tag produced. Two properties are load-bearing enough to pin: the dedup marker
 // has ONE writer whose format the ledger reader actually matches, and a refusal in the
 // wrapper leaves nothing half-filed.
+T("propose inbound sweep: one marker writer, and the ledger read never runs blind", testInboundSweep);
 function testInboundSweep() {
   const tmp = mkdtempSync(join(tmpdir(), "wh-sweep-"));
   const repo = join(tmp, "repo");
@@ -22633,6 +23461,7 @@ function testInboundSweep() {
   }
 }
 
+T("propose list-inbound-issues: the clock-fired discovery reads the inbox, never invents one", testListInboundIssues);
 function testListInboundIssues() {
   const SCRIPT = SCRIPTS.proposeListInboundIssues;
   const tmp = mkdtempSync(join(tmpdir(), "wh-inbound-"));
@@ -22843,6 +23672,7 @@ function testPublishTreePrClosesIssueScenario(env, ticketRel, closesIssueEnv) {
   }
 }
 
+T("branching publish-tree-pr: threads a native Closes #<N> keyword when an issue number is in hand", testPublishTreePrClosesIssue);
 function testPublishTreePrClosesIssue() {
   const binDir = mkdtempSync(join(tmpdir(), "wh-gh-closes-"));
   const capturedBody = join(binDir, "captured-body.md");
@@ -22903,6 +23733,7 @@ echo ""
 // before any pull request existed. The subject keeps the project rule; the title carries
 // the prefix the [Implement] trigger filters on. (P4's other half -- the carried
 // notification target -- is retired by Q1 and pinned in testStatelessThreadLookup.)
+T("the PR title is not the commit subject (P4's surviving half)", testPrTitleSeparateFromSubject);
 function testPrTitleSeparateFromSubject() {
   const { origin, A } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
@@ -22940,6 +23771,7 @@ function testPrTitleSeparateFromSubject() {
 // that retired notify-target identifiers never resurface under plugins/. The
 // sentence-level pins over the lookup's prose are gone (2026-08-12): they guarded
 // wording, not the mechanism.
+T("the reply thread is found, not carried (Q1)", testStatelessThreadLookup);
 function testStatelessThreadLookup() {
   const notifySkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8");
   const writer = readFileSync(SCRIPTS.publishTreePr, "utf8");
@@ -23161,6 +23993,7 @@ function testStatelessThreadLookup() {
 // identity comparison, `unresolved` kept distinct) and the shape's authorization
 // (the prompt is the ceiling: a line the routine template does not name may not be
 // posted, however well this repository documents it).
+T("drive/unit-authors.sh: the authorship disclosure", testUnitAuthorsDisclosure);
 function testUnitAuthorsDisclosure() {
   const dir = makeRepo("main");
   try {
@@ -23230,6 +24063,7 @@ function testUnitAuthorsDisclosure() {
 // five surfaces, and prose is exactly what drifts, so the properties are pinned here:
 // where the ask lands, that no record is written on that path (and WHY), and that no
 // surviving surface still promises a record.
+T("/fb files an issue, whatever the destination", testFbFilesAnIssue);
 function testFbFilesAnIssue() {
   const read = (p) => readFileSync(join(REPO_ROOT, p), "utf8");
   const cmd = read("plugins/workaholic/commands/fb.md");
@@ -23297,6 +24131,7 @@ function testFbFilesAnIssue() {
 // `already_captured` self-suppression, not firing on an unparseable envelope drops the
 // ask silently, and firing on the crossing routes around another repository's own
 // decision about its boundary. Driven off stubbed envelopes — no `gh`, no network.
+T("/fb's one degradation: the fallback decision", testFbFallbackDecision);
 function testFbFallbackDecision() {
   const decide = (dest, envelope) => JSON.parse(execSync(
     `printf '%s' ${JSON.stringify(envelope)} | ${POSIX_SH} ${SCRIPTS.fbFallback} ${dest}`,
@@ -23371,6 +24206,7 @@ function testFbFallbackDecision() {
 // `/mission` with nothing named plans over all of yours, `/ticket` with nothing described
 // reports instead of writing, and `/drive [<unit>]` narrows one behaviour. The check is
 // for a branch keyed on a LITERAL WORD.
+T("one behaviour per command: no dispatch on a literal first word (P5)", testNoSubcommands);
 function testNoSubcommands() {
   const dir = join(REPO_ROOT, "plugins/workaholic/commands");
   const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
@@ -23412,6 +24248,7 @@ function testNoSubcommands() {
 // artifact. What is forbidden is falling back to the RUNNING identity, which would
 // assign work to whichever container happened to execute the batch -- the exact
 // re-derivation the chain exists to remove.
+T("a proposal carries its owner from the trigger (P6)", testProposalOwnershipChain);
 function testProposalOwnershipChain() {
   const dir = makeRepo("main");
   const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
@@ -23470,6 +24307,7 @@ function testProposalOwnershipChain() {
 // is on origin/work-* and — by construction, until a human merges — not on origin/main.
 // A refusal that fires on the happy path trains its callers to ignore the one that
 // matters, so the never-published case below is the assertion this fix is judged on.
+T("branching close-publish-tree: closes after either publish path, still guards the unpushed one", testClosePublishTreeReachability);
 function testClosePublishTreeReachability() {
   const { origin, A } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
@@ -23566,6 +24404,7 @@ function testClosePublishTreeReachability() {
 // is -- not by a new gate, but because plan-units.sh drops any mission-related ticket
 // as `mission_member` whatever the mission's status. If that exclusion is ever
 // narrowed, this test is the tripwire.
+T("specificate: widened inputs, emitted tickets, and the mission_member safety property (J4)", testSpecificateWidenedBatch);
 function testSpecificateWidenedBatch() {
   const root = makeRepo();
   const SURVEY = `${POSIX_SH} ${SCRIPTS.surveyState}`;
@@ -23633,6 +24472,7 @@ function testSpecificateWidenedBatch() {
 // over both the queue AND the archive. A set that read only missions would re-propose the
 // same record every tick; one that skipped the archive would re-propose the work it had
 // just finished driving.
+T("specificate: an atomic direction becomes one loose ticket, and dedup unions both sides", testSpecificateLooseTicket);
 function testSpecificateLooseTicket() {
   const root = makeRepo();
   const SCAFFOLD = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
@@ -23739,6 +24579,7 @@ function testSpecificateLooseTicket() {
 // produced the same empty result. The composition case below is what makes them
 // distinguishable, and the record-only case pins that the fallback still writes the
 // record. Hermetic: a bare local origin plus a `gh` stub, no network.
+T("specificate: the capture seam publishes record and proposal in one commit", testSpecificateCaptureSeam);
 function testSpecificateCaptureSeam() {
   const { origin, A } = makePublishFixture();
   const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
@@ -23863,6 +24704,7 @@ function testSpecificateCaptureSeam() {
 // across four repositories, 31 GB of it fully merged and clean. The reaper's safety rule
 // is a predicate over git state, so it is exactly testable in fixtures -- and it MUST be,
 // because the failure mode is destroying work that was never committed anywhere.
+T("branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation);
 function testWorktreeReclamation() {
   const origin = mkdtempSync(join(tmpdir(), "wh-reap-origin-"));
   execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
@@ -23979,6 +24821,7 @@ function testWorktreeReclamation() {
 // unbounded ## Acceptance grows into an audit list, and an audit list never gets ticked.
 // The fix is a ceiling. The failure mode this test guards is a later reader mistaking a
 // ceiling for a loosened floor -- so the floor assertions live here, next to the change.
+T("mission size norms: a ceiling on what a mission may say, and the floor it must not touch", testMissionSizeNorms);
 function testMissionSizeNorms() {
   const dir = makeRepo("main");
   const SIZE = `${POSIX_SH} ${SCRIPTS.missionSize}`;
@@ -24061,6 +24904,7 @@ function testMissionSizeNorms() {
 // self-referential (the plan's datum is the base sha and, absent `paths:`, the refresh's
 // own commit changes the count it reports), pushing into an open PR's branch races the
 // claim protocol, and /ship merges. See `skills/ship/SKILL.md` §7.
+T("ship/report-deploy-status.sh: the repository tick reads, and an idle tick is silent", testReportDeployStatus);
 function testReportDeployStatus() {
   const seedTarget = (root, slug, extraFm = "") => {
     mkdirSync(join(root, ".workaholic/deployments"), { recursive: true });
@@ -24163,6 +25007,7 @@ function testReportDeployStatus() {
 //      doubtful target's count and `since` are redacted out of the digest's input, so two
 //      containers holding DIFFERENT stale refs key identically for one real state. Hashing
 //      the number the consumer suppresses is exactly how the dedup broke.
+T("ship/report-deploy-status.sh: the refs it read are freshened, or named", testReportDeployStatusRefs);
 function testReportDeployStatusRefs() {
   const seedTarget = (root) => {
     mkdirSync(join(root, ".workaholic/deployments"), { recursive: true });
@@ -24288,6 +25133,7 @@ function testReportDeployStatusRefs() {
 // properties below are the ticket's acceptance criteria, and the first is the load-bearing
 // one -- a later change that "simplifies" the rate bound by folding it back into the
 // digest fails it.
+T("ship/report-deploy-status.sh: the post rate is bounded to one ask a day", testReportDeployStatusRateBound);
 function testReportDeployStatusRateBound() {
   const dir = makeRepo("main");
   const bare = mkdtempSync(join(tmpdir(), "workaholic-smoke-rate-origin-"));
@@ -24369,6 +25215,7 @@ function testReportDeployStatusRateBound() {
 // `autofix_on_pr_create` (a routine that opens no pull request must not declare a flag it
 // can never reach). Pinned because "it only reads" is the kind of claim that decays into
 // prose while a template quietly regains a tool.
+T("prepare-release: the repository routine and its command are a reader", testPrepareReleaseIsAReader);
 function testPrepareReleaseIsAReader() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/prepare-release.md"), "utf8");
 
@@ -24402,6 +25249,7 @@ function testPrepareReleaseIsAReader() {
 // block in either document, is a post somebody will send. The naming-history prose in both
 // files still cites the retired headings on purpose — erasing a record is the documentation
 // defect this repository's own rule forbids — so the pin is scoped to POSTABLE BLOCKS.
+T("prepare-release: the routine is retired, and its post shape with it", testPrepareReleaseRetired);
 function testPrepareReleaseRetired() {
   const routines = join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines");
   assertEq("the routine template is gone, not merely emptied",
@@ -24446,6 +25294,7 @@ function testPrepareReleaseRetired() {
 // commonest merge kind in this repository rendered as a line whose entire content is the
 // absence of a summary. The fallback is the merge commit's BODY, where GitHub puts the
 // pull request's title: local data, so no network and no `--enrich`.
+T("release note: Key Changes says what landed, for every merge", testReleaseNoteKeyChangesFallback);
 function testReleaseNoteKeyChangesFallback() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-keys-"));
   const repo = join(tmp, "repo");
@@ -24561,6 +25410,7 @@ function testReleaseNoteKeyChangesFallback() {
 // 38 of 68 merges over `v1.0.170..main` (56%) carry none. The merge's own diff still
 // names what it published: the feedback record, the mission, the tickets. That substance
 // rides the SAME row as sub-bullets — no merge is dropped, reordered or capped by it.
+T("release note: a story-less merge keeps its substance", testReleaseNoteStoryLessSubstance);
 function testReleaseNoteStoryLessSubstance() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-substance-"));
   const repo = join(tmp, "repo");
@@ -24652,6 +25502,7 @@ function testReleaseNoteStoryLessSubstance() {
 // document rather than copied — no third store, and the writers keep their append-only
 // order because the projection never writes. The unflattering outcomes (`fail`,
 // `not_run`, `bypassed`) render exactly as loudly as `pass`.
+T("release note: plan then release then verification, in one document", testReleaseNoteLifecycleJoin);
 function testReleaseNoteLifecycleJoin() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-join-"));
   const repo = join(tmp, "repo");
@@ -24748,6 +25599,7 @@ function testReleaseNoteLifecycleJoin() {
 // to produce a plan is named, with the note saying on its face that it fell back. The
 // planner command is pluggable (`WORKAHOLIC_PLANNER_CMD`), which is what lets the whole
 // chain be proved here with no network and no key.
+T("release plan: the planner, its gate, and its visible failure", testReleasePlannerChain);
 function testReleasePlannerChain() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-planner-"));
   const repo = join(tmp, "repo");
@@ -24864,6 +25716,7 @@ function testReleasePlannerChain() {
 // — what ships together, in what order, at what risk, what is held. `--plan` renders an
 // agent-authored arrangement OVER the derived facts, and the property that had to
 // survive is the one pinned first: with no plan, byte-for-byte the old output.
+T("release note: the plan seam over the renderer", testReleaseNotePlanSeam);
 function testReleaseNotePlanSeam() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-note-plan-"));
   const repo = join(tmp, "repo");
@@ -24999,6 +25852,7 @@ function testReleaseNotePlanSeam() {
   }
 }
 
+T("release note draft: CI writes it, and the tick never attempts to", testTheDraftNoteWriterIsCi);
 function testTheDraftNoteWriterIsCi() {
   const cadence = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/run-note-cadence.sh"), "utf8");
   const wf = readFileSync(join(REPO_ROOT, ".github/workflows/release-note-draft.yml"), "utf8");
@@ -25051,6 +25905,7 @@ function testTheDraftNoteWriterIsCi() {
 // NO TEST TOUCHES THE ACCOUNT, and since 2026-08-06 nothing in the plugin reads it at all:
 // the drift/management scripts were retired, so what remains under test is the template set,
 // the renderer, and the setup sheet derived from it.
+T("workaholify routines: one template set, applied per repository, drift named per field", testWorkaholifyRoutines);
 function testWorkaholifyRoutines() {
   const dir = makeRepo("main");
   const LIST = `${POSIX_SH} ${SCRIPTS.listRoutineTemplates}`;
@@ -25135,6 +25990,54 @@ function testWorkaholifyRoutines() {
     assertEq("propose declares the schedule trigger",
       tpl.templates.find((t) => t.id === "propose").trigger, "schedule-hourly");
 
+    // ---- `sources:` is DATA, and the body is built in ONE place (2026-09-02) ----
+    // Which repository a routine checks out used to be readable only as prose in one
+    // template's paragraphs, so a caller converging the set had to read English to build a
+    // request body -- and every caller rebuilt that body itself, parsing the display
+    // strings (`"[Bash, Read]"`) back into arrays on the way. Both halves are pinned: the
+    // field exists on every template AND both readers of the frontmatter know it, which is
+    // the drift `scope:` was centralised to avoid.
+    assertTrue("every template declares the repository it checks out",
+      tpl.templates.every((t) => t.sources === "[{repo}]"),
+      JSON.stringify(tpl.templates.map((t) => [t.id, t.sources])));
+    const renderedAll = tpl.templates.map((t) =>
+      JSON.parse(run(dir, `${RENDER} ${t.id} ${WH}`).stdout));
+    assertTrue("the renderer resolves it to the repository being wired",
+      renderedAll.every((r) => JSON.stringify(r.sources_json) === JSON.stringify([WH])),
+      JSON.stringify(renderedAll.map((r) => [r.id, r.sources_json])));
+    // The JSON twins are ADDED, never a mode: the display spellings keep their bytes, which
+    // is what leaves the setup sheet and the four existing callers untouched.
+    const prop = renderedAll.find((r) => r.id === "propose");
+    assertEq("the display spelling a human pastes is unchanged",
+      prop.allowed_tools, "[Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]");
+    assertEq("and its JSON twin is the shape the record stores",
+      prop.allowed_tools_json,
+      ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch"]);
+    assertEq("a one-element list renders as an array, not a bare string", prop.mcp_json, ["Slack"]);
+    // ONE place builds the body, and the environment id is an ARGUMENT -- a script that
+    // defaulted one would be the aspirational configuration this skill refuses elsewhere.
+    const BODY = `${POSIX_SH} ${SCRIPTS.buildRoutineBody}`;
+    const built = JSON.parse(run(dir, `${BODY} implement ${WH} env_TEST`).stdout);
+    assertEq("the body carries the environment id it was given",
+      built.body.session_request.environment_id, "env_TEST");
+    assertEq("and the repository as a source object, not a string",
+      built.body.session_request.config.sources, [{ git_repository: { url: WH } }]);
+    assertEq("and the tool list as an array", built.body.session_request.config.allowed_tools,
+      ["Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch"]);
+    assertEq("and autofix as a boolean rather than the template's text",
+      built.body.session_request.config.autofix_on_pr_create, true);
+    assertTrue("the prompt reaches the body verbatim",
+      built.body.session_request.events[0].payload.internal_anthropic_catchall.message.content
+        === JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout).prompt, "prompt diverged");
+    // The nesting is the one a LIVE RECORD reads back in, and the create body's own key
+    // paths are not established by that read -- the API silently drops unknown fields, so a
+    // 200 proves nothing. The script says so rather than presenting a guess as settled.
+    assertEq("the body names the nesting it used", built.body_shape, "session_request");
+    assertEq("and reports that the nesting is unproven", built.body_shape_verified, false);
+    assertEq("no environment id is refused by name rather than defaulted",
+      JSON.parse(run(dir, `${BODY} implement ${WH}`).stdout).error,
+      "no_environment_id");
+
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
     assertEq("the routine name uses the BARE repo name, as the live routines do",
@@ -25192,6 +26095,7 @@ function testWorkaholifyRoutines() {
 // unbootstrapped repository schedules its routines, fires them on time, and stops at the
 // prompt's own "the workaholic plugin must be loaded" precondition -- doing nothing, while
 // looking healthy from the routines list and leaving no trace in git.
+T("workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap);
 function testWorkaholifyBootstrap() {
   const dir = makeRepo("main");
   const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
@@ -25298,6 +26202,7 @@ function testWorkaholifyBootstrap() {
 // so a repository that ran the command still left unprepared. What is pinned here is the
 // LINE both scripts hold: they converge from each named problem state, they are no-ops on
 // a conformant repository, and they refuse BY NAME rather than half-writing.
+T("workaholify: the wiring halves apply, they do not merely audit", testWorkaholifyApplies);
 function testWorkaholifyApplies() {
   const canonical = readFileSync(SCRIPTS.bootstrapHook, "utf8");
 
@@ -25448,6 +26353,7 @@ function testWorkaholifyApplies() {
 // every routine commit rendered on GitHub -- which shows the name, not the email -- as
 // authored by Claude. Case (d) is that exact container shape, and it is the fixture the
 // old code fails.
+T("workaholify bootstrap: the session gets the developer's git identity", testBootstrapGitIdentity);
 function testBootstrapGitIdentity() {
   const dir = makeRepo("main");
   const binDir = mkdtempSync(join(tmpdir(), "workaholic-idstub-"));
@@ -25699,6 +26605,7 @@ function pushClaimBranch(repo, branch, file, content) {
   execSync("git checkout -q main", { cwd: repo });
 }
 
+T("e2e/loop-drill.sh: seed refuses a polluted base and mints a fresh pair", testLoopDrillSeed);
 function testLoopDrillSeed() {
   const fx = makeDrillFixture();
   try {
@@ -25799,6 +26706,7 @@ function testLoopDrillSeed() {
   } finally { cleanup(fx.tmp); }
 }
 
+T("e2e/loop-drill.sh: reset recovers only what the drill minted", testLoopDrillReset);
 function testLoopDrillReset() {
   const fx = makeDrillFixture();
   try {
@@ -25875,6 +26783,7 @@ function setPulls(fx, pulls) {
   writeFileSync(join(fx.state, "pulls.json"), JSON.stringify(pulls));
 }
 
+T("e2e/loop-drill.sh: verify-specificate reads artifacts, and pending is not fail", testLoopDrillVerifySpecificate);
 function testLoopDrillVerifySpecificate() {
   const fx = makeDrillFixture();
   try {
@@ -26014,6 +26923,7 @@ function testLoopDrillVerifySpecificate() {
   } finally { cleanup(fx.tmp); }
 }
 
+T("e2e/loop-drill.sh: verify-implement reads the archive move, story, PR and claim", testLoopDrillVerifyImplement);
 function testLoopDrillVerifyImplement() {
   const fx = makeDrillFixture();
   try {
@@ -26121,6 +27031,7 @@ function testLoopDrillVerifyImplement() {
 // first tick, a NON-idempotent writer doubles the record of a retried step, and a
 // reader that cannot answer "did an earlier tick file this?" makes an hourly routine
 // re-file the same finding twenty-four times a day.
+T("moderate: the tick log is registered, append-only and idempotent", testModerateLog);
 function testModerateLog() {
   const repo = makeRepo();
   const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
@@ -26196,6 +27107,7 @@ function testModerateLog() {
 // tell them apart — and `work_waiting` reading the undifferentiated count is what made the
 // measured loop self-sustaining: each documentation mission queued documentation tickets,
 // which kept the gate closed against the proposal that would have built something.
+T("strategy/work-kind.sh: describing work does not gate a building aim", testDescribingWorkDoesNotGateABuildingAim);
 function testDescribingWorkDoesNotGateABuildingAim() {
   const KIND = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/work-kind.sh")}`;
   const dir = mkdtempSync(join(tmpdir(), "wh-kind-"));
@@ -26236,6 +27148,7 @@ function testDescribingWorkDoesNotGateABuildingAim() {
 // merged. Pinned: the split shape refuses and commits nothing, and the ORDINARY case (an
 // unrelated untracked file beside a normal edit) still succeeds, because a guard that fires
 // on that is disabled within a day.
+T("commit.sh: refuses a commit that splits a rename", testCommitRefusesSplitRename);
 function testCommitRefusesSplitRename() {
   const COMMIT = `${POSIX_SH} ${SCRIPTS.commit}`;
   const args = `"Move x to y" "why" "changes" "None" "None" "verify"`;
@@ -26317,6 +27230,7 @@ function testCommitRefusesSplitRename() {
 // concluded it was captured, and did not re-derive it. Pinned: the record lands on the log's
 // own commit with no branch, an unrelated staged file does NOT ride, and an unlanded record
 // reads as not filed.
+T("moderate: the tick's records reach the base", testTickRecordsReachTheBase);
 function testTickRecordsReachTheBase() {
   const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   const PERSIST = `${POSIX_SH} ${join(M, "persist-log.sh")}`;
@@ -26381,6 +27295,7 @@ function testTickRecordsReachTheBase() {
 // question went unanswered for twenty hours across twenty ticks with nothing carrying it.
 // Pinned: the three-valued reading (unknown never collapsing into either other answer), and
 // that the re-ask happens EXACTLY ONCE, at the next working day, behind the hold gates.
+T("moderate: liveness, and the one bounded re-ask", testQuestionLivenessAndReask);
 function testQuestionLivenessAndReask() {
   const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   const LIVE = `${POSIX_SH} ${join(M, "question-liveness.sh")}`;
@@ -26450,6 +27365,7 @@ function testQuestionLivenessAndReask() {
 // container. What is pinned is that the three states are distinguishable, that the WORDS
 // survive (a flag nobody can read is the same failure at one remove), and that the log
 // stays append-only.
+T("moderate: a question is never_asked, asked, or answered", testQuestionAnswerStates);
 function testQuestionAnswerStates() {
   const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   const ASK = `${POSIX_SH} ${join(M, "ask-question.sh")}`;
@@ -26523,6 +27439,7 @@ function testQuestionAnswerStates() {
 // the agent hands the words to the writer. What did NOT flip, and is pinned as still true, is
 // that no SCRIPT records an answer: the judgement of which reply is a person's answer stays
 // the agent's, which is the whole reason the read is handed back rather than taken in shell.
+T("moderate: an answer in a question's own thread reaches the writer", testAnswerReturnPath);
 function testAnswerReturnPath() {
   const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   const ASK = `${POSIX_SH} ${join(M, "ask-question.sh")}`;
@@ -26679,6 +27596,7 @@ function testAnswerReturnPath() {
 // nothing. What is pinned is the reading and its DEGRADATIONS: a reader that cannot reach
 // the claim oracle must never render as "nothing is stalled", which is the exact shape of
 // silence the step exists to end.
+T("moderate/step-stalled-units.sh: what is claimed and how long it has not moved", testStalledUnitsStep);
 function testStalledUnitsStep() {
   const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh")}`;
   const { A } = makeClaimFixture();
@@ -26720,6 +27638,75 @@ function testStalledUnitsStep() {
     // IT ASKS; IT NEVER CLAIMS, DRIVES OR RESOLVES.
     assertEq("asking touches no claim",
       execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // A CLAIM THE RETIREMENT PATH ALREADY OWNS IS A FACT WITH NO QUESTION ON IT (2026-09-02,
+    // mission `retire-a-claim-whose-work-is-finished-or-abandoned`). Measured: the operator
+    // closed a pull request and closed its mission `abandoned`, and this step asked them about
+    // that branch every hour until they deleted it by hand. The set is COMPOSED from
+    // `list-retirable-claims.sh`, so the four classes are defined once.
+    {
+      const bin = join(A, ".stub-bin");
+      mkdirSync(bin, { recursive: true });
+      // The lookup SUCCEEDS and finds no pull request — a fact, and specifically not `open`,
+      // which the mission class declines to offer at all.
+      writeFileSync(join(bin, "gh"), "#!/bin/sh\ncase \"$2\" in rate_limit) echo 5000 ;; *) echo '[]' ;; esac\n");
+      chmodSync(join(bin, "gh"), 0o755);
+      const stubbed = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+      const stale0 = `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STEP} --tick 20260902-000000 --root ${A}`;
+
+      // The retirement path never touches a claim a run is DRIVING, so the fixture's tip has to
+      // be out of the heartbeat window before the subtraction can be exercised at all — which is
+      // itself the bound worth having: `claim_active` is the one loss that cannot be recovered.
+      const old = "2026-08-01T00:00:00+00:00";
+      execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD', {
+        cwd: join(A, ".worktrees/m1"),
+        env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+      });
+
+      const before = JSON.parse(run(A, stale0, stubbed).stdout);
+      assertTrue("while its mission is active the claim is still asked about",
+        (before.needs_agent[0]?.stalled ?? []).some((c) => c.unit === "m1"),
+        JSON.stringify(before.needs_agent));
+
+      // The operator ends the mission — `close.sh`'s own move, replayed.
+      execSync("mkdir -p .workaholic/missions/archive"
+        + " && git mv .workaholic/missions/active/m1 .workaholic/missions/archive/m1", { cwd: A });
+      writeFileSync(join(A, ".workaholic/missions/archive/m1/mission.md"),
+        "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: abandoned\nassignees: [test@example.com]\n---\n\n# M1\n\n## Acceptance\n\n- [ ] x\n");
+      execSync('git add -A && git commit -q -m "Abandon m1" && git push -q origin main', { cwd: A });
+
+      const after = JSON.parse(run(A, stale0, stubbed).stdout);
+      assertTrue("once the retirement path owns it, no stalled-unit question is composed",
+        !(after.needs_agent[0]?.stalled ?? []).some((c) => c.unit === "m1"),
+        JSON.stringify(after.needs_agent));
+      assertTrue("...and the subtraction is COUNTED rather than silent",
+        /1 already owned by the retirement path/.test(after.summary), after.summary);
+      assertTrue("...and the summary still carries no age and no timestamp",
+        !/\d+h\b/.test(after.summary) && !/\d{4}-\d{2}-\d{2}/.test(after.summary), after.summary);
+
+      // Put it back so the assertions after this block see the fixture they were written for.
+      execSync("git mv .workaholic/missions/archive/m1 .workaholic/missions/active/m1", { cwd: A });
+      writeFileSync(join(A, ".workaholic/missions/active/m1/mission.md"),
+        "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: approved\nassignees: [test@example.com]\n---\n\n# M1\n\n## Acceptance\n\n- [ ] x\n");
+      execSync('git add -A && git commit -q -m "Reopen m1" && git push -q origin main', { cwd: A });
+      rmSync(bin, { recursive: true, force: true });
+    }
+
+    // AN UNREADABLE RETIREMENT READ FILTERS NOTHING, and both steps say so. A gate that cannot
+    // be read is not a gate: every question stays standing and the degraded read is named.
+    for (const step of ["step-stalled-units.sh"]) {
+      const src = readFileSync(
+        join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts", step), "utf8");
+      assertTrue(`${step} composes the retirement reader rather than re-deriving its classes`,
+        src.includes("list-retirable-claims.sh")
+        && !/pull_request_closed_unmerged|mission_not_active/.test(
+          src.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
+        `${step} restates the retirement classes`);
+      assertTrue(`${step} names an unreadable retirement read rather than filtering on it`,
+        /retirable_readable/.test(src)
+        && /could not be read, so nothing was filtered on it/.test(src),
+        `${step} would filter on a read it could not make`);
+    }
 
     // A `superseded` CLAIM IS A FACT, NOT A QUESTION (2026-08-26). Its work already reached
     // the base, so there is nothing to look at and nothing to decide. The cost of asking
@@ -26789,6 +27776,7 @@ function testStalledUnitsStep() {
 // crashes, prints nothing, or never got its turn is as visible in the report as one that
 // worked. Each of those is a separate row here because each is a separate way for a tick
 // to quietly under-report itself.
+T("moderate: the tick runs every step, and every step reports", testModerateRun);
 function testModerateRun() {
   const repo = makeRepo();
   const RUN = `${POSIX_SH} ${SCRIPTS.proposeRun}`;
@@ -26840,11 +27828,6 @@ function testModerateRun() {
     // right up to the moment it finished. Same placement and same reason: it reads, the
     // check-in asks.
     "undelivered-units",
-    // `catchup-blocked` (2026-08-29): a finished unit the BASE no longer accepts. The loop
-    // caught it up as far as it may and stopped at a conflict only a person can judge — which
-    // `merge-conflicts` cannot say, because it reports a pull request nothing has attempted.
-    // Same placement and same reason as its neighbours: it reads, the check-in asks.
-    "catchup-blocked",
     // `handoff-units` (2026-08-27): a unit whose still-queued work was DECLARED unverifiable in
     // an unattended environment at creation. §6 routes it to the handoff route — pull request
     // open on purpose, claim standing on purpose — and until this step nothing read the verdict
@@ -26884,6 +27867,10 @@ function testModerateRun() {
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step
     // proves, through close.sh in a publish tree — the single writer never multiplied.
     "closable-missions",
+    // `unrecorded-missions` runs beside it (2026-09-02, ticket `20260902065500`): the same
+    // mission readers, one state over — a mission whose acceptance is `0/N` with a full queue
+    // because the branch that would have recorded its work was closed unmerged.
+    "unrecorded-missions",
     // `base-health` (2026-08-27): the base's own checks. The loop merges onto `main` every
     // half hour and nothing read a check run, so a green base and a base nobody looked at were
     // one reading — and no other step could see it, because `stuck-prs` and `merge-conflicts`
@@ -27062,6 +28049,7 @@ function testModerateRun() {
 // under test is that the log REACHES THE BASE, and that two containers ticking on the
 // same day do not overwrite each other — which is why the merge is a union by section
 // rather than a textual append that a rebase would have to reconcile.
+T("moderate: the tick log survives the container that wrote it", testModeratePersist);
 function testModeratePersist() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-persist-"));
   const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
@@ -27177,6 +28165,7 @@ exit 0
 // `(tick, step)`: a persist run again after the filing appends the missing LINES into a
 // section the base already carries. Asserted against the BASE, never the checkout: a
 // hand-run's checkout survives, which is exactly why the defect was invisible.
+T("moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines);
 function testModeratePersistCarriesLateLines() {
   const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-late-"));
   const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
@@ -27281,6 +28270,7 @@ function testModeratePersistCarriesLateLines() {
 }
 
 // ---------- propose: the unattended contract is in the files, not in intent ----------
+T("moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract);
 function testModerateUnattendedContract() {
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/SKILL.md"), "utf8");
   const command = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
@@ -27324,6 +28314,7 @@ function testModerateUnattendedContract() {
 // things" — it is that an unavailable surface is never rendered as an empty one, that
 // "missing credentials" is a checked claim naming the variable, and that a repository
 // record's prose is never executed by an hourly unattended tick.
+T("propose steps 2-3: every surface is named, and nothing is executed", testProposeInboundSweep);
 function testProposeInboundSweep() {
   const repo = makeRepo();
   const SWEEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-inbound-sweep.sh")}`;
@@ -27412,6 +28403,7 @@ function testProposeInboundSweep() {
 // must not push into a branch the claim protocol owns, step 6 must not repeat an
 // unchanged reminder every hour, and step 7 must not re-file a finding that is true
 // forever. A fake GitHub gives the first two real data to work on.
+T("propose steps 4-7: report, never repair; remind once per state", testProposeHygieneSteps);
 function testProposeHygieneSteps() {
   const repo = makeRepo();
   const bin = mkdtempSync(join(tmpdir(), "wh-gh-"));
@@ -27460,8 +28452,20 @@ esac
     // Step 6: one reminder per distinct state, and the decision is named per row.
     let s6 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
     assertEq("both stuck pull requests are reported", s6.needs_agent.length, 2);
-    assertTrue("the conflicted one names the claim holder as the decision",
-      s6.needs_agent.find((n) => n.pull === 12).decision.includes("claim holder"), JSON.stringify(s6.needs_agent));
+    // THE CONFLICT ROW NO LONGER HANDS THE CONFLICT TO A PERSON (2026-09-02, mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`). This row asserted the
+    // opposite — that the decision text names the "claim holder" — and that sentence is exactly
+    // what the operator corrected: a claim holder never comes, so a conflict said to be theirs
+    // is a conflict nobody resolves. The loop now attempts every conflict class itself; only a
+    // hunk the merge cannot settle reaches a person, and it says so.
+    //
+    // ASSERTED IN BOTH DIRECTIONS, because the positive half alone would pass a sentence that
+    // named the next tick AND still told the holder it was theirs.
+    const conflictDecision = s6.needs_agent.find((n) => n.pull === 12).decision;
+    assertTrue("the conflicted one names the acting tick, not a person to hand it to",
+      /\[Implement\]/.test(conflictDecision), conflictDecision);
+    assertTrue("and no longer defers the conflict to the claim holder",
+      !/claim holder/.test(conflictDecision), conflictDecision);
     assertTrue("the blocked one names the review", s6.needs_agent.find((n) => n.pull === 13).decision.includes("review"));
     // NO POST KEY LEAVES THIS STEP any more (2026-08-19): the 🔧 root it used to key is
     // retired, so the top-level `key` is empty and the state rides an `ask_key` into step
@@ -27600,6 +28604,54 @@ esac
       cleanup(binGrew);
     }
 
+    // ---- AN UNCOMPUTED MERGEABLE STATE LEAVES THE PASS (2026-09-02, mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`, ticket
+    // `20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state`) ----
+    //
+    // `mergeable == null` means GitHub has not finished computing it. The only act the row ever
+    // named was "re-read before acting", which is nobody's, and the operator ruled it not worth
+    // a notification. The rows below are the ticket's own step 6: a pass holding one uncomputed
+    // row and one real one asks about the second and not the first.
+    const binMixed = many([[51, null, "unknown"], [52, false, "dirty"]]);
+    const binOnlyReal = many([[52, false, "dirty"]]);
+    const binOnlyUnknown = many([[51, null, "unknown"]]);
+    try {
+      const mixed = stuck(binMixed);
+      const onlyReal = stuck(binOnlyReal);
+      const onlyUnknown = stuck(binOnlyUnknown);
+
+      assertEq("a pass asks about the conflicted pull request and not the uncomputed one",
+        mixed.needs_agent.map((n) => n.pull), [52]);
+      assertTrue("and no candidate carries the uncomputed class",
+        mixed.needs_agent.every((n) => n.blocked_by !== "unknown"),
+        JSON.stringify(mixed.needs_agent));
+
+      // COUNTED, NOT ASKED. The number is evidence for the run report and reaches no channel.
+      assertEq("the uncomputed row is counted in its own field", mixed.uncomputed, 1);
+      assertTrue("and reaches neither the summary nor the headline",
+        !/computed/.test(mixed.summary) && !/computed/.test(mixed.headline),
+        `${mixed.summary} :: ${mixed.headline}`);
+
+      // THE FILTER IS AT CANDIDATE SELECTION, AND THIS IS HOW THAT IS OBSERVABLE FROM OUTSIDE:
+      // the ask key is the digest over the candidate set, so a pass with an extra uncomputed
+      // row must key identically to one without it. A post-time filter would leave the digest —
+      // and therefore the recorded key — different, which is the failure the ticket names.
+      assertEq("so the ask key is identical with and without the uncomputed row",
+        mixed.ask_key, onlyReal.ask_key);
+
+      // A pass holding ONLY uncomputed rows is not `blocked`: a blocked row with no candidate
+      // renders an impairment line in the root about something nobody may act on.
+      assertEq("a pass holding only uncomputed rows reports ok, asks nothing, and counts it",
+        [onlyUnknown.status, onlyUnknown.needs_agent.length, onlyUnknown.uncomputed],
+        ["ok", 0, 1]);
+      assertEq("naming why it is quiet rather than calling them mergeable",
+        onlyUnknown.reason, "mergeability_uncomputed");
+    } finally {
+      cleanup(binMixed);
+      cleanup(binOnlyReal);
+      cleanup(binOnlyUnknown);
+    }
+
     // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
     mkdirSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101"), { recursive: true });
     writeFileSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101/t.md"),
@@ -27649,6 +28701,7 @@ esac
 // THE PIN IS ON THE ABSENCE, both halves: the script is gone AND run.sh no longer drives
 // it. Either one surviving alone is the failure — a step file nothing runs rots silently,
 // and a step id with no script behind it is reported `step_missing` every hour.
+T("moderate: the gated strategy step is deleted, not carried", testStrategyStepIsDeleted);
 function testStrategyStepIsDeleted() {
   assertEq("the gated step script is gone",
     existsSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-strategy-proposals.sh")), false);
@@ -27666,6 +28719,7 @@ function testStrategyStepIsDeleted() {
 // nothing is posted inside the quiet window and the question is HELD rather than dropped, a
 // question is asked once rather than once an hour, the per-tick ceiling is real, and a
 // second bound stops the per-tick ceiling aggregating into 120 questions a day.
+T("propose step 9: asking costs attention, so the gates are mechanical", testProposeCheckIn);
 function testProposeCheckIn() {
   // THE WEEKDAY IS PINNED, like the hour, and for the same reason: a step that reads the
   // wall clock is a step whose tests pass or fail by the day they are run on. The
@@ -27767,6 +28821,7 @@ function testProposeCheckIn() {
 // TICK'S OWN DAY must still refuse and still HOLD, `already_asked` and `answered` must still
 // refuse, and `tick_cap` must still fire within one tick. The repair is a bound passed to a
 // reader that already accepts one — not a raised cap, and not a gate removed.
+T("moderate/ask-question.sh: the day cap counts today, not all time", testCheckInDayCapIsToday);
 function testCheckInDayCapIsToday() {
   const repo = makeRepo();
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
@@ -27844,6 +28899,7 @@ function testCheckInDayCapIsToday() {
 // WHAT IS PINNED: earliest-held day first, a key held across several ticks is as old as its
 // FIRST hold, the tie-break is total (day, then tick, then key) so a re-entered tick produces
 // a byte-identical sequence, an asked key still drops out, and the step still caps nothing.
+T("moderate/step-human-checkin.sh: the arrears drain oldest-held first", testCheckInHeldOrder);
 function testCheckInHeldOrder() {
   const repo = makeRepo();
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
@@ -27919,6 +28975,7 @@ function testCheckInHeldOrder() {
 // WHAT IS PINNED: the three numbers, one case per reason word, that `cap_spent` is never
 // reported for a count that could not be bounded, that an unreadable log is `degraded` with
 // NO `delivered` claim, and that the event is supplied only on a delivery failure.
+T("moderate/step-human-checkin.sh: what it delivered, and why it delivered none", testCheckInDeliveryReading);
 function testCheckInDeliveryReading() {
   const repo = makeRepo();
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
@@ -28080,6 +29137,7 @@ function testCheckInDeliveryReading() {
 // a routine record is account-level, so a shape written into a prompt reached a fleet only by
 // being re-pasted into every account's copy. The SCOPE assertions below stay on the template,
 // which is where scope genuinely lives; the SHAPE assertions follow the shapes.
+T("[Moderate]: the template, its scope, and the shapes it authorizes", testModerateRoutineTemplate);
 function testModerateRoutineTemplate() {
   const routine = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/moderate.md"), "utf8");
   const template = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
@@ -28256,6 +29314,7 @@ function testModerateRoutineTemplate() {
 // to §5 not at all. This pins the fourth: the command converges, and a sheet is what a NAMED
 // refusal falls back to. Prose, because the flow is an agent's; what is mechanical is that
 // neither document can quietly go back to rendering as the ordinary outcome.
+T("workaholify: the command converges routines, and a sheet is a refusal's recovery path", testWorkaholifyConvergesRoutines);
 function testWorkaholifyConvergesRoutines() {
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/workaholify.md"), "utf8");
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
@@ -28265,6 +29324,33 @@ function testWorkaholifyConvergesRoutines() {
   assertTrue("over every scope, not one", /every\*{0,2} scope/i.test(cmd), cmd.slice(0, 600));
   assertTrue("and names the one refusal that falls back to a sheet",
     /no_transport: `?RemoteTrigger-family tool/.test(cmd), cmd);
+
+  // THE SECOND NAMED REFUSAL (2026-09-02, ticket `20260821150359-state-the-environment-
+  // rule-and-its-named-refusal`). A create needs an environment id and §5 never said where
+  // one comes from, so a session carrying the transport reached the create, had nothing to
+  // put in that field, and stopped -- with `no_transport` as its only vocabulary, which was
+  // the WRONG word: the transport was present and was used. What is pinned is that the word
+  // exists in every command that states its own outcomes, and that it does NOT inherit
+  // `no_transport`'s sheet fallback -- a session that reached the account is not helped by
+  // paste-by-hand instructions, and rendering one there is the "renders rather than
+  // converges" behaviour this whole section exists to forbid.
+  const envRefusalCommands = [
+    "plugins/workaholic/commands/workaholify.md",
+    "plugins/workaholic/commands/setup-dev-routines.md",
+    "plugins/workaholic/commands/setup-repo-routines.md",
+  ];
+  for (const rel of envRefusalCommands) {
+    const body = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${rel} names the environment refusal`, /`?no_environment`?/.test(body), body.slice(0, 400));
+    assertTrue(`${rel} states that it renders no sheet`,
+      /no sheet fallback|never falls back to a setup sheet|renders nothing/i.test(body), body.slice(0, 400));
+  }
+  assertTrue("the skill states the four environment branches, so no command re-derives them",
+    /Which environment a routine is created in/.test(skill) &&
+    /Exactly one/.test(skill) && /More than one/.test(skill) && /None reachable/.test(skill),
+    skill.slice(0, 400));
+  assertTrue("and that the environment refusal renders no sheet",
+    /`no_environment` never renders a setup sheet/.test(skill), skill.slice(0, 400));
   assertTrue("stating plainly that a sheet is not the ordinary outcome",
     /never the outcome|never the ordinary outcome/i.test(cmd), cmd);
   assertTrue("the skill carries the same contract, so the command is not the only place it lives",
@@ -28285,6 +29371,7 @@ function testWorkaholifyConvergesRoutines() {
 //
 // What is pinned here is the REMOVAL being complete rather than half-done: a scope value
 // nothing declares is dead code that reads as a feature.
+T("[Workaholic]: retired, and the scope retired with it", testUserScopeRetired);
 function testUserScopeRetired() {
   const dir = makeRepo("main");
   const LIST = `${POSIX_SH} ${SCRIPTS.listRoutineTemplates}`;
@@ -28329,6 +29416,7 @@ function testUserScopeRetired() {
 // not resolve is dropped WITH A REASON rather than guessed at, a missing line is reported
 // as a missing line rather than as an empty one, and every case exits 0 -- an ask with no
 // `feedback:` line is the ordinary case and must never read as a failure.
+T("specificate/read-ask-feedback-refs.sh: the ask's own feedback line", testReadAskFeedbackRefs);
 function testReadAskFeedbackRefs() {
   const dir = makeRepo("main");
   const READ = `${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs}`;
@@ -28435,6 +29523,7 @@ function testReadAskFeedbackRefs() {
 // The floor mirrors `mission/scripts/check-floor.sh` deliberately: same seam, same exit
 // discipline (refusal on stderr, exit 1, so a caller that ignores the JSON still fails), same
 // obligation to name the repair rather than only the rule.
+T("specificate/check-carry-floor.sh: the carry, floored at the publish seam", testCarryFloor);
 function testCarryFloor() {
   const dir = makeRepo("main");
   const FLOOR = `${POSIX_SH} ${SCRIPTS.checkCarryFloor}`;
@@ -28530,6 +29619,7 @@ function testCarryFloor() {
 // `attributed-work.sh` is deliberately NOT changed. It is the single attribution reader and
 // its transitive, lossy shape is a written decision; adding a state to it to describe a hole
 // the floor already closed would be a second mechanism for one guarantee.
+T("no_citing_artifacts is a provable reading: ask -> reader -> scaffold -> floor", testCarryChainIsProvable);
 function testCarryChainIsProvable() {
   const dir = makeRepo("main");
   const READ = `${POSIX_SH} ${SCRIPTS.readAskFeedbackRefs}`;
@@ -28711,6 +29801,7 @@ function testCarryChainIsProvable() {
 // composes `attributed-work.sh` rather than walking anything itself, an unattributed mission
 // is a distinct state from an unreadable strategy, and `exhaustive` is false by construction
 // so no consumer can render the answer as complete.
+T("strategy/mission-strategy.sh: which direction a mission belongs to", testMissionStrategy);
 function testMissionStrategy() {
   const dir = makeRepo("main");
   const READ = `${POSIX_SH} ${SCRIPTS.missionStrategy}`;
@@ -28818,6 +29909,7 @@ function testMissionStrategy() {
 // rule the reader's own header states and this repository has paid for twice.
 //
 // The round trip is the point: what this writer emits, that reader must recover exactly.
+T("feedback/ask-feedback-line.sh: one writer for the line one reader reads", testAskFeedbackLine);
 function testAskFeedbackLine() {
   const dir = makeRepo("main");
   const WRITE = `${POSIX_SH} ${SCRIPTS.askFeedbackLine}`;
@@ -28898,6 +29990,7 @@ function testAskFeedbackLine() {
 // addresses answered `other`. These cases pin the format's backward compatibility (a line
 // with no comma resolves exactly as it did), the alias resolution, and — the part that
 // matters most — that an input the mapping does not name is never guessed at.
+T("gather/identity.sh (the mapping's one reader)", testIdentityReader);
 function testIdentityReader() {
   const dir = makeRepo("main");
   try {
@@ -28971,6 +30064,7 @@ function testIdentityReader() {
 // The care is entirely in what must NOT move: the 2026-08-14 incident (~10 PR-units
 // driven out of colleagues' queues) is why `other` is conservative, so the negative
 // cases are asserted as explicitly as the positive one.
+T("gather/owns.sh resolves a person's other address", testOwnsResolvesAliases);
 function testOwnsResolvesAliases() {
   const dir = makeRepo("main");
   try {
@@ -29038,6 +30132,7 @@ function testOwnsResolvesAliases() {
 // The unmapped row is the one that matters. `assignees: []` is a documented, claimable
 // state any run can pick up; a WRONG address is silently unrecoverable. So the contract is
 // to stamp nothing and say so, never to guess.
+T("/specificate stamps only an address the loop can drive", testSpecificateStampsResolvableAddresses);
 function testSpecificateStampsResolvableAddresses() {
   const dir = makeRepo("main");
   const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
@@ -29122,6 +30217,7 @@ function testSpecificateStampsResolvableAddresses() {
 // The care is in the second criterion: an address the mapping does NOT name is left
 // byte-identical and reported, because rewriting it would be exactly the guess the
 // writer-side rule refuses.
+T("gather/migrate-assignee-aliases.sh (the recovery)", testMigrateAssigneeAliases);
 function testMigrateAssigneeAliases() {
   const dir = makeRepo("main");
   const MIGRATE = `${POSIX_SH} ${SCRIPTS.migrateAssigneeAliases}`;
@@ -29200,6 +30296,7 @@ function testMigrateAssigneeAliases() {
 // The reading is derived from what the survey already has: no new scan, no stored state,
 // no field on any artifact. It reports the fact and MOVES NO TOKEN; that table belongs to
 // one mission at a time.
+T("the survey says when it excluded its whole backlog", testSurveySaysItExcludedEverything);
 function testSurveySaysItExcludedEverything() {
   const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
   const ME = "test@example.com", OTHER = "other@example.com";
@@ -29262,12 +30359,271 @@ function testSurveySaysItExcludedEverything() {
     "the token table grew a row this ticket must not add");
 }
 
+// ---------- the survey refuses `ok` under a placeholder identity (2026-09-02) ----------
+//
+// The state this pins passes every OTHER trustworthiness field and is still worthless.
+// A container with no resolving `.claude/git-identities` mapping keeps
+// `noreply@anthropic.com`; `owns.sh` compares each artifact's owner against it, answers
+// `other`, and the survey returns empty `missions[]`, empty `backlog[]`, no
+// `backlog_error`, `current: true` and `owner_unresolved: false` — the exact envelope
+// §7's table calls `ok`. Measured on this repository 2026-09-02: 68 artifacts excluded
+// `owned_by_other`, nothing offered, every other field clean.
+//
+// The two halves are pinned separately on purpose. The FIELD is what the survey answers;
+// the TOKEN CONSEQUENCE is a sentence in §7's table that no script can enforce, so the
+// assertion reads the table. A field nothing wires to the token would change nothing,
+// which is this ticket's own Considerations note about facts reported where the token
+// cannot read them.
+T("the survey refuses ok under a placeholder identity", testSurveyRefusesOkUnderPlaceholderIdentity);
+function testSurveyRefusesOkUnderPlaceholderIdentity() {
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  // No global or system config: the empty case must be empty because the repo says so,
+  // not because the machine running the suite happens to have no identity.
+  const NO_INHERITED_CONFIG = {
+    env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" },
+  };
+  const seedOwned = (dir, stamp, owner) => {
+    const p = join(dir, `.workaholic/tickets/todo/${stamp}-t.md`);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, `---\ncreated_at: 2026-09-02T00:00:00+00:00\nassignees: [${owner}]\n---\n\n# ${stamp}\n`);
+  };
+
+  // Shape 1: THE MEASURED STATE. A real person owns the queue; the runner is the
+  // container default. Every other field passes and the offer is empty.
+  let dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000001", "a@qmu.jp");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    execSync("git config user.email noreply@anthropic.com", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("the placeholder identity is its own named field", plan.placeholder_identity, true);
+    // The point of the field: none of its neighbours fire, so without it the envelope is `ok`.
+    assertEq("while the queue read fine", plan.backlog_error, "");
+    assertEq("and ownership was judged, not unresolved", plan.owner_unresolved, false);
+    assertEq("and the artifact is dropped confidently", plan.backlog, []);
+    assertTrue("as somebody else's",
+      plan.excluded.some((e) => e.reason === "owned_by_other"),
+      JSON.stringify(plan.excluded));
+    // It drops nothing of its own — the whole change is a fact and a token consequence.
+    assertTrue("the field excludes nothing of its own",
+      !plan.excluded.some((e) => e.reason === "placeholder_identity"),
+      JSON.stringify(plan.excluded));
+  } finally { cleanup(dir); }
+
+  // Shape 2: an EMPTY identity is the other way into the one field, so a caller reads one
+  // answer rather than two. `owner_unresolved` fires here as it always has, unchanged.
+  dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000002", "a@qmu.jp");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    execSync("git config --unset-all user.email", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN, NO_INHERITED_CONFIG).stdout);
+    assertEq("an empty identity is a placeholder too", plan.placeholder_identity, true);
+    assertEq("and its own neighbour still fires unchanged", plan.owner_unresolved, true);
+  } finally { cleanup(dir); }
+
+  // Shape 3: a real identity must not fire it, or the field forbids `ok` on every run.
+  dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000003", "test@example.com");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("a real identity is not a placeholder", plan.placeholder_identity, false);
+    assertEq("and its own work is still offered", plan.backlog.length, 1);
+  } finally { cleanup(dir); }
+
+  // THE TOKEN CONSEQUENCE. Unlike `backlog_all_excluded`, this reading DOES move the
+  // token, so the table must carry a row for it — a field the token cannot read changes
+  // nothing.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("§7's table forbids `ok` on it",
+    /\|[^|\n]*placeholder_identity[^|\n]*\|\s*`pending`/.test(skill),
+    "the token table has no row for the placeholder identity");
+  assertTrue("and the survey section lists it among the ok-forbidding facts",
+    /forbid `ok`[\s\S]{0,240}?placeholder_identity/.test(skill),
+    "§1 does not name it beside the other trustworthiness fields");
+  // Step 4: a bare `pending` tells a reader nothing about why the queue looked empty.
+  assertTrue("and the run report is required to name the fact",
+    /placeholder_identity[\s\S]{0,600}?names? (?:it|the fact)/.test(skill),
+    "nothing requires the report to name the fact behind the withheld token");
+}
+
+// ---------- workaholify: the mapping's account check (2026-09-02) ----------
+//
+// The coverage audit next door asks two questions about `.claude/git-identities`, and step
+// 0b of the web bootstrap asks NEITHER of them. It resolves the session's GitHub LOGIN and
+// looks up `^<login>=`; the audit walks the addresses the TREE carries. Those come apart in
+// exactly the state this mission measured: a mapping that names every `assignees:` value in
+// the repository, no `identity_map_uncovered`, and still no line for the account a routine
+// runs as — so the hook logs `no entry`, keeps `noreply@anthropic.com`, and the survey
+// answers `owned_by_other` for everything.
+//
+// `gh` IS STUBBED ON PATH, always: this suite calls no network, and the login is the one
+// thing the check reaches outside the tree for.
+T("workaholify: the mapping's account check", testIdentityMapAccountCheck);
+function testIdentityMapAccountCheck() {
+  const AUDIT = `${POSIX_SH} ${SCRIPTS.auditIdentityCoverage}`;
+  const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
+  const APPLY = `${POSIX_SH} ${SCRIPTS.applyBootstrap}`;
+
+  const seed = (dir, mapBody) => {
+    const t = join(dir, ".workaholic/tickets/todo/20260902000000-t.md");
+    mkdirSync(dirname(t), { recursive: true });
+    writeFileSync(t, "---\nassignees: [a@qmu.jp]\n---\n\n# t\n");
+    if (mapBody !== null) {
+      mkdirSync(join(dir, ".claude"), { recursive: true });
+      writeFileSync(join(dir, ".claude/git-identities"), mapBody);
+    }
+  };
+  // The login normally reaches the check through `WORKAHOLIC_BOOTSTRAP_ACCOUNT` — the
+  // override that keeps this suite off the network (see the note beside it at the top).
+  const accountEnv = (login) => ({ ...process.env, WORKAHOLIC_BOOTSTRAP_ACCOUNT: login });
+  // One case leaves the override UNSET so the `gh api user` resolution itself is covered,
+  // with `gh` stubbed on PATH: `null` is a `gh` that is not there at all.
+  const ghEnv = (dir, login) => {
+    const bin = join(dir, "stub-bin");
+    mkdirSync(bin, { recursive: true });
+    const p = join(bin, "gh");
+    writeFileSync(p, login === null ? `#!/bin/sh\nexit 127\n` : `#!/bin/sh\necho '${login}'\n`);
+    chmodSync(p, 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+    delete env.WORKAHOLIC_BOOTSTRAP_ACCOUNT;
+    return env;
+  };
+
+  // THE MEASURED STATE. Every address the tree uses is covered, so the coverage half is
+  // silent — and step 0b's own lookup still finds nothing.
+  let dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const a = JSON.parse(run(dir, `${AUDIT} . --account somebody-else`).stdout);
+    assertEq("the tree's addresses are all covered", a.covered, 1);
+    assertEq("so the coverage half raises nothing", a.uncovered, []);
+    assertEq("but the account is checked", a.account.checked, true);
+    assertEq("and is not covered", a.account.covered, false);
+    assertTrue("which is its own named problem",
+      a.problems.some((p) => p.startsWith("identity_map_no_entry_for_account")),
+      JSON.stringify(a.problems));
+    assertTrue("and no coverage problem rides with it",
+      !a.problems.some((p) => p.startsWith("identity_map_uncovered")), JSON.stringify(a.problems));
+    // The repair's placeholder is on the OTHER side of the `=` from the coverage repair's:
+    // here the login is what is known and the address is what only a person can supply.
+    assertEq("named with the line that would cover it",
+      a.account.line, "somebody-else=<canonical-email>");
+  } finally { cleanup(dir); }
+
+  // A mapping that DOES name the account raises nothing.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const a = JSON.parse(run(dir, `${AUDIT} . --account tamurayoshiya`).stdout);
+    assertEq("an account the mapping names is covered", a.account.covered, true);
+    assertEq("and raises nothing", a.problems, []);
+  } finally { cleanup(dir); }
+
+  // THREE-VALUED: a check that could not run is never a check that passed. Asked with no
+  // login, and not asked at all, are different reasons and neither is a problem.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const unasked = JSON.parse(run(dir, `${AUDIT} .`).stdout);
+    assertEq("not asking leaves the account unchecked", unasked.account.checked, false);
+    assertEq("by its own reason", unasked.account.reason, "not_requested");
+    assertEq("and raises no problem", unasked.problems, []);
+    assertEq("and never reads as covered", unasked.account.covered, false);
+
+    const unresolved = JSON.parse(run(dir, `${AUDIT} . --account ""`).stdout);
+    assertEq("an unresolvable login is its own reason", unresolved.account.reason, "login_unresolved");
+    assertEq("and still raises no problem", unresolved.problems, []);
+  } finally { cleanup(dir); }
+
+  // An ABSENT map is already `identity_map_missing`; saying it twice about one file is what
+  // the one-named-problem-set rule exists to prevent.
+  dir = makeRepo("main");
+  try {
+    seed(dir, null);
+    const a = JSON.parse(run(dir, `${AUDIT} . --account somebody`).stdout);
+    assertEq("an absent map does not also raise the account problem", a.account.reason, "map_missing");
+    assertEq("the absence is named once",
+      a.problems.filter((p) => p.startsWith("identity_map_no_entry_for_account")), []);
+  } finally { cleanup(dir); }
+
+  // The check carries it through, and `ok` does not move — the ruling this ticket owed.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const env = accountEnv("somebody-else");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env }).stdout);
+    assertTrue("check-bootstrap.sh carries the account problem verbatim",
+      c.advisories.some((p) => p.startsWith("identity_map_no_entry_for_account")),
+      JSON.stringify(c.advisories));
+    assertEq("and no mapping problem gates `ok`",
+      c.problems.filter((p) => p.startsWith("identity_map")), []);
+    assertEq("and the account's own state rides beside the hook's",
+      c.identity_map.account.login, "somebody-else");
+
+    // The repair proposes a COMMENT and never an entry, and is idempotent.
+    const applied = JSON.parse(run(dir, `${APPLY} .`, { env }).stdout);
+    assertEq("the apply is not refused", applied.refused, "");
+    assertTrue("it proposes the account's line",
+      applied.applied.includes("identity_map_no_entry_for_account"), JSON.stringify(applied));
+    const map = readFileSync(join(dir, ".claude/git-identities"), "utf8");
+    assertTrue("as a comment", /^# proposed: somebody-else=<canonical-email>/m.test(map), map);
+    assertTrue("so it is not an entry", !/^somebody-else=/m.test(map), map);
+    assertTrue("and the existing entry is untouched", /^tamurayoshiya=a@qmu\.jp$/m.test(map), map);
+
+    run(dir, `${APPLY} .`, { env });
+    const twice = readFileSync(join(dir, ".claude/git-identities"), "utf8");
+    assertEq("a second apply repeats nothing",
+      (twice.match(/proposed: somebody-else/g) || []).length, 1);
+  } finally { cleanup(dir); }
+
+  // THE RESOLUTION ITSELF, with the override unset and `gh` stubbed on PATH — the one case
+  // that covers the `gh api user` line rather than routing around it.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env: ghEnv(dir, "resolved-login") }).stdout);
+    assertEq("with no override the login is resolved from the session",
+      c.identity_map.account.login, "resolved-login");
+    assertEq("and checked against the mapping", c.identity_map.account.checked, true);
+  } finally { cleanup(dir); }
+
+  // NO `gh`, NO NETWORK: the login cannot be resolved, and the check must not then report
+  // the account as fine. A reading that could not be taken is named, never passed.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env: ghEnv(dir, null) }).stdout);
+    assertEq("an unresolvable login leaves the account unchecked",
+      c.identity_map.account.checked, false);
+    assertEq("and raises no problem it cannot stand behind",
+      c.advisories.filter((p) => p.startsWith("identity_map_no_entry_for_account")), []);
+  } finally { cleanup(dir); }
+
+  // The documented problem list stays complete — the ticket's own step 5.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/reference/bootstrap.md"), "utf8");
+  for (const [name, body] of [["SKILL.md §4", skill], ["reference/bootstrap.md", ref]]) {
+    assertTrue(`${name} names the account problem`,
+      /identity_map_no_entry_for_account/.test(body), `${name} does not list it`);
+  }
+  // And the deferred ruling is recorded rather than left open a second time.
+  assertTrue("the ruling on whether identity_map_missing gates `ok` is recorded",
+    /identity_map_missing[\s\S]{0,900}?(does not gate|Neither gates|None of the three gates)/.test(skill),
+    "SKILL.md still defers the gating ruling this ticket owns");
+  assertTrue("and no document still defers it to this ticket",
+    !/belongs to the queued ticket `install-and-audit-the-identity-mapping`/.test(skill + ref),
+    "a document still defers the ruling to the ticket that has now been driven");
+}
+
 // ---------- workaholify: the mapping's coverage audit (2026-08-26) ----------
 //
 // The recovery migration reports the addresses it could not resolve and stops, correctly.
 // That report needed a home a human reads, and /workaholify is the command that audits and
 // then applies. The care is in what the repair may NOT do: which GitHub account an address
 // belongs to is a fact only a human has, so this proposes a line and never writes an entry.
+T("workaholify: the mapping's coverage audit", testIdentityCoverageAudit);
 function testIdentityCoverageAudit() {
   const AUDIT = `${POSIX_SH} ${SCRIPTS.auditIdentityCoverage}`;
   const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
@@ -29409,6 +30765,7 @@ function testIdentityCoverageAudit() {
 // A COLLEAGUE'S QUEUE MUST PRODUCE NO QUESTION, or the step becomes an hourly complaint
 // about ordinary team ownership and is muted within a day — after which the one real
 // finding arrives inside a stream a person has learned to skip.
+T("/moderate asks about work nothing can drive", testModerateAsksAboutUndrivableUnits);
 function testModerateAsksAboutUndrivableUnits() {
   const STEP = `${POSIX_SH} ${SCRIPTS.stepUndrivableUnits} --tick 20260826T120000Z --root .`;
   const seed = (dir, mapBody) => {
@@ -29495,6 +30852,7 @@ function testModerateAsksAboutUndrivableUnits() {
 // Per-script tests will not catch the next one. This pins the WALK, so the link can still be
 // lost but can no longer be lost silently — the same move `prove-the-loop-s-closing-link`
 // made for the carry-forward chain.
+T("the identity hand-off, end to end", testIdentityHandOffEndToEnd);
 function testIdentityHandOffEndToEnd() {
   const DRAFT = `${POSIX_SH} ${SCRIPTS.proposeScaffoldDraft}`;
   const TICKET = `${POSIX_SH} ${SCRIPTS.scaffoldProposedTicket}`;
@@ -29586,6 +30944,7 @@ function testIdentityHandOffEndToEnd() {
 // `resurveyed[]` whose only holder had read `superseded` since the day before.
 //
 // It frees the WORK, not the branch: `superseded` stays reported, never acted on.
+T("drive claim protocol: a fresh claim takes a superseded claim's work", testFreshClaimOverSupersededClaim);
 function testFreshClaimOverSupersededClaim() {
   const fx = makeSquashMergedClaims();
   const bin = join(fx.A, ".stub-bin");
@@ -29663,6 +31022,7 @@ function testFreshClaimOverSupersededClaim() {
 // The end-to-end walk is `sh scripts/e2e/loop-drill.sh verify-ci-retirement`. What is pinned
 // here is what a later change is most likely to quietly loosen: the shape of the candidate set,
 // the degradation that must never render as "nothing to retire", and the bounds on the act.
+T("drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct);
 function testCiRetirementCandidateSetAndAct() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
   const ACT = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh");
@@ -29738,6 +31098,167 @@ function testCiRetirementCandidateSetAndAct() {
 // has. What is pinned here is the four conditions the ticket's own gate names: the new class
 // appears with its word, a live row beats it, an unreadable read yields no candidate AND its
 // reason, and the existing class is untouched apart from the added field.
+// ---------- the fourth candidate class: the unit's MISSION has ended ----------
+//
+// (2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`.) Measured: the
+// operator closed a pull request and closed its mission `abandoned`, and the tick reported that
+// branch as stuck work hourly until a person deleted it. The per-ref arm cannot reach such a
+// branch — it skips every unit the ORACLE has a row for, which a claim branch always is — so
+// this class is enumerated from the rows instead. Six things are pinned:
+//
+//   1. AN ARCHIVED MISSION'S CLAIM IS A CANDIDATE, with its word and its `mission_status`.
+//   2. A LIVE HEARTBEAT BEATS IT. An ended mission is not a licence to delete work in flight.
+//   3. AN UNREADABLE MISSION YIELDS NO CANDIDATE AND ITS REASON — never a candidate.
+//   4. A `batch-<ts>` UNIT IS NEVER NAMED BY THIS CLASS.
+//   5. AN OPEN PULL REQUEST IS NOT OFFERED AT ALL — the act's `pull_request_open` bound is not
+//      widened, because deleting an open pull request's head branch leaves it unmergeable.
+//   6. THE ACT RE-DERIVES IT and fails closed on the emptiness, exactly as the third class does.
+T("drive claim protocol: a claim whose mission ended is its own retirement candidate", testRetirementCandidateMissionEnded);
+function testRetirementCandidateMissionEnded() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
+  const ACT = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh");
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  const read = () => JSON.parse(run(fx.B, `${POSIX_SH} ${READER}`, withStub).stdout);
+  const rowFor = (r, branch) => (r.candidates || []).find((c) => c.branch === branch);
+  try {
+    // The lookup succeeds and finds no pull request — a fact, and specifically NOT `open`.
+    stub("echo '[]'");
+    assertTrue("before the mission ends, its claim is no candidate of this class",
+      !(read().candidates || []).some((c) => c.candidate_reason === "mission_not_active"),
+      JSON.stringify(read().candidates));
+
+    // THE OPERATOR ENDS THE MISSION: `close.sh`'s own move, replayed on the base.
+    execSync("git checkout -q main && git pull -q --ff-only origin main"
+      + " && mkdir -p .workaholic/missions/archive"
+      + " && git mv .workaholic/missions/active/m1 .workaholic/missions/archive/m1", { cwd: fx.B });
+    writeFileSync(join(fx.B, ".workaholic/missions/archive/m1/mission.md"),
+      "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: abandoned\nassignees: [test@example.com]\n---\n\n# M1\n\n## Acceptance\n\n- [ ] x\n");
+    execSync('git add -A && git commit -q -m "Abandon m1" && git push -q origin main'
+      + " && git fetch -q --prune origin", { cwd: fx.B });
+
+    // --- 1. THE CANDIDATE ---------------------------------------------------------------------
+    const named = read();
+    const row = rowFor(named, fx.mission.branch);
+    assertEq("a claim whose mission has ended is a candidate under its own word",
+      [!!row, row && row.candidate_reason, row && row.unit],
+      [true, "mission_not_active", fx.mission.unit]);
+    assertEq("...carrying the mission's status, so three reasons the work stopped stay apart",
+      row.mission_status, "abandoned");
+    assertTrue("...and a three-valued branch_empty reading as evidence",
+      ["true", "false", "unanswerable"].includes(row.branch_empty), row.branch_empty);
+
+    // --- 4. A BATCH UNIT IS NEVER NAMED BY THIS CLASS -----------------------------------------
+    assertTrue("a batch unit is never named by the mission class",
+      (named.candidates || []).every(
+        (c) => !(String(c.unit).startsWith("batch-") && c.candidate_reason === "mission_not_active")),
+      JSON.stringify(named.candidates));
+
+    // --- 5. AN OPEN PULL REQUEST IS NOT OFFERED AT ALL ----------------------------------------
+    stub(`echo '[{"number":9,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertTrue("an ended mission whose pull request is still open is offered to nothing",
+      !(read().candidates || []).some((c) => c.candidate_reason === "mission_not_active"),
+      "an open pull request's head branch would be deleted");
+    stub("echo '[]'");
+
+    // --- 2. A LIVE HEARTBEAT BEATS IT ---------------------------------------------------------
+    execSync('git commit -q --allow-empty -m "Refresh heartbeat" && git push -q origin HEAD',
+      { cwd: fx.mission.worktree_path });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    assertTrue("a claim a run is driving right now is never named, however ended its mission",
+      !(read().candidates || []).some((c) => c.candidate_reason === "mission_not_active"),
+      "work in flight would have been offered for deletion");
+
+    // Age the tip back out of the heartbeat window for the remaining cases.
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD', {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    assertTrue("...and it comes back once nothing is driving it",
+      !!rowFor(read(), fx.mission.branch), "the class stopped naming it entirely");
+
+    // --- 6. THE ACT RE-DERIVES IT, AND FAILS CLOSED ON THE EMPTINESS --------------------------
+    const act = (args) => JSON.parse(
+      run(fx.B, `${POSIX_SH} ${ACT} ${args}`, withStub).stdout);
+    // A `work-*` branch the oracle holds NO row for — the publish-tree shape. It has no unit,
+    // so this class has nothing to re-derive a mission from and refuses by its own word.
+    const orphan = "work-20260715-101010";
+    execSync(`git checkout -q -B ${orphan} origin/main && git commit -q --allow-empty -m "A publication"`
+      + ` && git push -q origin ${orphan} && git checkout -q main && git fetch -q --prune origin`,
+      { cwd: fx.B });
+    assertEq("the act refuses the class on a branch with no claim to name a mission",
+      act(`"" --branch ${orphan} --reason mission_not_active`).reason,
+      "no_unit_for_mission_class");
+    // THE EMPTINESS IS A GATE HERE, NOT THE EVIDENCE IT IS ON THE ROW. A mission's end state is
+    // a decision about the WORK and asserts nothing about what this BRANCH holds, so a branch
+    // carrying commits found on no other ref fails closed — issue #788's direction, applied to
+    // the class whose proof is authorship one grain out.
+    const emptyTip = execSync(`git rev-parse origin/${fx.mission.branch}`,
+      { cwd: fx.B, encoding: "utf8" }).trim();
+    writeFileSync(join(fx.mission.worktree_path, "work-nobody-else-has.txt"), "unlanded\n");
+    // The commit carries an OLD date, or the tip goes fresh and the act refuses
+    // `not_superseded:claim_active` before it ever reaches the emptiness gate — that bound
+    // working, but not the one this row is about.
+    execSync('git add -A && git commit -q -m "Work found on no other ref"'
+      + " && git push -q origin HEAD", {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-08-01T00:00:00+00:00",
+             GIT_AUTHOR_DATE: "2026-08-01T00:00:00+00:00" },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    const holds = act(`${fx.mission.unit} --branch ${fx.mission.branch} --reason mission_not_active`);
+    assertEq("on a branch that still holds work the act fails closed by name",
+      [holds.reason, holds.deleted, holds.state], ["branch_holds_work", false, "not_attempted"]);
+    assertTrue("...and the branch is still on origin",
+      execSync(`git ls-remote --heads origin ${fx.mission.branch}`,
+        { cwd: fx.B, encoding: "utf8" }).includes(fx.mission.branch), "the branch was deleted");
+
+    // AND ON AN EMPTY BRANCH IT TAKES THE DELETE, which is what the class exists to do.
+    execSync(`git push -q -f origin ${emptyTip}:refs/heads/${fx.mission.branch}`
+      + " && git fetch -q --prune origin", { cwd: fx.B });
+    const took = act(`${fx.mission.unit} --branch ${fx.mission.branch} --reason mission_not_active`);
+    assertEq("an ended mission's empty branch is deleted, and the act exits 0",
+      [took.deleted, took.state,
+       run(fx.B, `${POSIX_SH} ${ACT} ${fx.mission.unit} --branch ${fx.mission.branch}`
+         + " --reason mission_not_active", withStub).status],
+      [true, "deleted", 0]);
+
+    // --- 3. AN UNREADABLE MISSION YIELDS NO CANDIDATE AND ITS REASON --------------------------
+    execSync("git checkout -q main && git rm -q -r .workaholic/missions/archive/m1"
+      + ' && git commit -q -m "Remove the mission" && git push -q origin main'
+      + " && git fetch -q --prune origin", { cwd: fx.B });
+    const gone = read();
+    assertTrue("a mission that cannot be read yields no candidate at all",
+      !(gone.candidates || []).some((c) => c.branch === fx.mission.branch),
+      JSON.stringify(gone.candidates));
+    assertEq("...and its reason is carried rather than dropped",
+      (gone.pull_request_unreadable || []).find((u) => u.branch === fx.mission.branch)?.reason,
+      "mission_not_found");
+    assertEq("and the whole read still answers ok, exit 0", [gone.ok, gone.reason], [true, ""]);
+    assertEq("the act refuses it too, by its own word",
+      act(`${fx.mission.unit} --branch ${fx.mission.branch} --reason mission_not_active`).reason,
+      "mission_unreadable:mission_not_found");
+
+    // THE CLASS IS CLASSIFIED WHERE EVERY CLAIM WORD IS.
+    const claimsDoc = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+    assertTrue("`mission_not_active` is classified a proof, on authorship one grain out",
+      /\| `mission_not_active` \| \*\*proof\*\*/.test(claimsDoc), "the class is unclassified");
+    assertTrue("and claims.md states the open-pull-request bound was NOT widened for it",
+      /`pull_request_open` bound is NOT widened/.test(claimsDoc),
+      "the decision step 4 required is not written down");
+  } finally { cleanup(fx.A); cleanup(fx.B); }
+}
+
+T("drive claim protocol: a merged pull request is its own retirement candidate", testRetirementCandidatePullRequestMerged);
 function testRetirementCandidatePullRequestMerged() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
   const fx = makeSquashMergedClaims();
@@ -29953,6 +31474,7 @@ function testRetirementCandidatePullRequestMerged() {
 // whose branch is already gone. That is why the two renderings are pinned here at the source
 // rather than driven over two ticks — and why the wording matters at all, since the state it
 // names is exactly the one a reader will meet rarely and misread.
+T("moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering);
 function testRetirementExecutorRendering() {
   const stepSrc = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh"), "utf8");
@@ -30036,6 +31558,7 @@ function testRetirementExecutorRendering() {
 // THE BRANCH-AWARE STUB IS THE FIXTURE'S POINT: only the ORIGINAL mission claim reads as
 // merged, so the fresh claim beside it stays live — which is the two-branch shape. Swapping
 // in a stub that reports nothing merged makes BOTH rows live, which is the `ambiguous` case.
+T("drive claim protocol: a unit resolves to its live claim branch", testUnitResolvesToItsLiveClaimBranch);
 function testUnitResolvesToItsLiveClaimBranch() {
   const fx = makeSquashMergedClaims();
   const stub = (name, body) => {
@@ -30128,6 +31651,7 @@ function testUnitResolvesToItsLiveClaimBranch() {
 // work. The next push from that worktree would have clobbered the claim. It refuses instead:
 // attaching to a published branch is `create-mission-worktree.sh --branch`'s job, and the
 // silent third option is the one outcome that must not exist.
+T("branching/ensure-worktree.sh never shadows a published branch", testEnsureWorktreeNeverShadowsRemote);
 function testEnsureWorktreeNeverShadowsRemote() {
   const fx = makeClaimFixture();
   try {
@@ -30164,6 +31688,7 @@ function testEnsureWorktreeNeverShadowsRemote() {
 // THE SPLIT IS READ OFF THE BRANCH, which is what makes it testable with no network at all: the
 // run that attempted the merge records its outcome into the branch story, and the oracle reads
 // that line back out of a blob it already fetches.
+T("drive claim protocol: a reported claim is two states", testReportedClaimIsTwoStates);
 function testReportedClaimIsTwoStates() {
   const fx = makeClaimFixture();
   const RECORDER = join(REPO_ROOT,
@@ -30277,6 +31802,7 @@ function testReportedClaimIsTwoStates() {
 // The durable home for §6's merge outcome. It is the only reason the claim oracle can tell the
 // loop's undelivered work from a unit waiting on a person, so its refusals matter as much as its
 // writes: a malformed outcome that round-trips as "no section" would restore the exact silence.
+T("story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome);
 function testRecordMergeOutcome() {
   const RECORDER = join(REPO_ROOT,
     "plugins/workaholic/skills/story/scripts/record-merge-outcome.sh");
@@ -30372,6 +31898,7 @@ function testRecordMergeOutcome() {
 // it across every enumerated consumer of the reading. The fifth mode — deleting the
 // gates-nothing sentence from `drive/SKILL.md` — was verified against the assertion's own regex
 // rather than by a whole suite run, since the prose row reads one file and nothing else.
+T("claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit);
 function testProofJudgementSplit() {
   const lib = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
@@ -30507,7 +32034,7 @@ function testProofJudgementSplit() {
       "the raced-unit reader is not a pure read");
   }
   // THE THREE SIBLINGS FILTER THROUGH THE ONE SHARED HELPER, never a copy of the test.
-  for (const sib of ["step-stalled-units", "step-undelivered-units", "step-catchup-blocked"]) {
+  for (const sib of ["step-stalled-units", "step-undelivered-units"]) {
     const src = readFileSync(join(REPO_ROOT,
       `plugins/workaholic/skills/moderate/scripts/${sib}.sh`), "utf8");
     assertTrue(`${sib}.sh filters raced units through the shared helper`,
@@ -30907,6 +32434,105 @@ function testProofJudgementSplit() {
   assertTrue("and refuses a content conflict by its own word",
     /refuse content_conflict/.test(catchUp), catchUp.slice(0, 200));
 
+  // ---- THE REFUSAL IS THE WRITER'S RESIDUE, NEVER THE READER'S PREDICTION (2026-09-02,
+  // mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) ----
+  //
+  // The operator's correction was that deferring a conflict to a claim holder is wrong, because
+  // a claim holder never comes. `claim-mergeability.sh` computes with the repository's
+  // `.gitattributes` deliberately OUT OF REACH — its job is to predict GitHub, which applies no
+  // merge driver — while `catchup-main.sh` merges in a real checkout where those drivers are in
+  // force. So the reader is pessimistic by construction against the writer, and refusing on its
+  // `content` declined branches the writer would have finished.
+  //
+  // These rows pin the shape of the widening rather than its wording: the class-gate accepts
+  // `content`, the ABSENCE-word does not become actable with it, and the refusal still exists
+  // downstream. Each is written to fail on the change that would undo it:
+  //
+  //   `content` removed from either class gate      -> `... attempts a content prediction`
+  //   `unanswerable` made actable in either gate    -> `... still refuses the absence of a reading`
+  //   the candidate reader narrowed back            -> `... offers a content candidate`
+  //   the strategy section deleted from claims.md   -> `... states its resolution strategy`
+  const settle = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh"), "utf8");
+  const catchable = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"), "utf8");
+
+  // The class gate is the `case "$CLASS"` block; a `content` that reaches an empty arm is
+  // attempted, and one that reaches `refuse` is not. Matching the ARM, not the file, so a
+  // mention of the word in a comment cannot satisfy the row.
+  assertTrue("the catch-up attempts a content prediction rather than refusing it",
+    /clean \| mechanical \| content\) ;;/.test(catchUp),
+    "catch-up-claim.sh no longer accepts `content` as a candidate class");
+  assertTrue("the publication act attempts a content prediction rather than refusing it",
+    /mechanical \| content\) ;;/.test(settle),
+    "settle-stranded-publication.sh no longer accepts `content` as a candidate class");
+
+  // The absence-word must NOT have travelled with it. Acting on an absence is the failure the
+  // three-valued reading exists to prevent, and a widening that swept it along would be the
+  // dangerous direction.
+  assertTrue("the catch-up still refuses the absence of a reading",
+    /unanswerable\) refuse "mergeability_unanswerable:/.test(catchUp),
+    "catch-up-claim.sh acts on `unanswerable`");
+  assertTrue("the publication act still refuses the absence of a reading",
+    /refuse "not_mechanical:\$\{CLASS:-unreadable\}"/.test(settle),
+    "settle-stranded-publication.sh acts on `unanswerable`");
+
+  // The candidate reader had to move with the act or the widening is unreachable through the one
+  // caller that uses it — a no-op dressed as a change.
+  assertTrue("the candidate reader offers a content candidate",
+    /\.mergeability == "mechanical" or \.mergeability == "content"/.test(catchable),
+    "list-catchable-claims.sh still offers only `mechanical`, so the act is never called for `content`");
+  assertTrue("and carries the class through rather than re-spelling it",
+    /\\"mergeability\\": \\"\$\{class\}\\"/.test(catchable),
+    "list-catchable-claims.sh flattens every candidate's class to a literal");
+
+  // The strategy was required to be WRITTEN DOWN before it was written (the ticket's own step 2),
+  // because "the tick decides" is only acceptable if a reader can argue with the decision.
+  assertTrue("and claims.md states its resolution strategy per class",
+    wholeTable.includes("#### The resolution strategy, per class"),
+    "claims.md no longer says which side wins for each class of conflict");
+
+  // ---- WHAT THE ACT RESOLVED, IT ALSO DELIVERS — BEHIND THE GATE (2026-09-02, ticket
+  // `20260902042630-let-the-tick-merge-what-it-resolved`) ----
+  //
+  // Resolving and stopping leaves the pull request open, which is the stagnation the operator
+  // named: a parked pull request reads as progress to the loop and as stagnation to them. The
+  // rows below pin the three properties that make the delivery admissible rather than reckless.
+  //
+  //   the delivery deleted from the act          -> `... delivers what it made mergeable`
+  //   the merge moved above the scan             -> `... runs the scan before the merge`
+  //   `secret`/`leak` allowed to proceed         -> `... lets no scan finding through`
+  //   the method spelled at the call site        -> `... reads the merge method`
+  //   the `queue_drained` bound dropped          -> `... delivers only what no other act owns`
+  const deliveryAt = catchUp.indexOf('DELIVERY="merged"');
+  assertTrue("the catch-up delivers what it made mergeable",
+    deliveryAt > 0, "catch-up-claim.sh no longer merges the pull request it caught up");
+
+  // THE ORDER IS THE SAFETY PROPERTY, so it is asserted as an order and not as a presence: a
+  // scan that runs after the merge has gated nothing at all.
+  const scanAt = catchUp.indexOf('sh "$SCAN"');
+  assertTrue("and runs the scan before the merge",
+    scanAt > 0 && scanAt < deliveryAt,
+    "catch-up-claim.sh merges before it scans, which gates nothing");
+
+  // The tier policy, not the binary verdict: `secret` is a hard stop and `leak` holds the pull
+  // request open. Only the `override_only` granularity nudge proceeds.
+  assertTrue("and lets no scan finding through",
+    /scan_held:hard/.test(catchUp) && /scan_held:confirm/.test(catchUp)
+      && /override_only/.test(catchUp),
+    "catch-up-claim.sh does not stop on a secret or hold on a leak");
+
+  // One derivation of the merge method; the suite already fails on a literal at a call site.
+  assertTrue("and reads the merge method rather than spelling it",
+    /merge-method\.sh/.test(catchUp), "catch-up-claim.sh spells its own merge method");
+
+  // ONE ACT OWNS ONE DELIVERY. A `report_undelivered` unit's merge is `retry-undelivered.sh`'s,
+  // which `/implement` runs straight after a `caught_up`; delivering here too would attempt one
+  // pull request twice in a turn and report the second as a refusal over a landed merge.
+  assertTrue("and delivers only what no other act already owns",
+    /\[ "\$VERDICT" = "queue_drained" \] \|\| report caught_up/.test(catchUp),
+    "catch-up-claim.sh delivers a unit whose merge belongs to retry-undelivered.sh");
+
   // ---- WHEN A BOUNDED ACT MAY READ A JUDGEMENT (2026-08-30, mission
   // `catch-a-reported-claim-up-before-its-conflict-hardens`) ----
   //
@@ -31228,6 +32854,7 @@ function testProofJudgementSplit() {
 // script that calls `file-inbound-ask.sh` without listing it turns the first half red; a
 // scratch edit making the discovery grep the feedbacks directory for candidates turns the
 // `records are not the candidate source` row red.
+T("moderate: the gap between a tick finding and the work queue", testFindingToWorkGap);
 function testFindingToWorkGap() {
   // ---- 1. the caller set, from the scripts' own sources ----
   const MODERATE_SCRIPTS = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
@@ -31328,6 +32955,7 @@ function testFindingToWorkGap() {
 //   a table row for a step STEPS does not name       -> `the table classifies no step id ...`
 //   the default sentence deleted from the header     -> `the table states its own default`
 //   a `classify()` added to a moderate script        -> `... carries no finding classifier`
+T("moderate: repairable or needing a ruling, pinned against STEPS", testFindingClassification);
 function testFindingClassification() {
   const runSrc = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
@@ -31398,6 +33026,7 @@ function testFindingClassification() {
 //
 // NO NETWORK, NO `gh`: the step opens no issue — the agent does, after `run.sh` returns — so
 // there is nothing to stub.
+T("moderate/file-findings: a repairable finding, filed as work", testFileFindingsStep);
 function testFileFindingsStep() {
   const tmp = mkdtempSync(join(tmpdir(), "wh-file-findings-"));
   const STEP = join(REPO_ROOT,
@@ -31529,6 +33158,7 @@ function testFileFindingsStep() {
 // `gh` IS STUBBED and there is no network: the stub serves the issues listing and applies the
 // `--jq` filter with real jq, so what is exercised is the reader's own parse rather than a
 // hand-written answer.
+T("moderate/file-findings: the brake, and the dedup that needs no store", testFindingBrakeAndDedup);
 function testFindingBrakeAndDedup() {
   const tmp = mkdtempSync(join(tmpdir(), "wh-finding-brake-"));
   const bin = join(tmp, "bin");
@@ -31680,6 +33310,7 @@ function testFindingBrakeAndDedup() {
 // AND `ask-question.sh` IS UNTOUCHED: the gate, the day cap, the per-tick cap, the quiet hours,
 // the working-day hold and the one bounded re-ask do not move, which is read out of the file
 // rather than asserted in prose.
+T("moderate/file-findings: the question a filing answers, held", testFindingSuppression);
 function testFindingSuppression() {
   const tmp = mkdtempSync(join(tmpdir(), "wh-finding-supp-"));
   const bin = join(tmp, "bin");
@@ -31770,6 +33401,7 @@ function testFindingSuppression() {
 // called in flight. Repository-derived by construction — a channel scan would break
 // `workaholic:notify`'s two-query bound outright — so the fixture is a git repository with a
 // merge commit, and `gh` is stubbed. No network.
+T("moderate/reconcile-candidates.sh: which announced items may still be called in flight", testReconcileCandidates);
 function testReconcileCandidates() {
   const tmp = mkdtempSync(join(tmpdir(), "wh-reconcile-cand-"));
   const bin = join(tmp, "bin");
@@ -31909,6 +33541,7 @@ function testReconcileCandidates() {
 // The step that hands the thread reads back to the agent. Its whole mechanical contract:
 // which candidates, which bounds, what an earlier tick already settled — and an `event` that is
 // always empty, so a tick that reconciles nothing renders no root line.
+T("moderate/thread-reconcile: the finished item whose thread still calls it in flight", testThreadReconcileStep);
 function testThreadReconcileStep() {
   const MERGE_SUBJECT = "Merge PR #11 from acme-org/work-20260828-010000";
   const tmp = mkdtempSync(join(tmpdir(), "wh-thread-reconcile-"));
@@ -32106,6 +33739,7 @@ function testThreadReconcileStep() {
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
+T("moderate/undelivered-units: the loop's own undelivered work reaches a person", testUndeliveredUnitsStep);
 function testUndeliveredUnitsStep() {
   const fx = makeClaimFixture();
   const RECORDER = join(REPO_ROOT,
@@ -32316,6 +33950,7 @@ printf '[]\\n'
   chmodSync(join(binDir, "gh"), 0o755);
 }
 
+T("drive: the base moves under a finished unit and nothing catches it up", testStrandedUnitReproduction);
 function testStrandedUnitReproduction() {
   const fx = makeDriftFixture();
   const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
@@ -32456,6 +34091,7 @@ function publishBranch(A, branch, edit) {
   return branch;
 }
 
+T("branching: a stranded publication, localized seam by seam", testStrandedPublicationReproduction);
 function testStrandedPublicationReproduction() {
   const fx = makePublicationFixture();
   try {
@@ -32593,6 +34229,7 @@ function pubFiles(stems) {
 }
 
 // ---------- the reader: which publications the loop opened and could not merge (2026-08-31) ----
+T("branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader);
 function testStrandedPublicationReader() {
   const fx = makePublicationFixture();
   const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
@@ -32677,6 +34314,7 @@ function testStrandedPublicationReader() {
 }
 
 // ---------- the act: settle what a generator settles, refuse what a person owns (2026-08-31) ----
+T("branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication);
 function testSettleStrandedPublication() {
   const fx = makePublicationFixture();
   const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
@@ -32721,10 +34359,25 @@ function testSettleStrandedPublication() {
       { cwd: fx.A, encoding: "utf8" }).trim();
 
     // 1. A CONTENT COLLISION IS REFUSED BY ITS OWN WORD, BRANCH BYTE-IDENTICAL.
+    //
+    // THE WORD MOVED ON 2026-09-02 (mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) and the move is the whole
+    // point of that change. It was `not_mechanical:content` — refused on the READER's
+    // prediction, before anything was checked out. It is now `content_conflict`, the WRITER's
+    // own residue: the act attaches the worktree, performs the merge, and refuses only once the
+    // merge itself has failed to settle the hunk. `src/app.txt` is a genuinely divergent
+    // hand-written file, so a real collision still refuses — what changed is that the loop now
+    // finds that out by trying, and every branch the writer COULD have finished (the reader
+    // computes without the repository's `.gitattributes`, so it over-reports `content`) is
+    // finished instead of deferred to a claim holder who never comes.
+    //
+    // THE ROW BELOW IS THE SAFETY PROPERTY AND IT DID NOT MOVE: attempting costs the branch
+    // nothing. A refusal after a real merge attempt still leaves the ref byte-identical,
+    // because nothing is pushed until the fast checks have passed.
     const before = tipOf(content);
     const refused = settle(22);
-    assertEq("a content collision is refused by its own word",
-      [refused.outcome, refused.reason], ["settle_refused", "not_mechanical:content"]);
+    assertEq("a content collision is refused by the writer's own word, not the reader's",
+      [refused.outcome, refused.reason], ["settle_refused", "content_conflict"]);
     assertEq("and its branch is byte-identical after the refusal", tipOf(content), before);
 
     // 2. THE MECHANICAL ONE IS CAUGHT UP, REGENERATED, PUSHED AND DELIVERED.
@@ -32830,6 +34483,7 @@ function testSettleStrandedPublication() {
 }
 
 // ---------- the question: the collision only a person can settle (2026-08-31) ----------
+T("moderate/stranded-publications: the collision counted, and asked about by nobody", testStrandedPublicationsStep);
 function testStrandedPublicationsStep() {
   const fx = makePublicationFixture();
   const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
@@ -32852,14 +34506,21 @@ function testStrandedPublicationsStep() {
       `${POSIX_SH} ${SCRIPTS.stepStrandedPublications} --tick 20260831T1300 --root ${fx.A}`,
       { env }).stdout);
     const out = step();
-    assertEq("the step reports ok and asks about the one content collision",
+    assertEq("the step reports ok and counts the one content collision",
       [out.step, out.status], ["stranded-publications", "ok"]);
-    assertTrue("naming the pull request and the files both sides changed",
-      /"number": *31/.test(JSON.stringify(out.needs_agent))
-      && /src\/app\.txt/.test(JSON.stringify(out.needs_agent)), JSON.stringify(out.needs_agent));
-    assertTrue("keyed once per pull request",
-      /stranded-publication:31/.test(JSON.stringify(out.needs_agent)),
+    // IT ASKS NOBODY ABOUT IT (2026-09-02, ticket
+    // `20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md`). The
+    // question used to name the pull request and the colliding files and address the
+    // publication's author; the operator ruled that a conflict handed to somebody who never
+    // comes makes parked work read as progress. `/implement` attempts every class, and what
+    // the merge itself cannot settle is reported where the attempt happened.
+    assertTrue("the content collision draws no question",
+      !/stranded-publication:31/.test(JSON.stringify(out.needs_agent)),
       JSON.stringify(out.needs_agent));
+    // THE READING SURVIVES THE SILENCE — without this the row would pass just as well if the
+    // step had stopped seeing content collisions at all, which is worse than the deferral.
+    assertTrue("but it is still counted in the summary",
+      /colliding on content/.test(out.summary), out.summary);
     assertTrue("and it supplies an event, so the root carries a line",
       typeof out.event === "string" && out.event.length > 0, JSON.stringify(out));
     assertTrue("the summary carries no age and no timestamp",
@@ -32877,11 +34538,12 @@ function testStrandedPublicationsStep() {
     assertEq("the step left the checkout as it found it",
       execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
 
-    // THE TWO CANDIDATE SETS ARE DISJOINT BY CONSTRUCTION, pinned rather than left to a reading
-    // of two headers: `catchup-blocked` draws from the claim oracle, which never names a
-    // publication branch, and this step's reader drops any branch the oracle does name.
+    // A PUBLICATION IS NEVER A CLAIM, pinned rather than left to a reading of two headers: the
+    // claim oracle never names a publication branch, and this step's reader drops any branch
+    // the oracle does name. (The claim-side step that used to ask about a `content` conflict,
+    // `catchup-blocked`, was retired 2026-09-02 — the tick attempts it and reports the residue.)
     const claims = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
-    assertEq("the claim oracle names no publication, so catchup-blocked cannot ask about one",
+    assertEq("the claim oracle names no publication",
       claims.claims.filter((c) => c.branch === content).length, 0);
     assertTrue("and the publication reader drops any branch the oracle names",
       readFileSync(SCRIPTS.listStrandedPublications, "utf8").includes("list-claims.sh"),
@@ -32901,6 +34563,7 @@ function testStrandedPublicationsStep() {
 // `settle-stranded-publication.sh` would strand exactly the publications the `clean` widening
 // exists to deliver, so the act stays unconditional and the age is REPORTED: the run report
 // names it and `/moderate` asks the author while the publication is still open.
+T("moderate/stranded-publications: a publication old enough that its plan may be stale", testStrandedPublicationStaleQuestion);
 function testStrandedPublicationStaleQuestion() {
   const fx = makePublicationFixture();
   const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
@@ -32973,6 +34636,7 @@ function testStrandedPublicationStaleQuestion() {
 // the writer's, so every row here is about agreement or about the fourth value:
 // `unanswerable` must never collapse into `content`, because a wrong `clean` pushes a merge
 // nobody proved while a wrong `content` only delays a unit.
+T("drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader);
 function testClaimMergeabilityReader() {
   const fx = makeDriftFixture();
   try {
@@ -33050,6 +34714,7 @@ function testClaimMergeabilityReader() {
 // resolves such a path with no judgement, which is why `mechanical` is the honest class and why
 // the existing catch-up settles these branches. The row asserts the behaviour — the class the
 // remote agrees with — not the mechanism that produces it.
+T("drive/claim-mergeability.sh: the reader predicts the remote's merge, not this checkout's", testMergeabilityIgnoresLocalMergeAttributes);
 function testMergeabilityIgnoresLocalMergeAttributes() {
   const fx = makeDriftFixture();
   try {
@@ -33097,6 +34762,7 @@ function testMergeabilityIgnoresLocalMergeAttributes() {
 }
 
 // ---------- the catch-up: one act, six refusals, nothing written on any of them ----------
+T("drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter);
 function testCatchUpClaimWriter() {
   const fx = makeDriftFixture();
   const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
@@ -33277,118 +34943,6 @@ function testCatchUpClaimWriter() {
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 
-// ---------- the conflict the loop must not resolve reaches a person (2026-08-29) ----------
-//
-// `catch-up-claim.sh` refuses `content_conflict` and that refusal reached nobody. The step that
-// carries it must draw the split the mission rests on: *nobody has looked yet* (a conflicted
-// pull request, `merge-conflicts`) and *the loop looked and only you can decide* (a branch the
-// shared rule classified) tell somebody different things. So every row here is about the bound
-// — who is asked, exactly once, and that no unit draws two questions in two vocabularies.
-function testCatchupBlockedStep() {
-  const fx = makeDriftFixture();
-  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
-  try {
-    driftGhStub(fx.binDir);
-    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
-    // One unit the base no longer accepts, one it does — both finished, both undelivered.
-    const blocked = strandUnit(fx.A, t(1), (wt) =>
-      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
-    tickSecond();
-    const mergeable = strandUnit(fx.A, t(2), (wt) =>
-      writeFileSync(join(wt, "src/untouched.txt"), "only here\n"));
-    advanceBase(fx.A, (root) =>
-      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n"));
-
-    const step = (s) => JSON.parse(run(fx.A,
-      `${POSIX_SH} ${s} --tick 20260829-070000 --root ${fx.A}`, { env: withGh }).stdout);
-
-    const r = step(SCRIPTS.stepCatchupBlocked);
-    assertEq("the step runs ok", [r.step, r.status], ["catchup-blocked", "ok"]);
-    const rows = (r.needs_agent[0] || {}).blocked || [];
-    assertEq("exactly one unit is handed to the check-in", rows.length, 1);
-    assertEq("and it is the one the base no longer accepts", rows[0].unit, blocked.unit);
-    assertTrue("the mergeable unit is not a candidate",
-      !rows.some((x) => x.unit === mergeable.unit), JSON.stringify(rows));
-
-    // ADDRESSED TO THE CLAIM HOLDER, NAMING WHAT COLLIDED. A question that cannot name the
-    // files does not say what to look at.
-    assertEq("the question is addressed to the claim holder", rows[0].owner, "test@example.com");
-    assertEq("and names the files both sides changed", rows[0].conflicted_files, ["src/app.txt"]);
-    assertEq("and the branch", rows[0].branch, blocked.branch);
-    assertEq("keyed once per unit", rows[0].key, `catchup-blocked:${blocked.unit}`);
-
-    // ASKED EXACTLY ONCE: the key is stable across ticks, which is what lets the ledger refuse.
-    assertEq("the key is stable across ticks",
-      ((step(SCRIPTS.stepCatchupBlocked).needs_agent[0] || {}).blocked || [])[0].key,
-      rows[0].key);
-
-    // ONE UNIT NEVER DRAWS TWO QUESTIONS. `undelivered-units` filters this unit out of its own
-    // candidates and COUNTS it — *retry your merge* is the wrong instruction for a branch that
-    // no longer merges — while still asking about the mergeable one beside it.
-    const und = step(SCRIPTS.stepUndeliveredUnits);
-    const undRows = (und.needs_agent[0] || {}).undelivered || [];
-    assertEq("undelivered-units asks about the mergeable unit only",
-      undRows.map((x) => x.unit), [mergeable.unit]);
-    assertTrue("and counts the blocked one rather than dropping it",
-      /no longer merging \(asked by catchup-blocked\)/.test(und.summary), und.summary);
-
-    // `merge-conflicts` KEEPS reporting every conflicted pull request, and that is a refusal
-    // rather than an omission: the only way to know which units this step asks about is to read
-    // the claim oracle, which fetches — a network read inside a step whose whole cost is one
-    // bounded REST call, and inside a hermetic suite whose fixture for it carries a real origin
-    // URL. It asks nobody anything (`needs_agent` is empty by construction), so the ticket's
-    // "one asks and the other counts" holds without it, and the refusal is recorded in its
-    // header rather than left to be re-tried.
-    const mcSrc = readFileSync(SCRIPTS.stepMergeConflicts, "utf8");
-    assertTrue("merge-conflicts still reaches no claim oracle",
-      !/list-claims\.sh/.test(mcSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
-      "a network fetch was put inside a bounded REST-read step");
-    assertTrue("and its header records the narrowing and the refusal",
-      /narrowed, not reversed/i.test(mcSrc) && /catch-up-claim\.sh/.test(mcSrc), mcSrc.slice(0, 200));
-
-    // THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP — an incrementing summary makes the step
-    // "changed" hourly by construction and the root restates the same units all day.
-    assertTrue("the summary carries no hour count", !/\d+\s*h\b/.test(r.summary), r.summary);
-    assertTrue("and no timestamp", !/\d{4}-\d{2}-\d{2}|\d{2}:\d{2}/.test(r.summary), r.summary);
-    assertTrue("the event names the repository event",
-      /no longer merge/.test(r.event), r.event);
-
-    // A DEGRADED READ ASKS NOTHING AND IS NAMED. A scan that could not reach the remote has not
-    // found "nothing blocked" — the mergeability is derived against the base it could not read.
-    const plain = mkdtempSync(join(tmpdir(), "wh-catchup-plain-"));
-    execSync("git init -q .", { cwd: plain });
-    const deg = JSON.parse(run(plain,
-      `${POSIX_SH} ${SCRIPTS.stepCatchupBlocked} --tick 20260829-070000 --root ${plain}`).stdout);
-    assertEq("a repository with no origin degrades by name",
-      [deg.status, deg.needs_agent.length], ["degraded", 0]);
-    assertTrue("and the reason is named", deg.reason.length > 0, JSON.stringify(deg));
-    rmSync(plain, { recursive: true, force: true });
-
-    // IT WRITES NOTHING, and reaches no writer of its own.
-    assertEq("git status is clean after the step ran",
-      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
-    const src = readFileSync(SCRIPTS.stepCatchupBlocked, "utf8")
-      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
-    assertEq("the step never reaches plan-units.sh", /plan-units\.sh/.test(src), false);
-    assertTrue("and calls no writer at all",
-      !/catch-up-claim\.sh|retry-undelivered\.sh|retire-claim\.sh|git (push|merge|rebase)/.test(src),
-      src);
-
-    // REGISTERED, IN ORDER, BESIDE THE SIBLING IT FOLLOWS — and classified deliberately, since
-    // an unclassified step id reads `needs_ruling` by default rather than by decision.
-    const runSh = readFileSync(
-      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
-    assertTrue("run.sh invokes the step in order",
-      /undelivered-units catchup-blocked handoff-units/.test(runSh), "not registered in order");
-    const wf = readFileSync(
-      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
-    assertTrue("and the findings table classifies it",
-      /^\| `catchup-blocked` \| `needs_ruling` \|/m.test(wf), "the step id is unclassified");
-    assertTrue("and the reference documents it",
-      /## \d+\. `catchup-blocked`/.test(wf), "the step has no section");
-  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
-}
-
 // ---------- one tick, one reading of the open pull requests (2026-08-29) ----------
 //
 // `reference/workflow.md` has said "resolved once per tick, used twice" of step 6 since the
@@ -33441,6 +34995,7 @@ printf '[]\\n'
 // to pin becomes unreproducible and the row would silently stop testing what it names.
 // `WORKAHOLIC_PULLS_STATE_REREAD_MAX=0` is a legitimate value of a named cap, not a test-only
 // hook, and the re-read has a row of its own below.
+T("moderate: one tick, one reading of the open pull requests", testOneReadingOfTheOpenPullRequests);
 function testOneReadingOfTheOpenPullRequests() {
   const fx = makePullsDriftFixture();
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
@@ -33528,6 +35083,7 @@ function testOneReadingOfTheOpenPullRequests() {
 // state is nameable. Step 4 folded it into its zero and spoke with the voice of a completed
 // reading. The assertion is on the ABSENCE OF THE WORDS, not on the presence of a count: a
 // wording that keeps the claim and appends a number must still fail.
+T("moderate/merge-conflicts: an uncomputed mergeability is not \"none conflicted\"", testUncomputedMergeabilityIsNamed);
 function testUncomputedMergeabilityIsNamed() {
   const fx = makePullsDriftFixture({ alwaysUnknown: true });
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
@@ -33594,6 +35150,7 @@ function testUncomputedMergeabilityIsNamed() {
 // THE ASSERTIONS ARE ON THE CLASSIFICATION AND ON THE BOUND, not on a return shape: a row
 // whose second answer differs must be classified from the SECOND one, a row that stays `null`
 // must still be `unknown`, and the spend must be reported whether or not it bought anything.
+T("moderate: an uncomputed mergeability is re-read once before it is reported", testUncomputedMergeabilityIsReReadOnce);
 function testUncomputedMergeabilityIsReReadOnce() {
   const HK = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   const settle = makePullsDriftFixture();
@@ -33678,6 +35235,7 @@ function testUncomputedMergeabilityIsReReadOnce() {
 //
 // HERMETIC: throwaway directories under the OS temp dir, no `gh`, no network, and the working
 // tree is never touched — the suite's standing contract.
+T("e2e/loop-drill.sh: every drill is reached, verdicted, wired into CI and read by the tick", testDrillVerdictPath);
 function testDrillVerdictPath() {
   const DRILL = join(REPO_ROOT, "scripts/e2e/loop-drill.sh");
   const REGISTER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/drill-register.sh");
@@ -33924,6 +35482,241 @@ function testDrillVerdictPath() {
 //      degradation and is counted, never asked about.
 //
 // Offline throughout: `gh` is stubbed on PATH and the slug comes from a local git remote.
+// ---------------------------------------------------------------------------
+// AN OPEN PULL REQUEST WITH NO HEAD BRANCH LEFT (2026-09-01, ticket
+// `20260901112558-name-an-open-pull-request-with-no-head-branch.md`).
+//
+// GitHub does not close a pull request when its head branch is deleted, and such a pull
+// request is unmergeable by construction. Four things are pinned here, each because it is the
+// thing a later change would quietly lose:
+//
+//   1. A LIVE BRANCH IS NEVER REPORTED. The measured cost of a false positive is a person sent
+//      to close work that is still going, so a normal pull request rides the fixture beside the
+//      headless one.
+//   2. A FORK'S HEAD IS COUNTED, NEVER CALLED GONE. The branches listing cannot see a fork's
+//      refs; *we could not look* must never render as *the branch is gone*.
+//   3. AN UNREADABLE LISTING CARRIES NO `pulls` KEY AND A NULL COUNT, and the step names it
+//      rather than rendering it as *nothing headless*.
+//   4. THE STEP ASKS UNDER ITS OWN KEY, `headless-pull:<number>`, leaving the existing
+//      `operator-pull:` candidates untouched — the act asked for is a CLOSE, not a ruling.
+//
+// Offline throughout: `gh` is stubbed on PATH and the slug comes from a local git remote.
+T("branching/list-headless-pulls.sh: an open pull request with no branch left", testHeadlessPulls);
+function testHeadlessPulls() {
+  const BRA = join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts");
+  const MOD = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-headless-pulls-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+  const NOW = Math.floor(Date.now() / 1000);
+  const iso = (hoursAgo) => new Date((NOW - hoursAgo * 3600) * 1000).toISOString();
+
+  //   811 head branch still on the remote        -> not headless
+  //   813 head branch deleted                    -> headless, and the only one asked about
+  //   814 head on a fork this listing cannot see -> counted `foreign_head`, never headless
+  const LIST = [
+    ["811", "https://x/811", "A live publication", iso(2), "claude[bot]",
+      "work-20260101-000000", "acme-org/source-repo"],
+    ["813", "https://x/813", "Its branch is gone", iso(120), "claude[bot]",
+      "work-20260102-000000", "acme-org/source-repo"],
+    ["814", "https://x/814", "From a fork", iso(5), "someone",
+      "feature-x", "someone/source-repo"],
+  ];
+
+  const writeStub = ({ branchesFail = false } = {}) => {
+    const rows = LIST.map((r) => r.join("\\t")).join("\\n");
+    writeFileSync(join(bin, "gh"), `#!/bin/sh
+case "$2" in
+  rate_limit) echo 5000 ;;
+  *"/branches"*) ${branchesFail ? "echo boom >&2; exit 1" : "printf 'main\\nwork-20260101-000000\\n'"} ;;
+  *"pulls?state=open"*) printf '${rows}\\n' ;;
+  *"/files"*) printf '%s' '[]' ;;
+  *) echo '{"message":"Not Found"}' ;;
+esac
+`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  writeStub();
+
+  const sh = (cmd) => run(repo, cmd, { env });
+
+  try {
+    // --- 1. THE READING ----------------------------------------------------------------------
+    const listed = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-headless-pulls.sh`).stdout);
+    assertEq("exactly the pull request whose branch is gone is named",
+      listed.pulls.map((p) => p.number).join(","), "813");
+    assertEq("the branch it lost is carried, and its age with it",
+      [listed.pulls[0].branch, listed.pulls[0].age_hours >= 119], ["work-20260102-000000", true]);
+    assertEq("a fork's head is counted, never called gone",
+      [listed.foreign_head, listed.count, listed.total_open], [1, 1, 3]);
+
+    // --- 2. A DEGRADED READ CARRIES NO LIST AND A NULL COUNT ---------------------------------
+    writeStub({ branchesFail: true });
+    const broken = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-headless-pulls.sh`).stdout);
+    assertEq("an unreadable branch listing is named, with a null count and exit 0",
+      [broken.ok, broken.reason, broken.count], [false, "branches_unreadable", null]);
+    assertTrue("...and carries no `pulls` key at all, rather than an empty one",
+      !Object.prototype.hasOwnProperty.call(broken, "pulls"), JSON.stringify(broken));
+    writeStub();
+
+    // --- 3. THE STEP ASKS UNDER ITS OWN KEY --------------------------------------------------
+    const step = () => JSON.parse(
+      sh(`${POSIX_SH} ${MOD}/step-operator-pulls.sh --tick 20260901-000000 --root .`).stdout);
+    const s1 = step();
+    const keys = s1.needs_agent.flatMap((n) => (n.pulls ?? []).map((p) => p.key)).sort();
+    assertEq("one question per headless pull request, keyed on its number and asking for a close",
+      keys.join(","), "headless-pull:813");
+    assertTrue("the act asked for is a close, never a ruling",
+      s1.needs_agent.some((n) => n.action === "ask_the_operator_to_close_this_pull_request"),
+      JSON.stringify(s1.needs_agent.map((n) => n.action)));
+    assertTrue("the summary says how many lost their branch",
+      /1 open with no head branch left/.test(s1.summary), s1.summary);
+    assertTrue("and it supplies an event that names no identifier",
+      s1.event.length > 0 && !/813/.test(s1.event), s1.event);
+
+    // AN UNREADABLE HEADLESS READING IS NAMED AND ASKS NOBODY.
+    writeStub({ branchesFail: true });
+    const s2 = step();
+    assertEq("an unreadable reading asks nobody", [s2.needs_agent.length, s2.event], [0, ""]);
+    assertTrue("...and is named as unreadable, never as nothing headless",
+      /could not be read \(branches_unreadable\)/.test(s2.summary), s2.summary);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// IS THE WORK BEHIND THIS CLAIM STILL WANTED (2026-09-02, mission
+// `retire-a-claim-whose-work-is-finished-or-abandoned`).
+//
+// Retirement is keyed on the branch's own pull request, so nothing could answer whether the
+// mission the claim serves has ended. Five things are pinned, each because it is what a later
+// change would quietly lose:
+//
+//   1. THE AREA DECIDES, and `status` rides beside the answer rather than being it.
+//   2. A `batch-<ts>` UNIT IS A REAL ANSWER, never `not_active` — the wrong direction would
+//      make every batch claim in a repository read as retired-by-definition.
+//   3. AN UNREADABLE MISSION IS `ok: false`, and every degradation emits NO `state` KEY at
+//      all: a wrong `not_active` deletes a live branch.
+//   4. IT EXITS 0 IN EVERY CASE, so a caller's scan is never turned into a failed scan.
+//   5. THE WORDS ARE CLASSIFIED in `claims.md`, each as a proof or a judgement.
+//
+// Offline throughout: a throwaway repository, no `gh`, no network.
+T("drive/claim-mission-state.sh: is the work behind this claim still wanted", testClaimMissionState);
+function testClaimMissionState() {
+  const DRV = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-claim-mission-state-"));
+  const repo = join(tmp, "repo");
+  mkdirSync(repo, { recursive: true });
+
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false",
+      { cwd: repo });
+    const w = (p, body) => {
+      mkdirSync(join(repo, dirname(p)), { recursive: true });
+      writeFileSync(join(repo, p), body);
+    };
+    w(".workaholic/missions/active/alpha/mission.md",
+      "---\ntype: Mission\nslug: alpha\nstatus: active\nassignees: []\n---\n\n# Alpha\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/missions/archive/beta/mission.md",
+      "---\ntype: Mission\nslug: beta\nstatus: abandoned\nassignees: []\n---\n\n# Beta\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    // An archived mission whose `status:` never got written: the PLACE is the record.
+    w(".workaholic/missions/archive/gamma/mission.md",
+      "---\ntype: Mission\nslug: gamma\nstatus:\nassignees: []\n---\n\n# Gamma\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    execSync('git add -A && git commit -q -m "Seed the missions"', { cwd: repo });
+
+    const read = (unit) => {
+      const r = run(repo, `${POSIX_SH} ${DRV}/claim-mission-state.sh ${unit}`);
+      return { ...JSON.parse(r.stdout), status_code: r.status };
+    };
+
+    // --- 1. THE AREA DECIDES -----------------------------------------------------------------
+    assertEq("a mission in missions/active/ is active",
+      [read("alpha").ok, read("alpha").kind, read("alpha").state], [true, "mission", "active"]);
+    assertTrue("...and carries no status of its own to disagree with the place",
+      !Object.prototype.hasOwnProperty.call(read("alpha"), "status"), JSON.stringify(read("alpha")));
+    assertEq("a mission in missions/archive/ is not_active, with its status beside it",
+      [read("beta").state, read("beta").status], ["not_active", "abandoned"]);
+    assertEq("an archived mission with no status is still not_active, with an empty status",
+      [read("gamma").state, read("gamma").status], ["not_active", ""]);
+
+    // --- 2. A BATCH UNIT IS A REAL ANSWER ----------------------------------------------------
+    const batch = read("batch-20260902-010203");
+    assertEq("a batch unit names no mission and answers kind: batch",
+      [batch.ok, batch.kind], [true, "batch"]);
+    assertTrue("...and never not_active, which would retire every batch claim by construction",
+      !Object.prototype.hasOwnProperty.call(batch, "state"), JSON.stringify(batch));
+
+    // --- 3. EVERY DEGRADATION IS NAMED AND CARRIES NO `state` --------------------------------
+    for (const [unit, reason] of [["no-such-mission", "mission_not_found"]]) {
+      const bad = read(unit);
+      assertEq(`an unreadable mission is ok:false with reason ${reason}`,
+        [bad.ok, bad.reason], [false, reason]);
+      assertTrue("...and emits no state key at all",
+        !Object.prototype.hasOwnProperty.call(bad, "state"), JSON.stringify(bad));
+    }
+    const noArg = JSON.parse(run(repo, `${POSIX_SH} ${DRV}/claim-mission-state.sh`).stdout);
+    assertEq("no unit at all is named rather than guessed", [noArg.ok, noArg.reason],
+      [false, "no_unit"]);
+
+    // --- 4. EXIT 0 IN EVERY CASE -------------------------------------------------------------
+    assertEq("every reading exits 0, so a caller's scan is never failed by one",
+      [read("alpha").status_code, read("beta").status_code, read("no-such-mission").status_code],
+      [0, 0, 0]);
+
+    // --- 5. THE WORDS ARE CLASSIFIED ---------------------------------------------------------
+    const claimsDoc = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+    assertTrue("claim-mission-state.sh's vocabulary has its own sub-table in the one home",
+      claimsDoc.includes("#### Whether the work behind a claim is still wanted"),
+      "claims.md carries no classification for it");
+    assertTrue("`not_active` is classified a proof, on authorship",
+      /\| `not_active` \| \*\*proof\*\*/.test(claimsDoc), "not_active is unclassified");
+    assertTrue("`active` is classified a judgement — it is designed to become false",
+      /\| `active` \| judgement \|/.test(claimsDoc), "active is unclassified");
+    assertTrue("and the degradations are judgements, being the absence of a reading",
+      /mission_list_unreadable[^|]*\| judgement \|/.test(claimsDoc),
+      "the degraded words are unclassified");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// A REFUSED CHECK KEEPS ITS OUTPUT (2026-09-03). `catch-up-claim.sh` ran the repository's fast
+// checks under `>/dev/null 2>&1`, so `validation_failed:<check>` was the whole of what a reader
+// got -- identical whether the branch is broken, the environment leaked, or the run lost to load.
+// Measured: two consecutive catch-ups on `work-20260902-043932` refused over the suite, and the
+// script's OWN invocation re-run byte-for-byte in the same worktree answered `6236 passed, 0
+// failed`, exit 0, twice. Under `/spawn-loops` several loops run that suite on one machine, so
+// this stopped being rare. The bytes are kept in a file whose path rides the JSON; stdout stays
+// the single line every caller parses.
+T("drive/catch-up-claim.sh: a refused check keeps its output", testCatchUpKeepsTheFailingCheckOutput);
+function testCatchUpKeepsTheFailingCheckOutput() {
+  const src = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"), "utf8");
+
+  assertTrue("the reported JSON carries a check_log field",
+    /"check_log": "%s"/.test(src));
+  assertTrue("check_log is declared before any refusal can render it",
+    src.indexOf('CHECK_LOG=""') < src.indexOf("if command -v node"));
+  assertTrue("a failing check names its log on the refusal",
+    /CHECK_LOG="\$_cul"; refuse "validation_failed:/.test(src));
+  assertTrue("the checks still run in the same clean environment",
+    /unset WORKAHOLIC_CLAIM_STALE_HOURS/.test(src));
+  assertTrue("a check that passed leaves no log behind",
+    /rm -f "\$_cul"/.test(src));
+  assertTrue("the captured output is never printed to stdout",
+    !/cat "\$_cul"/.test(src));
+}
+
+T("the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls);
 function testOperatorFacingPulls() {
   const MOD = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   // The two readers live beside the SEAM that produces the refusal word, not beside the step
@@ -34108,3 +35901,24 @@ esac`);
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+
+// THE RUNNER IS THE LAST THING IN THE FILE, AND MUST STAY THERE (2026-09-02, ticket
+// `20260902143137`). Registration is now a `T(…)` call beside each declaration, so it happens
+// in FILE ORDER at module load -- and 115 of the 400 tests are declared BELOW where the old
+// array sat. Leaving the loop there ran 285 of them and silently skipped the rest, which is
+// exactly the failure mode the `await` note below was written against: a test that does not
+// run is worse than one that fails. Anything appended after this block would never execute.
+// `await` matters even though almost every test is synchronous: without it an async
+// test's assertions run AFTER this loop finishes counting, so it contributes zero
+// passes, zero failures, and no output — a test that silently does not run, which is
+// strictly worse than one that fails. (Measured 2026-08-05, on the first async test.)
+// Top-level await is available here because this is an ES module.
+for (const [label, fn] of tests) {
+  console.log(`\n# ${label}`);
+  try { await fn(); }
+  catch (e) { fail(label, e.stack || String(e)); }
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

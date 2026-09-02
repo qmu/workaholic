@@ -7,7 +7,7 @@
 #   is_raced "$unit" "$raced" && continue
 #
 # WHY IT IS A SHARED HELPER AND NOT THREE COPIES. `raced-units` owns the question and
-# `stalled-units`, `undelivered-units` and `catchup-blocked` each filter and count — the
+# `stalled-units` and `undelivered-units` each filter and count — the
 # `handoff-units`/`stalled-units` precedent, where one step asks and the others filter. Three
 # copies of the same test is how two of them start disagreeing about which unit is raced, and a
 # step that filtered a unit the asking step did not ask about would drop the finding entirely.

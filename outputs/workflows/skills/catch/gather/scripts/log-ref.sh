@@ -48,5 +48,19 @@
 # opt-out: `persist-log.sh` refuses a ref that names the repository's base branch, so there is
 # no value of this variable that puts the log back on `main`.
 
+# AND WHEN THERE IS NO BRANCH AT ALL (2026-09-03, the developer's instruction). Every word above
+# rests on one premise: the tick runs in a container that is thrown away. Since 2026-09-02 the loop
+# turns LOCALLY (`workaholic:loops`) in a session whose checkout persists between ticks, where
+# `.workaholic/moderations/` is git-ignored and simply stays on disk — so the branch was carrying a
+# copy of a file that never went anywhere, and this repository grew 126 commits on it that nobody
+# read. `WORKAHOLIC_LOG_PERSIST=0` (declared in `.claude/settings.json`'s `env` block, the home
+# `WORKAHOLIC_WIP_LIMIT` and `WORKAHOLIC_CADENCES` already use) turns the branch half of
+# `persist-log.sh` and the whole of `hydrate-log.sh` off together, so the writer and the reader
+# cannot disagree about whether a branch exists. **Absent means persist**: a repository on the
+# Web-routine fallback is byte-identical to one before this existed, and the stated cost of
+# declaring it there is that the tick loses its memory across containers and re-fires its
+# questions. This name and this file do not move — the branch is still where the log goes for
+# anyone who needs one.
+
 set -eu
 printf '%s\n' "${WORKAHOLIC_LOG_REF:-workaholic-log}"

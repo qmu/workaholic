@@ -357,6 +357,30 @@ fi
 # The branch is created on first use; every repository taking this version has none yet, and a
 # first tick reporting `base_unresolved` forever would leave the log in the container exactly as
 # it was before this seam existed.
+# WHY THIS HALF CAN BE TURNED OFF (2026-09-03, the developer's instruction). The log branch
+# exists for ONE reason, written out in `gather/scripts/log-ref.sh`: a routine-fired tick runs in
+# a container that is discarded, so a log left in the checkout dies with it and every dedup that
+# reads it behaves as if no earlier tick ever ran. Since 2026-09-02 the loop turns LOCALLY
+# (`workaholic:loops`) in a session whose checkout PERSISTS between ticks, with
+# `.workaholic/moderations/` git-ignored inside it — so the checkout that wrote the log is the
+# same checkout the next tick reads, and the branch is carrying a copy of a file that never went
+# anywhere. Measured on this repository: 126 commits on `workaholic-log`, not one of which a local
+# tick ever needed.
+#
+# `WORKAHOLIC_LOG_PERSIST=0` turns PHASE B off and NOTHING else. **Absent means persist**, so a
+# repository running the Web-routine fallback — where the container really is discarded — is
+# byte-identical to one before this existed. The cost is stated rather than hidden: a repository
+# that declares it and then runs the fallback loses the tick's memory across containers and its
+# questions re-fire. PHASE A is untouched either way — a feedback record is knowledge, and it
+# still reaches the base whatever this says.
+case "${WORKAHOLIC_LOG_PERSIST:-1}" in
+    0|no|false)
+        report false skipped log_persist_disabled \
+            "WORKAHOLIC_LOG_PERSIST=0: the tick log stays in this checkout and reaches no branch" \
+            0 0 0 false '' false ''
+        ;;
+esac
+
 ensure_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/ensure-log-ref.sh" --root "$repo_root" 2>/dev/null || true)
 case "$ensure_out" in
     *'"ok": true'*) ;;

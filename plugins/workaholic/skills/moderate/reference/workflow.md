@@ -50,7 +50,7 @@ The distinction is **where the number comes from**, not what type it is:
 
 ### The audit (2026-09-01, ticket `20260901122448-name-every-step-summary-carrying-transport-derived-volatility`)
 
-Every one of the thirty-three `step-*.sh` summary compositions was read. Each is a literal format
+Every one of the thirty-four `step-*.sh` summary compositions was read. Each is a literal format
 string over named shell variables, so **none is unauditable** — there is no step whose summary is
 built by interpolation this audit could not follow, and none is recorded as unaudited.
 
@@ -63,7 +63,7 @@ Three carried a transport-derived term. All three are repaired; every other step
 | `release-status` | **repaired** — its `blocked` row carried `(refs: fresh\|stale)`, a word set by whether one bounded fetch succeeded. A doubtful read already has its own `degraded` row, which is where a reader learns it. |
 | `base-health`, `drill-health` | cleared — a check-run *conclusion*, not a lazily computed field: it does not flip between two identical reads, and when it does flip a check really was re-run. |
 | `stranded-publications`, `stalled-units`, `undelivered-units`, `handoff-units`, `raced-units`, `retire-claims` | cleared — every count comes from the claim scan and `claim-mergeability.sh`, which is a local `merge-tree` with no network. |
-| `closable-missions`, `undrivable-units`, `direction-health`, `strategy-pace`, `doc-drift`, `thread-reconcile`, `standing-rulings`, `file-findings`, `question-answers`, `unanswered-asks`, `blocked-tick`, `cadence-lapse`, `human-checkin` | cleared — tree, tick log, or this loop's own gate words. |
+| `closable-missions`, `undrivable-units`, `direction-health`, `date-will-not-hold`, `strategy-pace`, `doc-drift`, `thread-reconcile`, `standing-rulings`, `file-findings`, `question-answers`, `unanswered-asks`, `blocked-tick`, `cadence-lapse`, `human-checkin` | cleared — tree, tick log, or this loop's own gate words. |
 | `unrecorded-missions` | cleared — the tree terms are the tree's, and a pull request's closed/unmerged state is a repository fact GitHub stores rather than recomputes (`issue-triage`'s row, for its reason). |
 | `issue-triage`, `operator-pulls` | cleared — an issue's or pull request's open/closed state is a repository fact GitHub stores rather than recomputes. |
 | `inbound-sweep`, `strategy-digest` | cleared, with a caveat named rather than repaired: both are **window-relative**, so their counts move as the window slides. That is clock-derived, not transport-derived, and in both cases the movement tracks activity that really happened. |
@@ -623,6 +623,36 @@ in a **publish tree**, runs `close.sh <slug> achieved` there, and lands the clos
 `publish-tree-pr.sh` (the ordinary auto-merge proposal path — a scan finding leaves it open). A
 candidate the re-proof rejects is reported, never closed; `abandoned` and `carried` stay
 `/mission-close`'s alone.
+
+**The near miss, since 2026-09-01** (ticket
+`20260901123357-name-a-mission-at-full-acceptance-with-tickets-left`). The close needs **both**
+terms — acceptance fully checked **and** the queue empty. A mission at **full acceptance with
+tickets still queued** fails the second, so it is closed by nobody and stays active indefinitely;
+measured on the day this was filed. Whether those leftovers are work that still matters or work
+the mission's own landed changes have mooted is a **judgement**, so the loop may not close the
+mission and may not retire the tickets — what it can do, and did not, is say so.
+
+- **It is a question, not a second act.** `close.sh` stays the only writer of an end state,
+  `archive.sh` still closes only `achieved`, and the leftovers are named and left exactly where
+  they are. Nothing is closed, retired, abandoned, iceboxed or moved by this half.
+- **It is the same scan, not a second one.** Both readings fall out of the one pass over
+  `summary.sh`'s active set the step already makes: a near miss differs from a closable mission in
+  exactly one term, the queue. No reader is added and nothing is walked twice.
+- **An unreadable reading yields neither a close nor a question** — the existing rule that an
+  unreadable reader is not a proof, applied in both directions.
+- The candidate carries the age through `lib/read-age.sh`, keyed on the key the row composes, as
+  its sibling steps do: the reader's words verbatim, an unreadable age named as unreadable.
+
+| Key | Heading leads with | Body asks for |
+| --- | ------------------ | ------------- |
+| `mission-leftovers:<slug>` | *every acceptance item `<title>` promised is checked and it still has `<n>` tickets queued* — then the slug, the counts | *rule whether those tickets still matter, or whether the landed work has made them unnecessary.* |
+
+**What the ask wanted and this does not give, deliberately.** The ask was that the planner "close a
+mission, merge two, retire a ticket that landed work has mooted". Closing on arithmetic already
+happens, above. *Merging two missions* has no writer and asserts intent; *retiring a mooted ticket*
+requires judging that landed work covered it, which is a reading about behaviour rather than a file
+test — a shape this repository has refused before. Both would need their own measured ask. Naming
+the case is the honest first step and is what unblocks a person today.
 
 **Why this tick and not `/story`** (ruled 2026-08-23 while driving it; the ticket required the home
 to be decided and recorded). `story/scripts/area-freshness.sh` is the exact precedent for a
@@ -1338,6 +1368,28 @@ ruling answers. The read is `moderate/scripts/ruling-suppression.sh` — one rea
 (`ci-retirement-turn.sh`'s discipline). The suppression is **derived, stored nowhere**: merging
 or closing the ruling makes the question reachable again with no state.
 
+**The plan's delta rides the same root** (2026-09-01, ticket
+`20260901123358-carry-the-plan-s-delta-in-the-hourly-post`). `strategy-pace` carries a `plan`
+block — `advancing`, `held`, `held_reasons`, `wip` — lifted off the one survey it already makes,
+and puts the same numbers in its own `summary`, because that string is what the root's change
+diff compares. `render-tick-post.sh` renders one `📋` line from the block, **beside** the change
+lines rather than instead of them.
+
+- **Gated on the diff**: an hour in which the plan did not move adds no line. That is the whole
+  difference between this clause and the retired `📦 Release Preparation`.
+- **It earns no post**, exactly as the impairment clause does not: it adds a line to a root that
+  was already being posted for a question, a digest or a delivery failure.
+- **No identifier and no mention token** — *how many* is news, *which* is a task.
+- **A tick the repository's `wip_limit` is holding says so**, with the count and the limit: a
+  quieter loop must not be indistinguishable from a stopped one.
+- **A degraded reading is named** (*the plan could not be read this tick*), never rendered as an
+  empty delta — a plan we could not read and a plan that did not move are the two states the
+  clause exists to keep apart.
+- **What it deliberately does not say**: *which unit is next*. The executor's order is
+  `plan-units.sh`'s, which no step here may reach (the survey runs the living migrations and
+  **stages** what they converge), and naming a unit would put an identifier on a line addressed
+  to nobody. Both rules are older than this clause and neither is worth bending for it.
+
 **The seven questions, under the composition contract** (2026-08-31, mission
 `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Every key, the asked-once
 gate, the addressee, the per-tick cap and the precedence are **byte-identical**; only what the
@@ -1362,6 +1414,84 @@ expected to reconstruct from one word. Each may ride the heading **beside** the 
 may replace it. A heading is also never *still declared 進行中* for a direction carrying no
 `stage:` line: absent means 進行中 for every reader in the layer and is the wrong thing to quote
 back, which is why only a **declared** stage refines a question.
+
+## 15a. `date-will-not-hold` — a direction whose board will not clear, said before the date
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-date-will-not-hold.sh --tick <id> [--root <repo-root>] [--open-proposals <file>]
+```
+
+**It runs immediately after `direction-health`** in `run.sh`'s `STEPS`, which is the contract.
+
+**Why the step exists** (2026-09-01, ticket
+`20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it`): two date questions already
+exist and **both fire at or after the date** — `direction-overdue` once the date has gone,
+`direction-expiring` once it is inside the survey window. Nothing asked *before*, on the
+arithmetic. Measured 2026-09-01: three directions dated the same day, six days out, 30 queued
+tickets between them, every existing reading healthy, and nobody told.
+
+**The re-dating half of the ask is refused, by name, and the refusal is the point.** The ask was
+that the loop "re-date or escalate what the arithmetic says cannot land". A strategy is the
+operator's **resolved** direction; `amend.sh` carries only a revision the operator announced by
+explicit slug, and a run never amends on its own reading (`workaholic:strategy`). A loop that
+moves its own deadlines when it misses them is a loop whose dates mean nothing — a worse failure
+than the one being fixed. So this step **writes nothing**: no `amend.sh` call, no `target_date`
+touched, no stage moved, no mission closed, no work held. The question is the only act. If the
+operator wants the loop to re-date, that is a deliberate ruling with its own measurement, and
+this section is where a future reader should find the argument.
+
+**It reads `strategy/scripts/landing-arithmetic.sh`** — the one derivation of *what remains
+against how long is left* — and takes its `does_not_clear` rows. A `no_target_date` direction is
+never a candidate (there is nothing to escalate) and an `unreadable` one is **counted, never
+asked about**: spending a person's attention on our own degradation is the rule `strategy-pace`
+already applies to its own `unknown`.
+
+**It does not ask twice about the same thing, and the boundary is READ rather than re-derived.**
+A candidate must read `live` in `direction-state.sh` — the one lifecycle reader, whose precedence
+is `unreadable > arrived > overdue > expiring > dormant > live`. Every direction
+`direction-health` asks about this tick is therefore excluded **by that step's own reading**
+rather than by a second copy of the `expiring` boundary here: `overdue` and `expiring` keep their
+cases, `arrived` and `dormant` keep theirs, and this step gets what is left — a live, in-date
+direction whose board will not clear. A fresh threshold here would be a number nobody could
+defend, and a second derivation of `expiring` is how two boundaries drift. A lifecycle read that
+**refused** is `degraded` by name — never an empty live set quietly asking nobody: without the
+filter the step has not found *nothing to escalate*, it has found nothing at all, and
+`direction-health` reports its own refusal exactly this way. It takes the same optional
+`--open-proposals` file that step does, so both read one lifecycle answer.
+
+**`strategy-pace` is a different question and is not filtered against.** `pace: late` asks whether
+anything has *landed* over a period as long as the one that remains; this asks whether what
+*remains* fits in the days left. A direction can be `on_course` and still not clear — that is
+precisely the measured case — so filtering one against the other would drop the finding.
+
+**The age rides the candidate**, through `lib/read-age.sh` keyed on the key the row already
+composes, exactly as `stalled-unit`, `undelivered-unit`, `undrivable-unit` and `retire-blocked`
+carry it: the reader's words verbatim, an unreadable age named as unreadable, an absent one not
+mentioned. Two kinds of number and never blended — the arithmetic answers *what remains against
+how long is left*, the ledger answers *how long have we been asking*.
+
+**The check-in's machinery applies unchanged**: the working-day and quiet-hour holds, the caps,
+the asked-once ledger and the bounded re-ask. This step supplies subjects and their content keys.
+
+| Key | Heading leads with | Body asks for |
+| --- | ------------------ | ------------- |
+| `date-will-not-hold:<slug>` | *`<title>` has more queued than it has been finishing, and will not clear by `<target_date>`* — then the slug, what remains at each grain, the days left, the observed rate | *re-date it by announcing the change with its slug, or cut what is queued.* |
+
+**What is refused here**: leading with `does_not_clear`, `needed_days` or the slug; adding the two
+remaining grains into one number (unchecked acceptance items and queued tickets are not the same
+unit, and the body says what was counted); and any sentence implying the loop will move the date.
+
+**What it puts on the root.** `event` names the repository event — *N directions will not finish
+what they have queued before their dates* — and a tick with no candidate supplies the empty
+string, so no line is rendered even when the change diff calls the step changed. The summary
+keeps every count, including the candidates another date question already owns.
+
+**What it costs, stated rather than discovered**: both readings walk attribution, measured here
+at 110s and 36s. The first is a cost the tick already pays in `strategy-digest`, the second one
+`direction-health` already pays. Re-composing either reading to make this step cheaper would put
+a second composition of the same board in the tree, which is how two answers to one question
+drift, so the duplicate read is deliberate. A tick out of clock reports this step `skipped` with
+reason `budget`, by name.
 
 ## 16. `unanswered-asks` — a message on the channel that nobody has answered
 
@@ -2390,6 +2520,7 @@ decide something before any change is the right one*.
 | `note-cadence` | **`repairable`** | A draft note that stopped refreshing is a defect in the workflow that writes it. |
 | `strategy-pace` | `needs_ruling` | Whether a direction is still the right one is the operator's. |
 | `direction-health` | `needs_ruling` | Re-dating, closing or declaring a direction arrived is the operator's, by that step's own contract — and since 2026-08-29 so is **moving its declared stage**, which is precisely what a machine may not decide: `direction-cutover:<slug>` and `direction-settled:<slug>` are asked, never filed as repairable work. |
+| `date-will-not-hold` | `needs_ruling` | Whether a direction's date still holds, and whether to re-date it or cut what is queued, is the operator's — the same ground `direction-health` stands on, and the step's own contract already refuses the re-dating half by name. |
 | `stalled-units` | `needs_ruling` | Whether a stalled claim is taken over or abandoned is the holder's. |
 | `raced-units` | `needs_ruling` | **Which of two live branches keeps driving the unit is the claim holders'**, and picking between them is the one act `ambiguous_claim` refuses everywhere in the protocol — filing it as work would be the loop deciding what it refuses to decide. Its readings are besides that **judgements** (`drive/reference/claims.md`, *Whether a unit is being driven twice*). The repair that would stop races happening at all is a **different** finding, already recorded on its own mission: it rests on an arbitration this container's transport refuses. |
 | `undrivable-units` | `needs_ruling` | Which account an address belongs to is a human's ruling, by that step's own contract. |

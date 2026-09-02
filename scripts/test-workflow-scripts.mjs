@@ -601,6 +601,48 @@ function testClosableMissionsStep() {
     assertEq("and the report wrote nothing at all",
       execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
 
+    // ---- THE NEAR MISS (2026-09-01, ticket
+    // `20260901123357-name-a-mission-at-full-acceptance-with-tickets-left`) ----------------
+    // `busy` has met every acceptance item it promised and still has a ticket queued, so it
+    // fails the close's queue term and was closed by nobody and named by nobody. It is a
+    // QUESTION, not a second act: whether the leftover still matters is a judgement.
+    const ask = j.needs_agent.find((e) => e.leftovers);
+    assertTrue("the near miss is raised as its own entry, beside the close", !!ask,
+      JSON.stringify(j.needs_agent.map((e) => e.action)));
+    assertEq("exactly the full-acceptance-with-tickets-left mission is named",
+      ask.leftovers.map((c) => c.slug).sort(), ["busy"]);
+    assertEq("with the counts that make it a near miss, and its own once-per-mission key",
+      [ask.leftovers[0].checked, ask.leftovers[0].total, ask.leftovers[0].queued, ask.leftovers[0].key],
+      [1, 1, 1, "mission-leftovers:busy"]);
+    assertTrue("the age rides it, in the reader's own words",
+      Object.prototype.hasOwnProperty.call(ask.leftovers[0].age ?? {}, "first_seen"),
+      JSON.stringify(ask.leftovers[0]));
+    assertTrue("the closable mission is NOT also raised as a near miss",
+      !ask.leftovers.some((c) => c.slug === "done1"), JSON.stringify(ask.leftovers));
+    assertTrue("nor is the one whose acceptance is not met",
+      !ask.leftovers.some((c) => c.slug === "unmet"), JSON.stringify(ask.leftovers));
+    assertTrue("the bound says nothing is closed, retired or moved by this half",
+      /NOTHING is closed, retired, abandoned, iceboxed or moved/.test(ask.bound), ask.bound);
+    assertTrue("and the summary counts it", /1 at full acceptance with tickets still queued/.test(j.summary), j.summary);
+    assertTrue("the leftover ticket is still in the queue",
+      existsSync(join(A, ".workaholic/tickets/todo/busy-queued.md")));
+    assertTrue("and its mission is still active",
+      existsSync(join(A, ".workaholic/missions/active/busy/mission.md")));
+
+    // A NEAR MISS ALONE STILL SPEAKS. With nothing closable, the step must not fall through
+    // to "no mission is waiting to be closed" — which is the silence this half exists to end.
+    rmSync(join(A, ".workaholic/missions/active/done1"), { recursive: true });
+    execSync("git add -A && git commit -q -m 'Drop the closable one'", { cwd: A });
+    const only = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${A}`).stdout);
+    assertTrue("a near miss alone is still raised",
+      (only.needs_agent.find((e) => e.leftovers)?.leftovers ?? []).length === 1,
+      JSON.stringify(only));
+    assertTrue("...and never reads as nothing waiting",
+      !/no mission is waiting/.test(only.summary), only.summary);
+    assertTrue("...and supplies its own event", only.event.length > 0, only.event);
+    assertEq("and it wrote nothing either",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
     // A SURVEY THAT COULD NOT BE READ IS NOT AN EMPTY SET.
     const bad = JSON.parse(run(A, `${STEP} --tick 20260823-000000 --root ${join(A, "nope")}`).stdout);
     assertEq("an unreadable survey is degraded, by name", bad.status, "degraded");
@@ -27797,6 +27839,14 @@ function testModerateRun() {
     // direction past its date, a live one nothing is answering, a repository with none at
     // all. Same placement and same reason as its neighbour: it reads, the check-in asks.
     "direction-health",
+    // `date-will-not-hold` (2026-09-01): the date question that fires BEFORE the date. Its two
+    // neighbours both fire at or after it — `direction-overdue` once the date has gone,
+    // `direction-expiring` once it is inside the survey window — so a direction whose board
+    // will not clear was told to nobody until it was already too late. It sits immediately
+    // after `direction-health` because it EXCLUDES that step's own candidates by that step's
+    // own lifecycle reading rather than by a second copy of the `expiring` boundary, and —
+    // like its neighbours — it reads and the check-in asks.
+    "date-will-not-hold",
     // `stalled-units` is step 11 (2026-08-23, issue #584): the reading that lets the
     // check-in learn a claimed unit has stopped. Before it, a loop stalled for eleven
     // consecutive ticks and the one surface that names a person never heard about it.
@@ -35901,6 +35951,629 @@ esac`);
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+// ---------- strategy/landing-arithmetic.sh: what remains against how long is left ----------
+// (2026-09-01, ticket `20260901123357-say-which-directions-the-arithmetic-says-cannot-land`)
+//
+// The READING landed already — `/standup`'s digest names each direction, its missions, their
+// acceptance and queued counts. What nobody did was the ARITHMETIC over it: measured the day
+// this was filed, 30 queued tickets against three directions all dated the same day, six days
+// out, and no reading in this repository said that will not land.
+//
+// The four rows below are the ticket's own acceptance criteria: the per-direction answer, the
+// degraded read named with NULL counts, the dateless direction named rather than ranked, and
+// the structural pin that this composes readers instead of adding a walker, a relation or a
+// field.
+function testLandingArithmetic() {
+  const dir = makeRepo("main");
+  const SCRIPT = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts/landing-arithmetic.sh");
+  const ARITH = `${POSIX_SH} ${SCRIPT}`;
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, refs, date) =>
+    `---\ntype: Strategy\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `target_date: ${date}\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  const mission = (slug, refs, open, closed) =>
+    `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `feedback: [${refs}]\n---\n\n# ${slug}\n\n## Experience\n\ne\n\n## Acceptance\n\n` +
+    `${"- [ ] open\n".repeat(open)}${"- [x] closed\n".repeat(closed)}`;
+  try {
+    // Five directions, one shape each, so every verdict has a fixture that produces it.
+    //   tight   — two days left, five queued, one ticket landed in the window
+    //   roomy   — the same board with room to spare
+    //   stalled — nothing landed at all, so the observed rate is zero
+    //   undated — no date, so there is no denominator
+    //   drained — dated and tight, but nothing is queued
+    wf(".workaholic/strategies/tight.md", strategy("tight", "20260801000001-one.md", day(2)));
+    wf(".workaholic/strategies/roomy.md", strategy("roomy", "20260801000002-two.md", day(400)));
+    wf(".workaholic/strategies/stalled.md", strategy("stalled", "20260801000003-three.md", day(400)));
+    wf(".workaholic/strategies/undated.md", strategy("undated", "20260801000004-four.md", ""));
+    wf(".workaholic/strategies/drained.md", strategy("drained", "20260801000005-five.md", day(2)));
+
+    wf(".workaholic/missions/active/m-tight/mission.md", mission("m-tight", "20260801000001-one.md", 3, 1));
+    wf(".workaholic/missions/active/m-roomy/mission.md", mission("m-roomy", "20260801000002-two.md", 3, 1));
+    wf(".workaholic/missions/active/m-stalled/mission.md", mission("m-stalled", "20260801000003-three.md", 2, 0));
+    wf(".workaholic/missions/active/m-undated/mission.md", mission("m-undated", "20260801000004-four.md", 1, 0));
+    wf(".workaholic/missions/active/m-drained/mission.md", mission("m-drained", "20260801000005-five.md", 1, 1));
+
+    for (const m of ["m-tight", "m-roomy"]) {
+      for (let i = 1; i <= 5; i++) {
+        wf(`.workaholic/tickets/todo/2026081000000${i}-${m}-q${i}.md`,
+          `---\ncreated_at: 2026-08-10T00:00:0${i}+00:00\nmission: ${m}\n---\n\n# Queued ${i}\n`);
+      }
+      wf(`.workaholic/tickets/archive/work-20260810-000000/20260810000009-${m}-done.md`,
+        `---\ncreated_at: 2026-08-10T00:00:09+00:00\nmission: ${m}\nstatus: done\n---\n\n# Landed\n`);
+    }
+    for (let i = 1; i <= 3; i++) {
+      wf(`.workaholic/tickets/todo/2026081100000${i}-stalled-q${i}.md`,
+        `---\ncreated_at: 2026-08-11T00:00:0${i}+00:00\nmission: m-stalled\n---\n\n# Queued ${i}\n`);
+    }
+    for (let i = 1; i <= 2; i++) {
+      wf(`.workaholic/tickets/todo/2026081200000${i}-undated-q${i}.md`,
+        `---\ncreated_at: 2026-08-12T00:00:0${i}+00:00\nmission: m-undated\n---\n\n# Queued ${i}\n`);
+    }
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const readAll = (args = "") => JSON.parse(run(dir, `${ARITH} ${args}`).stdout);
+    const out = readAll("7 .workaholic");
+    const by = Object.fromEntries(out.directions.map((d) => [d.slug, d]));
+
+    // --- 1. PER DIRECTION: WHAT REMAINS, HOW LONG IS LEFT, AND WHETHER IT CLEARS ---------
+    assertEq("a completed read carries no `readable` key at all — absent means it completed",
+      Object.prototype.hasOwnProperty.call(out, "readable"), false);
+    assertEq("every direction is answered", out.directions.length, 5);
+    assertEq("what remains is counted at both grains, and only the queue is divided",
+      [by.tight.remaining.queued, by.tight.remaining.unchecked_acceptance, by.tight.remaining.missions],
+      [5, 3, 1]);
+    assertEq("the rate is the direction's own landed tickets over the window",
+      [by.tight.observed.landed, by.tight.observed.window_days], [1, 7]);
+    assertEq("a board that cannot land in the days left says so",
+      [by.tight.days_to_target, by.tight.verdict], [2, "does_not_clear"]);
+    assertEq("the same board with room to spare clears",
+      [by.roomy.remaining.queued, by.roomy.verdict], [5, "clears"]);
+    assertEq("and both were divided by the same needed_days, so the date is the only difference",
+      by.tight.needed_days, by.roomy.needed_days);
+    assertEq("a direction that has moved nothing does not clear, and needs no constant to say so",
+      [by.stalled.observed.per_day, by.stalled.needed_days, by.stalled.verdict],
+      [0, null, "does_not_clear"]);
+    assertEq("a direction with nothing queued clears whatever its date",
+      [by.drained.remaining.queued, by.drained.verdict], [0, "clears"]);
+    assertEq("its open acceptance is still reported beside the arithmetic, never folded in",
+      by.drained.remaining.unchecked_acceptance, 1);
+    assertEq("and the run is counted by verdict",
+      [out.counted.directions, out.counted.does_not_clear, out.counted.clears,
+       out.counted.no_target_date, out.counted.unreadable],
+      [5, 2, 2, 1, 0]);
+
+    // --- 2. A DATELESS DIRECTION IS NAMED, NEVER RANKED ---------------------------------
+    // There is no denominator, so it gets a named answer rather than an arithmetic one — and
+    // what remains is still reported, because that half is knowable without a date.
+    assertEq("a dateless direction is named rather than given a landing verdict",
+      [by.undated.target_date, by.undated.days_to_target, by.undated.needed_days, by.undated.verdict],
+      ["", null, null, "no_target_date"]);
+    assertEq("and what remains under it is still counted", by.undated.remaining.queued, 2);
+
+    // --- 3. A DEGRADED READ IS NAMED BY ITS REASON, WITH NULL COUNTS AND NO VERDICT ------
+    // The same induction the digest's own degradation row uses: a corpus entry `grep` cannot
+    // be handed. A zero here would read as "nothing remains", which is the opposite of
+    // "I could not see", and a landing verdict over it is the answer that costs the date.
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-12T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const bad = readAll("7 .workaholic");
+    const badTight = bad.directions.find((d) => d.slug === "tight");
+    assertEq("a degraded direction is named by the reader's own reason",
+      [badTight.readable, badTight.reason], [false, "corpus_unreadable"]);
+    assertEq("its counts are NULL, never the zeroes a finished direction carries",
+      [badTight.remaining.queued, badTight.remaining.unchecked_acceptance,
+       badTight.remaining.missions, badTight.observed.landed, badTight.observed.per_day,
+       badTight.needed_days],
+      [null, null, null, null, null, null]);
+    assertEq("and it is never given a landing verdict", badTight.verdict, "unreadable");
+    assertEq("the degradation is counted rather than dressed as an answer",
+      [bad.counted.unreadable, bad.counted.clears, bad.counted.does_not_clear], [5, 0, 0]);
+
+    // A WINDOW NOBODY CHOSE IS A DENOMINATOR NOBODY CHOSE: refused by name, never defaulted.
+    const badWindow = readAll("soon .workaholic");
+    assertEq("a window that is not a positive day count is refused by name",
+      [badWindow.readable, badWindow.reason, badWindow.directions, badWindow.counted],
+      [false, "bad_window", [], null]);
+
+    // --- 4. NO NEW WALKER, NO NEW RELATION, NO NEW FIELD --------------------------------
+    const body = readFileSync(SCRIPT, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("it walks no corpus of its own",
+      !/\bfind\s|missions\/active|tickets\/todo|tickets\/archive/.test(body), body);
+    assertTrue("it parses neither the feedback nor the mission relation",
+      !/read-feedback-relation\.sh|read-relation\.sh|^\s*feedback:|^\s*mission:/m.test(body), body);
+    assertEq("the only skill scripts it composes are the reading and the operator's own week",
+      [...body.matchAll(/([a-z-]+\.sh)/g)].map((m) => m[1]).filter((n) => n !== "landing-arithmetic.sh")
+        .filter((v, i, a) => a.indexOf(v) === i).sort(),
+      ["default-target-date.sh", "digest.sh"]);
+    assertEq("and it is a pure read: the tree is byte-identical after every call",
+      run(dir, "git status --porcelain").stdout.trim(), "");
+  } finally { cleanup(dir); }
+}
+
+// ---------- moderate/step-date-will-not-hold.sh: the date question asked BEFORE the date ----------
+// (2026-09-01, ticket `20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it`)
+//
+// Two date questions already existed and BOTH fired at or after the date: `direction-overdue`
+// once it had gone, `direction-expiring` once it was inside the survey window. Nothing asked
+// *before*, on the arithmetic — measured, three directions dated the same day, six days out, 30
+// queued tickets between them, every existing reading healthy and nobody told.
+//
+// The four rows below are the ticket's own acceptance criteria: the question asked once before
+// the date, the NO-WRITE assertion (the ask's "re-date" half is refused on a standing rule), the
+// overlap rule against the two existing date questions, and the dateless/degraded cases.
+function testDateWillNotHoldStep() {
+  const dir = makeRepo("main");
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-date-will-not-hold.sh");
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, refs, date) =>
+    `---\ntype: Strategy\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `target_date: ${date}\nassignees: [test@example.com]\nfeedback: [${refs}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  const mission = (slug, refs) =>
+    `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `feedback: [${refs}]\n---\n\n# ${slug}\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] open\n`;
+  try {
+    // Four directions, one board each, differing only in their date — so what separates a
+    // candidate from a non-candidate is exactly the term under test.
+    //   late     — 30 days out, will not clear at the observed rate, and reads `live`
+    //   roomy    — the same board 400 days out, so the arithmetic clears
+    //   expiring — the same board 2 days out, which `direction-health` already asks about
+    //   gone     — the same board 5 days PAST its date, which `direction-overdue` already owns
+    for (const [slug, date] of [["late", day(30)], ["roomy", day(400)],
+                                ["expiring", day(2)], ["gone", day(-5)]]) {
+      wf(`.workaholic/strategies/${slug}.md`, strategy(slug, `2026080100000${slug.length}-${slug}.md`, date));
+      wf(`.workaholic/missions/active/m-${slug}/mission.md`, mission(`m-${slug}`, `2026080100000${slug.length}-${slug}.md`));
+      for (let i = 1; i <= 5; i++) {
+        wf(`.workaholic/tickets/todo/2026081000000${i}-${slug}-q${i}.md`,
+          `---\ncreated_at: 2026-08-10T00:00:0${i}+00:00\nmission: m-${slug}\n---\n\n# Queued ${i}\n`);
+      }
+      wf(`.workaholic/tickets/archive/work-20260810-000000/20260810000009-${slug}-done.md`,
+        `---\ncreated_at: 2026-08-10T00:00:09+00:00\nmission: m-${slug}\nstatus: done\n---\n\n# Landed\n`);
+    }
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const before = execSync("git ls-files -s .workaholic/strategies", { cwd: dir }).toString();
+    // `direction-state.sh` reads the open proposals, which is a GitHub read; the hermetic
+    // fixture supplies them the way `direction-health`'s own caller does, through the file.
+    const open = join(mkdtempSync(join(tmpdir(), "wf-open-")), "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test@example.com", "proposals": []}\n');
+    const step = () => JSON.parse(
+      run(dir, `${POSIX_SH} ${STEP} --tick 20260901-120000 --root ${dir} --open-proposals ${open}`).stdout);
+    const s1 = step();
+
+    // --- 1. THE ARITHMETIC IS ASKED ABOUT, ONCE, BEFORE THE DATE ------------------------
+    const asked = (s1.needs_agent[0]?.directions ?? []);
+    assertEq("exactly one direction is asked about, keyed once per direction",
+      asked.map((d) => d.key), ["date-will-not-hold:late"]);
+    assertEq("and the question carries what remains, at BOTH grains, unblended",
+      [asked[0].remaining_queued, asked[0].remaining_unchecked_acceptance], [5, 1]);
+    assertEq("beside how long is left and the rate that was measured",
+      [asked[0].days_to_target, asked[0].landed_in_window, asked[0].window_days], [30, 1, 7]);
+    assertTrue("and needed_days is the arithmetic that did not clear",
+      asked[0].needed_days > 30, JSON.stringify(asked[0]));
+    assertTrue("the age rides the candidate, in the reader's own words",
+      Object.prototype.hasOwnProperty.call(asked[0], "age")
+        && Object.prototype.hasOwnProperty.call(asked[0].age, "first_seen"),
+      JSON.stringify(asked[0].age));
+    assertTrue("a candidate supplies an event", s1.event.length > 0, s1.event);
+    assertTrue("the body names the one act and never says the loop will re-date",
+      /re-dates the direction by announcing/.test(s1.needs_agent[0].compose)
+        && /Never say the loop will re-date it/.test(s1.needs_agent[0].compose),
+      s1.needs_agent[0].compose);
+
+    // --- 2. IT WRITES NOTHING, AND `amend.sh` IS NOT REACHABLE FROM IT -------------------
+    // The ask's "re-date" half is refused on a standing rule: a strategy is the operator's
+    // resolved direction, and a loop that moves its own deadlines when it misses them is a
+    // loop whose dates mean nothing.
+    assertEq("the strategy files are byte-identical after the step",
+      execSync("git ls-files -s .workaholic/strategies", { cwd: dir }).toString(), before);
+    assertEq("and the whole tree is",
+      run(dir, "git status --porcelain").stdout.trim(), "");
+    // The pin is on the PATH form — `.../amend.sh` — because the question body deliberately
+    // NAMES `amend.sh` in prose: the act it asks for is the operator announcing the change,
+    // which `/specificate` carries through that writer. Naming the route is the point;
+    // reaching the writer is what must be impossible.
+    const body = readFileSync(STEP, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const writer of ["amend.sh", "create.sh", "close.sh", "tick-acceptance.sh", "log-append.sh"]) {
+      assertTrue(`it cannot reach ${writer}`, !body.includes(`/${writer}`), body);
+    }
+
+    // --- 3. THE TWO EXISTING DATE QUESTIONS KEEP THEIR OWN CASES ------------------------
+    // The boundary is READ from `direction-state.sh` — the one lifecycle reader — never
+    // re-derived here, so a second copy of `expiring` cannot drift from the first.
+    assertTrue("the expiring direction is not asked about by this step",
+      !asked.some((d) => d.slug === "expiring"), JSON.stringify(asked));
+    assertTrue("nor is the overdue one",
+      !asked.some((d) => d.slug === "gone"), JSON.stringify(asked));
+    assertTrue("and the summary counts them as owned by another date question",
+      /2 of them already asked about by another date question/.test(s1.summary), s1.summary);
+    assertTrue("the boundary is read, not re-derived: no expiring/overdue arithmetic here",
+      !/expiring|overdue|days_to_target\s*[<>]/.test(body), body);
+    assertTrue("the direction whose arithmetic clears is asked about by nobody",
+      !asked.some((d) => d.slug === "roomy"), JSON.stringify(asked));
+
+    // --- 4. DATELESS AND DEGRADED YIELD NO CANDIDATE, AND ARE NAMED ---------------------
+    wf(".workaholic/strategies/undated.md", strategy("undated", "20260801000007-undated.md", ""));
+    wf(".workaholic/missions/active/m-undated/mission.md", mission("m-undated", "20260801000007-undated.md"));
+    wf(".workaholic/tickets/todo/20260813000001-undated-q1.md",
+      "---\ncreated_at: 2026-08-13T00:00:01+00:00\nmission: m-undated\n---\n\n# Queued\n");
+    execSync("git add -A && git commit -q -m 'Add a dateless direction'", { cwd: dir });
+    const s2 = step();
+    assertTrue("a dateless direction is never a candidate — there is nothing to escalate",
+      !(s2.needs_agent[0]?.directions ?? []).some((d) => d.slug === "undated"),
+      JSON.stringify(s2.needs_agent));
+    assertTrue("and it is named in the summary rather than dropped",
+      /1 have no date/.test(s2.summary), s2.summary);
+
+    // The digest's own degradation induction: a corpus entry `grep` cannot be handed.
+    wf(".workaholic/tickets/todo/has space.md",
+      "---\ncreated_at: 2026-08-14T00:00:00+00:00\n---\n\n# A path the walk cannot hand to grep\n");
+    execSync("git add -A && git commit -q -m 'Add an unconsumable corpus entry'", { cwd: dir });
+    const s3 = step();
+    assertEq("a degraded reading asks nobody and renders no root line",
+      [s3.needs_agent.length, s3.event], [0, ""]);
+    assertTrue("...and is counted by name, never as a board that clears",
+      /5 could not be read/.test(s3.summary), s3.summary);
+
+    // A LIFECYCLE READ THAT REFUSED IS `degraded` BY NAME, never an empty live set quietly
+    // asking nobody: the filter is what keeps this step and `direction-health` off one person
+    // in one tick, so without it the step has not found "nothing to escalate" — it has found
+    // nothing at all. (Dropping the proposals file is what the reader itself refuses on.)
+    const s4 = JSON.parse(
+      run(dir, `${POSIX_SH} ${STEP} --tick 20260901-120000 --root ${dir}`).stdout);
+    assertEq("a refused lifecycle read is degraded by the reader's own reason",
+      [s4.status, s4.reason, s4.needs_agent.length], ["degraded", "inbox_unreadable", 0]);
+
+    // A MISSING READER IS `degraded` BY NAME, never an `ok` step that found nothing.
+    const broken = join(dir, "broken-scripts");
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills"), broken, { recursive: true });
+    rmSync(join(broken, "strategy/scripts/landing-arithmetic.sh"));
+    const b = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(broken, "moderate/scripts/step-date-will-not-hold.sh")} --tick 20260901-120000 --root ${dir}`).stdout);
+    assertEq("a missing arithmetic reader is degraded by name",
+      [b.status, b.reason], ["degraded", "no_arithmetic_script"]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- drive/plan-units.sh: the offer order is derived and stated ----------
+// (2026-09-01, ticket `20260901123357-offer-the-executor-work-in-a-derived-order`)
+//
+// `missions[]` came back in whatever order the directory walk produced and nothing anywhere
+// said so — with 30 tickets queued against three directions dated the same day, that was the
+// difference between converging one direction and touching all three. `/propose`'s own
+// candidate order is stated in its reader's header so no consumer re-derives it; this gives
+// the executor's offer the same treatment.
+//
+// The four rows below are the ticket's own acceptance criteria: the order matches the stated
+// terms and is deterministic, it is documented in the reader's own header, WHICH units are
+// offered and the exclusion reasons are unchanged, and an unreadable term takes the stated
+// fallback position and is named.
+function testOfferOrderIsDerived() {
+  const dir = makeRepo("main");
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, ref, date) =>
+    `---\ntype: Strategy\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `target_date: ${date}\nassignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n` +
+    `# ${slug}\n\n## Aim\n\nx\n\n## Schedule\n\ny\n`;
+  // The mission slugs are chosen so the WALK order (LC_ALL=C on the directory name) is the
+  // reverse of the derived one for the two dated rows: if the sort were dropped the first
+  // assertion below fails, which is what makes it a pin rather than a coincidence.
+  const mission = (slug, ref) =>
+    `---\ntype: Mission\ntitle: ${slug} title\nslug: ${slug}\nstatus: active\n` +
+    `created_at: 2026-08-01T00:00:00+09:00\nauthor: test@example.com\nassignees: [test@example.com]\n` +
+    (ref ? `feedback: [${ref}]\n` : "") +
+    `---\n\n# ${slug}\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n`;
+  try {
+    wf(".workaholic/strategies/later.md", strategy("later", "20260801000001-later.md", day(50)));
+    wf(".workaholic/strategies/soon.md", strategy("soon", "20260801000002-soon.md", day(5)));
+    wf(".workaholic/strategies/nodate.md", strategy("nodate", "20260801000003-nodate.md", ""));
+
+    wf(".workaholic/missions/active/m-a/mission.md", mission("m-a", "20260801000001-later.md"));
+    wf(".workaholic/missions/active/m-b/mission.md", mission("m-b", "20260801000002-soon.md"));
+    wf(".workaholic/missions/active/m-c/mission.md", mission("m-c", "20260801000003-nodate.md"));
+    wf(".workaholic/missions/active/m-z/mission.md", mission("m-z", ""));
+    // One queued ticket each, or the mission is excluded `no_tickets` and never offered.
+    for (const m of ["m-a", "m-b", "m-c", "m-z"]) {
+      wf(`.workaholic/tickets/todo/2026081000000-${m}.md`,
+        `---\ncreated_at: 2026-08-10T00:00:00+00:00\nauthor: test@example.com\nassignees: [test@example.com]\nmission: ${m}\n---\n\n# q\n`);
+    }
+    // A mission with no queue at all: it must stay EXCLUDED, by its existing reason.
+    wf(".workaholic/missions/active/m-empty/mission.md", mission("m-empty", "20260801000002-soon.md"));
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+
+    // --- 1. THE ORDER MATCHES THE STATED TERMS, AND IS DETERMINISTIC --------------------
+    assertEq("the offer is ordered by the direction's date, then the two named fallbacks",
+      r.missions.map((m) => m.slug), ["m-b", "m-a", "m-c", "m-z"]);
+    assertEq("each row names the direction it was ordered by, and why",
+      r.missions.map((m) => [m.slug, m.direction, m.order_reason]),
+      [["m-b", "soon", "direction_date"], ["m-a", "later", "direction_date"],
+       ["m-c", "nodate", "direction_undated"], ["m-z", "", "unattributed"]]);
+    assertEq("a dated row carries the date it was ordered by and the days to it",
+      [r.missions[0].direction_target_date, r.missions[0].days_to_target], [day(5), 5]);
+    assertEq("a row with no date to sort on carries neither, rather than a zero",
+      [r.missions[2].direction_target_date, r.missions[2].days_to_target], ["", null]);
+    assertEq("the order is deterministic: a second survey is byte-identical",
+      JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout).missions.map((m) => m.slug),
+      r.missions.map((m) => m.slug));
+
+    // --- 2. THE ORDER IS DOCUMENTED IN THE READER'S OWN HEADER --------------------------
+    // The precedent and the exact obligation: `survey-strategies.sh` states its own order so
+    // no consumer re-derives it and a later change moves one place.
+    const head = readFileSync(SCRIPTS.planUnits, "utf8").split("\n").filter((l) => /^\s*#/.test(l)).join("\n");
+    assertTrue("the reader's own header states the order", /THE OFFER ORDER/.test(head), head.slice(0, 400));
+    for (const term of ["mission-strategy.sh", "direction_unreadable", "unattributed", "direction_undated"]) {
+      assertTrue(`...naming ${term}`, head.includes(term), term);
+    }
+    assertTrue("and says ordering changes order, never eligibility",
+      /never eligibility/i.test(head), head.slice(0, 400));
+
+    // --- 3. WHICH UNITS ARE OFFERED, AND THE EXCLUSION REASONS, ARE UNCHANGED ------------
+    assertEq("exactly the missions with queued work are offered",
+      r.missions.map((m) => m.slug).sort(), ["m-a", "m-b", "m-c", "m-z"]);
+    assertTrue("a mission with no queue is still excluded, by its own existing reason",
+      r.excluded.some((e) => e.id === "m-empty" && e.reason === "no_tickets"),
+      JSON.stringify(r.excluded));
+    assertTrue("and every row keeps the fields the survey already promised",
+      r.missions.every((m) => ["slug", "title", "merge_policy", "checked", "total", "next", "path"]
+        .every((k) => Object.prototype.hasOwnProperty.call(m, k))),
+      JSON.stringify(r.missions[0]));
+
+    // --- 4. AN UNREADABLE TERM TAKES THE STATED FALLBACK, AND IS NAMED -------------------
+    // With the resolver gone every row lands in the last group — which is exactly the
+    // pre-existing walk order, with the reason said rather than the order silently changing.
+    const broken = join(dir, "broken-skills");
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills"), broken, { recursive: true });
+    rmSync(join(broken, "strategy/scripts/mission-strategy.sh"));
+    const b = JSON.parse(run(dir, `${POSIX_SH} ${join(broken, "drive/scripts/plan-units.sh")}`).stdout);
+    assertEq("every row is named unreadable rather than ordered as though we had read it",
+      b.missions.map((m) => m.order_reason), ["direction_unreadable", "direction_unreadable",
+        "direction_unreadable", "direction_unreadable"]);
+    assertEq("and the fallback position is the walk order, unchanged",
+      b.missions.map((m) => m.slug), ["m-a", "m-b", "m-c", "m-z"]);
+    assertEq("the survey itself never fails on it",
+      [b.backlog_error, b.missions.length], ["", 4]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- propose: the repository's own work-in-progress bound ----------
+// (2026-09-01, ticket `20260901123357-hold-new-divergence-above-a-work-in-progress-limit`)
+//
+// `work_waiting` and `open_proposal` bound a STRATEGY — one mission per direction in flight.
+// Nothing bounded the REPOSITORY, so N directions each inside their own gate still put N
+// missions in flight together: measured, six in parallel with every merge to the base
+// re-conflicting five open pull requests on the loop's own generated index.
+//
+// The four rows below are the ticket's own acceptance criteria: with no declaration the survey
+// is byte-identical to today and the gate is a named no-op; with a declaration a tick above the
+// limit opens nothing and names the count and the limit; a tick below it proposes exactly as it
+// does now; and an unreadable count holds nothing and reports its reason.
+function testProposeWipLimit() {
+  const dir = makeRepo("main");
+  const SURVEY = join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh");
+  const wf = (rel, body) => {
+    const abs = join(dir, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, body);
+  };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  try {
+    // One ELIGIBLE direction: cited, dated, owned, with its own work all ARCHIVED, so nothing
+    // is waiting under it and no earlier gate fires. Two UNATTRIBUTED active missions with
+    // queued work are the repository's work in flight — they belong to no direction, which is
+    // exactly the shape a per-strategy gate cannot see.
+    wf(".workaholic/feedbacks/20260801000001-free.md", "---\ntype: Feedback\n---\n\nask\n");
+    wf(".workaholic/strategies/free.md",
+      `---\ntype: Strategy\ntitle: free t\nslug: free\nstatus: active\ntarget_date: ${day(30)}\n` +
+      `assignees: [test@example.com]\nfeedback: [20260801000001-free.md]\n---\n\n` +
+      `# free\n\n## Aim\n\nbuild x\n\n## Schedule\n\ny\n`);
+    wf(".workaholic/missions/archive/m-old/mission.md",
+      "---\ntype: Mission\ntitle: m-old\nslug: m-old\nstatus: achieved\n" +
+      "feedback: [20260801000001-free.md]\n---\n\n# m-old\n\n## Experience\n\ne\n\n## Acceptance\n\n- [x] a\n");
+    wf(".workaholic/tickets/archive/w1/20260810000001-old.md", "---\nmission: m-old\nstatus: done\n---\n\n# done\n");
+    for (const m of ["w-one", "w-two"]) {
+      wf(`.workaholic/missions/active/${m}/mission.md`,
+        `---\ntype: Mission\ntitle: ${m}\nslug: ${m}\nstatus: active\n---\n\n# ${m}\n\n` +
+        `## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n`);
+      wf(`.workaholic/tickets/todo/2026081000000-${m}.md`,
+        `---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: ${m}\n---\n\n# q\n`);
+    }
+    const open = join(mkdtempSync(join(tmpdir(), "wf-wip-")), "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test@example.com", "proposals": []}\n');
+    // THE COMMIT IS DATED INTO THE PAST, and that is load-bearing. `landed` is a
+    // `git log --since` read over the survey's window, so a fixture committed NOW falls inside
+    // ANY window: the direction then reads `quiescent` and is refused `arrived` by the rung
+    // ABOVE the one under test, and this case silently stops exercising the gate.
+    execSync("git add -A && git commit -q -m seed",
+      { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: "2001-01-01T00:00:00+0000",
+                         GIT_COMMITTER_DATE: "2001-01-01T00:00:00+0000" } });
+
+    // The window is deliberately short so the archived work does not read as JUST landed —
+    // otherwise the direction is `quiescent` and refused `arrived` by the gate above this one,
+    // and the fixture would be exercising that rung instead of this one.
+    const survey = (limit) => JSON.parse(run(dir,
+      `${limit === null ? "" : `WORKAHOLIC_WIP_LIMIT=${limit} `}` +
+      `${POSIX_SH} ${SURVEY} --open-proposals ${open} "1 days ago"`).stdout);
+
+    // --- 1. NO DECLARATION: A NAMED NO-OP, AND THE SURVEY IS UNCHANGED ------------------
+    const none = survey(null);
+    assertEq("with nothing declared the gate is a named no-op and takes no count",
+      [none.wip.declared, none.wip.limit, none.wip.count, none.wip.reason],
+      [false, null, null, "not_declared"]);
+    assertEq("and the direction is offered exactly as it is today",
+      [none.eligible.map((e) => e.slug), none.refused.map((r) => r.reason)], [["free"], []]);
+
+    // --- 2. BELOW THE LIMIT: BYTE-IDENTICAL TO TODAY, WITH THE READING REPORTED ---------
+    const under = survey(5);
+    assertEq("a tick below the limit proposes exactly as it does now",
+      under.eligible.map((e) => e.slug), ["free"]);
+    assertEq("and the gate still reports the count and the limit, so a reader can see the room",
+      [under.wip.declared, under.wip.limit, under.wip.count], [true, 5, 2]);
+
+    // --- 3. AT OR ABOVE THE LIMIT: HELD, NAMED, WITH THE COUNT AND THE LIMIT ------------
+    // The count is missions with queued work — the two unattributed ones — so a per-strategy
+    // gate could not have seen any of it.
+    for (const limit of [2, 1]) {
+      const over = survey(limit);
+      assertEq(`at a limit of ${limit} the direction is held by name`,
+        [over.eligible.length, over.refused.map((r) => [r.slug, r.reason])],
+        [0, [["free", "wip_limit"]]]);
+      assertEq("...and the tick says why rather than looking idle",
+        [over.wip.count, over.wip.limit, over.wip.readable], [2, limit, true]);
+    }
+
+    // --- 4. A GATE THAT CANNOT BE READ IS NOT A GATE ------------------------------------
+    const bad = survey("lots");
+    assertEq("a non-numeric declaration is named and holds nothing",
+      [bad.wip.readable, bad.wip.reason, bad.wip.count, bad.wip.limit],
+      [false, "bad_limit", null, null]);
+    assertEq("...and the direction is offered, because origination must not stop on our own read",
+      bad.eligible.map((e) => e.slug), ["free"]);
+
+    // AND IT IS PLACED LAST: a direction an earlier gate refuses is never ALSO counted here.
+    wf(".workaholic/missions/active/m-free/mission.md",
+      "---\ntype: Mission\ntitle: m-free\nslug: m-free\nstatus: active\n" +
+      "feedback: [20260801000001-free.md]\n---\n\n# m-free\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
+    wf(".workaholic/tickets/todo/2026081000000-m-free.md",
+      "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-free\n---\n\n# q\n");
+    execSync("git add -A && git commit -q -m 'Put work in flight under the direction'",
+      { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: "2001-01-02T00:00:00+0000",
+                         GIT_COMMITTER_DATE: "2001-01-02T00:00:00+0000" } });
+    const earlier = survey(1);
+    assertEq("a direction with its own work in flight keeps its own earlier refusal",
+      earlier.refused.map((r) => [r.slug, r.reason]), [["free", "work_waiting"]]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- the hourly root carries the plan's delta ----------
+// (2026-09-01, ticket `20260901123358-carry-the-plan-s-delta-in-the-hourly-post`)
+//
+// The daily digest says where the work stands, once a day. The hourly root carried only change
+// lines derived per step, so an hour in which the board moved read as a list of anomalies rather
+// than as a plan that had moved. The clause is composed from `strategy-pace`'s own `plan` block —
+// the one survey per tick that knows how the board stands — and gated on the same diff the change
+// loop uses, so an hour in which the plan did not move adds no line at all.
+function testPlanDeltaOnTheRoot() {
+  const dir = makeRepo("main");
+  const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
+  const R = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  const PACE_WAS = "no direction is late; 0 pace reading(s) could not be made; 1 direction(s) advancing, 0 held";
+  const paceRow = (summary, plan) => ({ step: "strategy-pace", status: "ok", summary, event: "", plan });
+  const render = (rows) => {
+    writeFileSync(join(dir, "rows.json"), JSON.stringify({ rows }));
+    return JSON.parse(run(dir,
+      `${R} --tick 20260901-110000 --questions 1 --hour 11 --weekday 3 --root . < rows.json`).stdout);
+  };
+  const drift = { step: "doc-drift", status: "ok", summary: "c", event: "doc-drift: c" };
+  try {
+    mkdirSync(join(dir, ".workaholic", "moderations"), { recursive: true });
+    run(dir, `${LOG} --tick 20260901-010000 --step doc-drift --status ok --summary "a" --root .`);
+    run(dir, `${LOG} --tick 20260901-010000 --step strategy-pace --status ok --summary "${PACE_WAS}" --root .`);
+
+    // --- 1. AN HOUR IN WHICH THE PLAN MOVED CARRIES A DELTA LINE ------------------------
+    const moved = render([drift, paceRow(
+      "no direction is late; 0 pace reading(s) could not be made; 1 direction(s) advancing, 2 held; 3 mission(s) in flight against a limit of 3",
+      { advancing: 1, held: 2, held_reasons: [{ reason: "work_waiting", count: 2 }],
+        wip: { declared: true, limit: 3, count: 3, readable: true, reason: "" } })]);
+    assertTrue("the root carries the plan's delta beside the change lines",
+      /📋 1 direction\(s\) advancing, 2 held/.test(moved.root_text), moved.root_text);
+    assertTrue("and a tick the repository's own limit is holding says so, with the count and the limit",
+      /new work is being held — 3 mission\(s\) in flight against a limit of 3/.test(moved.root_text),
+      moved.root_text);
+    assertTrue("the delta rides the existing change lines rather than replacing them",
+      /doc-drift: c/.test(moved.root_text), moved.root_text);
+    assertTrue("it carries no slug or identifier — how many is news, which is a task",
+      !/[a-z]+-[a-z]+-[a-z]+/.test(moved.root_text.split("\n").filter((l) => l.startsWith("📋")).join("")),
+      moved.root_text);
+    assertTrue("and no mention token: a line addressed to nobody must not wake the channel",
+      !/<@U/.test(moved.root_text), moved.root_text);
+
+    // --- 2. AN HOUR IN WHICH IT DID NOT MOVE ADDS NO LINE -------------------------------
+    // This is the whole difference between the clause and `📦 Release Preparation`, which was
+    // retired for restating an unchanged answer every hour.
+    const still = render([drift, paceRow(PACE_WAS,
+      { advancing: 1, held: 0, held_reasons: [],
+        wip: { declared: false, limit: null, count: null, readable: true, reason: "not_declared" } })]);
+    assertTrue("an unmoved plan renders no delta line at all",
+      !/📋/.test(still.root_text), still.root_text);
+    assertTrue("and the hour's own change lines are untouched",
+      /doc-drift: c/.test(still.root_text), still.root_text);
+
+    // --- 3. A DEGRADED READING IS NAMED, NEVER AN EMPTY DELTA ---------------------------
+    // A plan that could not be read and a plan that did not move are the two states this
+    // clause exists to keep apart.
+    const degraded = render([drift,
+      { step: "strategy-pace", status: "degraded", reason: "inbox_unreadable",
+        summary: "the strategy survey refused: inbox_unreadable", event: "", plan: {} }]);
+    assertTrue("a plan the tick could not read says so",
+      /📋 the plan could not be read this tick/.test(degraded.root_text), degraded.root_text);
+
+    // --- 4. `run.sh` CARRIES THE BLOCK, VERBATIM ----------------------------------------
+    // The tick REBUILDS every row from named fields, so a field it does not know is dropped:
+    // before this wiring the `plan` block reached the renderer in a hermetic test and in no
+    // real tick at all. The row is asserted against a stubbed step so it proves the carrying
+    // and not the survey.
+    const stub = join(dir, "stub-skills");
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills"), stub, { recursive: true });
+    const stubbed = { step: "strategy-pace", status: "ok", reason: "", summary: "1 advancing, 2 held",
+      needs_agent: [], event: "",
+      plan: { advancing: 1, held: 2, held_reasons: [{ reason: "work_waiting", count: 2 }],
+              wip: { declared: true, limit: 3, count: 3, readable: true, reason: "" } } };
+    writeFileSync(join(stub, "moderate/scripts/step-strategy-pace.sh"),
+      `#!/bin/sh\nprintf '%s' '${JSON.stringify(stubbed)}'\n`);
+    chmodSync(join(stub, "moderate/scripts/step-strategy-pace.sh"), 0o755);
+    const tick = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(stub, "moderate/scripts/run.sh")} --tick 20260902-120000 --root . --only strategy-pace --no-persist`).stdout);
+    assertEq("the tick carries the step's plan block through, nested values intact",
+      tick.steps[0].plan, stubbed.plan);
+    // A step that supplies none gets `{}` — an absent plan and an unreadable one are the
+    // renderer's distinction to draw, not the tick's.
+    writeFileSync(join(stub, "moderate/scripts/step-strategy-pace.sh"),
+      `#!/bin/sh\nprintf '%s' '{"step": "strategy-pace", "status": "ok", "reason": "", "summary": "s", "needs_agent": [], "event": ""}'\n`);
+    chmodSync(join(stub, "moderate/scripts/step-strategy-pace.sh"), 0o755);
+    const bare = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(stub, "moderate/scripts/run.sh")} --tick 20260902-130000 --root . --only strategy-pace --no-persist`).stdout);
+    assertEq("a step that supplies no plan carries an empty object, never a missing key",
+      bare.steps[0].plan, {});
+
+    // --- 5. IT EARNS NO POST ------------------------------------------------------------
+    // Like the impairment clause, it adds a line to a root that was already being posted. A
+    // tick the gates hold stays silent whatever the plan did.
+    writeFileSync(join(dir, "rows.json"), JSON.stringify({ rows: [drift, paceRow(
+      "no direction is late; 0 pace reading(s) could not be made; 9 direction(s) advancing, 9 held",
+      { advancing: 9, held: 9, held_reasons: [], wip: {} })] }));
+    const held = JSON.parse(run(dir,
+      `${R} --tick 20260901-110000 --questions 0 --hour 11 --weekday 3 --root . < rows.json`).stdout);
+    assertEq("a tick with nothing to ask stays silent however far the plan moved",
+      [held.post, held.root_text], [false, ""]);
+  } finally { cleanup(dir); }
+}
+
+T("strategy/landing-arithmetic.sh: what remains against how long is left", testLandingArithmetic);
+T("moderate/step-date-will-not-hold.sh: the date question asked before the date", testDateWillNotHoldStep);
+T("drive/plan-units.sh: the offer order is derived and stated", testOfferOrderIsDerived);
+T("propose: the repository's own work-in-progress bound", testProposeWipLimit);
+T("the hourly root carries the plan's delta", testPlanDeltaOnTheRoot);
 
 
 // THE RUNNER IS THE LAST THING IN THE FILE, AND MUST STAY THERE (2026-09-02, ticket

@@ -78,7 +78,7 @@ PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 # The step list IS the contract (reference/workflow.md states each one's inputs,
 # what it may write, and its abort reasons). Order is the ask's order, which is
 # also cheapest-first: the log, then the reads, then the writes, then the ask.
-STEPS='open-log blocked-tick inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health stalled-units raced-units undrivable-units standing-rulings undelivered-units handoff-units thread-reconcile stranded-publications operator-pulls retire-claims closable-missions unrecorded-missions base-health drill-health cadence-lapse strategy-digest question-answers unanswered-asks file-findings human-checkin'
+STEPS='open-log blocked-tick inbound-sweep workload-logs merge-conflicts issue-triage stuck-prs doc-drift release-status note-cadence strategy-pace direction-health date-will-not-hold stalled-units raced-units undrivable-units standing-rulings undelivered-units handoff-units thread-reconcile stranded-publications operator-pulls retire-claims closable-missions unrecorded-missions base-health drill-health cadence-lapse strategy-digest question-answers unanswered-asks file-findings human-checkin'
 
 TICK=''
 ROOT='.'
@@ -173,6 +173,34 @@ json_array_len() {
                 else if (c == "]" && depth == 0) break
             }
             print n
+        }'
+}
+
+# ONE STEP'S `plan` OBJECT, CARRIED THROUGH VERBATIM (2026-09-01, ticket
+# `20260901123358-carry-the-plan-s-delta-in-the-hourly-post`). This function rebuilds every row
+# from named fields, so a field it does not know is DROPPED — `strategy-pace`'s `plan` block
+# reached the renderer in a hermetic test and in no real tick until this was added. The reader
+# is `json_array_raw`'s shape with braces instead of brackets: a depth counter over the object
+# that follows the key, re-emitted rather than re-encoded, so the step owns its own shape and
+# this script learns nothing about it. A row without the key yields the empty string, and the
+# caller writes `{}` — an absent plan and an unreadable one are the renderer's distinction to
+# draw, not this one's.
+json_object_raw() {
+    printf '%s' "$2" | awk -v key="\"$1\":" '
+        {
+            i = index($0, key)
+            if (i == 0) { print ""; exit }
+            rest = substr($0, i + length(key))
+            i = index(rest, "{")
+            if (i == 0) { print ""; exit }
+            depth = 0; out = ""
+            for (j = i; j <= length(rest); j++) {
+                c = substr(rest, j, 1)
+                out = out c
+                if (c == "{") depth++
+                else if (c == "}") { depth--; if (depth == 0) break }
+            }
+            print out
         }'
 }
 
@@ -287,16 +315,24 @@ DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(prin
 log_file=''
 ok=0; filed=0; skipped=0; degraded=0; blocked=0; needs_total=0
 
+# A STEP THAT SUPPLIED NO PLAN GETS `{}`, AND THE DEFAULT IS A VARIABLE. Written inline as
+# `${9:-\{\}}` inside the double-quoted `printf` below, the braces come out with their
+# backslashes attached — `\{\}` is not JSON, and every row from the skipped/degraded paths
+# below (which pass no ninth argument) was unparseable. Caught by the suite's own
+# `the tick runs every step, and every step reports` row.
+EMPTY_PLAN='{}'
+
 emit_row() {
     # $1 step  $2 status  $3 reason  $4 summary  $5 needs_agent array body  $6 logged
     # $7 event  $8 needs_agent count (the body's own, counted once by the caller)
+    # $9 plan   the step's own `plan` object, verbatim; `{}` when it supplied none
     # `event` (2026-08-23) is the POST-facing phrase, carried beside the LOG-facing
     # `summary` and never instead of it. Two audiences: the log is an audit trail a
     # maintainer reads when the tick misbehaves, and it keeps every counter; the root is
     # read by a person scanning a channel, who needs the repository's events. The step
     # supplies it because the step knows what its finding MEANS and the renderer does not.
     # Empty means "nothing happened here" and renders no line at all.
-    rows="$rows${rows:+, }{\"step\": \"$1\", \"status\": \"$2\", \"reason\": \"$(json_escape "$3")\", \"summary\": \"$(json_escape "$4")\", \"needs_agent\": [$5], \"needs_agent_count\": ${8:-0}, \"logged\": $6, \"event\": \"$(json_escape "${7:-}")\"}"
+    rows="$rows${rows:+, }{\"step\": \"$1\", \"status\": \"$2\", \"reason\": \"$(json_escape "$3")\", \"summary\": \"$(json_escape "$4")\", \"needs_agent\": [$5], \"needs_agent_count\": ${8:-0}, \"logged\": $6, \"event\": \"$(json_escape "${7:-}")\", \"plan\": ${9:-$EMPTY_PLAN}}"
     case "$2" in
         ok)       ok=$((ok + 1)) ;;
         filed)    filed=$((filed + 1)) ;;
@@ -459,7 +495,9 @@ for step in $STEPS; do
     fi
 
     logged=$(log_step "$step" "$status" "$summary")
-    emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event" "$needs_n"
+    plan=$(json_object_raw plan "$out")
+    [ -n "$plan" ] || plan='{}'
+    emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event" "$needs_n" "$plan"
 
     # The opening is on the base before anything else runs. Keyed on the first step in
     # `STEPS` rather than on a loop counter, so a caller that narrowed the run with

@@ -146,8 +146,16 @@ the token cannot see, so absent and invisible are one response), `sweep_dedup_un
 | `already_announced` | the thread already carried a finish line of ours for this item — the whole dedup, read from the thread and stored nowhere |
 | `thread_unresolved: <reason>` | the `fb:<stem>` search matched nothing, or matched more than one thread; the tie goes to silence and nothing is posted |
 | `post_failed: <reason>` | the reply was attempted and refused; never load-bearing and never retried inside the turn |
+| `held: <reason>` | the item is real but the sentence could not be made true — its `landed[]` was unreadable and the reply would have had to invent what merged |
 
-The step costs the tick nothing that waits on work: it runs on the reads the turn has already made, before any subagent is spawned, and a failure anywhere in it blocks neither the sweep nor the spawns.
+**A tick that cannot see says so, and posts nothing.** Each of these is a behaviour with its own reported word, not a preference:
+
+- **An idle tick** — no candidate — reports `no_candidates`, opens no root and says nothing in the channel about having nothing to say.
+- **An unreadable candidate read** (`ok: false`) reports the reader's own reason **verbatim** and is **never** rendered as `no_candidates`. *Nothing finished* and *I could not see what finished* send a reader to different places, and this repository has twice measured a reader rendering its own blindness as *nothing found*.
+- **An unresolved or ambiguous thread** — the `fb:<stem>` search matched nothing, or matched more than one — posts nothing and reports `thread_unresolved: <reason>`. **The tie goes to silence**: a wrong thread is worse than none (`workaholic:notify`, *Fuzzy matching is prohibited*), and case 4's keyed root is refused here by name.
+- **A candidate whose `landed[]` could not be read** is announced only if the sentence stays true without the unresolved field; otherwise it is `held: <reason>` and left for a later tick. Never an invented name or time.
+
+Report every held candidate with its own word, so a quiet tick and a blind one are distinguishable in the run report. The step costs the tick nothing that waits on work: it runs on the reads the turn has already made, before any subagent is spawned, and a failure anywhere in it blocks neither the sweep nor the spawns.
 
 ## 2. Spawn the work, and do not wait for it
 
@@ -212,9 +220,9 @@ its own run; `/ship` and `/mission-close` already reap the claim worktrees they 
   reaction each, and `direction:<slug>`) / `already_answered` / `skipped_own_post`, or the named
   degradation.
 - **Per announced ask**: the issue and one of `announced` / `already_announced` /
-  `thread_unresolved: <reason>` / `post_failed: <reason>`. A tick with no candidate says
-  `no_candidates`; a candidate read that failed says the reader's own reason and is never
-  rendered as `no_candidates`.
+  `thread_unresolved: <reason>` / `post_failed: <reason>` / `held: <reason>`. A tick with no
+  candidate says `no_candidates`; a candidate read that failed says the reader's own reason and
+  is never rendered as `no_candidates`.
 - **Per loop**: `spawned` / `still_running` / `not_due` (naming the age it read), each with
   `reaped` when an idle agent was stopped first.
 - Nothing else. A tick that read a quiet channel and spawned nothing says exactly that.

@@ -1805,7 +1805,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |
 | `verify-retired-claim` | `hermetic` | yes | `retire-a-claim-whose-work-is-finished-or-abandoned` |
 | `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |
-| `verify-announced-asks` | `hermetic` | no | `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread` |
+| `verify-announced-asks` | `hermetic` | yes | `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread` |
 
 ### The evidence behind the classification
 

@@ -41,7 +41,7 @@ posts nothing, and a reading the tick could not make leaves the thread alone.
       repository-derived reader that never scans the channel. (#20260903052915-name-the-closed-asks-whose-thread-carries-no-finish-line.md)
 - [x] The tick posts one finish line into that thread naming what landed and by whom, and
       posts nothing for an item already announced. (#20260903052915-post-the-finish-line-from-the-tick-once-per-ask.md)
-- [ ] An idle tick and an unreadable read both leave the thread alone, and a drift in the
+- [x] An idle tick and an unreadable read both leave the thread alone, and a drift in the
       post shape fails a check. (#20260903052915-hold-the-tick-silent-where-it-cannot-see.md)
 
 ## Changelog
@@ -51,3 +51,4 @@ posts nothing, and a reading the tick could not make leaves the thread alone.
 - 2026-09-03 — ticket archived — 20260903052915-carry-what-landed-onto-each-unannounced-closed-ask.md
 - 2026-09-03 — ticket archived — 20260903052915-state-the-finish-line-for-an-ask-that-landed-outside-a-unit.md
 - 2026-09-03 — ticket archived — 20260903052915-post-the-finish-line-from-the-tick-once-per-ask.md
+- 2026-09-03 — ticket archived — 20260903052915-hold-the-tick-silent-where-it-cannot-see.md

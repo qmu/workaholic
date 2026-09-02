@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T05:29:15+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,34 @@ rather than a sentence in a document.
 
 - This repository has twice measured a reader rendering its own blindness as *nothing found*.
   The bound is written here as behaviour precisely because prose did not hold it before.
+
+## Final Report
+
+Development completed as planned. Each of the ask's three bounds is now a behaviour with its own
+reported word rather than a sentence in a document, and a fourth rides beside them.
+
+An **idle tick** reports `no_candidates`, opens no root and says nothing in the channel about
+having nothing to say. An **unreadable candidate read** reports the reader's own reason verbatim
+and is never rendered as `no_candidates`. An **unresolved or ambiguous thread** posts nothing and
+reports `thread_unresolved: <reason>` — the tie goes to silence, and case 4's keyed root is
+refused here by name. A candidate whose `landed[]` could not be read is `held: <reason>` unless
+the sentence stays true without it, so no reply ever carries an invented name or time. Every held
+candidate is reported with its own word, which is what makes a quiet tick and a blind one
+distinguishable in the run report.
+
+The reader's refusal paths carry hermetic cases in `node scripts/test-workflow-scripts.mjs` (a
+refused listing, and an unreadable timeline held apart from a hand-closed item), and
+`verify-announced-asks` gained the two matching drill rows plus a **breaker**: wire the refusal
+to answer with an empty candidate list, and a blind hour becomes indistinguishable from a quiet
+one. The register row moved to `yes`.
+
+### Discovered Insights
+
+- **Insight**: The reader has two independent blindness surfaces, one nested inside the other —
+  the listing, which decides whether there are candidates at all, and the per-candidate
+  timeline, which decides what closed each one. They need separate words (`ok: false` with its
+  reason, and `landed_read: timeline_unreadable`) because they hold different things: the first
+  holds the whole tick, the second holds one candidate. Collapsing them would make a single
+  unreadable timeline silence an hour that had other announceable items in it.
+  **Context**: The same shape recurs wherever a bounded per-item read hangs off a listing.
+

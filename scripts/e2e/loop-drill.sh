@@ -9360,6 +9360,14 @@ cmd_verify_cadence_lapse() {
 #
 # HERMETIC. The fixture is a throwaway git repository this function builds and a `gh` stub on
 # `PATH` that answers from files. No network, no real `gh`, no Slack, no `origin`, no credential.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR, not the return shape: wire the reader so a
+# refused listing answers `ok: true` with an empty candidate list instead of `ok: false` with
+# its reason, and a blind hour must then be indistinguishable from a quiet one. That is the
+# only way this reading can do harm — the tick would report `no_candidates` over an hour it
+# could not see, and this repository has twice measured a reader rendering its own blindness as
+# *nothing found*. Without the breaker, rows 4 and 5 could pass against a reader that never had
+# the distinction.
 cmd_verify_announced_asks() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"
     _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
@@ -9419,6 +9427,7 @@ esac
 jq -r "\$prog" < "\$f"
 STUB
     chmod +x "${_bin}/gh"
+    cp "${_bin}/gh" "${_bin}/gh-real"
 
     _read() { ( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_reader" --root "$_fx" 2>&1 ) || true; }
 
@@ -9448,6 +9457,60 @@ STUB
         add_row "announced_hand_closed_is_its_own_sentence" true "an issue closed with nothing merged reads closed_unmerged, positively" load
     else
         add_row "announced_hand_closed_is_its_own_sentence" false "a hand-closed item did not say so: $(one_line "$_r2")" load
+    fi
+
+    # 4. AN UNREADABLE LISTING IS NEVER AN EMPTY ONE. `ok: false` with a named reason and
+    #    EXIT 0, and no candidate list at all for a caller to misread as *nothing to announce*.
+    #    The tick holds silent on this and reports the reader's own reason verbatim.
+    cat > "${_bin}/gh" <<'BLIND'
+#!/bin/sh
+echo "boom" >&2
+exit 1
+BLIND
+    chmod +x "${_bin}/gh"
+    _blind=$(( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_reader" --root "$_fx" 2>&1; printf ' exit=%s' "$?" ) || true)
+    case "$_blind" in
+        *'"ok": false'*'"reason": "list_failed"'*' exit=0')
+            case "$_blind" in
+                *candidates*) add_row "announced_blind_is_not_empty" false "a refused listing emitted a candidate list: $(one_line "$_blind")" load ;;
+                *) add_row "announced_blind_is_not_empty" true "a refused listing answers ok false with its reason, exit 0, and no candidate list" load ;;
+            esac ;;
+        *) add_row "announced_blind_is_not_empty" false "expected ok false / list_failed / exit 0, got: $(one_line "$_blind")" load ;;
+    esac
+
+    # 5. AN UNREADABLE TIMELINE HOLDS THE CANDIDATE. *Nobody merged anything* and *I could not
+    #    see what merged* are different sentences, and only the first may be announced.
+    cat > "${_bin}/gh" <<STUB2
+#!/bin/sh
+case "\$*" in
+  *timeline*) echo "boom" >&2; exit 1 ;;
+esac
+exec ${_bin}/gh-real "\$@"
+STUB2
+    chmod +x "${_bin}/gh"
+    _r3=$(_read)
+    if printf '%s' "$_r3" | jq -e '.candidates[0].landed_read == "timeline_unreadable" and .candidates[0].closed_unmerged == false and (.candidates[0].landed | length == 0)' >/dev/null 2>&1; then
+        add_row "announced_unreadable_landing_is_held" true "an unreadable timeline is named, never rendered as an item a person closed" load
+    else
+        add_row "announced_unreadable_landing_is_held" false "an unreadable timeline was not distinguished from a hand-closed item: $(one_line "$_r3")" load
+    fi
+
+    # 6. THE BREAKER. Wire a refused listing to answer with an empty candidate list, and the
+    #    blind hour becomes indistinguishable from the quiet one.
+    _broken="${_tmp}/broken-reader.sh"
+    sed -e 's/^    printf .{"ok": false, "reason": "%s", "detail": "%s"}.n. "\$1" "\$detail"$/    printf '"'"'{"ok": true, "slug": "x", "limit": 10, "read": 0, "truncated": false, "candidates": [], "unresolved": []}\\n'"'"'/' \
+        "$_reader" > "$_broken"
+    cat > "${_bin}/gh" <<'BLIND2'
+#!/bin/sh
+echo "boom" >&2
+exit 1
+BLIND2
+    chmod +x "${_bin}/gh"
+    _bk=$(( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_broken" --root "$_fx" 2>&1 ) || true)
+    if printf '%s' "$_bk" | jq -e '.ok == true and (.candidates | length == 0)' >/dev/null 2>&1; then
+        add_row "announced_breaker" true "with the refusal wired to an empty list, a blind hour reads exactly like a quiet one (this drill can fail)" breaker
+    else
+        add_row "announced_breaker" false "the breaker did not break: the wired-out reader still distinguished blindness ($(one_line "$_bk")), so rows 4 and 5 prove nothing" breaker
     fi
 
     # 3. THE SHAPE LIVES IN TWO FILES AND THE TWO MUST NOT DRIFT. The catalog decides it; the

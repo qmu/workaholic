@@ -32,13 +32,18 @@
 # reading — a reader who wants the whole picture gets it, and the narrowing is visible in the
 # same line as the total.
 #
-# THREE FILTERS, NOT ONE. The threshold below, and two verdicts:
+# FOUR FILTERS, NOT ONE. The threshold below, and three verdicts:
 #
 #   `superseded` (2026-08-26) — a claim whose work already reached the base is FINISHED, so
 #   there is nothing for a person to look at and nothing for them to decide. Asking anyway is
 #   the question layer crying wolf, and it is not free: the asked-once ledger means the one real
 #   stalled unit then arrives inside a stream a person has learned to skip. Measured: three
 #   merged pull requests were each being asked about.
+#
+#   `stranded` (2026-09-02) — the same argument again, one verdict over. Its tickets are
+#   archived on the base while its branch still holds content found on no other ref: it has not
+#   stalled, it has been ORPHANED, and the honest question names the FILES so a person can rule
+#   on the work. `retire-claims` asks it; this step counts it.
 #
 #   `awaiting_verification` (2026-08-27, mission
 #   `ask-for-the-one-act-a-declared-handoff-is-waiting-on`) — the same argument one verdict over.
@@ -235,8 +240,19 @@ finished=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "superse
 n_finished=$(printf '%s' "$finished" | jq 'length')
 declared=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "awaiting_verification")]')
 n_declared=$(printf '%s' "$declared" | jq 'length')
+# AND A `stranded` CLAIM IS A FACT WITH ANOTHER STEP'S QUESTION ON IT (2026-09-02, ticket
+# `20260831203454-tell-a-person-about-a-stranded-claim-branch`). Its tickets are archived on the
+# base and its branch still holds content found on no other ref: it has not stalled, it has been
+# ORPHANED, and "a claimed unit has not moved for a day or more" sends a person to look for a
+# run that died when what they must actually rule on is work nobody can reach. `retire-claims`
+# asks it, naming the files; this step filters and COUNTS, the same half of the same rule
+# `superseded` and `awaiting_verification` already follow — ONE STEP ASKS AND THE OTHER FILTERS,
+# and either half alone is a defect.
+stranded=$(printf '%s' "$rows" | jq -c '[.[] | select(.resume_reason == "stranded")]')
+n_stranded=$(printf '%s' "$stranded" | jq 'length')
 stalled=$(printf '%s' "$rows" | jq -c '[.[] | select(.stale)
-    | select(.resume_reason != "superseded" and .resume_reason != "awaiting_verification")]')
+    | select(.resume_reason != "superseded" and .resume_reason != "awaiting_verification"
+             and .resume_reason != "stranded")]')
 n_raced=0
 if [ -n "$raced_set" ]; then
     raced_json=$(printf '%s\n' "$raced_set" | jq -Rsc 'split("\n") | map(select(length > 0))')
@@ -295,7 +311,7 @@ n_stalled=$(printf '%s' "$stalled" | jq 'length')
 # exactly the shape `📦 Release Preparation` was retired for. What the maintainer needs from
 # the age is in the question, which names the unit; what the diff needs is a summary that
 # moves only when the finding does.
-summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_declared} awaiting a declared verification, ${n_raced} held by two live claims, ${n_retiring} already owned by the retirement path, ${n_stalled} past the claim protocol's staleness threshold"
+summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_stranded} stranded (tickets archived, branch still holds work), ${n_declared} awaiting a declared verification, ${n_raced} held by two live claims, ${n_retiring} already owned by the retirement path, ${n_stalled} past the claim protocol's staleness threshold"
 if [ "$retirable_attempted" = "true" ] && [ "$retirable_readable" != "true" ]; then
     summary="${summary}; which claims the retirement path owns could not be read, so nothing was filtered on it"
 fi

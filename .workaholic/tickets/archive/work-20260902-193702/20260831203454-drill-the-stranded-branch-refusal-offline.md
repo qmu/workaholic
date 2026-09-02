@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:34:54+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,49 @@ check run instead.
 - Reuse the first ticket's seeder rather than writing a second one, and keep the sandbox's
   cleanup unconditional — a drill that leaves throwaway repositories behind on failure is how a
   container runs out of disk.
+
+## Final Report
+
+Development completed as planned. `verify-stranded-claim-branch` is the loop's drill for the one
+mechanism whose regression **destroys work rather than delaying it**.
+
+- **One `verify-*` arm** (step 1) over the first ticket's reproduction, seeding all three cases:
+  a branch empty against the base outside `.workaholic/` (the ordinary superseded twin), a branch
+  holding a file present on no other ref, and an emptiness that cannot be read.
+- **The delete is allowed to actually run** (step 2). The origin is a real bare repository over
+  the file transport, so `retire-claim.sh`'s `push --delete` succeeds when the proof holds; only
+  the pull-request half is stubbed. The assertions are on the **refs and the file contents on
+  origin afterwards**, at **both grains**, never on a return word — a row asserting the JSON
+  shape would pass over a delete that happened anyway.
+- **Registered** in `docs/loop-drill-runbook.md` §9 as `hermetic` with `Breaker: yes` (step 3),
+  and in the operator table at the top of the runbook, with §5t-b describing what it proves and
+  what it does not.
+- **The CI leg is derived, not written** (step 4): `.github/workflows/loop-drills.yml` builds its
+  matrix from `verify-all --list --kind hermetic`, which now enumerates this drill. A hand-listed
+  leg would be the second enumeration that workflow exists to remove.
+- **The failure-reason → file blame table** is the row table in §5t-b (step 5), one line per
+  check naming which file a red row points at.
+
+**The breaker was proved, not asserted** (the gate's own words). With the diff term reverted in
+`claims_superseded`, both work-holding branches came back `retired: true,
+remote_branch_deleted: deleted` and four rows went red including the breaker; restoring the term
+turns it green. That is the loss reproduced on demand.
+
+**What it does not prove** is stated in the runbook rather than implied: it proves the refusal
+and the derivation behind it, **not the transport**. It cannot show that the production 403 is
+gone or that a real remote delete behaves identically to a file-transport one.
+
+### Discovered Insights
+
+- **Insight**: A drill fixture for the **mission grain** must seed a ticket that names the
+  mission at the branch tip. Without it `claims_mission_landed` cannot answer locally, the
+  verdict falls through to `claim-merged.sh` — which the drill deliberately disables — and the
+  row measures the transport's absence rather than the emptiness under test. The first run of
+  this drill failed exactly there and read `report_incomplete`.
+  **Context**: Any future hermetic fixture over a mission-grain claim needs the same seed and the
+  same `WORKAHOLIC_CLAIM_MERGED_LOOKUP=0`.
+- **Insight**: `cmd_verify_retire` and `cmd_verify_delivery_retry` share a ticket-seeding loop
+  byte-for-byte, so a text-substitution edit aimed at a new drill silently landed in
+  `verify-delivery-retry` instead. It was caught by running that drill, not by reading the diff.
+  **Context**: `loop-drill.sh` is ~10k lines of near-identical fixture prologues; an edit to one
+  drill must be anchored on something unique to it, and the neighbouring drills re-run afterwards.

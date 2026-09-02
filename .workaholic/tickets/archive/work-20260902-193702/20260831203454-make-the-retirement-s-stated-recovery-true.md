@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:34:54+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,41 @@ what.
   was right — and repairing only the first leaves the next reader the same false assurance.
 - Resist widening the headers. They are already long; what is added is one sentence per proof
   and the measurement that earned it.
+
+## Final Report
+
+Development completed as planned. This is the smallest ticket in the mission and, as its own
+Considerations predicted, the easiest to skip: the derivation had been repaired while the
+document that said it was right had not moved.
+
+- **The two proofs are stated separately** (steps 1 and 2), in `retire-claim.sh`'s header and in
+  `drive/reference/claims.md`. The header used to offer as recovery that a deleted branch is
+  recoverable *because its content is on the base — that is what `superseded` means*, and that
+  parenthesis was the load-bearing half of the whole safety argument and was false. It now names
+  what establishes each half: `claims_archived_on_base` / `claims_mission_landed` for *the
+  tickets are archived*, `claims_branch_empty_against_base` for *the branch holds no work* — and
+  says plainly that **neither implies the other**, with the measurement that proved it, so the
+  diff term cannot be removed later as redundant.
+- **The 403's role is recorded honestly** (step 3): the delete never ran against the measured
+  branches, so this is a **near miss rather than a history**, the tick was reporting that refusal
+  as the problem, and repairing the transport without the verdict would have turned a reported
+  nuisance into a silent loss on the first tick after the fix.
+- **`not_on_base` was checked and re-documented rather than renamed** (step 4). Since the
+  emptiness term joined `claims_superseded`, re-deriving it refuses on **two** facts while the
+  word names only the first — so the name genuinely under-describes what it tests. It is kept
+  because it is a **wire string**: it reaches `record-ci-retirement-turn.sh`'s annotations,
+  `read-ci-retirement-record.sh`, and `/moderate`'s `retire-blocked:<unit>:<word>` question key
+  and its asked-once ledger. Renaming it would re-ask every standing question under a new key and
+  orphan every record written under the old one — a person asked twice about a branch nothing had
+  changed about. The cost of keeping it is one paragraph, written where a reader chasing the word
+  arrives.
+- `CLAUDE.md` moves in the same commit (step 5), and `claims.md`, `CLAUDE.md` and both act
+  headers now agree.
+
+### Discovered Insights
+
+- **Insight**: A refusal word in this repository is an interface, not a label. It is matched by
+  CI annotations, by a record reader, and by a question key whose whole purpose is to be stable
+  across ticks — so "rename it to match what it now tests" is the expensive option and
+  documenting the gap is the cheap one. That inverts the usual instinct.
+  **Context**: The same reasoning applies to every `refuse <word>` in the claim protocol's acts.

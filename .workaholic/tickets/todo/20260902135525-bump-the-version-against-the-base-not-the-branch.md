@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260902-225923
 ---
 
 # Bump the version against the base, not the branch

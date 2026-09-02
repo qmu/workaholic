@@ -217,6 +217,23 @@ one: a *mission* whose whole ticket set would produce documentation about a buil
 refused exactly as a single documenting change was. The refusal is reported like every other
 gate (`describing_move`), and a tick refused for it opens nothing rather than reading as idle.
 
+**A move that INVENTS a cross-cutting obligation is refused by name** (2026-09-02, issue #862).
+A proposal whose deliverable is a new per-page verdict, stamp, score, gate, or frontmatter key
+laid over every page of a repository — a "demonstrability" verdict on ~100 specification pages,
+a build gate failing on its absence, a generator and a model module to carry it — is not an
+evolutionary move; it is scope the operator never granted, whatever move word it claims.
+Measured: roughly fifty self-approved propose→specificate→implement cycles built exactly that
+apparatus, unattended, against a direction the operator had already judged arrived; the operator
+called it incomprehensible AI slop and tore it out by hand, so the waste was paid twice. The
+refusal is `invented_obligation`, and it is a judgement the run makes at composition — the test:
+does this mission create an obligation that every existing page/artifact must newly satisfy,
+where no strategy acceptance item, Schedule milestone, or human ask names that obligation? Such
+work is proposable only when a human ask names it, in which case it arrives through the inbound
+path and never through origination. **And a `depth` move has a floor**: it names the acceptance
+item or Schedule milestone it advances, on the strategy it targets — a move that can justify
+itself only by "the same reasoning has not yet been applied to X" is describing the move, not
+the aim, and is refused with it.
+
 *Why the housekeeping refusal below does not already catch it.* That one works because
 housekeeping is chosen against **nothing** — nobody argues for the mess — so the body floor's
 `## What this is chosen against` section catches it. A new page about the Aim passes that floor
@@ -573,13 +590,9 @@ reading refused when the tree could not be read (`workaholic:strategy`,
 refusing on it would let any unrelated mission suppress every arrival forever. What a non-empty
 residue earns is being **named**, in the question and in the run report.
 
-#### Quiescent changes no gate — and the reason is recorded so it is not changed by reflex
+#### Quiescent gates origination — and the earlier decision is recorded beside the measurement that overturned it
 
-`quiescent` **lifts and closes no gate.** An arrived direction stays **eligible**; `refusal`,
-`pace`, `overdue`, `dormant`, the sort and `selected` are byte-identical, and `/propose` keeps
-proposing against it. What changes is only that the run report **says** it is doing so:
-a tick that proposes against a `quiescent: true` strategy names `arrived` beside that proposal,
-as evidence, in the same voice `pace` uses (`reference/loop.md`, step 5).
+`quiescent` **refuses origination**, as `arrived`, one rung below `no_feedback_refs` (2026-09-02, issue #860). From 2026-08-27 to that day it lifted and closed no gate: an arrived direction stayed eligible, `/propose` kept proposing against it, and the run report merely named `arrived` beside the proposal — on the reasoning that a machine's reading of arrival is not a decision that the direction is done. **Measured on a consuming repository:** that reasoning selected the direction that needed work *least*. `work_waiting` and `open_proposal` refuse every direction with work in flight, so the directions the operator was invested in were the refused rows and the arrived one — nothing waiting, by definition — was the eligible one; `over_cap` being retired meant it got a new `depth` mission the hour its last one landed, indefinitely; `depth` on a documentation-shaped aim can always invent one more axis; and `[Implement]` drove each within the hour because it was the only claimable unit. Ten missions on one aim, each adding a metadata key, and the operator asking why the loop scheduled this first. The old decision's concern is kept by **where the decision lands**: the tick still makes no ruling that the direction is done — `/moderate`'s `direction-arrived:<slug>` question asks the assignee whether to close or extend, and extending is an amendment to the Schedule that changes what `landed`-versus-waiting reads, which lifts the gate through the artifact. Inbound work still reaches an arrived direction; this refuses origination only, as `observing` does. A degraded residue read still makes `quiescent` false, which now errs toward proposing — inherited, named, accepted.
 
 **And it names that strategy's residue beside it** (2026-08-28) — the unattributed mission slugs
 and the counts, kept short. An `arrived` reading printed without its residue is the same partial

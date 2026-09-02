@@ -509,10 +509,25 @@ jq -sc \
           # It is computed BEFORE `refusal` so that expression, `pace`, `overdue`, `dormant`,
           # the sort and `selected` stay byte-identical.
           #
-          # IT LIFTS AND CLOSES NO GATE. An arrived direction stays eligible and `/propose`
-          # keeps proposing against it; the gate that eventually holds is `not_active`, after
-          # A PERSON closes the direction. A reading of arrival made by a machine is not a
-          # decision that the direction is done.
+          # IT GATES ORIGINATION (2026-09-02, issue #860 — overturning the 2026-08-27
+          # decision that it lifted and closed no gate). Measured on a consuming repository:
+          # an arrived direction received a new `depth` mission the hour its last one landed,
+          # indefinitely — ten missions on one aim, each inventing one more metadata axis,
+          # implemented and merged unattended within the hour, while the directions the
+          # operator was invested in sat refused `work_waiting`. Eligibility was inversely
+          # correlated with remaining need, and the loop output became whatever it could
+          # invent for itself. The refusal is `arrived`, one rung below `no_feedback_refs`;
+          # the question the old decision protected — a machine reading is not a decision
+          # that the direction is done — is preserved by WHERE the decision now lands:
+          # the `/moderate` `direction-arrived:<slug>` question already asks the assignee
+          # whether to close or extend, and an operator who extends does it by amending the
+          # Schedule (a stage move, a new milestone), which makes `landed`-vs-waiting read
+          # differently and lifts the gate through the artifact rather than through a word.
+          # Inbound work still reaches an arrived direction — this refuses ORIGINATION only,
+          # exactly as `observing` does. A degraded residue read still makes `quiescent`
+          # false, which now errs toward proposing; that is inherited, named here, and
+          # accepted — refusing all origination on any unreadable walk trades one silence
+          # for another.
           #
           # AND SINCE 2026-08-28 IT REFUSES AN ARRIVAL OVER A TREE WE COULD NOT SEE (mission
           # `say-what-the-direction-could-not-see-before-calling-it-arrived`). A DEGRADED
@@ -547,6 +562,9 @@ jq -sc \
            elif (.stage == "観察中") then "observing"
            elif ((.days_to_target != null) and (.days_to_target < 0)) then "past_target_date"
            elif ((.feedback_refs | length) == 0) then "no_feedback_refs"
+           # ARRIVED (2026-09-02, issue #860): a direction whose work is all in receives no
+           # machine-originated proposal. See the `quiescent` block for the full record.
+           elif .quiescent then "arrived"
            # WORK_WAITING AT THE MISSION GRAIN (2026-08-26). A proposal is a whole mission,
            # so the brake asks whether one is already in flight. Two terms, OR'"'"'d, and both
            # are needed: the MISSION term (an active attributed mission) is what makes the

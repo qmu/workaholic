@@ -1085,7 +1085,11 @@ function testFalseArrivalCharacterization() {
     assertTrue("the strategy is surveyed", !!row, JSON.stringify(j));
     assertEq("it reads as arrived over an unattributed active mission",
       [row.quiescent, row.waiting_missions ?? 0, row.waiting_count ?? 0], [true, 0, 0]);
-    assertTrue("and its own work did land", (row.landed || []).length > 0, JSON.stringify(row.landed));
+    // SINCE 2026-09-02 (issue #860) AN ARRIVED DIRECTION IS REFUSED `arrived`, so the row
+    // sits in `refused[]` and carries `landed_count` rather than the `landed[]` list.
+    assertTrue("and its own work did land",
+      (row.landed || []).length > 0 || (row.landed_count || 0) > 0, JSON.stringify(row));
+    assertEq("and the arrival refuses origination", row.reason, "arrived");
   } finally { cleanup(A); }
 }
 

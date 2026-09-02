@@ -22005,7 +22005,90 @@ function testClaimRaceSettledAtTheRemote() {
   }
 }
 
+// ---------- the version collision two branches from one base produce ----------
+// MEASURED on this repository's `main`, 2026-09-02: five consecutive merges carried two version
+// numbers between them. Every branch HAD bumped — `check-version-bump.sh` compares a branch
+// against its own base and each `N -> N+1` was individually right — and every later squash then
+// carried a bump commit whose CONTENT the base already held, so it produced no version diff and
+// nothing reported it. The reproduction is the defect; the second half is the reading that
+// catches it.
+function testVersionAheadOfTheBase() {
+  const CHECK = join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check-version-bump.sh");
+  const dir = makeRepo();
+  try {
+    const manifest = join(dir, ".claude-plugin/marketplace.json");
+    mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+    const setV = (v) => writeFileSync(manifest, `{\n  "version": "${v}"\n}\n`);
+    const check = (base) => JSON.parse(run(dir, `${POSIX_SH} ${CHECK} ${base}`).stdout);
+
+    setV("1.0.9");
+    execSync('git add -A && git commit -q -m "seed the manifest"', { cwd: dir });
+    execSync("git branch -f base", { cwd: dir });
+
+    // TWO BRANCHES FROM ONE BASE, each carrying its own work and each bumping correctly. The
+    // work matters to the fixture, not only to realism: two branches with identical trees and
+    // messages from one parent produce the SAME commit object, and the second is then an
+    // ancestor of the first rather than a sibling.
+    execSync("git checkout -q -b one base", { cwd: dir });
+    writeFileSync(join(dir, "one.txt"), "the first branch's work\n");
+    setV("1.0.10");
+    execSync('git add -A && git commit -q -m "Bump version to v1.0.10"', { cwd: dir });
+    let r = check("base");
+    assertEq("the first branch has bumped and is ahead",
+      [r.already_bumped, r.version_ahead], [true, true]);
+    // AND THE COMPARISON IS FIELD-WISE: a string compare calls 1.0.10 < 1.0.9.
+    assertEq("1.0.10 is ahead of 1.0.9, which a string compare gets wrong",
+      [r.branch_version, r.base_version], ["1.0.10", "1.0.9"]);
+
+    execSync("git checkout -q -b two base", { cwd: dir });
+    writeFileSync(join(dir, "two.txt"), "the second branch's work\n");
+    setV("1.0.10");
+    execSync('git add -A && git commit -q -m "Bump version to v1.0.10"', { cwd: dir });
+
+    // THE FIRST MERGES. Now the base holds 1.0.10 and the second branch's bump is spent.
+    execSync("git checkout -q main && git merge -q --no-edit one", { cwd: dir });
+    execSync("git checkout -q two", { cwd: dir });
+
+    r = check("main");
+    assertEq("the second branch STILL reports it bumped — the old question is unchanged",
+      r.already_bumped, true);
+    assertEq("but its number is no longer ahead, which is what nothing asked",
+      [r.version_ahead, r.branch_version, r.base_version], [false, "1.0.10", "1.0.10"]);
+
+    // THE DEFECT ITSELF, so the row is a reproduction and not only a reading: merging the second
+    // branch leaves the base's version exactly where the first put it, while carrying its work.
+    execSync("git checkout -q main && git merge -q --no-edit two", { cwd: dir });
+    assertEq("two merges, one version — the measured shape",
+      readFileSync(manifest, "utf8").includes('"1.0.10"'), true);
+    assertTrue("while the second branch's work did land",
+      existsSync(join(dir, "two.txt")), "the fixture did not reproduce the shape");
+
+    // UNREADABLE IS A THIRD VALUE, never `false` — the caller bumps when unsure.
+    execSync("git checkout -q -b three main && git rm -q .claude-plugin/marketplace.json"
+      + ' && git commit -q -m "drop the manifest"', { cwd: dir });
+    r = check("main");
+    assertEq("an unreadable manifest answers null, not false",
+      [r.version_ahead, r.reason], [null, "manifest_unreadable"]);
+
+    // THE CALLERS ARE TOLD, at the two seams that act on it.
+    const story = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/story/SKILL.md"), "utf8");
+    const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+    const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+    assertTrue("Phase 0 requires both answers", /version_ahead/.test(story), "story");
+    assertTrue("and says its unknown bumps", /`version_ahead: null` means bump/.test(story), "story");
+    assertTrue("the route re-reads before the merge and re-bumps",
+      /version_rebumped/.test(drive) && /version_already_ahead/.test(drive), "drive");
+    assertTrue("...and says it is a repair, never a gate",
+      /repair, never a gate/.test(drive) && /merge happens either way/.test(drive), "drive");
+    assertTrue("a failed re-bump moves no token", /version_rebump_failed/.test(drive), "drive token row");
+    assertTrue("CLAUDE.md carries the measurement and the ruling on the collided numbers",
+      /five consecutive merges carried two versions/.test(claude)
+      && /recorded and left/.test(claude), "CLAUDE.md");
+  } finally { cleanup(dir); }
+}
+
 const tests = [
+  ["branching/check-version-bump.sh: is the number this branch bumped to still free?", testVersionAheadOfTheBase],
   ["drive claim protocol: the race is settled at the remote", testClaimRaceSettledAtTheRemote],
   ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
   ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],

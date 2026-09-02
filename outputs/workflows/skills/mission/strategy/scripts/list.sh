@@ -10,7 +10,7 @@
 # default in two places, which is how one artifact starts answering two ways.
 #
 # Usage: list.sh [--status active|achieved|abandoned] [workaholic-root]
-# Output: JSON {count, strategies: [{slug, title, status, stage, stage_declared, target_date, assignees}]}
+# Output: JSON {count, strategies: [{slug, title, status, stage, stage_declared, target_date, created_at, assignees}]}
 
 set -eu
 
@@ -47,6 +47,7 @@ if [ -d "$DIR" ]; then
         [ -n "$slug" ] || slug="${base%.md}"
         title=$(fm "$f" title)
         target=$(fm "$f" target_date)
+        created=$(fm "$f" created_at)
         row=$(sh "$(dirname "$0")/read.sh" "$slug" "$ROOT" 2>/dev/null || true)
         stage=$(printf '%s' "$row" | sed -n 's/.*"stage": "\([^"]*\)".*/\1/p')
         [ -n "$stage" ] || stage="進行中"
@@ -54,7 +55,7 @@ if [ -d "$DIR" ]; then
         [ -n "$declared" ] || declared=false
         assignees=$(fm "$f" assignees | sed -e 's/^\[//' -e 's/\]$//')
         [ -n "$OUT" ] && OUT="${OUT},"
-        OUT="${OUT}{\"slug\": \"$(json_escape "$slug")\", \"title\": \"$(json_escape "$title")\", \"status\": \"$(json_escape "$status")\", \"stage\": \"$(json_escape "$stage")\", \"stage_declared\": ${declared}, \"target_date\": \"$(json_escape "$target")\", \"assignees\": \"$(json_escape "$assignees")\"}"
+        OUT="${OUT}{\"slug\": \"$(json_escape "$slug")\", \"title\": \"$(json_escape "$title")\", \"status\": \"$(json_escape "$status")\", \"stage\": \"$(json_escape "$stage")\", \"stage_declared\": ${declared}, \"target_date\": \"$(json_escape "$target")\", \"created_at\": \"$(json_escape "$created")\", \"assignees\": \"$(json_escape "$assignees")\"}"
         COUNT=$((COUNT + 1))
     done
 fi

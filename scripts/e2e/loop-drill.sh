@@ -7026,7 +7026,7 @@ cmd_verify_reconcile() {
         add_row "reconcile_closed_is_its_own_state" false "the closed-unmerged unit is missing or mislabelled: $(one_line "$_cands")" load
     fi
     _shapes_ok=true
-    for _lead in '. Implemented - \[#123 Title\]' '. Closed - \[#123 Title\]'; do
+    for _lead in '. Implemented \[#123 Title\]' '. Closed \[#123 Title\]'; do
         grep -q "$_lead" "$_catalog" || _shapes_ok=false
         grep -q "$_lead" "$_template" || _shapes_ok=false
     done

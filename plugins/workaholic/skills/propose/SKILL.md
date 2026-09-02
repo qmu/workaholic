@@ -277,6 +277,9 @@ propose housekeeping. What replaces the bar is not a softer judgment but a set o
 `not_active` · `not_mine` · `past_target_date` · `no_feedback_refs` · `work_waiting` ·
 `open_proposal` · `wip_limit` · `attribution_unreadable`
 
+
+**Planning is one job across three skills, and it is named in one place**: `CLAUDE.md`, *The planning job* — which act lives where, what it may act on, and the four things it may not do, each with the rule that forbids it. The `wip_limit` rung is one of its five acts; the section is where a reader learns the other four and why the loop plans no further.
+
 **`wip_limit` bounds the REPOSITORY, where the two halves above bound a strategy** (2026-09-01,
 ticket `20260901123357-hold-new-divergence-above-a-work-in-progress-limit`). `work_waiting` and
 `open_proposal` give *one mission per strategy in flight*, and nothing bounded the repository —

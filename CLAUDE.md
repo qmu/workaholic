@@ -128,6 +128,48 @@ The lifecycle precedence is fixed: **`unreadable` > `arrived` > `overdue` > `exp
 
 The retired `strategy:` mission relation and its ownership hop stay retired; `mission/scripts/migrate-strategies.sh` and the `missions_migrate_strategies` seam are retired — **do not re-add them**. Full record: `skills/mission/SKILL.md`, *The strategy layer: retired, then redefined*. **Which direction a mission serves is a render, not a field** (2026-09-01): `mission-strategy.sh` answers it and three mission-facing surfaces state it — the bare `/mission` roadmap, the **Mission Position Report** (`/mission-close` and `/drive`), and `/standup`'s per-strategy digest — each rendering an explicit *no strategy* where nothing could be attributed and naming an unreadable walk as unreadable. Why the field is not the answer is recorded in `mission/reference/schema.md`, beside the frontmatter block where the question recurs.
 
+#### The planning job
+
+**Planning is a job, and it is not a command or a routine** (2026-09-01, mission
+`adjust-the-plan-hourly-not-only-report-it`). The ask that produced it was accurate about the
+documents: the loop had three clerks — intake adds, execution drives, bookkeeping reports — and
+nothing named planning, so no reader could tell whether *nothing re-plans* was a defect or the
+design. It is now five acts, each belonging to a tick that already runs; **no new command, no new
+routine and no new artifact**.
+
+| Act | Where it lives | What it does |
+| --- | -------------- | ------------ |
+| **Hold new divergence** | `/propose`'s `wip_limit` rung (`survey-strategies.sh`) | refuses origination while the repository already carries `WORKAHOLIC_WIP_LIMIT` active missions with queued work; **absent means no limit** |
+| **Order the offer** | `plan-units.sh` (`order_reason`) | offers missions by the nearest `target_date` of the direction each serves; changes **order, never eligibility** |
+| **Do the arithmetic** | `strategy/scripts/landing-arithmetic.sh` | per direction, what remains against how long is left, at the direction's own measured rate |
+| **Escalate a date** | `/moderate`'s `date-will-not-hold` step | asks the assignee, **before** the date, when the board will not clear; `overdue`/`expiring` keep their own cases |
+| **Say what moved** | `/moderate`'s `📋` clause (`strategy-pace`'s `plan` block) | one line on the hourly root: how many directions advance, how many are held, and whether the repository's own limit is holding new work |
+
+**Its authority is the repository's existing rule and is cited, never restated**
+(`drive/reference/claims.md`, *Proofs and judgements* and *When a bounded act may read a
+judgement*): planning may **act** on a proof it re-derives at the moment of the act, idempotently,
+refusing every bound by its own word; everything else it may only **report** or **ask about**. Of
+the five acts, exactly one refuses work (`wip_limit`, on a declared number) and one reorders an
+offer; the other three read and say.
+
+**What planning may not do, each with the rule that forbids it**: it may not **re-date a
+direction** (`amend.sh` carries only a revision the operator announced by explicit slug, and a
+loop that moves its own deadlines when it misses them is a loop whose dates mean nothing); may not
+**merge two missions** (no writer exists and it asserts intent); may not **retire a ticket it
+judges mooted** (that is a reading about behaviour, not a file test — a shape refused here
+before); and may not **close a mission that is not arithmetic** (`close.sh` is the only writer of
+an end state, and `archive.sh` closes only `achieved`). A mission at full acceptance with tickets
+still queued is therefore **named and asked about** (`mission-leftovers:<slug>`), never closed.
+
+**So the honest answer to the ask is that the loop plans less than it wanted, and the gaps are
+named rather than implied.** What is now the loop's: holding divergence against a number the
+operator declared, ordering its own offer, doing the arithmetic, and saying what moved. What
+remains the operator's: every date, every end state, and every judgement about whether queued work
+still matters. **The ask's fourth item — that a commit is a change to the development target — was
+already largely answered** by two changes that shipped for exactly that reason: the tick log moved
+to its own orphan branch (2026-09-01) and every pull request the loop merges is squash-merged
+(2026-09-01). What remains there is not re-proposed here.
+
 #### Tickets, ownership, identity
 
 - **Ticket state is a field, the archive is a place**: `tickets/` is **two-state** — `todo/` and `archive/<branch>/`. State is `status:` frontmatter: **absent means queued**, `done` (stamped by `archive.sh`), `abandoned`, `icebox` (deferred and promotable; `promote-icebox.sh` **clears** the field). A ticket never driven lands in the synthetic `archive/unbranched/`. The retired `icebox/` and `abandoned/` directories are still read by every reader while `gather/scripts/migrate-ticket-states.sh` converges them at the write seams; `layout-doctor.sh` reports a survivor as `retired-ticket-state`.

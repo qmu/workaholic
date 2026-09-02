@@ -35228,7 +35228,35 @@ function testPlanDeltaOnTheRoot() {
     assertTrue("a plan the tick could not read says so",
       /📋 the plan could not be read this tick/.test(degraded.root_text), degraded.root_text);
 
-    // --- 4. IT EARNS NO POST ------------------------------------------------------------
+    // --- 4. `run.sh` CARRIES THE BLOCK, VERBATIM ----------------------------------------
+    // The tick REBUILDS every row from named fields, so a field it does not know is dropped:
+    // before this wiring the `plan` block reached the renderer in a hermetic test and in no
+    // real tick at all. The row is asserted against a stubbed step so it proves the carrying
+    // and not the survey.
+    const stub = join(dir, "stub-skills");
+    cpSync(join(REPO_ROOT, "plugins/workaholic/skills"), stub, { recursive: true });
+    const stubbed = { step: "strategy-pace", status: "ok", reason: "", summary: "1 advancing, 2 held",
+      needs_agent: [], event: "",
+      plan: { advancing: 1, held: 2, held_reasons: [{ reason: "work_waiting", count: 2 }],
+              wip: { declared: true, limit: 3, count: 3, readable: true, reason: "" } } };
+    writeFileSync(join(stub, "moderate/scripts/step-strategy-pace.sh"),
+      `#!/bin/sh\nprintf '%s' '${JSON.stringify(stubbed)}'\n`);
+    chmodSync(join(stub, "moderate/scripts/step-strategy-pace.sh"), 0o755);
+    const tick = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(stub, "moderate/scripts/run.sh")} --tick 20260902-120000 --root . --only strategy-pace --no-persist`).stdout);
+    assertEq("the tick carries the step's plan block through, nested values intact",
+      tick.steps[0].plan, stubbed.plan);
+    // A step that supplies none gets `{}` — an absent plan and an unreadable one are the
+    // renderer's distinction to draw, not the tick's.
+    writeFileSync(join(stub, "moderate/scripts/step-strategy-pace.sh"),
+      `#!/bin/sh\nprintf '%s' '{"step": "strategy-pace", "status": "ok", "reason": "", "summary": "s", "needs_agent": [], "event": ""}'\n`);
+    chmodSync(join(stub, "moderate/scripts/step-strategy-pace.sh"), 0o755);
+    const bare = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(stub, "moderate/scripts/run.sh")} --tick 20260902-130000 --root . --only strategy-pace --no-persist`).stdout);
+    assertEq("a step that supplies no plan carries an empty object, never a missing key",
+      bare.steps[0].plan, {});
+
+    // --- 5. IT EARNS NO POST ------------------------------------------------------------
     // Like the impairment clause, it adds a line to a root that was already being posted. A
     // tick the gates hold stays silent whatever the plan did.
     writeFileSync(join(dir, "rows.json"), JSON.stringify({ rows: [drift, paceRow(

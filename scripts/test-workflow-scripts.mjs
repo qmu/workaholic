@@ -36700,6 +36700,91 @@ T("propose: the repository's own work-in-progress bound", testProposeWipLimit);
 T("the hourly root carries the plan's delta", testPlanDeltaOnTheRoot);
 
 
+// NO SURFACE SENDS A ROUTINE SESSION TO GO AND READ A PLUGIN FILE (2026-09-02, ticket
+// `20260902043747`, mission `stop-a-routine-tick-from-parking-on-a-permission-prompt`). A body that
+// says *see `workaholic:notify`, One thread per feedback item* hands the reading session a lookup to
+// perform. In a routine's container that lookup is composed as a shell read under `~/.claude`, the
+// harness classifies the path as Claude's own configuration, and the tick parks on a permission
+// prompt nobody is there to answer — measured on `[Propose]` hourly and on three consecutive
+// `[Moderate]` ticks. A parked tick spends its fire, produces nothing, and reads as scheduled and
+// healthy. The repair was to inline the rule; this row is what keeps it inlined.
+//
+// WHAT IT DETECTS, AND WHAT IT DELIBERATELY DOES NOT. A **must-read** is an imperative that sends
+// the session elsewhere to act: `see|read|open|consult|follow` + a plugin namespace or `.md` path +
+// a named section. A **provenance citation** — the rule stated in the sentence, with `per …` or a
+// parenthesised source naming where it lives — is NOT one, and a row that could not tell them apart
+// would be turned off within a week, since this repository cites its own sources everywhere.
+//
+// ITS LIMIT IS PART OF ITS NAME: a reference phrased in prose the pattern cannot recognise is not
+// detected. The row is a floor on the shape that was measured, never a proof that no lookup exists.
+//
+// MEASURED BEFORE IT LANDED: 0 must-read references across 86 scanned surfaces — the sibling
+// inlining had already removed them, so this row starts green and is a regression guard, not a
+// backlog. The scanned scope is every command body plus every skill `SKILL.md` and `reference/*.md`,
+// which is the operator's own wording (*no command or skill body*).
+function testNoMustReadPluginReference() {
+  const MUST_READ =
+    /(?:^|[\s(*_])(?:see|read|open|consult|follow)\s+(?:the\s+)?[`*]*(?:workaholic:[a-z-]+|[A-Za-z0-9_./-]+\/[A-Za-z0-9_.-]+\.md)[`*]*\s*,\s*(?:section\s+)?[*_]/i;
+
+  const scan = (root) => {
+    const out = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(dir)) {
+        const p = join(dir, e);
+        if (statSync(p).isDirectory()) walk(p);
+        else if (p.endsWith(".md")) out.push(p);
+      }
+    };
+    walk(join(root, "plugins/workaholic/commands"));
+    const skills = join(root, "plugins/workaholic/skills");
+    const acc = [];
+    const walkSkills = (dir) => {
+      for (const e of readdirSync(dir)) {
+        const p = join(dir, e);
+        if (statSync(p).isDirectory()) walkSkills(p);
+        else if (/SKILL\.md$/.test(p) || (/\/reference\//.test(p) && p.endsWith(".md"))) acc.push(p);
+      }
+    };
+    walkSkills(skills);
+    return out.concat(acc);
+  };
+
+  const files = scan(REPO_ROOT);
+  assertTrue("the scan reaches every command body and every skill body", files.length > 50,
+    `only ${files.length} surfaces scanned`);
+
+  const hits = [];
+  for (const f of files) {
+    readFileSync(f, "utf8").split("\n").forEach((line, i) => {
+      if (MUST_READ.test(line)) hits.push(`${f.replace(REPO_ROOT + "/", "")}:${i + 1}`);
+    });
+  }
+  assertEq(
+    "no command or skill body sends a session to read a plugin file by reference " +
+    "(a reference phrased in prose this pattern cannot recognise is NOT detected; " +
+    "inline the rule where it is needed — `plugins/workaholic/rules/shell.md`)",
+    hits, []);
+
+  // THE FOUR CASES, ASSERTED TOGETHER. A row that only proves it fires proves nothing about what it
+  // would stop the next contributor from writing.
+  assertTrue("a reintroduced must-read reference is detected",
+    MUST_READ.test("see `workaholic:notify`, *One thread per feedback item*"),
+    "the pattern no longer recognises the measured shape");
+  assertTrue("...including one naming a path rather than a namespace",
+    MUST_READ.test("read `skills/drive/reference/claims.md`, *Proofs and judgements*"),
+    "a path-shaped must-read is missed");
+  assertTrue("a provenance citation is NOT detected",
+    !MUST_READ.test("it rides the bot when the addressee is the posting identity, per `workaholic:notify`, *Which transport carries which shape*."),
+    "a citation of where a stated rule lives reads as a lookup");
+  assertTrue("a script invocation is NOT detected",
+    !MUST_READ.test("bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/plan-units.sh"),
+    "an invocation reads as a lookup");
+  assertTrue("the sanctioned plugin-src.sh crossing is NOT detected",
+    !MUST_READ.test("`check-deps/scripts/plugin-src.sh` resolves the newest plugin tree on the machine"),
+    "the one sanctioned crossing reads as a lookup");
+}
+T("no command or skill body sends a session to read a plugin file by reference", testNoMustReadPluginReference);
+
 // THE RUNNER IS THE LAST THING IN THE FILE, AND MUST STAY THERE (2026-09-02, ticket
 // `20260902143137`). Registration is now a `T(…)` call beside each declaration, so it happens
 // in FILE ORDER at module load -- and 115 of the 400 tests are declared BELOW where the old

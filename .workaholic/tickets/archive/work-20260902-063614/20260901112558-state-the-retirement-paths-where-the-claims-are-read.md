@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T11:25:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260901112558-drill-the-two-retirement-candidate-readings-offline.md
@@ -79,3 +80,45 @@ say what the mechanism now does.
   procedure, and fill the after figure when the workflow's next scheduled run has taken a turn.
 - Nothing here changes behaviour. If a sentence cannot be written truthfully, that is a defect in
   the preceding tickets and belongs back there, not softened here.
+
+## Final Report
+
+Development completed as planned. Step 5's re-measurement did **not** have to wait a turn: CI had
+already taken its turns overnight, so the after figure is real rather than a procedure.
+
+### The re-measurement, before and after
+
+| | `git branch -r --no-merged origin/main` | dead |
+| - | --- | --- |
+| 2026-09-01, when the ask was written | **30** | 22 — 17 with a merged pull request, 5 closed unmerged |
+| 2026-09-02, after `claim-retirement.yml` had run | **7** | 1 |
+
+The seven that remain are each alive or exempt by design: one fresh `closed_unmerged` candidate
+(`work-20260902-033446`, which the next turn takes), two open pull requests
+(`work-20260902-042305`, `work-20260902-043932`), two live claims, and the tick log's own two refs
+(`workaholic-log` and the legacy `workaholic/moderation-log`), which match neither `work-*` nor
+`release/*` and are invisible to the claim scan on purpose.
+
+### Discovered Insights
+
+- **Insight**: The sentence this ticket exists to amend had become false in two places, not one.
+  `/workaholify` §2's *"the branches already standing … stay"* and `check-repo-settings.sh`'s own
+  header both asserted that the printed deletion command is the only cleanup; both are now written
+  as *this command leaves them alone, and CI drains the backlog independently*.
+  **Context**: The behaviour statement lives in the script header as well as in `CLAUDE.md` and the
+  skill, so amending only the two documents would have left the code's own header contradicting
+  them — which is the shape this repository calls a defect rather than a follow-up.
+- **Insight**: The proof/judgement home's own counts had drifted. `claims.md` called
+  `candidate_reason` *"a third keyed vocabulary in this home"* while `CLAUDE.md` counted *"six
+  further vocabularies"* plus *"a seventh"* and named neither of them that one.
+  **Context**: The suite pins that every emitted word is classified and every classified word is
+  emitted — it cannot see a wrong count. The counts are now `seven further` (one of which,
+  `candidate_reason`, holds three proofs) and `an eighth` for the age table, and `claims.md` says
+  *another* rather than a number it cannot keep.
+- **Insight**: The emptiness reading is **evidence on the candidate row and a gate in the act**,
+  and only on the closed-unmerged class.
+  **Context**: That asymmetry is the whole reason `pull_request_closed_unmerged` is safe: the row
+  records `branch_empty` three-valued so CI's own record can answer *how often does a hand-closed
+  branch still hold work* from real data, while the act fails closed on an `unanswerable` — the
+  direction issue #788 turned `superseded`. Documenting one without the other would read as a
+  contradiction.

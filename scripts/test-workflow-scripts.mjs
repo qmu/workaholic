@@ -21622,6 +21622,7 @@ const tests = [
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
   ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
   ["the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls],
+  ["branching/list-headless-pulls.sh: an open pull request with no branch left", testHeadlessPulls],
   ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
   ["expiring, ranked in the lifecycle precedence", testExpiringPrecedence],
   ["the leaving rides an expiring row, at no extra read", testExpiringCarriesTheLeaving],
@@ -34228,6 +34229,113 @@ function testDrillVerdictPath() {
 //      degradation and is counted, never asked about.
 //
 // Offline throughout: `gh` is stubbed on PATH and the slug comes from a local git remote.
+// ---------------------------------------------------------------------------
+// AN OPEN PULL REQUEST WITH NO HEAD BRANCH LEFT (2026-09-01, ticket
+// `20260901112558-name-an-open-pull-request-with-no-head-branch.md`).
+//
+// GitHub does not close a pull request when its head branch is deleted, and such a pull
+// request is unmergeable by construction. Four things are pinned here, each because it is the
+// thing a later change would quietly lose:
+//
+//   1. A LIVE BRANCH IS NEVER REPORTED. The measured cost of a false positive is a person sent
+//      to close work that is still going, so a normal pull request rides the fixture beside the
+//      headless one.
+//   2. A FORK'S HEAD IS COUNTED, NEVER CALLED GONE. The branches listing cannot see a fork's
+//      refs; *we could not look* must never render as *the branch is gone*.
+//   3. AN UNREADABLE LISTING CARRIES NO `pulls` KEY AND A NULL COUNT, and the step names it
+//      rather than rendering it as *nothing headless*.
+//   4. THE STEP ASKS UNDER ITS OWN KEY, `headless-pull:<number>`, leaving the existing
+//      `operator-pull:` candidates untouched — the act asked for is a CLOSE, not a ruling.
+//
+// Offline throughout: `gh` is stubbed on PATH and the slug comes from a local git remote.
+function testHeadlessPulls() {
+  const BRA = join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts");
+  const MOD = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-headless-pulls-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+
+  const NOW = Math.floor(Date.now() / 1000);
+  const iso = (hoursAgo) => new Date((NOW - hoursAgo * 3600) * 1000).toISOString();
+
+  //   811 head branch still on the remote        -> not headless
+  //   813 head branch deleted                    -> headless, and the only one asked about
+  //   814 head on a fork this listing cannot see -> counted `foreign_head`, never headless
+  const LIST = [
+    ["811", "https://x/811", "A live publication", iso(2), "claude[bot]",
+      "work-20260101-000000", "acme-org/source-repo"],
+    ["813", "https://x/813", "Its branch is gone", iso(120), "claude[bot]",
+      "work-20260102-000000", "acme-org/source-repo"],
+    ["814", "https://x/814", "From a fork", iso(5), "someone",
+      "feature-x", "someone/source-repo"],
+  ];
+
+  const writeStub = ({ branchesFail = false } = {}) => {
+    const rows = LIST.map((r) => r.join("\\t")).join("\\n");
+    writeFileSync(join(bin, "gh"), `#!/bin/sh
+case "$2" in
+  rate_limit) echo 5000 ;;
+  *"/branches"*) ${branchesFail ? "echo boom >&2; exit 1" : "printf 'main\\nwork-20260101-000000\\n'"} ;;
+  *"pulls?state=open"*) printf '${rows}\\n' ;;
+  *"/files"*) printf '%s' '[]' ;;
+  *) echo '{"message":"Not Found"}' ;;
+esac
+`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  writeStub();
+
+  const sh = (cmd) => run(repo, cmd, { env });
+
+  try {
+    // --- 1. THE READING ----------------------------------------------------------------------
+    const listed = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-headless-pulls.sh`).stdout);
+    assertEq("exactly the pull request whose branch is gone is named",
+      listed.pulls.map((p) => p.number).join(","), "813");
+    assertEq("the branch it lost is carried, and its age with it",
+      [listed.pulls[0].branch, listed.pulls[0].age_hours >= 119], ["work-20260102-000000", true]);
+    assertEq("a fork's head is counted, never called gone",
+      [listed.foreign_head, listed.count, listed.total_open], [1, 1, 3]);
+
+    // --- 2. A DEGRADED READ CARRIES NO LIST AND A NULL COUNT ---------------------------------
+    writeStub({ branchesFail: true });
+    const broken = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-headless-pulls.sh`).stdout);
+    assertEq("an unreadable branch listing is named, with a null count and exit 0",
+      [broken.ok, broken.reason, broken.count], [false, "branches_unreadable", null]);
+    assertTrue("...and carries no `pulls` key at all, rather than an empty one",
+      !Object.prototype.hasOwnProperty.call(broken, "pulls"), JSON.stringify(broken));
+    writeStub();
+
+    // --- 3. THE STEP ASKS UNDER ITS OWN KEY --------------------------------------------------
+    const step = () => JSON.parse(
+      sh(`${POSIX_SH} ${MOD}/step-operator-pulls.sh --tick 20260901-000000 --root .`).stdout);
+    const s1 = step();
+    const keys = s1.needs_agent.flatMap((n) => (n.pulls ?? []).map((p) => p.key)).sort();
+    assertEq("one question per headless pull request, keyed on its number and asking for a close",
+      keys.join(","), "headless-pull:813");
+    assertTrue("the act asked for is a close, never a ruling",
+      s1.needs_agent.some((n) => n.action === "ask_the_operator_to_close_this_pull_request"),
+      JSON.stringify(s1.needs_agent.map((n) => n.action)));
+    assertTrue("the summary says how many lost their branch",
+      /1 open with no head branch left/.test(s1.summary), s1.summary);
+    assertTrue("and it supplies an event that names no identifier",
+      s1.event.length > 0 && !/813/.test(s1.event), s1.event);
+
+    // AN UNREADABLE HEADLESS READING IS NAMED AND ASKS NOBODY.
+    writeStub({ branchesFail: true });
+    const s2 = step();
+    assertEq("an unreadable reading asks nobody", [s2.needs_agent.length, s2.event], [0, ""]);
+    assertTrue("...and is named as unreadable, never as nothing headless",
+      /could not be read \(branches_unreadable\)/.test(s2.summary), s2.summary);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 function testOperatorFacingPulls() {
   const MOD = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
   // The two readers live beside the SEAM that produces the refusal word, not beside the step

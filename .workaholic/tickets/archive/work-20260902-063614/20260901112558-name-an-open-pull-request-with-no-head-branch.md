@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T11:25:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -87,3 +88,29 @@ the step that already follows pull requests waiting on a person.
 - Why not widen `list-operator-facing-pulls.sh`: that reader answers *which pull requests wait on
   the operator's ruling*, derived from the publish seam's refusal word. A headless pull request
   waits on nothing and has no refusal word. Two questions, one derivation each.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: A headless pull request was already reaching `list-stranded-publications.sh` as a
+  candidate and coming back `mergeability: unanswerable` — reported, never acted on, and never
+  asked about. The double-report was real but silent, because `unanswerable` is the class that
+  reaches no act and no `/moderate` question.
+  **Context**: The two acceptance terms ("named once" and "offered as neither a stranded
+  publication nor a catch-up candidate") therefore needed a filter in the stranded reader rather
+  than only a new reader; a catch-up candidate was already structurally impossible, since
+  `list-catchable-claims.sh` needs a claim and a claim needs an unmerged remote branch.
+- **Insight**: The ref set is read through one repository-scoped REST listing
+  (`repos/{slug}/branches`) rather than through `refs/remotes/origin/*`, even though the claim
+  scan has just fetched with `--prune`.
+  **Context**: The two readings fail in opposite directions. A stale or never-fetched local ref
+  renders a **live** pull request headless, and the act asked for is a close — so the reading that
+  sends a person to close something must be the exact one. The local read is kept only inside
+  `list-stranded-publications.sh`, where being wrong can merely drop a publication for one tick.
+- **Insight**: `gh api` arguments are matched by position by every transport stub in the hermetic
+  suite, so `--paginate` goes **after** the endpoint.
+  **Context**: A flag in the first position after `api` silently stops matching `case "$2"` in the
+  stubs and the row passes for the wrong reason.

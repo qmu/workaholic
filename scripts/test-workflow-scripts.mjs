@@ -21241,6 +21241,7 @@ const tests = [
   ["/specificate stamps only an address the loop can drive", testSpecificateStampsResolvableAddresses],
   ["gather/migrate-assignee-aliases.sh (the recovery)", testMigrateAssigneeAliases],
   ["the survey says when it excluded its whole backlog", testSurveySaysItExcludedEverything],
+  ["the survey refuses ok under a placeholder identity", testSurveyRefusesOkUnderPlaceholderIdentity],
   ["workaholify: the mapping's coverage audit", testIdentityCoverageAudit],
   ["/moderate asks about work nothing can drive", testModerateAsksAboutUndrivableUnits],
   ["the identity hand-off, end to end", testIdentityHandOffEndToEnd],
@@ -29260,6 +29261,94 @@ function testSurveySaysItExcludedEverything() {
   assertTrue("and the token table gained no row for it",
     !/\|[^|\n]*backlog_all_excluded[^|\n]*\| `pending` \|/.test(skill),
     "the token table grew a row this ticket must not add");
+}
+
+// ---------- the survey refuses `ok` under a placeholder identity (2026-09-02) ----------
+//
+// The state this pins passes every OTHER trustworthiness field and is still worthless.
+// A container with no resolving `.claude/git-identities` mapping keeps
+// `noreply@anthropic.com`; `owns.sh` compares each artifact's owner against it, answers
+// `other`, and the survey returns empty `missions[]`, empty `backlog[]`, no
+// `backlog_error`, `current: true` and `owner_unresolved: false` — the exact envelope
+// §7's table calls `ok`. Measured on this repository 2026-09-02: 68 artifacts excluded
+// `owned_by_other`, nothing offered, every other field clean.
+//
+// The two halves are pinned separately on purpose. The FIELD is what the survey answers;
+// the TOKEN CONSEQUENCE is a sentence in §7's table that no script can enforce, so the
+// assertion reads the table. A field nothing wires to the token would change nothing,
+// which is this ticket's own Considerations note about facts reported where the token
+// cannot read them.
+function testSurveyRefusesOkUnderPlaceholderIdentity() {
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  // No global or system config: the empty case must be empty because the repo says so,
+  // not because the machine running the suite happens to have no identity.
+  const NO_INHERITED_CONFIG = {
+    env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" },
+  };
+  const seedOwned = (dir, stamp, owner) => {
+    const p = join(dir, `.workaholic/tickets/todo/${stamp}-t.md`);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, `---\ncreated_at: 2026-09-02T00:00:00+00:00\nassignees: [${owner}]\n---\n\n# ${stamp}\n`);
+  };
+
+  // Shape 1: THE MEASURED STATE. A real person owns the queue; the runner is the
+  // container default. Every other field passes and the offer is empty.
+  let dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000001", "a@qmu.jp");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    execSync("git config user.email noreply@anthropic.com", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("the placeholder identity is its own named field", plan.placeholder_identity, true);
+    // The point of the field: none of its neighbours fire, so without it the envelope is `ok`.
+    assertEq("while the queue read fine", plan.backlog_error, "");
+    assertEq("and ownership was judged, not unresolved", plan.owner_unresolved, false);
+    assertEq("and the artifact is dropped confidently", plan.backlog, []);
+    assertTrue("as somebody else's",
+      plan.excluded.some((e) => e.reason === "owned_by_other"),
+      JSON.stringify(plan.excluded));
+    // It drops nothing of its own — the whole change is a fact and a token consequence.
+    assertTrue("the field excludes nothing of its own",
+      !plan.excluded.some((e) => e.reason === "placeholder_identity"),
+      JSON.stringify(plan.excluded));
+  } finally { cleanup(dir); }
+
+  // Shape 2: an EMPTY identity is the other way into the one field, so a caller reads one
+  // answer rather than two. `owner_unresolved` fires here as it always has, unchanged.
+  dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000002", "a@qmu.jp");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    execSync("git config --unset-all user.email", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN, NO_INHERITED_CONFIG).stdout);
+    assertEq("an empty identity is a placeholder too", plan.placeholder_identity, true);
+    assertEq("and its own neighbour still fires unchanged", plan.owner_unresolved, true);
+  } finally { cleanup(dir); }
+
+  // Shape 3: a real identity must not fire it, or the field forbids `ok` on every run.
+  dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000003", "test@example.com");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("a real identity is not a placeholder", plan.placeholder_identity, false);
+    assertEq("and its own work is still offered", plan.backlog.length, 1);
+  } finally { cleanup(dir); }
+
+  // THE TOKEN CONSEQUENCE. Unlike `backlog_all_excluded`, this reading DOES move the
+  // token, so the table must carry a row for it — a field the token cannot read changes
+  // nothing.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("§7's table forbids `ok` on it",
+    /\|[^|\n]*placeholder_identity[^|\n]*\|\s*`pending`/.test(skill),
+    "the token table has no row for the placeholder identity");
+  assertTrue("and the survey section lists it among the ok-forbidding facts",
+    /forbid `ok`[\s\S]{0,240}?placeholder_identity/.test(skill),
+    "§1 does not name it beside the other trustworthiness fields");
+  // Step 4: a bare `pending` tells a reader nothing about why the queue looked empty.
+  assertTrue("and the run report is required to name the fact",
+    /placeholder_identity[\s\S]{0,600}?names? (?:it|the fact)/.test(skill),
+    "nothing requires the report to name the fact behind the withheld token");
 }
 
 // ---------- workaholify: the mapping's coverage audit (2026-08-26) ----------

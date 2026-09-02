@@ -49,9 +49,10 @@ carrying the hook but not the mapping is told, and the mapping can be installed.
 
 ## Acceptance
 
-- [ ] A placeholder identity is a named survey fact and forbids `ok` (#20260821151250-forbid-ok-under-a-placeholder-identity.md)
+- [x] A placeholder identity is a named survey fact and forbids `ok` (#20260821151250-forbid-ok-under-a-placeholder-identity.md)
 - [ ] `/workaholify` installs and audits the mapping the hook requires (#20260821151250-install-and-audit-the-identity-mapping.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260821151250-forbid-ok-under-a-placeholder-identity.md

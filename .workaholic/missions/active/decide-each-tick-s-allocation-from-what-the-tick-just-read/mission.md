@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-085404
 ---
 
 # Decide each tick's allocation from what the tick just read

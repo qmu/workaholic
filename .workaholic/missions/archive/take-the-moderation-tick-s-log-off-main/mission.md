@@ -2,20 +2,21 @@
 type: Mission
 title: Take the moderation tick's log off main
 slug: take-the-moderation-tick-s-log-off-main
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-31T18:20:03+00:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.5
 feedback: [20260831181658-take-the-moderation-tick-s-log-off-main.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-212324
 ---
 
 # Take the moderation tick's log off main
@@ -40,13 +41,23 @@ puts a tick log back on `main` fails a drill.
 
 ## Acceptance
 
-- [ ] The tick log's home is a dedicated ref this repository creates and a fresh
+- [x] The tick log's home is a dedicated ref this repository creates and a fresh
       container fetches, and `main` carries no tick-log write. (#20260831182058-publish-the-tick-log-to-its-own-ref.md)
-- [ ] Every reader reaches the log through one reader, concurrent ticks still
+- [x] Every reader reaches the log through one reader, concurrent ticks still
       union by `(tick, step)`, and the persist count per tick is justified by name. (#20260831182058-justify-or-drop-each-persist-the-tick-makes.md)
-- [ ] Two drills: one fails when a tick's log misses the ref, one fails when a
+- [x] Two drills: one fails when a tick's log misses the ref, one fails when a
       tick log reaches `main` again. (#20260831182058-drill-that-a-tick-log-never-reaches-main.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260831182058-drill-that-a-tick-s-log-reaches-its-ref.md
+- 2026-09-02 — ticket archived — 20260831182058-drill-that-a-tick-log-never-reaches-main.md
+- 2026-09-02 — ticket archived — 20260831182058-rule-which-ref-the-tick-log-lives-on.md
+- 2026-09-02 — ticket archived — 20260831182058-publish-the-tick-log-to-its-own-ref.md
+- 2026-09-02 — ticket archived — 20260831182058-read-the-tick-log-through-one-reader.md
+- 2026-09-02 — ticket archived — 20260831182058-keep-the-tick-s-feedback-records-on-the-base.md
+- 2026-09-02 — ticket archived — 20260831182058-justify-or-drop-each-persist-the-tick-makes.md
+- 2026-09-02 — ticket archived — 20260831182058-rule-on-the-moderations-history-left-on-main.md
+- 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.5h) — run-20260902-212324

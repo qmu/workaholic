@@ -6832,7 +6832,15 @@ cmd_verify_return_path() {
 # Hermetic: a bare origin in a temp dir, no `gh`, no network beyond the local file remote.
 cmd_verify_log_branch() {
     _mod="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts"
-    for _f in "${_mod}/log-ref.sh" "${_mod}/ensure-log-ref.sh" "${_mod}/hydrate-log.sh" "${_mod}/persist-log.sh"; do
+    # THE REF IS DERIVED IN `gather`, NOT IN `moderate` (2026-09-02). `log-ref.sh` and
+    # `ensure-log-ref.sh` live beside the other repository-shaped readers because the ref is a
+    # fact about the repository, not about the tick; `hydrate-log.sh` and `persist-log.sh` are the
+    # tick's own and stay here. This drill looked for all four in `moderate/scripts` and so exited
+    # `log_branch_seam_unreadable` on every run since it was written -- `skipped`, never `fail`,
+    # which is exactly the shape a drill must not have: the guard for the whole move had never
+    # once executed. Naming the two directories separately is what keeps that visible.
+    _gth="${REPO_ROOT}/plugins/workaholic/skills/gather/scripts"
+    for _f in "${_gth}/log-ref.sh" "${_gth}/ensure-log-ref.sh" "${_mod}/hydrate-log.sh" "${_mod}/persist-log.sh"; do
         [ -f "$_f" ] || emit_err "log_branch_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
 
@@ -6851,7 +6859,7 @@ cmd_verify_log_branch() {
     # resolved the wrong repository root would publish a drill's log into real history.
     _in() { ( cd "$_work" && "$@" ) 2>&1 || true; }
 
-    _ref=$(sh "${_mod}/log-ref.sh")
+    _ref=$(sh "${_gth}/log-ref.sh")
     if [ "$_ref" != "main" ] && [ -n "$_ref" ]; then
         add_row "log_ref_is_not_the_base" true "the log branch is named ${_ref}, which is not the base" load
     else

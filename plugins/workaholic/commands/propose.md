@@ -23,6 +23,33 @@ The ceiling stays this run's judgement. `/propose` plans; `/specificate` writes.
 merge, no deployment — and it never issues `AskUserQuestion`. Its only write is the GitHub
 issue, assigned to the running identity so `/specificate`'s discovery ingests it.
 
+**And two lines on the tick log, which is the one widening of that contract** (2026-09-02, ticket
+`20260902043117`). Open the run with
+
+```
+sh <src>/skills/moderate/scripts/log-append.sh --tick <tick-id> --step propose-open --status ok --summary "<what this tick is about to do>"
+sh <src>/skills/moderate/scripts/persist-log.sh --tick <tick-id>
+```
+
+and close it, as the **last** act of the run, with the same pair under `--step propose-close`. The
+tick id is `date -u +%Y%m%d-%H%M%S`; a failed append or persist is reported and never fatal, exactly
+as `/moderate`'s is.
+
+**Why this is a widening worth taking, stated where the contract is stated.** `[Propose]` was
+measured parked hourly on a permission prompt — the routine that *originates* the loop's work,
+spending its fire, producing nothing, and reading as scheduled and healthy because it wrote no
+trace anywhere. `/moderate` has had the repair since 2026-08-31 (`blocked-tick`, an opening with no
+closing); `/propose` had nothing to read. **The cost is bounded to what the log already is**: the
+tick log is git-ignored and lives on the `workaholic-log` orphan branch, so these two lines reach
+**no commit on `main`, no `.workaholic/` artifact that lands, and no pull request** — the part of
+the pure-reader contract that protects the development target is untouched. What changed is that
+`/propose` now leaves a trace of having run at all.
+
+**The alternative was weighed and refused**: reading the routine's own record from outside needs no
+write, but a routine record is **account-level** and no repository-side reader can list one — the
+same fact that retired the `user` scope. Under the local-loops premise the trace would be tmux
+state, which `/moderate` must not depend on.
+
 **It posts exactly one Slack shape and no other**, and the shape lives here — a routine prompt
 names this command and nothing else, so a change to the wire format reaches every account's
 routine on the next run with no routine edit (`workaholic:notify`, *The command is the ceiling*).

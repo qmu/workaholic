@@ -42,7 +42,7 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 
 - [ ] What raises the prompt in the `/propose` path is named from evidence and removed at
       its source. (#20260902043117-remove-the-prompt-raising-read-at-its-source-in-the-propose-path.md)
-- [ ] A tick that parked is visible as parked rather than as scheduled and healthy. (#20260902043117-make-a-parked-routine-tick-visible-as-parked.md)
+- [x] A tick that parked is visible as parked rather than as scheduled and healthy. (#20260902043117-make-a-parked-routine-tick-visible-as-parked.md)
 - [x] A regression that reintroduces a prompt-raising shape fails a check before it ships. (#20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md)
 
 ## Changelog
@@ -52,3 +52,4 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - 2026-09-02 — ticket archived — 20260902043117-name-what-raises-the-prompt-in-the-propose-tick-from-evidence.md
 - 2026-09-02 — run recorded (+0.6h) — implement-20260902-0439
 - 2026-09-03 — ticket archived — 20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md
+- 2026-09-03 — ticket archived — 20260902043117-make-a-parked-routine-tick-visible-as-parked.md

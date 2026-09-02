@@ -9210,6 +9210,48 @@ cmd_verify_blocked_tick() {
         add_row "blocked_tick_healthy_is_silent" false "a healthy tick was not silent: $(one_line "$_h")" load
     fi
 
+    # 2b. THE PROPOSE TICK, THE SECOND SUBJECT OF THE SAME STEP (2026-09-02, ticket
+    #     `20260902043117`). `[Propose]` ORIGINATES the loop's work and was the one measured parked
+    #     hourly on a permission prompt, leaving no trace anywhere because it wrote no log at all.
+    #     It now writes `propose-open` / `propose-close`, and this arm proves the reading: a pair
+    #     with no close is named once under its own key, and closing it makes the step silent again.
+    #     Same structural bound as the moderate arm -- the tick BEFORE LAST, never a threshold -- so
+    #     a propose tick still running when the next one starts is never called stopped.
+    _A 20260831-101500 propose-open
+    _A 20260831-111500 propose-open
+    _A 20260831-111500 propose-close
+    _p=$(sh "$_step" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_p" | jq -e '([.needs_agent[].key] | index("blocked-tick:propose:20260831-101500") != null) and (.event | test("propose"))' >/dev/null 2>&1; then
+        add_row "blocked_tick_propose_is_named" true "a propose tick that opened and never closed is named once, under its own key" load
+    else
+        add_row "blocked_tick_propose_is_named" false "the stopped propose tick was not named: $(one_line "$_p")" load
+    fi
+
+    _A 20260831-101500 propose-close
+    _pq=$(sh "$_step" --tick 20260831-120000 --root "$_lx" 2>&1 || true)
+    if printf '%s' "$_pq" | jq -e '([.needs_agent[].key] | index("blocked-tick:propose:20260831-101500")) == null' >/dev/null 2>&1; then
+        add_row "blocked_tick_propose_healthy_is_silent" true "a propose tick that closed asks nobody" load
+    else
+        add_row "blocked_tick_propose_healthy_is_silent" false "a closed propose tick still asked: $(one_line "$_pq")" load
+    fi
+
+    # AND A REPOSITORY WHOSE PROPOSE TICK PREDATES THE CONTRACT IS SILENT, NOT STOPPED. A log with
+    # no `propose-open` line anywhere is the ordinary state of every checkout before this landed;
+    # reporting that as a stop would fire on every repository that never ran the new /propose.
+    _lz="${_tmp}/logs-no-propose"
+    mkdir -p "${_lz}/.workaholic"
+    _Z() { sh "$_log" --root "$_lz" --tick "$1" --step "$2" --status ok --summary 'drill' >/dev/null 2>&1 || true; }
+    _Z 20260831-100000 open-log
+    _Z 20260831-100000 human-checkin
+    _Z 20260831-110000 open-log
+    _Z 20260831-110000 human-checkin
+    _nz=$(sh "$_step" --tick 20260831-120000 --root "$_lz" 2>&1 || true)
+    if printf '%s' "$_nz" | jq -e '(.needs_agent | length == 0) and (.event == "")' >/dev/null 2>&1; then
+        add_row "blocked_tick_no_propose_line_is_silent" true "a log with no propose-open line reads as nothing to say, never as a stop" load
+    else
+        add_row "blocked_tick_no_propose_line_is_silent" false "a log with no propose line was reported as a stop: $(one_line "$_nz")" load
+    fi
+
     # 3. ONE QUESTION PER STOPPED HOUR, through the EXISTING gate. `ask-question.sh` gains
     #    nothing: the key the step composes is handed to it unchanged.
     _g1=$(sh "$_ask" --tick 20260831-120000 --key 'blocked-tick:20260831-100000' --root "$_lx" --hour 10 --weekday 3 2>&1 || true)

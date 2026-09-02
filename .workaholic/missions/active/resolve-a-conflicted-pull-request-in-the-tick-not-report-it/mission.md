@@ -49,3 +49,4 @@ of the pass silently. Nothing is parked for a claim holder.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260902042630-localize-which-step-posted-each-of-the-three-corrected-lines.md

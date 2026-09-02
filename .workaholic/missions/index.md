@@ -7,7 +7,6 @@
 * [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](active/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
-* [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
 
 ## archive
 
@@ -117,6 +116,7 @@
 * [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
+* [stop-two-runs-from-claiming-and-driving-one-unit](archive/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
 * [take-the-moderation-tick-s-log-off-main](archive/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 * [tell-a-merged-claim-from-a-live-one-at-both-grains](archive/tell-a-merged-claim-from-a-live-one-at-both-grains/mission.md) - Tell a merged claim from a live one at both grains

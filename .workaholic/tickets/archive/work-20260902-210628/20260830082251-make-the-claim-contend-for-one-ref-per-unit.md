@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-30T08:22:51+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -141,9 +142,13 @@ tree byte-identical, and a live race reaches a person through `list-raced-units.
 `/moderate`'s `raced-units` step. Mission acceptance items 2 and 3 are checked on that work;
 this item is the one the transport forbids.
 
-**Residue the measurements have left.** Two undeletable branches on origin, neither matching
-`work-*` nor `release/*` (so no claim scan sees them), neither removable from this container —
-a human, or the CI job that holds `contents: write`, must delete both:
+**Residue the measurements have left — SETTLED 2026-09-02, and the ask below is spent.** Both
+refs, and the third a later reading added (`work-20260901-144612`), are gone from origin,
+confirmed by `git ls-remote` on 2026-09-02 without pushing anything. Nobody need act on the list
+that follows; it is kept because the **measurements** are the finding and are still the reason
+nobody should re-probe. (The standing ask was lifted into
+`20260901123000-delete-the-branches-the-transport-probes-left-on-origin.md`, which records who
+settled it.) The list as it stood:
 
 - `wk-transport-probe-1788104778` → `304652b2` (left by the earlier reading)
 - `wh-probe-20260831194543` → `5b6427654b3c3ad955755e446a3474c81e22cfe8` (left by this one)
@@ -205,3 +210,76 @@ claims this mission, finds the queue blocked on the ruling, and tries to hand th
 one undeletable `work-*` branch behind. `work-20260901-144612` is this run's.
 
 Nothing here changes what the ruling is. It changes only how expensive waiting for it is.
+
+## Final Report — 2026-09-02 (implemented)
+
+**The block did not stand, and one cheap probe is what showed it.** Every earlier reading was
+taken **from a routine-fired cloud container**, whose proxy answers 403 — the readings say so
+themselves. The loop moved onto the developer's own server on 2026-09-02 (`workaholic:loops`),
+and this run re-measured over SSH against the same origin before designing around the stated
+impossibility:
+
+- `refs/claims/*` create → `* [new reference]`, confirmed by `ls-remote`;
+- create-only lease (`--force-with-lease=<ref>:`) → a second push is `! [rejected] … (stale
+  info)` and the ref keeps the winner's value;
+- compare-and-swap on the known value → accepted;
+- **delete** → `- [deleted]`, `ls-remote` empty.
+
+No residue was left. Corroborating evidence needing no probe at all: the two claim branches this
+session merged were deleted from origin (`branch_removed: true`, `ls-remote` empty), and the
+three residue refs the earlier findings named are already gone. **Both readings are true of
+their own environment**, so nothing above is retracted — what changed is which environment the
+loop runs in, and the mechanism is built to report `unavailable` where the transport still
+refuses, leaving the Web-routine fallback byte-for-byte as it was.
+
+**What was built** (steps 1–6):
+
+- `drive/scripts/claim-arbitrate.sh` — `take` / `release` / `reap` / `refname`, exit 0 always.
+- `claim.sh` **§3b**, after the oracle's refusal and **before the worktree exists**, so the
+  loser writes nothing at all — the mission's Experience, met by placement rather than by a
+  teardown.
+- **The ref is derived from the artifacts, not the unit id**, and that is a deliberate
+  deviation from the ticket's wording, recorded in `claims.md`: `claim.sh` mints
+  `batch-<timestamp>` *inside* the claim act, so a unit-keyed ref reaches one grain only. One
+  ref per artifact settles both, and it is the same key §3's overlap refusal already uses.
+- **All or nothing**, with the partial hold unwound.
+- **Release named per path** — `abort_claim`, `release-claim.sh`, `retire-claim.sh`, and, for
+  the merge (which runs nothing in the container), the arbiter's oracle-and-age **reap**, run
+  lazily by `claim.sh` only when a take is lost, then the take retried once.
+- `claims_scan` still reads `work-*` refs alone; no verdict word was added and the
+  proofs-and-judgements tables did not move.
+
+**Verification**: the 81 existing claim-protocol rows pass with the arbitration wired in, and
+the arbiter was confirmed to genuinely fire in those fixtures (a local bare origin takes the
+`refs/claims/*` push), so they exercise it rather than its degraded path.
+
+### Discovered Insights
+
+- **Insight**: A ref used as a lock must be pushed with a **value unique per claimant**. Git
+  treats a push of the value a ref already holds as `Everything up-to-date` and exits 0, so a
+  shared base sha made two successive takes both answer `won` — the lock silently arbitrating
+  nothing. Each take now mints its own commit.
+  **Context**: Any future ref-as-lock in this repository meets the same trap; the lease only
+  arbitrates when the values differ.
+- **Insight**: The standing block rested on a measurement whose **environment** was the
+  variable, and the finding said so in its own words while the conclusion did not carry the
+  qualifier forward. Re-probing was explicitly discouraged by the ticket — correctly, for the
+  container it was written in — and the thing that made re-probing right was a change of
+  premise the earlier readings could not have known about.
+  **Context**: A recorded impossibility deserves a cheap re-measure whenever the environment it
+  was measured in has moved.
+
+### Correction, same branch — the lock's lifetime
+
+The first form of this work held each lock for the **life of the claim** and released it on every
+path that releases a claim. An existing row caught what that costs: *a merged stamp is history,
+not a claim* went red, because a **merge** releases a claim by definition and runs **nothing** in
+the container, so the survey re-offered the ticket while a lock nobody could release still refused
+it — this ticket's own warning arriving as a measurement.
+
+The lock's lifetime is now the **claim act**: §3b takes it, and `claim.sh` releases it the moment
+the branch is pushed, because from then on the oracle sees the claim and the lock stands for
+nothing. That removes the whole class — a merged, released, retired or `superseded` claim needs no
+lock handling at all — and leaves exactly one leak to collect, an act killed inside its own
+window, which the reap does. Step 5's "release the ref wherever the claim is released" is answered
+by making the ref not outlive the act; `claims.md` records it that way.

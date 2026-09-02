@@ -1538,6 +1538,57 @@ refusal and the derivation behind it.
 | `stranded_holding_branch_survives_the_act` | the drill can no longer fail, **or work was actually deleted** — the one row here whose red means loss rather than doubt |
 | `stranded_branch_checkout_untouched` | the drill wrote outside its own fixture |
 
+## 5t-c. The claim race (is it settled at the remote, and does the loser write nothing?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-claim-race [--json]
+```
+
+**Measured 2026-08-30**: `work-20260830-055314` and `work-20260830-055318` were both claimed for
+one unit four seconds apart and each drove the same four tickets for over an hour. `create.sh`
+mints `work-$(date …)`, so two runners that survey before either pushes name **two different
+refs** and both win — the protocol contended for nothing.
+
+It needs **no seed, no issue number, no credential and no network**: a bare local origin, two
+clones, and the GitHub transport stubbed to answer nothing (so every mission-grain row below is
+about the **local** test rather than the merged-pull-request fallback).
+
+**How the window is staged**, which is the whole difficulty: A claims for real, then A's branch is
+removed from the origin so B's oracle sees exactly what A saw. No sleep, no concurrency — both
+runs are the real claim act, in the interval the defect lived in.
+
+**What it proves, in two halves.** First the **repair** (2026-09-02): B is refused
+`claim_race_lost` at the remote, and holds no worktree, no local `work-*` branch and nothing on
+origin; a lock a **live** claim stands behind survives the sweep however old it is, because the
+oracle is the sweep's first term and the age only its second. Then the **bounded-later** repair,
+which still has to work wherever the arbitration is `unavailable` (every routine-fired container,
+whose proxy refuses the ref write): with A's lock released the same claim wins, two branches hold
+one unit, `list-raced-units.sh` names both, `/moderate`'s `raced-units` asks once, `stalled-units`
+stays silent on it, and `archive.sh` refuses the first write that the base would see.
+
+**The breaker is that release.** Repeating B's claim verbatim with the contended ref given back is
+the pre-repair contention — two clock-derived names and no unit-keyed ref — and B must then win.
+If it did not, every refusal row above would be passing for some reason other than the
+arbitration. **Proved able to fail, not argued**: pointing `claim.sh` at a non-existent arbiter
+turns five rows red including the breaker, with the loser leaving `worktrees=1 branches=1
+remote=1` — the defect itself — and restoring it turns them green.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `claim_race_loser_refused` | `claim.sh` §3b or `claim-arbitrate.sh` — the arbitration stopped running, or its refusal stopped being its own word |
+| `claim_race_loser_wrote_nothing` | `claim.sh` — the arbitration moved after §4, so the loser now has a teardown to get right |
+| `claim_race_lock_survives_its_own_claim` | `claim-arbitrate.sh`'s reap — the oracle term was dropped and the sweep is eating live claims' locks |
+| `claim_race_breaker_arbitration` | the drill can no longer fail, so every refusal row above proves nothing |
+| `claim_race_two_branches` / `claim_race_one_unit_twice` | the pre-repair state cannot be staged, so the bounded-later repair is no longer covered |
+| `claim_race_reader_names_both` / `claim_race_question_asked` / `claim_race_question_asked_once` | `list-raced-units.sh` or `step-raced-units.sh` — a live race reaches nobody, or reaches them repeatedly |
+| `claim_race_siblings_filter` | `step-stalled-units.sh` — one unit, two questions, two vocabularies |
+| `claim_race_archive_refuses` / `claim_race_refusal_writes_nothing` | `archive.sh`'s claim re-check — the last gate before a duplicated write reaches the base |
+
+**What it does not prove** is the transport. The arbitration is exercised against a **local bare
+origin**, where the ref write is permitted; whether a given remote permits it is what
+`claim-arbitrate.sh` answers `unavailable` for, and that path is the one every cloud routine
+takes.
+
 ## 5u. The retirement candidates (does the loop offer only branches it may delete?)
 
 ```sh

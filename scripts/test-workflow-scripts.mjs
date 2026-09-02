@@ -21926,7 +21926,88 @@ function testProposeJudgementRefusals() {
   }
 }
 
+// ---------- the claim race is settled at the remote ----------
+// The defect: `create.sh` mints `work-$(date …)`, so two runners that survey before either
+// pushes name two different refs and BOTH win — measured 2026-08-30, two branches drove the
+// same four tickets for over an hour. The repair contends on one ref per claimed ARTIFACT
+// (not per unit id, which at the batch grain is itself minted from the clock), before the
+// worktree exists, so the loser writes nothing at all.
+function testClaimRaceSettledAtTheRemote() {
+  const ARB = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh");
+  const { origin, A, B } = makeClaimFixture();
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const arb = (cwd, args) => JSON.parse(run(cwd, `${POSIX_SH} ${ARB} ${args}`).stdout);
+
+    // THE ARBITER ITSELF. One ref per artifact, all-or-nothing, and the second take loses.
+    let r = arb(A, `take ${t1} ${t2}`);
+    assertEq("the first claimant wins every ref", [r.state, r.refs.length], ["won", 2]);
+    r = arb(B, `take ${t1} ${t2}`);
+    assertEq("the second is refused at the remote", [r.state, r.reason], ["lost", "held_by_another"]);
+    assertTrue("naming the ref it lost on", /refs\/claims\/artifact\//.test(r.held_by_ref), r.held_by_ref);
+
+    // A PARTIAL HOLD IS UNWOUND: two runners each holding half a batch is the race with extra
+    // steps, so an overlapping take gives back the refs it did win.
+    const t3 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000009-m1-step.md`;
+    r = arb(B, `take ${t3} ${t1}`);
+    assertEq("an overlapping batch loses", r.state, "lost");
+    const t3ref = run(B, `${POSIX_SH} ${ARB} refname ${t3}`).stdout.trim();
+    assertEq("and the ref it had already won is given back",
+      run(B, `git ls-remote origin ${t3ref}`).stdout.trim(), "");
+
+    // A DIFFERENT UNIT NEVER COLLIDES.
+    assertEq("a claimant for other artifacts still wins", arb(B, `take ${t3}`).state, "won");
+    arb(B, `release ${t3}`);
+
+    // THE REAP: both terms required. A lock no claim stands behind but younger than the
+    // window survives — between winning and pushing there are seconds where that is true of a
+    // perfectly healthy claim.
+    const t1ref = run(A, `${POSIX_SH} ${ARB} refname ${t1}`).stdout.trim();
+    arb(A, "reap");
+    assertTrue("a fresh unheld lock survives the sweep",
+      run(A, `git ls-remote origin ${t1ref}`).stdout.includes(t1ref),
+      "the sweep ate a lock inside the arbitration window");
+    run(A, `WORKAHOLIC_CLAIM_ARBITER_STALE_MINUTES=0 ${POSIX_SH} ${ARB} reap`);
+    assertEq("and a stale one is reaped", run(A, `git ls-remote origin ${t1ref}`).stdout.trim(), "");
+    arb(A, `release ${t1} ${t2}`);
+
+    // THE CLAIM ACT, IN THE RACE'S OWN SHAPE. A sequential second claim is refused by the
+    // ORACLE (`already_claimed`) and never reaches the arbitration — that is the case that
+    // already worked. The race is the window where the winner has arbitrated and NOT yet
+    // pushed, so the oracle sees nothing; it is reproduced by taking the locks directly and
+    // then running a real claim against them.
+    assertEq("the arbitration is held with no branch pushed yet", arb(A, `take ${t1} ${t2}`).state, "won");
+    const lost = run(B, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`);
+    const payload = JSON.parse(lost.stderr.trim().split("\n").pop());
+    assertEq("the loser refuses by its own word", payload.reason, "claim_race_lost");
+    assertTrue("distinct from branch_collision and push_failed",
+      !["branch_collision", "push_failed"].includes(payload.reason), payload.reason);
+    assertTrue("naming the ref that held it", /refs\/claims\/artifact\//.test(payload.held_by_ref),
+      payload.held_by_ref);
+    assertEq("the loser created no worktree",
+      existsSync(join(B, ".worktrees")) ? readdirSync(join(B, ".worktrees")) : [], []);
+    assertEq("and no local work-* branch",
+      run(B, "git branch --list 'work-*'").stdout.trim(), "");
+    assertEq("and nothing of the loser reached origin",
+      run(B, "git ls-remote origin 'refs/heads/work-*'").stdout.trim(), "");
+
+    // AND ONCE THE WINNER HAS PUSHED, the loser's next survey sees an ORDINARY claim rather
+    // than free backlog — the arbitration hands the unit to the oracle, it does not replace it.
+    arb(A, `release ${t1} ${t2}`);
+    const first = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`).stdout);
+    assertEq("the winning claim reports its arbitration", first.arbitrated, true);
+    run(B, "git fetch -q --prune origin");
+    const again = run(B, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1} ${t2}`);
+    assertEq("the loser's next claim is an ordinary already_claimed",
+      JSON.parse(again.stderr.trim().split("\n").pop()).reason, "already_claimed");
+  } finally {
+    cleanup(origin); cleanup(A); cleanup(B);
+  }
+}
+
 const tests = [
+  ["drive claim protocol: the race is settled at the remote", testClaimRaceSettledAtTheRemote],
   ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
   ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],
   ["propose: the judgement refusals are named, and stay out of the gates", testProposeJudgementRefusals],

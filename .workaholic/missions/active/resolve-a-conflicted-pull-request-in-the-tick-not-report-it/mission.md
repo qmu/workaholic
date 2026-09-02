@@ -39,7 +39,7 @@ of the pass silently. Nothing is parked for a claim holder.
 
 ## Acceptance
 
-- [ ] A conflicted pull request the tick can settle is settled and merged by it, content
+- [x] A conflicted pull request the tick can settle is settled and merged by it, content
       conflicts included. (#20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it.md)
 - [ ] An uncomputed mergeable state drops the pull request from the pass and notifies
       nobody. (#20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state.md)
@@ -50,3 +50,4 @@ of the pass silently. Nothing is parked for a claim holder.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260902042630-localize-which-step-posted-each-of-the-three-corrected-lines.md
+- 2026-09-02 — ticket archived — 20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it.md

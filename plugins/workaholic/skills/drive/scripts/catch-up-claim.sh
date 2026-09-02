@@ -37,8 +37,12 @@
 #     history rewrite destroys.
 # And the race the rule is really about is answered by `claim_active`: a run still committing
 # to that branch is left alone, so the only branches touched are ones whose heartbeat lapsed.
-# The genuinely contested case — a `content` conflict — stays a person's, and reaches them
-# through `/moderate`'s `catchup-blocked:<unit>` question.
+# The genuinely contested case — a hunk the MERGE ITSELF could not settle — stays a person's,
+# and reaches them through `/moderate`'s `catchup-blocked:<unit>` question. Since 2026-09-02
+# that judgement is the WRITER's residue rather than the reader's prediction: this script
+# attempts a `content`-classed branch instead of refusing before it is checked out, because the
+# reader computes without the repository's `.gitattributes` and is pessimistic by construction
+# against the writer (the `case "$CLASS"` block below carries the measurement).
 #
 # THE VERDICT IS RE-DERIVED AT THE MOMENT OF THE ACT, never trusted from a list handed in —
 # `delete-retired-claim-branch.sh`'s discipline, for its reason: the gap between the caller's
@@ -50,7 +54,8 @@
 #
 # EVERY REFUSAL WRITES NOTHING AND EXITS 0. Each has its own word, so a reader is sent to the
 # thing that actually stopped it:
-#   content_conflict            a person must judge which side keeps its behaviour
+#   content_conflict            the MERGE left a hunk only a person can judge — raised from the
+#                               writer's own residue, never from the reader's prediction
 #   not_my_claim                the claim commit's author is not this identity
 #   foreign_identity            the oracle's own word for the same fact
 #   identity_unresolved         this checkout cannot say who it is
@@ -179,10 +184,45 @@ CONFLICTED=$(printf '%s' "$mb" | sed -n 's/.*"conflicted_files": \(\[[^]]*\]\).*
 [ -n "$CONFLICTED" ] || CONFLICTED="[]"
 mb_reason=$(printf '%s' "$mb" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
 
+# A `content` PREDICTION IS NOT A REFUSAL — THE WRITER DECIDES (2026-09-02, mission
+# `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`). The operator's correction was
+# that the tick "only spews reports and shows no sign of resolving anything", and this line was
+# the mechanism: `claim-mergeability.sh` is a READER, and its `content` is a PREDICTION about
+# what a merge WOULD do, made before anything is checked out. Refusing on it declined work the
+# writer can actually finish.
+#
+# THE TWO ARE NOT MEASURING THE SAME MERGE, AND THE DIFFERENCE IS RECORDED IN THIS TREE ALREADY
+# (`claim-mergeability.sh`'s own header, 2026-09-01, ticket `20260901041500`). The reader runs
+# `git merge-tree` from an EMPTY DIRECTORY with `GIT_DIR` set, deliberately, so that the
+# repository's own `.gitattributes` is out of reach — because GitHub applies no merge driver
+# when it computes `mergeable`, and the reader's job is to predict GITHUB. The writer
+# (`catchup-main.sh`) merges in a REAL CHECKOUT, where `merge=union` on the generated OKF
+# indexes is in force. Measured, same git and the same two commits: from the checkout the merge
+# exits 0 while the attribute-less computation exits 1 on `.workaholic/feedbacks/index.md`. So
+# the reader is PESSIMISTIC BY CONSTRUCTION relative to the writer, and every branch in that gap
+# was refused here without anybody ever attempting it.
+#
+# WHAT CHANGES IS WHERE THE REFUSAL LIVES, NOT WHETHER IT EXISTS. `content_conflict` is still
+# raised, by the writer's own residue below, with nothing pushed and the branch byte-identical —
+# a genuinely divergent hand-written hunk is still a person's, and `/moderate`'s
+# `catchup-blocked:<unit>` question still reaches them. What is gone is refusing on a guess.
+#
+# NOTHING ELSE IS WIDENED, and the safety story is the one this script already had:
+#   * the writer auto-resolves only what its OWN proofs accept (`lib/conflict-class.sh`), so no
+#     judgement moves to a machine here;
+#   * a union-driver resolution is repaired, not shipped as-is — `refresh-index.sh` below
+#     re-derives every generated index from the merged tree, which is the stated remedy for the
+#     duplicated-or-mis-sorted line the union driver can leave;
+#   * the repository's own fast checks still gate the push, and still refuse
+#     `validation_failed:<check>` with nothing pushed.
+#
+# `unanswerable` KEEPS ITS REFUSAL. It is the ABSENCE of a reading, not a pessimistic one, and
+# this repository's standing rule is that such a word is reported and never acted on
+# (`reference/claims.md`, *Proofs and judgements*). Attempting on it would be acting on an
+# absence, which is the failure the three-valued reading exists to avoid.
 case "$CLASS" in
     unanswerable) refuse "mergeability_unanswerable:${mb_reason:-unknown}" ;;
-    content)      refuse content_conflict ;;
-    clean | mechanical) ;;
+    clean | mechanical | content) ;;
     *)            refuse "mergeability_unanswerable:${mb_reason:-unclassified}" ;;
 esac
 

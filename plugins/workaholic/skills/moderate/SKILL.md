@@ -38,15 +38,18 @@ The last two act on nothing the loop could get wrong: a draft and an issue are b
 
 | Class | Repairer |
 | ----- | -------- |
-| A `mechanical` conflict on a reported claim | `[Implement]`'s `catch-up-claim.sh`, on the next tick — the question here (`catchup-blocked`, §26) exists for the *other* class |
-| A `mechanical` or `clean` stranded publication | `[Implement]`'s `settle-stranded-publication.sh`, on the next tick |
-| A `content` conflict, on a claim or a publication | **a person** — the claim holder or the publication's author, reached by `catchup-blocked` / `stranded-publications` |
+| A `mechanical` **or `content`** conflict on a reported claim | `[Implement]`'s `catch-up-claim.sh`, on the next tick. **`content` joined it on 2026-09-02** (mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`): the class is a *prediction* computed with the repository's `.gitattributes` out of reach, so the act attempts it rather than deferring on it |
+| A `mechanical`, `clean` **or `content`** stranded publication | `[Implement]`'s `settle-stranded-publication.sh`, on the next tick, on the same reasoning |
+| A hunk the merge itself could not settle (the writer's `content_conflict` residue) | **a person** — the claim holder or the publication's author, reached by `catchup-blocked` / `stranded-publications`. This is what is left after the tick has tried, not what it declined to try |
+| An `unanswerable` mergeability, on a claim or a publication | **nobody** — it is the *absence* of a reading, never actable, and GitHub recomputes it; the row drops out of the pass |
 | An operator-facing pull request (`ruling_touching`, `strategy_touching`) | **the operator** — merging it *is* the ruling and closing it *is* the refusal; no mechanism may take either |
 | A red base, a failing drill | **the attributed author** — the reading is a judgement (a re-run can flip it), so nothing here reverts, re-runs or holds work on it |
 | A repairable finding | the loop itself, the long way round: `[FB]` issue → `[Specificate]` → tickets → `[Implement]` |
 | A lapsed cadence, a stopped tick, a raced unit | **nobody yet, by design** — each says what is known and cannot say why, so the finding is `needs_ruling` and the repair is a person's judgement |
 
-**The drain this places on a person is real and is named rather than hidden.** The question budget is `max_per_tick` inside a day cap, and a held question waits; the operator's own complaint was that they discover the backlog by asking. Widening what the tick may repair is a separate ask against the rule above, with its own measurement — and the strongest existing evidence for one is on the record: five conflicted pull requests the tick reported for days were unblocked by a person in an afternoon.
+**The drain this places on a person is real and is named rather than hidden.** The question budget is `max_per_tick` inside a day cap, and a held question waits; the operator's own complaint was that they discover the backlog by asking. Widening what the tick may repair is a separate ask against the rule above, with its own measurement — and the strongest existing evidence for one was on the record: five conflicted pull requests the tick reported for days were unblocked by a person in an afternoon.
+
+**That widening was asked for and taken** (2026-09-02, mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`). The operator's words were that the implementation is *entirely contrary to intent* — the tick "only spews reports and shows no sign of resolving anything", and a conflict said to belong to a claim holder belongs to nobody, because a claim holder never comes. The `content` rows above moved accordingly. **What did not move is the shape of the licence**: no path was reclassified in `conflict-class.sh`, no second merge engine exists, `unanswerable` is still never acted on, the repository's fast checks still gate every push, a colleague's claim is still untouchable, and a scan-held pull request is still refused. The change is *where* the refusal lives — the writer's residue rather than the reader's guess — and it is stated once in `drive/reference/claims.md`, *The resolution strategy, per class*.
 
 **What the bound still forbids, and what it does not mean.** The tick never merges a pull request, never pushes into a branch the claim protocol owns, and never edits a live strategy. Those are **bounds on which acts are licensed**, not a claim that it repairs nothing.
 

@@ -4460,10 +4460,31 @@ GH_STUB_EOF
         add_row "catch_up_offers_a_drained_claim" false "the reader did not offer the queue_drained mechanical claim: $(one_line "$_cands")" breaker
     fi
 
-    # AND NOTHING ELSE IS OFFERED. `content` is a person's, and a colleague's claim is
-    # untouchable at any age — neither may reach an act that pushes.
-    if ! _names batch-content && ! _names batch-foreign; then
-        add_row "catch_up_offer_is_bounded" true "a content conflict and a colleague's claim are not candidates -- the reader offers only what the act may take" load
+    # A CONTENT PREDICTION IS OFFERED, AND A COLLEAGUE'S CLAIM STILL IS NOT (2026-09-02, mission
+    # `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`).
+    #
+    # This row asserted that `batch-content` was NOT a candidate, on the reasoning that a content
+    # conflict is a person's. The operator's correction was that deferring it to a claim holder
+    # is wrong, because a claim holder never comes — and the mechanism behind the correction is
+    # that `mergeability` is a PREDICTION: the reader computes with the repository's
+    # `.gitattributes` deliberately out of reach (its job is to predict GitHub, which applies no
+    # merge driver) while the writer merges in a real checkout where those drivers are in force.
+    # So the reader over-reports `content`, and the act now tests the prediction instead of
+    # trusting it. The refusal did not go — it moved to the writer's own residue.
+    #
+    # THE TWO HALVES ARE SPLIT ON PURPOSE, because they are different facts and one of them must
+    # never move. Collapsing them back into a single row is how the identity bound would be lost
+    # silently the next time this one is widened.
+    if _names batch-content; then
+        add_row "catch_up_offers_a_content_prediction" true "a content-classed claim is offered to the act -- the class is a prediction and the writer decides" breaker
+    else
+        add_row "catch_up_offers_a_content_prediction" false "the reader withheld the content-classed claim, so the act can never test the prediction: $(one_line "$_cands")" breaker
+    fi
+
+    # AND THE IDENTITY BOUND DID NOT MOVE WITH IT. A colleague's claim is untouchable at any age
+    # and at any class — it may never reach an act that pushes.
+    if ! _names batch-foreign; then
+        add_row "catch_up_offer_is_bounded" true "a colleague's claim is not a candidate -- the reader never offers what no act of ours may take" load
     else
         add_row "catch_up_offer_is_bounded" false "the reader offered a unit no act may take: $(one_line "$_cands")" load
     fi

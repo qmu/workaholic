@@ -7,7 +7,7 @@
 #          "count": <n>|null,
 #          "candidates": [{"unit": "...", "branch": "work-...",
 #                          "resume_reason": "report_undelivered"|"queue_drained",
-#                          "mergeability": "mechanical"}]}
+#                          "mergeability": "mechanical"|"content"}]}
 #         Always exit 0 — a degraded read is an answer, and its caller reports it rather than
 #         failing the run on it.
 #
@@ -99,13 +99,26 @@ SHALLOW=$(printf '%s' "$out" | jq -r '.shallow // false')
 rows=$(printf '%s' "$out" \
     | jq -r '.claims[]? | [.unit, .branch, "", "", "", "", .resume_reason] | @tsv' 2>/dev/null || true)
 
-# A REPORTED claim of this identity whose branch the base still accepts mechanically. The
-# identity term is the oracle's own: `foreign_identity` and `identity_unresolved` are verdicts,
-# so a claim that is not this runner's can never carry one of the two admitted words.
+# A REPORTED claim of this identity whose branch the base may still accept without a person's
+# judgement. The identity term is the oracle's own: `foreign_identity` and `identity_unresolved`
+# are verdicts, so a claim that is not this runner's can never carry one of the two admitted
+# words.
+#
+# `content` JOINED `mechanical` ON 2026-09-02 (mission
+# `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`), and this reader had to move
+# with the act or the widening would be unreachable: `catch-up-claim.sh` now attempts a
+# `content`-classed branch — because `mergeability` is a PREDICTION computed with the
+# repository's `.gitattributes` out of reach, and the writer merges in a real checkout where the
+# union driver is in force — but `/implement` only ever calls it for what THIS reader offers.
+# A reader left at `mechanical` would have made the change a no-op through the one caller that
+# uses it.
+#
+# `unanswerable` IS STILL NOT OFFERED. It is the absence of a reading, the act refuses it by
+# name, and offering a candidate the act must refuse spends a worktree to learn nothing.
 units=$(printf '%s' "$out" \
     | jq -r '[.claims[]?
               | select((.resume_reason == "report_undelivered" or .resume_reason == "queue_drained")
-                       and .mergeability == "mechanical")
+                       and (.mergeability == "mechanical" or .mergeability == "content"))
               | .unit] | unique | .[]' 2>/dev/null || true)
 
 candidates=""
@@ -131,8 +144,14 @@ for unit in $units; do
     esac
     class=$(printf '%s' "$out" | jq -r --arg b "$branch" \
         '[.claims[]? | select(.branch == $b) | .mergeability] | first // ""' 2>/dev/null || printf '')
-    [ "$class" = "mechanical" ] || continue
-    candidates="${candidates}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"resume_reason\": \"${verdict}\", \"mergeability\": \"mechanical\"}"
+    # THE CLASS IS CARRIED THROUGH, NEVER FLATTENED. It used to be re-spelled as the literal
+    # `mechanical` here, which was harmless while that was the only admitted word and became a
+    # lie the moment `content` joined it. A caller reporting the candidate quotes this field.
+    case "$class" in
+        mechanical | content ) ;;
+        * ) continue ;;
+    esac
+    candidates="${candidates}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"resume_reason\": \"${verdict}\", \"mergeability\": \"${class}\"}"
     sep=", "
     count=$((count + 1))
 done

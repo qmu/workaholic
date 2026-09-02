@@ -31388,6 +31388,64 @@ function testProofJudgementSplit() {
   assertTrue("and refuses a content conflict by its own word",
     /refuse content_conflict/.test(catchUp), catchUp.slice(0, 200));
 
+  // ---- THE REFUSAL IS THE WRITER'S RESIDUE, NEVER THE READER'S PREDICTION (2026-09-02,
+  // mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) ----
+  //
+  // The operator's correction was that deferring a conflict to a claim holder is wrong, because
+  // a claim holder never comes. `claim-mergeability.sh` computes with the repository's
+  // `.gitattributes` deliberately OUT OF REACH — its job is to predict GitHub, which applies no
+  // merge driver — while `catchup-main.sh` merges in a real checkout where those drivers are in
+  // force. So the reader is pessimistic by construction against the writer, and refusing on its
+  // `content` declined branches the writer would have finished.
+  //
+  // These rows pin the shape of the widening rather than its wording: the class-gate accepts
+  // `content`, the ABSENCE-word does not become actable with it, and the refusal still exists
+  // downstream. Each is written to fail on the change that would undo it:
+  //
+  //   `content` removed from either class gate      -> `... attempts a content prediction`
+  //   `unanswerable` made actable in either gate    -> `... still refuses the absence of a reading`
+  //   the candidate reader narrowed back            -> `... offers a content candidate`
+  //   the strategy section deleted from claims.md   -> `... states its resolution strategy`
+  const settle = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh"), "utf8");
+  const catchable = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"), "utf8");
+
+  // The class gate is the `case "$CLASS"` block; a `content` that reaches an empty arm is
+  // attempted, and one that reaches `refuse` is not. Matching the ARM, not the file, so a
+  // mention of the word in a comment cannot satisfy the row.
+  assertTrue("the catch-up attempts a content prediction rather than refusing it",
+    /clean \| mechanical \| content\) ;;/.test(catchUp),
+    "catch-up-claim.sh no longer accepts `content` as a candidate class");
+  assertTrue("the publication act attempts a content prediction rather than refusing it",
+    /mechanical \| content\) ;;/.test(settle),
+    "settle-stranded-publication.sh no longer accepts `content` as a candidate class");
+
+  // The absence-word must NOT have travelled with it. Acting on an absence is the failure the
+  // three-valued reading exists to prevent, and a widening that swept it along would be the
+  // dangerous direction.
+  assertTrue("the catch-up still refuses the absence of a reading",
+    /unanswerable\) refuse "mergeability_unanswerable:/.test(catchUp),
+    "catch-up-claim.sh acts on `unanswerable`");
+  assertTrue("the publication act still refuses the absence of a reading",
+    /refuse "not_mechanical:\$\{CLASS:-unreadable\}"/.test(settle),
+    "settle-stranded-publication.sh acts on `unanswerable`");
+
+  // The candidate reader had to move with the act or the widening is unreachable through the one
+  // caller that uses it — a no-op dressed as a change.
+  assertTrue("the candidate reader offers a content candidate",
+    /\.mergeability == "mechanical" or \.mergeability == "content"/.test(catchable),
+    "list-catchable-claims.sh still offers only `mechanical`, so the act is never called for `content`");
+  assertTrue("and carries the class through rather than re-spelling it",
+    /\\"mergeability\\": \\"\$\{class\}\\"/.test(catchable),
+    "list-catchable-claims.sh flattens every candidate's class to a literal");
+
+  // The strategy was required to be WRITTEN DOWN before it was written (the ticket's own step 2),
+  // because "the tick decides" is only acceptable if a reader can argue with the decision.
+  assertTrue("and claims.md states its resolution strategy per class",
+    wholeTable.includes("#### The resolution strategy, per class"),
+    "claims.md no longer says which side wins for each class of conflict");
+
   // ---- WHEN A BOUNDED ACT MAY READ A JUDGEMENT (2026-08-30, mission
   // `catch-a-reported-claim-up-before-its-conflict-hardens`) ----
   //
@@ -33202,10 +33260,25 @@ function testSettleStrandedPublication() {
       { cwd: fx.A, encoding: "utf8" }).trim();
 
     // 1. A CONTENT COLLISION IS REFUSED BY ITS OWN WORD, BRANCH BYTE-IDENTICAL.
+    //
+    // THE WORD MOVED ON 2026-09-02 (mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) and the move is the whole
+    // point of that change. It was `not_mechanical:content` — refused on the READER's
+    // prediction, before anything was checked out. It is now `content_conflict`, the WRITER's
+    // own residue: the act attaches the worktree, performs the merge, and refuses only once the
+    // merge itself has failed to settle the hunk. `src/app.txt` is a genuinely divergent
+    // hand-written file, so a real collision still refuses — what changed is that the loop now
+    // finds that out by trying, and every branch the writer COULD have finished (the reader
+    // computes without the repository's `.gitattributes`, so it over-reports `content`) is
+    // finished instead of deferred to a claim holder who never comes.
+    //
+    // THE ROW BELOW IS THE SAFETY PROPERTY AND IT DID NOT MOVE: attempting costs the branch
+    // nothing. A refusal after a real merge attempt still leaves the ref byte-identical,
+    // because nothing is pushed until the fast checks have passed.
     const before = tipOf(content);
     const refused = settle(22);
-    assertEq("a content collision is refused by its own word",
-      [refused.outcome, refused.reason], ["settle_refused", "not_mechanical:content"]);
+    assertEq("a content collision is refused by the writer's own word, not the reader's",
+      [refused.outcome, refused.reason], ["settle_refused", "content_conflict"]);
     assertEq("and its branch is byte-identical after the refusal", tipOf(content), before);
 
     // 2. THE MECHANICAL ONE IS CAUGHT UP, REGENERATED, PUSHED AND DELIVERED.

@@ -10,6 +10,7 @@ autofix_on_pr_create: true
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep]
 mcp: [Slack]
+sources: [{repo}]
 ---
 
 # [Moderate] — the maintenance tick, one copy for the repository

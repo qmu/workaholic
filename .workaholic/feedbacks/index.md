@@ -643,4 +643,8 @@
 * [The loop has clerks but no planner: nothing re-plans from the live board and convergence has no owner](20260901123318-the-loop-has-clerks-but-no-planner-nothing-re-plans-from-the-live-board-and-convergence-has-no-owner.md)
 * [A Slack post's Japanese must be read on first sight, not decoded](20260902042405-a-slack-post-s-japanese-must-be-read-on-first-sight-not-decoded.md)
 * [The moderation tick resolves and merges, it does not report stuckness](20260902042549-the-moderation-tick-resolves-and-merges-it-does-not-report-stuckness.md)
+* [The Propose tick parks on a permission prompt every hour](20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md)
+* [Only a human's ask originates a mission](20260902043338-only-a-human-s-ask-originates-a-mission.md)
+* [A reference to a skill section is what makes a session reach](20260902043718-a-reference-to-a-skill-section-is-what-makes-a-session-reach.md)
+* [A closed pull request and an abandoned mission still read as stuck work, and the tick asks a person to do its own job](20260902062425-a-closed-pull-request-and-an-abandoned-mission-still-read-as-stuck-work-and-the-tick-asks-a-person-to-do-its-own-job.md)
 <!-- okf:generated:end -->

@@ -180,3 +180,28 @@ run may not do. Deferred to the operator, unasked.
 **The ruling this needs.** Re-scope acceptance item 1 to a mechanism `refs/heads/*` can express,
 or move the arbitration to where the write is permitted (`.github/workflows/`, which holds
 `contents: write`), or abandon the item on the bounded-later repair already landed.
+
+## Drive Findings — 2026-09-01, second run (blocked; one new row)
+
+Re-verified by **reading**, not probing: `claims.md`'s *What the claim contends for* and this
+ticket's own table. Unmoved, so the block stands on the same measurement and the same open
+ruling. No probe was pushed and no new residue ref was created.
+
+**One row is new, and it is about this claim rather than about a probe ref.** Releasing a
+**live claim** was refused by the same transport:
+
+```
+$ release-claim.sh stop-two-runs-from-claiming-and-driving-one-unit
+error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+{"released": false, "state": "half_released", "reason": "remote_delete_failed", ...}
+```
+
+So the delete refusal is not confined to probe namespaces: it reaches `refs/heads/work-*`, the
+branch the claim protocol's own release path must delete. Two consequences worth the ruling's
+attention. First, it **strengthens** step 5's objection — a container that cannot delete its own
+claim branch certainly cannot release a unit-keyed ref, so the leaked-ref regression is measured
+rather than forecast. Second, it is a **cost of the block itself**: every unattended run that
+claims this mission, finds the queue blocked on the ruling, and tries to hand the unit back leaves
+one undeletable `work-*` branch behind. `work-20260901-144612` is this run's.
+
+Nothing here changes what the ruling is. It changes only how expensive waiting for it is.

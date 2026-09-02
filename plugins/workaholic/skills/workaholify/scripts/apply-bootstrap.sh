@@ -34,6 +34,11 @@
 #                              GitHub account an address belongs to is a fact only a human
 #                              has, so this repair proposes and never decides — the same
 #                              line the check already reports, put where the fix is made.
+#   identity_map_no_entry_for_account
+#                              append the proposed line for the ACCOUNT this session runs
+#                              as — the lookup step 0b performs — again as a COMMENT. Here
+#                              the login is the known half and the ADDRESS is the guess, so
+#                              the placeholder sits on the other side of the `=`.
 #
 # THE MAPPING REPAIR NEVER WRITES AN ENTRY UNAIDED. A commented proposal is not an entry:
 # `identity.sh` skips comments, so a repository that runs this apply and never edits the
@@ -263,6 +268,31 @@ if has_advisory identity_map_uncovered; then
     fi
   done
   [ "$proposed" -gt 0 ] && add_applied identity_map_uncovered
+fi
+
+# THE ACCOUNT'S OWN LINE (2026-09-02, ticket `install-and-audit-the-identity-mapping`). The
+# repair above walks the addresses the TREE uses; this one proposes the line step 0b looks
+# up — keyed on the GitHub login the session runs as. The two do not overlap: an account
+# with no mapping line is not an uncovered address, and a tree whose addresses are all
+# covered can still leave the running account unmapped.
+#
+# IT PROPOSES THE HALF IT KNOWS AND NEVER THE HALF IT DOES NOT. Unlike the uncovered-address
+# proposal, here the LOGIN is the known half and the address is the guess, so the placeholder
+# sits on the other side of the `=`. Still a comment, still not an entry, still idempotent by
+# the same `proposed:` marker — a repository that applies this and never edits the file
+# behaves exactly as before, and the advisory stays reported until a person fills it in.
+if has_advisory identity_map_no_entry_for_account; then
+  # The login is read back out of the advisory that named it, so the repair and the report
+  # cannot disagree about which account they mean.
+  account_login=$(printf '%s' "$advisories" | sed -n "s/.*identity_map_no_entry_for_account ([^']*'\\([^']*\\)'.*/\\1/p")
+  if [ -n "$account_login" ]; then
+    account_line="${account_login}=<canonical-email>"
+    if ! grep -qF "proposed: ${account_line}" "$IDMAP" 2>/dev/null; then
+      printf '# proposed: %s  (fill in the address this account commits as and uncomment; a commented line is not an entry)\n' \
+        "$account_line" >> "$IDMAP"
+      add_applied identity_map_no_entry_for_account
+    fi
+  fi
 fi
 
 after=$(sh "${SCRIPT_DIR}/check-bootstrap.sh" "$ROOT")

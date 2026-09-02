@@ -50,7 +50,7 @@ The distinction is **where the number comes from**, not what type it is:
 
 ### The audit (2026-09-01, ticket `20260901122448-name-every-step-summary-carrying-transport-derived-volatility`)
 
-Every one of the thirty-two `step-*.sh` summary compositions was read. Each is a literal format
+Every one of the thirty-three `step-*.sh` summary compositions was read. Each is a literal format
 string over named shell variables, so **none is unauditable** — there is no step whose summary is
 built by interpolation this audit could not follow, and none is recorded as unaudited.
 
@@ -64,6 +64,7 @@ Three carried a transport-derived term. All three are repaired; every other step
 | `base-health`, `drill-health` | cleared — a check-run *conclusion*, not a lazily computed field: it does not flip between two identical reads, and when it does flip a check really was re-run. |
 | `catchup-blocked`, `stranded-publications`, `stalled-units`, `undelivered-units`, `handoff-units`, `raced-units`, `retire-claims` | cleared — every count comes from the claim scan and `claim-mergeability.sh`, which is a local `merge-tree` with no network. |
 | `closable-missions`, `undrivable-units`, `direction-health`, `strategy-pace`, `doc-drift`, `thread-reconcile`, `standing-rulings`, `file-findings`, `question-answers`, `unanswered-asks`, `blocked-tick`, `cadence-lapse`, `human-checkin` | cleared — tree, tick log, or this loop's own gate words. |
+| `unrecorded-missions` | cleared — the tree terms are the tree's, and a pull request's closed/unmerged state is a repository fact GitHub stores rather than recomputes (`issue-triage`'s row, for its reason). |
 | `issue-triage`, `operator-pulls` | cleared — an issue's or pull request's open/closed state is a repository fact GitHub stores rather than recomputes. |
 | `inbound-sweep`, `strategy-digest` | cleared, with a caveat named rather than repaired: both are **window-relative**, so their counts move as the window slides. That is clock-derived, not transport-derived, and in both cases the movement tracks activity that really happened. |
 | `note-cadence`, `workload-logs` | cleared, with the term to watch named: `note-cadence`'s *due* is a JST-day boundary over a draft release CI alone writes, and `workload-logs`'s `readable` is an environment capability. Neither recomputes remotely today; a target whose log endpoint flaked would make `readable` the fourth finding. |
@@ -490,6 +491,22 @@ a person has learned to skip. Measured — three merged pull requests were each 
 The keying is untouched: `stalled-unit:<unit>` still keys a genuine stall, and only which rows
 reach it moved.
 
+**And a claim the RETIREMENT PATH already owns is a fact with no question on it at all**
+(2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`). The same argument as
+`superseded`, extended to the classes that joined it: measured, the operator closed a pull
+request and closed its mission `abandoned`, and this step asked them about that branch every hour
+until they deleted it by hand — a question asking a person to do the tick's own job. The set is
+**composed** from `drive/scripts/list-retirable-claims.sh`, never re-derived: its four classes
+(`superseded_only`, `pull_request_merged`, `pull_request_closed_unmerged`, `mission_not_active`)
+are defined once, and restating them here would be two definitions of one set. What was
+subtracted is **counted** in the summary (`N already owned by the retirement path`), because
+filtering is not silence. **An unreadable retirement read filters nothing** and says so in the
+summary: a gate that cannot be read is not a gate, and an over-eager question beats a silently
+dropped one. **It is read only when there is something to subtract from** — the retirement
+reader makes its own claim scan and a bounded pull-request read per `work-*` ref, and a
+subtraction over an empty candidate set changes nothing — so the common tick, with nothing past
+the staleness threshold, pays none of it.
+
 **The summary carries no age, and that is a correctness requirement** (same change). The root
 calls a step changed when its summary differs from the same step's an hour ago, and
 `render-tick-post.sh` normalises out a timestamp, a bare hex object name and a clock time — and
@@ -700,6 +717,54 @@ construction — and it goes out as the same `🙋 <@U…>` reply, with its age 
 sentence (`first_asked` rides the gate's answer). The root's wording does not move, so the copy in
 `notify/reference/notifications.md` and the copy in `/moderate` stay byte-identical (the shapes
 left the routine template on 2026-09-01 — `workaholic:notify`, *The command is the ceiling*).
+
+## 12a. `unrecorded-missions` — the pull request was closed, so nothing recorded the work
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-unrecorded-missions.sh --tick <id> [--root <repo-root>]
+```
+
+**§12's photographic negative** (2026-09-02, ticket `20260902065500`). That step's proof is
+arithmetic — `checked == total`, `unlinked == 0`, an empty queue — and these missions satisfy
+none of it: acceptance `0/N`, nothing ticked, the queue still full. **Measured 2026-09-01/02**:
+three missions read `status: active` with `0/3` acceptance and **17 queued tickets** between
+them, the `/implement` survey offered all three, and the behaviour each asked for was already on
+`main` — put there by a person's own single commit while the loop's own pull request was closed
+unmerged (#790/#789, #801/#800, #802/#800). Only the **bookkeeping** is missing: no branch
+archived the tickets, so no seam ticked the acceptance and `close.sh` was never reached.
+Drivability is *active area + plan + queued tickets*, and all three terms still hold — so the
+loop is queued to re-implement `main`.
+
+- **Reads**: `summary.sh`, `progress.sh`, `queue-size.sh` and the mission's own `## Changelog`
+  from the tree; then **one** bounded `branch-pull-request-state.sh` read per mission that
+  passes all four tree terms. `list-claims.sh` is read once for the whole step, as the second
+  branch source below.
+- **Four tree terms, then one read**: `active`; acceptance entirely unticked (`checked == 0`,
+  `total > 0`); the changelog records **no archived ticket**; and the queue is **non-empty** — a
+  drained one is §12's candidate or nobody's. Only `closed_unmerged` is a candidate: `merged` is
+  work that landed and `open` is a unit still being driven, and each is **counted** and named by
+  nobody.
+- **The branch is resolved from two sources, and the second is why the step works at all.** The
+  ticket says *the mission's recorded `claim:` branch*, and `claim.sh` does write that field —
+  **on the claim branch**. A branch closed unmerged never reaches the base, so for precisely
+  these missions `main`'s copy carries no `claim:` line: all three measured missions read
+  `status: active` with no `claim:` field. The field is read first, the claim oracle's own row
+  for the unit second. When **neither** resolves — closed unmerged *and* since deleted, which is
+  what CI's retirement now does — the mission is counted **`claim_branch_unresolved`** and asked
+  about by nobody. A named absence, never a candidate: this step may not name a mission whose
+  pull request it never read.
+- **Question key**: `unrecorded-mission:<slug>`, addressed to the mission's **assignee**, asked
+  once. Lead with what happened, the slug after it, one act named: close it, or drive it again.
+- **Writes nothing, closes nothing, excludes nothing, touches no claim.** `close.sh` writes
+  `abandoned` and `carried` on a person's intent alone, and an automatic exclusion would hide a
+  mission whose work genuinely still needs driving. The available reading is *the acceptance is
+  unticked and the queued tickets describe behaviour the base already has*, whose second half is
+  a **judgement about behaviour** — and `list-stranded-publications.sh`'s history records a
+  survey-side *already implemented* test refused by name for exactly that reason.
+- **A degraded read is named**: an unreadable pull request makes the step `degraded` with reason
+  `pull_request_unreadable`, and it is never rendered as *nothing to close*. Candidates the step
+  **did** prove are still handed over — losing a question because a different mission was
+  unreadable trades one silence for another (`cadence-lapse`'s rule, applied here).
 
 ## 13. `human-checkin` — the tick's voice: one root, up to five questions inside it
 
@@ -2271,6 +2336,7 @@ decide something before any change is the right one*.
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
 | `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
+| `unrecorded-missions` | `needs_ruling` | **Whether to close the mission or drive it again is the assignee's**, and the step exists because the loop cannot tell them apart: what it establishes is that nothing *recorded* the work, never that the work is undone. `closable-missions`' row, one state over — and filing it as work would have the loop closing a mission on a reading its own header refuses to treat as a proof. |
 | `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
 | `drill-health` | `needs_ruling` | `base-health`'s row, for `base-health`'s reason: it composes the same check-run reader, so every value it carries is a judgement a re-run can turn green. The finding reaches the person who shipped the mechanism as that step's own keyed question, which is the delivery the mission asked for. |
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
@@ -2784,6 +2850,15 @@ drops a pull request whose head branch is asked about here. One step asks and th
 exactly as `handoff-units` and `stalled-units` divide — either half alone is a defect, because
 *retry your merge* is the wrong instruction for a branch that no longer merges.
 
+**And a claim the RETIREMENT PATH already owns draws nothing here either** (2026-09-02, mission
+`retire-a-claim-whose-work-is-finished-or-abandoned`). Asking somebody to resolve a conflict on
+a branch the tick is about to delete is asking them to do work that will be thrown away — the
+shape `raced-units` above already carves out, one class over. The set is **composed** from
+`drive/scripts/list-retirable-claims.sh` rather than re-derived, what is subtracted is
+**counted** in the summary, and an **unreadable** retirement read filters nothing and says so:
+a gate that cannot be read is not a gate. It is read **only when there is something to subtract
+from**, for the cost reason `stalled-units` records.
+
 **The conflicted files ride the claim row.** A question that cannot name what collided does not
 say what to look at, and reading the mergeability a second time here would be a second
 derivation of one fact — so `list-claims.sh` renders `mergeability_content_files` and this
@@ -2951,6 +3026,47 @@ request's own `created_at` and the tick log not at all.
 - **Never alone**: `ruling_touching`, `strategy_touching`. Those are the publish seam's words
   and they say *why this one is yours*, which is worth carrying beside the fact — but a reader
   who has not read `publish-tree-pr.sh` learns nothing from either on its own.
+
+### 28b. `headless-pull:<number>` — an open pull request with no branch left
+
+**A second question on the same step, under its own key** (2026-09-01, ticket
+`20260901112558-name-an-open-pull-request-with-no-head-branch.md`). `list-headless-pulls.sh`
+names every open pull request whose `head.ref` names no branch on the remote. GitHub does not
+close a pull request when its head branch is deleted, and such a pull request is **unmergeable
+by construction** — a fact about the repository, not a judgement.
+
+**Why here.** This is the step that reads pull requests waiting on a person. **Why its own
+key**: the act asked for is different. `operator-pull:<number>` asks for a **ruling** on a diff
+— merging it is the ruling and closing it is the refusal; this asks for a **close**, because
+merging is not available to anybody. The existing candidates, key and addressee did not move.
+
+**Why not a widened `list-operator-facing-pulls.sh`.** That reader answers *which open pull
+requests wait on the operator's ruling*, derived from the publish seam's refusal word. A
+headless pull request waits on nothing and has no refusal word. Two questions, one derivation
+each — the rule that reader's own header already states for itself.
+
+**The ref set is one repository-scoped REST listing** (`repos/{slug}/branches`), never the local
+remote-tracking refs. The cheaper local read is wrong in the direction that costs: a clone that
+never fetched a branch renders a **live** pull request headless and sends a person to close work
+that is still going. A head on another repository (a fork) is **counted** (`foreign_head`) and
+never reported headless — *we could not look* must never render as *the branch is gone*.
+
+**It is reported exactly once.** `list-stranded-publications.sh` drops such a pull request by
+its own term 2b and counts it (`headless`), so `settle-stranded-publication.sh` is never handed
+an act that cannot succeed; a catch-up candidate is structurally impossible, since
+`list-catchable-claims.sh` needs a **claim**, which needs an unmerged remote branch.
+
+**A degraded read is named in the summary and asks nobody**, and is never rendered as *nothing
+headless*.
+
+**The question, under the composition contract.**
+
+- **Heading** — *a pull request here can never be merged: its branch is gone*, then the number,
+  the title and how long it has been open.
+- **Body** — the one act: *close it.* The loop closes nothing itself — closing another person's
+  pull request is not a bounded act the way a branch delete is, and the five measured cases were
+  closed by a person who first verified the content was on `main` file by file.
+- **Never alone**: the number. Lead with what happened; the identifier comes after it.
 
 ## 29. `raced-units` — a unit two runs are driving at once
 

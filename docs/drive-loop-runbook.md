@@ -297,6 +297,52 @@ treat the branch as never-proposed, and a degraded read must never hand that lic
 A caller testing `state == "none"` on a failed transport would be deleting branches on the
 strength of a rate limit.
 
+### Operator procedure: reading the CI retirement record
+
+The retirement's Act 2 (the branch delete) is refused in a routine container by session type, so
+it runs in `.github/workflows/claim-retirement.yml`. That workflow is **green whatever it
+decided** — a refusal must not fail the job — so its verdicts live in `::notice::` annotations on
+its check run, written by `record-ci-retirement-turn.sh` and read back per unit by
+`read-ci-retirement-record.sh` (matched on `head_sha`, bounded by `WORKAHOLIC_CI_RECORD_MAX`,
+default 20, with a truncated record saying so). Read them on the workflow run's check run, or
+locally:
+
+```bash
+bash plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh   # what CI will be offered
+bash plugins/workaholic/skills/drive/scripts/branch-pull-request-state.sh <branch>
+git branch -r --no-merged origin/main                                   # what is still standing
+```
+
+Every candidate row carries its `candidate_reason`, and each class is read differently:
+
+| `candidate_reason` | What CI proved | Read it as |
+| ------------------ | -------------- | ---------- |
+| `superseded_only` | the oracle's own emptiness proof | the loop's ordinary cleanup; nothing to do |
+| `pull_request_merged` | the branch's pull request merged — a squash merge leaves no ancestry, so `--no-merged` keeps listing it | backlog draining; nothing to do |
+| `pull_request_closed_unmerged` | a person closed the pull request without merging **and** the branch is empty against the base | your own recorded decision being carried out; if it refused, see `branch_holds_work` below |
+
+**What each refusal asks you to do.** All of them leave the branch on origin, exit 0 and change
+nothing:
+
+| Refusal | What it means | Your act |
+| ------- | ------------- | -------- |
+| `not_a_work_branch`, `release_branch`, `no_branch` | the delete was aimed at something that is not a claim branch | nothing — the bound worked; if a real claim branch reads this, its name is off-pattern and `create.sh` is where to look |
+| `not_on_base` | a `superseded_only` candidate whose content is **not** on the base after all | do not delete it. Read the branch's diff against `main`; if it holds work, it belongs to `stranded`, and its holder decides whether to land or discard it |
+| `pull_request_open` | the pull request is still open | close or merge it; the next turn takes the branch |
+| `not_superseded:<verdict>` | a **live** claim row for the unit — a run is driving a fresh claim over this one | nothing; a live row beats a merged pull request always. It clears when that run finishes |
+| `not_merged:<state>` / `not_closed_unmerged:<state>` | the pull request moved between the candidate read and the act | nothing; the next turn re-reads it |
+| `pull_request_unreadable:<reason>` | GitHub could not be asked (`rate_limited`, `session_refused`, `transport_error`, …) | nothing on one occurrence. If it persists, the reason names the transport to fix — it is never *the branch has no pull request* |
+| **`branch_holds_work`** | you closed the pull request unmerged, but the branch still carries commits found on no other ref | decide what happens to that work. If it is genuinely unwanted, delete the branch by hand (`git push origin --delete <branch>`); if not, reopen the pull request or land the work |
+| **`emptiness_unanswerable`** | the emptiness could not be read, so the gate failed closed | usually a shallow or partial clone in the runner; re-run the workflow. Never delete on an unanswerable reading |
+| `gh_unavailable`, `slug_unresolved`, `origin_unreachable`, `no_origin` | the runner's own transport or checkout | re-run the workflow; if it repeats, the workflow's `permissions:` or checkout is what changed |
+| `branch_delete_failed` | every gate passed and the `DELETE` itself was refused | delete it by hand, and check the token's `contents: write` |
+
+**Measured, 2026-09-01 → 2026-09-02.** Before: **30** unmerged remote branches, 22 of them dead
+(17 with a merged pull request, 5 closed unmerged). After CI had taken its turns: **7** — one
+fresh `closed_unmerged` candidate, two open pull requests, two live claims, and the tick log's own
+two refs (`workaholic-log` and the legacy `workaholic/moderation-log`), which match neither
+`work-*` nor `release/*` and are invisible to the claim scan by design.
+
 ## 6. Failure modes
 
 | Symptom | Cause | Fix |

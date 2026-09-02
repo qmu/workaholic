@@ -3,6 +3,13 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260902-083315](work-20260902-083315.md) - Name a mission whose pull request was closed unmerged, so nothing recorded its work and its tickets are still queued
+* [work-20260902-075157](work-20260902-075157.md) - A claim whose mission the operator ended is retired by the tick and asked about by nobody, proved from the tree and drilled offline
+* [work-20260902-073545](work-20260902-073545.md) - Write down the routine record field by field, build its request body in one place, and give the environment resolution a rule and a named refusal
+* [work-20260902-070115](work-20260902-070115.md) - Stated the natural-Japanese quality bar on every surface a session reads what to emit from, in one wording pinned byte-identical across five files
+* [work-20260902-063614](work-20260902-063614.md) - Names an open pull request that lost its branch, localizes why one defect was implemented twice, and states the three retirement candidate classes where they are read
+* [work-20260902-054507](work-20260902-054507.md) - Made a survey run under a placeholder git identity say so and forbid ok, and made the bootstrap audit the mapping lookup its own hook actually performs
+* [work-20260901-144612](work-20260901-144612.md) - Measured that the transport refuses the delete of a live claim branch too, so the leaked-ref objection to the named mechanism is a reading rather than a forecast
 * [work-20260901-123859](work-20260901-123859.md) - The moderation tick's root is keyed on the day and each later hour replies into it, and the post gate stops firing on values a transport merely re-answered.
 * [work-20260901-121939](work-20260901-121939.md) - Decided the probe-branch cleanup is a person's two commands rather than a standing branch-deleting CI capability, and named them where a person reads
 * [work-20260901-112108](work-20260901-112108.md) - A mission slug is now checked against the unmerged branches as well as the local tree, so a publish tree stranded for days can no longer mint a slug a second time in silence.

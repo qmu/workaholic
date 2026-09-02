@@ -35689,6 +35689,33 @@ function testClaimMissionState() {
   }
 }
 
+// A REFUSED CHECK KEEPS ITS OUTPUT (2026-09-03). `catch-up-claim.sh` ran the repository's fast
+// checks under `>/dev/null 2>&1`, so `validation_failed:<check>` was the whole of what a reader
+// got -- identical whether the branch is broken, the environment leaked, or the run lost to load.
+// Measured: two consecutive catch-ups on `work-20260902-043932` refused over the suite, and the
+// script's OWN invocation re-run byte-for-byte in the same worktree answered `6236 passed, 0
+// failed`, exit 0, twice. Under `/spawn-loops` several loops run that suite on one machine, so
+// this stopped being rare. The bytes are kept in a file whose path rides the JSON; stdout stays
+// the single line every caller parses.
+T("drive/catch-up-claim.sh: a refused check keeps its output", testCatchUpKeepsTheFailingCheckOutput);
+function testCatchUpKeepsTheFailingCheckOutput() {
+  const src = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"), "utf8");
+
+  assertTrue("the reported JSON carries a check_log field",
+    /"check_log": "%s"/.test(src));
+  assertTrue("check_log is declared before any refusal can render it",
+    src.indexOf('CHECK_LOG=""') < src.indexOf("if command -v node"));
+  assertTrue("a failing check names its log on the refusal",
+    /CHECK_LOG="\$_cul"; refuse "validation_failed:/.test(src));
+  assertTrue("the checks still run in the same clean environment",
+    /unset WORKAHOLIC_CLAIM_STALE_HOURS/.test(src));
+  assertTrue("a check that passed leaves no log behind",
+    /rm -f "\$_cul"/.test(src));
+  assertTrue("the captured output is never printed to stdout",
+    !/cat "\$_cul"/.test(src));
+}
+
 T("the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls);
 function testOperatorFacingPulls() {
   const MOD = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");

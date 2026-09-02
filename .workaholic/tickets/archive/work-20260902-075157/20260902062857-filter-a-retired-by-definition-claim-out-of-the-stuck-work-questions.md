@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T06:28:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,41 @@ retiring. Filter and count it, exactly as those two are filtered and counted.
   `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`; this ticket covers only the
   claims that are retired by definition, and must not re-implement that one.
 - Filtering is not silence: every subtraction is counted where the step already reports.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — reproduced and localized before subtracting anything
+
+The measured case — a claim whose pull request is closed unmerged — reaches
+`step-stalled-units.sh` as an ordinary `stale` row and composes a `stalled-unit:<unit>` question
+from it. The two verdicts subtracted today are named in **one** expression:
+
+```
+stalled=$(… | jq -c '[.[] | select(.stale)
+    | select(.resume_reason != "superseded" and .resume_reason != "awaiting_verification")]')
+```
+
+Nothing else subtracted anything: a `raced` unit is filtered a line later from its own set, and
+no expression anywhere consulted the retirement path. `step-catchup-blocked.sh` was the same
+shape — `raced` filtered, retirement not.
+
+### Discovered Insights
+
+- **Insight**: The subtraction had to be **bounded to when there is something to subtract from**.
+  `list-retirable-claims.sh` makes its own claim scan (with a fetch) and one bounded pull-request
+  read per `work-*` ref, and these two steps run every tick inside a thirty-two-step tick; reading
+  it unconditionally made the hermetic suite roughly ten times slower, which is the same cost the
+  live tick would pay. Guarding on a non-empty candidate set costs nothing in behaviour — a
+  subtraction over an empty set changes nothing — and leaves the common tick paying none of it.
+  **Context**: This is why `retirable_attempted` exists beside `retirable_readable`: the summary
+  must name a read that *failed*, and must not name one that was never *made*.
+- **Insight**: The same measurement pushed a change back into the previous ticket's reader.
+  `claim-mission-state.sh` composed `mission/scripts/list.sh`, which enumerates every mission and
+  computes each one's progress; called once per unit from the candidate reader that made the
+  candidate scan O(units × missions). It now composes `mission/scripts/lib/resolve.sh` — the one
+  resolver every mission script already uses — so the **area**, which is the whole answer, falls
+  out of the path with no walk at all.
+  **Context**: A composition that is correct can still be the wrong one, and the thing that says
+  so is a measurement rather than a reading of the code.

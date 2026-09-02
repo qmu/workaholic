@@ -1652,6 +1652,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
 | `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |
+| `verify-retired-claim` | `hermetic` | yes | `retire-a-claim-whose-work-is-finished-or-abandoned` |
 | `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |
 
 ### The evidence behind the classification

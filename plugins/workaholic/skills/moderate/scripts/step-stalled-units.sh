@@ -243,6 +243,48 @@ if [ -n "$raced_set" ]; then
     n_raced=$(printf '%s' "$stalled" | jq --argjson r "$raced_json" '[.[] | select(.unit as $u | $r | index($u))] | length')
     stalled=$(printf '%s' "$stalled" | jq -c --argjson r "$raced_json" '[.[] | select(.unit as $u | ($r | index($u)) | not)]')
 fi
+
+# AND A CLAIM THE RETIREMENT PATH ALREADY OWNS IS A FACT WITH NO QUESTION ON IT AT ALL
+# (2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`). Measured: the
+# operator closed a pull request and closed its mission `abandoned`, and this step asked them
+# about that branch every hour until they deleted it by hand — a question asking a person to do
+# the tick's own job. `superseded` was subtracted here in 2026-08-26 for exactly this reason and
+# the argument did not move; what moved is that the retirement path now owns three further
+# classes (`pull_request_merged`, `pull_request_closed_unmerged`, `mission_not_active`), and the
+# expression named only the one verdict it started with.
+#
+# COMPOSED, NEVER RE-DERIVED. `drive/scripts/list-retirable-claims.sh` is the one reader of
+# which claims the retirement path owns; restating its four classes here would be two
+# definitions of one set, and the one that drifted would be believed.
+#
+# AN UNREADABLE RETIREMENT READ FILTERS NOTHING. A gate that cannot be read is not a gate, so
+# every question stays standing and the summary names the degraded read — an over-eager question
+# beats a silently dropped one, which is the direction every filter here already errs in.
+#
+# IT IS READ ONLY WHEN THERE IS SOMETHING TO SUBTRACT FROM. The retirement reader makes its own
+# claim scan and one bounded pull-request read per `work-*` ref, and this step runs every tick
+# inside a thirty-two-step run; a subtraction over an empty set costs exactly as much as one
+# over a full set and changes nothing. So the common tick — nothing past the staleness
+# threshold — pays nothing at all, and `retirable_readable` stays false with no question to
+# hold, which is the same answer it would have given.
+retirable_readable=false
+retirable_attempted=false
+n_retiring=0
+RETIRABLE="${SCRIPT_DIR}/../../drive/scripts/list-retirable-claims.sh"
+if [ "$(printf '%s' "$stalled" | jq 'length')" -gt 0 ] && [ -f "$RETIRABLE" ]; then
+    retirable_attempted=true
+    _ret=$( ( cd "$ROOT" && sh "$RETIRABLE" ) 2>/dev/null || true )
+    if [ -n "$_ret" ] && printf '%s' "$_ret" | jq -e '.ok // false' >/dev/null 2>&1; then
+        retirable_readable=true
+        _ret_units=$(printf '%s' "$_ret" \
+            | jq -c '[.candidates[]? | .unit // "" | select(. != "")]' 2>/dev/null || printf '[]')
+        n_retiring=$(printf '%s' "$stalled" | jq --argjson r "$_ret_units" \
+            '[.[] | select(.unit as $u | $r | index($u))] | length' 2>/dev/null || printf '0')
+        stalled=$(printf '%s' "$stalled" | jq -c --argjson r "$_ret_units" \
+            '[.[] | select(.unit as $u | ($r | index($u)) | not)]' 2>/dev/null || printf '%s' "$stalled")
+    fi
+fi
+
 n_stalled=$(printf '%s' "$stalled" | jq 'length')
 
 # THE AGE IS DELIBERATELY ABSENT FROM THE SUMMARY (2026-08-26). The moderation root calls a
@@ -253,7 +295,10 @@ n_stalled=$(printf '%s' "$stalled" | jq 'length')
 # exactly the shape `📦 Release Preparation` was retired for. What the maintainer needs from
 # the age is in the question, which names the unit; what the diff needs is a summary that
 # moves only when the finding does.
-summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_declared} awaiting a declared verification, ${n_raced} held by two live claims, ${n_stalled} past the claim protocol's staleness threshold"
+summary="${count} claimed unit(s); ${with_pr} at a pull request, ${unknown_age} of unknown age; ${n_finished} finished (superseded), ${n_declared} awaiting a declared verification, ${n_raced} held by two live claims, ${n_retiring} already owned by the retirement path, ${n_stalled} past the claim protocol's staleness threshold"
+if [ "$retirable_attempted" = "true" ] && [ "$retirable_readable" != "true" ]; then
+    summary="${summary}; which claims the retirement path owns could not be read, so nothing was filtered on it"
+fi
 
 if [ "$n_stalled" -eq 0 ]; then
     # A finished claim never earns a root line either, and neither does a declared handoff:

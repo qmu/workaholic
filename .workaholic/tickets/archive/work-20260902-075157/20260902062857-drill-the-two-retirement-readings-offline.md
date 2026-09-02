@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T06:28:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,48 @@ operator's channel.
 
 - A drill that only asserts a return shape is `unproved` by the register's own rule; the
   breaker row has to name the behaviour a regression would break.
+
+## Final Report
+
+Development completed as planned.
+
+`verify-retired-claim` walks both readings in **one** verb, deliberately: split in two, each half
+would pass while the pair stayed broken — a candidate nobody filters on and a filter with nothing
+to filter are each individually green.
+
+Six rows over one hermetic fixture (a bare local origin, `gh` stubbed, no network and no
+credential): two claims identical in every respect but the state of the mission each names, both
+aged out of the heartbeat window and both empty against the base outside `.workaholic/`, so
+neither the heartbeat nor the emptiness is what tells them apart.
+
+1. the reading itself — an archived mission is `not_active` with its `status`, an active one
+   `active`, a `batch-<ts>` unit its own kind, an unknown one a named absence with no `state`;
+2. the ended mission's claim is a candidate under `mission_not_active`, the living one under
+   nothing;
+3. **the breaker**;
+4. the act re-derives the class — refusing the living mission by name, taking the ended one;
+5. the stuck-work question is asked about the living claim only, and the subtraction is counted;
+6. the checkout is byte-identical afterwards.
+
+**The breaker is written against the behaviour**: the ended mission is moved back to `active/`
+and the candidate must disappear. A reader that ignored the mission — the whole defect — would
+offer the branch in both states, so a refactor that keeps the JSON shape and loses the bound
+still turns the row red.
+
+No matrix leg was added by hand: `.github/workflows/loop-drills.yml` derives its matrix from the
+`enumerate` job, which reads the register, so registering the drill is what gives it its own
+named check run.
+
+### Discovered Insights
+
+- **Insight**: The fixture has to make the two claims differ in **exactly one** respect. The
+  first draft let the ended mission's branch also be the older one, and the row would then have
+  passed with the mission reading removed.
+  **Context**: Both claims are seeded by one function with the mission slug as its argument, so
+  the only asymmetry in the whole fixture is the directory its mission lives in — which is what
+  makes row 3 a breaker rather than a restatement.
+- **Insight**: The act's `pull_request_open` probe is a **separate** `gh` call from the four-state
+  read, so a stub that answers one shape for everything makes every candidate read as held open.
+  The sibling drill's header records this; it cost nothing here only because that note existed.
+  **Context**: A stub is a model of a transport, and a model that answers one shape is the
+  commonest way a hermetic row passes for the wrong reason.

@@ -1,7 +1,7 @@
 # Crossing a repository boundary — step list and matcher semantics
 
-The rules — the routing rule, the non-skippable verbatim confirmation, the two-layer
-backstop, and why the masking step is a judgement no matcher can replace — are in
+The rules — the routing rule, the two-layer backstop, and why the masking step is a
+judgement no matcher can replace — are in
 `SKILL.md`'s *Crossing a repository boundary* section. This file carries the mask
 categories, the step-by-step workflow, and the exact matcher semantics.
 
@@ -79,21 +79,7 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
 
 3. **Mask it** per the table above.
 
-4. **Confirm** — the one non-skippable verbatim confirmation, exactly as `SKILL.md`
-   states it. Prefix the prompt body with `[<project label>]`
-   (`gather/scripts/project-label.sh`; `hooks/guard-askuserquestion-label.sh` blocks
-   otherwise) and name **both** repositories — the developer is deciding about a
-   boundary, so both sides must be on screen. **Show the title as it will reach the
-   wire**, rendered through the same script step 7 stamps with:
-   ```bash
-   bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/fb-title.sh "<title>"
-   ```
-   Confirming one string and sending another is not a verbatim confirmation, and this
-   gate is the crossing's only human one. **Name the assignee the send will request**
-   (step 7) beside the destination: it decides whether the target's loop sees the ask or a
-   person must, so it is a material fact of the act being confirmed.
-
-5. **Scan it** as an independent second layer:
+4. **Scan it** as an independent second layer:
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/scan-outbound-body.sh <body-file>
    ```
@@ -101,14 +87,14 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    fixed, or overridden with the reason recorded in the session, exactly as `/ship`
    words it. A `pass` means only "nothing listed was found".
 
-6. **Let the mechanical backstop have the last word.**
+5. **Let the mechanical backstop have the last word.**
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/check-outbound-body.sh <body-file>
    ```
-   On a refusal, mask and **re-confirm from step 4** — a body that changed after the
-   developer read it has not been confirmed.
+   On a refusal, mask and **re-run from step 3** — the masked body has to clear both
+   layers, not the one it was written against.
 
-7. **Send it, offering the assignment.**
+6. **Send it, offering the assignment.**
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh --assignee <login> <owner/name> "<title>" <body-file>
    ```
@@ -152,7 +138,7 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
   been shown exactly what will be sent.
 - `check-outbound-body.sh` knows only this repo's own name where it reads as a reference,
   its `owner/name` remote form, every form of its clone URL, and its absolute path.
-  Everything else rests on the human judgement and the verbatim confirmation.
+  Everything else rests on the composing judgement and the two scanning layers.
 - **"Its clone URL" means every form of it.** git rewrites remotes through
   `url.<replacement>.insteadOf <original>` — possibly injected via the
   `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` environment triple, which
@@ -164,12 +150,11 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
   developer is told to mask. Matching one form was measured on 2026-08-04 (the cloud
   runner's container injects `url.https://github.com/.insteadOf git@github.com:`) to
   let a body carrying this repository's literal clone URL through entirely.
-  `resolve-target.sh` reports the **configured** URL — the destination a human confirms
-  and a colleague could clone, never one a local rewrite invented.
+  `resolve-target.sh` reports the **configured** URL — the destination a colleague
+  could clone, never one a local rewrite invented.
 - **It matches a reference, not a substring and not a word, and that is a usability
-  requirement.** This backstop is the one place a *legitimate* ask can be refused after
-  the developer has confirmed the body verbatim, so its false-positive rate is a
-  usability property. It has been narrowed twice, both times on a measured refusal a
+  requirement.** This backstop is the one place a *legitimate* ask can be refused
+  outright, so its false-positive rate is a usability property. It has been narrowed twice, both times on a measured refusal a
   human could not act on, and both times about **adjacency** rather than about dropping
   checks:
   - **2026-08-02, adjacency to identifier characters.** It was a plain case-insensitive
@@ -191,23 +176,25 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
   unqualified bare mention in prose passes, as does a qualifier outside that short
   literal noun list — the list is not grown speculatively, since a missed qualifier is
   the same trade. **What still holds:** the `owner/name` form, every clone-URL form and
-  the absolute path are refused exactly as before, and the verbatim human confirmation
-  remains the actual control. There is deliberately no skip flag — an escape hatch
+  the absolute path are refused exactly as before, and since 2026-09-03 this backstop and
+  the outbound scan beside it are the **only** controls on the crossing. There is
+  deliberately no skip flag — an escape hatch
   reachable by the agent the backstop constrains would make it optional.
 - **`visibility` is an enum, never a payload.** `gh api` prints its error body to
   *stdout* with a non-zero status, so the idiomatic `2>/dev/null || echo unknown`
   fallback concatenated a JSON blob with the fallback word. `resolve-target.sh`
   whitelists `public`/`private`/`internal` and answers `unknown` for everything else — a
   lookup that could not be made must not corrupt the envelope carrying the field the
-  developer's confirmation shows.
+  run reports.
 
 ## History
 
 Until 2026-08-05 the crossing was the `/request` command, whose `submit-request.sh`
 copied a conforming ticket file into the target's `.workaholic/tickets/todo/` (FB
-`20260805101319` retired it). Everything load-bearing survived the move: the verbatim
-confirmation, the masking judgement with its five measured leak classes, the
-identifier-not-substring backstop, the every-URL-form reading. `submit-request.sh` is
+`20260805101319` retired it). Everything load-bearing survived the move: the
+masking judgement with its five measured leak classes, the identifier-not-substring
+backstop, the every-URL-form reading. The verbatim confirmation survived it too and was
+**retired on 2026-09-03** (see `SKILL.md`, *No confirmation, on either path*). `submit-request.sh` is
 gone; `resolve-target.sh`, `check-outbound-body.sh` and `lib/remote-url.sh` moved into
 this skill unchanged in substance. Archived artifacts still naming `/request` are
 history and are never rewritten.

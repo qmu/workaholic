@@ -1,7 +1,6 @@
 ---
 name: loops
-description: Use when a session runs `/spawn-loops`, or needs to know how the development loop is executed — the local tmux sessions that turn the loop every few minutes on the developer's own server, one clone per loop, with the Claude Code Web routines as the fallback for a machine without tmux.
-allowed-tools: Bash
+description: Use when a session runs `/infinite-development`, or needs to know how the development loop is executed — one session, one five-minute tick that answers on Slack and spawns the propose and implement runs as background subagents without waiting for them.
 user-invocable: false
 metadata:
   internal: true
@@ -9,75 +8,118 @@ metadata:
 
 # Loops
 
-**The loop turns on the developer's own server, in minutes** (2026-09-02, the developer's
-instruction). Until then it turned as Claude Code Web routines — `[Propose]` at `:15`,
-`[Implement]` at `:30`, `[Moderate]` at `:50` — and the routines API's floor is one fire an
-hour, so one turn of the loop was one hour, a change to the loop could not be seen working for
-most of a day, and whether the loop was healthy at all was a question answered by reading an
-hour-old log. The premise is now a set of ordinary interactive Claude Code sessions kept alive
-in **tmux**, each driven by `/loop`, each in its **own clone** of the repository. The interval
-is minutes; a turn of the loop is a turn of the loop.
+**One session, one loop, and it never waits.**
 
-## The table
+```
+/loop 5m /infinite-development
+```
 
-Declared once, in `scripts/lib/loop-table.sh`, and read by every script here:
+Each tick reads the inbound Slack channel and answers on it, spawns `propose` and `implement`
+as background subagents, and ends. The tick is short by construction, so a person's message is
+answered within five minutes whatever the work is doing.
 
-| Loop | Interval | What `/loop` repeats |
-| ---- | -------- | -------------------- |
-| `propose` | 5m | `Run /propose, then run /specificate.` |
-| `implement` | 5m | `Run /implement.` |
-| `moderate` | 30m | `Run /moderate.` |
+## Why the tick does not wait
 
-`/propose` opens with the **Slack turn** — read the inbound channel for what moved since the
-last turn, answer what the repository can answer, react to the rest — then the inbound sweep,
-then the strategy judgement; `/specificate` ingests what it just supplied in the same session
-(`commands/propose.md`, *What this run posts*). `[Moderate]` stays in the loop rather than
-leaving it or folding into `propose`: its acts — retirement, closable missions, standing
-rulings, findings — are hourly by nature, and a local 30-minute tick reaches them with full
-`gh` and full `git`, none of the session-type refusals a Web container pays.
+The loop's job is two things at different speeds: **advancing the work**, which takes minutes to
+tens of minutes, and **following a person's steering**, which must take seconds. A tick that ran
+the work inline would answer a redirection only after the run it was redirecting had finished —
+the loop would be least responsive exactly when a person was trying to change its mind.
 
-## One clone per loop, and that is the whole isolation
+So the main agent owns **Slack and nothing else**, and the work runs beneath it as subagents. A
+person's ask becomes an `[FB]` issue in the same tick it was written; the propose subagent
+ingests it on the next one.
 
-The propose loop and the implement loop fire minutes apart. In one checkout they would be
-three writers on one working tree: `/implement` fetches and resets the base and `/ship` checks
-it out after a merge, and `/specificate` opens a publish tree at `<root>/.publish`. So each
-loop runs in its own clone under `$WORKAHOLIC_LOOPS_HOME/<repo>/<loop>` (default
-`~/.workaholic/loops`), and its claim worktrees (`.worktrees/<unit>`) and its publish tree are
-its own. **Across loops the remote is the only shared state**, and the claim protocol already
-arbitrates that (`workaholic:drive`, *Claims*). **Within a loop, `/loop` turns are
-sequential**, so a loop never overlaps itself. This is what *use a worktree where one is
-needed* comes to: `/implement` already drives every unit in a claim worktree, `/specificate`
-already writes through a publish tree, and the clone is what keeps two loops' trees apart.
+## The tick reads its own checkout, because nothing else will
 
-## The scripts
+Every other part of the loop is careful to leave the caller's checkout alone: `/implement` drives
+each unit in a claim worktree, `/specificate` writes through a publish tree at `<root>/.publish`,
+and both leave the tree they were called from byte-identical. That is right, and it has one
+consequence nobody had drawn: **no part of the loop ever looks at the tree it runs in.**
 
-- **`scripts/spawn-loops.sh [--dry-run] [--only <loop>,…] [--repo-url <url>]`** — for each
-  declared loop: clone (or fetch and reset to `origin/main`), then
-  `tmux new-session -d -s wh-<repo>-<loop> -c <clone> "claude --dangerously-skip-permissions
-  [--plugin-dir <clone>/plugins/workaholic] '/loop <interval> <prompt>'"`. Idempotent — a
-  session already running reports `already_running` and is left alone. `--dry-run` plans and
-  prints every command, running nothing (the hermetic test). Refusals by name: `no_tmux`
-  (the Web routines are the fallback), `no_claude`, `no_repo_url`, `clone_failed`,
-  `fetch_failed`, `tmux_failed`.
-- **`scripts/loop-status.sh [--lines <n>]`** — pure read: per loop whether its session is
-  running, whether its clone exists, and the last lines of its pane.
-- **`scripts/stop-loops.sh [--only <loop>,…]`** — kill each session; clones stay.
+It matters because a subagent reads the plugin **out of that tree**. Uncommitted lines there are
+not pending work — they are behaviour the loop is already executing, on no base, reviewed by no
+pull request. Measured 2026-09-03, the loop's first hour: this command's own first version, the
+retirement it performed and the environment declaration beside it were all sitting uncommitted
+in the checkout, driving every tick, and nothing anywhere was looking.
 
-**The trust dialog is answered before the session starts.** A fresh clone whose `.claude/settings.json` carries permission rules makes Claude Code ask *do you trust this folder?* before anything runs, and `--dangerously-skip-permissions` does not answer it — measured 2026-09-02, all three loops parked on it at their first spawn. Claude Code records the answer per project in `~/.claude.json` (`projects.<path>.hasTrustDialogAccepted`), and `spawn-loops.sh` records it for the clone it launches into; a `~/.claude.json` it cannot write refuses the spawn `trust_unwritable` rather than park a session.
+So the tick reads `git status --porcelain` once, before anything else, and **names a dirty tree
+in its report**. It blocks nothing and commits nothing: the tree belongs to a person, half a
+change is the normal state of one, and a loop that commits what it finds lying around is a worse
+failure than the one it would cure.
 
-**Permission prompts are off in these sessions.** An unattended run never waits for a person
-(`rules/interaction.md`); on this server the sessions are the developer's own, in clones the
-developer owns, and `--dangerously-skip-permissions` is the honest spelling of that contract —
-an allowlist would have to enumerate every read the run will ever make, and the measured
-failure of that approach is issue #865. **The plugin loaded** is the clone's own
-`plugins/workaholic` when the repository is the plugin (self-development), else whatever the
-harness binds (`check-deps/scripts/plugin-src.sh` resolves the newest).
+## The listing is the whole record
 
-## The fallback
+Before spawning, the tick calls `ListAgents`. No cursor, no lock file, no stored state — the
+listing answers everything, because a subagent that finished stays listed as **idle** carrying
+the age it started at.
 
-A machine without tmux — or a repository nobody runs a server for — keeps the Claude Code Web
-routines: the templates in `workaholify/routines/` and `/setup-dev-routines` /
-`/setup-repo-routines` are unchanged, and `spawn-loops.sh` names them in its `no_tmux`
-refusal. The two premises must not run against one repository at once: a Web `[Propose]` and
-a local propose loop are two claimants for the same inbox, and the dedups hold but the fires
-are waste. Disable the routines before spawning the loops, or the reverse.
+**A loop whose subagent is still `running` is not spawned again.** That is the concurrency rule,
+and it has not moved.
+
+**An `idle` one is a finished run, and the tick reaps it — `TaskStop` on that loop's own name —
+immediately before it spawns.** Nothing is discarded: the run is over and its result already
+arrived as a task notification. Measured 2026-09-03, the first hour this loop ran: three ticks
+left three idle `propose` agents standing, and the third could not even take its own name and
+was spawned as `propose-3`. At a five-minute tick that is roughly a hundred corpses a working
+day, accumulating inside the one listing the concurrency rule itself has to read.
+
+**And the idle agent is each loop's own clock**, which is the reason it is reaped at the spawn
+rather than at the finish. `started N ago` is when that run began, so a loop with a cadence
+needs no timestamp anywhere: an idle agent younger than the cadence is left standing and the
+loop reports `not_due`; an older one is reaped and respawned. The age is measured from the start
+of the previous run and not its finish, so a run that took four minutes comes back four minutes
+early — stated, because it is the price of having no store. An empty listing — a session that
+just restarted — means every loop is due.
+
+`implement` runs every tick: there is always more of its work to do, and the claim protocol
+already refuses what another runner has taken.
+
+**`propose` runs on a cadence — `WORKAHOLIC_PROPOSE_CADENCE_MINUTES`, default 15 — because its
+answer is a function of what is queued.** The queue moves when `/implement` lands something or a
+person writes an ask, and neither happens inside five minutes. Measured 2026-09-03: three
+consecutive ticks, three full agent runs, every one answering `work_waiting` / `nothing_in_hand`
+and writing nothing anywhere — the gate was correct each time and the question was the waste. A
+change-detector was refused by name: *has the queue moved* is a second derivation of the ladder
+`/propose` already owns, and a rule this repository keeps in one place does not get a second
+home in the tick that calls it. `0` means every tick.
+
+`moderate` runs on a **30-minute** gate read from its own tick log
+(`moderate/scripts/log-read.sh`) rather than from the listing: its acts — retirement, closable
+missions, standing rulings, findings — are hourly by nature, and the log is a reader that
+already exists. An unreadable log spawns it.
+
+Beneath all of that, nothing else needed arbitrating: `/implement` drives every unit in its own
+claim worktree and the claim protocol arbitrates the remote (`workaholic:drive`, *Claims*);
+`/specificate` writes through a publish tree at `<root>/.publish`. Two subagents of one session
+share a checkout, and the two that share it never write the same tree at the same time because
+each holds its own.
+
+## What this replaced, and what went with it
+
+**The three-tmux-session premise is retired** (2026-09-03, the developer's instruction). It ran
+`propose`, `implement` and `moderate` as three interactive Claude Code sessions in tmux, each in
+its own clone under `~/.workaholic/loops/<repo>/<loop>`. Measured: the split was the defect. The
+propose loop reported `work_waiting` every five minutes for hours while the implement loop
+reported nothing claimable, each correct in isolation and neither able to see that five pull
+requests had been sitting conflicted since the previous day. Three sessions meant three places
+to look and no place that held the whole loop.
+
+Deleted with it, and **not to be reintroduced**: `/spawn-loops`, `loop-status.sh`,
+`stop-loops.sh`, `spawn-loops.sh`, the loop table, one clone per loop, the trust-dialog write
+into `~/.claude.json`, and the `no_tmux` refusal that named the Web routines as a fallback.
+The Claude Code Web routines survive as their own premise (`workaholic:workaholify`, *Routines*)
+and the two must not run against one repository at once.
+
+**The Slack turn and the inbound sweep moved out of `/propose`** into the tick itself. They were
+there because `/propose` was the first thing a routine ran; now the first thing is the tick, and
+the reading belongs to the agent that can act on it immediately. `workaholic:propose` keeps the
+sweep's **scripts** (`list-swept-slack-refs.sh`, `file-inbound-ask.sh`) — moving them would be
+churn for nothing — and `commands/infinite-development.md` is the one place their use is
+specified.
+
+## Permission prompts are off in this session
+
+An unattended run never waits for a person (`rules/interaction.md`). The session runs with
+`--dangerously-skip-permissions` on the developer's own server, in a checkout the developer
+owns; an allowlist would have to enumerate every read the loop will ever make, and the measured
+failure of that approach is issue #865.

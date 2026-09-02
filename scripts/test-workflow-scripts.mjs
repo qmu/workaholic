@@ -2500,9 +2500,17 @@ function testExpiringGatesNothing() {
     // this can live — the report is written by the run, not by a script.
     const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
     const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
-    assertTrue("the command states the report line", /expiring/.test(cmd) && /gates nothing either/.test(cmd), "");
+    // Pinned on the CLAIM, not on its wording: `expiring` is named in the command's report
+    // contract and said to gate nothing. The literal "gates nothing either" was pinned here
+    // until 2026-09-03 and broke on an honest rewording that kept the claim intact -- which
+    // is the failure mode this repository already rules against for prose.
+    assertTrue("the command states the report line", /expiring/.test(cmd) && /gates? nothing/.test(cmd), "");
+    // The QUESTION KEY is a machine token and stays pinned, but in the one file that owns it.
+    // `/propose`'s body named it until the Slack sweep moved out of that command on
+    // 2026-09-03; the question is `/moderate`'s, and the run report contract in loop.md is
+    // where it belongs. Pinning it in the command body too pinned a cross-reference.
     assertTrue("and names the question that does reach a person",
-      /direction-expiring:<slug>/.test(cmd) && /direction-expiring:<slug>/.test(loop), "");
+      /direction-expiring:<slug>/.test(loop), "");
     assertTrue("the run report contract names the term beside the proposal",
       /`expiring: true`/.test(loop), "");
 
@@ -3656,6 +3664,57 @@ function testCommitStaging() {
       assertEq("named deleted path: exit 0", r.status, 0);
       assertEq("named deleted path: gone.md is no longer tracked", execSync(`git ls-files gone.md`, { cwd: dir, encoding: "utf8" }).trim(), "");
       assertTrue("named deleted path: deletion is in the commit", committedFiles(dir).includes("gone.md"));
+    } finally { cleanup(dir); }
+  }
+
+  // Row: HALF A MOVE, named-files side (2026-09-03). A caller moves a tracked file and
+  // names only the new path -- which is what `workaholic:commit` tells it to do for a NEW
+  // file, and the deletion side has no path it can be named by. Before the fix this
+  // committed the addition alone and reported success, and both copies reached the base
+  // (measured: pull request #910 left a closed mission's active copy standing, so one slug
+  // named two missions). Asserted on the commit and the tree, never on the message.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`mkdir -p active archive`, { cwd: dir });
+      writeFileSync(join(dir, "active/mission.md"), "body\n");
+      execSync(`git add active/mission.md && git commit -q -m "add mission"`, { cwd: dir });
+      const headBefore = execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim();
+      // The move, done as a plain mv whose deletion the caller cannot name.
+      writeFileSync(join(dir, "archive/mission.md"), "body\n");
+      rmSync(join(dir, "active/mission.md"));
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Archive the mission" "" "None" "None" "None" "None" archive/mission.md`);
+      assertTrue("half a move: non-zero exit", r.status !== 0, `status=${r.status}`);
+      const out = r.stdout + r.stderr;
+      assertTrue("half a move: the addition is named", out.includes("archive/mission.md"), out);
+      assertTrue("half a move: the dropped deletion is named", out.includes("active/mission.md"), out);
+      assertEq("half a move: no commit was created",
+        execSync(`git rev-parse HEAD`, { cwd: dir, encoding: "utf8" }).trim(), headBefore);
+      // The tree is untouched: the file the caller wrote is still there, unharmed.
+      assertTrue("half a move: the written file is left alone", existsSync(join(dir, "archive/mission.md")));
+    } finally { cleanup(dir); }
+  }
+
+  // Row: THE GUARD ABOVE MUST NOT FIRE ON THE WHOLE MOVE. Naming both halves is the
+  // repair the refusal prints, and it has to work -- otherwise the guard has no exit.
+  {
+    const dir = makeRepo("main");
+    try {
+      execSync(`mkdir -p active archive`, { cwd: dir });
+      writeFileSync(join(dir, "active/mission.md"), "body\n");
+      execSync(`git add active/mission.md && git commit -q -m "add mission"`, { cwd: dir });
+      writeFileSync(join(dir, "archive/mission.md"), "body\n");
+      rmSync(join(dir, "active/mission.md"));
+      const r = run(dir, `${POSIX_SH} ${SCRIPTS.commit} "Archive the mission" "" "None" "None" "None" "None" archive/mission.md active/mission.md`);
+      assertEq("whole move: exit 0", r.status, 0);
+      // `--no-renames`: git reports a whole move as one `old => new` line, which is the
+      // right rendering and the wrong shape to assert two halves against.
+      const files = execSync(`git show --name-only --no-renames --format= HEAD`, { cwd: dir, encoding: "utf8" })
+        .split("\n").map((s) => s.trim()).filter(Boolean);
+      assertTrue("whole move: the addition is in the commit", files.includes("archive/mission.md"), files.join(","));
+      assertTrue("whole move: the deletion is in the commit", files.includes("active/mission.md"), files.join(","));
+      assertEq("whole move: the old path is no longer tracked",
+        execSync(`git ls-files active/mission.md`, { cwd: dir, encoding: "utf8" }).trim(), "");
     } finally { cleanup(dir); }
   }
 
@@ -21615,59 +21674,57 @@ function testWorkaholifyRepoSettings() {
 
 
 
-// ---------- loops: the local tmux premise (2026-09-02, the developer's instruction) ----------
-// The loop turns on the developer's server in minutes, one clone per loop. What is pinned:
-// the table is declared once and read by all three scripts; a dry run plans every loop and
-// runs nothing; the command spawns with permission prompts off and repeats the table's own
-// prompt; and the propose command and the catalog carry the Slack turn's shape byte-identically.
-T("loops: the local tmux premise, one clone per loop, planned before run", testLocalLoops);
-function testLocalLoops() {
-  const LOOPS = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts");
-  const dir = mkdtempSync(join(tmpdir(), "wh-loops-"));
-  try {
-    execSync("git init -q", { cwd: dir });
-    execSync("git remote add origin https://github.com/o/r.git", { cwd: dir });
-    const env = { ...process.env, WORKAHOLIC_LOOPS_HOME: join(dir, "home") };
-    const plan = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run`, { env }).stdout);
-    assertEq("a dry run is ok and names the repository", [plan.ok, plan.repo_name, plan.dry_run], [true, "r", true]);
-    assertEq("it plans every declared loop", plan.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
-    assertTrue("and runs nothing", plan.loops.every((l) => l.state === "planned"), JSON.stringify(plan.loops));
-    assertTrue("no clone was made by a dry run", !existsSync(join(dir, "home")), "dry run wrote a clone");
-    for (const l of plan.loops) {
-      assertTrue(`${l.loop} runs in its own clone under the loops home`,
-        l.path === join(dir, "home", "r", l.loop), l.path);
-      assertTrue(`${l.loop}'s session is named after the repository and the loop`, l.session === `wh-r-${l.loop}`, l.session);
-      assertTrue(`${l.loop} spawns with permission prompts off and repeats its own prompt`,
-        /--dangerously-skip-permissions/.test(l.command) && l.command.includes(`/loop ${l.interval} ${l.prompt}`), l.command);
-    }
-    const table = Object.fromEntries(plan.loops.map((l) => [l.loop, [l.interval, l.prompt]]));
-    assertEq("propose supplies the ask and then ingests it, every five minutes",
-      table.propose, ["5m", "Run /propose, then run /specificate."]);
-    assertEq("implement drives every five minutes", table.implement, ["5m", "Run /implement."]);
-    assertEq("moderate ticks every thirty minutes", table.moderate, ["30m", "Run /moderate."]);
-    const only = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run --only propose`, { env }).stdout);
-    assertEq("--only narrows the plan", only.loops.map((l) => l.loop), ["propose"]);
-    const status = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/loop-status.sh`, { env }).stdout);
-    assertEq("status reads every declared loop", status.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
-    assertTrue("and a loop never spawned is neither running nor cloned",
-      status.loops.every((l) => l.running === false && l.exists === false), JSON.stringify(status.loops));
-    // THE TABLE IS ONE DECLARATION: the three scripts source it and carry no cadence of their own.
-    for (const f of ["spawn-loops.sh", "loop-status.sh", "stop-loops.sh"]) {
-      const src = readFileSync(join(LOOPS, f), "utf8");
-      assertTrue(`${f} reads the loop table`, /lib\/loop-table\.sh/.test(src), f);
-      assertTrue(`${f} declares no cadence of its own`, !/'(propose|implement|moderate)\|/.test(src), f);
-    }
-    // THE SLACK TURN'S SHAPE is byte-identical between the command and the catalog.
-    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
-    const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-    const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
-    assertTrue("the propose command carries the Slack turn's reply shape", shape(cmd) !== "", "missing from propose.md");
-    assertEq("and the catalog carries it byte-identically", shape(catalog), shape(cmd));
-    assertTrue("the turn reads the thread before replying", /read the thread first/i.test(cmd) && /Read the thread first/.test(catalog), "dedup rule unwritten");
-    assertTrue("and the Web routines are named as the fallback",
-      /no_tmux/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/spawn-loops.md"), "utf8")), "fallback unnamed");
-  } finally { cleanup(dir); }
+// ---------- loops: one session, one tick, nothing waited on (2026-09-03) ----------
+// The three-tmux-session premise is retired. What is pinned is what a reader of the tree can
+// still get wrong: the retired surface is GONE (not merely undocumented), the tick owns the
+// Slack turn (not `/propose`), the reply shape is byte-identical between the command and the
+// catalog, and the tick states the concurrency rule it needs no store for.
+T("loops: one session, one tick, and the retired premise is gone", testOneSessionLoop);
+function testOneSessionLoop() {
+  const P = (...r) => join(REPO_ROOT, ...r);
+  // THE RETIRED SURFACE IS DELETED, not left behind for a reader to follow.
+  for (const gone of [
+    "plugins/workaholic/commands/spawn-loops.md",
+    "plugins/workaholic/skills/loops/scripts/spawn-loops.sh",
+    "plugins/workaholic/skills/loops/scripts/loop-status.sh",
+    "plugins/workaholic/skills/loops/scripts/stop-loops.sh",
+    "plugins/workaholic/skills/loops/scripts/lib/loop-table.sh",
+  ]) assertTrue(`${gone} is deleted with the tmux premise`, !existsSync(P(gone)), gone);
+
+  const tick = readFileSync(P("plugins/workaholic/commands/infinite-development.md"), "utf8");
+  const loops = readFileSync(P("plugins/workaholic/skills/loops/SKILL.md"), "utf8");
+  const propose = readFileSync(P("plugins/workaholic/commands/propose.md"), "utf8");
+  const catalog = readFileSync(P("plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+
+  // THE TICK DOES NOT WAIT, and says so where a run reads it.
+  assertTrue("the tick spawns background subagents", /general-purpose/.test(tick), "no subagent contract");
+  assertTrue("and it does not wait for them", /do not poll, do not await/i.test(tick), "the non-blocking rule is unwritten");
+  // THE CONCURRENCY RULE NEEDS NO STORE, and both surfaces name the reader it uses instead.
+  for (const [name, t] of [["the tick", tick], ["workaholic:loops", loops]])
+    assertTrue(`${name} states the ListAgents concurrency rule`, /ListAgents/.test(t), name);
+  // MODERATE KEEPS ITS CADENCE, off its own log rather than a tick counter.
+  assertTrue("moderate is gated on its own log, not a counter",
+    /log-read\.sh/.test(tick) && /30 minutes/.test(tick), "the moderate gate is unwritten");
+
+  // THE SLACK TURN IS THE TICK'S, AND `/propose` MUST NOT TAKE IT BACK.
+  assertTrue("the tick owns the Slack turn", /Slack turn/.test(tick), "the turn left no owner");
+  assertTrue("and /propose posts nothing to Slack", /posts nothing to Slack/.test(propose), "propose still claims the channel");
+  assertTrue("/propose takes the channel reading handed in, never a second query",
+    /only_the_loop_spoke/.test(propose) === false, "the brake's word leaked back into the command");
+
+  // THE REPLY SHAPE is byte-identical between the command and the catalog.
+  const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
+  assertTrue("the tick carries the Slack turn's reply shape", shape(tick) !== "", "missing from infinite-development.md");
+  assertEq("and the catalog carries it byte-identically", shape(catalog), shape(tick));
+  assertTrue("the turn reads the thread before replying",
+    /Read the thread first/i.test(tick) && /Read the thread first/.test(catalog), "dedup rule unwritten");
+
+  // THE RECEIPT ANSWERS RATHER THAN STAMPS: its middle line is the loop's own sentence.
+  const receipt = (t) => { const m = t.match(/```\n(📥 受理 [^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
+  assertTrue("the tick carries the receipt with a reply line", receipt(tick) !== "", "missing from infinite-development.md");
+  assertEq("and the catalog carries it byte-identically", receipt(catalog), receipt(tick));
 }
+
 
 // ---------- the reading a claim branch's emptiness is derived from ----------
 // `claims_branch_emptiness` is the term that makes `superseded` mean what its header claims —
@@ -22478,7 +22535,8 @@ function testVersionAheadOfTheBase() {
   } finally { cleanup(dir); }
 }
 
-// A `/spawn-loops` CLONE CARRIES `.workaholic/` TWICE, AND EVERY PATH CUT MUST TAKE THE LAST
+// A PATH MAY CARRY `.workaholic/` TWICE, AND EVERY CUT MUST TAKE THE LAST (measured on the
+// retired per-loop clone home; the cut stays because the shape can recur)
 // (2026-09-02). The local-loops premise clones each loop under `$WORKAHOLIC_LOOPS_HOME`,
 // default `~/.workaholic/loops/<repo>/<loop>` -- so an absolute path to any artifact inside a
 // loop clone contains the segment twice, and a shortest-match `#`/longest-match `%%` cut lands
@@ -27679,10 +27737,13 @@ function testAnswerReturnPath() {
     // ---- 8. THE PROSE THAT KEEPS THE SWEEP OUT OF IT ----
     // Weaker than a script assertion and labelled as such: it catches the rule being deleted,
     // not the rule being misapplied.
-    const proposeSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
-    assertTrue("the `:40` sweep still routes answers to record-answer.sh, not to a new issue",
-      /answers to the tick's own questions[\s\S]{0,200}record-answer\.sh/.test(proposeSkill),
-      "the exclusion is gone from propose/SKILL.md");
+    // The sweep left `/propose` for the tick on 2026-09-03 and this rule went with it:
+    // `commands/infinite-development.md` is the one place the sweep's use is specified, so it
+    // is where the exclusion has to be readable by the run that performs it.
+    const tickBody = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+    assertTrue("the sweep still routes answers to record-answer.sh, not to a new issue",
+      /answer to one of the loop's own questions is not an ask[\s\S]{0,400}record-answer\.sh/.test(tickBody),
+      "the exclusion is gone from the tick that owns the sweep");
     const workflow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
     assertTrue("and the judgement's bar is written down, not left to the reader",
       /a machine's post is never an answer/.test(workflow), "the bar is missing from the workflow reference");
@@ -35596,7 +35657,7 @@ function testClaimMissionState() {
 // got -- identical whether the branch is broken, the environment leaked, or the run lost to load.
 // Measured: two consecutive catch-ups on `work-20260902-043932` refused over the suite, and the
 // script's OWN invocation re-run byte-for-byte in the same worktree answered `6236 passed, 0
-// failed`, exit 0, twice. Under `/spawn-loops` several loops run that suite on one machine, so
+// failed`, exit 0, twice. Several of the loop's runs share one machine, so
 // this stopped being rare. The bytes are kept in a file whose path rides the JSON; stdout stays
 // the single line every caller parses.
 T("drive/catch-up-claim.sh: a refused check keeps its output", testCatchUpKeepsTheFailingCheckOutput);

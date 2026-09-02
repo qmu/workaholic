@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-083726
 ---
 
 # Adjust the plan hourly, not only report it

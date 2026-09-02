@@ -22337,6 +22337,62 @@ function testClaimRaceSettledAtTheRemote() {
   }
 }
 
+// ---------- `notifications` is carried end to end, and converged ----------
+// Issue #514: routine results arrived as Claude-app notifications although every routine
+// reports to Slack by design. The field existed and was carried into a CREATE, so a new
+// routine got the template's setting and an existing one kept whatever it had — the half of
+// the symptom this repository owns. What is pinned here is the whole carriage plus the one
+// statement that makes convergence able to turn a notification OFF: absent is a value.
+function testNotificationsIsCarriedAndConverged() {
+  const WF = join(REPO_ROOT, "plugins/workaholic/skills/workaholify");
+  const routines = join(WF, "routines");
+  const dir = mkdtempSync(join(tmpdir(), "wh-notif-"));
+  try {
+    // THE CARRIAGE. Every seam a template's field passes through on its way to a record.
+    for (const [name, rel] of [
+      ["the renderer", "scripts/render-routine.sh"],
+      ["the body builder", "scripts/build-routine-body.sh"],
+      ["the template list", "scripts/list-routine-templates.sh"],
+      ["the setup sheet", "scripts/render-setup-sheet.sh"],
+    ]) {
+      assertTrue(`${name} carries notifications`,
+        readFileSync(join(WF, rel), "utf8").includes("notifications"), rel);
+    }
+
+    // RENDERED, per template, from the template's own frontmatter — including the absence.
+    const ids = readdirSync(routines).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, ""));
+    assertTrue("there are templates to render", ids.length > 0, JSON.stringify(ids));
+    let declared = 0;
+    for (const id of ids) {
+      const r = JSON.parse(run(dir,
+        `${POSIX_SH} ${join(WF, "scripts/render-routine.sh")} ${id} https://github.com/qmu/workaholic`).stdout);
+      assertTrue(`${id} renders a notifications field at all`,
+        Object.prototype.hasOwnProperty.call(r, "notifications"), JSON.stringify(Object.keys(r)));
+      if (r.notifications) declared += 1;
+    }
+    assertTrue("and at least one template declares a value, so the field is exercised",
+      declared > 0, `${declared} of ${ids.length}`);
+
+    // ABSENT IS A VALUE, and that is what lets convergence turn a notification OFF. Without
+    // it the one setting the design wants is the one setting convergence can never restore.
+    const skill = readFileSync(join(WF, "SKILL.md"), "utf8");
+    const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+    for (const [name, text] of [["the skill", skill], ["CLAUDE.md", claude]]) {
+      assertTrue(`${name} names notifications in the converged field set`,
+        /notifications/.test(text) && /converge/i.test(text), name);
+      assertTrue(`${name} says absent is a value`,
+        /absent is a value|absent means off/i.test(text), name);
+      assertTrue(`${name} says a refusing routine type is reported by name`,
+        /reported by name/.test(text), name);
+    }
+    // AND THE SYMPTOM'S OTHER HALF IS NAMED, so the change is not read as the whole fix.
+    assertTrue("the skill says no workaholic routine was implicated",
+      /no workaholic routine was implicated/i.test(skill), "diagnosis");
+  } finally { cleanup(dir); }
+}
+
+T("[Propose]: the notification setting is carried and converged", testNotificationsIsCarriedAndConverged);
+
 // ---------- the version collision two branches from one base produce ----------
 // MEASURED on this repository's `main`, 2026-09-02: five consecutive merges carried two version
 // numbers between them. Every branch HAD bumped — `check-version-bump.sh` compares a branch

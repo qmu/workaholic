@@ -61,7 +61,16 @@ missions_root_default() {
 # segment. Always absolute.
 missions_root_from_artifact() {
     case "$1" in
-        *.workaholic/*) _mwh="${1%%.workaholic/*}.workaholic" ;;
+        # THE LAST `.workaholic/`, NEVER THE FIRST (2026-09-02, ticket
+        # `20260902110551`). `%%` removes the LONGEST suffix, so it cuts at the
+        # EARLIEST occurrence — which is the artifact's own tree only while no
+        # directory above the repository root is called `.workaholic`. The loops run in
+        # clones under `~/.workaholic/loops/<repo>/<loop>`, so an artifact there resolved
+        # to `/home/<user>/.workaholic` and every mission lookup for it read a tree that
+        # is not a repository at all. `%` cuts at the LAST occurrence, which is the
+        # artifact's own; for a path with one occurrence the two are identical, so no
+        # ordinary checkout changes behaviour.
+        *.workaholic/*) _mwh="${1%.workaholic/*}.workaholic" ;;
         *) missions_root_default; return 0 ;;
     esac
     _missions_abs "$_mwh"

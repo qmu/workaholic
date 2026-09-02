@@ -142,6 +142,7 @@
 #   persisted | already_current | no_log | not_a_repo | root_not_repo_root
 #   no_origin | origin_unreachable | base_unresolved | dirty_publish_tree
 #   diverged | push_failed | commit_failed | log_ref_unavailable
+#   log_ref_is_the_base
 #
 # `no_origin` is `skipped`, not `degraded`: a local-only checkout has no base to
 # publish to, so nothing went wrong. Every other failure above is `degraded` —

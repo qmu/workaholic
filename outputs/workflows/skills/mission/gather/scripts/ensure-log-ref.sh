@@ -72,7 +72,7 @@ empty_tree=$(git -C "$repo_root" hash-object -t tree /dev/null 2>/dev/null || pr
 [ -n "$empty_tree" ] || emit false degraded tree_failed
 
 # No `-p`: this is a root commit, which is what makes it an orphan.
-sha=$(printf '%s' "the moderation tick's log lives on this branch; see gather/scripts/log-ref.sh" \
+sha=$(printf '%s' "the tick log lives on this branch; see gather/scripts/log-ref.sh" \
     | git -C "$repo_root" commit-tree "$empty_tree" 2>/dev/null || printf '')
 [ -n "$sha" ] || emit false degraded commit_failed
 

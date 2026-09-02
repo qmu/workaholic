@@ -1,5 +1,11 @@
 #!/bin/sh -eu
-# The branch the moderation tick's log lives on, derived in ONE place.
+# The branch the TICK LOG lives on, derived in ONE place.
+#
+# `tick log`, not `the moderation tick's log` (2026-09-02, ticket `20260902042039`): the day
+# files carried two commit vocabularies on the base before the move -- `Log the moderation tick`
+# and `Log the propose tick` -- and a guard phrased against one tick reads as though the other
+# were free to put the log back. It is one writer (`persist-log.sh`) with more than one caller,
+# and its refusal is keyed on the destination rather than on which tick wrote it.
 #
 #   log-ref.sh        -> the branch name (`workaholic-log`)
 #

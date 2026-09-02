@@ -6991,11 +6991,26 @@ cmd_verify_log_branch() {
     # a log ref that names the base and the whole move is undone -- the log goes straight back
     # onto `main`. `persist-log.sh` refuses that, and when it stops refusing, this row goes false
     # and the drill exits 1 exactly as it does for any other failure.
-    _brk=$(cd "$_work" && WORKAHOLIC_LOG_REF=main sh "${_mod}/persist-log.sh" --tick 20260901-060000 --root "$_work" 2>&1 || true)
-    if printf '%s' "$_brk" | grep -q '"reason": "log_ref_is_the_base"'; then
-        add_row "log_ref_may_not_be_the_base" true "a log ref naming the base is refused -- this drill can fail" breaker
+    # OVER THE CALLERS, NOT OVER ONE TICK NAME (2026-09-02, ticket `20260902042039`). The base
+    # accumulation carried TWO commit vocabularies -- `Log the moderation tick` and `Log the
+    # propose tick` -- so a breaker that fires for one tick id would leave the other looking
+    # free. There is one committer (`persist-log.sh`, pinned from the tree by the suite) and its
+    # refusal is keyed on the DESTINATION, so the drill proves that by asking with more than one
+    # tick id and requiring the same refusal from each.
+    _brk_ok=true
+    _brk=""
+    for _tick in 20260901-060000 20260901-153700; do
+        _o=$(cd "$_work" && WORKAHOLIC_LOG_REF=main sh "${_mod}/persist-log.sh" --tick "$_tick" --root "$_work" 2>&1 || true)
+        if ! printf '%s' "$_o" | grep -q '"reason": "log_ref_is_the_base"'; then
+            _brk_ok=false
+            _brk="tick ${_tick}: $(one_line "$_o")"
+            break
+        fi
+    done
+    if [ "$_brk_ok" = true ]; then
+        add_row "log_ref_may_not_be_the_base" true "a log ref naming the base is refused for every calling tick -- this drill can fail" breaker
     else
-        add_row "log_ref_may_not_be_the_base" false "a log ref naming the base was accepted, which puts the log back on main: $(one_line "$_brk")" breaker
+        add_row "log_ref_may_not_be_the_base" false "a log ref naming the base was accepted, which puts the log back on main: ${_brk}" breaker
     fi
 
     rm -rf "$_tmp"

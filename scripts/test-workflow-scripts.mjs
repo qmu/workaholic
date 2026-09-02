@@ -27446,6 +27446,108 @@ function testCommitRefusesSplitRename() {
   }
 }
 
+// ---------- moderate: the tick log has exactly ONE committer, proved from the tree ----------
+// (2026-09-02, ticket `20260902042039`) The measured accumulation on the base carried two commit
+// vocabularies — `Log the moderation tick` AND `Log the propose tick` — and both rode the same
+// `.workaholic/moderations/` day files. That read like two writers and was not: it is ONE writer
+// with two callers, and the subject was corrected on 2026-09-01. The off-main design and every
+// guard written for it are phrased against "the moderation tick", so the risk this pins is a
+// SECOND committer appearing later and escaping the one refusal.
+//
+// Derived from the tree rather than listed in prose: a script that both mentions the log's own
+// directory and commits is a committer, and the set must be exactly `persist-log.sh`.
+// `log-append.sh` and `hydrate-log.sh` write day files in the checkout and commit nothing, which
+// is why they are not in it and why routing (the ticket's step 2) had nothing to do.
+T("moderate: the tick log has exactly one committer, and the tree proves it", testTickLogHasOneCommitter);
+function testTickLogHasOneCommitter() {
+  // Scoped to the SHIPPED product. `scripts/e2e/loop-drill.sh` also mentions the log's directory
+  // and also runs `git commit`, but only inside throwaway repositories it creates itself, so it
+  // can never put a day file on this repository's base -- and its own breaker row is what proves
+  // the refusal still fires. Widening the walk to it would assert a falsehood.
+  const roots = ["plugins/workaholic"];
+  const committers = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== "outputs" && e.name !== ".git") walk(p); continue; }
+      if (!e.name.endsWith(".sh")) continue;
+      const src = readFileSync(p, "utf8");
+      if (!/workaholic\/moderations/.test(src)) continue;
+      if (!/publish-tree-commit\.sh|git\s+commit/.test(src)) continue;
+      committers.push(p.slice(REPO_ROOT.length + 1));
+    }
+  };
+  for (const r of roots) walk(join(REPO_ROOT, r));
+
+  assertEq("exactly one script commits the tick log",
+    committers.sort(), ["plugins/workaholic/skills/moderate/scripts/persist-log.sh"]);
+
+  // The two non-committing writers stay non-committing: that is what makes one refusal enough.
+  for (const name of ["log-append.sh", "hydrate-log.sh"]) {
+    const src = readFileSync(join(REPO_ROOT,
+      `plugins/workaholic/skills/moderate/scripts/${name}`), "utf8");
+    assertTrue(`${name} writes day files and commits nothing`,
+      !/publish-tree-commit\.sh|git\s+commit/.test(src));
+  }
+
+  // And the one committer's refusal is keyed on the DESTINATION, never on which tick wrote it —
+  // the guard must not be phrased against the moderation tick alone.
+  const persist = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/persist-log.sh"), "utf8");
+  const guardAt = persist.indexOf("THE LOG REF MAY NOT NAME THE BASE");
+  const guard = persist.slice(guardAt, persist.indexOf("log_ref_is_the_base", guardAt) + 200);
+  assertTrue("the refusal tests the destination, not the tick id",
+    /\$LOG_REF" = "\$BASE/.test(guard) && !/TICK/.test(guard.split("log_ref_is_the_base")[0]));
+}
+
+// ---------- moderate: the tick log's destination may not be the base ----------
+// (2026-09-02, ticket `20260902042038`) `persist-log.sh` publishes to the ref `log-ref.sh`
+// derives. On a repository that has not converged, that same code path wrote the day files
+// STRAIGHT TO THE BASE — measured on a consuming repository, 2026-08-20 to 2026-08-31: hundreds
+// of `Log the propose tick` / `Log the moderation tick` commits, 12 day files, roughly 7,000
+// lines. The base was the pre-migration default, so nothing refused it.
+//
+// The refusal lives in the writer rather than in `log-ref.sh` because only the writer knows what
+// the base is, and it is what makes `WORKAHOLIC_LOG_REF` a data source rather than a gate opt-out:
+// there is no value of it that puts the log back on `main`. Scoped to the LOG — `--record`'s
+// base-targeting write is by design and is asserted here to survive.
+T("moderate/persist-log.sh: the base is refused as a log destination", testLogDestinationIsNeverTheBase);
+function testLogDestinationIsNeverTheBase() {
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const PERSIST = `${POSIX_SH} ${join(M, "persist-log.sh")}`;
+  const base = mkdtempSync(join(tmpdir(), "wh-logdest-"));
+  const origin = join(base, "origin.git");
+  const c = join(base, "c");
+  execSync(`git init -q --bare ${origin}`);
+  execSync(`git clone -q ${origin} ${c}`, { stdio: "ignore" });
+  execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: c });
+  try {
+    mkdirSync(join(c, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(c, "README.md"), "# seed\n");
+    execSync("git add -A && git commit -q -m seed && git branch -M main && git push -q -u origin main", { cwd: c });
+    writeFileSync(join(c, ".workaholic/moderations/2026-09-02.md"),
+      "## 20260902-100000\n\n- `open-log`: ok — opened\n");
+    const before = execSync("git rev-parse origin/main", { cwd: c, encoding: "utf8" }).trim();
+
+    const r = run(c, `${PERSIST} --tick 20260902-100000 --root .`,
+      { env: { ...process.env, WORKAHOLIC_LOG_REF: "main" } });
+    assertEq("the writer exits 0 so the tick continues", r.status, 0);
+    const j = JSON.parse(r.stdout);
+    assertEq("it refuses the base by name, as a degradation rather than a silent default",
+      { p: j.persisted, s: j.status, why: j.reason },
+      { p: false, s: "degraded", why: "log_ref_is_the_base" });
+    assertEq("and nothing was written to the base",
+      execSync("git fetch -q origin && git rev-parse origin/main", { cwd: c, encoding: "utf8" }).trim(), before);
+
+    // The word the code emits is the word the script's own vocabulary lists.
+    assertTrue("the reason is in persist-log.sh's documented stable set",
+      /log_ref_is_the_base/.test(readFileSync(join(M, "persist-log.sh"), "utf8")
+        .split("set -eu")[0]));
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+}
+
 // ---------- moderate: the tick's records reach the base, and a claim is not a fact ----------
 // (2026-08-23) `create.sh` stages a record and stops, and a routine's container is discarded,
 // so a finding was reported filed and then lost — and the next tick read the `-filed` line,

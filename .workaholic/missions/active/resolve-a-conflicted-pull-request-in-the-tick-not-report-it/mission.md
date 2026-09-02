@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-093741
 ---
 
 # Resolve a conflicted pull request in the tick, not report it

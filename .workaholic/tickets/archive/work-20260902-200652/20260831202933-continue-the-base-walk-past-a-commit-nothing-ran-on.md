@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T20:29:33+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,31 @@ only that one continue.
 - `checks_pending` is deliberately not continued: the base has not finished answering, and
   walking past it would report an older commit's colour as though it were current — the
   failure the three-valued reader exists to prevent.
+
+## Final Report
+
+Development completed as planned — and the implementation was found **already on the base**,
+landed by issue #785 rather than by this unit's own branch. The drive verified each acceptance
+criterion against the checkout instead of rewriting it, which is what the criteria are for:
+
+- `attribute-base-red.sh`'s tip `case` keys the continuation on the reader's own `reason` read
+  out of its JSON (`no_checks) ;;` continues, `*) emit unanswerable "tip_${RC_REASON}"` stays
+  terminal), never on a substring of the emitted string and never on a second derivation.
+- Inside the walk, a `no_checks` commit is skipped and every other unanswerable reason emits
+  `walk_<reason>` and stops; `oldest_red` only ever holds a commit the reader answered `red` for.
+- The bound is untouched — an exhausted walk still answers `bound_exhausted` rather than guessing.
+- `read-base-checks.sh` is byte-identical: the change is the walk's, not the derivation's.
+- No new verdict word was introduced, and nothing acts on the reading.
+
+### Discovered Insights
+
+- **Insight**: The mission's work reached `main` through a different branch than the one its
+  tickets sat on, so acceptance was satisfied while the queue still read full — the shape
+  `/moderate`'s `unrecorded-missions` step exists to notice.
+  **Context**: A ticket whose acceptance already holds is still driven, verified and archived
+  rather than closed by hand: the archive commit is where the verification becomes history, and
+  the mission's own arithmetic (`progress.sh` + `queue-size.sh`) only converges when it happens.
+- **Insight**: The two-line `case "$RC_REASON" in no_checks) ;; *) emit …` is pinned by a regex
+  row in `scripts/test-workflow-scripts.mjs`, not only by behaviour.
+  **Context**: A refactor that keeps the JSON but loses the one-reason continuation fails there
+  first; the drill's behavioural rows are the second net, not the only one.

@@ -135,7 +135,6 @@ const SCRIPTS = {
   catchUpClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   retryUndelivered: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"),
-  stepCatchupBlocked: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-catchup-blocked.sh"),
   stepMergeConflicts: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-merge-conflicts.sh"),
   releaseClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/release-claim.sh"),
   landUnit: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/land-unit.sh"),
@@ -20866,7 +20865,7 @@ function testTokenedTransportResolvesTheChannel() {
 // … /.claude/hooks/session-start.sh which is a sensitive file`. Claude Code classifies
 // `.claude/**` as sensitive and an unattended container has no human. Seven runs, five hours,
 // nothing landed, and the freeze was SILENT: the resume beats the heartbeat before the edit, so
-// `stalled-units` counted the unit healthy and `catchup-blocked` read 0.
+// `stalled-units` counted the unit healthy and the conflict step read 0.
 //
 // `verification_handoff:` already routes exactly this — the pull request opens and stays open,
 // the claim stays standing, a person is asked — so the field is reused rather than duplicated.
@@ -22227,12 +22226,11 @@ const tests = [
   ["branching: a stranded publication, localized seam by seam", testStrandedPublicationReproduction],
   ["branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader],
   ["branching/settle-stranded-publication.sh: settle what a generator settles", testSettleStrandedPublication],
-  ["moderate/stranded-publications: the collision only a person can settle", testStrandedPublicationsStep],
+  ["moderate/stranded-publications: the collision counted, and asked about by nobody", testStrandedPublicationsStep],
   ["moderate/stranded-publications: a publication old enough that its plan may be stale", testStrandedPublicationStaleQuestion],
   ["drive/claim-mergeability.sh: the reader and the writer answer with one rule", testClaimMergeabilityReader],
   ["drive/claim-mergeability.sh: the reader predicts the remote's merge, not this checkout's", testMergeabilityIgnoresLocalMergeAttributes],
   ["drive/catch-up-claim.sh: one act, its refusals, and the delivery that follows", testCatchUpClaimWriter],
-  ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
   ["drive claim protocol: a merged pull request is its own retirement candidate", testRetirementCandidatePullRequestMerged],
@@ -27629,7 +27627,7 @@ function testStalledUnitsStep() {
 
     // AN UNREADABLE RETIREMENT READ FILTERS NOTHING, and both steps say so. A gate that cannot
     // be read is not a gate: every question stays standing and the degraded read is named.
-    for (const step of ["step-stalled-units.sh", "step-catchup-blocked.sh"]) {
+    for (const step of ["step-stalled-units.sh"]) {
       const src = readFileSync(
         join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts", step), "utf8");
       assertTrue(`${step} composes the retirement reader rather than re-deriving its classes`,
@@ -27762,11 +27760,6 @@ function testModerateRun() {
     // right up to the moment it finished. Same placement and same reason: it reads, the
     // check-in asks.
     "undelivered-units",
-    // `catchup-blocked` (2026-08-29): a finished unit the BASE no longer accepts. The loop
-    // caught it up as far as it may and stopped at a conflict only a person can judge — which
-    // `merge-conflicts` cannot say, because it reports a pull request nothing has attempted.
-    // Same placement and same reason as its neighbours: it reads, the check-in asks.
-    "catchup-blocked",
     // `handoff-units` (2026-08-27): a unit whose still-queued work was DECLARED unverifiable in
     // an unattended environment at creation. §6 routes it to the handoff route — pull request
     // open on purpose, claim standing on purpose — and until this step nothing read the verdict
@@ -28386,8 +28379,20 @@ esac
     // Step 6: one reminder per distinct state, and the decision is named per row.
     let s6 = JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-120000 --root .`, { env }).stdout);
     assertEq("both stuck pull requests are reported", s6.needs_agent.length, 2);
-    assertTrue("the conflicted one names the claim holder as the decision",
-      s6.needs_agent.find((n) => n.pull === 12).decision.includes("claim holder"), JSON.stringify(s6.needs_agent));
+    // THE CONFLICT ROW NO LONGER HANDS THE CONFLICT TO A PERSON (2026-09-02, mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`). This row asserted the
+    // opposite — that the decision text names the "claim holder" — and that sentence is exactly
+    // what the operator corrected: a claim holder never comes, so a conflict said to be theirs
+    // is a conflict nobody resolves. The loop now attempts every conflict class itself; only a
+    // hunk the merge cannot settle reaches a person, and it says so.
+    //
+    // ASSERTED IN BOTH DIRECTIONS, because the positive half alone would pass a sentence that
+    // named the next tick AND still told the holder it was theirs.
+    const conflictDecision = s6.needs_agent.find((n) => n.pull === 12).decision;
+    assertTrue("the conflicted one names the acting tick, not a person to hand it to",
+      /\[Implement\]/.test(conflictDecision), conflictDecision);
+    assertTrue("and no longer defers the conflict to the claim holder",
+      !/claim holder/.test(conflictDecision), conflictDecision);
     assertTrue("the blocked one names the review", s6.needs_agent.find((n) => n.pull === 13).decision.includes("review"));
     // NO POST KEY LEAVES THIS STEP any more (2026-08-19): the 🔧 root it used to key is
     // retired, so the top-level `key` is empty and the state rides an `ask_key` into step
@@ -28524,6 +28529,54 @@ esac
       cleanup(binSwapA);
       cleanup(binSwapB);
       cleanup(binGrew);
+    }
+
+    // ---- AN UNCOMPUTED MERGEABLE STATE LEAVES THE PASS (2026-09-02, mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`, ticket
+    // `20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state`) ----
+    //
+    // `mergeable == null` means GitHub has not finished computing it. The only act the row ever
+    // named was "re-read before acting", which is nobody's, and the operator ruled it not worth
+    // a notification. The rows below are the ticket's own step 6: a pass holding one uncomputed
+    // row and one real one asks about the second and not the first.
+    const binMixed = many([[51, null, "unknown"], [52, false, "dirty"]]);
+    const binOnlyReal = many([[52, false, "dirty"]]);
+    const binOnlyUnknown = many([[51, null, "unknown"]]);
+    try {
+      const mixed = stuck(binMixed);
+      const onlyReal = stuck(binOnlyReal);
+      const onlyUnknown = stuck(binOnlyUnknown);
+
+      assertEq("a pass asks about the conflicted pull request and not the uncomputed one",
+        mixed.needs_agent.map((n) => n.pull), [52]);
+      assertTrue("and no candidate carries the uncomputed class",
+        mixed.needs_agent.every((n) => n.blocked_by !== "unknown"),
+        JSON.stringify(mixed.needs_agent));
+
+      // COUNTED, NOT ASKED. The number is evidence for the run report and reaches no channel.
+      assertEq("the uncomputed row is counted in its own field", mixed.uncomputed, 1);
+      assertTrue("and reaches neither the summary nor the headline",
+        !/computed/.test(mixed.summary) && !/computed/.test(mixed.headline),
+        `${mixed.summary} :: ${mixed.headline}`);
+
+      // THE FILTER IS AT CANDIDATE SELECTION, AND THIS IS HOW THAT IS OBSERVABLE FROM OUTSIDE:
+      // the ask key is the digest over the candidate set, so a pass with an extra uncomputed
+      // row must key identically to one without it. A post-time filter would leave the digest —
+      // and therefore the recorded key — different, which is the failure the ticket names.
+      assertEq("so the ask key is identical with and without the uncomputed row",
+        mixed.ask_key, onlyReal.ask_key);
+
+      // A pass holding ONLY uncomputed rows is not `blocked`: a blocked row with no candidate
+      // renders an impairment line in the root about something nobody may act on.
+      assertEq("a pass holding only uncomputed rows reports ok, asks nothing, and counts it",
+        [onlyUnknown.status, onlyUnknown.needs_agent.length, onlyUnknown.uncomputed],
+        ["ok", 0, 1]);
+      assertEq("naming why it is quiet rather than calling them mergeable",
+        onlyUnknown.reason, "mergeability_uncomputed");
+    } finally {
+      cleanup(binMixed);
+      cleanup(binOnlyReal);
+      cleanup(binOnlyUnknown);
     }
 
     // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
@@ -31875,7 +31928,7 @@ function testProofJudgementSplit() {
       "the raced-unit reader is not a pure read");
   }
   // THE THREE SIBLINGS FILTER THROUGH THE ONE SHARED HELPER, never a copy of the test.
-  for (const sib of ["step-stalled-units", "step-undelivered-units", "step-catchup-blocked"]) {
+  for (const sib of ["step-stalled-units", "step-undelivered-units"]) {
     const src = readFileSync(join(REPO_ROOT,
       `plugins/workaholic/skills/moderate/scripts/${sib}.sh`), "utf8");
     assertTrue(`${sib}.sh filters raced units through the shared helper`,
@@ -32274,6 +32327,105 @@ function testProofJudgementSplit() {
     /claim-mergeability\.sh/.test(catchUp), "the catch-up trusts a handed-in reading");
   assertTrue("and refuses a content conflict by its own word",
     /refuse content_conflict/.test(catchUp), catchUp.slice(0, 200));
+
+  // ---- THE REFUSAL IS THE WRITER'S RESIDUE, NEVER THE READER'S PREDICTION (2026-09-02,
+  // mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) ----
+  //
+  // The operator's correction was that deferring a conflict to a claim holder is wrong, because
+  // a claim holder never comes. `claim-mergeability.sh` computes with the repository's
+  // `.gitattributes` deliberately OUT OF REACH — its job is to predict GitHub, which applies no
+  // merge driver — while `catchup-main.sh` merges in a real checkout where those drivers are in
+  // force. So the reader is pessimistic by construction against the writer, and refusing on its
+  // `content` declined branches the writer would have finished.
+  //
+  // These rows pin the shape of the widening rather than its wording: the class-gate accepts
+  // `content`, the ABSENCE-word does not become actable with it, and the refusal still exists
+  // downstream. Each is written to fail on the change that would undo it:
+  //
+  //   `content` removed from either class gate      -> `... attempts a content prediction`
+  //   `unanswerable` made actable in either gate    -> `... still refuses the absence of a reading`
+  //   the candidate reader narrowed back            -> `... offers a content candidate`
+  //   the strategy section deleted from claims.md   -> `... states its resolution strategy`
+  const settle = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh"), "utf8");
+  const catchable = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"), "utf8");
+
+  // The class gate is the `case "$CLASS"` block; a `content` that reaches an empty arm is
+  // attempted, and one that reaches `refuse` is not. Matching the ARM, not the file, so a
+  // mention of the word in a comment cannot satisfy the row.
+  assertTrue("the catch-up attempts a content prediction rather than refusing it",
+    /clean \| mechanical \| content\) ;;/.test(catchUp),
+    "catch-up-claim.sh no longer accepts `content` as a candidate class");
+  assertTrue("the publication act attempts a content prediction rather than refusing it",
+    /mechanical \| content\) ;;/.test(settle),
+    "settle-stranded-publication.sh no longer accepts `content` as a candidate class");
+
+  // The absence-word must NOT have travelled with it. Acting on an absence is the failure the
+  // three-valued reading exists to prevent, and a widening that swept it along would be the
+  // dangerous direction.
+  assertTrue("the catch-up still refuses the absence of a reading",
+    /unanswerable\) refuse "mergeability_unanswerable:/.test(catchUp),
+    "catch-up-claim.sh acts on `unanswerable`");
+  assertTrue("the publication act still refuses the absence of a reading",
+    /refuse "not_mechanical:\$\{CLASS:-unreadable\}"/.test(settle),
+    "settle-stranded-publication.sh acts on `unanswerable`");
+
+  // The candidate reader had to move with the act or the widening is unreachable through the one
+  // caller that uses it — a no-op dressed as a change.
+  assertTrue("the candidate reader offers a content candidate",
+    /\.mergeability == "mechanical" or \.mergeability == "content"/.test(catchable),
+    "list-catchable-claims.sh still offers only `mechanical`, so the act is never called for `content`");
+  assertTrue("and carries the class through rather than re-spelling it",
+    /\\"mergeability\\": \\"\$\{class\}\\"/.test(catchable),
+    "list-catchable-claims.sh flattens every candidate's class to a literal");
+
+  // The strategy was required to be WRITTEN DOWN before it was written (the ticket's own step 2),
+  // because "the tick decides" is only acceptable if a reader can argue with the decision.
+  assertTrue("and claims.md states its resolution strategy per class",
+    wholeTable.includes("#### The resolution strategy, per class"),
+    "claims.md no longer says which side wins for each class of conflict");
+
+  // ---- WHAT THE ACT RESOLVED, IT ALSO DELIVERS — BEHIND THE GATE (2026-09-02, ticket
+  // `20260902042630-let-the-tick-merge-what-it-resolved`) ----
+  //
+  // Resolving and stopping leaves the pull request open, which is the stagnation the operator
+  // named: a parked pull request reads as progress to the loop and as stagnation to them. The
+  // rows below pin the three properties that make the delivery admissible rather than reckless.
+  //
+  //   the delivery deleted from the act          -> `... delivers what it made mergeable`
+  //   the merge moved above the scan             -> `... runs the scan before the merge`
+  //   `secret`/`leak` allowed to proceed         -> `... lets no scan finding through`
+  //   the method spelled at the call site        -> `... reads the merge method`
+  //   the `queue_drained` bound dropped          -> `... delivers only what no other act owns`
+  const deliveryAt = catchUp.indexOf('DELIVERY="merged"');
+  assertTrue("the catch-up delivers what it made mergeable",
+    deliveryAt > 0, "catch-up-claim.sh no longer merges the pull request it caught up");
+
+  // THE ORDER IS THE SAFETY PROPERTY, so it is asserted as an order and not as a presence: a
+  // scan that runs after the merge has gated nothing at all.
+  const scanAt = catchUp.indexOf('sh "$SCAN"');
+  assertTrue("and runs the scan before the merge",
+    scanAt > 0 && scanAt < deliveryAt,
+    "catch-up-claim.sh merges before it scans, which gates nothing");
+
+  // The tier policy, not the binary verdict: `secret` is a hard stop and `leak` holds the pull
+  // request open. Only the `override_only` granularity nudge proceeds.
+  assertTrue("and lets no scan finding through",
+    /scan_held:hard/.test(catchUp) && /scan_held:confirm/.test(catchUp)
+      && /override_only/.test(catchUp),
+    "catch-up-claim.sh does not stop on a secret or hold on a leak");
+
+  // One derivation of the merge method; the suite already fails on a literal at a call site.
+  assertTrue("and reads the merge method rather than spelling it",
+    /merge-method\.sh/.test(catchUp), "catch-up-claim.sh spells its own merge method");
+
+  // ONE ACT OWNS ONE DELIVERY. A `report_undelivered` unit's merge is `retry-undelivered.sh`'s,
+  // which `/implement` runs straight after a `caught_up`; delivering here too would attempt one
+  // pull request twice in a turn and report the second as a refusal over a landed merge.
+  assertTrue("and delivers only what no other act already owns",
+    /\[ "\$VERDICT" = "queue_drained" \] \|\| report caught_up/.test(catchUp),
+    "catch-up-claim.sh delivers a unit whose merge belongs to retry-undelivered.sh");
 
   // ---- WHEN A BOUNDED ACT MAY READ A JUDGEMENT (2026-08-30, mission
   // `catch-a-reported-claim-up-before-its-conflict-hardens`) ----
@@ -34089,10 +34241,25 @@ function testSettleStrandedPublication() {
       { cwd: fx.A, encoding: "utf8" }).trim();
 
     // 1. A CONTENT COLLISION IS REFUSED BY ITS OWN WORD, BRANCH BYTE-IDENTICAL.
+    //
+    // THE WORD MOVED ON 2026-09-02 (mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) and the move is the whole
+    // point of that change. It was `not_mechanical:content` — refused on the READER's
+    // prediction, before anything was checked out. It is now `content_conflict`, the WRITER's
+    // own residue: the act attaches the worktree, performs the merge, and refuses only once the
+    // merge itself has failed to settle the hunk. `src/app.txt` is a genuinely divergent
+    // hand-written file, so a real collision still refuses — what changed is that the loop now
+    // finds that out by trying, and every branch the writer COULD have finished (the reader
+    // computes without the repository's `.gitattributes`, so it over-reports `content`) is
+    // finished instead of deferred to a claim holder who never comes.
+    //
+    // THE ROW BELOW IS THE SAFETY PROPERTY AND IT DID NOT MOVE: attempting costs the branch
+    // nothing. A refusal after a real merge attempt still leaves the ref byte-identical,
+    // because nothing is pushed until the fast checks have passed.
     const before = tipOf(content);
     const refused = settle(22);
-    assertEq("a content collision is refused by its own word",
-      [refused.outcome, refused.reason], ["settle_refused", "not_mechanical:content"]);
+    assertEq("a content collision is refused by the writer's own word, not the reader's",
+      [refused.outcome, refused.reason], ["settle_refused", "content_conflict"]);
     assertEq("and its branch is byte-identical after the refusal", tipOf(content), before);
 
     // 2. THE MECHANICAL ONE IS CAUGHT UP, REGENERATED, PUSHED AND DELIVERED.
@@ -34220,14 +34387,21 @@ function testStrandedPublicationsStep() {
       `${POSIX_SH} ${SCRIPTS.stepStrandedPublications} --tick 20260831T1300 --root ${fx.A}`,
       { env }).stdout);
     const out = step();
-    assertEq("the step reports ok and asks about the one content collision",
+    assertEq("the step reports ok and counts the one content collision",
       [out.step, out.status], ["stranded-publications", "ok"]);
-    assertTrue("naming the pull request and the files both sides changed",
-      /"number": *31/.test(JSON.stringify(out.needs_agent))
-      && /src\/app\.txt/.test(JSON.stringify(out.needs_agent)), JSON.stringify(out.needs_agent));
-    assertTrue("keyed once per pull request",
-      /stranded-publication:31/.test(JSON.stringify(out.needs_agent)),
+    // IT ASKS NOBODY ABOUT IT (2026-09-02, ticket
+    // `20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md`). The
+    // question used to name the pull request and the colliding files and address the
+    // publication's author; the operator ruled that a conflict handed to somebody who never
+    // comes makes parked work read as progress. `/implement` attempts every class, and what
+    // the merge itself cannot settle is reported where the attempt happened.
+    assertTrue("the content collision draws no question",
+      !/stranded-publication:31/.test(JSON.stringify(out.needs_agent)),
       JSON.stringify(out.needs_agent));
+    // THE READING SURVIVES THE SILENCE — without this the row would pass just as well if the
+    // step had stopped seeing content collisions at all, which is worse than the deferral.
+    assertTrue("but it is still counted in the summary",
+      /colliding on content/.test(out.summary), out.summary);
     assertTrue("and it supplies an event, so the root carries a line",
       typeof out.event === "string" && out.event.length > 0, JSON.stringify(out));
     assertTrue("the summary carries no age and no timestamp",
@@ -34245,11 +34419,12 @@ function testStrandedPublicationsStep() {
     assertEq("the step left the checkout as it found it",
       execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
 
-    // THE TWO CANDIDATE SETS ARE DISJOINT BY CONSTRUCTION, pinned rather than left to a reading
-    // of two headers: `catchup-blocked` draws from the claim oracle, which never names a
-    // publication branch, and this step's reader drops any branch the oracle does name.
+    // A PUBLICATION IS NEVER A CLAIM, pinned rather than left to a reading of two headers: the
+    // claim oracle never names a publication branch, and this step's reader drops any branch
+    // the oracle does name. (The claim-side step that used to ask about a `content` conflict,
+    // `catchup-blocked`, was retired 2026-09-02 — the tick attempts it and reports the residue.)
     const claims = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout);
-    assertEq("the claim oracle names no publication, so catchup-blocked cannot ask about one",
+    assertEq("the claim oracle names no publication",
       claims.claims.filter((c) => c.branch === content).length, 0);
     assertTrue("and the publication reader drops any branch the oracle names",
       readFileSync(SCRIPTS.listStrandedPublications, "utf8").includes("list-claims.sh"),
@@ -34642,118 +34817,6 @@ function testCatchUpClaimWriter() {
       `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${held.unit} --own-tip`, { env: withGh }).stdout);
     assertEq("a scan-held unit is refused with the flag exactly as without it",
       [stillHeld.attempted, stillHeld.reason], [false, "not_undelivered:queue_drained"]);
-  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
-}
-
-// ---------- the conflict the loop must not resolve reaches a person (2026-08-29) ----------
-//
-// `catch-up-claim.sh` refuses `content_conflict` and that refusal reached nobody. The step that
-// carries it must draw the split the mission rests on: *nobody has looked yet* (a conflicted
-// pull request, `merge-conflicts`) and *the loop looked and only you can decide* (a branch the
-// shared rule classified) tell somebody different things. So every row here is about the bound
-// — who is asked, exactly once, and that no unit draws two questions in two vocabularies.
-function testCatchupBlockedStep() {
-  const fx = makeDriftFixture();
-  const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
-  try {
-    driftGhStub(fx.binDir);
-    const t = (n) => `.workaholic/tickets/todo/${TEST_SLUG}/2026072900000${n}-t${n}.md`;
-    // One unit the base no longer accepts, one it does — both finished, both undelivered.
-    const blocked = strandUnit(fx.A, t(1), (wt) =>
-      writeFileSync(join(wt, "src/app.txt"), "alpha\nbeta-branch\ngamma\n"));
-    tickSecond();
-    const mergeable = strandUnit(fx.A, t(2), (wt) =>
-      writeFileSync(join(wt, "src/untouched.txt"), "only here\n"));
-    advanceBase(fx.A, (root) =>
-      writeFileSync(join(root, "src/app.txt"), "alpha\nbeta-base\ngamma\n"));
-
-    const step = (s) => JSON.parse(run(fx.A,
-      `${POSIX_SH} ${s} --tick 20260829-070000 --root ${fx.A}`, { env: withGh }).stdout);
-
-    const r = step(SCRIPTS.stepCatchupBlocked);
-    assertEq("the step runs ok", [r.step, r.status], ["catchup-blocked", "ok"]);
-    const rows = (r.needs_agent[0] || {}).blocked || [];
-    assertEq("exactly one unit is handed to the check-in", rows.length, 1);
-    assertEq("and it is the one the base no longer accepts", rows[0].unit, blocked.unit);
-    assertTrue("the mergeable unit is not a candidate",
-      !rows.some((x) => x.unit === mergeable.unit), JSON.stringify(rows));
-
-    // ADDRESSED TO THE CLAIM HOLDER, NAMING WHAT COLLIDED. A question that cannot name the
-    // files does not say what to look at.
-    assertEq("the question is addressed to the claim holder", rows[0].owner, "test@example.com");
-    assertEq("and names the files both sides changed", rows[0].conflicted_files, ["src/app.txt"]);
-    assertEq("and the branch", rows[0].branch, blocked.branch);
-    assertEq("keyed once per unit", rows[0].key, `catchup-blocked:${blocked.unit}`);
-
-    // ASKED EXACTLY ONCE: the key is stable across ticks, which is what lets the ledger refuse.
-    assertEq("the key is stable across ticks",
-      ((step(SCRIPTS.stepCatchupBlocked).needs_agent[0] || {}).blocked || [])[0].key,
-      rows[0].key);
-
-    // ONE UNIT NEVER DRAWS TWO QUESTIONS. `undelivered-units` filters this unit out of its own
-    // candidates and COUNTS it — *retry your merge* is the wrong instruction for a branch that
-    // no longer merges — while still asking about the mergeable one beside it.
-    const und = step(SCRIPTS.stepUndeliveredUnits);
-    const undRows = (und.needs_agent[0] || {}).undelivered || [];
-    assertEq("undelivered-units asks about the mergeable unit only",
-      undRows.map((x) => x.unit), [mergeable.unit]);
-    assertTrue("and counts the blocked one rather than dropping it",
-      /no longer merging \(asked by catchup-blocked\)/.test(und.summary), und.summary);
-
-    // `merge-conflicts` KEEPS reporting every conflicted pull request, and that is a refusal
-    // rather than an omission: the only way to know which units this step asks about is to read
-    // the claim oracle, which fetches — a network read inside a step whose whole cost is one
-    // bounded REST call, and inside a hermetic suite whose fixture for it carries a real origin
-    // URL. It asks nobody anything (`needs_agent` is empty by construction), so the ticket's
-    // "one asks and the other counts" holds without it, and the refusal is recorded in its
-    // header rather than left to be re-tried.
-    const mcSrc = readFileSync(SCRIPTS.stepMergeConflicts, "utf8");
-    assertTrue("merge-conflicts still reaches no claim oracle",
-      !/list-claims\.sh/.test(mcSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
-      "a network fetch was put inside a bounded REST-read step");
-    assertTrue("and its header records the narrowing and the refusal",
-      /narrowed, not reversed/i.test(mcSrc) && /catch-up-claim\.sh/.test(mcSrc), mcSrc.slice(0, 200));
-
-    // THE SUMMARY CARRIES NO AGE AND NO TIMESTAMP — an incrementing summary makes the step
-    // "changed" hourly by construction and the root restates the same units all day.
-    assertTrue("the summary carries no hour count", !/\d+\s*h\b/.test(r.summary), r.summary);
-    assertTrue("and no timestamp", !/\d{4}-\d{2}-\d{2}|\d{2}:\d{2}/.test(r.summary), r.summary);
-    assertTrue("the event names the repository event",
-      /no longer merge/.test(r.event), r.event);
-
-    // A DEGRADED READ ASKS NOTHING AND IS NAMED. A scan that could not reach the remote has not
-    // found "nothing blocked" — the mergeability is derived against the base it could not read.
-    const plain = mkdtempSync(join(tmpdir(), "wh-catchup-plain-"));
-    execSync("git init -q .", { cwd: plain });
-    const deg = JSON.parse(run(plain,
-      `${POSIX_SH} ${SCRIPTS.stepCatchupBlocked} --tick 20260829-070000 --root ${plain}`).stdout);
-    assertEq("a repository with no origin degrades by name",
-      [deg.status, deg.needs_agent.length], ["degraded", 0]);
-    assertTrue("and the reason is named", deg.reason.length > 0, JSON.stringify(deg));
-    rmSync(plain, { recursive: true, force: true });
-
-    // IT WRITES NOTHING, and reaches no writer of its own.
-    assertEq("git status is clean after the step ran",
-      execSync("git status --porcelain", { cwd: fx.A, encoding: "utf8" }).trim(), "");
-    const src = readFileSync(SCRIPTS.stepCatchupBlocked, "utf8")
-      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
-    assertEq("the step never reaches plan-units.sh", /plan-units\.sh/.test(src), false);
-    assertTrue("and calls no writer at all",
-      !/catch-up-claim\.sh|retry-undelivered\.sh|retire-claim\.sh|git (push|merge|rebase)/.test(src),
-      src);
-
-    // REGISTERED, IN ORDER, BESIDE THE SIBLING IT FOLLOWS — and classified deliberately, since
-    // an unclassified step id reads `needs_ruling` by default rather than by decision.
-    const runSh = readFileSync(
-      join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"), "utf8");
-    assertTrue("run.sh invokes the step in order",
-      /undelivered-units catchup-blocked handoff-units/.test(runSh), "not registered in order");
-    const wf = readFileSync(
-      join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
-    assertTrue("and the findings table classifies it",
-      /^\| `catchup-blocked` \| `needs_ruling` \|/m.test(wf), "the step id is unclassified");
-    assertTrue("and the reference documents it",
-      /## \d+\. `catchup-blocked`/.test(wf), "the step has no section");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 

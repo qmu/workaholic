@@ -458,15 +458,51 @@ moment of its act rather than trusting a list it was handed, which is the discip
 | ---- | ----- | ----------------------------------------------- |
 | `clean` | judgement | `git merge-tree` produced no conflict at all — computed with the repository's own `.gitattributes` **out of reach**, because git reads merge attributes from the working tree and GitHub applies none of them when it answers `mergeable` (2026-09-01, ticket `20260901041500`: five publications read `clean` here and `dirty` there, and the loop was refused `merge_not_allowed` every hour). It says the merge *would* apply as of this read; the base moves every half hour, so it proves nothing durable. **Report it**; the catch-up re-derives it before acting. |
 | `mechanical` | judgement | Every conflicted path is one the shared rule (`ship/scripts/lib/conflict-class.sh`) can settle without a judgement: an append-only `.workaholic/` tail, a version/lockstep manifest, or generated output — including an OKF index, wholly generated or generated-inside-its-markers. A consumer may **act** on it only under *When a bounded act may read a judgement* below, which is where that exception and its enumerated consumers live; nothing acts on the word itself. |
-| `content` | judgement | Some other path conflicts, so a person must judge which side keeps its behaviour. The catch-up refuses it `content_conflict`, writing nothing, and `/moderate`'s `catchup-blocked:<unit>` step asks the claim holder. **Never resolved by a machine.** |
+| `content` | judgement | Some other path conflicts. This is a **prediction that the merge will need a judgement**, not a finding that it does — since 2026-09-02 the catch-up and the publication act **attempt** it and let the writer decide (below). What refuses is the writer's own residue, still `content_conflict`, still writing nothing, and it is **reported by the act** rather than asked about (`catchup-blocked` retired 2026-09-02). **A hunk the merge cannot settle is never resolved by a machine.** |
 | `unanswerable` | judgement | The **absence** of a reading — no merge base, truncated history, an unreadable ref, a git without `merge-tree --write-tree`. It must never be reported as `clean` and never collapse into `content`: a wrong `clean` pushes a merge nobody proved, a wrong `content` only delays a unit. Named with its own reason and left alone. |
+
+#### The resolution strategy, per class
+
+**Written down before it was written** (2026-09-02, mission
+`resolve-a-conflicted-pull-request-in-the-tick-not-report-it`, ticket
+`20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it`, step 2). The operator's
+correction was that the tick "only spews reports and shows no sign of resolving anything" and
+that deferring a conflict to a claim holder is *completely wrong* — a claim holder never comes.
+What follows is the whole of what the loop decides and the whole of what it hands over, so a
+reader can argue with the rule rather than reverse-engineer it from four scripts.
+
+| What conflicts | Who resolves it, and how | Can behaviour be lost? |
+| -------------- | ------------------------ | ---------------------- |
+| **Generated output** (`outputs/*`, the three wholesale OKF indexes) | The merge takes **either side** and the caller then **re-derives the file from the merged source** (`refresh-index.sh`, `build.mjs`). Which side won is immaterial by construction — that is what *generated* means. | **No.** The output is a function of the merged input, and the input merged without conflict. |
+| **A flat area's `index.md`** whose generated region is the only difference | Same: take a side, re-derive the region. The proof that nothing outside the `okf:generated` markers moved is `conflict_class_generated_region`'s, and a hand-authored index with no markers is not this row. | **No**, and the proof is what makes it so — a person's prose outside the region is byte-identical on both sides or this row does not apply. |
+| **A version/lockstep manifest** | The **higher semver** wins and the rest of the file merges normally, because this repository's own rule is that every one of those files carries the same version. | **No.** The collision is on the version and on nothing else. |
+| **An append-only `.workaholic/` tail** (two branches each appending, e.g. a `## Changelog` line) | **Keep both.** The proof is that the merge base is an exact line-prefix of both sides, so nothing existing was modified or removed. Bounded to `.workaholic/` on purpose: appending is evidence of independence in a *log*, and two branches appending a function to a source file have the same shape and a real decision behind it. | **No.** Nothing that existed changed; the shape proof is self-verifying and every failure mode answers *no*. |
+| **A path the repository declared `merge=union`** | **git's own driver**, in the writer's real checkout. The loop does not choose this — the repository committed the attribute (`/workaholify` §1, `index_merge_union`). The union's known cost is a duplicated or mis-sorted line, and it is **repaired**, not shipped: the regeneration step above rewrites the file from the tree. | **No**, given the regeneration. Without it this row would not be admissible. |
+| **A genuinely divergent hand-written hunk** | **Nobody here.** The act refuses `content_conflict`, pushes nothing, leaves the branch byte-identical, and the claim holder is asked by `/moderate`. | — the residue exists precisely so the answer above is always *no*. |
+
+**The tick decides by attempting, not by predicting.** `claim-mergeability.sh` is a *reader*: it
+computes `git merge-tree` from an empty directory with `GIT_DIR` set so the repository's
+`.gitattributes` is out of reach, because its job is to predict **GitHub**, which applies no
+merge driver. The writer merges in a real checkout where those drivers are in force. The reader
+is therefore **pessimistic by construction** against the writer, and refusing on its `content`
+declined branches the writer would have finished. So `catch-up-claim.sh` and
+`settle-stranded-publication.sh` now accept a `content` prediction as a **candidate**, and the
+refusal moved to the one place that actually knows: the writer's residue.
+
+**What did not move.** `conflict_class.sh` is untouched — no new path is called mechanical, and
+no judgement was reclassified. `unanswerable` keeps its refusal on both paths, because it is the
+**absence** of a reading and acting on an absence is what a three-valued word exists to prevent.
+The fast checks still gate every push and still refuse `validation_failed:<check>` with nothing
+pushed. A colleague's claim is still untouchable, a live claim is still left alone, and a
+scan-held pull request is still refused `scan_held:<tier>`. **No second merge engine exists**:
+both acts compose `catchup-main.sh`.
 
 **A branch nothing has attempted is not the same finding as one the loop looked at.** That is
 the whole reason `content` is a reading rather than a bare *conflicted* boolean:
 `/moderate`'s `merge-conflicts` step reports a pull request GitHub calls conflicted — *nobody
-has looked yet* — while `catchup-blocked` asks about a branch this rule classified — *the loop
+has looked yet* — while the catch-up **attempts** a branch this rule classified — *the loop
 looked and only you can decide*. One unit never draws both: `merge-conflicts` counts what
-`catchup-blocked` asks about, in the same shape `stalled-units` counts what `handoff-units`
+the catch-up attempts, in the same shape `stalled-units` counts what `handoff-units`
 asks about.
 
 ### Whether an act the loop took had its effect (`ci-retirement-turn.sh`)
@@ -568,7 +604,7 @@ it and was **asked about by nobody**. Measured 2026-08-30: `work-20260830-055314
 `work-20260830-055318` were both claimed for one unit four seconds apart and each drove the same
 four tickets for over an hour; the run that lost reported an ordinary undelivered unit and the
 duplicated hour reached no person at all. No other step could see the shape — `stalled-units`
-finds one claim that has not moved, `undelivered-units` finds one refused merge, `catchup-blocked`
+finds one claim that has not moved, `undelivered-units` finds one refused merge, the catch-up
 finds one conflicted branch, and each of those is a *consequence* whose question hides the cause.
 
 **There is no proof in this vocabulary either.** A race resolves the moment one of the two
@@ -593,7 +629,7 @@ whichever runs first:
 | `raced-units` | **asks** | The race is the cause; the others see consequences. |
 | `stalled-units` | filters, counts | *A claimed unit has not moved for a day or more* sends a person to look at one claim when the honest question names both. |
 | `undelivered-units` | filters, counts | A raced loser's refused merge is the race's consequence; *retry your merge* hides the cause. |
-| `catchup-blocked` | filters, counts | Catching one of two racing branches up presumes the answer to *which branch keeps going*. |
+| the catch-up | attempts neither | Catching one of two racing branches up presumes the answer to *which branch keeps going*. |
 | `retire-claims` | **needs no change** | Its candidates are `superseded` rows, and a unit resolving `ambiguous` has none **by definition** — every one of its claims is live — so the two sets are disjoint by construction. `retire-claim.sh` refuses `ambiguous_claim` on its own besides. |
 
 The filter is `moderate/scripts/lib/raced-units.sh`, one helper over the scan each step has
@@ -774,7 +810,7 @@ all, which is the same reason the proof-gated consumers are enumerated rather th
 
 | Acting consumer | The judgement it reads | How each clause is met |
 | --------------- | ---------------------- | ---------------------- |
-| `catch-up-claim.sh` | `mergeability == mechanical` (`claim-mergeability.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word |
+| `catch-up-claim.sh` | `mergeability ∈ {mechanical, content}` (`claim-mergeability.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word. **`content` joined the licence on 2026-09-02** and the clauses are met identically, because the licence is *the writer settles it without a judgement* rather than *the reader predicted mechanical*: the reader computes without the repository's `.gitattributes` and the writer merges with them, so its `content` is a pessimistic guess that the act now tests instead of trusting. The absence-word `unanswerable` is still refused, exactly as a licensing act must refuse an absence |
 | `archive.sh` | `holder == mine` (`claim-holder.sh`) | Re-derives by calling `claim-holder.sh` itself immediately before the ticket moves — ahead of the todo-layout migration, so nothing has been staged yet; the archive it gates is idempotent in the shape this seam already guarantees (a re-run of a refused call finds the tree byte-identical, and the mission mutators below it no-op on a repeat); its write is a **commit on the claim branch**, revertible and never a rewrite; refuses `claim_taken_over` and `ambiguous_claim` by their own words, moving nothing, staging nothing and committing nothing |
 
 **The table is prose, so it can lie**, and `scripts/test-workflow-scripts.mjs` pins it **in both
@@ -1400,8 +1436,15 @@ strand or duplicate a unit. Both halves are **answered**, and neither may be qui
 - **And not a race.** `claim_active` refuses a branch a run is still committing to, so the
   thing the standing rule is really about cannot arise.
 
-What stays a person's is the **contested** case: a `content` conflict is refused, and its claim
-holder is asked by `/moderate`'s `catchup-blocked:<unit>` step.
+What stays a person's is the **contested** case: a hunk the merge itself could not settle is
+refused `content_conflict` — **and it is reported by the act, not asked about**. `/implement`
+names `catch_up_refused: content_conflict` with the colliding files where the attempt happened;
+`/moderate`'s `catchup-blocked` step was **retired** in the same 2026-09-02 change, on the
+operator's own words about it — a conflict handed to a claim holder is handed to somebody who
+never comes, and parked work then reads as progress to the loop and as stagnation to its
+operator. **Since 2026-09-02 the refusal is the writer's residue, not the reader's prediction** —
+the act attempts a `content`-classed branch rather than refusing before it is checked out, on
+the reasoning in *The resolution strategy, per class* above.
 
 **The order of its acts, and why.** Resolve the unit through the **live-row rule** (never
 first-match — a unit held by a superseded branch and a live one is what a fresh claim over a

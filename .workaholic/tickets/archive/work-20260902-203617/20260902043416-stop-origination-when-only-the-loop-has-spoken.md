@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:34:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,43 @@ cost of proposing into that silence was a day of merged work the operator tore o
   gate is stated rather than tuning a threshold against it.
 - A repository with no Slack transport at all must not be braked by this: no transport is
   `unreadable`, not silence.
+
+## Final Report
+
+Development completed as planned. The brake is stated as **step 0b** of `/propose`'s loop,
+with its own section in `workaholic:propose` and a line in `CLAUDE.md`.
+
+- **The reading comes off the sweep already made** (steps 1 and 5): the same window, the same
+  connector read, the same shape-based distinction between the loop's own posts and a
+  person's. **No second query, no second window, no cursor**, and the window is the sweep's
+  own `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) because that is the evidence the
+  judgment is made against — a second, different number would be a constant nobody can defend.
+- **Three values** (step 2): `human_spoke` / `only_the_loop_spoke` / `unreadable:<reason>`. An
+  unreadable channel — and a repository with **no Slack transport at all** — never brakes; a
+  gate that cannot be read is not a gate, which is the rule `inbox_unreadable` already holds.
+- **On `only_the_loop_spoke` the tick originates nothing** (step 3): steps 1-5 are skipped, no
+  proposal opens, nothing is posted, and the run ends reporting that word — never as idle and
+  never as an error. It is the **one run-level brake**, refusing every direction at once where
+  every other gate is per-direction, and that difference is stated where the gate is stated.
+- **The reactive half is untouched** (step 4): an issue somebody filed, an ask the sweep just
+  captured, a `/specificate` run — all still work. The brake is on **origination**, exactly as
+  `observing` and `arrived` are.
+- **The reading is reported whether or not it fires** (step 6), so a reader can tell a quiet
+  channel from a quiet loop.
+- **The cost is written where the gate is**, not tuned against: a weekend or a holiday reads
+  as abandonment and costs one tick of proposals, against the measured day of merged work the
+  operator tore out by hand.
+
+Thirteen hermetic rows pin the statement at all three surfaces, the never-brake-on-unreadable
+property, the run-level framing, the reactive exemption, the reused window, and that the brake
+did **not** leak into `survey-strategies.sh` — which would silently turn a run-level stop into
+a per-strategy eligibility change with the same name.
+
+### Discovered Insights
+
+- **Insight**: The dangerous refactor for this brake is not "it fires too often" but "it
+  becomes a per-strategy gate". Folded into `survey-strategies.sh` it would still look
+  correct — directions would come back refused — while quietly changing `selected` instead of
+  stopping the tick, and the run would go on posting. The pin is on that specific leak.
+  **Context**: The same distinction separates every run-level reading in this loop from the
+  per-artifact ones beside it.

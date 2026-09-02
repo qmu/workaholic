@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:34:16+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -78,3 +79,47 @@ rule the next session re-derives, and it re-derived it wrong.
 - Sequenced last: the statement should describe the refusals the earlier tickets actually
   built, not the ones this ticket set imagined. Writing it first would leave prose the code
   does not match, which is the defect this whole mission is about.
+
+## Final Report
+
+Development completed as planned, and sequenced last as the ticket asked, so the statement
+describes the refusals the earlier tickets actually built rather than the ones this set
+imagined.
+
+**The home is `plugins/workaholic/rules/workaholic.md`** (step 1), and the reason is recorded
+in the statement itself: the rule governs three skills and belongs to none of them; it **ships
+in the plugin**, so it reaches every repository that installs it, where a repository's own
+`CLAUDE.md` cannot carry a rule for the fleet; and the queue it governs lives under
+`.workaholic/`, which is that file's own path scope.
+
+**It is written as a closed statement** (step 2) — what may originate (a human's ask, whatever
+channel it arrived through; a strategy a human authored), what may not (`self_authored`,
+`self_refining`, `only_the_loop_spoke`), and the measurement that earned it: five `[FB]` roots
+in one day that no human wrote, each merged by the next ticks, the direction abandoned
+mid-drive, every gate holding and none of them asking *who wanted this*.
+
+**Every other surface cites it** (step 3): `workaholic:specificate`'s judgment bar,
+`workaholic:propose`, and `workaholic:feedback`'s filing bar each point at the home and say
+they are citing rather than restating. The feedback bar also names the distinction that keeps
+the two rules apart — **filing is wider than origination**, a machine's observation is still
+worth recording, and `subject:` is what tells them apart.
+
+**`CLAUDE.md`'s ticket-spine *Sources* now names whose input each source carries** (step 5):
+`/ticket` and `/mission` a human's direction, `/specificate` a human's ask or a human-authored
+strategy and never a record the loop wrote about itself.
+
+**Pinned, and the pin was proved to fail** (step 4, and the gate): thirteen rows assert the
+statement exists at its home with its measurement and its three refusal words, that each of
+the three skills cites it, and that `CLAUDE.md`'s *Sources* is attributed. Rewriting one
+citation to *anything the loop finds worth doing may originate a mission* turned two rows red;
+restoring it turned them green.
+
+### Discovered Insights
+
+- **Insight**: The choice of home is not a filing preference — it decides **who the rule
+  reaches**. `CLAUDE.md` is one repository's document, so a rule written there governs this
+  repository and no consumer of the plugin; `rules/workaholic.md` ships. For a rule whose
+  whole failure mode was *the next session re-derived it*, reaching every session that
+  installs the plugin is the property that matters.
+  **Context**: The same test applies to any future cross-skill convention: if a consuming
+  repository would need it and cannot get it, `CLAUDE.md` is the wrong home.

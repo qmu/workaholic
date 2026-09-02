@@ -3,6 +3,52 @@ paths:
   - '.workaholic/**/*'
 ---
 
+# What May Originate a Mission
+
+**Only a human's ask, or a strategy a human authored, originates a mission.**
+
+Stated here, once, and **cited rather than restated** by `workaholic:specificate`,
+`workaholic:propose` and `workaholic:fb` (2026-09-02, mission
+`refuse-an-ask-the-loop-wrote-to-itself`). This file is the home because the rule governs
+three skills and belongs to none of them, because it ships **in the plugin** and so reaches
+every repository that installs it — a repository's own `CLAUDE.md` cannot carry a rule for
+the fleet — and because the queue it governs lives under `.workaholic/`, which is this file's
+own scope.
+
+**What may originate:**
+
+- a **human's ask** — a feedback record whose `subject:` names a person, a meeting, a customer
+  or a team (`workaholic:feedback`, *Choosing the subject*), however it arrived: typed into an
+  issue, swept from the channel by a routine, or captured in a session. **The channel it
+  travelled through does not matter; whose opinion it is does.**
+- a **strategy a human authored** — the operator's outbound, resolved direction, and the
+  proposals a routine derives from it.
+
+**What may not:**
+
+- a record **a routine wrote about the loop's own apparatus** — refused at `/specificate`'s
+  judgment bar as **`self_authored`**, record-only, with the reading taken from
+  `feedback/scripts/ask-origin.sh` and the *is it about our own apparatus* half judged by the
+  run in words;
+- a proposal **refining a prior self-proposal** — refused at `/propose`'s bar as
+  **`self_refining`**, whatever move word it claims;
+- a tick into a window **where only the loop has spoken** — origination stops for that tick as
+  **`only_the_loop_spoke`**, run-level, while the reactive path continues.
+
+**The measurement.** 2026-09-02: five consecutive `[FB]` roots in one day that no human wrote,
+each a record a routine session authored about the loop's own self-proposed apparatus, each
+proposed, ticketed, implemented and merged by the next ticks, each link refining the one
+before it — until the operator abandoned the direction mid-drive and reported the day as
+waste, with their own development stopped throughout. **Every gate held.** None of them asked
+*who wanted this*. The rule existed only as three consequences in three skills, and the next
+session re-derived it wrong.
+
+**None of the three refusals is mechanical**, and none may become a gate: they are judgements
+the running model applies, reported by their own words so a refused run never reads as idle.
+What the statement buys is that a run originating from the loop's own output is visibly
+non-conformant, against one sentence, rather than against three consequences a reader has to
+reassemble.
+
 # Work Directory Structure
 
 The `.workaholic/` directory has a fixed structure. Only these subdirectories are allowed:

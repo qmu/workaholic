@@ -137,6 +137,28 @@ and every abort reports a machine-readable reason.
    step-5 discovery and the step-5b strategy set in hand, and **decide the form**
    (*The form follows the work's shape*).
 
+   **First of all, did a person want this?** (2026-09-02, mission
+   `refuse-an-ask-the-loop-wrote-to-itself`.) Read the ask in hand through
+   `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/ask-origin.sh` — the record just
+   written, or the triggering issue's body on stdin. On **`machine`**, ask the second half
+   yourself, because no script can: *is the subject of this ask the loop's own apparatus?*
+   When both hold, stop here — **record-only, reported `self_authored`**, with the judgement
+   written out in the pull-request body so a person can disagree with it. On **`human`**
+   proceed unchanged; on **`unreadable`** proceed unchanged and report the reading by its
+   reason, because a grandfathered record with no `subject:` is an ordinary ask and refusing
+   it would silence real history.
+
+   **This runs at the judgment and not at discovery, deliberately.** At discovery the ask is
+   never taken in hand and no record is written; here *the record is written whatever this
+   step concludes* — the standing contract this seam has carried since step 1 — so the
+   capture stays honest and the triggering issue still closes. Discovery's own
+   `self_originated` exclusion is a **different** test on a different signal (a
+   `source: moderate` body header) and is untouched.
+
+   **It must not catch the inbound sweep.** A person's channel message filed as an issue by
+   a routine carries `subject: person:<author>`, so the reader answers `human`; that is a
+   human ask arriving through a machine and it proceeds. The suite pins that case.
+
    **First, decide the direction when step 3b found no line** (2026-08-26). An ask can
    arrive naming none — a human typing into the GitHub UI, another tool, an older issue.
    Step 5b has already read the `active` strategies and their Aims, so this costs **no new

@@ -24,14 +24,55 @@ fi
 # Extract filename early so we can detect ticket-shaped files outside tickets/
 filename=$(basename "$file_path")
 
+# --- Classify by the REPOSITORY ROOT, never by the absolute path's text ---------
+# Every test below asks "where does this file sit inside the repository", and until
+# 2026-09-02 each asked it of the ABSOLUTE path: `case "$file_path" in *.workaholic/*)`.
+# That is the same question only while no directory ABOVE the repository root happens to
+# be called `.workaholic`. Since 2026-09-02 the loops run in clones under
+# `$WORKAHOLIC_LOOPS_HOME` (default `~/.workaholic/loops/<repo>/<loop>`), so every path in
+# a loop clone carries `.workaholic/` before the root is even reached.
+#
+# MEASURED (`work-20260902-193702`): an `Edit` to
+# `plugins/workaholic/skills/drive/scripts/lib/claims.sh` — a file with nothing to do with
+# `.workaholic/` — was answered `Workaholic layout: undesignated subdirectory 'loops/'`,
+# because `${file_path#*.workaholic/}` had stripped to `loops/workaholic/implement/...`.
+# It did not block that write, but it fires on EVERY `Edit` and `Write` a loop session
+# makes, and a guard that fires on everything is a guard nobody reads.
+#
+# So the path is made repository-relative ONCE, here, and every test below reads
+# `$rel_path`. The `Got:` line keeps the absolute path, which is what a person needs.
+#
+# WHEN THE ROOT CANNOT BE RESOLVED the answer is EXACTLY today's — `rel_path` falls back to
+# `$file_path`. A hook that could not resolve a root and therefore passed silently would
+# trade a noisy false positive for a quiet false negative, which is the worse of the two.
+# The walk climbs to the nearest EXISTING ancestor because a `Write` creates directories
+# that do not exist yet at hook time.
+#
+# MOVING THE LOOP HOME IS NOT THE REPAIR, and that is a ruling rather than an omission: a
+# clone may sit anywhere a developer puts it, so the next such path would reopen this.
+# The defect is the classifier's.
+rel_path="$file_path"
+_probe=$(dirname -- "$file_path")
+while [ ! -d "$_probe" ] && [ "$_probe" != "/" ] && [ "$_probe" != "." ]; do
+  _probe=$(dirname -- "$_probe")
+done
+if [ -d "$_probe" ]; then
+  _root=$( (cd -- "$_probe" && git rev-parse --show-toplevel) 2>/dev/null || true )
+  if [ -n "$_root" ]; then
+    case "$file_path" in
+      "$_root"/*) rel_path="${file_path#"$_root"/}" ;;
+    esac
+  fi
+fi
+
 # Reject ticket-shaped files (YYYYMMDDHHmmss-*.md) written under .workaholic/
 # but outside .workaholic/tickets/. Catches misplacements like
 # .workaholic/RFDs/<ts>-foo.md that would otherwise silently pass.
 # feedbacks/ is exempt: feedback records deliberately share the chronological
 # <ts>-<slug>.md shape and carry their own write-time floor (validate-feedback.sh).
-case "$file_path" in
+case "$rel_path" in
   *.workaholic/*)
-    case "$file_path" in
+    case "$rel_path" in
       *.workaholic/tickets/*) : ;;
       *.workaholic/feedbacks/*) : ;;
       *)
@@ -59,10 +100,10 @@ esac
 # availability safeguard, not an opt-out).
 hook_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
 allowlist_file="${hook_dir}/workaholic-layout-allowlist.txt"
-case "$file_path" in
+case "$rel_path" in
   *.workaholic/*)
     if [ -f "$allowlist_file" ]; then
-      wh_rel="${file_path#*.workaholic/}"
+      wh_rel="${rel_path#*.workaholic/}"
       first_seg="${wh_rel%%/*}"
 
       layout_ok=true
@@ -106,13 +147,13 @@ case "$file_path" in
 esac
 
 # Skip non-ticket paths
-case "$file_path" in
+case "$rel_path" in
   *.workaholic/tickets/*) : ;;
   *) exit 0 ;;
 esac
 
 # Extract the path after .workaholic/tickets/
-tickets_path="${file_path#*.workaholic/tickets/}"
+tickets_path="${rel_path#*.workaholic/tickets/}"
 
 # Validate location: the tree is TWO-STATE since 2026-08-13 (issue #436) — todo/
 # (FLAT: the canonical write target since P2, 2026-08-06, because a ticket's owner

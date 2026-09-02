@@ -4,6 +4,7 @@
 
 * [announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread](active/announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread/mission.md) - Announce an ask that landed outside a unit route in its own thread
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](active/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 

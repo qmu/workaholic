@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260902-215723
 ---
 
 # Classify the layout by repository root, not by path text

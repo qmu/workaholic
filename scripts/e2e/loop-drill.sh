@@ -5872,6 +5872,10 @@ STUB
 #   1. the reader's three states       green, red with the failing check names, and every
 #                                      `unanswerable` reason -- including a commit with NO
 #                                      checks at all, which must never read as green
+#   1b. the bookkeeping tip            a tip no workflow ran on is walked past to the newest
+#                                      checked ancestor, which the verdict names along with how
+#                                      far behind it is -- and ONLY a `no_checks` tip is, since
+#                                      every other unanswerable reason is a fact about us
 #   2. the walk's two outcomes         a red tip attributed to a mid-walk merge with its pull
 #                                      request and author, and the `unattributable` tail
 #   3. the asked-once gate             two ticks over one red commit, one question, keyed

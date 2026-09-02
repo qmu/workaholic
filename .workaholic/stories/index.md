@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260902-203617](work-20260902-203617.md) - Ask who wanted this — one reader over the subject axis, three refusals (`self_authored`, `self_refining`, `only_the_loop_spoke`), and the rule stated once instead of re-derived
+* [work-20260902-200652](work-20260902-200652.md) - Verified the base walk already passes a checkless tip, said where the colour was read on both report surfaces, and gave the drill's two new assertions their blame rows
 * [work-20260902-193702](work-20260902-193702.md) - Make `superseded` mean the branch is empty — the reading gains its files and its reason, the stranded holder is told what is on the branch, the documents state both proofs, and a drill fails when work is deleted
 * [work-20260902-083315](work-20260902-083315.md) - Name a mission whose pull request was closed unmerged, so nothing recorded its work and its tickets are still queued
 * [work-20260902-075157](work-20260902-075157.md) - A claim whose mission the operator ended is retired by the tick and asked about by nobody, proved from the tree and drilled offline

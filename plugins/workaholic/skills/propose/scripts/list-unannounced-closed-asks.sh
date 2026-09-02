@@ -22,7 +22,10 @@
 # Usage: list-unannounced-closed-asks.sh [--limit <n>] [--root <repo-root>]
 # Output: one JSON line
 #   {"ok": true, "slug": "...", "limit": n, "read": n, "truncated": bool,
-#    "candidates": [{"number","url","title","stem","slack_ref","closed_at"}],
+#    "candidates": [{"number","url","title","stem","slack_ref","closed_at",
+#                    "landed": [{"number","title","url","merged_by","merged_at"}],
+#                    "closed_unmerged": bool, "landed_read": "ok"|"timeline_unreadable",
+#                    "landed_truncated": bool}],
 #    "unresolved": [{"number","reason"}]}
 #   {"ok": false, "reason": "gh_unavailable"|"slug_unresolved"|"list_failed", "detail": "..."}
 #
@@ -56,9 +59,30 @@
 # the thread by the caller, which is the whole dedup and needs no store. This reader answers
 # *which items to look at* and nothing more, the same split `reconcile-candidates.sh` states.
 #
-# ONE LISTING CALL, NO PER-ISSUE READ. The issues endpoint returns each body, so both terms
-# are answered from the page already fetched; the read count stays a function of `--limit`
-# rather than of the number of issues.
+# ONE LISTING CALL DECIDES THE CANDIDATE SET. The issues endpoint returns each body, so both
+# keep terms are answered from the page already fetched; which issues are candidates costs one
+# call however many issues the repository has.
+#
+# WHAT LANDED COSTS PER-CANDIDATE READS, AND THEY ARE BOUNDED (2026-09-03, ticket
+# `20260903052915-carry-what-landed-onto-each-unannounced-closed-ask`). A finish line must name
+# *what landed*; the keep terms above name the item and say nothing about what closed it. Per
+# candidate: **one** timeline read, plus **one** single-pull GET for each merged cross-reference
+# — `merged_by` is carried by no other endpoint, which is the same reason
+# `reconcile-candidates.sh` spends that GET. The second is capped by
+# `WORKAHOLIC_ANNOUNCE_LANDED_MAX` (default 5) reporting `landed_truncated`, so the whole read
+# count stays a function of `--limit` and never of the repository's size.
+#
+# A MERGED PULL REQUEST AND A HAND-CLOSED ISSUE ARE DIFFERENT SENTENCES, and folding them into
+# one field is how the two drift. A candidate whose timeline names no merged cross-reference
+# carries `landed: []` with `closed_unmerged: true` — *a person closed this*. A candidate whose
+# timeline could not be READ carries `landed: []`, `closed_unmerged: false` and
+# `landed_read: timeline_unreadable`: not knowing what closed it is not the same as knowing
+# nobody merged anything, and the caller holds such a candidate rather than announcing it.
+#
+# AN UNRESOLVABLE FIELD IS EMPTY, NEVER SUBSTITUTED. A `merged_by` the single-pull GET could
+# not answer is `""`, and the composing step states it as unresolved rather than naming a
+# plausible person. The timeline carries `number`, `title`, `html_url` and `merged_at` itself,
+# so those four survive a refused GET intact.
 #
 # PURE READ. No file, no commit, no branch, no comment, no issue, no post. GitHub is reached
 # only through `gather/scripts/gh-rest.sh` (`rules/shell.md`).
@@ -69,6 +93,7 @@ SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 
 LIMIT="${WORKAHOLIC_ANNOUNCE_CLOSED_MAX:-10}"
+LANDED_MAX="${WORKAHOLIC_ANNOUNCE_LANDED_MAX:-5}"
 ROOT="."
 
 while [ $# -gt 0 ]; do
@@ -80,6 +105,7 @@ while [ $# -gt 0 ]; do
 done
 
 case "$LIMIT" in ''|*[!0-9]*) LIMIT=10 ;; esac
+case "$LANDED_MAX" in ''|*[!0-9]*) LANDED_MAX=5 ;; esac
 
 json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
@@ -132,6 +158,68 @@ record_stem_for_issue() {
     printf '%s' "${_base%.md}"
 }
 
+# What closed this issue, as the timeline records it.
+#
+# The cross-referenced event's `source.issue` carries `number`, `title`, `html_url` and
+# `pull_request.merged_at` — every field a finish line needs except `merged_by`, which lives
+# only on the single-pull GET. An UNMERGED cross-reference is not a landing and is filtered
+# here: a pull request that mentioned the issue and was closed did not close it.
+#
+# Sets LANDED_JSON, LANDED_COUNT, LANDED_READ and LANDED_TRUNCATED. Never fatal: a refused
+# read answers `timeline_unreadable` with an empty list, which the caller must not read as
+# *nobody merged anything*.
+landed_for_issue() {
+    LANDED_JSON=''
+    LANDED_COUNT=0
+    LANDED_READ=ok
+    LANDED_TRUNCATED=false
+
+    _tl=$(sh "$GH_REST" api \
+        "repos/${slug}/issues/${1}/timeline?per_page=100" \
+        --jq '.[]
+              | select(.event == "cross-referenced")
+              | .source.issue
+              | select(.pull_request != null)
+              | select(((.pull_request.merged_at) // "") != "")
+              | [ (.number|tostring),
+                  (.pull_request.merged_at),
+                  (.html_url // "-"),
+                  (if (.title // "") == "" then "-" else .title end) ]
+              | @tsv' 2>&1) || { LANDED_READ=timeline_unreadable; return 0; }
+
+    _seen=''
+    _oldifs=$IFS
+    IFS='
+'
+    for _r in $_tl; do
+        [ -n "$_r" ] || continue
+        IFS="$TAB"
+        # shellcheck disable=SC2086
+        set -- $_r
+        IFS='
+'
+        _n="${1:-}"; _at="${2:-}"; _u="${3:-}"; _t="${4:-}"
+        [ -n "$_n" ] || continue
+        # One pull request can cross-reference an issue more than once.
+        case " ${_seen} " in *" ${_n} "*) continue ;; esac
+        _seen="${_seen} ${_n}"
+        if [ "$LANDED_COUNT" -ge "$LANDED_MAX" ]; then
+            LANDED_TRUNCATED=true
+            break
+        fi
+        LANDED_COUNT=$((LANDED_COUNT + 1))
+        if [ "$_u" = "-" ]; then _u=""; fi
+        if [ "$_t" = "-" ]; then _t=""; fi
+        # `merged_by` is on no other endpoint. Unresolvable stays EMPTY — a finish line says
+        # *by whom* only when somebody read who.
+        _by=$(sh "$GH_REST" api "repos/${slug}/pulls/${_n}" \
+            --jq '.merged_by.login // ""' 2>/dev/null || true)
+        _by=$(printf '%s' "${_by:-}" | tr -d '\n')
+        LANDED_JSON="${LANDED_JSON:+${LANDED_JSON}, }{\"number\": ${_n}, \"title\": \"$(json_escape "$_t")\", \"url\": \"$(json_escape "$_u")\", \"merged_by\": \"$(json_escape "$_by")\", \"merged_at\": \"$(json_escape "$_at")\"}"
+    done
+    IFS=$_oldifs
+}
+
 TAB=$(printf '\t')
 OLDIFS=$IFS
 read_count=0
@@ -175,7 +263,13 @@ for row in $rows; do
         continue
     fi
 
-    candidates="${candidates:+${candidates}, }{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"title\": \"$(json_escape "$title")\", \"stem\": \"$(json_escape "$stem")\", \"slack_ref\": \"$(json_escape "$slack_ref")\", \"closed_at\": \"$(json_escape "$closed_at")\"}"
+    landed_for_issue "$number"
+    # `closed_unmerged` is a POSITIVE reading and is claimed only on one: the timeline was read
+    # and named no merged pull request. An unreadable timeline leaves it false and says so.
+    closed_unmerged=false
+    if [ "$LANDED_READ" = ok ] && [ "$LANDED_COUNT" -eq 0 ]; then closed_unmerged=true; fi
+
+    candidates="${candidates:+${candidates}, }{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"title\": \"$(json_escape "$title")\", \"stem\": \"$(json_escape "$stem")\", \"slack_ref\": \"$(json_escape "$slack_ref")\", \"closed_at\": \"$(json_escape "$closed_at")\", \"landed\": [${LANDED_JSON}], \"closed_unmerged\": ${closed_unmerged}, \"landed_read\": \"${LANDED_READ}\", \"landed_truncated\": ${LANDED_TRUNCATED}}"
 done
 IFS=$OLDIFS
 

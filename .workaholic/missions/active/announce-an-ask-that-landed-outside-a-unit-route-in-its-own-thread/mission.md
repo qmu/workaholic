@@ -48,3 +48,4 @@ posts nothing, and a reading the tick could not make leaves the thread alone.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-03 — ticket archived — 20260903052915-name-the-closed-asks-whose-thread-carries-no-finish-line.md
+- 2026-09-03 — ticket archived — 20260903052915-carry-what-landed-onto-each-unannounced-closed-ask.md

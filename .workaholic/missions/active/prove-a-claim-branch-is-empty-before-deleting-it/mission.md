@@ -50,3 +50,4 @@ told once — while a branch that really is empty retires exactly as it does tod
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — Reproduced offline: a branch whose tickets landed elsewhere and still holds a file present on no other ref reads stranded at both grains, an absent ref/no merge base reads unknown and never true, the CI act re-derives the same term, and the reading costs ~7.5 ms per branch — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
 - 2026-09-02 — ticket archived — 20260831203453-reproduce-a-superseded-branch-that-still-holds-work.md
+- 2026-09-02 — ticket archived — 20260831203453-read-a-claim-branch-s-own-diff-against-the-base.md

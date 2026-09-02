@@ -6991,6 +6991,40 @@ cmd_verify_log_branch() {
     # a log ref that names the base and the whole move is undone -- the log goes straight back
     # onto `main`. `persist-log.sh` refuses that, and when it stops refusing, this row goes false
     # and the drill exits 1 exactly as it does for any other failure.
+    # THE OTHER HALF OF THE MOVE, DRILLED OFFLINE (2026-09-02, ticket `20260902042038`). A
+    # repository that has not converged keeps day files TRACKED on the base, and every tick adds
+    # to them -- measured on a consuming repository as twelve days of silent hourly accumulation,
+    # while `step-open-log.sh` reported `ok` throughout. The tick now finishes that move itself.
+    # A second fixture, because this one has already been converged by the rows above.
+    _mvtmp=$(mktemp -d)
+    _mvorigin="${_mvtmp}/origin"; _mvwork="${_mvtmp}/work"
+    git init -q --bare "$_mvorigin" >/dev/null 2>&1
+    ( git clone -q "$_mvorigin" "$_mvwork" >/dev/null 2>&1 || true )
+    ( cd "$_mvwork" \
+        && git config user.email drill@example.com && git config user.name Drill \
+        && git config commit.gpgsign false \
+        && mkdir -p .workaholic/moderations \
+        && printf '## 20260901-060000\n\n- drilled\n' > .workaholic/moderations/2026-09-01.md \
+        && printf 'seed\n' > README.md \
+        && printf '.worktrees/\n.publish/\n.workaholic/moderations/\n' > .gitignore \
+        && git add -A -f && git commit -q -m seed && git branch -M main \
+        && git push -q -u origin main ) >/dev/null 2>&1
+
+    _mvout=$( ( cd "$_mvwork" && sh "${_mod}/step-open-log.sh" --tick 20260903-020000 --root "$_mvwork" ) 2>&1 || true )
+    _mvleft=$( ( cd "$_mvwork" && git fetch -q origin && git ls-tree -r --name-only origin/main ) 2>/dev/null | grep -c moderations || true )
+    case "$_mvleft" in ''|*[!0-9]*) _mvleft=0 ;; esac
+    if [ "$_mvleft" -eq 0 ] && printf '%s' "$_mvout" | grep -q 'taken off the base'; then
+        add_row "the_tick_completes_the_log_move" true "day files tracked on the base were moved off by the tick itself -- this drill can fail" breaker
+    else
+        add_row "the_tick_completes_the_log_move" false "the log is still on the base after a tick (${_mvleft} path(s) left): $(one_line "$_mvout")" breaker
+    fi
+    if [ -f "${_mvwork}/.workaholic/moderations/2026-09-01.md" ]; then
+        add_row "the_move_leaves_the_working_log_on_disk" true "the day file is still readable in the checkout" load
+    else
+        add_row "the_move_leaves_the_working_log_on_disk" false "the move deleted the tick's own working log" load
+    fi
+    rm -rf "$_mvtmp"
+
     # OVER THE CALLERS, NOT OVER ONE TICK NAME (2026-09-02, ticket `20260902042039`). The base
     # accumulation carried TWO commit vocabularies -- `Log the moderation tick` and `Log the
     # propose tick` -- so a breaker that fires for one tick id would leave the other looking

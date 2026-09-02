@@ -27446,6 +27446,82 @@ function testCommitRefusesSplitRename() {
   }
 }
 
+// ---------- moderate: the tick finishes its own log's move off the base ----------
+// (2026-09-02, ticket `20260902042038`) The off-main design reached a repository only through
+// `converge-layout.sh`, which runs from `/workaholify` — a command a PERSON invokes. So between
+// the plugin shipping the design and a human running it, every tick kept writing day files to the
+// base. MEASURED on a consuming repository: twelve days of silent hourly accumulation, ended only
+// when the operator ran `/workaholify` by hand, and even then they had to commit and merge the
+// staged removals themselves. `step-open-log.sh` reported `ok` throughout, because nothing looked.
+//
+// Moving is the default and reporting is the fallback: a step that only reported would leave the
+// accumulation running while naming it once an hour, which is the shape the measurement indicts.
+T("moderate/step-open-log.sh: the tick completes its own log's move off the base", testTickCompletesTheLogMove);
+function testTickCompletesTheLogMove() {
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-open-log.sh")}`;
+  const base = mkdtempSync(join(tmpdir(), "wh-logmove-"));
+  const origin = join(base, "origin.git");
+  const c = join(base, "c");
+  execSync(`git init -q --bare ${origin}`);
+  execSync(`git clone -q ${origin} ${c}`, { stdio: "ignore" });
+  execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: c });
+  try {
+    mkdirSync(join(c, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(c, ".workaholic/moderations/2026-09-01.md"), "## 20260901-060000\n\n- x\n");
+    writeFileSync(join(c, "README.md"), "# seed\n");
+    writeFileSync(join(c, ".gitignore"), ".worktrees/\n.publish/\n.workaholic/moderations/\n");
+    execSync("git add -A -f && git commit -q -m seed && git branch -M main && git push -q -u origin main", { cwd: c });
+    assertEq("the fixture really has the log tracked on the base",
+      execSync("git ls-files -- .workaholic/moderations", { cwd: c, encoding: "utf8" }).trim().split("\n").length, 1);
+
+    const r = JSON.parse(run(c, `${STEP} --tick 20260903-020000 --root ${c}`).stdout);
+    assertEq("the step reports the move it made rather than a bare ok",
+      { st: r.status, moved: /taken off the base/.test(r.summary) }, { st: "ok", moved: true });
+    execSync("git fetch -q origin", { cwd: c });
+    assertEq("the base no longer tracks the log",
+      execSync("git ls-tree -r --name-only origin/main", { cwd: c, encoding: "utf8" })
+        .split("\n").filter((l) => l.includes("moderations")).length, 0);
+    assertTrue("and the day file is still on disk — it is this tick's working log",
+      existsSync(join(c, ".workaholic/moderations/2026-09-01.md")));
+    assertTrue("the log branch carries it now",
+      execSync("git ls-remote --heads origin workaholic-log", { cwd: c, encoding: "utf8" }).trim() !== "");
+
+    // Idempotent: a converged repository is silent about the move, not noisy about it.
+    const again = JSON.parse(run(c, `${STEP} --tick 20260903-030000 --root ${c}`).stdout);
+    assertEq("a converged repository says nothing about the move",
+      { st: again.status, moved: /taken off the base/.test(again.summary) }, { st: "ok", moved: false });
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+}
+
+// A move it CANNOT complete is a named degradation, never a silent ok — that is what carries the
+// condition to a person through the tick's existing finding seam, every tick, until it is
+// repaired. No new store, no cursor, no field.
+T("moderate/step-open-log.sh: a log still on the base is a named degradation", testLogStillOnBaseIsDegraded);
+function testLogStillOnBaseIsDegraded() {
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-open-log.sh")}`;
+  const c = mkdtempSync(join(tmpdir(), "wh-logstuck-"));
+  try {
+    execSync("git -c init.defaultBranch=main init -q .", { cwd: c });
+    execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: c });
+    mkdirSync(join(c, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(c, ".workaholic/moderations/2026-09-01.md"), "## 20260901-060000\n\n- x\n");
+    writeFileSync(join(c, "README.md"), "# seed\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: c });
+
+    // No origin: the move cannot be landed, which is exactly the case that must not read clean.
+    const r = JSON.parse(run(c, `${STEP} --tick 20260903-020000 --root ${c}`).stdout);
+    assertEq("it is degraded and names the condition, not the absence of one",
+      { st: r.status, why: r.reason }, { st: "degraded", why: "log_still_on_base" });
+    assertTrue("and the summary names how many files and why the move stopped",
+      /1 day file\(s\) are still tracked on the base/.test(r.summary) && /no_origin/.test(r.summary),
+      r.summary);
+  } finally {
+    rmSync(c, { recursive: true, force: true });
+  }
+}
+
 // ---------- moderate: the tick log has exactly ONE committer, proved from the tree ----------
 // (2026-09-02, ticket `20260902042039`) The measured accumulation on the base carried two commit
 // vocabularies — `Log the moderation tick` AND `Log the propose tick` — and both rode the same
@@ -27479,8 +27555,24 @@ function testTickLogHasOneCommitter() {
   };
   for (const r of roots) walk(join(REPO_ROOT, r));
 
-  assertEq("exactly one script commits the tick log",
-    committers.sort(), ["plugins/workaholic/skills/moderate/scripts/persist-log.sh"]);
+  // TWO COMMITTERS, EACH WITH ITS OWN ROLE, AND A THIRD FAILS THE BUILD. `persist-log.sh` writes
+  // the log onto its own branch; `complete-log-move.sh` (2026-09-02, ticket `20260902042038`)
+  // commits the log's REMOVAL from the base and never a line of log content. Naming both is the
+  // point of the row -- loosening the walk until nothing is caught would assert nothing at all.
+  assertEq("only the two scripts with a stated role commit anything touching the tick log",
+    committers.sort(), [
+      "plugins/workaholic/skills/moderate/scripts/complete-log-move.sh",
+      "plugins/workaholic/skills/moderate/scripts/persist-log.sh",
+    ]);
+
+  // And the second one is a MOVER, not a writer: it must compose the one migration rather than
+  // grow a `git rm`/append of its own.
+  const mover = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/complete-log-move.sh"), "utf8");
+  assertTrue("the mover composes the one migration",
+    /migrate-moderations-off-main\.sh/.test(mover));
+  assertTrue("and writes no log content of its own",
+    !/log-append\.sh/.test(mover) && !/>>\s*.*moderations/.test(mover));
 
   // The two non-committing writers stay non-committing: that is what makes one refusal enough.
   for (const name of ["log-append.sh", "hydrate-log.sh"]) {

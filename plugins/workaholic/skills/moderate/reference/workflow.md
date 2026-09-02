@@ -85,6 +85,26 @@ which is a repository fact. Whether a change *line* may name an identifier is a 
   plugin predates the area — the tick still runs, its log does not), `unwritable`.
 - **Never**: creates the area behind the layout gate's back. A step that made its own directory
   would be routing around the gate rather than reporting it.
+- **And it finishes the log's move off the base** (2026-09-02, ticket `20260902042038`). The
+  hydrate answers *can this tick read the log*; this answers *is the log still accumulating where
+  it must not*. They are the two halves of one move and the second had no owner: the off-main
+  design reaches a repository only through `converge-layout.sh`, which runs from `/workaholify` —
+  a command a **person** invokes. **Measured** on a consuming repository: twelve days of silent
+  hourly accumulation, ended only when the operator ran it by hand on 2026-09-02, and even then
+  they had to commit and merge the staged removals themselves. This step reported `ok` throughout,
+  because nothing looked.
+- **Moving is the default; reporting is the fallback.** `complete-log-move.sh` composes
+  `gather/scripts/migrate-moderations-off-main.sh` — never a second mover, and never re-deciding
+  its seed-then-untrack order — inside the publish tree the tick already uses, and lands the
+  untracking on the base. It answers `already_off_base` (silent), `moved` (named in the summary
+  with the count), or `refused` with a word. A step that only *reported* was refused as the design:
+  it would leave the accumulation running while naming it once an hour, which is exactly the shape
+  the twelve days indict.
+- **A refusal is `degraded` / `log_still_on_base`**, naming the count and the migration's own
+  reason, so the condition reaches a person through the tick's existing finding seam every tick
+  until it is repaired — **no new store, no cursor, no field**. It is never fatal: the log is open
+  either way, which is what this step is for. The day files stay **on disk** in every checkout
+  (`.gitignore` carries the directory), because they are this tick's working log.
 
 ## The route a record takes to the base
 

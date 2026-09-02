@@ -79,4 +79,33 @@ case "$hy_state" in
         ;;
 esac
 
-printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/moderations/%s.md%s", "needs_agent": []}\n' "$DAY" "$hy_note"
+# AND THE OTHER DIRECTION: DAY FILES STILL TRACKED ON THE BASE (2026-09-02, ticket
+# `20260902042038`). The hydrate above answers *can this tick read the log*; this answers *is the
+# log still accumulating where it must not*. They are the two halves of the same move and the
+# second had no owner: `converge-layout.sh` reaches a repository only when a PERSON runs
+# `/workaholify`, so a repository that had not converged kept writing day files to the base every
+# hour -- measured on a consuming repository as twelve days of silent accumulation, and this step
+# reported `ok` throughout, because nothing looked.
+#
+# MOVING IS THE DEFAULT AND REPORTING IS THE FALLBACK. `complete-log-move.sh` composes the one
+# migration inside the publish tree and lands the untracking on the base; a refusal makes this
+# step `degraded` with the migration's own word, which is what carries the condition to a person
+# through the tick's existing finding seam -- every tick, until it is repaired. Never fatal: the
+# log is open either way, which is what this step is for.
+mv_note=""
+mv=$(sh "${SCRIPT_DIR}/complete-log-move.sh" --root "$ROOT" 2>/dev/null || true)
+mv_state=$(printf '%s' "$mv" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
+mv_reason=$(printf '%s' "$mv" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+mv_tracked=$(printf '%s' "$mv" | sed -n 's/.*"tracked": \([0-9]*\).*/\1/p')
+[ -n "$mv_tracked" ] || mv_tracked=0
+case "$mv_state" in
+    already_off_base) ;;
+    moved) mv_note=", ${mv_tracked} day file(s) taken off the base" ;;
+    *)
+        printf '{"step": "open-log", "status": "degraded", "reason": "log_still_on_base", "summary": "tick log open at .workaholic/moderations/%s.md%s, but %s day file(s) are still tracked on the base and the move could not be completed (%s) — the base keeps accumulating the log until this is repaired", "needs_agent": []}\n' \
+            "$DAY" "$hy_note" "$mv_tracked" "${mv_reason:-unknown}"
+        exit 0
+        ;;
+esac
+
+printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/moderations/%s.md%s%s", "needs_agent": []}\n' "$DAY" "$hy_note" "$mv_note"

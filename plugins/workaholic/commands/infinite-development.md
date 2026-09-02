@@ -138,6 +138,17 @@ the token cannot see, so absent and invisible are one response), `sweep_dedup_un
 **The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins. The command is the ceiling a routine-fired session actually reads; the catalog is where the shape is decided. A diff between them is a drift to fix, never a second wording.
 
 
+**Report one outcome per candidate, and naming a candidate without one is non-conformant on its face** — the enforcement every act in this repository carries, and for its reason: no mechanical check tells a real attempt from a claimed one.
+
+| Outcome | What it means |
+| ------- | ------------- |
+| `announced` | the reply landed in that item's own thread |
+| `already_announced` | the thread already carried a finish line of ours for this item — the whole dedup, read from the thread and stored nowhere |
+| `thread_unresolved: <reason>` | the `fb:<stem>` search matched nothing, or matched more than one thread; the tie goes to silence and nothing is posted |
+| `post_failed: <reason>` | the reply was attempted and refused; never load-bearing and never retried inside the turn |
+
+The step costs the tick nothing that waits on work: it runs on the reads the turn has already made, before any subagent is spawned, and a failure anywhere in it blocks neither the sweep nor the spawns.
+
 ## 2. Spawn the work, and do not wait for it
 
 Call `ListAgents` once. It is the whole record — no cursor, no lock file, no stored state — and
@@ -200,6 +211,10 @@ its own run; `/ship` and `/mission-close` already reap the claim worktrees they 
 - **Per message**: `replied` / `reacted` / `swept` (with the issue URL, the receipt's reply and
   reaction each, and `direction:<slug>`) / `already_answered` / `skipped_own_post`, or the named
   degradation.
+- **Per announced ask**: the issue and one of `announced` / `already_announced` /
+  `thread_unresolved: <reason>` / `post_failed: <reason>`. A tick with no candidate says
+  `no_candidates`; a candidate read that failed says the reader's own reason and is never
+  rendered as `no_candidates`.
 - **Per loop**: `spawned` / `still_running` / `not_due` (naming the age it read), each with
   `reaped` when an idle agent was stopped first.
 - Nothing else. A tick that read a quiet channel and spawned nothing says exactly that.

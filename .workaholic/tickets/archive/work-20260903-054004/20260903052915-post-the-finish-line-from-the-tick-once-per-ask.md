@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T05:29:15+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -74,3 +75,31 @@ nothing when a finish line of ours already follows the receipt.
 
 - The thread read is what makes the dedup structural. A stored ledger would have to survive a
   fresh container, which is exactly the property the loop has repeatedly failed to keep.
+
+## Final Report
+
+Development completed as planned. The step sits in `commands/infinite-development.md` after the
+channel turn and before any subagent is spawned, so it costs the tick nothing that waits on
+work. It runs the candidate reader, resolves each thread by the `fb:<stem>` exact string, reads
+the thread first, and replies once.
+
+The dedup is **structural**: a thread already carrying a finish line of ours for this item is
+skipped and reported `already_announced`. No ledger, no cursor, no field on any artifact.
+Outcomes are a closed set of four — `announced` / `already_announced` / `thread_unresolved:
+<reason>` / `post_failed: <reason>` — and naming a candidate without one is non-conformant on
+its face, the enforcement every act in this repository carries. `skills/loops/SKILL.md` records
+the step as part of the tick's Slack turn.
+
+`scripts/e2e/loop-drill.sh verify-announced-asks` drills the mechanical half offline —
+hermetic, a throwaway repository plus a `gh` stub answering from files — and is registered in
+the runbook's §9 table.
+
+### Discovered Insights
+
+- **Insight**: What is drillable here is the reader and the shape, not the post. The post is an
+  agent act through the connector, and the announce-once behaviour is a thread read that by
+  design leaves no trace in the repository — asserting it in a drill would be asserting the
+  fixture rather than the mechanism. This repository already says the same thing about the
+  Japanese rule, and the drill's own header says it rather than implying coverage it lacks.
+  **Context**: Any future drill over a Slack-side behaviour faces the same boundary.
+

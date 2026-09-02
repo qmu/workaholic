@@ -2,7 +2,7 @@
 created_at: 2026-08-21T15:07:10+09:00
 status: done
 author: a@qmu.jp
-assignees: [tamura.yoshiya@gmail.com]
+assignees: [a@qmu.jp]
 depends_on:
 mission: name-the-session-type-that-cannot-merge
 merge_policy:

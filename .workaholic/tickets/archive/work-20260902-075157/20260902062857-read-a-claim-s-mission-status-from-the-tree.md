@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T06:28:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -90,3 +91,50 @@ reading; the candidate it feeds is the next ticket's.
   license a delete is the next ticket's question, not this one's.
 - `close.sh` is the only writer of a mission's end state, so the reading has exactly one
   source and needs no cursor.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — reproduced and localized before writing anything
+
+Nothing in the claim chain reads a mission at all. Each reader, and the one reading it makes:
+
+| Script | Keyed on | What it reads |
+| ------ | -------- | ------------- |
+| `list-claims.sh` / `lib/claims.sh` | a branch | the `Claim <unit>` commit subject, the branch tip's age, the unit's **tickets** on the base, and the branch's diff against the base |
+| `list-retirable-claims.sh` | a unit | the claim rows above, plus `branch-pull-request-state.sh` |
+| `branch-pull-request-state.sh` | a branch | the newest pull request for that head — `merged` / `closed_unmerged` / `open` / `none` |
+
+`claims_tickets_for_mission` reaches a mission's **tickets** by their `mission:` relation and
+never opens the mission file; no script in `drive/scripts/` reads a mission's area or `status:`.
+What the closed pull request already answers is *what became of this branch's diff*, which is a
+fact about the branch; whether the **work** is still wanted is a fact about the mission, and it
+is the one nothing answered.
+
+### Discovered Insights
+
+- **Insight**: `mission/scripts/summary.sh` — the composition point the ticket named — could not
+  be the one: it reports only the **active** missions that are the caller's business, so an
+  archived mission is invisible to it by construction and an ownership gate would decide a
+  question that has nothing to do with ownership. `list.sh` was the second choice and was
+  **withdrawn while driving the next ticket**: it enumerates every mission and computes each
+  one's progress, and `list-retirable-claims.sh` calls this reader once per unit, so composing
+  it made the candidate scan O(units × missions) in a path that runs every tick. The composition
+  is `mission/scripts/lib/resolve.sh` — the one resolver every mission script already uses,
+  which searches `active/` then `archive/`, so the **area** falls out of the path it returns.
+  **Context**: Three candidate compositions, and what ruled each out was different: an ownership
+  gate, a cost, and finally none. The area — this reader's whole answer — needs no frontmatter
+  at all, and only the ride-along `status:` does.
+- **Insight**: `active` and `not_active` are **not** the same class of reading, and the table
+  says so. `not_active` cannot become false by looking again — `close.sh` is the only writer of
+  an end state and re-opening is offered nowhere — which is exactly the `pull_request_closed_unmerged`
+  argument. `active` is designed to become false the moment somebody closes the mission, which
+  is the one property a proof must not have.
+  **Context**: Classifying both alike would have handed a later consumer an act-licence on the
+  reading that changes, which is how a live branch gets deleted.
+- **Insight**: A `batch-<ts>` unit had to be a **third answer** rather than either verdict. It
+  names no mission, so `not_active` would retire every batch claim in a repository by
+  construction and `ok: false` would call a correct reading a degradation.
+  **Context**: The same three-way shape `branch-pull-request-state.sh` uses for `none` — a
+  successful lookup that found nothing is a fact, not a failure.

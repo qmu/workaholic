@@ -2,20 +2,21 @@
 type: Mission
 title: Retire a claim whose work is finished or abandoned
 slug: retire-a-claim-whose-work-is-finished-or-abandoned
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-02T06:28:07+00:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.3
 feedback: [20260902062425-a-closed-pull-request-and-an-abandoned-mission-still-read-as-stuck-work-and-the-tick-asks-a-person-to-do-its-own-job.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-075157
 ---
 
 # Retire a claim whose work is finished or abandoned
@@ -40,12 +41,19 @@ stuck work. What is reported as stuck is only what somebody could still act on.
 
 ## Acceptance
 
-- [ ] A claim whose mission is no longer active is its own retirement candidate, proved
+- [x] A claim whose mission is no longer active is its own retirement candidate, proved
       from the tree, and CI deletes its branch. (#20260902062857-name-a-claim-whose-mission-ended-as-a-retirement-candidate.md)
-- [ ] A claim whose pull request is closed, or whose mission is not active, is filtered
+- [x] A claim whose pull request is closed, or whose mission is not active, is filtered
       out of the stuck-work questions and counted instead. (#20260902062857-filter-a-retired-by-definition-claim-out-of-the-stuck-work-questions.md)
-- [ ] Both readings are drilled offline and stated where the claim vocabularies are read. (#20260902062857-drill-the-two-retirement-readings-offline.md)
+- [x] Both readings are drilled offline and stated where the claim vocabularies are read. (#20260902062857-drill-the-two-retirement-readings-offline.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260902062857-read-a-claim-s-mission-status-from-the-tree.md
+- 2026-09-02 — ticket archived — 20260902062857-name-a-claim-whose-mission-ended-as-a-retirement-candidate.md
+- 2026-09-02 — ticket archived — 20260902062857-filter-a-retired-by-definition-claim-out-of-the-stuck-work-questions.md
+- 2026-09-02 — ticket archived — 20260902062857-drill-the-two-retirement-readings-offline.md
+- 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — story recorded — work-20260902-075157.md
+- 2026-09-02 — run recorded (+2.3h) — work-20260902-075157

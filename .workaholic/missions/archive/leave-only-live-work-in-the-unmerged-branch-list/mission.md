@@ -2,21 +2,21 @@
 type: Mission
 title: Leave only live work in the unmerged-branch list
 slug: leave-only-live-work-in-the-unmerged-branch-list
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T11:24:50+00:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 1.2
+actual_hours: 1.6
 feedback: [20260901112130-the-unmerged-branch-list-is-30-long-and-22-of-them-are-dead.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260902-063614
+claim: work-20260902-083315
 ---
 
 # Leave only live work in the unmerged-branch list
@@ -61,3 +61,6 @@ defect five times is written down rather than guessed at.
 - 2026-09-02 — ticket archived — 20260901112558-state-the-retirement-paths-where-the-claims-are-read.md
 - 2026-09-02 — story recorded — work-20260902-063614.md
 - 2026-09-02 — run recorded (+1.2h) — work-20260902-063614
+- 2026-09-02 — ticket archived — 20260902065500-close-a-mission-whose-work-landed-by-another-route.md
+- 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.4h) — work-20260902-083315

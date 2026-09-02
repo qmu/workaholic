@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260818202939-the-claude-app-notifies-on-routine-results-though-routine-reporting-is-slack-only.md]
 merge_policy:
 verification_handoff: Confirming the app notifications stopped requires the developer's own Claude app account and device; an unattended run cannot observe push or email delivery.
+claim: work-20260902-220412
 ---
 
 # Turn off routine completion notifications

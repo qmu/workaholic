@@ -2,7 +2,6 @@
 
 ## active
 
-* [adjust-the-plan-hourly-not-only-report-it](active/adjust-the-plan-hourly-not-only-report-it/mission.md) - Adjust the plan hourly, not only report it
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
@@ -11,6 +10,7 @@
 
 * [add-the-housekeep-hourly-operations-routine](archive/add-the-housekeep-hourly-operations-routine/mission.md) - Add the /housekeep hourly operations routine
 * [add-the-standup-daily-per-strategy-summary](archive/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
+* [adjust-the-plan-hourly-not-only-report-it](archive/adjust-the-plan-hourly-not-only-report-it/mission.md) - Adjust the plan hourly, not only report it
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
 * [announce-one-event-once-and-give-its-root-a-shape](archive/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [answer-what-is-waiting-and-stamp-what-was-accepted](archive/answer-what-is-waiting-and-stamp-what-was-accepted/mission.md) - Answer what is waiting, and stamp what was accepted

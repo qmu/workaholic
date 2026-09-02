@@ -75,6 +75,22 @@ if [ "$DRY" -eq 0 ] && ! command -v claude >/dev/null 2>&1; then
   printf '{"ok": false, "reason": "no_claude", "detail": "claude is not on PATH"}\n'; exit 0
 fi
 
+# THE TRUST DIALOG IS THE SECOND PROMPT AN UNATTENDED SESSION MUST NEVER SEE. A fresh clone
+# whose `.claude/settings.json` carries permission rules makes Claude Code open "do you trust
+# this folder?" before anything runs, and `--dangerously-skip-permissions` does not answer it
+# (measured 2026-09-02: all three loops parked on it at their first spawn). Claude Code records
+# the answer per project in `~/.claude.json` under `projects.<path>.hasTrustDialogAccepted`, so
+# the spawn records it for the clone it is about to launch into — the developer's own clone on
+# the developer's own server, which is the trust the dialog asks about. A `~/.claude.json` that
+# cannot be read or written refuses the spawn (`trust_unwritable`) rather than park a session.
+pre_trust() {
+  _cfg="${HOME}/.claude.json"
+  [ -f "$_cfg" ] || printf '{}\n' > "$_cfg" 2>/dev/null || return 1
+  _tmp="${_cfg}.spawn.$$"
+  jq --arg p "$1" '.projects = (.projects // {}) | .projects[$p] = ((.projects[$p] // {}) + {hasTrustDialogAccepted: true})' "$_cfg" > "$_tmp" 2>/dev/null || { rm -f "$_tmp"; return 1; }
+  mv "$_tmp" "$_cfg"
+}
+
 # The plugin the session loads: this checkout's own tree when the repository IS the plugin
 # (self-development), else whatever the harness binds (`plugin-src.sh` resolves the newest).
 plugin_dir_arg() {
@@ -105,6 +121,9 @@ loop_table | while IFS='|' read -r loop interval prompt; do
       else
         ( cd "$path" && git fetch -q origin && git checkout -q main 2>/dev/null && git reset -q --hard origin/main ) 2>/dev/null \
           || { state="refused"; reason="fetch_failed"; }
+      fi
+      if [ "$state" = planned ] && ! pre_trust "$path"; then
+        state="refused"; reason="trust_unwritable"
       fi
       if [ "$state" = planned ]; then
         cmd="cd '${path}' && claude --dangerously-skip-permissions $(plugin_dir_arg "$path")'/loop ${interval} ${prompt}'"

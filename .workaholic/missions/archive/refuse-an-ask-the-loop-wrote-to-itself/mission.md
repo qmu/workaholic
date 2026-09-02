@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.3
 feedback: [20260902043338-only-a-human-s-ask-originates-a-mission.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -54,3 +54,5 @@ spoken stops origination instead of feeding it.
 - 2026-09-02 — ticket archived — 20260902043416-stop-origination-when-only-the-loop-has-spoken.md
 - 2026-09-02 — ticket archived — 20260902043416-state-in-one-place-what-may-originate-a-mission.md
 - 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.3h) — work-20260902-203617
+- 2026-09-02 — story written and pull request opened — work-20260902-203617.md

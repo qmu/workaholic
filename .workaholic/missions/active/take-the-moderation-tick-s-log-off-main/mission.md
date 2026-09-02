@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-212324
 ---
 
 # Take the moderation tick's log off main

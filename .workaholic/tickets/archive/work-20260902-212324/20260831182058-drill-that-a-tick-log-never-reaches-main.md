@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -102,3 +103,35 @@ in the same change or `test-workflow-scripts.mjs` fails it `skipped:unclassified
 - This drill is the mission's acceptance made mechanical. If it cannot be written
   hermetically, say so loudly rather than downgrading it to `needs_server`, where
   CI never runs it and it guards nothing.
+
+## Final Report
+
+Development completed as planned, with one judgement made explicitly rather than by default: the
+"never reaches `main`" property is proved by a **row inside `verify-log-branch`**
+(`log_never_reaches_main`, plus `fresh_clone_carries_no_log` and the breaker
+`log_ref_may_not_be_the_base`) rather than by a second `verify-*` arm.
+
+The ticket argues for two drills so `/moderate`'s `drill-health` can name which property broke.
+That argument is real, and it is outweighed here by what the implementation already chose: both
+properties are observed on **one fixture, one persist, one origin** — the negative property is
+literally `git rev-parse refs/heads/main` before and after the very call the positive property
+reads. Splitting them would mean seeding the same origin twice to observe one act from two
+processes, and the drill-health cost is bounded: a failing row is named in the drill's JSON and now
+in the runbook's blame table, so a red `verify-log-branch` says which of the two properties broke
+on its first line.
+
+What this drive actually changed is that the drill **runs at all** — its seam paths were wrong and
+it had exited `skipped` for its whole life (see the sibling ticket). The negative property has
+therefore been unproved since the mission landed, and is proved now:
+`log_never_reaches_main` passes with the base byte-identical across a persist, and the breaker
+shows the drill fails the moment a log ref may name the base.
+
+Documented in `docs/loop-drill-runbook.md` §5v with a blame row per assertion, so a red row sends a
+reader to the file rather than to the drill's body.
+
+### Discovered Insights
+
+- **Insight**: The negative property is cheap only because it shares the positive one's fixture —
+  the base's sha before and after the same persist.
+  **Context**: A separate drill would have to re-seed to observe it, and two fixtures for one act
+  is how two proofs of one behaviour start disagreeing.

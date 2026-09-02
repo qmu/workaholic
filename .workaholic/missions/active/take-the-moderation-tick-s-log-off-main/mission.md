@@ -45,10 +45,11 @@ puts a tick log back on `main` fails a drill.
       container fetches, and `main` carries no tick-log write. (#20260831182058-publish-the-tick-log-to-its-own-ref.md)
 - [ ] Every reader reaches the log through one reader, concurrent ticks still
       union by `(tick, step)`, and the persist count per tick is justified by name. (#20260831182058-justify-or-drop-each-persist-the-tick-makes.md)
-- [ ] Two drills: one fails when a tick's log misses the ref, one fails when a
+- [x] Two drills: one fails when a tick's log misses the ref, one fails when a
       tick log reaches `main` again. (#20260831182058-drill-that-a-tick-log-never-reaches-main.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260831182058-drill-that-a-tick-s-log-reaches-its-ref.md
+- 2026-09-02 — ticket archived — 20260831182058-drill-that-a-tick-log-never-reaches-main.md

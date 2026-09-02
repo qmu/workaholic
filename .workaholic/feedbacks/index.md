@@ -654,4 +654,5 @@
 * [survey-strategies.sh marks an arrived direction eligible, so the quiescent refusal lives only in prose](20260903053954-survey-strategies-sh-marks-an-arrived-direction-eligible-so-the-quiescent-refusal-lives-only-in-prose.md)
 * [No maintenance step reads for a mission whose premise a later ask retired](20260903054432-no-maintenance-step-reads-for-a-mission-whose-premise-a-later-ask-retired.md)
 * [The loop keeps a finished subagent alive as its clock, so no run starts from a fresh context](20260903070805-the-loop-keeps-a-finished-subagent-alive-as-its-clock-so-no-run-starts-from-a-fresh-context.md)
+* [The tick's fixed cost is paid every five minutes, and most of it answers nothing](20260903071448-the-tick-s-fixed-cost-is-paid-every-five-minutes-and-most-of-it-answers-nothing.md)
 <!-- okf:generated:end -->

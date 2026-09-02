@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260902-075157](work-20260902-075157.md) - A claim whose mission the operator ended is retired by the tick and asked about by nobody, proved from the tree and drilled offline
 * [work-20260902-070115](work-20260902-070115.md) - Stated the natural-Japanese quality bar on every surface a session reads what to emit from, in one wording pinned byte-identical across five files
 * [work-20260902-063614](work-20260902-063614.md) - Names an open pull request that lost its branch, localizes why one defect was implemented twice, and states the three retirement candidate classes where they are read
 * [work-20260902-054507](work-20260902-054507.md) - Made a survey run under a placeholder git identity say so and forbid ok, and made the bootstrap audit the mapping lookup its own hook actually performs

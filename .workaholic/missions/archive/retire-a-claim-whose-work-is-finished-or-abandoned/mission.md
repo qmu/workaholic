@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.3
 feedback: [20260902062425-a-closed-pull-request-and-an-abandoned-mission-still-read-as-stuck-work-and-the-tick-asks-a-person-to-do-its-own-job.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -55,3 +55,5 @@ stuck work. What is reported as stuck is only what somebody could still act on.
 - 2026-09-02 — ticket archived — 20260902062857-filter-a-retired-by-definition-claim-out-of-the-stuck-work-questions.md
 - 2026-09-02 — ticket archived — 20260902062857-drill-the-two-retirement-readings-offline.md
 - 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — story recorded — work-20260902-075157.md
+- 2026-09-02 — run recorded (+2.3h) — work-20260902-075157

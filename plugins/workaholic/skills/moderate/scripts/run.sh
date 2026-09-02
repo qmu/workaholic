@@ -34,7 +34,7 @@
 # Consideration this answers: "the report should name the steps that did not run
 # for lack of time as clearly as the ones that failed."
 #
-# THE PERSIST IS THE CLOSING ACT, NOT A TENTH STEP. `persist-log.sh` puts the
+# THE PERSIST IS THE CLOSING ACT, NOT A TENTH STEP. `persist-log.sh` carries the
 # log on the base after every step has had its turn, so a tick that dies half-way
 # still persists what it recorded on its next run. It is deliberately NOT in
 # `STEPS`: the nine are the ask's contract and the log's step keys, while this is
@@ -382,34 +382,14 @@ run_persist() {
     [ -n "$p_summary" ] || p_summary='(the persist reported no summary)'
 }
 
-# --- The opening act: put the tick's opening on the base before any step ------
-# WHY (2026-08-31, mission `stop-an-unattended-tick-from-waiting-on-a-person`). The
-# persist below is the tick's CLOSING act, so a tick that dies mid-run leaves nothing on
-# the base at all: the record that would show it stopped is the record the stop prevents.
-# Measured — three consecutive ticks sat at `requires_action` and the base carried no
-# trace of any of them. One persist immediately after the log is opened makes a dead tick
-# visible, and `step-blocked-tick.sh` is what reads for it.
-#
-# IT NEEDS NO CHANGE TO THE WRITER'S CONTRACT. `persist-log.sh` is already idempotent and
-# already unions by `(tick, step)`, so the closing persist adds every later line into the
-# same section without rewriting this one. Every prohibition holds unchanged: no `work-*`
-# branch, no claim, no pull request, no merge, and the caller's checkout byte-identical.
-#
-# IT IS NEVER FATAL. A miss is reported `degraded` by name under its own `opening_persist`
-# key and its own log step id, exactly as the closing one reports itself, and the tick runs
-# on — a tick that could not put its opening on the base has still got nineteen steps to do.
-#
-# NOT PER STEP. Thirty commits an hour for a log is the noise the pull-request-per-tick
-# design was refused for. Two bound the loss to whatever a dead tick had done since it
-# opened, which is the fact that matters. The stated price is two commits an hour instead
-# of one on an active repository, which is small beside thirty.
-#
-# A TICK KILLED **BEFORE** ITS FIRST STEP STILL LEAVES NOTHING, and that case is genuinely
-# outside this seam rather than papered over: there is no opening to persist yet.
-open_persist_status=skipped
-open_persist_reason=disabled
-open_persist_summary='the caller kept the log local'
-open_persist_persisted=false
+# --- No opening act (2026-09-03) ---------------------------------------------
+# There used to be a persist here, immediately after the log was opened, so that a tick which
+# died mid-run still left its opening on the base for `step-blocked-tick.sh` to find. It existed
+# because a routine-fired tick's container was discarded and its log with it. The log branch is
+# retired and must not be reintroduced (`persist-log.sh`'s header carries the record): the log now
+# stays in a checkout that persists between ticks, so the opening line `log_step` writes below is
+# already durable and `blocked-tick` reads it where it is written. One fewer commit, one fewer
+# push, and nothing lost.
 
 for step in $STEPS; do
     if [ -n "$ONLY" ] && ! in_list "$step" "$ONLY"; then
@@ -499,33 +479,18 @@ for step in $STEPS; do
     [ -n "$plan" ] || plan='{}'
     emit_row "$step" "$status" "$reason" "$summary" "$needs" "$logged" "$event" "$needs_n" "$plan"
 
-    # The opening is on the base before anything else runs. Keyed on the first step in
-    # `STEPS` rather than on a loop counter, so a caller that narrowed the run with
-    # `--only`/`--skip` and never opened a log does not persist an opening it does not have.
-    if [ "$step" = open-log ] && [ "$DO_LOG" -eq 1 ] && [ "$DO_PERSIST" -eq 1 ]; then
-        run_persist
-        open_persist_status="$p_status"
-        open_persist_reason="$p_reason"
-        open_persist_summary="$p_summary"
-        open_persist_persisted="$p_persisted"
-        # Logged under its own step id: the log is idempotent per `(tick, step)`, so
-        # sharing `persist-log` with the closing act would make the second a duplicate and
-        # lose its outcome. This line reaches the base on the closing persist, like every
-        # other line written after the opening one.
-        log_step persist-log-opening "$open_persist_status" "$open_persist_summary" >/dev/null
-    fi
 done
 
 if [ "$DO_LOG" -eq 1 ] && [ -f "$ROOT/.workaholic/moderations/$DAY.md" ]; then
     log_file="$ROOT/.workaholic/moderations/$DAY.md"
 fi
 
-# --- The closing act: put the log where the next tick can read it -------------
-# A routine's container is discarded after the run, so a log that stayed in the
-# checkout would leave every dedup blind and the tick with no audit trail
-# (`persist-log.sh`'s header). Its outcome is reported and logged like any other
-# fact this tick establishes — a persist that did not reach the base says so by
-# name rather than reading as a clean tick.
+# --- The closing act: carry the tick's findings to the base -------------------
+# The tick LOG goes nowhere — it is git-ignored and stays in this checkout, which is where an
+# operational log belongs (`persist-log.sh`'s header, and the retirement it records). What this
+# carries is the tick's own FEEDBACK RECORDS, which are knowledge: `create.sh` stages one and
+# stops, so without this a finding is reported filed and then lost. Its outcome is reported and
+# logged like any other fact this tick establishes.
 persist_status=skipped
 persist_reason=disabled
 persist_summary='the caller kept the log local'
@@ -546,7 +511,6 @@ if [ "$DO_LOG" -eq 1 ] && [ "$DO_PERSIST" -eq 1 ]; then
     persist_logged=$(log_step persist-log "$persist_status" "$persist_summary")
 fi
 
-printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s, "opening_persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s}, "persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s, "logged": %s}}\n' \
+printf '{"tick": "%s", "log": "%s", "steps": [%s], "counts": {"ok": %s, "filed": %s, "skipped": %s, "degraded": %s, "blocked": %s}, "needs_agent": %s, "persist": {"status": "%s", "reason": "%s", "summary": "%s", "persisted": %s, "logged": %s}}\n' \
     "$TICK" "$(json_escape "$log_file")" "$rows" "$ok" "$filed" "$skipped" "$degraded" "$blocked" "$needs_total" \
-    "$open_persist_status" "$(json_escape "$open_persist_reason")" "$(json_escape "$open_persist_summary")" "$open_persist_persisted" \
     "$persist_status" "$(json_escape "$persist_reason")" "$(json_escape "$persist_summary")" "$persist_persisted" "$persist_logged"

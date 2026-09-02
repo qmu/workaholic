@@ -29,7 +29,6 @@
 #                                                           reports every address it left
 #                                                           alone, because inventing an
 #                                                           entry is a human's ruling.
-#                * gather/scripts/migrate-moderations-off-main.sh  the /moderate tick log
 #                                                           moves off `main` onto its own
 #                                                           branch (issue #782): every
 #                                                           tracked day file is seeded onto
@@ -114,18 +113,14 @@ areas_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-renamed-areas.sh" "${
 # strategies), so this one is not scoped to the ticket tree either.
 aliases_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-assignee-aliases.sh" "${ROOT}/.workaholic" 2>/dev/null || printf '{"migrated": 0, "rewrites": [], "unresolved": []}')
 
-# THE ONE MIGRATION THAT REACHES THE NETWORK, and it is `--seed` that makes it do so
-# (2026-09-01, issue #782). The tick log moves off `main` onto its own branch, and the two
-# halves are ordered: every tracked day file is pushed onto that branch FIRST, and only a seed
-# that succeeded lets the untracking run. The other order has a window in which the only
-# readable copy of the log is on neither branch -- recoverable from git history by a person,
-# invisible to `hydrate-log.sh`, and read by every dedup as *nothing ever happened*. The
-# untracking itself is `git rm --cached`: staged, never committed, every file left on disk,
-# exactly this seam's contract. A repository with nothing tracked there is `converged` and
-# nothing is pushed at all.
-moderations_out=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-moderations-off-main.sh" "$ROOT" --seed 2>/dev/null || printf '{"ok": false, "state": "degraded", "reason": "invoke_failed", "tracked": 0, "untracked": 0, "seeded": 0}')
+# NO MIGRATION HERE REACHES THE NETWORK, and none ever will again (2026-09-03). There was one:
+# `migrate-moderations-off-main.sh`, which seeded the tick log onto an orphan branch and then
+# untracked it. Both it and the branch are retired -- `persist-log.sh`'s header carries the whole
+# record -- because a log branch is still a commit, a push and a ref somebody has to look at. The
+# tick log is git-ignored and stays on disk. A migration that pushes is not a mechanical
+# convergence, and this seam takes only mechanical ones.
 
-APPLIED="{\"migration\": \"migrate-todo-owners\", \"result\": ${owners_out}}, {\"migration\": \"migrate-ticket-states\", \"result\": ${states_out}}, {\"migration\": \"migrate-renamed-areas\", \"result\": ${areas_out}}, {\"migration\": \"migrate-assignee-aliases\", \"result\": ${aliases_out}}, {\"migration\": \"migrate-moderations-off-main\", \"result\": ${moderations_out}}"
+APPLIED="{\"migration\": \"migrate-todo-owners\", \"result\": ${owners_out}}, {\"migration\": \"migrate-ticket-states\", \"result\": ${states_out}}, {\"migration\": \"migrate-renamed-areas\", \"result\": ${areas_out}}, {\"migration\": \"migrate-assignee-aliases\", \"result\": ${aliases_out}}"
 
 owners_n=$(printf '%s' "$owners_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')
 states_n=$(printf '%s' "$states_out" | sed -n 's/.*"migrated": *\([0-9][0-9]*\).*/\1/p')

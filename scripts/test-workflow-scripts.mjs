@@ -228,10 +228,6 @@ const SCRIPTS = {
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
   mergeMethod: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-method.sh"),
-  logRef: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/log-ref.sh"),
-  ensureLogRef: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/ensure-log-ref.sh"),
-  hydrateLog: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/hydrate-log.sh"),
-  migrateModerations: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/migrate-moderations-off-main.sh"),
   checkRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh"),
   applyRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-repo-settings.sh"),
   applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
@@ -6788,7 +6784,7 @@ function testConvergeLayout() {
     let r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.convergeLayout} .`).stdout);
     assertEq("the mechanical migrations all run", r.changed, 3);
     assertEq("each migration is composed, not reimplemented",
-      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas", "migrate-assignee-aliases", "migrate-moderations-off-main"]);
+      r.applied.map((a) => a.migration), ["migrate-todo-owners", "migrate-ticket-states", "migrate-renamed-areas", "migrate-assignee-aliases"]);
     assertTrue("the per-user queue is flattened",
       existsSync(join(dir, ".workaholic/tickets/todo/20260701000000-owned.md")));
     assertTrue("the retired ticket-state directories are folded",
@@ -21410,144 +21406,78 @@ function testTickRendersARootAndADeltaReply() {
     /root_text/.test(cmd), "commands/moderate.md");
 }
 
-// ---------- the tick log lives on its own branch, not on `main` (2026-09-01, issue #782) ------
-// MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
-// touched only `.workaholic/` and FIVE touched only the product. After squash-merging removed
-// the merge commits and folded each unit's bookkeeping into its own commit, the single largest
-// remaining author was this log -- three commits an hour, ~50 a day, none of them a change to
-// the development target. Its CONTENT is load-bearing (every dedup, `question-state.sh`,
-// `condition-age.sh`, `filed-records.sh`) and is not in question; its HOME was.
+// ---------- the tick log is committed nowhere, and the log branch stays retired (2026-09-03) --
+// THE DEVELOPER'S INSTRUCTION, in those words: *this strategy is never to be taken again.*
 //
-// The move has two halves and shipping one is worse than shipping neither: the log goes to its
-// own branch, AND every tick hydrates that branch into the checkout before a reader runs.
-// Without the second half every dedup answers "no earlier tick ever ran" and re-fires hourly.
-T("the tick log lives on its own branch, not on main", testTickLogLivesOffMain);
-function testTickLogLivesOffMain() {
-  // A bare origin, so the push paths are real rather than stubbed.
-  const origin = mkdtempSync(join(tmpdir(), "wh-logref-origin-"));
-  execSync(`git init -q --bare -b main .`, { cwd: origin });
-  const dir = makeRepo("main");
-  try {
-    execSync(`git remote add origin ${origin} && git push -q -u origin main`, { cwd: dir });
-
-    const REF = run(dir, `${POSIX_SH} ${SCRIPTS.logRef}`).stdout.trim();
-    assertEq("the log branch is named once, and it is not main", REF, "workaholic-log");
-    // The two patterns the claim scan and the branch guard key on. A log branch matching either
-    // would be read as an in-flight claim or a release window.
-    assertTrue("and matches neither claim vocabulary",
-      !/^work-/.test(REF) && !/^release\//.test(REF), REF);
-
-    // --- the branch is created as an EMPTY ORPHAN -------------------------------------------
-    const ens = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ensureLogRef} --root ${dir}`).stdout);
-    assertEq("the first call creates the branch", [ens.ok, ens.state], [true, "created"]);
-    const tip = execSync(`git rev-parse refs/heads/${REF}`, { cwd: origin, encoding: "utf8" }).trim();
-    assertEq("it is a root commit — no shared history with main, so no accidental fast-forward",
-      execSync(`git rev-list --parents -n1 ${tip}`, { cwd: origin, encoding: "utf8" }).trim().split(/\s+/).length, 1);
-    assertEq("and it carries no files at all",
-      execSync(`git ls-tree -r --name-only ${tip}`, { cwd: origin, encoding: "utf8" }).trim(), "");
-    // IDEMPOTENT, and it never resets: a branch that exists is a fact for a person, not
-    // something an hourly tick may force-push over.
-    const again = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.ensureLogRef} --root ${dir}`).stdout);
-    assertEq("a second call finds it and changes nothing", [again.state, again.sha], ["present", tip]);
-
-    // --- the log persists to that branch, and `main` never sees it ---------------------------
-    const day = "2026-09-01";
-    mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
-    writeFileSync(join(dir, `.workaholic/moderations/${day}.md`),
-      `# ${day}\n\n## 20260901-040000\n\n- \`open-log\`: ok — opened\n`);
-    const mainBefore = execSync(`git rev-parse origin/main`, { cwd: dir, encoding: "utf8" }).trim();
-    const p = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposePersist} --tick 20260901-040000 --root ${dir}`).stdout);
-    assertEq("the persist files the tick", [p.persisted, p.status], [true, "filed"]);
-    assertTrue("the day file is on the log branch",
-      execSync(`git ls-tree -r --name-only refs/heads/${REF}`, { cwd: origin, encoding: "utf8" })
-        .includes(`.workaholic/moderations/${day}.md`));
-    // THE POINT OF THE WHOLE CHANGE, pinned as the absence it is.
-    assertEq("and main did not move at all",
-      execSync(`git ls-remote origin refs/heads/main`, { cwd: dir, encoding: "utf8" }).split(/\s+/)[0], mainBefore);
-
-    // --- hydrate is the other half ------------------------------------------------------------
-    // A fresh clone of `main` has no log; without hydration every dedup reads as "nothing ever
-    // happened", which is the failure the move would otherwise introduce.
-    const fresh = mkdtempSync(join(tmpdir(), "wh-logref-fresh-"));
-    execSync(`git clone -q ${origin} .`, { cwd: fresh });
-    execSync(`git config user.email test@example.com && git config user.name Test`, { cwd: fresh });
-    assertTrue("a fresh clone of main carries no log",
-      !existsSync(join(fresh, `.workaholic/moderations/${day}.md`)));
-    const h = JSON.parse(run(fresh, `${POSIX_SH} ${SCRIPTS.hydrateLog} --root ${fresh}`).stdout);
-    assertEq("hydrating brings the branch's day files in", [h.ok, h.state, h.files], [true, "hydrated", 1]);
-    assertTrue("so the readers find the log where they always looked",
-      readFileSync(join(fresh, `.workaholic/moderations/${day}.md`), "utf8").includes("20260901-040000"));
-    rmSync(fresh, { recursive: true, force: true });
-
-    // A repository whose branch has no history yet is `absent`, never a degradation: a first
-    // tick has nothing to read and that is the correct answer.
-    const virgin = makeRepo("main");
-    execSync(`git remote add origin ${origin}`, { cwd: virgin });
-    execSync(`git update-ref -d refs/heads/${REF}`, { cwd: origin });
-    const ha = JSON.parse(run(virgin, `${POSIX_SH} ${SCRIPTS.hydrateLog} --root ${virgin}`).stdout);
-    assertEq("an absent log branch reads absent, not degraded", [ha.ok, ha.state], [true, "absent"]);
-    cleanup(virgin);
-  } finally {
-    cleanup(dir);
-    rmSync(origin, { recursive: true, force: true });
+// Between 2026-09-01 and 2026-09-03 the log was published to an orphan `workaholic-log` branch,
+// created by `ensure-log-ref.sh`, named by `gather/scripts/log-ref.sh` and fetched back by
+// `hydrate-log.sh` at the head of every tick. That was itself a repair for the log's ~50 commits
+// a day on `main` -- and it MOVED the mess instead of removing it: 126 commits nobody read, three
+// per tick, plus a seed commit pushed by a script that would push to whatever remote it was
+// pointed at, which is how THIS SUITE came to push to the real origin on 2026-09-03.
+//
+// So this test is a guard against reintroduction, not a test of behaviour. It asserts absence:
+// the four scripts are gone, no shipped script names a log branch or fetches one, and the log
+// path is git-ignored. A future change that gives the log a branch, a notes ref or any other
+// remote home fails here by name.
+T("the tick log is committed nowhere and the log branch stays retired", testLogBranchStaysRetired);
+function testLogBranchStaysRetired() {
+  // 1. THE MACHINERY IS DELETED. Named one by one rather than globbed: a glob that matched
+  //    nothing would pass silently, which is the failure mode this row exists to prevent.
+  for (const rel of [
+    "plugins/workaholic/skills/gather/scripts/log-ref.sh",
+    "plugins/workaholic/skills/gather/scripts/ensure-log-ref.sh",
+    "plugins/workaholic/skills/gather/scripts/migrate-moderations-off-main.sh",
+    "plugins/workaholic/skills/moderate/scripts/hydrate-log.sh",
+  ]) {
+    assertTrue(`${rel} is deleted and not to be restored`,
+      !existsSync(join(REPO_ROOT, rel)), `${rel} is back; the log branch strategy is retired`);
   }
 
-  // --- the migration seeds before it untracks --------------------------------------------
-  // The order is the whole safety property: untracking first leaves a window in which the only
-  // readable copy is on neither branch.
-  const origin2 = mkdtempSync(join(tmpdir(), "wh-logmig-origin-"));
-  execSync(`git init -q --bare -b main .`, { cwd: origin2 });
-  const repo = makeRepo("main");
-  try {
-    execSync(`git remote add origin ${origin2}`, { cwd: repo });
-    mkdirSync(join(repo, ".workaholic/moderations"), { recursive: true });
-    writeFileSync(join(repo, ".workaholic/moderations/2026-08-30.md"), "# 2026-08-30\n\n## 20260830-100000\n\n- `open-log`: ok — x\n");
-    execSync(`git add -f .workaholic && git commit -q -m "Log the moderation tick"`, { cwd: repo });
-    execSync(`git push -q -u origin main`, { cwd: repo });
+  // 2. NO SHIPPED SCRIPT NAMES A LOG BRANCH OR FETCHES ONE. Prose may name it -- the retirement
+  //    has to be written down somewhere -- so this reads .sh files only, and skips comment lines.
+  const offenders = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== "outputs" && e.name !== ".git") walk(full); continue; }
+      if (!e.name.endsWith(".sh")) continue;
+      const body = readFileSync(full, "utf8")
+        .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+      if (/workaholic-log|log-ref\.sh|hydrate-log|ensure-log-ref|WORKAHOLIC_LOG_REF/.test(body)) {
+        offenders.push(full.slice(REPO_ROOT.length + 1));
+      }
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic"));
+  walk(join(REPO_ROOT, "scripts"));
+  assertEq("no shipped script names or fetches a log branch", offenders, []);
 
-    // WITHOUT `--seed` IT REFUSES. The caller has not proved the log survives the untracking.
-    const dry = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.migrateModerations} ${repo}`).stdout);
-    assertEq("it refuses to untrack without a seed", [dry.ok, dry.state, dry.reason, dry.tracked],
-      [false, "skipped", "seed_required", 1]);
-    assertTrue("and nothing is staged", execSync(`git diff --cached --name-only`, { cwd: repo, encoding: "utf8" }).trim() === "");
-
-    const mig = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.migrateModerations} ${repo} --seed`).stdout);
-    assertEq("with a seed it seeds then untracks",
-      [mig.ok, mig.state, mig.seed_state, mig.seeded, mig.untracked], [true, "migrated", "seeded", 1, 1]);
-    assertTrue("the day file reached the log branch",
-      execSync(`git ls-tree -r --name-only refs/heads/workaholic-log`, { cwd: origin2, encoding: "utf8" })
-        .includes(".workaholic/moderations/2026-08-30.md"));
-    // STAGED, NEVER COMMITTED, AND THE FILE STAYS ON DISK -- `converge-layout.sh`'s contract.
-    assertTrue("the removal is staged",
-      /^D\s+\.workaholic\/moderations\//m.test(execSync(`git diff --cached --name-status`, { cwd: repo, encoding: "utf8" })));
-    assertTrue("the file is still on disk", existsSync(join(repo, ".workaholic/moderations/2026-08-30.md")));
-
-    // IDEMPOTENT: nothing tracked is `converged`, and nothing is pushed.
-    execSync(`git commit -q -m "Take the tick log off main"`, { cwd: repo });
-    const conv = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPTS.migrateModerations} ${repo} --seed`).stdout);
-    assertEq("a converged repository is a no-op", [conv.ok, conv.state, conv.tracked], [true, "converged", 0]);
-  } finally {
-    cleanup(repo);
-    rmSync(origin2, { recursive: true, force: true });
-  }
-
-  // --- the structural half: ignored, registered, and no longer linked ----------------------
-  // `.gitignore` is the enforcement, not a convenience: it is what stops an ordinary
-  // `git add -A` in a container that has just ticked from putting the log back on `main`.
+  // 3. THE LOG PATH IS GIT-IGNORED. This is the enforcement, not a convenience: it is what stops
+  //    an ordinary `git add -A` in a checkout that has just ticked from committing the log.
   const ignore = readFileSync(join(REPO_ROOT, ".gitignore"), "utf8");
   assertTrue("the log path is git-ignored", /^\.workaholic\/moderations\/$/m.test(ignore), ignore.slice(-400));
+
+  // 4. THE CONVERGE SEAM CARRIES NO MIGRATION THAT PUSHES. `migrate-moderations-off-main.sh` was
+  //    the only one that ever reached the network, and a mechanical convergence must not.
   const converge = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"), "utf8");
-  assertTrue("the migration is registered at the one converge seam",
-    /migrate-moderations-off-main\.sh/.test(converge), "the living-migration registry does not carry it");
-  // The generated root index must not link a path this branch no longer has.
-  const index = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"), "utf8");
-  assertTrue("the root index no longer links moderations/ as a path on this branch",
-    !/\[moderations\/\]\(moderations\/\)/.test(index), "the index still links a directory main does not carry");
-  // And the log's destination is never a caller's choice: a `--base` that could name the log
-  // would let one call site put it back on `main`.
-  const persist = readFileSync(SCRIPTS.proposePersist, "utf8");
-  assertTrue("persist-log reads the log branch from the one derivation",
-    /log-ref\.sh/.test(persist), "the log branch is spelled at the call site");
+  const convergeCode = converge.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("the converge seam runs no moderations migration",
+    !/migrate-moderations-off-main/.test(convergeCode), "the living-migration registry carries it again");
+
+  // 5. `persist-log.sh` CARRIES RECORDS AND NOTHING ELSE. Its own report says so, and a call with
+  //    no `--record` writes nothing anywhere.
+  const dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/moderations/2026-09-03.md"), "## 20260903-120000\n- `open-log`: ok\n");
+    const before = execSync("git rev-parse HEAD", { cwd: dir, encoding: "utf8" }).trim();
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.proposePersist} --tick 20260903-120000 --root ${dir}`).stdout);
+    assertEq("a persist with no records carries nothing", [out.status, out.reason], ["skipped", "no_records"]);
+    assertEq("and writes no commit", execSync("git rev-parse HEAD", { cwd: dir, encoding: "utf8" }).trim(), before);
+    const refs = execSync("git for-each-ref --format='%(refname)'", { cwd: dir, encoding: "utf8" });
+    assertTrue("and creates no log ref", !/workaholic-log/.test(refs), refs);
+  } finally { cleanup(dir); }
 }
 
 // ---------- the merge method is one derivation, and it is `squash` (2026-09-01) ----------
@@ -21601,13 +21531,17 @@ function testMergeMethodIsSingleSourced() {
   assertTrue("and what the squash costs",
     /per-ticket commits collapse/.test(header), "the cost is hidden");
 
-  // THE TICK LOG'S SUBJECT NAMES THE TICK THAT WROTE IT. `Log the propose tick` was inherited
-  // from a routine name freed on 2026-08-19, and it described ~50 commits a day as the work of a
-  // routine that never wrote one of them.
+  // THE ONLY COMMIT `persist-log.sh` MAKES IS THE RECORDS ONE, and its subject says so. There
+  // used to be a second, `Log the moderation tick`, which put the day file on an orphan branch;
+  // that strategy is retired (see `testLogBranchStaysRetired`), so a subject about the LOG
+  // reappearing here means the branch has come back with it.
   const persist = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/persist-log.sh"), "utf8");
   const persistCode = persist.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
-  assertTrue("the tick log commits under the moderation tick's own name",
-    /Log the moderation tick/.test(persistCode) && !/Log the propose tick/.test(persistCode), "the subject still names a retired routine");
+  assertTrue("the records commit names what it carries",
+    /Record the tick's feedback findings/.test(persistCode), "the records commit lost its subject");
+  assertTrue("and no commit claims to be logging the tick",
+    !/Log the moderation tick/.test(persistCode) && !/Log the propose tick/.test(persistCode),
+    "a log-committing subject is back; the log branch is retired");
 }
 
 // ---------- workaholify: the remote setting the claim oracle reads (2026-09-01) ----------
@@ -27427,13 +27361,12 @@ function testTickRecordsReachTheBase() {
     const onBase = execSync(`git -C ${origin} ls-tree -r --name-only main`, { encoding: "utf8" });
     assertTrue("the record is on the base", onBase.includes(rec), onBase);
     assertTrue("and the unrelated staged file is not", !onBase.includes("unrelated.txt"), onBase);
-    // NO WORK BRANCH, NO CLAIM, NO PULL REQUEST — the same seam the log already travels.
-    // The log branch itself is expected since 2026-09-01 (issue #782): the log stopped going to
-    // `main` and this seam creates its home. What must never appear is a `work-*` ref, which is
-    // the vocabulary the claim scan reads.
+    // NO WORK BRANCH, NO CLAIM, NO PULL REQUEST — and since 2026-09-03, NO LOG BRANCH EITHER.
+    // This seam used to create one; that strategy is retired and must not come back, so the base
+    // is now the only ref a persist may leave behind.
     const refsOnOrigin = execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" })
       .trim().split(/\n/).sort();
-    assertEq("the base and the log branch, and nothing else", refsOnOrigin, ["main", "workaholic-log"]);
+    assertEq("the base, and nothing else", refsOnOrigin, ["main"]);
     assertTrue("no claim-vocabulary branch was created",
       !refsOnOrigin.some((r) => /^work-/.test(r) || /^release\//.test(r)), refsOnOrigin.join(","));
 
@@ -28125,21 +28058,22 @@ function testModerateRun() {
     assertEq("the tick writes its log", j.log, "./.workaholic/moderations/2026-08-17.md");
     const log = readFileSync(join(repo, ".workaholic/moderations/2026-08-17.md"), "utf8");
     assertEq("one log section for the tick", (log.match(/^## /gm) || []).length, 1);
-    // One line per step plus BOTH persists' own lines. Neither persist is a step
-    // (`steps[]` above is still exactly the step list), but each outcome is a fact this
-    // tick established, so each is logged and reported like one — under its own step id,
-    // because the log is idempotent per `(tick, step)` and a shared id would make the
-    // second a duplicate and lose its outcome (2026-08-31, mission
-    // `stop-an-unattended-tick-from-waiting-on-a-person`).
-    assertEq("and one line per step, plus both persists",
-      (log.match(/^- `/gm) || []).length, STEPS.length + 2);
+    // One line per step plus the closing persist's own line. The persist is not a step
+    // (`steps[]` above is still exactly the step list), but its outcome is a fact this tick
+    // established, so it is logged and reported like one. There used to be a second,
+    // `persist-log-opening`, which pushed the tick's opening to the log branch; it is gone with
+    // that branch (2026-09-03) — the opening line is written into a checkout that persists.
+    assertEq("and one line per step, plus the persist",
+      (log.match(/^- `/gm) || []).length, STEPS.length + 1);
     assertTrue("the persist reports itself by name", /^- `persist-log`: /m.test(log), log);
-    assertTrue("and the opening persist reports itself under its own id",
-      /^- `persist-log-opening`: /m.test(log), log);
-    assertEq("the opening persist is reported beside the closing one",
-      [j.opening_persist.status, j.opening_persist.reason], ["skipped", "no_origin"]);
-    assertEq("a checkout with no remote skips it rather than failing",
-      [j.persist.status, j.persist.reason], ["skipped", "no_origin"]);
+    assertTrue("and no opening persist is reported",
+      !/^- `persist-log-opening`: /m.test(log), log);
+    assertTrue("and the run report carries no opening_persist key",
+      j.opening_persist === undefined, JSON.stringify(j).slice(0, 300));
+    // A tick that named no records has nothing to carry, and says so before it ever looks for a
+    // remote — the log it wrote stays in this checkout, which is where it belongs.
+    assertEq("a tick with nothing to carry skips it rather than failing",
+      [j.persist.status, j.persist.reason], ["skipped", "no_records"]);
     assertEq("step 1 is real", j.steps[0].status, "ok");
 
     // THE REPORT CARRIES THE PAYLOAD, NOT ONLY ITS LENGTH (2026-08-26). `run.sh` emitted
@@ -28216,232 +28150,26 @@ function testModerateRun() {
   }
 }
 
-// ---------- propose: the tick log survives the container that wrote it ----------
-// (2026-08-17, ticket `20260817131500`) A routine tick
-// runs in a fresh clone that is thrown away afterwards, so a log that stayed in the
-// checkout would leave every dedup blind and the run with no audit trail. The property
-// under test is that the log REACHES THE BASE, and that two containers ticking on the
-// same day do not overwrite each other — which is why the merge is a union by section
-// rather than a textual append that a rebase would have to reconcile.
-T("moderate: the tick log survives the container that wrote it", testModeratePersist);
-function testModeratePersist() {
-  const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-persist-"));
-  const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
-  const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
-  const origin = join(tmp, "origin.git");
-  const A = join(tmp, "a");
-  const B = join(tmp, "b");
-  const DAY = ".workaholic/moderations/2026-08-17.md";
-  const clone = (path, email) => {
-    execSync(`git clone -q ${origin} ${path}`);
-    execSync(`git config user.email ${email}`, { cwd: path });
-    execSync(`git config user.name ${email[0].toUpperCase()}`, { cwd: path });
-    execSync("git config commit.gpgsign false", { cwd: path });
-  };
-  try {
-    execSync(`git init -q --bare --initial-branch=main ${origin}`);
-    const seed = join(tmp, "seed");
-    mkdirSync(join(seed, ".workaholic"), { recursive: true });
-    execSync("git -c init.defaultBranch=main init -q", { cwd: seed });
-    execSync("git config user.email test@example.com", { cwd: seed });
-    execSync("git config user.name Test", { cwd: seed });
-    execSync("git config commit.gpgsign false", { cwd: seed });
-    writeFileSync(join(seed, ".workaholic/README.md"), "seed\n");
-    execSync(`git add -A && git commit -q -m initial && git remote add origin ${origin} && git push -q origin main`, { cwd: seed });
-    clone(A, "a@example.com");
-    clone(B, "b@example.com");
-
-    // Each clone records one tick locally, exactly as log-append.sh does mid-run.
-    run(A, `${APPEND} --tick 20260817-100000 --step open-log --status ok --summary "from a"`);
-    run(B, `${APPEND} --tick 20260817-110000 --step open-log --status ok --summary "from b"`);
-
-    const a1 = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("a tick's log reaches the base", [a1.persisted, a1.status, a1.reason],
-      [true, "filed", "persisted"]);
-
-    // THE CALLER'S CHECKOUT IS UNTOUCHED. The publish tree is the seam precisely so a
-    // tick never creates a branch or a worktree of its own — a routine that left either
-    // behind would be visible to the claim protocol's branch scan.
-    assertEq("no publish branch is left behind",
-      run(A, "git branch --list publish-main").stdout.trim(), "");
-    assertEq("and no publish worktree", existsSync(join(A, ".publish")), false);
-    assertEq("the checkout's own tracked state is unchanged",
-      run(A, "git status --porcelain --untracked-files=no").stdout.trim(), "");
-
-    // Re-persisting the same tick is a no-op that says so, so a re-entered tick does
-    // not double the base's copy.
-    const a2 = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("re-persisting is idempotent", [a2.status, a2.reason, a2.changed],
-      ["ok", "already_current", false]);
-
-    // The second clone never fetched A's section, so its union is computed against a
-    // base it has to read first.
-    const b1 = JSON.parse(run(B, `${PERSIST} --tick 20260817-110000`).stdout);
-    assertEq("a second clone's tick lands too", b1.reason, "persisted");
-    // THE LOG LANDS ON ITS OWN BRANCH SINCE 2026-09-01 (issue #782), not on `main`.
-    run(A, "git fetch -q origin workaholic-log");
-    const landed = run(A, `git show origin/workaholic-log:${DAY}`).stdout;
-    assertEq("and neither erased the other",
-      (landed.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-110000"]);
-
-    // A GENUINE RACE, not just two sequential writers: the base advances between this
-    // clone's read and its push. A textual rebase of two end-of-file appends conflicts,
-    // so the retry re-opens at the new base and re-unions instead of replaying a patch.
-    run(A, `${APPEND} --tick 20260817-120000 --step open-log --status ok --summary "a again"`);
-    run(B, `${APPEND} --tick 20260817-130000 --step open-log --status ok --summary "b again"`);
-    // Linked worktrees share the common dir's hooks, so this fires on the publish push.
-    // The nested run must drop git's own exported env or it would operate on A's repo.
-    writeFileSync(join(A, ".git/hooks/pre-push"), `#!/bin/sh
-[ -f "${tmp}/raced" ] && exit 0
-touch "${tmp}/raced"
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
-( cd "${B}" && ${PERSIST} --tick 20260817-130000 ) >/dev/null 2>&1
-exit 0
-`);
-    chmodSync(join(A, ".git/hooks/pre-push"), 0o755);
-    const a3 = JSON.parse(run(A, `${PERSIST} --tick 20260817-120000`).stdout);
-    assertEq("a beaten push retries rather than failing", [a3.persisted, a3.reason], [true, "persisted"]);
-    assertTrue("and it took a second attempt to do it", a3.attempts >= 2, JSON.stringify(a3));
-    run(A, "git fetch -q origin workaholic-log");
-    assertEq("all four sections are on the log branch",
-      (run(A, `git show origin/workaholic-log:${DAY}`).stdout.match(/^## \d{8}-\d{6}$/gm) || []).length, 4);
-
-    // A LOG ROOT OUTSIDE A REPOSITORY IS SKIPPED BY NAME, never published into whatever
-    // repository the caller's cwd happens to be. This is what keeps the drill — which
-    // runs a tick against a throwaway root from inside the operator's own checkout —
-    // from committing a fixture's log to the operator's base.
-    const loose = join(tmp, "loose");
-    mkdirSync(join(loose, ".workaholic/moderations"), { recursive: true });
-    writeFileSync(join(loose, DAY), "# x\n\n## 20260817-140000\n\n- `open-log`: ok — x\n");
-    const l = JSON.parse(run(A, `${PERSIST} --tick 20260817-140000 --root ${loose}`).stdout);
-    assertEq("a root outside a repository is skipped, not published",
-      [l.persisted, l.status, l.reason], [false, "skipped", "not_a_repo"]);
-
-    // An unreachable base is reported by name and changes nothing.
-    run(A, `git remote set-url origin ${join(tmp, "gone.git")}`);
-    run(A, `${APPEND} --tick 20260817-150000 --step open-log --status ok --summary "offline"`);
-    const off = JSON.parse(run(A, `${PERSIST} --tick 20260817-150000`).stdout);
-    assertEq("an unreachable base degrades by name",
-      [off.persisted, off.status, off.reason], [false, "degraded", "origin_unreachable"]);
-    assertTrue("and the log is still in the checkout",
-      readFileSync(join(A, DAY), "utf8").includes("## 20260817-150000"));
-  } finally {
-    cleanup(tmp);
-  }
-}
-
-// ---------- propose: the lines written after the persist reach the base too ----------
-// (2026-08-18, ticket `20260818064158-carry-the-tick-log-step-filed-lines-to-the-base`)
-// The agent acts on `needs_agent` only AFTER `run.sh` returns, so every `<step>-filed`
-// line is appended to the checkout after the closing act already ran. A union BY SECTION
-// cannot carry them — the section it would have to update has already landed — so in a
-// routine-fired container that memory was permanently empty. The union is therefore by
-// `(tick, step)`: a persist run again after the filing appends the missing LINES into a
-// section the base already carries. Asserted against the BASE, never the checkout: a
-// hand-run's checkout survives, which is exactly why the defect was invisible.
-T("moderate: the lines written after the persist reach the base too", testModeratePersistCarriesLateLines);
-function testModeratePersistCarriesLateLines() {
-  const tmp = mkdtempSync(join(tmpdir(), "workaholic-hk-late-"));
-  const PERSIST = `${POSIX_SH} ${SCRIPTS.proposePersist}`;
-  const APPEND = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
-  const origin = join(tmp, "origin.git");
-  const A = join(tmp, "a");
-  const B = join(tmp, "b");
-  const DAY = ".workaholic/moderations/2026-08-17.md";
-  const clone = (path, email) => {
-    execSync(`git clone -q ${origin} ${path}`);
-    execSync(`git config user.email ${email}`, { cwd: path });
-    execSync(`git config user.name ${email[0].toUpperCase()}`, { cwd: path });
-    execSync("git config commit.gpgsign false", { cwd: path });
-  };
-  // THE LOG'S BASE IS ITS OWN BRANCH SINCE 2026-09-01 (issue #782). `main` is where the tick's
-  // feedback RECORDS go and is deliberately not where the log goes.
-  const based = (repo) => {
-    run(repo, "git fetch -q origin workaholic-log");
-    return run(repo, `git show origin/workaholic-log:${DAY}`).stdout;
-  };
-  try {
-    execSync(`git init -q --bare --initial-branch=main ${origin}`);
-    const seed = join(tmp, "seed");
-    mkdirSync(join(seed, ".workaholic"), { recursive: true });
-    execSync("git -c init.defaultBranch=main init -q", { cwd: seed });
-    execSync("git config user.email test@example.com", { cwd: seed });
-    execSync("git config user.name Test", { cwd: seed });
-    execSync("git config commit.gpgsign false", { cwd: seed });
-    writeFileSync(join(seed, ".workaholic/README.md"), "seed\n");
-    execSync(`git add -A && git commit -q -m initial && git remote add origin ${origin} && git push -q origin main`, { cwd: seed });
-    clone(A, "a@example.com");
-
-    // The tick as `run.sh` leaves it: the probe's line, then the closing act.
-    run(A, `${APPEND} --tick 20260817-100000 --step doc-drift --status filed --summary "found #471"`);
-    run(A, `${APPEND} --tick 20260817-100000 --step persist-log --status filed --summary "1 section"`);
-    const first = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("the tick's own lines reach the base", [first.persisted, first.reason], [true, "persisted"]);
-
-    // What the agent does next, after `run.sh` has already returned and persisted.
-    run(A, `${APPEND} --tick 20260817-100000 --step doc-drift-filed --status filed --summary "ticket 20260818064158"`);
-    const late = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("a persist run again after the filing carries it", [late.persisted, late.reason], [true, "persisted"]);
-    assertEq("as lines into a section the base already has", [late.sections, late.lines], [0, 1]);
-    assertTrue("and the `<step>-filed` line is on the BASE, not just the checkout",
-      based(A).includes("- `doc-drift-filed`: filed — ticket 20260818064158"), based(A));
-    assertTrue("the earlier lines of that section are still there",
-      based(A).includes("- `doc-drift`: filed — found #471") && based(A).includes("- `persist-log`: filed"), based(A));
-    assertEq("the section is not duplicated",
-      (based(A).match(/^## 20260817-100000$/gm) || []).length, 1);
-
-    // Nothing new to carry says so, and changes nothing.
-    const noop = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("a third persist is a no-op that says so", [noop.status, noop.reason, noop.changed],
-      ["ok", "already_current", false]);
-    assertEq("the caller's checkout is still byte-identical",
-      run(A, "git status --porcelain --untracked-files=no").stdout.trim(), "");
-    assertEq("no publish branch is left behind", run(A, "git branch --list publish-main").stdout.trim(), "");
-    assertEq("and no publish-main ref reached origin",
-      run(A, "git ls-remote --heads origin publish-main").stdout.trim(), "");
-
-    // TWO CONTAINERS, ONE SHARED SECTION. A resumed tick keeps its id, so two containers
-    // can both hold section S and append different lines to it. Neither may lose the
-    // other's — the union is per `(tick, step)`, so it is append-only within the section
-    // as well as across sections, with no rebase anywhere.
-    clone(B, "b@example.com");
-    run(B, `${APPEND} --tick 20260817-100000 --step issue-triage-filed --status filed --summary "from b"`);
-    run(B, `${APPEND} --tick 20260817-200000 --step open-log --status ok --summary "b's own tick"`);
-    const bOut = JSON.parse(run(B, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("b's shared-section line and its own section both land",
-      [bOut.persisted, bOut.sections, bOut.lines], [true, 1, 1]);
-
-    run(A, `${APPEND} --tick 20260817-100000 --step stuck-prs-filed --status filed --summary "from a"`);
-    const aOut = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("and a's later line lands on top of b's", [aOut.persisted, aOut.lines], [true, 1]);
-    const merged = based(A);
-    for (const line of [
-      "- `doc-drift`: filed — found #471",
-      "- `doc-drift-filed`: filed — ticket 20260818064158",
-      "- `issue-triage-filed`: filed — from b",
-      "- `stuck-prs-filed`: filed — from a",
-      "- `open-log`: ok — b's own tick",
-    ]) {
-      assertTrue(`nothing was lost: ${line}`, merged.includes(line), merged);
-    }
-    assertEq("both sections are on the base, each once",
-      (merged.match(/^## \d{8}-\d{6}$/gm) || []).sort(), ["## 20260817-100000", "## 20260817-200000"]);
-
-    // A LINE ALREADY ON THE BASE IS NEVER REWRITTEN. The log is append-only in substance:
-    // a step that ran twice with different outcomes is recorded under a distinct step id,
-    // and the base's copy of a `(tick, step)` wins over a checkout that differs.
-    const dayFile = join(A, DAY);
-    writeFileSync(dayFile, readFileSync(dayFile, "utf8").replace("found #471", "rewritten"));
-    const rewrite = JSON.parse(run(A, `${PERSIST} --tick 20260817-100000`).stdout);
-    assertEq("a differing line is not carried as an update", [rewrite.status, rewrite.reason],
-      ["ok", "already_current"]);
-    assertTrue("the base keeps what it had", based(A).includes("- `doc-drift`: filed — found #471"), based(A));
-    assertTrue("and it is not doubled",
-      (based(A).match(/^- `doc-drift`: /gm) || []).length === 1, based(A));
-  } finally {
-    cleanup(tmp);
-  }
-}
+// ---------- the tick log's durability is the checkout's, not a branch's (2026-09-03) ----------
+// TWO TESTS WERE DELETED HERE, and what they proved is the thing that is now forbidden.
+//
+//   "the tick log survives the container that wrote it" (2026-08-17, ticket `20260817131500`)
+//   "the lines written after the persist reach the base too" (2026-08-18)
+//
+// Both asserted that `.workaholic/moderations/<day>.md` REACHED A REMOTE -- first `main`, then
+// the orphan `workaholic-log` branch -- because a routine-fired tick ran in a container that was
+// discarded. That premise stopped being true on 2026-09-02, when the loop moved onto the
+// developer's own server as a session whose working directory persists; and the branch it had
+// been moved to was itself the mess, 126 commits nobody ever read.
+//
+// These tests were also what pushed to the REAL origin on 2026-09-03: they built a fixture,
+// pointed a persist at it, and the seam's own branch-seeding push reached github.com -- a suite
+// documented as hermetic, writing to the repository it exists to test.
+//
+// Nothing replaces them, because the property is gone: the log is git-ignored and stays where it
+// was written. What guards the retirement is `testLogBranchStaysRetired`, which asserts ABSENCE
+// -- the four scripts deleted, no shipped script naming or fetching a log branch, and a persist
+// leaving no ref behind. Do not restore these; restoring them means restoring the branch.
 
 // ---------- propose: the unattended contract is in the files, not in intent ----------
 T("moderate: the unattended contract is in the files, not in intent", testModerateUnattendedContract);

@@ -14375,9 +14375,10 @@ function testFbCrossRepoIssueMode() {
     // THE POINT, PORTED VERBATIM FROM THE RETIRED submit-request SUITE. Real leaked
     // sentences from the incident carry no reference to this repo, so the mechanical
     // backstop cannot see them and passes them without complaint. This is asserted, not
-    // lamented: it is why the developer confirmation in the crossing flow is
-    // non-skippable. If a future change makes these fail here, the confirmation has
-    // probably been quietly demoted to a pattern match — read the feedback skill's
+    // lamented, and since the crossing's confirmation was retired on 2026-09-03 it is the
+    // stated cost of that retirement: nothing downstream of the composing judgement would
+    // have caught these. If a future change makes these fail here, the backstop has
+    // probably been grown into "the masker" — read the feedback skill's
     // *Crossing a repository boundary* §1 first.
     const realLeaks = [
       "The house tsconfig lives at packages/realestate-mcp/tsconfig.json.",
@@ -24256,13 +24257,24 @@ function testFbFilesAnIssue() {
     assertTrue(`the ${kept} rule is kept on the in-repo path`,
       new RegExp(`\\*\\*The \`secret\` and \`leak\` scan stays\\*\\*`).test(skill), "the scan's fate is not stated");
   }
-  assertTrue("and the crossing-specific three are named as dropped, with the reason",
-    /masking judgement, the verbatim confirmation and `check-outbound-body\.sh`[\s\S]{0,200}leaves this project/.test(skill));
+  assertTrue("and the crossing-specific two are named as dropped, with the reason",
+    /masking judgement and `check-outbound-body\.sh`[\s\S]{0,200}leaves this project/.test(skill));
 
-  // THE CROSSING IS UNCHANGED. Its confirmation is the one gate a widening could quietly
-  // erode, so the sentence that makes it unskippable must still be there, unqualified.
-  assertTrue("the crossing's confirmation is still non-skippable",
-    /cannot be skipped, ever/.test(skill) && /cannot be skipped, ever/.test(cmd));
+  // NEITHER PATH CONFIRMS (2026-09-03, the developer's instruction, restated after a
+  // session read the crossing as an exception and kept it). What is pinned is the RULE
+  // and its stated cost, because the absence of a prompt cannot be asserted from a file:
+  // a run that re-adds an `AskUserQuestion` here is non-conformant on its face.
+  assertTrue("the skill states that neither path confirms",
+    /No confirmation, on either path/.test(skill) && /never\*{0,2} asks the developer to approve/.test(skill),
+    "the no-confirmation rule is missing from the skill");
+  assertTrue("and the command says so where a run reads it",
+    /[Nn]either path asks the developer to confirm/.test(cmd), "the command still implies a confirmation");
+  assertTrue("and the cost of dropping it is stated, not implied",
+    /What this gives up, stated:/.test(skill), "the give-up is unstated");
+  // AND THE RETIRED WORDING IS GONE from every surface that carried it.
+  for (const [name, text] of [["the skill", skill], ["the command", cmd]])
+    assertTrue(`${name} no longer carries the non-skippable confirmation`,
+      !/cannot be skipped, ever/.test(text), name);
 
   // NO SURVIVING SURFACE PROMISES A RECORD from a bare `/fb`. Each string below was the
   // shipped wording on one of the five surfaces before the unification.

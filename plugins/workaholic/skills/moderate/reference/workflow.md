@@ -2952,6 +2952,47 @@ request's own `created_at` and the tick log not at all.
   and they say *why this one is yours*, which is worth carrying beside the fact — but a reader
   who has not read `publish-tree-pr.sh` learns nothing from either on its own.
 
+### 28b. `headless-pull:<number>` — an open pull request with no branch left
+
+**A second question on the same step, under its own key** (2026-09-01, ticket
+`20260901112558-name-an-open-pull-request-with-no-head-branch.md`). `list-headless-pulls.sh`
+names every open pull request whose `head.ref` names no branch on the remote. GitHub does not
+close a pull request when its head branch is deleted, and such a pull request is **unmergeable
+by construction** — a fact about the repository, not a judgement.
+
+**Why here.** This is the step that reads pull requests waiting on a person. **Why its own
+key**: the act asked for is different. `operator-pull:<number>` asks for a **ruling** on a diff
+— merging it is the ruling and closing it is the refusal; this asks for a **close**, because
+merging is not available to anybody. The existing candidates, key and addressee did not move.
+
+**Why not a widened `list-operator-facing-pulls.sh`.** That reader answers *which open pull
+requests wait on the operator's ruling*, derived from the publish seam's refusal word. A
+headless pull request waits on nothing and has no refusal word. Two questions, one derivation
+each — the rule that reader's own header already states for itself.
+
+**The ref set is one repository-scoped REST listing** (`repos/{slug}/branches`), never the local
+remote-tracking refs. The cheaper local read is wrong in the direction that costs: a clone that
+never fetched a branch renders a **live** pull request headless and sends a person to close work
+that is still going. A head on another repository (a fork) is **counted** (`foreign_head`) and
+never reported headless — *we could not look* must never render as *the branch is gone*.
+
+**It is reported exactly once.** `list-stranded-publications.sh` drops such a pull request by
+its own term 2b and counts it (`headless`), so `settle-stranded-publication.sh` is never handed
+an act that cannot succeed; a catch-up candidate is structurally impossible, since
+`list-catchable-claims.sh` needs a **claim**, which needs an unmerged remote branch.
+
+**A degraded read is named in the summary and asks nobody**, and is never rendered as *nothing
+headless*.
+
+**The question, under the composition contract.**
+
+- **Heading** — *a pull request here can never be merged: its branch is gone*, then the number,
+  the title and how long it has been open.
+- **Body** — the one act: *close it.* The loop closes nothing itself — closing another person's
+  pull request is not a bounded act the way a branch delete is, and the five measured cases were
+  closed by a person who first verified the content was on `main` file by file.
+- **Never alone**: the number. Lead with what happened; the identifier comes after it.
+
 ## 29. `raced-units` — a unit two runs are driving at once
 
 ```

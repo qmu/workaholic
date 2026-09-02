@@ -340,8 +340,10 @@ nothing:
 **Measured, 2026-09-01 → 2026-09-02.** Before: **30** unmerged remote branches, 22 of them dead
 (17 with a merged pull request, 5 closed unmerged). After CI had taken its turns: **7** — one
 fresh `closed_unmerged` candidate, two open pull requests, two live claims, and the tick log's own
-two refs (`workaholic-log` and the legacy `workaholic/moderation-log`), which match neither
-`work-*` nor `release/*` and are invisible to the claim scan by design.
+two refs (`workaholic-log` and the legacy `workaholic/moderation-log`), which matched neither
+`work-*` nor `release/*` and were invisible to the claim scan by design. **Both of those refs were
+deleted on 2026-09-03 and the log branch is retired** — the tick log is git-ignored and committed
+nowhere; see `moderate/scripts/persist-log.sh`'s header.
 
 ## 6. Failure modes
 

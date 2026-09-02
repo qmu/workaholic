@@ -62,7 +62,17 @@ allowlist_file="${hook_dir}/workaholic-layout-allowlist.txt"
 case "$file_path" in
   *.workaholic/*)
     if [ -f "$allowlist_file" ]; then
-      wh_rel="${file_path#*.workaholic/}"
+      # THE **LAST** `.workaholic/` IN THE PATH, NEVER THE FIRST (2026-09-02).
+      # `/spawn-loops` clones each loop under $WORKAHOLIC_LOOPS_HOME, whose default
+      # is `~/.workaholic/loops/<repo>/<loop>` -- so every absolute path inside a
+      # loop clone carries `.workaholic/` TWICE, and a shortest-match `#` cut lands
+      # on the clone home. Measured: a ticket written at
+      # `~/.workaholic/loops/workaholic/implement/.workaholic/tickets/todo/x.md`
+      # was refused `undesignated subdirectory 'loops/'` -- the gate reading the
+      # loop home's layout instead of the repository's. `##` cuts at the last
+      # occurrence and is byte-identical for every ordinary checkout, worktree and
+      # publish tree, which carry exactly one.
+      wh_rel="${file_path##*.workaholic/}"
       first_seg="${wh_rel%%/*}"
 
       layout_ok=true
@@ -112,7 +122,7 @@ case "$file_path" in
 esac
 
 # Extract the path after .workaholic/tickets/
-tickets_path="${file_path#*.workaholic/tickets/}"
+tickets_path="${file_path##*.workaholic/tickets/}"
 
 # Validate location: the tree is TWO-STATE since 2026-08-13 (issue #436) — todo/
 # (FLAT: the canonical write target since P2, 2026-08-06, because a ticket's owner

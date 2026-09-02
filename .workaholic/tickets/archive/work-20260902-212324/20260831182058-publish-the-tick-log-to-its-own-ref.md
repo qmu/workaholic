@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -108,3 +109,26 @@ carry of **every missing section** rather than only this tick's, and the closed
 - The publish tree's value here was the fresh base and the byte-identical
   checkout, not the pull request. If the ref path keeps using it, say why; if it
   does not, say what replaces both properties.
+
+## Final Report
+
+Development completed as planned. `persist-log.sh` publishes to the ruled ref and this drive
+verified every property the ticket asks to be preserved rather than redesigned.
+
+- The target comes from `log-ref.sh` and is **not an argument**: a caller free to name the target
+  is a caller free to name the base.
+- The publish tree is unchanged, so the **union by `(tick, step)`, line-wise inside a shared
+  section**, still holds — the property that lets two containers tick in the same minute without
+  erasing each other. The header's reason for line-wise rather than by-section (a `<step>-filed`
+  line appended after the persist had landed could never reach the base) is intact.
+- The bounded retry (`--attempts`, default 3) and the `degraded` report on a missed push are
+  preserved; a persist that missed the branch leaves the log in the checkout for the next tick.
+- `ensure-log-ref.sh` prepares the ref before publishing, and a preparation that failed is reported
+  by name with the log left in the checkout — never a silent drop.
+- The refusal `log_ref_is_the_base` is asserted live by the drill's breaker.
+
+### Discovered Insights
+
+- **Insight**: The publish tree was carried onto a different target rather than replaced.
+  **Context**: The union is not a property of `main`; it is a property of the tree seam. Keeping
+  the seam meant the concurrency behaviour needed no re-proof, only a re-pointing.

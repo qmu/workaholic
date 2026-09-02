@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -103,3 +104,32 @@ change as the drill.
   repository as `origin` is the standard shape here and keeps the drill hermetic.
 - Ticket 8 is the mirror image (a tick log that reaches `main` again). Keep them
   separate drills so `drill-health` can name which property broke.
+
+## Final Report
+
+Development completed as planned, and the drill this ticket asks for **existed already and had
+never once run**. `verify-log-branch` was written with the mission, registered `hermetic` with a
+breaker, and carried in the hermetic matrix — but it looked for `log-ref.sh` and `ensure-log-ref.sh`
+under `moderate/scripts`, where they have never lived. The ref is a fact about the **repository**,
+so both are `gather/scripts`'; the drill therefore exited `log_branch_seam_unreadable` on every
+invocation since it was written, and `verify-all` reported that as **`skipped`** rather than
+`fail`. A skip is not a red check run, so the guard for the whole mission was absent from the very
+set that exists to run it, silently.
+
+The repair names the two directories separately (`_gth` for the ref's derivation, `_mod` for the
+tick's own scripts) so a future move of either is visible rather than silent, and records why in
+the drill's own header.
+
+Positive proof, now actually executing: `log_reaches_its_branch` (the persist files the day file),
+`log_day_file_on_the_branch` (it is really there — *the persist answered true* and *the file
+exists* are different claims), and `hydrate_restores_the_memory` (a fresh clone of `main` gets the
+log back), with `log_ref_is_not_the_base` under them and the breaker
+`log_ref_may_not_be_the_base` proving the drill can fail.
+
+### Discovered Insights
+
+- **Insight**: A drill that exits its seam-check code reads as `skipped`, and `verify-all` exits
+  zero over it — so a drill can be dead for its entire life without any surface going red.
+  **Context**: This is the second failure mode of the drill set, distinct from a drill that fails:
+  a `skipped:<reason>` naming a *path* rather than `needs_server` is a defect in the drill, not a
+  classification. Worth reading `verify-all`'s skip list as a to-do rather than as a legend.

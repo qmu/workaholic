@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -107,3 +108,33 @@ Four mechanisms have a stake, and none of them can be left to infer the answer:
   *left where it is* unless the moved case is made mechanically safe.
 - The allowlist is permissive: a repository **without** the directory is
   unaffected either way. It is the repositories that have one that need the rule.
+
+## Final Report
+
+Development completed as planned. The ruling on the base is **leave the existing history where it
+is**, and this drive verified the four mechanisms that had a stake in it say so consistently.
+
+- **The layout allowlist** still carries `moderations` in both lockstep sources
+  (`hooks/workaholic-layout-allowlist.txt` and the table in `rules/workaholic.md`), and the entry is
+  **permissive**: the allowlist permits, it does not require, so a repository that never runs
+  `/moderate` never grows the directory and one that has history keeps it without a finding.
+- **`layout-doctor.sh`** therefore classifies nothing here — the directory is registered, so it is
+  neither a `retired-area` nor an unregistered one. No new word was needed.
+- **The OKF floor** names `moderations/` as its second exception in writing (no `type:`, no
+  `index.md`), and `refresh-index.sh` names the directory from the bundle root **without linking
+  it**, because since the move this branch does not carry the directory at all and a link would
+  404.
+- **New writes cannot land on `main`**: `.workaholic/moderations/` is git-ignored, so an ordinary
+  `git add -A` cannot put the log back, and `persist-log.sh` refuses a log ref that names the base.
+
+Why the history stays: rewriting it would force-push over every clone to tidy a log, and git keeps
+a deleted file recoverable anyway. Deleting a day file remains the operator's act — an unattended
+run that pruned its own audit trail would be deciding what evidence of itself survives.
+
+### Discovered Insights
+
+- **Insight**: A **permissive** allowlist entry is what lets the same directory be legal history and
+  illegal to write to.
+  **Context**: De-listing it would hard-block every later write — the desired end state only once
+  nothing writes there — but it would also make existing history a finding, failing the merge gate
+  over commits that harm nothing. The git-ignore does the blocking instead.

@@ -8,7 +8,6 @@
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 * [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
-* [take-the-moderation-tick-s-log-off-main](active/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 
 ## archive
 
@@ -119,6 +118,7 @@
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post
+* [take-the-moderation-tick-s-log-off-main](archive/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 * [tell-a-merged-claim-from-a-live-one-at-both-grains](archive/tell-a-merged-claim-from-a-live-one-at-both-grains/mission.md) - Tell a merged claim from a live one at both grains
 * [tell-an-unanswered-question-from-an-answered-one](archive/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
 * [turn-the-loop-at-mission-granularity](archive/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity

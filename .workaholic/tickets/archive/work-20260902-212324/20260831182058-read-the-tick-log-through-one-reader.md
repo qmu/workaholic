@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -105,3 +106,31 @@ and report *nothing found* rather than *could not read*.
   changes behaviour — check it explicitly rather than assuming.
 - The precedence in step 2 is the subtle part of this mission. Write it down with
   its reason, not just its code.
+
+## Final Report
+
+Development completed as planned, and the answer the tree gives is the one the ticket wanted, by a
+route worth stating: **`log-read.sh` is still the log's only parser**, and the six scripts that also
+name `.workaholic/moderations` do so as a *directory to enumerate*, never as a format to parse.
+
+- `condition-age.sh` composes `log-read.sh` for every read (`LOG_READ`) and keeps `LOG_DIR` only to
+  bound its walk to the newest N day files. Its header says so: it owns nothing else.
+- `step-blocked-tick.sh` composes `log-read.sh` and adds no parser; its `DIR` enumerates.
+- `log-append.sh` is the writer, `hydrate-log.sh` and `persist-log.sh` the transport, `run.sh` and
+  `step-open-log.sh` the tick's own frame, `render-tick-post.sh` and `step-strategy-digest.sh`
+  compose the reader.
+
+That path stays correct after the move **because the log is hydrated into the checkout before any
+reader runs** — `step-open-log.sh` calls `hydrate-log.sh` first, so every reader finds the log
+exactly where it always was. That is the design's whole point: repointing the transport moved all
+of them at once, and nothing needed a second walker.
+
+Verified live by the drill: a fresh clone of `main` carries no log, and after hydrate the day file
+is present and readable with the earlier tick's id in it.
+
+### Discovered Insights
+
+- **Insight**: "One reader" survived the move because the move changed the log's *transport*, not
+  its *path in the checkout*.
+  **Context**: Every reader still opens `.workaholic/moderations/<day>.md`; what changed is where
+  those bytes came from. A design that had changed the path would have had to touch all six.

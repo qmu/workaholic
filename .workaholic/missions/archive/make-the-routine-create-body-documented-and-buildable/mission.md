@@ -2,7 +2,7 @@
 type: Mission
 title: Make the routine create body documented and buildable
 slug: make-the-routine-create-body-documented-and-buildable
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-08-21T15:02:46+09:00
 author: a@qmu.jp
@@ -46,10 +46,12 @@ resolve an environment says so by name, and still renders no setup sheet.
 
 - [x] The verified create/update body is recorded field by field; no caller walks 400s for it (#20260821150359-record-the-verified-routine-create-and-update-body.md)
 - [x] One place builds the body; templates carry `sources:` and it is rendered, not prose (#20260821150359-build-the-routine-api-body-in-one-place.md)
-- [ ] §5 states the environment rule and names a second refusal beside `no_transport` (#20260821150359-state-the-environment-rule-and-its-named-refusal.md)
+- [x] §5 states the environment rule and names a second refusal beside `no_transport` (#20260821150359-state-the-environment-rule-and-its-named-refusal.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260821150359-record-the-verified-routine-create-and-update-body.md
 - 2026-09-02 — ticket archived — 20260821150359-build-the-routine-api-body-in-one-place.md
+- 2026-09-02 — ticket archived — 20260821150359-state-the-environment-rule-and-its-named-refusal.md
+- 2026-09-02 — mission achieved — mission.md

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.8
 feedback: [20260831203426-superseded-proves-the-tickets-landed-not-that-the-branch-is-empty.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -56,3 +56,5 @@ told once — while a branch that really is empty retires exactly as it does tod
 - 2026-09-02 — ticket archived — 20260831203454-make-the-retirement-s-stated-recovery-true.md
 - 2026-09-02 — ticket archived — 20260831203454-drill-the-stranded-branch-refusal-offline.md
 - 2026-09-02 — mission achieved — mission.md
+- 2026-09-02 — run recorded (+0.8h) — work-20260902-193702
+- 2026-09-02 — story written and pull request opened — work-20260902-193702.md

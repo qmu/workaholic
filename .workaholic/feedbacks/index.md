@@ -643,4 +643,5 @@
 * [The loop has clerks but no planner: nothing re-plans from the live board and convergence has no owner](20260901123318-the-loop-has-clerks-but-no-planner-nothing-re-plans-from-the-live-board-and-convergence-has-no-owner.md)
 * [A Slack post's Japanese must be read on first sight, not decoded](20260902042405-a-slack-post-s-japanese-must-be-read-on-first-sight-not-decoded.md)
 * [The moderation tick resolves and merges, it does not report stuckness](20260902042549-the-moderation-tick-resolves-and-merges-it-does-not-report-stuckness.md)
+* [The Propose tick parks on a permission prompt every hour](20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md)
 <!-- okf:generated:end -->

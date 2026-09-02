@@ -1272,6 +1272,28 @@ ruling answers. The read is `moderate/scripts/ruling-suppression.sh` — one rea
 (`ci-retirement-turn.sh`'s discipline). The suppression is **derived, stored nowhere**: merging
 or closing the ruling makes the question reachable again with no state.
 
+**The plan's delta rides the same root** (2026-09-01, ticket
+`20260901123358-carry-the-plan-s-delta-in-the-hourly-post`). `strategy-pace` carries a `plan`
+block — `advancing`, `held`, `held_reasons`, `wip` — lifted off the one survey it already makes,
+and puts the same numbers in its own `summary`, because that string is what the root's change
+diff compares. `render-tick-post.sh` renders one `📋` line from the block, **beside** the change
+lines rather than instead of them.
+
+- **Gated on the diff**: an hour in which the plan did not move adds no line. That is the whole
+  difference between this clause and the retired `📦 Release Preparation`.
+- **It earns no post**, exactly as the impairment clause does not: it adds a line to a root that
+  was already being posted for a question, a digest or a delivery failure.
+- **No identifier and no mention token** — *how many* is news, *which* is a task.
+- **A tick the repository's `wip_limit` is holding says so**, with the count and the limit: a
+  quieter loop must not be indistinguishable from a stopped one.
+- **A degraded reading is named** (*the plan could not be read this tick*), never rendered as an
+  empty delta — a plan we could not read and a plan that did not move are the two states the
+  clause exists to keep apart.
+- **What it deliberately does not say**: *which unit is next*. The executor's order is
+  `plan-units.sh`'s, which no step here may reach (the survey runs the living migrations and
+  **stages** what they converge), and naming a unit would put an identifier on a line addressed
+  to nobody. Both rules are older than this clause and neither is worth bending for it.
+
 **The seven questions, under the composition contract** (2026-08-31, mission
 `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Every key, the asked-once
 gate, the addressee, the per-tick cap and the precedence are **byte-identical**; only what the

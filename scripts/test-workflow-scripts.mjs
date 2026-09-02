@@ -21595,6 +21595,7 @@ const tests = [
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
   ["the tick root's thread key names the day", testTickThreadKeyNamesTheDay],
   ["the tick renders a root and a delta reply", testTickRendersARootAndADeltaReply],
+  ["the hourly root carries the plan's delta", testPlanDeltaOnTheRoot],
   ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
   ["the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -35099,14 +35100,20 @@ function testProposeWipLimit() {
     }
     const open = join(mkdtempSync(join(tmpdir(), "wf-wip-")), "open.json");
     writeFileSync(open, '{"ok": true, "identity": "test@example.com", "proposals": []}\n');
-    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    // THE COMMIT IS DATED INTO THE PAST, and that is load-bearing. `landed` is a
+    // `git log --since` read over the survey's window, so a fixture committed NOW falls inside
+    // ANY window: the direction then reads `quiescent` and is refused `arrived` by the rung
+    // ABOVE the one under test, and this case silently stops exercising the gate.
+    execSync("git add -A && git commit -q -m seed",
+      { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: "2001-01-01T00:00:00+0000",
+                         GIT_COMMITTER_DATE: "2001-01-01T00:00:00+0000" } });
 
     // The window is deliberately short so the archived work does not read as JUST landed —
     // otherwise the direction is `quiescent` and refused `arrived` by the gate above this one,
     // and the fixture would be exercising that rung instead of this one.
     const survey = (limit) => JSON.parse(run(dir,
       `${limit === null ? "" : `WORKAHOLIC_WIP_LIMIT=${limit} `}` +
-      `${POSIX_SH} ${SURVEY} --open-proposals ${open} "1 seconds ago"`).stdout);
+      `${POSIX_SH} ${SURVEY} --open-proposals ${open} "1 days ago"`).stdout);
 
     // --- 1. NO DECLARATION: A NAMED NO-OP, AND THE SURVEY IS UNCHANGED ------------------
     const none = survey(null);
@@ -35149,9 +35156,87 @@ function testProposeWipLimit() {
       "feedback: [20260801000001-free.md]\n---\n\n# m-free\n\n## Experience\n\ne\n\n## Acceptance\n\n- [ ] a\n");
     wf(".workaholic/tickets/todo/2026081000000-m-free.md",
       "---\ncreated_at: 2026-08-10T00:00:00+00:00\nmission: m-free\n---\n\n# q\n");
-    execSync("git add -A && git commit -q -m 'Put work in flight under the direction'", { cwd: dir });
+    execSync("git add -A && git commit -q -m 'Put work in flight under the direction'",
+      { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: "2001-01-02T00:00:00+0000",
+                         GIT_COMMITTER_DATE: "2001-01-02T00:00:00+0000" } });
     const earlier = survey(1);
     assertEq("a direction with its own work in flight keeps its own earlier refusal",
       earlier.refused.map((r) => [r.slug, r.reason]), [["free", "work_waiting"]]);
+  } finally { cleanup(dir); }
+}
+
+// ---------- the hourly root carries the plan's delta ----------
+// (2026-09-01, ticket `20260901123358-carry-the-plan-s-delta-in-the-hourly-post`)
+//
+// The daily digest says where the work stands, once a day. The hourly root carried only change
+// lines derived per step, so an hour in which the board moved read as a list of anomalies rather
+// than as a plan that had moved. The clause is composed from `strategy-pace`'s own `plan` block —
+// the one survey per tick that knows how the board stands — and gated on the same diff the change
+// loop uses, so an hour in which the plan did not move adds no line at all.
+function testPlanDeltaOnTheRoot() {
+  const dir = makeRepo("main");
+  const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
+  const R = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  const PACE_WAS = "no direction is late; 0 pace reading(s) could not be made; 1 direction(s) advancing, 0 held";
+  const paceRow = (summary, plan) => ({ step: "strategy-pace", status: "ok", summary, event: "", plan });
+  const render = (rows) => {
+    writeFileSync(join(dir, "rows.json"), JSON.stringify({ rows }));
+    return JSON.parse(run(dir,
+      `${R} --tick 20260901-110000 --questions 1 --hour 11 --weekday 3 --root . < rows.json`).stdout);
+  };
+  const drift = { step: "doc-drift", status: "ok", summary: "c", event: "doc-drift: c" };
+  try {
+    mkdirSync(join(dir, ".workaholic", "moderations"), { recursive: true });
+    run(dir, `${LOG} --tick 20260901-010000 --step doc-drift --status ok --summary "a" --root .`);
+    run(dir, `${LOG} --tick 20260901-010000 --step strategy-pace --status ok --summary "${PACE_WAS}" --root .`);
+
+    // --- 1. AN HOUR IN WHICH THE PLAN MOVED CARRIES A DELTA LINE ------------------------
+    const moved = render([drift, paceRow(
+      "no direction is late; 0 pace reading(s) could not be made; 1 direction(s) advancing, 2 held; 3 mission(s) in flight against a limit of 3",
+      { advancing: 1, held: 2, held_reasons: [{ reason: "work_waiting", count: 2 }],
+        wip: { declared: true, limit: 3, count: 3, readable: true, reason: "" } })]);
+    assertTrue("the root carries the plan's delta beside the change lines",
+      /📋 1 direction\(s\) advancing, 2 held/.test(moved.root_text), moved.root_text);
+    assertTrue("and a tick the repository's own limit is holding says so, with the count and the limit",
+      /new work is being held — 3 mission\(s\) in flight against a limit of 3/.test(moved.root_text),
+      moved.root_text);
+    assertTrue("the delta rides the existing change lines rather than replacing them",
+      /doc-drift: c/.test(moved.root_text), moved.root_text);
+    assertTrue("it carries no slug or identifier — how many is news, which is a task",
+      !/[a-z]+-[a-z]+-[a-z]+/.test(moved.root_text.split("\n").filter((l) => l.startsWith("📋")).join("")),
+      moved.root_text);
+    assertTrue("and no mention token: a line addressed to nobody must not wake the channel",
+      !/<@U/.test(moved.root_text), moved.root_text);
+
+    // --- 2. AN HOUR IN WHICH IT DID NOT MOVE ADDS NO LINE -------------------------------
+    // This is the whole difference between the clause and `📦 Release Preparation`, which was
+    // retired for restating an unchanged answer every hour.
+    const still = render([drift, paceRow(PACE_WAS,
+      { advancing: 1, held: 0, held_reasons: [],
+        wip: { declared: false, limit: null, count: null, readable: true, reason: "not_declared" } })]);
+    assertTrue("an unmoved plan renders no delta line at all",
+      !/📋/.test(still.root_text), still.root_text);
+    assertTrue("and the hour's own change lines are untouched",
+      /doc-drift: c/.test(still.root_text), still.root_text);
+
+    // --- 3. A DEGRADED READING IS NAMED, NEVER AN EMPTY DELTA ---------------------------
+    // A plan that could not be read and a plan that did not move are the two states this
+    // clause exists to keep apart.
+    const degraded = render([drift,
+      { step: "strategy-pace", status: "degraded", reason: "inbox_unreadable",
+        summary: "the strategy survey refused: inbox_unreadable", event: "", plan: {} }]);
+    assertTrue("a plan the tick could not read says so",
+      /📋 the plan could not be read this tick/.test(degraded.root_text), degraded.root_text);
+
+    // --- 4. IT EARNS NO POST ------------------------------------------------------------
+    // Like the impairment clause, it adds a line to a root that was already being posted. A
+    // tick the gates hold stays silent whatever the plan did.
+    writeFileSync(join(dir, "rows.json"), JSON.stringify({ rows: [drift, paceRow(
+      "no direction is late; 0 pace reading(s) could not be made; 9 direction(s) advancing, 9 held",
+      { advancing: 9, held: 9, held_reasons: [], wip: {} })] }));
+    const held = JSON.parse(run(dir,
+      `${R} --tick 20260901-110000 --questions 0 --hour 11 --weekday 3 --root . < rows.json`).stdout);
+    assertEq("a tick with nothing to ask stays silent however far the plan moved",
+      [held.post, held.root_text], [false, ""]);
   } finally { cleanup(dir); }
 }

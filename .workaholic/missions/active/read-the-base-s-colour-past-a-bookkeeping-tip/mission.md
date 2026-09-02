@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-200652
 ---
 
 # Read the base's colour past a bookkeeping tip

@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260902-063614](work-20260902-063614.md) - Names an open pull request that lost its branch, localizes why one defect was implemented twice, and states the three retirement candidate classes where they are read
+* [work-20260902-054507](work-20260902-054507.md) - Made a survey run under a placeholder git identity say so and forbid ok, and made the bootstrap audit the mapping lookup its own hook actually performs
 * [work-20260901-144612](work-20260901-144612.md) - Measured that the transport refuses the delete of a live claim branch too, so the leaked-ref objection to the named mechanism is a reading rather than a forecast
 * [work-20260901-123859](work-20260901-123859.md) - The moderation tick's root is keyed on the day and each later hour replies into it, and the post gate stops firing on values a transport merely re-answered.
 * [work-20260901-121939](work-20260901-121939.md) - Decided the probe-branch cleanup is a person's two commands rather than a standing branch-deleting CI capability, and named them where a person reads

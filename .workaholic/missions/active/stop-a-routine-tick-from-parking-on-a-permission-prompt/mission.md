@@ -53,3 +53,4 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - 2026-09-02 — run recorded (+0.6h) — implement-20260902-0439
 - 2026-09-03 — ticket archived — 20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md
 - 2026-09-03 — ticket archived — 20260902043117-make-a-parked-routine-tick-visible-as-parked.md
+- 2026-09-03 — ticket archived — 20260902043747-read-a-skill-section-with-the-read-tool-never-with-sed-or-grep.md

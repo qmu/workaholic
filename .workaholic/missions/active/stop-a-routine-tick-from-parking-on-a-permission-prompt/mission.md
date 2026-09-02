@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.6
+actual_hours: 1.3
 feedback: [20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -55,3 +55,4 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - 2026-09-03 — ticket archived — 20260902043117-make-a-parked-routine-tick-visible-as-parked.md
 - 2026-09-03 — ticket archived — 20260902043747-read-a-skill-section-with-the-read-tool-never-with-sed-or-grep.md
 - 2026-09-03 — ticket archived — 20260902043747-inline-into-each-routine-command-the-rule-text-it-needs.md
+- 2026-09-03 — run recorded (+0.7h) — implement-20260903-0400

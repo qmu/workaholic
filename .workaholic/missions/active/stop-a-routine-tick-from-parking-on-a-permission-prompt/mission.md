@@ -43,7 +43,7 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - [ ] What raises the prompt in the `/propose` path is named from evidence and removed at
       its source. (#20260902043117-remove-the-prompt-raising-read-at-its-source-in-the-propose-path.md)
 - [ ] A tick that parked is visible as parked rather than as scheduled and healthy. (#20260902043117-make-a-parked-routine-tick-visible-as-parked.md)
-- [ ] A regression that reintroduces a prompt-raising shape fails a check before it ships.
+- [ ] A regression that reintroduces a prompt-raising shape fails a check before it ships. (#20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md)
 
 ## Changelog
 

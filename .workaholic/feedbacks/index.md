@@ -656,4 +656,5 @@
 * [The loop keeps a finished subagent alive as its clock, so no run starts from a fresh context](20260903070805-the-loop-keeps-a-finished-subagent-alive-as-its-clock-so-no-run-starts-from-a-fresh-context.md)
 * [The tick's fixed cost is paid every five minutes, and most of it answers nothing](20260903071448-the-tick-s-fixed-cost-is-paid-every-five-minutes-and-most-of-it-answers-nothing.md)
 * [The tick walks three names in order instead of allocating capacity to where the work is](20260903071947-the-tick-walks-three-names-in-order-instead-of-allocating-capacity-to-where-the-work-is.md)
+* [Read the machine before fanning out onto it](20260903081548-read-the-machine-before-fanning-out-onto-it.md)
 <!-- okf:generated:end -->

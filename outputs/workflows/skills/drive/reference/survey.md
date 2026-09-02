@@ -75,8 +75,8 @@ confidently (decision J3). Each `ok: false` is a reported decision, never a prom
 ## The survey (`drive/scripts/plan-units.sh`)
 
 Emits `{fetched, shallow, base, surveyed_sha, base_sha, current, user_slug, backlog_error,
-backlog_size, owner_unresolved, claimed[], resumable[], resurveyed[], missions[], backlog[],
-excluded[], backlog_all_excluded}`,
+backlog_size, owner_unresolved, placeholder_identity, claimed[], resumable[], resurveyed[],
+missions[], backlog[], excluded[], backlog_all_excluded}`,
 each backlog row `{path, title, merge_policy, depends_on, mission_closed}` —
 the unclaimed active missions this runner may take and the unclaimed todo tickets, with
 everything a claim already holds subtracted through the shared claim reader.
@@ -159,6 +159,7 @@ not `excluded[]` entries, because `excluded[]` names items the survey saw and dr
 | `backlog_size` | ticket count before filtering — what makes *nothing for me* and *nothing at all* distinguishable from outside. |
 | `backlog_all_excluded` | `{excluded, backlog_size, reasons[{reason, count}]}` — a **derived reading** over the fields above: the queue holds tickets, the survey offers none of them, and something was excluded. Reported by both entry points' run reports so *the queue is empty* and *the queue is full and I can offer none of it* never render alike. The **per-reason counts** are what make it actionable — a queue emptied by claims is the protocol working, one emptied by `owned_by_other` is work nothing can drive. A genuinely empty queue (`backlog_size: 0`) and a survey offering some of its backlog both read `excluded: false`. It is a top-level key rather than an `excluded[]` entry for the reason `resurveyed[]` is: `excluded[]` names what the survey saw and *dropped*, and this drops nothing of its own. **It moves no token** — whether it forbids `ok` belongs to the mission that owns §7's table, and two missions editing one table is how a table stops meaning one thing. Measured 2026-08-26: `backlog_size: 10`, `backlog: []`, `owned_by_other` x7, reported `ok` hourly for five days. |
 | `owner_unresolved` | the queue **was** read but this runner has no identity to judge ownership against: unowned artifacts are still offered, owned ones excluded as `owner_unresolved`. **Forbids `ok`** but does not terminate the run. (`identity_unresolved` left this vocabulary with the per-user directory layout, P2.) |
+| `placeholder_identity` | the queue was read, ownership **was** judged, and the identity it was judged against stands for nobody — the effective `git config user.email` is **empty**, or carries a **known placeholder domain** (`noreply@anthropic.com`, a container's default with no resolving `.claude/git-identities` mapping). **Forbids `ok`** with `owner_unresolved`'s standing and terminates nothing. It **excludes nothing of its own**: the artifacts are already named `owned_by_other`, which is the point — the survey answered confidently against an address that is not a person, so empty lists read as *nothing is mine* when nothing established who *mine* is. The domain set is one list in `plan-units.sh` beside `ME`, so a future default is one word to add; `owns.sh`'s comparison is unchanged. |
 
 `fetched: false` means origin was unreachable and the claim set is the last-known one — survey
 anyway, but expect the claim step to refuse: the reader degrades offline, the writer does not.

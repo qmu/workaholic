@@ -41,6 +41,20 @@ for (const k of Object.keys(process.env)) {
   if (k.startsWith("WORKAHOLIC_")) delete process.env[k];
 }
 
+// ONE `WORKAHOLIC_*` IS SET RATHER THAN STRIPPED, and it is set for the opposite reason
+// (2026-09-02, ticket `install-and-audit-the-identity-mapping`). `check-bootstrap.sh` grew a
+// question only the network can answer — which GitHub account this session runs as, the key
+// step 0b of the web bootstrap looks the mapping up by — and it resolves that with
+// `gh api user` when nothing tells it otherwise. In a container where `gh` IS installed and
+// authenticated, every fixture that runs the check or the apply would then make a real call,
+// which breaks this suite's standing promise to touch no network. Stripping the variable is
+// exactly wrong here: absent means *ask*. So it is set to EMPTY, which the script reads as
+// *do not ask* and reports as an unchecked account with its own reason — the honest answer
+// for a fixture that has no session behind it. A test that needs a login sets one on its own
+// `run`, and one case deliberately leaves it unset behind a stubbed `gh` so the resolution
+// itself stays covered.
+process.env.WORKAHOLIC_BOOTSTRAP_ACCOUNT = "";
+
 const SCRIPTS = {
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
@@ -20671,6 +20685,38 @@ function testPostLanguageRuleShipsWithThePlugin() {
   const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
   assertTrue("the catalog says its English is the instruction, not the wire text",
     /the instruction, never the wire text/.test(catalog), "the catalog leaves its placeholders ambiguous");
+
+  // WHICH LANGUAGE WAS SETTLED; WHAT GOOD JAPANESE IS WAS NOT (2026-09-02, ticket
+  // `20260902042419`). Measured: posts composed by translating the English record title word for
+  // word — 「組み立てを止める」 for *fail the build*, where a reader cannot tell it means CI — with
+  // English word order kept around them, so the post reads as a riddle. The bar goes on every
+  // surface that already carries the language rule, in ONE wording, because four divergent
+  // statements of a style bar is the drift this repository pins its post formats against.
+  const BAR = "**And that Japanese must be read on first sight, not decoded** — the bar is an outcome, not a style preference: *a channel reader must understand what is being asked without opening the English record behind the link.* An established technical term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the repository's own `terms/` entries); the **meaning** of a title is translated, never its words; a title that resists translation is **paraphrased** in plain Japanese rather than transliterated. Measured: 「組み立てを止める」 for *fail the build* belongs as 「ビルドが落ちる」, a bare 「形」 for *shape* as 「投稿の型」, 「示せるという判定」 for *demonstrable verdict* as 「実証できたかどうかの判定」.";
+  for (const id of ["implement", "specificate", "propose", "moderate"]) {
+    const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
+    assertTrue(`/${id} carries the quality bar byte-identically`, cmd.includes(BAR),
+      `${id}: the bar is absent or has drifted from the catalog's wording`);
+  }
+  assertTrue("and so does the catalog, beside the blocks a session copies",
+    catalog.includes(BAR), "the catalog does not carry the bar");
+
+  // The RULE's own home states it too, with the reasoning and the limit the four ceilings do not
+  // repeat. It is deliberately NOT the byte-identical string: `rules/` carries the measurement and
+  // the why, and a ceiling carries the instruction.
+  assertTrue("the always-loaded rules carry the bar as an outcome, not a preference",
+    /must be read on first sight, not decoded/.test(rules)
+      && /without\s+opening the English record behind the link/.test(rules),
+    "rules/interaction.md states no quality bar");
+  for (const worked of ["ビルドが落ちる", "投稿の型", "実証できたかどうかの判定"]) {
+    assertTrue(`the rule carries the worked repair ${worked}`, rules.includes(worked), worked);
+  }
+  // AND THE LIMIT, stated rather than implied: nothing can check the emitted Japanese, because the
+  // composition happens at run time and never appears in this tree. A pin that implied otherwise
+  // would be the false comfort the language rule already refuses for itself.
+  assertTrue("and says plainly what it cannot check",
+    /Nothing mechanical can check the Japanese a run actually emits/.test(rules),
+    "the rule claims more than it can enforce");
 }
 
 
@@ -21241,6 +21287,8 @@ const tests = [
   ["/specificate stamps only an address the loop can drive", testSpecificateStampsResolvableAddresses],
   ["gather/migrate-assignee-aliases.sh (the recovery)", testMigrateAssigneeAliases],
   ["the survey says when it excluded its whole backlog", testSurveySaysItExcludedEverything],
+  ["the survey refuses ok under a placeholder identity", testSurveyRefusesOkUnderPlaceholderIdentity],
+  ["workaholify: the mapping's account check", testIdentityMapAccountCheck],
   ["workaholify: the mapping's coverage audit", testIdentityCoverageAudit],
   ["/moderate asks about work nothing can drive", testModerateAsksAboutUndrivableUnits],
   ["the identity hand-off, end to end", testIdentityHandOffEndToEnd],
@@ -29260,6 +29308,262 @@ function testSurveySaysItExcludedEverything() {
   assertTrue("and the token table gained no row for it",
     !/\|[^|\n]*backlog_all_excluded[^|\n]*\| `pending` \|/.test(skill),
     "the token table grew a row this ticket must not add");
+}
+
+// ---------- the survey refuses `ok` under a placeholder identity (2026-09-02) ----------
+//
+// The state this pins passes every OTHER trustworthiness field and is still worthless.
+// A container with no resolving `.claude/git-identities` mapping keeps
+// `noreply@anthropic.com`; `owns.sh` compares each artifact's owner against it, answers
+// `other`, and the survey returns empty `missions[]`, empty `backlog[]`, no
+// `backlog_error`, `current: true` and `owner_unresolved: false` — the exact envelope
+// §7's table calls `ok`. Measured on this repository 2026-09-02: 68 artifacts excluded
+// `owned_by_other`, nothing offered, every other field clean.
+//
+// The two halves are pinned separately on purpose. The FIELD is what the survey answers;
+// the TOKEN CONSEQUENCE is a sentence in §7's table that no script can enforce, so the
+// assertion reads the table. A field nothing wires to the token would change nothing,
+// which is this ticket's own Considerations note about facts reported where the token
+// cannot read them.
+function testSurveyRefusesOkUnderPlaceholderIdentity() {
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  // No global or system config: the empty case must be empty because the repo says so,
+  // not because the machine running the suite happens to have no identity.
+  const NO_INHERITED_CONFIG = {
+    env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" },
+  };
+  const seedOwned = (dir, stamp, owner) => {
+    const p = join(dir, `.workaholic/tickets/todo/${stamp}-t.md`);
+    mkdirSync(dirname(p), { recursive: true });
+    writeFileSync(p, `---\ncreated_at: 2026-09-02T00:00:00+00:00\nassignees: [${owner}]\n---\n\n# ${stamp}\n`);
+  };
+
+  // Shape 1: THE MEASURED STATE. A real person owns the queue; the runner is the
+  // container default. Every other field passes and the offer is empty.
+  let dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000001", "a@qmu.jp");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    execSync("git config user.email noreply@anthropic.com", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("the placeholder identity is its own named field", plan.placeholder_identity, true);
+    // The point of the field: none of its neighbours fire, so without it the envelope is `ok`.
+    assertEq("while the queue read fine", plan.backlog_error, "");
+    assertEq("and ownership was judged, not unresolved", plan.owner_unresolved, false);
+    assertEq("and the artifact is dropped confidently", plan.backlog, []);
+    assertTrue("as somebody else's",
+      plan.excluded.some((e) => e.reason === "owned_by_other"),
+      JSON.stringify(plan.excluded));
+    // It drops nothing of its own — the whole change is a fact and a token consequence.
+    assertTrue("the field excludes nothing of its own",
+      !plan.excluded.some((e) => e.reason === "placeholder_identity"),
+      JSON.stringify(plan.excluded));
+  } finally { cleanup(dir); }
+
+  // Shape 2: an EMPTY identity is the other way into the one field, so a caller reads one
+  // answer rather than two. `owner_unresolved` fires here as it always has, unchanged.
+  dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000002", "a@qmu.jp");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    execSync("git config --unset-all user.email", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN, NO_INHERITED_CONFIG).stdout);
+    assertEq("an empty identity is a placeholder too", plan.placeholder_identity, true);
+    assertEq("and its own neighbour still fires unchanged", plan.owner_unresolved, true);
+  } finally { cleanup(dir); }
+
+  // Shape 3: a real identity must not fire it, or the field forbids `ok` on every run.
+  dir = makeRepo("main");
+  try {
+    seedOwned(dir, "20260902000003", "test@example.com");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    assertEq("a real identity is not a placeholder", plan.placeholder_identity, false);
+    assertEq("and its own work is still offered", plan.backlog.length, 1);
+  } finally { cleanup(dir); }
+
+  // THE TOKEN CONSEQUENCE. Unlike `backlog_all_excluded`, this reading DOES move the
+  // token, so the table must carry a row for it — a field the token cannot read changes
+  // nothing.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("§7's table forbids `ok` on it",
+    /\|[^|\n]*placeholder_identity[^|\n]*\|\s*`pending`/.test(skill),
+    "the token table has no row for the placeholder identity");
+  assertTrue("and the survey section lists it among the ok-forbidding facts",
+    /forbid `ok`[\s\S]{0,240}?placeholder_identity/.test(skill),
+    "§1 does not name it beside the other trustworthiness fields");
+  // Step 4: a bare `pending` tells a reader nothing about why the queue looked empty.
+  assertTrue("and the run report is required to name the fact",
+    /placeholder_identity[\s\S]{0,600}?names? (?:it|the fact)/.test(skill),
+    "nothing requires the report to name the fact behind the withheld token");
+}
+
+// ---------- workaholify: the mapping's account check (2026-09-02) ----------
+//
+// The coverage audit next door asks two questions about `.claude/git-identities`, and step
+// 0b of the web bootstrap asks NEITHER of them. It resolves the session's GitHub LOGIN and
+// looks up `^<login>=`; the audit walks the addresses the TREE carries. Those come apart in
+// exactly the state this mission measured: a mapping that names every `assignees:` value in
+// the repository, no `identity_map_uncovered`, and still no line for the account a routine
+// runs as — so the hook logs `no entry`, keeps `noreply@anthropic.com`, and the survey
+// answers `owned_by_other` for everything.
+//
+// `gh` IS STUBBED ON PATH, always: this suite calls no network, and the login is the one
+// thing the check reaches outside the tree for.
+function testIdentityMapAccountCheck() {
+  const AUDIT = `${POSIX_SH} ${SCRIPTS.auditIdentityCoverage}`;
+  const CHECK = `${POSIX_SH} ${SCRIPTS.checkBootstrap}`;
+  const APPLY = `${POSIX_SH} ${SCRIPTS.applyBootstrap}`;
+
+  const seed = (dir, mapBody) => {
+    const t = join(dir, ".workaholic/tickets/todo/20260902000000-t.md");
+    mkdirSync(dirname(t), { recursive: true });
+    writeFileSync(t, "---\nassignees: [a@qmu.jp]\n---\n\n# t\n");
+    if (mapBody !== null) {
+      mkdirSync(join(dir, ".claude"), { recursive: true });
+      writeFileSync(join(dir, ".claude/git-identities"), mapBody);
+    }
+  };
+  // The login normally reaches the check through `WORKAHOLIC_BOOTSTRAP_ACCOUNT` — the
+  // override that keeps this suite off the network (see the note beside it at the top).
+  const accountEnv = (login) => ({ ...process.env, WORKAHOLIC_BOOTSTRAP_ACCOUNT: login });
+  // One case leaves the override UNSET so the `gh api user` resolution itself is covered,
+  // with `gh` stubbed on PATH: `null` is a `gh` that is not there at all.
+  const ghEnv = (dir, login) => {
+    const bin = join(dir, "stub-bin");
+    mkdirSync(bin, { recursive: true });
+    const p = join(bin, "gh");
+    writeFileSync(p, login === null ? `#!/bin/sh\nexit 127\n` : `#!/bin/sh\necho '${login}'\n`);
+    chmodSync(p, 0o755);
+    const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+    delete env.WORKAHOLIC_BOOTSTRAP_ACCOUNT;
+    return env;
+  };
+
+  // THE MEASURED STATE. Every address the tree uses is covered, so the coverage half is
+  // silent — and step 0b's own lookup still finds nothing.
+  let dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const a = JSON.parse(run(dir, `${AUDIT} . --account somebody-else`).stdout);
+    assertEq("the tree's addresses are all covered", a.covered, 1);
+    assertEq("so the coverage half raises nothing", a.uncovered, []);
+    assertEq("but the account is checked", a.account.checked, true);
+    assertEq("and is not covered", a.account.covered, false);
+    assertTrue("which is its own named problem",
+      a.problems.some((p) => p.startsWith("identity_map_no_entry_for_account")),
+      JSON.stringify(a.problems));
+    assertTrue("and no coverage problem rides with it",
+      !a.problems.some((p) => p.startsWith("identity_map_uncovered")), JSON.stringify(a.problems));
+    // The repair's placeholder is on the OTHER side of the `=` from the coverage repair's:
+    // here the login is what is known and the address is what only a person can supply.
+    assertEq("named with the line that would cover it",
+      a.account.line, "somebody-else=<canonical-email>");
+  } finally { cleanup(dir); }
+
+  // A mapping that DOES name the account raises nothing.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const a = JSON.parse(run(dir, `${AUDIT} . --account tamurayoshiya`).stdout);
+    assertEq("an account the mapping names is covered", a.account.covered, true);
+    assertEq("and raises nothing", a.problems, []);
+  } finally { cleanup(dir); }
+
+  // THREE-VALUED: a check that could not run is never a check that passed. Asked with no
+  // login, and not asked at all, are different reasons and neither is a problem.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const unasked = JSON.parse(run(dir, `${AUDIT} .`).stdout);
+    assertEq("not asking leaves the account unchecked", unasked.account.checked, false);
+    assertEq("by its own reason", unasked.account.reason, "not_requested");
+    assertEq("and raises no problem", unasked.problems, []);
+    assertEq("and never reads as covered", unasked.account.covered, false);
+
+    const unresolved = JSON.parse(run(dir, `${AUDIT} . --account ""`).stdout);
+    assertEq("an unresolvable login is its own reason", unresolved.account.reason, "login_unresolved");
+    assertEq("and still raises no problem", unresolved.problems, []);
+  } finally { cleanup(dir); }
+
+  // An ABSENT map is already `identity_map_missing`; saying it twice about one file is what
+  // the one-named-problem-set rule exists to prevent.
+  dir = makeRepo("main");
+  try {
+    seed(dir, null);
+    const a = JSON.parse(run(dir, `${AUDIT} . --account somebody`).stdout);
+    assertEq("an absent map does not also raise the account problem", a.account.reason, "map_missing");
+    assertEq("the absence is named once",
+      a.problems.filter((p) => p.startsWith("identity_map_no_entry_for_account")), []);
+  } finally { cleanup(dir); }
+
+  // The check carries it through, and `ok` does not move — the ruling this ticket owed.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const env = accountEnv("somebody-else");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env }).stdout);
+    assertTrue("check-bootstrap.sh carries the account problem verbatim",
+      c.advisories.some((p) => p.startsWith("identity_map_no_entry_for_account")),
+      JSON.stringify(c.advisories));
+    assertEq("and no mapping problem gates `ok`",
+      c.problems.filter((p) => p.startsWith("identity_map")), []);
+    assertEq("and the account's own state rides beside the hook's",
+      c.identity_map.account.login, "somebody-else");
+
+    // The repair proposes a COMMENT and never an entry, and is idempotent.
+    const applied = JSON.parse(run(dir, `${APPLY} .`, { env }).stdout);
+    assertEq("the apply is not refused", applied.refused, "");
+    assertTrue("it proposes the account's line",
+      applied.applied.includes("identity_map_no_entry_for_account"), JSON.stringify(applied));
+    const map = readFileSync(join(dir, ".claude/git-identities"), "utf8");
+    assertTrue("as a comment", /^# proposed: somebody-else=<canonical-email>/m.test(map), map);
+    assertTrue("so it is not an entry", !/^somebody-else=/m.test(map), map);
+    assertTrue("and the existing entry is untouched", /^tamurayoshiya=a@qmu\.jp$/m.test(map), map);
+
+    run(dir, `${APPLY} .`, { env });
+    const twice = readFileSync(join(dir, ".claude/git-identities"), "utf8");
+    assertEq("a second apply repeats nothing",
+      (twice.match(/proposed: somebody-else/g) || []).length, 1);
+  } finally { cleanup(dir); }
+
+  // THE RESOLUTION ITSELF, with the override unset and `gh` stubbed on PATH — the one case
+  // that covers the `gh api user` line rather than routing around it.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env: ghEnv(dir, "resolved-login") }).stdout);
+    assertEq("with no override the login is resolved from the session",
+      c.identity_map.account.login, "resolved-login");
+    assertEq("and checked against the mapping", c.identity_map.account.checked, true);
+  } finally { cleanup(dir); }
+
+  // NO `gh`, NO NETWORK: the login cannot be resolved, and the check must not then report
+  // the account as fine. A reading that could not be taken is named, never passed.
+  dir = makeRepo("main");
+  try {
+    seed(dir, "tamurayoshiya=a@qmu.jp\n");
+    const c = JSON.parse(run(dir, `${CHECK} .`, { env: ghEnv(dir, null) }).stdout);
+    assertEq("an unresolvable login leaves the account unchecked",
+      c.identity_map.account.checked, false);
+    assertEq("and raises no problem it cannot stand behind",
+      c.advisories.filter((p) => p.startsWith("identity_map_no_entry_for_account")), []);
+  } finally { cleanup(dir); }
+
+  // The documented problem list stays complete — the ticket's own step 5.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/SKILL.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/reference/bootstrap.md"), "utf8");
+  for (const [name, body] of [["SKILL.md §4", skill], ["reference/bootstrap.md", ref]]) {
+    assertTrue(`${name} names the account problem`,
+      /identity_map_no_entry_for_account/.test(body), `${name} does not list it`);
+  }
+  // And the deferred ruling is recorded rather than left open a second time.
+  assertTrue("the ruling on whether identity_map_missing gates `ok` is recorded",
+    /identity_map_missing[\s\S]{0,900}?(does not gate|Neither gates|None of the three gates)/.test(skill),
+    "SKILL.md still defers the gating ruling this ticket owns");
+  assertTrue("and no document still defers it to this ticket",
+    !/belongs to the queued ticket `install-and-audit-the-identity-mapping`/.test(skill + ref),
+    "a document still defers the ruling to the ticket that has now been driven");
 }
 
 // ---------- workaholify: the mapping's coverage audit (2026-08-26) ----------

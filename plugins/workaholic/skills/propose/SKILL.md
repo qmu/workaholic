@@ -341,9 +341,45 @@ propose housekeeping. What replaces the bar is not a softer judgment but a set o
 (`survey-strategies.sh`; each refusal is reported by name):
 
 `not_active` · `not_mine` · `past_target_date` · `no_feedback_refs` · `work_waiting` ·
-`open_proposal` · `attribution_unreadable`
+`open_proposal` · `wip_limit` · `attribution_unreadable`
 
-**`describing_move` is reported beside them and is not one of them.** Those eight are computed by
+
+**Planning is one job across three skills, and it is named in one place**: `CLAUDE.md`, *The planning job* — which act lives where, what it may act on, and the four things it may not do, each with the rule that forbids it. The `wip_limit` rung is one of its five acts; the section is where a reader learns the other four and why the loop plans no further.
+
+**`wip_limit` bounds the REPOSITORY, where the two halves above bound a strategy** (2026-09-01,
+ticket `20260901123357-hold-new-divergence-above-a-work-in-progress-limit`). `work_waiting` and
+`open_proposal` give *one mission per strategy in flight*, and nothing bounded the repository —
+N directions each inside their own gate still put N missions in flight together. Measured
+2026-09-01: **six missions running in parallel with no sequencing**, every merge to the base
+re-conflicting five open pull requests on the loop's own generated index, reported hourly as an
+external fact. Two in flight and four queued would have produced the same work with none of the
+conflicts.
+
+- **Absent means no limit, and that is the safety property.** The bound is declared as
+  `WORKAHOLIC_WIP_LIMIT` in the repository's own `.claude/settings.json` `env` block — the same
+  home, for the same reason, as `WORKAHOLIC_CADENCES`. A repository that declares nothing is
+  **byte-identical** to one before this existed: the count is not even taken, the gate reports
+  `not_declared`, and a tick behaves exactly as it did. Picking a number for every consuming
+  repository is the tunable constant this layer refuses; the operator who measured
+  six-in-parallel is the one who knows what their repository can carry.
+- **It is placed LAST in the ladder**, so a direction refused by any earlier gate never reaches
+  it and is not also reported as held by the repository's bound.
+- **What is counted**: active missions that still have queued work — not open pull requests,
+  which conflate the loop's own paperwork with the product's work, and not a sum over the
+  per-row `waiting_missions`, which would count a mission serving two directions twice.
+- **A gate that cannot be read is not a gate.** A non-numeric declaration (`bad_limit`) or a
+  count that could not be taken (`wip_count_unreadable`) holds **nothing** and reports its
+  reason, matching `attribution_unreadable` and `inbox_unreadable` — holding origination on a
+  failed read would silently stop the loop, which is worse than one extra mission.
+- **It holds origination only.** Inbound work is judged and emitted by `/specificate`
+  regardless, exactly as the `観察中` stage gates origination and nothing else; a limit that
+  swallowed the operator's own instructions on a busy day would be a defect, not a brake.
+- **The gate reports itself whether or not it fired** — the survey carries
+  `wip: {declared, limit, count, readable, reason}`, so a held tick says *why* rather than
+  looking idle. Holding divergence makes the loop quieter, which looks like the loop stopping,
+  and an unexplained silence is the outage this repository has already measured twice.
+
+**`describing_move` is reported beside them and is not one of them.** Those nine are computed by
 `survey-strategies.sh` and the running session cannot decide them differently; the describing
 refusal is the run's own **judgement**, stated in words and arguable by a reader — which is why it
 is named here rather than folded into the mechanical list. It is a refusal on the same standing as

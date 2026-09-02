@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:33:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,29 @@ and may not retire them. What it can do, and does not, is say so.
 - The human question budget is ten a day and already contended. This adds one key per stuck
   mission, which on the measured day would have been a small number — but if it is not, that
   is evidence for ticket 6's post rather than a reason to widen the cap here.
+
+## Final Report
+
+Development completed as planned. `/moderate`'s `closable-missions` step now raises a second,
+separate `needs_agent` entry for a mission whose acceptance is fully checked (`checked == total`,
+`unlinked == 0`) and whose queue is **not** empty — a question keyed `mission-leftovers:<slug>`,
+carrying the counts and the condition's age. Nothing is closed, retired, abandoned, iceboxed or
+moved by it; `close.sh` stays the only writer of an end state.
+
+### Discovered Insights
+
+- **Insight**: The near miss fell out of the scan that already existed, with no new reader. The
+  close needs `checked == total && unlinked == 0 && todo == 0`; the near miss is the same
+  expression with the last term inverted. Hoisting the shared prefix out of the condition made
+  both readings one pass, which is why this cost no second walk over the mission set.
+  **Context**: a step that already proves something is usually the cheapest place to name its
+  near miss, and the alternative — a separate step with its own scan — would have made the two
+  able to disagree.
+- **Insight**: A step whose `needs_agent` grows a second entry must not fold the two together.
+  `run.sh` counts top-level objects in the array and `question-liveness.sh` matches keys as
+  strings inside it, so two entries with two `action`s are correct and a merged one would blur an
+  act the loop may take with a ruling only a person can make.
+- **Insight**: The step's `n == 0` early exit had to move. It emitted "no mission is waiting to be
+  closed" and returned, which would have swallowed a near miss on any tick with nothing closable
+  — the exact silence this half exists to end. A test pins the near-miss-alone case for that
+  reason.

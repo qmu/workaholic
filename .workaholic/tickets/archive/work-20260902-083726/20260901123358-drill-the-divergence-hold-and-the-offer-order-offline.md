@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:33:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,31 @@ against the behaviour and CI names the drill when it goes red.
 - Keep it hermetic. Reaching GitHub to prove no issue was opened would make it credentialed,
   which `loop-drills.yml` cannot run on every push — and the regression is invisible again.
 - Drive after tickets 2 and 3; the drill has nothing to break before they land.
+
+## Final Report
+
+Development completed as planned. `verify-plan-adjust` drills both mechanisms offline in one
+throwaway repository — the `wip_limit` hold above, at and below the limit, the absent and
+unreadable declarations, the derived offer order, the offered set, and the named fallback when the
+resolver is gone — with a breaker that wires the rung out of the ladder and must turn the drill
+red. Ten load-bearing rows and one breaker; registered in `docs/loop-drill-runbook.md` §9 as
+`hermetic` with a `bearing: "breaker"` row, so `verify-all` reaches it and CI gives it its own
+matrix leg.
+
+### Discovered Insights
+
+- **Insight**: The drill was time-racy on its first run and passed or failed depending on whether
+  a second had elapsed. `landed` is a `git log --since` read over the survey's window, so a
+  fixture committed *now* is inside **any** window — the eligible direction then reads
+  `quiescent` and is refused `arrived` by the rung *above* the one under test, and the drill
+  silently exercises the wrong gate. `GIT_COMMITTER_DATE` into the past is the control, which is
+  what `verify-cadence-lapse` already does and for the same reason. **Context**: any fixture whose
+  verdict depends on a window needs its commit date pinned, not its file mtimes.
+- **Insight**: `$( ( cmd ) || true )` needs the space. Written `$(( cd ... ) || true)` it is
+  parsed as **arithmetic expansion** by POSIX `sh`, and `bash -n` accepts it while `sh -n` reports
+  only `end of file unexpected` with no line number. The drill files are `#!/bin/sh`, so `sh -n`
+  is the check that matters.
+- **Insight**: The two halves of this drill fail in opposite directions, and the dangerous one is
+  the quiet one: a regression that holds every repository by default stops the loop with nobody
+  told. That is why the absent-declaration row carries the same weight as the hold itself rather
+  than riding as a footnote — an asymmetry worth copying wherever a brake is added.

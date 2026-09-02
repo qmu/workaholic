@@ -9,14 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.2
 feedback: [20260901112130-the-unmerged-branch-list-is-30-long-and-22-of-them-are-dead.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260901-115944
+claim: work-20260902-063614
 ---
 
 # Leave only live work in the unmerged-branch list
@@ -37,8 +37,8 @@ diagnosis of the in-flight gate. Not `superseded`.
 
 - [x] A merged branch and a closed-unmerged one are each their own retirement candidate,
       proved from the pull request, and CI deletes them. (#20260901112558-name-a-merged-branch-as-a-retirement-candidate.md)
-- [ ] An open pull request whose head branch is gone is named where the operator reads it. (#20260901112558-name-an-open-pull-request-with-no-head-branch.md)
-- [ ] Why the gate let five duplicates through is localized, and a drill proves the new
+- [x] An open pull request whose head branch is gone is named where the operator reads it. (#20260901112558-name-an-open-pull-request-with-no-head-branch.md)
+- [x] Why the gate let five duplicates through is localized, and a drill proves the new
       readings offline. (#20260901112558-localize-why-the-in-flight-gate-let-a-duplicate-through.md)
 
 ## Experience
@@ -56,3 +56,8 @@ defect five times is written down rather than guessed at.
 - 2026-09-01 — ticket archived — 20260901112558-name-a-closed-unmerged-branch-as-its-own-candidate.md
 - 2026-09-01 — ticket archived — 20260901112558-bound-the-ci-delete-act-by-the-new-candidates.md
 - 2026-09-01 — ticket archived — 20260901112558-drill-the-two-retirement-candidate-readings-offline.md
+- 2026-09-02 — ticket archived — 20260901112558-name-an-open-pull-request-with-no-head-branch.md
+- 2026-09-02 — ticket archived — 20260901112558-localize-why-the-in-flight-gate-let-a-duplicate-through.md
+- 2026-09-02 — ticket archived — 20260901112558-state-the-retirement-paths-where-the-claims-are-read.md
+- 2026-09-02 — story recorded — work-20260902-063614.md
+- 2026-09-02 — run recorded (+1.2h) — work-20260902-063614

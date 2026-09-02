@@ -36,6 +36,15 @@
 # team's branches may vanish is a judgment about somebody's work in progress, and this is
 # the same line the rename registry's `name` rows draw (`proposed, never applied`).
 #
+# THE PRINTED COMMAND IS NO LONGER THE ONLY ROUTE (2026-09-01, mission
+# `leave-only-live-work-in-the-unmerged-branch-list`). `drive/scripts/list-retirable-claims.sh`
+# now names a `work-*` branch whose own pull request MERGED or was CLOSED UNMERGED as its own
+# retirement candidate, and `.github/workflows/claim-retirement.yml` acts on each — so the
+# backlog this report describes drains without anybody running the command. Nothing here
+# changed: this is still a report, and the printed command is what clears the branches CI
+# refuses by name (`branch_holds_work`, `emptiness_unanswerable`, `not_on_base`, …).
+# Measured on this repository: 30 unmerged branches on 2026-09-01, 7 the next day.
+#
 # NOT MERGE-METHOD OPINIONS. `allow_squash_merge`, `allow_merge_commit` and the rest are a
 # repository's own taste and no mechanism here reads them; only the one setting a workaholic
 # mechanism depends on is checked, so the check cannot grow into a house-style audit.

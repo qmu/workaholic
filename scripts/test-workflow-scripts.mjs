@@ -21621,6 +21621,7 @@ const tests = [
   ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
   ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
+  ["drive/claim-mission-state.sh: is the work behind this claim still wanted", testClaimMissionState],
   ["the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls],
   ["branching/list-headless-pulls.sh: an open pull request with no branch left", testHeadlessPulls],
   ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
@@ -34331,6 +34332,104 @@ esac
     assertEq("an unreadable reading asks nobody", [s2.needs_agent.length, s2.event], [0, ""]);
     assertTrue("...and is named as unreadable, never as nothing headless",
       /could not be read \(branches_unreadable\)/.test(s2.summary), s2.summary);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// IS THE WORK BEHIND THIS CLAIM STILL WANTED (2026-09-02, mission
+// `retire-a-claim-whose-work-is-finished-or-abandoned`).
+//
+// Retirement is keyed on the branch's own pull request, so nothing could answer whether the
+// mission the claim serves has ended. Five things are pinned, each because it is what a later
+// change would quietly lose:
+//
+//   1. THE AREA DECIDES, and `status` rides beside the answer rather than being it.
+//   2. A `batch-<ts>` UNIT IS A REAL ANSWER, never `not_active` — the wrong direction would
+//      make every batch claim in a repository read as retired-by-definition.
+//   3. AN UNREADABLE MISSION IS `ok: false`, and every degradation emits NO `state` KEY at
+//      all: a wrong `not_active` deletes a live branch.
+//   4. IT EXITS 0 IN EVERY CASE, so a caller's scan is never turned into a failed scan.
+//   5. THE WORDS ARE CLASSIFIED in `claims.md`, each as a proof or a judgement.
+//
+// Offline throughout: a throwaway repository, no `gh`, no network.
+function testClaimMissionState() {
+  const DRV = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-claim-mission-state-"));
+  const repo = join(tmp, "repo");
+  mkdirSync(repo, { recursive: true });
+
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false",
+      { cwd: repo });
+    const w = (p, body) => {
+      mkdirSync(join(repo, dirname(p)), { recursive: true });
+      writeFileSync(join(repo, p), body);
+    };
+    w(".workaholic/missions/active/alpha/mission.md",
+      "---\ntype: Mission\nslug: alpha\nstatus: active\nassignees: []\n---\n\n# Alpha\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/missions/archive/beta/mission.md",
+      "---\ntype: Mission\nslug: beta\nstatus: abandoned\nassignees: []\n---\n\n# Beta\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    // An archived mission whose `status:` never got written: the PLACE is the record.
+    w(".workaholic/missions/archive/gamma/mission.md",
+      "---\ntype: Mission\nslug: gamma\nstatus:\nassignees: []\n---\n\n# Gamma\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    execSync('git add -A && git commit -q -m "Seed the missions"', { cwd: repo });
+
+    const read = (unit) => {
+      const r = run(repo, `${POSIX_SH} ${DRV}/claim-mission-state.sh ${unit}`);
+      return { ...JSON.parse(r.stdout), status_code: r.status };
+    };
+
+    // --- 1. THE AREA DECIDES -----------------------------------------------------------------
+    assertEq("a mission in missions/active/ is active",
+      [read("alpha").ok, read("alpha").kind, read("alpha").state], [true, "mission", "active"]);
+    assertTrue("...and carries no status of its own to disagree with the place",
+      !Object.prototype.hasOwnProperty.call(read("alpha"), "status"), JSON.stringify(read("alpha")));
+    assertEq("a mission in missions/archive/ is not_active, with its status beside it",
+      [read("beta").state, read("beta").status], ["not_active", "abandoned"]);
+    assertEq("an archived mission with no status is still not_active, with an empty status",
+      [read("gamma").state, read("gamma").status], ["not_active", ""]);
+
+    // --- 2. A BATCH UNIT IS A REAL ANSWER ----------------------------------------------------
+    const batch = read("batch-20260902-010203");
+    assertEq("a batch unit names no mission and answers kind: batch",
+      [batch.ok, batch.kind], [true, "batch"]);
+    assertTrue("...and never not_active, which would retire every batch claim by construction",
+      !Object.prototype.hasOwnProperty.call(batch, "state"), JSON.stringify(batch));
+
+    // --- 3. EVERY DEGRADATION IS NAMED AND CARRIES NO `state` --------------------------------
+    for (const [unit, reason] of [["no-such-mission", "mission_not_found"]]) {
+      const bad = read(unit);
+      assertEq(`an unreadable mission is ok:false with reason ${reason}`,
+        [bad.ok, bad.reason], [false, reason]);
+      assertTrue("...and emits no state key at all",
+        !Object.prototype.hasOwnProperty.call(bad, "state"), JSON.stringify(bad));
+    }
+    const noArg = JSON.parse(run(repo, `${POSIX_SH} ${DRV}/claim-mission-state.sh`).stdout);
+    assertEq("no unit at all is named rather than guessed", [noArg.ok, noArg.reason],
+      [false, "no_unit"]);
+
+    // --- 4. EXIT 0 IN EVERY CASE -------------------------------------------------------------
+    assertEq("every reading exits 0, so a caller's scan is never failed by one",
+      [read("alpha").status_code, read("beta").status_code, read("no-such-mission").status_code],
+      [0, 0, 0]);
+
+    // --- 5. THE WORDS ARE CLASSIFIED ---------------------------------------------------------
+    const claimsDoc = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+    assertTrue("claim-mission-state.sh's vocabulary has its own sub-table in the one home",
+      claimsDoc.includes("#### Whether the work behind a claim is still wanted"),
+      "claims.md carries no classification for it");
+    assertTrue("`not_active` is classified a proof, on authorship",
+      /\| `not_active` \| \*\*proof\*\*/.test(claimsDoc), "not_active is unclassified");
+    assertTrue("`active` is classified a judgement — it is designed to become false",
+      /\| `active` \| judgement \|/.test(claimsDoc), "active is unclassified");
+    assertTrue("and the degradations are judgements, being the absence of a reading",
+      /mission_list_unreadable[^|]*\| judgement \|/.test(claimsDoc),
+      "the degraded words are unclassified");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

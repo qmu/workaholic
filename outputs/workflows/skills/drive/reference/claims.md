@@ -1174,6 +1174,43 @@ reopens the pull request, re-runs the delete on the strength of an answer, or to
 narrowing) and `verify-act-effect` (the effect reading, both causes, and the changed-word
 re-ask).
 
+#### Whether the work behind a claim is still wanted (`claim-mission-state.sh`)
+
+**Another keyed vocabulary in this home** (2026-09-02, mission
+`retire-a-claim-whose-work-is-finished-or-abandoned`), emitted by
+`drive/scripts/claim-mission-state.sh`. It sits here rather than in the `## Proofs and
+judgements` chain for `candidate_reason`'s reason: it is a reading *about a retirement*, keyed
+on a unit rather than on a claim verdict, and one column cannot classify two questions.
+
+Retirement is keyed on the branch's own pull request, so nothing in the protocol could answer
+*is the work behind this claim still wanted*. Measured: the operator closed a pull request and
+abandoned its mission, and the tick reported that branch as stuck work hourly until a person
+deleted it — a mission's end state is read by no claim-side script at all.
+
+| Word | Class | What established it, and what a consumer may do |
+| ---- | ----- | ----------------------------------------------- |
+| `not_active` | **proof** | The mission is in `missions/archive/`, where `close.sh` — its only writer — put it. What makes this safe is **authorship**: a person's recorded decision that the work is finished or is not wanted, and re-opening is offered nowhere, so it cannot become false by looking again. Same standing, and the same argument, as `pull_request_closed_unmerged` above. |
+| `active` | judgement | The mission is in `missions/active/`. It is a positive reading of the tree and not the absence of one — but it is designed to become false the moment somebody closes the mission, which is the one property a proof must not have. A consumer may **report** it or refuse on it; nothing may treat it as durable. |
+| `batch` | **proof** | The unit id is a `batch-<ts>`, which names no mission at all. The id is immutable, so the reading cannot change; it **licenses nothing**, because *is this mission still wanted* has no subject here. It emits no `state` key, so a consumer keying on `state` cannot read the absence as a value. |
+| `ok: false` (`mission_not_found`, `mission_list_unreadable`, `mission_area_unresolved`, `no_unit`, `jq_unavailable`) | judgement | The **absence of a reading**, which this protocol never acts on. No `state` key is emitted at all. A wrong `not_active` deletes a live branch; a wrong `ok: false` only makes a caller wait — the asymmetry that decides every reading here. |
+
+**The area decides and `status` rides along.** `achieved`, `abandoned` and `carried` are three
+different reasons the work stopped, so a consumer that must tell them apart has the word, while
+one that only needs *is it still wanted* reads `state`. An archived mission whose `status:` is
+empty still answers `not_active` with an empty `status` — the place is the record, and inventing
+a status here would be a second writer of one.
+
+**It is a reader and never a verdict.** It names no candidate, fires no act, moves no claim
+verdict and writes nothing anywhere. Whether `not_active` is strong enough to license a branch
+delete is the **candidate's** question, settled where the candidate is derived — the split
+`branch-pull-request-state.sh` states for itself and the one `retire-claim.sh` refuses to
+collapse.
+
+**Consumers**: `drive/scripts/list-retirable-claims.sh` (the candidate reading), and
+`moderate/scripts/step-stalled-units.sh` (which filters a retired-by-definition claim out of its
+own candidates and counts it instead). A third must be registered here rather than slipping in
+unclassified.
+
 ## Catch a claim up with a base that moved
 
 ```bash

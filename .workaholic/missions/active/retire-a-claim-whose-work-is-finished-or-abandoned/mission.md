@@ -50,3 +50,4 @@ stuck work. What is reported as stuck is only what somebody could still act on.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260902062857-read-a-claim-s-mission-status-from-the-tree.md

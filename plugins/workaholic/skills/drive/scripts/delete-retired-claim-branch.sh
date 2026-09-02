@@ -3,12 +3,15 @@
 #
 # Usage: delete-retired-claim-branch.sh <unit-id> [--branch <branch>] [--reason <candidate_reason>]
 #   --reason  which proof the candidate claims: `superseded_only` (the default, and what every
-#             caller passed before 2026-09-01), `pull_request_merged`, or
-#             `pull_request_closed_unmerged`. Each is RE-DERIVED here; the flag says which
-#             question to re-ask, never what the answer is.
-#   --branch  required for the two pull-request classes, whose candidates may carry NO unit at
-#             all: a publish-tree publication has no `Claim` commit, so the oracle names no
-#             unit for it and `<unit-id>` is empty. Refused `no_branch` when absent.
+#             caller passed before 2026-09-01), `pull_request_merged`,
+#             `pull_request_closed_unmerged`, or `mission_not_active` (2026-09-02 — the unit's
+#             mission has ended, and that class needs a unit and refuses `no_unit_for_mission_class`
+#             without one). Each is RE-DERIVED here; the flag says which question to re-ask,
+#             never what the answer is.
+#   --branch  required for every class but `superseded_only`, because the two pull-request
+#             classes' candidates may carry NO unit at all: a publish-tree publication has no
+#             `Claim` commit, so the oracle names no unit for it and `<unit-id>` is empty.
+#             Refused `no_branch` when absent.
 # Output: {"deleted": bool, "unit": "...", "branch": "...",
 #          "state": "deleted"|"already_gone"|"failed"|"not_attempted", "reason": ""}
 #         `reason` is a CLOSED VOCABULARY, empty on a delete that happened. Refusals before the
@@ -99,6 +102,19 @@
 # own proof (merged) or by the emptiness term above (closed unmerged), never by a bound that
 # would silently read as satisfied because there was nothing to evaluate.
 #
+# `not_on_base` NOW REFUSES MORE THAN ITS NAME SAYS, AND THE NAME IS KEPT DELIBERATELY
+# (2026-09-01, issue #788; re-documented 2026-09-02). Since the emptiness term joined
+# `claims_superseded`, re-deriving that verdict refuses on TWO facts, not one: the unit's
+# tickets are not archived on the base, OR the branch still holds content the base does not
+# have. The word says only the first. It is not renamed because a refusal word is a wire
+# string — it reaches `record-ci-retirement-turn.sh`'s annotations, `read-ci-retirement-record.sh`,
+# `/moderate`'s `retire-blocked:<unit>:<word>` question key and its asked-once ledger, so
+# renaming it would re-ask every standing question under a new key and orphan every record
+# written under the old one. What it costs is this paragraph; what renaming would cost is a
+# person being asked twice about a branch nothing changed about. A reader chasing `not_on_base`
+# is sent here, and `branch_holds_work` / `emptiness_unanswerable` below are the SAME question
+# asked where the emptiness is a gate of its own rather than the row's evidence.
+#
 # NO NEW TRANSPORT, NO NEW PERMISSION. It is the same REST seam run by the same executor, two
 # candidate classes over.
 
@@ -111,6 +127,7 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 
 GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 PR_STATE="${SCRIPT_DIR}/branch-pull-request-state.sh"
+MISSION_STATE="${SCRIPT_DIR}/claim-mission-state.sh"
 
 unit=""
 CAND_BRANCH=""
@@ -126,7 +143,7 @@ while [ $# -gt 0 ]; do
 done
 
 case "$CAND_REASON" in
-    superseded_only|pull_request_merged|pull_request_closed_unmerged) ;;
+    superseded_only|pull_request_merged|pull_request_closed_unmerged|mission_not_active) ;;
     *) echo "Unknown --reason: $CAND_REASON" >&2; exit 1 ;;
 esac
 
@@ -192,11 +209,29 @@ if [ "$CAND_REASON" != "superseded_only" ]; then
     _dr_unit=$(printf '%s' "$ROWS" | awk -F'\t' -v b="$BRANCH" '$2 == b { print $1; exit }')
     if [ -n "$_dr_unit" ]; then
         [ -n "$unit" ] || unit="$_dr_unit"
-        case "$(claims_unit_resolution "$ROWS" "$_dr_unit")" in
-            live | single | ambiguous)
-                refuse "not_superseded:$(printf '%s' "$ROWS" \
-                    | awk -F'\t' -v b="$BRANCH" '$2 == b { print $7; exit }')" ;;
-        esac
+        _dr_res=$(claims_unit_resolution "$ROWS" "$_dr_unit")
+        _dr_verdict=$(printf '%s' "$ROWS" | awk -F'\t' -v b="$BRANCH" '$2 == b { print $7; exit }')
+        if [ "$CAND_REASON" = "mission_not_active" ]; then
+            # THE MISSION CLASS RE-DERIVES THE READER'S OWN BOUND, WHICH IS NARROWER THAN THIS
+            # ONE AND NOT A LOOSENING OF IT (2026-09-02). The two pull-request classes exist for
+            # branches the oracle holds NO row for, so for them any row at all is a live claim
+            # beating a fact about old work. This class is enumerated FROM the rows — a claim
+            # branch always has one — so refusing every row would make it unreachable by
+            # construction. What it refuses instead is exactly what the reader refuses:
+            # `live` and `ambiguous` (another claim governs) and a `claim_active` verdict (a run
+            # is driving this branch right now, which is the one loss that cannot be recovered).
+            case "$_dr_res" in
+                single) [ "$_dr_verdict" != "claim_active" ] || refuse "not_superseded:${_dr_verdict}" ;;
+                *)      refuse "not_superseded:${_dr_verdict:-$_dr_res}" ;;
+            esac
+        else
+            case "$_dr_res" in
+                live | single | ambiguous) refuse "not_superseded:${_dr_verdict}" ;;
+            esac
+        fi
+    elif [ "$CAND_REASON" = "mission_not_active" ]; then
+        # No row at all means no claim, so there is no unit for this class to re-derive from.
+        refuse no_unit_for_mission_class
     fi
 
     [ -f "$PR_STATE" ] || refuse pull_request_unreadable:no_reader_script
@@ -207,7 +242,36 @@ if [ "$CAND_REASON" != "superseded_only" ]; then
     fi
     _dr_state=$(printf '%s' "$_dr_pr" | jq -r '.state // ""' 2>/dev/null || printf '')
 
-    if [ "$CAND_REASON" = "pull_request_merged" ]; then
+    if [ "$CAND_REASON" = "mission_not_active" ]; then
+        # THE FOURTH CLASS, RE-DERIVED AT THE MOMENT OF THE ACT (2026-09-02, mission
+        # `retire-a-claim-whose-work-is-finished-or-abandoned`). The proof is that `close.sh`
+        # — the only writer of a mission's end state — moved this unit's mission into
+        # `missions/archive/`: a person's recorded decision that the work is finished or is
+        # not wanted, which cannot become false by looking again.
+        #
+        # AN OPEN PULL REQUEST IS STILL REFUSED, and the bound is NOT widened for this class.
+        # Deleting the head branch of an open pull request leaves it unmergeable by anybody
+        # forever — the headless shape measured on #813, #799, #688, #635 and #625, every one
+        # of which a person had to close by hand. The existing `pull_request_open` gate below
+        # covers it, and the candidate reader declines to offer such a branch at all.
+        [ -n "$unit" ] || refuse no_unit_for_mission_class
+        [ -f "$MISSION_STATE" ] || refuse mission_unreadable:no_reader_script
+        _dr_ms=$(sh "$MISSION_STATE" "$unit" 2>/dev/null || true)
+        if [ "$(printf '%s' "$_dr_ms" | jq -r '.ok // false' 2>/dev/null || printf 'false')" != "true" ]; then
+            refuse "mission_unreadable:$(printf '%s' "$_dr_ms" \
+                | jq -r '.reason // "unreadable"' 2>/dev/null || printf 'unreadable')"
+        fi
+        _dr_mstate=$(printf '%s' "$_dr_ms" | jq -r '.state // ""' 2>/dev/null || printf '')
+        [ "$_dr_mstate" = "not_active" ] || refuse "mission_still_active:${_dr_mstate:-unknown}"
+        # THE TERM THAT FAILS CLOSED, for `pull_request_closed_unmerged`'s own reason: a
+        # mission's end state is a decision about the WORK and asserts nothing about what this
+        # BRANCH holds. Issue #788 measured what assuming otherwise costs.
+        case "$(claims_branch_empty_against_base "$BASE" "origin/${BRANCH}")" in
+            true)  ;;
+            false) refuse branch_holds_work ;;
+            *)     refuse emptiness_unanswerable ;;
+        esac
+    elif [ "$CAND_REASON" = "pull_request_merged" ]; then
         [ "$_dr_state" = "merged" ] || refuse "not_merged:${_dr_state:-unknown}"
     else
         [ "$_dr_state" = "closed_unmerged" ] || refuse "not_closed_unmerged:${_dr_state:-unknown}"

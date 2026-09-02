@@ -31,6 +31,8 @@ every one lands on GitHub, not in the tree — the same contract `/standup` and
 
 ## The inbound sweep — the channel is read, not mentioned
 
+**Since 2026-09-02 the sweep is preceded by the Slack turn** (the developer's instruction, with the local five-minute loops — `workaholic:loops`): the same channel read, over the last `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10), answers a person's **question** in its own thread with the `💬` shape, reacts `:eyes:` to what is neither a question nor an ask, and hands every **ask** to the sweep below unchanged. The dedup for a reply is the thread itself — read first, post nothing if a reply of ours already follows the message — because a reply is not a filing and writes no `slack-ref`. The shape, its bounds and its degradations live in `commands/propose.md` and `workaholic:notify`'s catalog; this section owns the sweep and is otherwise unchanged.
+
 **Before the strategy judgment, the run sweeps the repository's designated Slack channel for
 asks nobody addressed to any bot** (2026-08-23, the developer's instruction). The loop's two
 inbound surfaces are now **GitHub issues** — which `[Specificate]`'s hourly discovery already
@@ -171,6 +173,45 @@ once, never by an hourly line here.
 Both were vacated in the same change and neither is claimed by any live template
 (`reference/loop.md`, *Taking the name back*).
 
+**What may originate a mission at all is stated once and cited, never restated here** — `rules/workaholic.md`, *What May Originate a Mission*: only a human's ask, or a strategy a human authored. This routine's two self-referential refusals (`self_refining` below, and the run-level brake beneath it) are that rule's consequences at this seam.
+
+## When only the loop has spoken, stop — the one run-level brake
+
+**Every other brake in `/propose` reads the repository** — a strategy's status, its date, its
+attributed work, its open proposals. None of them reads whether **anybody is still there**
+(2026-09-02, mission `refuse-an-ask-the-loop-wrote-to-itself`; the operator's instruction:
+*when the loop is the only one talking in the channel, that is the signal to stop, not to
+propose*). A loop whose channel carries only its own posts is a loop with no one to serve, and
+the measured cost of proposing into that silence was a day of merged work the operator tore
+out by hand.
+
+**The reading comes off the sweep the run already makes** — no second query, no second window,
+no cursor. Over the sweep's own window, was there any human message at all? Three values:
+**`human_spoke`**, **`only_the_loop_spoke`**, **`unreadable:<reason>`**. The sweep already
+tells the loop's own posts from a person's by shape (`workaholic:notify`'s catalog), which is
+the same distinction this needs.
+
+**On `only_the_loop_spoke` the tick originates nothing**: it opens no proposal, posts nothing,
+and reports the refusal by that word. It is the one brake that refuses **every** direction at
+once — every other gate is per-direction — and that difference is stated here so it is not
+mistaken for one of them.
+
+**An unreadable channel never brakes.** A gate that cannot be read is not a gate, the rule
+`inbox_unreadable` already holds; a repository with **no Slack transport at all** reads
+`unreadable`, never silence. The reading is reported whether or not it fires, so a reader can
+tell a quiet channel from a quiet loop.
+
+**The reactive half is untouched.** An issue somebody filed, an ask the sweep just captured, a
+`/specificate` run: all still work. The brake is on **origination**, exactly as `observing` and
+`arrived` are.
+
+**The cost is stated rather than tuned against.** A weekend or a holiday reads as abandonment
+and costs one tick of proposals. That is the operator's own framing accepted deliberately — a
+stopped origination costs an hour, and the alternative cost a day of work they tore out. The
+window is the sweep's own `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26), reused because
+it is the evidence the judgment is made against; a second number would be a constant nobody
+can defend.
+
 ## The unit is a mission, not a change
 
 **One proposal plans one mission** (2026-08-26, the operator's ask). The issue names a mission
@@ -233,6 +274,31 @@ path and never through origination. **And a `depth` move has a floor**: it names
 item or Schedule milestone it advances, on the strategy it targets — a move that can justify
 itself only by "the same reasoning has not yet been applied to X" is describing the move, not
 the aim, and is refused with it.
+
+**A move that DEEPENS THE LOOP'S OWN INVENTION is refused by name** (2026-09-02, mission
+`refuse-an-ask-the-loop-wrote-to-itself`). **Measured**: a chain five links long in one day — a
+verdict, then where its difference is seen, then what present practice it is measured from, then
+recording that practice — each link a defensible `depth` move against the Aim, each proposed,
+ticketed, implemented and merged by the next ticks, and the operator abandoned the direction
+mid-drive and reported the whole day as waste with their own development stopped throughout.
+`depth` on a documentation-shaped aim can always invent one more axis, and nothing at the bar
+asked whether **the thing being deepened was itself the loop's own invention**.
+
+The refusal is **`self_refining`**, and the test the run applies at composition is: *does the
+thing this move deepens trace back to a human's ask or a human-authored strategy — or only to a
+previous proposal this loop wrote?* A chain whose root is the loop's own output is refused, and
+the tick reports the word rather than reading as idle.
+
+**What it must not catch**, named here so the rule is bounded rather than chilling: a second
+mission answering a **human's** ask on the same subject, and the follow-up repair mission the
+strategy's own scale allows (one mission of ~7–8 tickets plus at most one of 3–4 repair
+tickets). Depth is not banned; depth on the loop's own invention is.
+
+**It is a judgement, not a gate, and it stays out of the mechanics.** It reaches no expression
+in `survey-strategies.sh`, changes no `refusal`, no `pace`, no sort and no `selected`; a survey
+run over the current strategies is byte-identical before and after. It is not folded into
+`describing_move` either — one word answering two questions is how two questions drift, which
+this repository has recorded twice.
 
 *Why the housekeeping refusal below does not already catch it.* That one works because
 housekeeping is chosen against **nothing** — nobody argues for the mess — so the body floor's

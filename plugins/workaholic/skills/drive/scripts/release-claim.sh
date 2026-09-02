@@ -101,6 +101,7 @@ if [ "$(claims_unit_resolution "$rows" "$unit")" = "ambiguous" ]; then
     exit 1
 fi
 branch=$(claims_unit_row "$rows" "$unit" | cut -f2)
+
 worktree_path="${repo_root}/.worktrees/${unit}"
 if [ -z "$branch" ] && [ -d "$worktree_path" ]; then
     branch="$(git -C "$worktree_path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"

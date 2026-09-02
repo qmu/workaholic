@@ -53,10 +53,36 @@
 #
 # HOW REVERSIBLE EACH ACT IS, stated rather than assumed: a pull request closed in error is
 # REOPENABLE on GitHub with its review history intact; a deleted remote branch is recoverable
-# from the base's own history (its content is on the base — that is what `superseded` means) and
-# from any local clone's reflog; the worktree is local and `claim.sh resume` rebuilds one at a
-# branch tip. None of the three destroys work. That is a property of acting only on the proof,
-# not a licence to widen the verdict set.
+# from the base's own history and from any local clone's reflog; the worktree is local and
+# `claim.sh resume` rebuilds one at a branch tip. None of the three destroys work. That is a
+# property of acting only on the proof, not a licence to widen the verdict set.
+#
+# THE RECOVERY ABOVE RESTS ON TWO SEPARATE PROOFS, AND SAYING SO IS NOT PEDANTRY (2026-09-01,
+# issue #788). Until then this comment read "*its content is on the base — that is what
+# `superseded` means*", and that parenthesis was the load-bearing half of the whole safety
+# argument. It was FALSE. `superseded` proved one thing and the recovery claimed another:
+#
+#   * THE TICKETS ARE ARCHIVED ON THE BASE — proved by `claims_archived_on_base` at the batch
+#     grain, `claims_mission_landed` / the merged-pull-request lookup at the mission grain.
+#   * THE BRANCH HOLDS NO WORK — proved by `claims_branch_empty_against_base`, one `merge-base`
+#     and one `diff --quiet` (`lib/claims.sh`).
+#
+# Neither implies the other. The step from the first to the second holds only when a branch
+# carries nothing but its own unit's tickets, and the measured branches did not: two of them,
+# whose tickets had landed through DIFFERENT branches, still held ~300 lines of code and a
+# documentation section present on no other ref, and this act was being asked to delete both.
+#
+# THE 403 IS PART OF THE RECORD, HONESTLY. The delete has never actually run against those
+# branches — a session-type refusal on `push --delete` had been failing it for five days — so
+# the loss is a NEAR MISS rather than a history, and the tick was reporting that refusal as the
+# problem. Which is exactly why the derivation had to be repaired first: repairing the transport
+# alone would have turned a reported nuisance into a silent loss on the first tick after the fix.
+#
+# THE SECOND PROOF IS NOW A TERM OF THE VERDICT, so the recovery sentence above is true by
+# construction rather than by hope, and an unanswerable emptiness answers `stranded` instead —
+# it does not license this act at all. Do not remove the diff term as redundant with the archive
+# test: they answer different questions, and this comment is the record of what it cost to
+# discover that.
 #
 # THE ORDER IS CLOSE, DELETE, REAP, and it is the reverse of `release-claim.sh`'s on purpose.
 # That script tears the worktree down FIRST because it discards UNFINISHED work and must not
@@ -153,6 +179,7 @@ esac
 row=$(claims_unit_row "$ROWS" "$unit")
 [ -n "$row" ] || refuse no_such_claim
 BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
+
 verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
 
 # THE PROOF GATE. Nothing but `superseded` reaches the three acts.

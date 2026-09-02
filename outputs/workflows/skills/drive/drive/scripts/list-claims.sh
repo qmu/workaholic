@@ -18,12 +18,17 @@
 #             "resumable": false, "resume_reason": "claim_active",
 #             "reported": false, "declared_handoff": false,
 #             "mergeability": "clean"|"mechanical"|"content"|"unanswerable",
-#             "mergeability_reason": ""}, ...]}
+#             "mergeability_reason": "",
+#             "stranded_files": [...], "stranded_file_count": N}, ...]}
+#
+# `stranded_files` is the bounded list of paths a `stranded` branch carries that the base does
+# not, with `stranded_file_count` the TRUE total beside it. Both are empty/zero on every other
+# row: the listing costs a second diff and only the stranded question needs it.
 #
 # `mergeability` says whether the BASE still accepts this branch, which is a different question
 # from `resume_reason`'s *whose business is this claim* and was asked by nothing until
 # 2026-08-29. `content` is the one value that needs a person -- a conflict the loop must not
-# resolve -- and `/moderate`'s `catchup-blocked:<unit>` step is what reaches them. It is derived
+# resolve -- and the acting caller's own run report is what names it. It is derived
 # offline through `claim-mergeability.sh` (`git merge-tree`, no worktree, no ref, no network
 # call this scan has not already made), and every one of its four values is a JUDGEMENT: a base
 # that moves is exactly a reading that becomes false by looking again.
@@ -153,7 +158,7 @@ if [ -n "$rows" ]; then
         # scan has not already made), and it is REPORTED here, never acted on: all four values
         # are judgements, and `catch-up-claim.sh` re-derives its own at the moment of its act.
         # The conflicted paths ride the row for the same reason `merge_outcome` does: the one
-        # consumer that must NAME them (`/moderate`'s `catchup-blocked` question) would
+        # consumer that must NAME them (the acting caller's own report) would
         # otherwise call the reader a second time, and two reads of one fact drift.
         mergeability=unanswerable
         mergeability_reason=no_reader_script
@@ -170,7 +175,32 @@ if [ -n "$rows" ]; then
                 mergeability_reason=unreadable
             fi
         fi
-        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"declared_handoff\": ${declared_handoff}, \"merge_outcome\": \"${merge_outcome}\", \"mergeability\": \"${mergeability}\", \"mergeability_reason\": \"${mergeability_reason}\", \"mergeability_content_files\": ${mergeability_content_files}}"
+        # WHAT A STRANDED BRANCH ACTUALLY HOLDS, ON THE ROW THAT SAYS IT IS STRANDED
+        # (2026-09-02, ticket `20260831203454-tell-a-person-about-a-stranded-claim-branch`).
+        # The verdict says *this branch carries work nothing else has*; a person asked to rule
+        # on it cannot without knowing WHAT. The names are derived here rather than by the
+        # question, on `mergeability_content_files`' own precedent: the one consumer that must
+        # NAME something reads it off the row, because two reads of one fact drift.
+        #
+        # ONLY ON A `stranded` ROW. The listing costs a second `git diff` (measured: 373 ms vs
+        # 1484 ms per 50 readings), and every other row's answer is already `true` or is not
+        # about emptiness at all. `stranded` is rare by construction — a claim whose tickets
+        # landed through another branch — so the scan's cost does not move.
+        stranded_files="[]"
+        stranded_file_count=0
+        if [ "$resume_reason" = "stranded" ]; then
+            _lc_e=$(claims_branch_emptiness "$base" "origin/${branch}" files)
+            _lc_rest="${_lc_e#*	}"
+            _lc_rest="${_lc_rest#*	}"
+            stranded_file_count="${_lc_rest%%	*}"
+            _lc_names="${_lc_rest#*	}"
+            [ -n "$stranded_file_count" ] || stranded_file_count=0
+            if [ -n "$_lc_names" ]; then
+                stranded_files=$(printf '%s' "$_lc_names" | tr ',' '\n' \
+                    | jq -R 'select(length > 0)' | jq -sc '.' 2>/dev/null || printf '[]')
+            fi
+        fi
+        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"declared_handoff\": ${declared_handoff}, \"merge_outcome\": \"${merge_outcome}\", \"mergeability\": \"${mergeability}\", \"mergeability_reason\": \"${mergeability_reason}\", \"mergeability_content_files\": ${mergeability_content_files}, \"stranded_files\": ${stranded_files}, \"stranded_file_count\": ${stranded_file_count}}"
         sep=", "
     done <<EOF
 $rows

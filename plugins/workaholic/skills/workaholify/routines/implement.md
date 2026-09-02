@@ -10,6 +10,7 @@ autofix_on_pr_create: true
 model: claude-opus-5
 allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch]
 mcp: [Slack]
+sources: [{repo}]
 ---
 
 # [Implement] — the unattended executor

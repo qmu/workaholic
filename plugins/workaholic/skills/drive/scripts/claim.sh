@@ -381,16 +381,6 @@ if [ -n "$rows" ]; then
     while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff held_arts; do
         [ -n "$held_unit" ] || continue
         if [ "$_held_reason" = "superseded" ]; then
-            # AND ITS ARBITRATION LOCK GOES WITH IT (2026-09-02). §3b contends on one ref per
-            # claimed artifact, and a `superseded` row is the one verdict this protocol calls a
-            # PROOF that the claim holds nothing — the same licence `retire-claim.sh` deletes a
-            # whole branch on. Stepping over the row without releasing its locks would leave the
-            # fresh claim `plan-units.sh` explicitly resurveys refused by a lock standing for a
-            # claim already proved empty: measured here as seven red rows the moment the
-            # arbitration landed. Releasing on the proof needs no age and guesses nothing.
-            if [ -f "${SCRIPT_DIR}/claim-arbitrate.sh" ] && [ -n "$held_arts" ]; then
-                sh "${SCRIPT_DIR}/claim-arbitrate.sh" release $(printf '%s' "$held_arts" | tr ',' ' ') >/dev/null 2>&1 || true
-            fi
             continue
         fi
         if [ "$held_unit" = "$unit" ]; then
@@ -476,10 +466,14 @@ fi
 # exactly the leak the mechanism must not create, and this run is the only thing that knows
 # it happened.
 arb_release() {
-    [ "$arbitrated" = "true" ] || return 0
     [ -n "${arb_refs:-}" ] || return 0
     sh "$ARBITER" release $arb_refs >/dev/null 2>&1 || true
-    arbitrated=false
+    # `arb_refs` is cleared so a second call is a no-op; `arbitrated` is NOT, because it
+    # reports whether this claim WON its arbitration — a fact about the act, which the caller
+    # reads to tell an arbitrated claim from one that ran where the transport refuses. Clearing
+    # it here made every successful claim report `arbitrated: false` the moment the lock was
+    # given back, which is the opposite of what happened.
+    arb_refs=""
 }
 
 # --- 4. Create the unit's worktree + branch --------------------------------
@@ -590,7 +584,22 @@ else
 fi
 
 if git -C "$worktree_path" push -u --quiet origin "$branch" >&2; then
-    :
+    # THE LOCK'S LIFETIME IS THE CLAIM ACT, NOT THE CLAIM (2026-09-02). §3b exists to close
+    # ONE window: between a runner deciding to claim and its branch reaching the remote, the
+    # oracle — which reads pushed `work-*` branches — cannot see it. The moment this push
+    # lands the oracle sees the claim, and the lock has done its whole job; keeping it would
+    # make it a second, weaker oracle that outlives what it stands for.
+    #
+    # MEASURED, and this is why the lifetime is written down rather than assumed: holding the
+    # lock for the life of the claim broke `a merged stamp is history, not a claim`. A merge
+    # releases a claim by definition and runs NOTHING in the container, so the survey re-offered
+    # the ticket immediately while a lock nobody could release still refused it — the ticket's
+    # own warning, *a ref nothing deletes makes an artifact claimable exactly once, forever*,
+    # arriving as a red row. Releasing here removes the whole class: a merged, released,
+    # retired or superseded claim needs no lock handling at all, because by then there is no
+    # lock. What remains is a process killed inside the window itself, and the arbiter's
+    # oracle-and-age sweep collects that.
+    arb_release
 else
     # Classify the failure before reporting it. The branch name is minted from the
     # clock to the second (create-mission-worktree.sh), so two runners claiming

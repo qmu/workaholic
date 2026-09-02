@@ -899,55 +899,29 @@ its own and pushes that, so the lease genuinely arbitrates.
 **All or nothing.** A take wins every ref or releases what it won and answers `lost`; a partial
 hold is the race with extra steps.
 
-**Where the locks are released**, named per path, because *a ref nothing deletes makes an
-artifact claimable exactly once, forever*:
+**THE LOCK'S LIFETIME IS THE CLAIM ACT, NOT THE CLAIM**, and that is the correction that made
+the whole mechanism safe. §3b exists to close **one** window: between a runner deciding to claim
+and its branch reaching the remote, the oracle — which reads pushed `work-*` branches — cannot
+see it. The moment the push lands the oracle sees the claim, so `claim.sh` **releases the locks
+right there**, and no lock outlives the act that took it.
 
-| Path | How |
+**Measured 2026-09-02**, because the first design held the lock for the life of the claim and it
+broke an existing row (*a merged stamp is history, not a claim*): a **merge** releases a claim by
+definition and runs **nothing** in the container, so the survey re-offered the ticket immediately
+while a lock nobody could release still refused it — the ticket's own warning, *a ref nothing
+deletes makes an artifact claimable exactly once, forever*, arriving as a red row rather than as
+a forecast. Ending the lock with the act removes the entire class: a merged, released, retired or
+`superseded` claim needs no lock handling at all, **because by then there is no lock**.
+
+So there are exactly two releases, and neither is a per-verdict rule:
+
+| When | How |
 | ---- | --- |
-| a claim that fails after winning | `claim.sh`'s `arb_release`, folded into `abort_claim` |
-| a **`superseded`** claim, when a fresh claim steps over it | `claim.sh` §3 releases that row's locks on the **proof** — the one verdict this protocol calls a proof that the claim holds nothing, and the same licence `retire-claim.sh` deletes a whole branch on. No age is involved and nothing is guessed. **Measured 2026-09-02**: without it, seven rows went red the moment the arbitration landed, because `plan-units.sh` resurveys exactly that work and the fresh claim met a lock standing for a claim already proved empty |
-| `release-claim.sh` | explicit, from the claim row's own artifact list |
-| `retire-claim.sh` | explicit, from the same row |
-| **the merge**, which releases a claim by definition and runs nothing in the container | the arbiter's **reap**: a lock no live claim stands behind (the oracle decides) **and** older than `WORKAHOLIC_CLAIM_ARBITER_STALE_MINUTES` (default 10). Both terms are required — between winning a lock and pushing the branch there are seconds in which the first is true of a perfectly healthy claim, and the age is what keeps the sweep from eating it |
+| the claim act ends | `claim.sh` — `arb_release` immediately after the successful push, and folded into `abort_claim` for every failure after a lock was won |
+| the act was **killed** inside its own window | the arbiter's **reap**: a lock **no live claim stands behind** (the oracle decides) **and** older than `WORKAHOLIC_CLAIM_ARBITER_STALE_MINUTES` (default 10). Both terms are required — inside the window the first is true of a perfectly healthy act, and the age is what keeps the sweep from eating it. Run **lazily** by `claim.sh`, only when a take is lost, then the take retried once, so the ordinary claim pays nothing |
 
-The reap is run by `claim.sh` **lazily**, only when a take is lost, then the take is retried
-once: the ordinary claim pays nothing, and a leak cannot make an artifact permanently
-unclaimable. **The residual cost, stated**: a process killed between winning a lock and pushing
-its branch leaves a lock the next lost take sweeps — seconds of exposure against an hour of
-duplicated driving.
-
-### `claim_race_lost` — the losing claim's own word
-
-Beside `resume_race_lost`, whose shape it follows, and **the claim act's vocabulary rather than
-the oracle's**: `lib/claims.sh` emits nothing new for it and the proofs-and-judgements tables do
-not move.
-
-**It is distinct from the two words it could have been folded into, and the distinction is the
-next action.** `branch_collision` means *two units minted one name inside one second — retry the
-same claim*; `push_failed` means *the remote did not take it*. A lost race is neither: it is the
-protocol **working**, and the runner should **survey again** rather than retry this claim. One
-word answering two next actions is what makes a state invisible — the precedent is
-`report_undelivered` beside `queue_drained`.
-
-**It is emitted only when the contended ref's create was refused BECAUSE THE REF EXISTS.** The
-arbiter classifies the push's own output: a rejected lease is `lost`, and any transport refusal —
-a proxy 403, an unreachable remote — is `unavailable`, which is not a refusal at all and lets the
-claim proceed. Collapsing them would tell a runner the protocol worked when the remote was simply
-out of reach.
-
-**The refusal is re-derived at the moment of the act**: the losing push *is* the evidence, never
-a reading handed in from the survey.
-
-**The loser holds nothing, by placement rather than by teardown.** §3b runs before §4 creates the
-worktree, so on `claim_race_lost` there is no `.worktrees/<unit-id>/`, no local `work-*` branch
-and no claim commit to unwind, and nothing of the loser reaches origin. Its next survey sees the
-winner's pushed branch and excludes the unit as an ordinary `already_claimed`.
-
-**What the refusal can and cannot name.** It carries `held_by_ref` — the contended ref — and
-`stale_lock`, which says the oracle knew of no claim behind that lock at that instant. It does
-**not** name the winner's branch, and does not guess one: the winner pushes moments after
-arbitrating, so at that instant the branch does not exist yet. `/moderate`'s `raced-units`
-question is what names both branches, once both exist.
+**The residual cost, stated**: a process killed between winning a lock and pushing leaves a lock
+the next lost take sweeps — seconds of exposure against an hour of duplicated driving.
 
 **`claims_scan` reads `work-*` refs and nothing else.** The contended ref is the **arbiter**,
 not a second oracle; no reader consults it, no verdict word was added, and the

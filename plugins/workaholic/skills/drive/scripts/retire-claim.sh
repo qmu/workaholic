@@ -179,20 +179,6 @@ esac
 row=$(claims_unit_row "$ROWS" "$unit")
 [ -n "$row" ] || refuse no_such_claim
 BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
-# GIVE THE ARBITRATION LOCKS BACK (2026-09-02, mission
-# `stop-two-runs-from-claiming-and-driving-one-unit`). A claim contends on one ref per claimed
-# artifact (`claim-arbitrate.sh`), and *a ref nothing deletes makes an artifact claimable
-# exactly once, forever*. This is the explicit release for this path; the merge — which
-# releases a claim by definition and runs nothing in the container — is covered by the
-# arbiter's own oracle-and-age sweep. Never load-bearing: a refused release leaves a lock the
-# sweep collects, so this never changes the outcome the caller reports.
-_arb_release_for_row() { # $1 = the claim row (tab-separated; field 10 is the artifact list)
-    _ar_arts=$(printf '%s' "${1:-}" | awk -F'\t' '{print $10}' | tr ',' ' ')
-    [ -n "$(printf '%s' "$_ar_arts" | tr -d '[:space:]')" ] || return 0
-    [ -f "${SCRIPT_DIR}/claim-arbitrate.sh" ] || return 0
-    sh "${SCRIPT_DIR}/claim-arbitrate.sh" release $_ar_arts >/dev/null 2>&1 || true
-}
-_arb_release_for_row "$row"
 
 verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
 

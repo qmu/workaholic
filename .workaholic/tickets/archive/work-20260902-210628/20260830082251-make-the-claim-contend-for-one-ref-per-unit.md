@@ -268,3 +268,18 @@ the arbiter was confirmed to genuinely fire in those fixtures (a local bare orig
   premise the earlier readings could not have known about.
   **Context**: A recorded impossibility deserves a cheap re-measure whenever the environment it
   was measured in has moved.
+
+### Correction, same branch — the lock's lifetime
+
+The first form of this work held each lock for the **life of the claim** and released it on every
+path that releases a claim. An existing row caught what that costs: *a merged stamp is history,
+not a claim* went red, because a **merge** releases a claim by definition and runs **nothing** in
+the container, so the survey re-offered the ticket while a lock nobody could release still refused
+it — this ticket's own warning arriving as a measurement.
+
+The lock's lifetime is now the **claim act**: §3b takes it, and `claim.sh` releases it the moment
+the branch is pushed, because from then on the oracle sees the claim and the lock stands for
+nothing. That removes the whole class — a merged, released, retired or `superseded` claim needs no
+lock handling at all — and leaves exactly one leak to collect, an act killed inside its own
+window, which the reap does. Step 5's "release the ref wherever the claim is released" is answered
+by making the ref not outlive the act; `claims.md` records it that way.

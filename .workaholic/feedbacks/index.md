@@ -651,4 +651,5 @@
 * [Give an ask that landed outside /implement a finish line in its own thread](20260903052643-give-an-ask-that-landed-outside-implement-a-finish-line-in-its-own-thread.md)
 * [draft-deploy-plan.sh renders non-ASCII target titles as escape sequences](20260903053327-draft-deploy-plan-sh-renders-non-ascii-target-titles-as-escape-sequences.md)
 * [A mission is the mid-term container, not an envelope around one ask](20260903053558-a-mission-is-the-mid-term-container-not-an-envelope-around-one-ask.md)
+* [survey-strategies.sh marks an arrived direction eligible, so the quiescent refusal lives only in prose](20260903053954-survey-strategies-sh-marks-an-arrived-direction-eligible-so-the-quiescent-refusal-lives-only-in-prose.md)
 <!-- okf:generated:end -->

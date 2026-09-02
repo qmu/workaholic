@@ -32,7 +32,7 @@
 # refused, the branch is left byte-identical, and the person who knows which side keeps its
 # behaviour is asked — which is what this header has always said the repair is.
 #
-# AND THIS STEP STILL REPORTS EVERY CONFLICTED PULL REQUEST, including one `catchup-blocked`
+# AND THIS STEP STILL REPORTS EVERY CONFLICTED PULL REQUEST, including one the catch-up
 # asks about. Filtering them here was written and then REFUSED, on a measurement rather than on
 # taste: the only way to know which units that step asks about is to read the claim oracle, and
 # `list-claims.sh` fetches — so a filter here would put a network fetch inside a step whose
@@ -40,7 +40,7 @@
 # carries a real `origin` URL. The ticket's requirement ("one asks and the other counts") is met
 # without it, because this step ASKS NOBODY ANYTHING: `needs_agent` is empty by construction,
 # its finding rides step 6's reminder, and the only question a person receives about such a unit
-# is `catchup-blocked`'s. Where two steps could each ASK, the split is enforced —
+# belongs to `/implement`'s catch-up, which attempts it. Where two steps could each ASK, the split is enforced —
 # `undelivered-units` filters a `mergeability: content` row out of its own candidates and counts
 # it instead.
 #

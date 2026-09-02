@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:26:30+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,59 @@ conflict "belongs to" someone who never comes.
   disappearing — say which, in the change, so nothing is quietly lost.
 - Sequenced last on purpose: retiring the report before the act exists would leave the
   condition invisible in the gap.
+
+## Final Report
+
+Development completed as planned. The operator's words about the step — *"was never asked for
+and is not working; it must not be used"* — are the whole warrant, and it is **retired, not
+disabled behind a flag**.
+
+- **`catchup-blocked` is gone** (step 1): the script deleted, its row removed from `run.sh`'s
+  `STEPS`, its spec §26 removed from `moderate/reference/workflow.md`, its `needs_ruling` row
+  removed from the findings table, and its entries removed from both step tables
+  (`workaholic:moderate` and `CLAUDE.md`, whose count moved to **thirty-two**). Its question key
+  is emitted nowhere. **The section numbers were deliberately not renumbered** — a gap at §26 is
+  the retirement's own record, and renumbering would break every `(§n)` cross-reference in the
+  file.
+- **The `content` class is named as the tick's own work** (step 2), in *What the tick repairs, on
+  what licenses it, and who does the rest*. The acting-step count is unchanged (four): this
+  retirement removes a **reporting** step, not an acting one.
+- **`stranded-publications` stopped deferring too** (step 3). It is not a reporting-only step, so
+  it survives — but its `content` candidate set drew a question addressed to the publication's
+  author, which is the same deferral one artifact over, and the acceptance names both. The
+  question is gone; the **count stays in the summary** and the event now names a repository fact
+  (*the next `[Implement]` tick attempts each*) rather than *waiting on a person*. Its
+  `stranded-publication-stale:<number>` question is untouched — that one is about a plan's age,
+  not about a conflict.
+- **Every deferring sentence was corrected** (step 3), across `moderate/reference/workflow.md`,
+  `moderate/SKILL.md`, six sibling step scripts, `drive/SKILL.md`, `drive/reference/routing.md`,
+  `drive/reference/claims.md`, four `drive/scripts/*.sh` headers and `CLAUDE.md`. Only sentences
+  **recording the retirement** still name the step.
+- **No orphan key remains** (step 4): a tree search for `catchup-blocked:` under `skills/`
+  returns nothing, so nothing can ask, hold, re-ask or count it. The drill asserts that absence
+  directly.
+- **The removal is proved rather than believed** (step 5): the drill's own row was inverted from
+  *the refused conflict reaches its claim holder* to **`catch_up_conflict_asks_nobody`**, and
+  `verify-stranded-publication`'s from *reaches a person* to **`stranded_content_asks_nobody`* —
+  each asserting the count survives and only the deferral is gone. Both drills pass; the suite
+  passes.
+
+**Where the reading went, so nothing is quietly lost** (the Considerations' requirement): the
+condition the retired step named is *a hunk the merge itself could not settle*. It is now
+reported **by the act that met it** — `/implement`'s run report carries `catch_up_refused:
+content_conflict` and `settle_refused: content_conflict` with the colliding files — and
+`merge-conflicts` still reports every conflicted pull request as a repository fact. What
+disappeared is only the **question**, which is what the operator ruled against.
+
+### Discovered Insights
+
+- **Insight**: Retiring a step is mostly a **prose** change. The script, the registry row and the
+  spec were three edits; the sentences in eleven other files that told a later session to defer
+  to a claim holder were twenty. A surviving sentence is what the next session obeys, so the
+  search for them is the work, not the deletion.
+  **Context**: The ticket's step 3 is the expensive one and is easy to read as tidying.
+- **Insight**: A drill row asserting *a person is told* inverts into *nobody is told* — but the
+  honest inversion also asserts **the count survives**. Without that second clause the row would
+  pass just as well if the step had stopped seeing content collisions altogether, which is a
+  different and worse outcome than the one intended.
+  **Context**: Every "stop asking" change needs its reading pinned beside the silence.

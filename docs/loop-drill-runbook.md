@@ -1001,7 +1001,7 @@ gets through.
 | `catch_up_content_refused` | a `content` conflict is not refused by its own word, or the branch tip moves | the contested case stays a person's; a refusal that writes anything is not a refusal |
 | `catch_up_scan_held_refused` | a `merge_not_attempted: <tier>` unit is caught up | the catch-up is **not a route around a gate**: a `hard`/`confirm` finding holding a pull request open is the gate working |
 | `catch_up_second_run_noop` | a branch that already contains the base does not report `already_current`, or a ref moves | idempotence, and the reason `already_current` is checked before liveness: reporting a no-op protects nothing |
-| `catch_up_blocked_asks_once` | the refused conflict does not reach its claim holder keyed once with the files named, or the **caught-up** unit also draws a question | `step-catchup-blocked.sh` — the split the mission rests on: *nobody has looked yet* and *the loop looked and only you can decide* tell somebody different things |
+| `catch_up_conflict_asks_nobody` | a surface still defers a conflict to a claim holder — the retired step is back, its key is emitted somewhere, or the registry names it again | `step-catchup-blocked.sh` should not exist (retired 2026-09-02); the residue of a merge the writer could not settle is reported by the **act**, in `/implement`'s run report, not asked about |
 | `catch_up_refuses_a_foreign_claim` | a colleague's claim branch tip **moves**, or the refusal is not named | **the deliberately broken seam**, written against the behaviour rather than a return shape. Verified by dropping `foreign_identity` from the verdict gate and neutering the `not_my_claim` comparison: the drill merged into `work-20260101-000004` and pushed it, failing exactly this row while the other eight stayed green — and restoring both turned it green again |
 | `catch_up_checkout_untouched` | the drill changed the checkout | every fixture lives outside the checkout |
 
@@ -1483,7 +1483,7 @@ repository may be on a different plugin version; this exercises this checkout's 
 | `stranded_rerun_is_a_noop` | `settle-stranded-publication.sh` — the act is no longer idempotent |
 | `stranded_clean_is_settled` | `settle-stranded-publication.sh` — the class gate narrowed back to `mechanical`, or the `clean` path started taking a catch-up it has nothing to do |
 | `stranded_clean_rerun_is_a_noop` | `settle-stranded-publication.sh` or `list-stranded-publications.sh` — a delivered publication is being acted on a second time, or the reader started naming a pull request nobody has open |
-| `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
+| `stranded_content_asks_nobody` | `step-stranded-publications.sh` — a content collision is deferring to the publication's author again (retired 2026-09-02), or it stopped being counted in the summary |
 | `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
 ## 5t-b. The stranded claim branch (does the loop refuse to delete work nothing else has?)

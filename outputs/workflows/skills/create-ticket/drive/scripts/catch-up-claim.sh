@@ -46,7 +46,7 @@
 # And the race the rule is really about is answered by `claim_active`: a run still committing
 # to that branch is left alone, so the only branches touched are ones whose heartbeat lapsed.
 # The genuinely contested case — a hunk the MERGE ITSELF could not settle — stays a person's,
-# and reaches them through `/moderate`'s `catchup-blocked:<unit>` question. Since 2026-09-02
+# and is reported by the caller's own run report. Since 2026-09-02
 # that judgement is the WRITER's residue rather than the reader's prediction: this script
 # attempts a `content`-classed branch instead of refusing before it is checked out, because the
 # reader computes without the repository's `.gitattributes` and is pessimistic by construction
@@ -218,7 +218,8 @@ mb_reason=$(printf '%s' "$mb" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
 # WHAT CHANGES IS WHERE THE REFUSAL LIVES, NOT WHETHER IT EXISTS. `content_conflict` is still
 # raised, by the writer's own residue below, with nothing pushed and the branch byte-identical —
 # a genuinely divergent hand-written hunk is still a person's, and `/moderate`'s
-# `catchup-blocked:<unit>` question still reaches them. What is gone is refusing on a guess.
+# caller's report still names it. What is gone is refusing on a guess, and the question that
+# handed it to a claim holder who never comes (`catchup-blocked`, retired 2026-09-02).
 #
 # NOTHING ELSE IS WIDENED, and the safety story is the one this script already had:
 #   * the writer auto-resolves only what its OWN proofs accept (`lib/conflict-class.sh`), so no

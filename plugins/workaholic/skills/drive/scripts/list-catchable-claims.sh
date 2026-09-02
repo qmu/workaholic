@@ -13,7 +13,7 @@
 #
 # WHY IT EXISTS (2026-08-30, mission `catch-a-reported-claim-up-before-its-conflict-hardens`).
 # One `mergeability` reading feeds two candidate sets that disagree. `/moderate`'s
-# `catchup-blocked` step ASKS about a `content` conflict on a `report_undelivered` OR a
+# retired `catchup-blocked` step ASKED about a `content` conflict on a `report_undelivered` OR a
 # `queue_drained` claim; `/implement` ACTS only on `report_undelivered`, because its one caller
 # is the `undelivered[]` loop. So a `queue_drained` claim is asked about once its conflict has
 # HARDENED and never acted on while it is still machine-settleable — the loop waiting for its

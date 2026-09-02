@@ -53,7 +53,8 @@
 # composed here and `step-merge-conflicts.sh`'s own header refuses a network read inside
 # these steps on a measurement. So the row names both classes and their actors rather
 # than deciding which one this pull request is; the per-branch judgement stays with
-# `catchup-blocked` (§26), which reads the class off a claim row that already has it.
+# `/implement`'s catch-up, which reads the class off a claim row that already has it and
+# attempts it (`catchup-blocked` was retired 2026-09-02).
 #
 # IT IS WORDING ONLY. `stuck:<digest>`, the `blocked_by` set, `headline` and the
 # `needs_agent` shape are byte-identical — the header above records that the heading was

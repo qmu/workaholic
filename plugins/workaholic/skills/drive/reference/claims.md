@@ -458,7 +458,7 @@ moment of its act rather than trusting a list it was handed, which is the discip
 | ---- | ----- | ----------------------------------------------- |
 | `clean` | judgement | `git merge-tree` produced no conflict at all — computed with the repository's own `.gitattributes` **out of reach**, because git reads merge attributes from the working tree and GitHub applies none of them when it answers `mergeable` (2026-09-01, ticket `20260901041500`: five publications read `clean` here and `dirty` there, and the loop was refused `merge_not_allowed` every hour). It says the merge *would* apply as of this read; the base moves every half hour, so it proves nothing durable. **Report it**; the catch-up re-derives it before acting. |
 | `mechanical` | judgement | Every conflicted path is one the shared rule (`ship/scripts/lib/conflict-class.sh`) can settle without a judgement: an append-only `.workaholic/` tail, a version/lockstep manifest, or generated output — including an OKF index, wholly generated or generated-inside-its-markers. A consumer may **act** on it only under *When a bounded act may read a judgement* below, which is where that exception and its enumerated consumers live; nothing acts on the word itself. |
-| `content` | judgement | Some other path conflicts. This is a **prediction that the merge will need a judgement**, not a finding that it does — since 2026-09-02 the catch-up and the publication act **attempt** it and let the writer decide (below). What refuses is the writer's own residue, still `content_conflict`, still writing nothing, and `/moderate`'s `catchup-blocked:<unit>` step still asks the claim holder. **A hunk the merge cannot settle is never resolved by a machine.** |
+| `content` | judgement | Some other path conflicts. This is a **prediction that the merge will need a judgement**, not a finding that it does — since 2026-09-02 the catch-up and the publication act **attempt** it and let the writer decide (below). What refuses is the writer's own residue, still `content_conflict`, still writing nothing, and it is **reported by the act** rather than asked about (`catchup-blocked` retired 2026-09-02). **A hunk the merge cannot settle is never resolved by a machine.** |
 | `unanswerable` | judgement | The **absence** of a reading — no merge base, truncated history, an unreadable ref, a git without `merge-tree --write-tree`. It must never be reported as `clean` and never collapse into `content`: a wrong `clean` pushes a merge nobody proved, a wrong `content` only delays a unit. Named with its own reason and left alone. |
 
 #### The resolution strategy, per class
@@ -500,9 +500,9 @@ both acts compose `catchup-main.sh`.
 **A branch nothing has attempted is not the same finding as one the loop looked at.** That is
 the whole reason `content` is a reading rather than a bare *conflicted* boolean:
 `/moderate`'s `merge-conflicts` step reports a pull request GitHub calls conflicted — *nobody
-has looked yet* — while `catchup-blocked` asks about a branch this rule classified — *the loop
+has looked yet* — while the catch-up **attempts** a branch this rule classified — *the loop
 looked and only you can decide*. One unit never draws both: `merge-conflicts` counts what
-`catchup-blocked` asks about, in the same shape `stalled-units` counts what `handoff-units`
+the catch-up attempts, in the same shape `stalled-units` counts what `handoff-units`
 asks about.
 
 ### Whether an act the loop took had its effect (`ci-retirement-turn.sh`)
@@ -604,7 +604,7 @@ it and was **asked about by nobody**. Measured 2026-08-30: `work-20260830-055314
 `work-20260830-055318` were both claimed for one unit four seconds apart and each drove the same
 four tickets for over an hour; the run that lost reported an ordinary undelivered unit and the
 duplicated hour reached no person at all. No other step could see the shape — `stalled-units`
-finds one claim that has not moved, `undelivered-units` finds one refused merge, `catchup-blocked`
+finds one claim that has not moved, `undelivered-units` finds one refused merge, the catch-up
 finds one conflicted branch, and each of those is a *consequence* whose question hides the cause.
 
 **There is no proof in this vocabulary either.** A race resolves the moment one of the two
@@ -629,7 +629,7 @@ whichever runs first:
 | `raced-units` | **asks** | The race is the cause; the others see consequences. |
 | `stalled-units` | filters, counts | *A claimed unit has not moved for a day or more* sends a person to look at one claim when the honest question names both. |
 | `undelivered-units` | filters, counts | A raced loser's refused merge is the race's consequence; *retry your merge* hides the cause. |
-| `catchup-blocked` | filters, counts | Catching one of two racing branches up presumes the answer to *which branch keeps going*. |
+| the catch-up | attempts neither | Catching one of two racing branches up presumes the answer to *which branch keeps going*. |
 | `retire-claims` | **needs no change** | Its candidates are `superseded` rows, and a unit resolving `ambiguous` has none **by definition** — every one of its claims is live — so the two sets are disjoint by construction. `retire-claim.sh` refuses `ambiguous_claim` on its own besides. |
 
 The filter is `moderate/scripts/lib/raced-units.sh`, one helper over the scan each step has
@@ -1369,10 +1369,14 @@ strand or duplicate a unit. Both halves are **answered**, and neither may be qui
   thing the standing rule is really about cannot arise.
 
 What stays a person's is the **contested** case: a hunk the merge itself could not settle is
-refused `content_conflict`, and its claim holder is asked by `/moderate`'s
-`catchup-blocked:<unit>` step. **Since 2026-09-02 that is the writer's residue, not the reader's
-prediction** — the act attempts a `content`-classed branch rather than refusing before it is
-checked out, on the reasoning in *The resolution strategy, per class* above.
+refused `content_conflict` — **and it is reported by the act, not asked about**. `/implement`
+names `catch_up_refused: content_conflict` with the colliding files where the attempt happened;
+`/moderate`'s `catchup-blocked` step was **retired** in the same 2026-09-02 change, on the
+operator's own words about it — a conflict handed to a claim holder is handed to somebody who
+never comes, and parked work then reads as progress to the loop and as stagnation to its
+operator. **Since 2026-09-02 the refusal is the writer's residue, not the reader's prediction** —
+the act attempts a `content`-classed branch rather than refusing before it is checked out, on
+the reasoning in *The resolution strategy, per class* above.
 
 **The order of its acts, and why.** Resolve the unit through the **live-row rule** (never
 first-match — a unit held by a superseded branch and a live one is what a fresh claim over a

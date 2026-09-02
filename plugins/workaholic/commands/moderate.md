@@ -18,13 +18,25 @@ Run the preloaded `workaholic:moderate` skill's **The run** section end to end: 
 
 The notification surface is **this command's**, not the routine's — a routine prompt names the command and nothing else, so a shape that changes here reaches every account's routine on the next run with no routine edit (`workaholic:notify`, *The command is the ceiling*). Post shapes are byte-identical to `workaholic:notify`'s catalog; a diff between the two is a drift to fix, never a second wording.
 
+**Every skill section, reference file or command body this run consults is read with the **Read tool**, never with `sed`, `grep`, `cat` or `head`** (2026-09-02, issue #865): a shell read under the plugin cache is a permission prompt an unattended run cannot answer, and the Read tool is the same bytes with no prompt. A reference such as *see `workaholic:notify`, One thread per feedback item* names a section to open with Read, not a line to grep for.
+
 **Every free-text slot below is written in Japanese, and so is this run's own reasoning and report** — the shape's label, step ids, status and reason words, slugs, branch names, `<@U…>` tokens and URLs are never translated, and a GitHub artifact stays English (`rules/interaction.md`, *The language of a post is the language its readers use*).
 
 Read Slack only through the Slack connector, and only as a step asks: the `unanswered-asks` step names one channel and one window and hands that read back to you — no mention of any bot is required for a message to count, and you never reply to, react to, or capture a message you read there. Emit only the shapes below.
 
 The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread — the outcome reply below is a different event, posted only once the loop has acted on the answer.
 
-When the tick's rendered post says to post, post this root as a new top-level message — no mention token of any kind on the root:
+When the tick's rendered post says to post, **resolve the day's standing root first** by the stateless exact-string lookup in `workaholic:notify`, searching the rendered `token` (`tick-day:<YYYYMMDD>`) and nothing else. It names the **day**, not the tick, so every speaking tick of one day resolves one thread.
+
+- **A thread was found** — post the rendered `reply_text` as a reply into it, and post no root. That text is this hour's change and impairment lines with **no head**: the head restates the day, and a reader following one thread has already read it.
+- **No thread was found** — the day's first speaking tick, or a channel whose history the search cannot reach — post the rendered `root_text` as a new top-level message. This is the ordinary once-a-day case, not a failure.
+- **The `token` came back empty** (an unreadable tick id, named in `token_reason`) — post the root, unthreaded. A key derived from a date the tick could not read would thread an hour into the wrong day.
+
+Report per tick which it did — `root` or `reply` — and the surface that carried it, so a tick that fell back to a root is visible in the run report rather than inferred from the channel. Every gate above this is untouched: the speaking window still holds the post, the question gate still decides whether there is anything to say, and a tick with nothing to add posts **neither** a root nor a reply.
+
+The reply carries **no mention token**, exactly as the root does not. A change line names a repository event and asks nobody for anything; the mention belongs on the question below, which now sits in the same thread — so an hour with something a person must do already reaches them there. Adding one to the delta would wake the channel for orientation, which is what `📦 Release Preparation` was retired for.
+
+The root's shape — no mention token of any kind:
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
@@ -64,12 +76,12 @@ For each candidate the `thread-reconcile` step hands back, find the item's threa
 **`🟡 Handoff` + merged** — the work is done and a run failed to say so:
 
 ```
-🟢 Implemented - [#123 Title](<repo-url>/pull/123)
+🟢 Implemented [#123 Title](<repo-url>/pull/123)
 Merged outside the loop by <who> on <when> — no run posted this item's finish.
 ```
 
 ```
-⚫ Closed - [#123 Title](<repo-url>/pull/123)
+⚫ Closed [#123 Title](<repo-url>/pull/123)
 Closed without merging outside the loop on <when> — no run posted this item's finish.
 ```
 

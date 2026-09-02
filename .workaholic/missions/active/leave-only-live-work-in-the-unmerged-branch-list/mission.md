@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260901-115944
 ---
 
 # Leave only live work in the unmerged-branch list
@@ -34,7 +35,7 @@ diagnosis of the in-flight gate. Not `superseded`.
 
 ## Acceptance
 
-- [ ] A merged branch and a closed-unmerged one are each their own retirement candidate,
+- [x] A merged branch and a closed-unmerged one are each their own retirement candidate,
       proved from the pull request, and CI deletes them. (#20260901112558-name-a-merged-branch-as-a-retirement-candidate.md)
 - [ ] An open pull request whose head branch is gone is named where the operator reads it. (#20260901112558-name-an-open-pull-request-with-no-head-branch.md)
 - [ ] Why the gate let five duplicates through is localized, and a drill proves the new
@@ -50,3 +51,8 @@ defect five times is written down rather than guessed at.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-01 — ticket archived — 20260901112558-read-a-claim-branch-s-pull-request-state.md
+- 2026-09-01 — ticket archived — 20260901112558-name-a-merged-branch-as-a-retirement-candidate.md
+- 2026-09-01 — ticket archived — 20260901112558-name-a-closed-unmerged-branch-as-its-own-candidate.md
+- 2026-09-01 — ticket archived — 20260901112558-bound-the-ci-delete-act-by-the-new-candidates.md
+- 2026-09-01 — ticket archived — 20260901112558-drill-the-two-retirement-candidate-readings-offline.md

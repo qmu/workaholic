@@ -1482,6 +1482,93 @@ repository may be on a different plugin version; this exercises this checkout's 
 | `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
 | `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
+## 5u. The retirement candidates (does the loop offer only branches it may delete?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-retirement-candidates [--json]
+```
+
+Walks the two 2026-09-01 candidate readings and the act they feed (mission
+`leave-only-live-work-in-the-unmerged-branch-list`). It needs **no seed, no issue number, no
+credential and no network**: the origin is a bare local repository placed where its last two path
+segments read as the slug, and the GitHub transport is a stub on `PATH` answering per branch.
+
+**The reading and the act are one verb, deliberately.** The failure this drill exists to catch
+lives in the **gap** between them — a candidate list that was right when it was made and wrong by
+the time CI ran — and two separate drills would each pass over exactly that gap.
+
+**What it proves.** Seven branches, one per case: a merged pull request and a hand-closed one are
+each offered under their own `candidate_reason`; an open pull request, a branch that never had
+one, and a branch whose unit holds a **live** claim are offered under none — the last however
+loudly its own pull request says merged; an unreadable read contributes no candidate **and names
+its reason**; and the `branch_empty` reading on each row really distinguishes a bookkeeping-only
+branch from one holding work found on no other ref. Then the act: a candidate whose pull request
+re-opened between the list and the act is refused `not_merged:open`, a hand-closed branch still
+holding work is refused `branch_holds_work`, a live claim is refused at the act too, and a branch
+already gone from origin answers `already_gone` — every one of them with no ref moved.
+
+**Three breaker rows, written against the behaviour.** Each asserts a refusal the act must make,
+so a regression that lets any of them through fails the drill rather than changing a return
+shape. Measured on the day it shipped: deleting the live-row skip from
+`list-retirable-claims.sh` makes `retirement_reader_offers_nothing_else` fail with the live
+claim's branch offered as a `pull_request_merged` candidate — the shape the reader's own header
+names as the one that would hand CI a branch a run is still driving.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `retirement_reader_names_both_classes` | `list-retirable-claims.sh` — a class stopped being offered, or the two classes collapsed into one word |
+| `retirement_reader_offers_nothing_else` | `list-retirable-claims.sh` — a branch that must not be deleted is being offered; the live-row rule or a state test is gone |
+| `retirement_unreadable_names_its_reason` | `list-retirable-claims.sh` or `branch-pull-request-state.sh` — a degraded read is being dropped, which reads exactly like a branch whose pull request is open |
+| `retirement_row_carries_the_emptiness` | `claims_branch_empty_against_base` or the row that carries it — the evidence the closed-unmerged act gates on stopped being derived |
+| `retirement_act_refuses_a_moved_proof` | `delete-retired-claim-branch.sh` — the act is trusting the candidate list instead of re-deriving at the moment of the act |
+| `retirement_act_refuses_a_branch_holding_work` | `delete-retired-claim-branch.sh` — the term that fails closed is gone, and a hand-closed branch holding work can be deleted |
+| `retirement_act_refuses_a_live_claim` | `delete-retired-claim-branch.sh` — a run's own branch can be deleted out from under it |
+| `retirement_act_is_idempotent` | `delete-retired-claim-branch.sh` — a second CI turn over a set already taken errors instead of answering `already_gone` |
+## 5u. The tick's standing thread (does an hour add to the day, or restate it?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-tick-thread [--json]
+```
+
+Drives the day-keyed root and the stabilized post gate (2026-09-01, mission
+`let-the-tick-add-to-a-standing-thread-instead-of-restating-itself`). It needs **no seed, no issue
+number, no credential and no network**: the key derivation is a pure function of a tick id and a
+zone, the gate's whole input is a JSON document on stdin plus a tick log the fixture writes through
+`log-append.sh` — the real writer — and `step-stuck-prs.sh` is driven against a stub `gh` inside a
+throwaway git repository.
+
+**Why it has to exist.** Both behaviours are observable only through Slack, which no hermetic test
+can reach, so a regression that returns the tick to an hourly root is invisible until somebody
+reads the channel and counts. Measured before the change: 14 roots in one window, 12 of them
+carrying no question, and `stuck-prs` opening a root on a `<number>:<blocked_by>` list GitHub
+merely answered differently across nine consecutive ticks in which the repository did not move.
+
+**Every row asserting a silence is paired with its opposite**, because both behaviours here are
+about something *not* being posted and a drill that only proved the silence would pass a change
+that silenced everything: one day keys one root **and** the day boundary still opens a new one; a
+transport re-shuffle is silent **and** a pull request entering the stuck set still speaks. The
+zone is named rather than inherited, so the drill does not pass or fail by geography.
+
+**The breaker is written against both behaviours at once** — the per-tick key restored *and* the
+pair list put back into the compared summary — because reverting either one alone must turn this
+drill red. Its copy of the skills tree keeps the plugin's own `skills/<name>/scripts` shape, since
+`pulls-state.sh` reaches `../../gather/scripts` for the one GitHub transport; a flat copy would
+fail for the wrong reason and the breaker would "break" without proving anything.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `tick_thread_one_day_one_key` | `lib/tick-thread-key.sh` — the key names the hour again, so the lookup can never find the standing root |
+| `tick_thread_day_boundary_splits` | `lib/tick-thread-key.sh` — the key got coarser than a day and a week is landing in one thread |
+| `tick_thread_key_is_stable` | `lib/tick-thread-key.sh` — the key started reading a clock of its own, so a re-entered tick threads somewhere new |
+| `tick_thread_reshuffle_is_silent` | `step-stuck-prs.sh` or `render-tick-post.sh` — a transport's answer is back inside the compared string, or `stabilize()` was widened |
+| `tick_thread_set_change_speaks` | `render-tick-post.sh` — the gate went quiet on a real change, which is the opposite defect |
+| `tick_thread_reply_has_no_head` | `render-tick-post.sh` — the delta reply restates the day, so the thread is the hourly root under another name |
+| `tick_thread_carries_no_mention` | `render-tick-post.sh` — an orientation post is waking the channel; the mention belongs on the question |
+| `tick_thread_held_tick_posts_neither` | `render-tick-post.sh` or `lib/speaking-window.sh` — a gate above the post stopped holding it |
+| `tick_thread_summary_drops_the_pair_list` | `step-stuck-prs.sh` — the per-pull state list is back in the summary the gate compares |
+| `tick_thread_ask_key_keeps_the_detail` | `step-stuck-prs.sh` — the coarsening reached `ask_key`, so the ledger can no longer tell one state from another |
+| `tick_thread_breaker` | the drill can no longer fail, so every row above proves nothing |
+
 ## 9. The drill register
 
 **One table, three columns, one reader** (2026-08-29, mission
@@ -1564,6 +1651,8 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
+| `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |
+| `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |
 
 ### The evidence behind the classification
 

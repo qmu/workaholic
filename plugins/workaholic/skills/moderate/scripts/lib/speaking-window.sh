@@ -26,12 +26,21 @@
 # re-entered tick answers the same way twice — the reason `ask-question.sh` already read its day
 # from the tick rather than from the wall clock.
 
+# THE OPERATOR'S ZONE, derived once. `speaking_window` reads it below, and so does
+# `lib/tick-thread-key.sh`, which needs the day a reader perceives without needing to know
+# whether that reader is awake. The hour somebody is listening and the day they are having
+# are the same clock, and a second `WORKAHOLIC_QUIET_TZ` read is how the two would drift —
+# the defect this whole file was lifted out to fix, one unit larger.
+speaking_zone() {
+    printf '%s' "${WORKAHOLIC_QUIET_TZ:-Asia/Tokyo}"
+}
+
 speaking_window() {
     _sw_hour="${1:-}"
     _sw_weekday="${2:-}"
     _sw_tick="${3:-}"
 
-    SW_ZONE="${WORKAHOLIC_QUIET_TZ:-Asia/Tokyo}"
+    SW_ZONE=$(speaking_zone)
     SW_WINDOW="${WORKAHOLIC_QUIET_HOURS:-22-08}"
     SW_WORK_DAYS="${WORKAHOLIC_WORK_DAYS:-1-5}"
 

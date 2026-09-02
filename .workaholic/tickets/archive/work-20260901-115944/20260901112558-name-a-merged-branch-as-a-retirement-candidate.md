@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T11:25:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: 20260901112558-read-a-claim-branch-s-pull-request-state.md
@@ -87,3 +88,52 @@ carrying its own word, feeding the CI act that already exists.
 - Deliberately **not** done: widening `superseded`. The ask says so explicitly, and the emptiness
   proof that verdict now carries is what makes `stranded` meaningful — a merged branch that still
   holds unlanded work is a real shape and must not be swept into the same word.
+
+## Final Report
+
+Development completed as planned.
+
+`list-retirable-claims.sh` now answers **two** candidate classes and carries
+`candidate_reason` on every row (`superseded_only` | `pull_request_merged`), so the original
+class is told apart at a glance and no caller loses information. The second class is
+enumerated from the **refs** rather than from the oracle's rows — a publish-tree publication
+carries no claim commit, which is precisely why `superseded` never reached the 17 branches the
+ask measured — filtered to the `work-YYYYMMDD-HHMMSS` pattern, and skipped for any branch the
+first class already named, so no branch is read twice.
+
+The live-row rule stays the library's: `claims_unit_resolution` is called over the same TSV
+projection the existing class uses, and `live` / `single` / `ambiguous` all skip. An
+`ok: false` from `branch-pull-request-state.sh` yields no candidate and lands in a new
+`pull_request_unreadable[]` with its reason — an unreadable pull request is not a merged one,
+and a bare omission would read exactly like a branch whose pull request is open.
+
+`drive/reference/claims.md` gains *What made a branch a retirement candidate
+(`candidate_reason`)* as a third keyed sub-table, both words classified **proof**, with the
+argument written out and the explicit note that `superseded` was **not** widened — the
+emptiness proof it now carries is what makes `stranded` meaningful. `CLAUDE.md`'s
+`delete_branch_on_merge` bullet says the forward-only cost now has a backward-looking repair.
+`.github/workflows/claim-retirement.yml` needed no change: it owns no proof logic and consumes
+the candidate list it is handed.
+
+**A pre-existing suite failure was found and is not this ticket's.** `node
+scripts/test-workflow-scripts.mjs` fails the assertion `a subject no step raised reads
+settled` at some hours and passes at others: `question-liveness.sh` answers `settled` only for
+a step that reported `ok`, and `step-human-checkin.sh` reports `skipped`/`quiet_hours` inside
+the speaking window. Measured against **an untouched `origin/main` checkout** at 13:20 UTC —
+`5841 passed, 1 failed`, the same row — so it is not a regression from this change. Minted as
+`20260901132500-make-the-liveness-row-independent-of-the-clock.md` and the run continued.
+
+### Discovered Insights
+
+- **Insight**: the candidate reader had to stop being driven by the oracle's rows and start
+  being driven by the refs, and that is the whole reason the second class needed writing at
+  all.
+  **Context**: every existing claim reading starts from a `Claim …` commit, so a branch with
+  none is invisible to all of them by construction — which is exactly the 17-branch population.
+  A later reader tempted to "just widen `superseded`" should notice it cannot: that verdict is
+  keyed on a unit, and these branches have none.
+- **Insight**: `candidate_reason` is a third keyed vocabulary rather than a value inside an
+  existing one, and the repository's own rule is why.
+  **Context**: `claims.md` states that one column cannot classify two different questions. *Is
+  this unit in flight* and *which proof put this branch on the delete list* are two questions,
+  so they get two tables — and the second enters no precedence.

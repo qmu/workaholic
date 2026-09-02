@@ -6,7 +6,7 @@ status: achieved
 merge_policy:
 created_at: 2026-08-21T15:09:58+09:00
 author: a@qmu.jp
-assignees: [tamura.yoshiya@gmail.com]
+assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:

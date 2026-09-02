@@ -6,11 +6,11 @@ status: active
 merge_policy:
 created_at: 2026-08-21T15:02:46+09:00
 author: a@qmu.jp
-assignees: [tamura.yoshiya@gmail.com]
+assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md]
+feedback: [20260821150124-workaholify-cannot-create-a-routine-the-environment-id-and-body-shape-are-undocumented.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:

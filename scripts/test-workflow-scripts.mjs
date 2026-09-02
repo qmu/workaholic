@@ -1085,7 +1085,11 @@ function testFalseArrivalCharacterization() {
     assertTrue("the strategy is surveyed", !!row, JSON.stringify(j));
     assertEq("it reads as arrived over an unattributed active mission",
       [row.quiescent, row.waiting_missions ?? 0, row.waiting_count ?? 0], [true, 0, 0]);
-    assertTrue("and its own work did land", (row.landed || []).length > 0, JSON.stringify(row.landed));
+    // SINCE 2026-09-02 (issue #860) AN ARRIVED DIRECTION IS REFUSED `arrived`, so the row
+    // sits in `refused[]` and carries `landed_count` rather than the `landed[]` list.
+    assertTrue("and its own work did land",
+      (row.landed || []).length > 0 || (row.landed_count || 0) > 0, JSON.stringify(row));
+    assertEq("and the arrival refuses origination", row.reason, "arrived");
   } finally { cleanup(A); }
 }
 
@@ -8766,68 +8770,27 @@ function testProposeWriteFloor() {
 // The routine template and the two contracts that only its frontmatter can carry: what it
 // is allowed to write, and what it is allowed to say.
 function testProposeRoutineTemplate() {
+  // THE STANDING [Specificate] ROUTINE IS RETIRED (2026-09-02, the developer's instruction):
+  // its act is the closing half of [Propose], whose prompt runs /propose then
+  // /specificate in one session. What is pinned: the merge itself (no specificate.md
+  // template), the order inside the prompt (supply the ask, then ingest it), and the
+  // carried-over sweep surface (the Slack connector and the push notification).
+  assertTrue("no standing [Specificate] template exists",
+    !existsSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/specificate.md")),
+    "specificate.md re-appeared; the standing routine is retired, not dormant");
   const tpl = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/propose.md"), "utf8");
   const fm = tpl.slice(0, tpl.indexOf("\n---", 4));
-  assertTrue("it is developer-scoped, like the identity-filtered routine it feeds",
+  assertTrue("the merged routine is developer-scoped, like the identity-filtered acts it runs",
     /^scope: developer$/m.test(fm), fm);
-  assertTrue("it carries no write tool, because its only write is a GitHub issue",
-    !/Write|Edit/.test(fm.match(/^allowed_tools:.*$/m)[0]), fm);
-  assertTrue("it declares no auto-fix, since it opens no pull request",
-    /^autofix_on_pr_create: false$/m.test(fm), fm);
-  // A CONNECTOR TO READ, AND STILL NO POST (2026-08-23, the Claude Tag removal). The
-  // inbound sweep reads the channel through the Slack connector, so the template must
-  // carry it -- and the no-posting contract is now carried by the prompt's own words
-  // rather than by the connector's absence, which is what the assertions below pin.
   assertTrue("it holds the Slack connector the inbound sweep reads through",
     /^mcp: \[Slack\]$/m.test(fm), fm);
-  assertTrue("and declares the notification that reaches its one reader instead",
+  assertTrue("and declares the notification that reaches the sweep's one reader",
     /^notifications: push$/m.test(fm), fm);
   const prompt = tpl.slice(tpl.indexOf("## Prompt"));
-  assertTrue("its prompt invokes the command", /\/propose\b/.test(prompt), prompt);
-  // AND NOTHING ELSE, literally, since 2026-09-01 (the developer's instruction): a routine
-  // record is account-level, so a rule written into a prompt reached a fleet only by being
-  // re-pasted into every developer's copy in every project. The prompt now carries the command
-  // and the load fallback; every shape it used to authorize lives in the command, which ships
-  // with the plugin. Pinned as the ABSENCE of any fenced block, because a shape that comes back
-  // here is a shape that has to be re-pasted by hand again.
-  assertEq("and authorizes no post shape of its own",
-    [...prompt.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
-  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
-  // ONE SHAPE, AND THE CATALOG IS ITS ONLY SOURCE (2026-08-26). The routine posted nothing
-  // until the sweep's receipt, which is the whole fix: a filed ask and an ignored one were
-  // byte-identical from the channel. A post shape lives in exactly two places — the catalog
-  // and this prompt, the ceiling on what a session may emit — so a drift between them ships
-  // either a documented shape nobody may post or a posted shape nothing documents.
-  const blocks = [...cmd.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]);
-  assertEq("the command authorizes exactly one post shape", blocks.length, 1);
-  assertTrue("and that shape is the sweep's receipt", /^\u{1F4E5} 受理 - /u.test(blocks[0]), blocks[0]);
-  const catalog = readFileSync(
-    join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-  const catalogued = [...catalog.matchAll(/```\n(\u{1F4E5}[\s\S]*?)```/gu)].map((m) => m[1]);
-  assertEq("the catalog carries that shape exactly once", catalogued.length, 1);
-  assertEq("byte for byte, command against catalog", blocks[0], catalogued[0]);
-  // THE REACTION, PINNED TO THE SAME SINGLE SOURCE (2026-08-26). The reply closed half the
-  // gap: it lives INSIDE a thread, so from a channel scroll a filed ask and an ignored one
-  // still looked identical. The reaction is the same receipt at a glance -- and because it
-  // is a Slack write, the prompt is its ceiling too, so the emoji is named once in the
-  // catalog and read from there by the template rather than restated beside it.
-  const reactions = [...catalog.matchAll(/reaction on the message itself: `(:[a-z_]+:)`/g)]
-    .map((m) => m[1]);
-  assertEq("the catalog names the reaction exactly once", reactions.length, 1);
-  assertTrue("and the command authorizes that same reaction",
-    cmd.includes(reactions[0]), cmd);
-  assertTrue("the reaction rides the coordinate already in hand, never a lookup",
-    /no lookup and no search/.test(cmd.slice(cmd.indexOf(reactions[0]))), cmd);
-  // The receipt is the ONLY thing it may say: everything the no-posting argument covered is
-  // still covered, and the command is where that ceiling is written.
-  assertTrue("and the command still forbids every other post",
-    /Post nothing else to Slack/.test(cmd), cmd);
-  assertTrue("and every other reaction, now that it may add one",
-    /add no other reaction/.test(cmd), cmd);
-  assertTrue("including a receipt for a message it did not file this run",
-    /already-swept/.test(cmd), cmd);
-  assertTrue("and states the receipt never blocks the capture",
-    /ack_failed/.test(cmd), cmd);
+  assertTrue("its prompt invokes /propose", /\/propose\b/.test(prompt), prompt);
+  assertTrue("and /specificate", /\/specificate\b/.test(prompt), prompt);
+  assertTrue("in that order -- the ask is supplied before the inbox is read",
+    prompt.indexOf("/propose") < prompt.indexOf("/specificate"), prompt);
 }
 
 // ---------- the [Standup] routine template (ticket `20260817115233`) ----------
@@ -15453,8 +15416,7 @@ function testRenderSetupSheet() {
   const sheet = (target) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} ${target} ${WH}`).stdout;
 
   const all = sheet("--all");
-  for (const name of ["[Specificate] workaholic", "[Implement] workaholic", "[Moderate] workaholic",
-                      "[Propose] workaholic"]) {
+  for (const name of ["[Propose] workaholic", "[Implement] workaholic", "[Moderate] workaholic"]) {
     assertTrue(`the sheet covers ${name}`, all.includes(`## ${name}`), all.slice(0, 200));
   }
   // ---- the scope filter (2026-08-14, issue #451) ----
@@ -15464,8 +15426,8 @@ function testRenderSetupSheet() {
   const scopedSheet = (sc) => run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} --all ${WH} ${sc}`).stdout;
   const devSheet = scopedSheet("developer");
   assertTrue("the developer sheet covers every developer routine and no repository one",
-    devSheet.includes("## [Specificate] workaholic") && devSheet.includes("## [Implement] workaholic") &&
-    devSheet.includes("## [Propose] workaholic") &&
+    devSheet.includes("## [Propose] workaholic") && devSheet.includes("## [Implement] workaholic") &&
+    !devSheet.includes("## [Specificate] workaholic") &&
     !devSheet.includes("## [Moderate] workaholic"), devSheet.slice(0, 300));
   // The channel step is DERIVED from `mcp:`. [Propose] carries the connector since
   // 2026-08-23 -- the inbound sweep READS the channel, so the sheet telling the operator to
@@ -15603,8 +15565,8 @@ function testRenderSetupSheet() {
     all);
   // VERBATIM PROMPT. The sheet is worthless if the prompt is paraphrased: what the
   // developer pastes is what runs.
-  const fbSheet = sheet("specificate");
-  const rendered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderRoutine} specificate ${WH}`).stdout).prompt;
+  const fbSheet = sheet("propose");
+  const rendered = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderRoutine} propose ${WH}`).stdout).prompt;
   assertTrue("the prompt appears verbatim in the sheet", fbSheet.includes(rendered.trim()), fbSheet.slice(0, 400));
   assertEq("an unknown template is refused",
     run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.renderSetupSheet} no-such ${WH}`).status !== 0, true);
@@ -17822,6 +17784,116 @@ function testClaimMergedReader() {
     // reach the base", which every existing consumer reads and none of this may move.
     assertTrue("the reader still asks the pulls collection narrowed by head",
       /pulls\?state=all&head=/.test(readFileSync(READER, "utf8")), "the lookup shape moved");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// WHAT BECAME OF A BRANCH'S PULL REQUEST (2026-09-01, mission
+// `leave-only-live-work-in-the-unmerged-branch-list`). A second question from
+// `claim-merged.sh`'s, keyed on a BRANCH rather than a unit, because a retirement candidate
+// is proved from the pull request and a branch delete is what a wrong reading costs.
+//
+// WHAT IS PINNED is the four-state vocabulary, that `none` is a FACT the lookup established,
+// and — the load-bearing one — that a degraded read emits NO `state` KEY AT ALL, so no
+// consumer can read a failed transport as *provably no pull request*.
+function testBranchPullRequestState() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/branch-pull-request-state.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-branch-pr-state-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  const plain = join(tmp, "plain");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(repo, { recursive: true });
+  mkdirSync(plain, { recursive: true });
+  execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git", { cwd: repo });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const read = (cwd = repo, branch = "work-20260101-000000", extra = {}) => {
+    const r = run(cwd, `${POSIX_SH} ${READER} ${branch}`, { env: { ...env, ...extra } });
+    return { ...JSON.parse(r.stdout), status: r.status, raw: r.stdout };
+  };
+  try {
+    // THE FOUR STATES.
+    stub(`echo '[{"number":7,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a branch whose pull request merged reads merged, with its number",
+      [read().ok, read().state, read().number, read().status], [true, "merged", 7, 0]);
+
+    stub(`echo '[{"number":8,"state":"closed","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a branch whose pull request was closed unmerged reads closed_unmerged",
+      [read().ok, read().state, read().number], [true, "closed_unmerged", 8]);
+
+    stub(`echo '[{"number":9,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("an open pull request reads open",
+      [read().ok, read().state, read().number], [true, "open", 9]);
+
+    // `none` IS A FACT THE LOOKUP ESTABLISHED — the autofix branch in the ask's own table.
+    stub("echo '[]'");
+    assertEq("a branch that never had a pull request reads none, with a null number",
+      [read().ok, read().state, read().number], [true, "none", null]);
+
+    // A MERGED ONE WINS OUTRIGHT over anything opened afterwards on the same head; among the
+    // unmerged, the newest wins. Both halves of the order are asserted, because picking
+    // silently is how two runs over one branch come to disagree.
+    stub(`echo '[{"number":5,"state":"open","merged_at":null,"created_at":"2026-08-31T00:00:00Z"},`
+      + `{"number":4,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-01T00:00:00Z"}]'`);
+    assertEq("a merged pull request wins over a later open one on the same head",
+      [read().state, read().number], ["merged", 4]);
+
+    stub(`echo '[{"number":6,"state":"open","merged_at":null,"created_at":"2026-08-31T00:00:00Z"},`
+      + `{"number":3,"state":"closed","merged_at":null,"created_at":"2026-08-01T00:00:00Z"}]'`);
+    assertEq("and among unmerged pull requests the newest wins",
+      [read().state, read().number], ["open", 6]);
+
+    // THE DEGRADED READ, AND THE KEY THAT MUST NOT BE THERE.
+    const degraded = [
+      [`echo "API rate limit exceeded" >&2; exit 1`, "rate_limited"],
+      [`echo "HTTP 403: This GraphQL query is not enabled for this session" >&2; exit 1`, "session_refused"],
+      [`echo "gh is not on PATH" >&2; exit 127`, "gh_unavailable"],
+      [`echo boom >&2; exit 1`, "transport_error"],
+      [`echo 'not json at all'`, "unparseable_response"],
+      [`echo '{"message":"Not Found"}'`, "unparseable_response"],
+    ];
+    for (const [body, reason] of degraded) {
+      stub(body);
+      const r = read();
+      assertEq(`a degraded read is ok:false, named ${reason}, and exits 0`,
+        [r.ok, r.reason, r.status], [false, reason, 0]);
+      assertTrue(`and ${reason} emits no state key at all`,
+        !("state" in r) && !r.raw.includes('"state"'), r.raw);
+    }
+
+    // SKIPPED BY NAME WHENEVER IT CANNOT SUCCEED — and `CLAIMS_FETCH_OK` UNSET is not
+    // evidence of anything, so a direct caller outside a claim scan is never told `offline`.
+    stub("echo '[]'");
+    assertEq("the protocol's own opt-out is reported by name, with no read attempted",
+      [read(repo, "work-x", { WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" }).ok,
+       read(repo, "work-x", { WORKAHOLIC_CLAIM_MERGED_LOOKUP: "0" }).reason], [false, "disabled"]);
+    assertEq("a caller whose own fetch failed is reported offline",
+      [read(repo, "work-x", { CLAIMS_FETCH_OK: "false" }).ok,
+       read(repo, "work-x", { CLAIMS_FETCH_OK: "false" }).reason], [false, "offline"]);
+    assertEq("but an unset CLAIMS_FETCH_OK reads the pull request as usual",
+      [read().ok, read().state], [true, "none"]);
+
+    // NEITHER ARGUMENT NOR REPOSITORY IS ASSUMED.
+    assertEq("no branch argument is ok:false, never none",
+      [read(repo, "").ok, read(repo, "").reason], [false, "no_branch"]);
+    assertEq("and a tree with no resolvable remote names that instead of guessing",
+      [read(plain).ok, read(plain).reason], [false, "slug_unresolved"]);
+
+    // IT IS A READER AND NEVER A VERDICT, and it writes nothing.
+    const body = readFileSync(READER, "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const f of ["git push", "git commit", "git worktree", "retire-claim", "superseded"]) {
+      assertTrue(`the reader never reaches ${f}`, !body.includes(f), f);
+    }
+    assertTrue("and it reaches GitHub only through the one transport",
+      !/\bgh (issue|pr|repo|api)\b/.test(body) && body.includes("gh-rest.sh"), body.slice(0, 300));
+    assertEq("a run leaves the checkout byte-identical",
+      run(repo, "git status --porcelain").stdout.trim(), "");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -20585,6 +20657,12 @@ function testPostLanguageRuleShipsWithThePlugin() {
     // AND of its own reasoning: a routine's result is read by the same person the channel is.
     assertTrue(`/${id} states the language of its own report`,
       /this run's own reasoning and report/.test(cmd), id);
+    // A SKILL FILE IS OPENED WITH THE READ TOOL, NEVER A SHELL (2026-09-02, issue #865): a
+    // routine session that resolves "see workaholic:notify, <section>" with sed over the
+    // plugin cache parks on a permission prompt nobody unattended can answer. The command
+    // says so beside the references it makes; this pins that it keeps saying so.
+    assertTrue(`/${id} sends a session to the Read tool for skill sections, never to sed`,
+      /never with `sed`, `grep`, `cat` or `head`/.test(cmd), id);
     assertTrue(`/${id} cites the rule rather than restating it`,
       /rules\/interaction\.md/.test(cmd), id);
   }
@@ -20751,6 +20829,126 @@ function testModerationRootIsHeldByTheSpeakingWindow() {
     assertTrue(`${rel} does not recompute the quiet hours itself`,
       !/WORKAHOLIC_QUIET_HOURS:-/.test(code), rel);
   }
+}
+
+// ---------- the tick root's thread key names the DAY, not the tick (2026-09-01) -------------
+// The root was keyed `tick:<tick-id>`, which is that tick's own timestamp, so the stateless
+// exact-string lookup could never match the previous hour and took case 4 -- OPEN A NEW ROOT --
+// every hour, BY CONSTRUCTION. Measured on a consuming repository: 14 roots in one window, 12
+// carrying no questions. Nothing was broken; the key named the hour rather than the conversation.
+//
+// What is pinned is the PROPERTY, not the string: same local day => one key, either side of the
+// boundary => two, an unreadable id => a named refusal and NO key. The last is the one that
+// matters most -- a key derived from a date the tick could not read would thread an hour into
+// the WRONG day's root, which is worse than opening a new one.
+function testTickThreadKeyNamesTheDay() {
+  const KEY = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/tick-thread-key.sh")}`;
+  const dir = makeRepo("main");
+  const key = (tick) => JSON.parse(run(dir, `${KEY} ${tick}`).stdout);
+  try {
+    // 1. ONE HOUR APART ON THE SAME LOCAL DAY IS ONE CONVERSATION. This is the whole repair:
+    //    before it, these two differed and the lookup could only ever open a second root.
+    assertEq("two ticks an hour apart on the same day derive one key",
+      [key("20260901-050000").key, key("20260901-060000").key],
+      ["tick-day:20260901", "tick-day:20260901"]);
+
+    // 2. THE DAY IS THE OPERATOR'S, NOT UTC. 14:59Z and 15:01Z are the same UTC day and
+    //    different Asia/Tokyo days, so a UTC key would break a root at midnight UTC -- the
+    //    middle of a JST reader's evening.
+    assertTrue("two ticks either side of the operator's day boundary derive different keys",
+      key("20260901-145900").key !== key("20260901-150100").key,
+      `${key("20260901-145900").key} vs ${key("20260901-150100").key}`);
+    assertEq("and the later one names the next local day",
+      key("20260901-150100").key, "tick-day:20260902");
+
+    // 3. AN UNREADABLE ID REFUSES BY NAME. `20260819-999999` is the sentinel that cost seven
+    //    days of blind windows (`lib/tick-iso.sh`); it must yield no key at all.
+    assertEq("the sentinel tick id answers a named refusal and no key",
+      [key("20260819-999999").key, key("20260819-999999").reason],
+      ["", "tick_not_a_timestamp"]);
+    assertEq("and so does no id at all", [key("").key, key("").reason], ["", "no_tick"]);
+  } finally { cleanup(dir); }
+
+  // 4. THE KEY IS COMPOSED IN EXACTLY ONE FILE. A renderer that spelled `tick:<id>` beside the
+  //    derivation is how the two would drift back apart.
+  const render = readFileSync(SCRIPTS.renderTickPost, "utf8");
+  const code = render.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("render-tick-post.sh reads the shared key derivation",
+    /lib\/tick-thread-key\.sh/.test(code), "render-tick-post.sh");
+  assertTrue("and composes no tick key of its own",
+    !/"tick:/.test(code) && !/tick-day:/.test(code), "render-tick-post.sh");
+
+  // 5. THE ZONE IS ONE READ. `speaking_zone` is where it lives; the key derivation must not
+  //    reach past it to the environment, or a root and a question could disagree about the day.
+  const keyBody = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/tick-thread-key.sh"), "utf8");
+  const keyCode = keyBody.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("the key derivation reads the zone through speaking_zone",
+    /speaking_zone/.test(keyCode), "tick-thread-key.sh");
+  assertTrue("and never reads WORKAHOLIC_QUIET_TZ itself",
+    !/WORKAHOLIC_QUIET_TZ/.test(keyCode), "tick-thread-key.sh");
+  // AND IT READS NO CLOCK OF ITS OWN: a `date` with no `-d` is *now*, which would thread an
+  // hour into whichever day the container happened to wake in.
+  assertTrue("and derives the day from the tick id rather than from now",
+    !/date [^|)]*\+%/.test(keyCode.replace(/date -d /g, "date_of ")), "tick-thread-key.sh");
+}
+
+// ---------- an hour's changes are a DELTA REPLY, not another root (2026-09-01) ---------------
+// The day key made the standing root findable; nothing yet posted into it, so every speaking
+// tick still rendered a full root — head and all — and a reader met a new top-level post every
+// hour. The two forms come off ONE reading: the body is built once, the root is that body under
+// a head, and the reply is the body. Two compositions would be two voices for one hour.
+function testTickRendersARootAndADeltaReply() {
+  const dir = makeRepo("main");
+  const LOG = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh")}`;
+  const R = `${POSIX_SH} ${SCRIPTS.renderTickPost}`;
+  const render = (summary, args) => {
+    writeFileSync(join(dir, "rows.json"), JSON.stringify({
+      rows: [{ step: "doc-drift", status: "ok", summary, event: `doc-drift: ${summary}` }],
+    }));
+    return JSON.parse(run(dir, `${R} ${args} --root . < rows.json`).stdout);
+  };
+  try {
+    mkdirSync(join(dir, ".workaholic", "moderations"), { recursive: true });
+    run(dir, `${LOG} --tick 20260901-010000 --step doc-drift --status ok --summary "a" --root .`);
+
+    const speaking = render("c", "--tick 20260901-110000 --questions 1 --hour 11 --weekday 3");
+
+    // 1. BOTH FORMS COME OFF ONE INPUT, and the root is the reply under a head.
+    assertEq("the root carries the head and the body",
+      speaking.root_text, "🔎 Moderation - 1 change(s), 1 question(s)\ndoc-drift: c");
+    assertEq("and the reply carries the body alone — no restated head",
+      speaking.reply_text, "doc-drift: c");
+    assertTrue("the root is exactly the reply under the head",
+      speaking.root_text.endsWith(`\n${speaking.reply_text}`), speaking.root_text);
+    assertTrue("so the reply restates no day summary",
+      !/🔎 Moderation/.test(speaking.reply_text), speaking.reply_text);
+
+    // 2. A TICK THE GATES HOLD POSTS NEITHER. `reply_text` is not a way around the window:
+    //    the delta is the same silence the root is, rendered empty on every held path.
+    for (const [label, args] of [
+      ["inside the quiet window", "--tick 20260901-030000 --questions 1 --hour 3 --weekday 3"],
+      ["on an off day", "--tick 20260901-030000 --questions 1 --hour 10 --weekday 7"],
+      ["with nothing to say", "--tick 20260901-110000 --questions 0 --hour 11 --weekday 3"],
+    ]) {
+      const held = render("c", args);
+      assertEq(`a tick held ${label} renders neither a root nor a reply`,
+        [held.post, held.root_text, held.reply_text], [false, "", ""]);
+    }
+
+    // 3. THE MENTION STAYS ON THE QUESTION. A delta addressed to nobody is orientation; a delta
+    //    that mentioned somebody would wake the channel for it, which is the retired shape.
+    assertTrue("and the delta carries no mention token", !/<@U/.test(speaking.reply_text),
+      speaking.reply_text);
+  } finally { cleanup(dir); }
+
+  // 4. THE POSTING RULE LIVES AT THE COMMAND CEILING, not in a routine prompt and not in the
+  //    renderer, which posts nothing at all.
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
+  assertTrue("the command says a found thread takes the delta reply",
+    /reply_text/.test(cmd) && /tick-day:/.test(cmd), "commands/moderate.md");
+  assertTrue("and that no thread found means the root",
+    /root_text/.test(cmd), "commands/moderate.md");
 }
 
 // ---------- the tick log lives on its own branch, not on `main` (2026-09-01, issue #782) ------
@@ -21103,7 +21301,7 @@ const tests = [
   ["moderate: the tick's voice is never starved by the deadline", testModerateAskSurvivesDeadline],
   ["propose: the gates that replace the dropped judgment bar", testProposeGates],
   ["propose: the write floor and its named refusals", testProposeWriteFloor],
-  ["propose: the [Propose] routine template writes nothing and posts nothing", testProposeRoutineTemplate],
+  ["propose: the standing [Specificate] routine is retired into [Propose]", testProposeRoutineTemplate],
   ["standup: the command and skill are a reader", testStandupIsAReader],
   ["standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
@@ -21215,6 +21413,7 @@ const tests = [
   ["drive/land-unit.sh: the third route, and the human gate that guards it", testLandUnit],
   ["drive claim protocol: a claim survives its tickets being archived", testClaimSurvivesArchive],
   ["drive/claim-merged.sh: merged, not merged, or unanswerable", testClaimMergedReader],
+  ["drive/branch-pull-request-state.sh: what became of a branch's pull request", testBranchPullRequestState],
   ["drive/read-base-checks.sh: green, red, or unanswerable", testReadBaseChecks],
   ["drive/attribute-base-red.sh: the merge that turned the base red", testAttributeBaseRed],
   ["drive claim protocol: the merged lookup degrades by name", testMergedLookupDegradesByName],
@@ -21235,6 +21434,7 @@ const tests = [
   ["moderate/catchup-blocked: the conflict the loop must not resolve reaches a person", testCatchupBlockedStep],
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
+  ["drive claim protocol: a merged pull request is its own retirement candidate", testRetirementCandidatePullRequestMerged],
   ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate: the gap between a tick finding and the work queue", testFindingToWorkGap],
@@ -21301,6 +21501,8 @@ const tests = [
   ["a post is written in the language its readers use", testPostLanguageRuleShipsWithThePlugin],
   ["the tick log lives on its own branch, not on main", testTickLogLivesOffMain],
   ["the moderation root is held by the speaking window", testModerationRootIsHeldByTheSpeakingWindow],
+  ["the tick root's thread key names the day", testTickThreadKeyNamesTheDay],
+  ["the tick renders a root and a delta reply", testTickRendersARootAndADeltaReply],
   ["a ticket an unattended run cannot perform is a handoff", testSensitivePathIsAHandoff],
   ["the tokened transport resolves the channel it was already told", testTokenedTransportResolvesTheChannel],
   ["workaholify bootstrap: without it a web routine is configured but cannot work", testWorkaholifyBootstrap],
@@ -22455,6 +22657,10 @@ function testListInboundIssues() {
     { number: 7, html_url: "https://github.com/o/r/issues/7", updated_at: "2026-08-12T00:00:00Z", title: "Oldest ask, taken first" },
     { number: 12, html_url: "https://github.com/o/r/issues/12", updated_at: "2026-08-12T01:00:00Z", title: "Already captured" },
     { number: 120, html_url: "https://github.com/o/r/issues/120", updated_at: "2026-08-12T02:00:00Z", title: "Boundary guard" },
+    // THE TICK'S OWN FINDING (2026-09-02, issue #864): `file-inbound-ask.sh --finding` stamps
+    // `source: moderate` on the body's header line. It is knowledge, never an ask.
+    { number: 30, html_url: "https://github.com/o/r/issues/30", updated_at: "2026-08-12T02:30:00Z", title: "[FB] the loop about itself",
+      body: "kind: instruction / source: moderate / subject: finding:base-health\n\n# the loop about itself\n" },
     // A pull request on the SAME endpoint. `GET /issues` returns these; `gh issue list`
     // did not — the one behavioral difference the REST conversion must not lose.
     { number: 55, html_url: "https://github.com/o/r/pull/55", updated_at: "2026-08-12T04:00:00Z", title: "A pull request", pull_request: { url: "https://github.com/o/r/pulls/55" } },
@@ -22483,8 +22689,8 @@ function testListInboundIssues() {
       r.issues.some((i) => i.number === 55), false);
     assertEq("a readable inbox is ok:true", r.ok, true);
     assertEq("the identity is the session's own login", r.identity, "tester");
-    assertEq("issue 12, already named by a record, is excluded", r.excluded.length, 1);
-    assertEq("and the exclusion is reported with its reason", r.excluded[0].reason, "already_captured");
+    assertEq("issue 12, already named by a record, and the tick's own finding are excluded",
+      r.excluded.map((e) => `${e.number}:${e.reason}`).sort(), ["12:already_captured", "30:self_originated"]);
     assertEq("three issues survive", r.issues.length, 3);
     assertEq("issue 120 is NOT swallowed by the record naming issue 12 (numeric boundary)",
       r.issues.some((i) => i.number === 120), true);
@@ -22535,7 +22741,7 @@ function testListInboundIssues() {
     // a pull request — they send you to different places.
     assertEq("a record on an unmerged proposal branch excludes its issue, under its own word",
       withBranch.excluded.map((e) => `${e.number}:${e.reason}`).sort(),
-      ["12:already_captured", "7:captured_on_branch"]);
+      ["12:already_captured", "30:self_originated", "7:captured_on_branch"]);
     assertEq("and an issue no record names anywhere is still offered",
       withBranch.issues.map((i) => i.number).sort((a, b) => a - b), [9, 120]);
 
@@ -22546,7 +22752,7 @@ function testListInboundIssues() {
     assertEq("a branch that is gone excludes nothing — issue 7 is offered again",
       afterDelete.issues.some((i) => i.number === 7), true);
     assertEq("and the base record's own exclusion is untouched",
-      afterDelete.excluded.map((e) => e.reason), ["already_captured"]);
+      afterDelete.excluded.map((e) => e.reason).sort(), ["already_captured", "self_originated"]);
 
     // A DEGRADED WALK IS NAMED ON STDERR AND ERRS TOWARD EXCLUDING. `.git/shallow` is what
     // `--is-shallow-repository` answers from, so a shallow clone's over-read warning is
@@ -22571,7 +22777,7 @@ function testListInboundIssues() {
     assertTrue("with the reason on stderr",
       /no base ref resolved/.test(readFileSync(errFile, "utf8")), readFileSync(errFile, "utf8"));
     assertEq("and the base grep is untouched by the walk it could not make",
-      noBaseJson.excluded.map((e) => e.reason), ["already_captured"]);
+      noBaseJson.excluded.map((e) => e.reason).sort(), ["already_captured", "self_originated"]);
     git("update-ref refs/remotes/origin/main HEAD");
 
     // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.
@@ -24852,12 +25058,12 @@ function testWorkaholifyRoutines() {
   const WH = "https://github.com/qmu/workaholic";
   try {
     const tpl = JSON.parse(run(dir, LIST).stdout);
-    // FOUR since 2026-08-24: [Standup] retired into the moderation tick (the developer's
-    // ruling — the digest rides the morning Moderation root's strategy-digest step).
-    assertEq("the plugin ships four routine templates", tpl.count, 4);
-    assertEq("and they are the four live patterns",
+    // THREE since 2026-09-02: [Specificate] retired into [Propose] (the developer's
+    // ruling — the merged routine runs /propose then /specificate in one :15 session).
+    assertEq("the plugin ships three routine templates", tpl.count, 3);
+    assertEq("and they are the three live patterns",
       tpl.templates.map((t) => t.id).sort(),
-      ["implement", "moderate", "propose", "specificate"]);
+      ["implement", "moderate", "propose"]);
 
     // ---- the scope split (2026-08-14, issue #451) ----
     // The scope is the TEMPLATE's field, not a list written into two command bodies:
@@ -24867,13 +25073,14 @@ function testWorkaholifyRoutines() {
     assertTrue("every template declares a scope",
       tpl.templates.every((t) => ["developer", "repository"].includes(t.scope)),
       JSON.stringify(tpl.templates.map((t) => [t.id, t.scope])));
-    // THREE since 2026-08-21 (issue #555): `propose` supplies the loop's own ask, and it is
-    // developer-scoped for the reason `specificate` is -- it acts on the strategies assigned
-    // to the RUNNING IDENTITY and opens issues assigned to it, so one repository-wide copy
-    // would route every developer's directions through whichever account created it.
+    // TWO since 2026-09-02: `propose` supplies the loop's own ask AND ingests it (its
+    // /specificate half), and it is developer-scoped because it acts on the strategies
+    // assigned to the RUNNING IDENTITY and opens issues assigned to it, so one
+    // repository-wide copy would route every developer's directions through whichever
+    // account created it.
     assertEq("the routines every developer needs their own copy of are developer-scoped",
       JSON.parse(run(dir, `${LIST} developer`).stdout).templates.map((t) => t.id).sort(),
-      ["implement", "propose", "specificate"]);
+      ["implement", "propose"]);
     assertEq("the routine the repository needs exactly one of is repository-scoped",
       JSON.parse(run(dir, `${LIST} repository`).stdout).templates.map((t) => t.id).sort(),
       ["moderate"]);
@@ -24896,13 +25103,14 @@ function testWorkaholifyRoutines() {
     // server jitter).
     assertEq("the templates carry the staggered hourly schedule",
       tpl.templates.map((t) => t.cron_expression).sort(),
-      ["15 * * * *", "30 * * * *", "40 * * * *", "50 * * * *"]);
-    // The LOOP's order is the point of `:40`, not the minute itself: the judgment is made
-    // against what actually landed, so `[Propose]` must fire AFTER `[Implement]` drives and
-    // before the next hour's `[Specificate]` ingests. A tidy-up that moved it earlier would
-    // judge each hour against the state that hour was about to change.
-    assertTrue("the ask-supplying routine fires after the executor it reads the result of",
-      Number(tpl.templates.find((t) => t.id === "propose").cron_expression.split(" ")[0]) >
+      ["15 * * * *", "30 * * * *", "50 * * * *"]);
+    // The LOOP's order: the merged [Specificate] supplies the ask (its /propose half) and
+    // ingests it in the same session, and [Implement] drives it later the same hour -- so the
+    // supplier must fire BEFORE the executor. The propose half judges against everything up
+    // to the PREVIOUS hour's driving, which is the same freshness the retired `:40` slot
+    // bought (2026-09-02, the merge of [Propose] into [Specificate]).
+    assertTrue("the ask-supplying routine fires before the executor that drives what it queued",
+      Number(tpl.templates.find((t) => t.id === "propose").cron_expression.split(" ")[0]) <
       Number(tpl.templates.find((t) => t.id === "implement").cron_expression.split(" ")[0]),
       JSON.stringify(tpl.templates.map((t) => [t.id, t.cron_expression])));
     // CONVERGENCE MATCHES BY RENDERED `name`, so two templates rendering one name can be
@@ -24924,8 +25132,8 @@ function testWorkaholifyRoutines() {
       new Set(tpl.templates.map((t) => t.cron_expression)).size, tpl.count);
     assertEq("implement declares the schedule trigger",
       tpl.templates.find((t) => t.id === "implement").trigger, "schedule-hourly");
-    assertEq("specificate declares the schedule trigger",
-      tpl.templates.find((t) => t.id === "specificate").trigger, "schedule-hourly");
+    assertEq("propose declares the schedule trigger",
+      tpl.templates.find((t) => t.id === "propose").trigger, "schedule-hourly");
 
     // ---- the three substitutions, each demanded by a real prompt ----
     const drive = JSON.parse(run(dir, `${RENDER} implement ${WH}`).stdout);
@@ -24950,23 +25158,28 @@ function testWorkaholifyRoutines() {
     // AND IT NAMES THE COMMAND AND THE LOAD FALLBACK, AND NOTHING ELSE. Pinned as the
     // absence of a fenced block: a post shape that comes back into a prompt is a shape
     // every account has to be told to re-paste before it takes effect.
-    for (const id of ["implement", "specificate", "propose", "moderate"]) {
+    for (const id of ["implement", "propose", "moderate"]) {
       const t = readFileSync(join(REPO_ROOT, `plugins/workaholic/skills/workaholify/routines/${id}.md`), "utf8");
       const pr = t.slice(t.indexOf("## Prompt"));
       assertEq(`the [${id}] prompt authorizes no post shape of its own`,
         [...pr.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
-      assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\`\\.`).test(pr), pr);
+      assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\``).test(pr), pr);
       assertTrue(`and the load fallback that reads it when the plugin did not bind`,
         pr.includes(`<src>/commands/${id}.md`), pr);
     }
+    // The merged [Propose] prompt runs BOTH commands, in order (2026-09-02).
+    {
+      const t = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/propose.md"), "utf8");
+      const pr = t.slice(t.indexOf("## Prompt"));
+      assertTrue("the [propose] prompt also names /specificate and its fallback",
+        /run \`\/specificate\`/.test(pr) && pr.includes("<src>/commands/specificate.md"), pr);
+    }
 
-    const fb = JSON.parse(run(dir, `${RENDER} specificate ${WH}`).stdout);
+    const fb = JSON.parse(run(dir, `${RENDER} propose ${WH}`).stdout);
     // The template's trigger states the DESIGNED trigger (the record stores no such
-    // field): [Specificate] fires on a fixed 30-minute schedule, same as [Implement]
-    // (ticket 20260810085347, developer's explicit ask covering both routines,
-    // 2026-08-10, superseding the 2026-08-06 assigned-issue-only pin). The word is the
-    // design, so it is pinned.
-    assertEq("the specificate routine declares the schedule trigger, matching implement",
+    // field): the merged [Propose] fires on a fixed hourly schedule, same as [Implement]
+    // (ticket 20260810085347; merged 2026-09-02). The word is the design, so it is pinned.
+    assertEq("the propose routine declares the schedule trigger, matching implement",
       [fb.trigger, fb.cron_expression], ["schedule-hourly", "15 * * * *"]);
     assertEq("an unknown template is refused by name",
       JSON.parse(run(dir, `${RENDER} no-such ${WH}`).stdout).error, "unknown_template");
@@ -26736,8 +26949,15 @@ function testModerateRun() {
     // that could not name an hour could only be run during one* -- reached here through the
     // environment, because `run.sh` takes no such flag. The startup scrub above strips every
     // `WORKAHOLIC_*` before this spread, so these two are the only ones the tick sees.
+    //
+    // ZERO-WIDTH, because the first pin ("02-03") re-created the defect one hour narrower:
+    // measured 2026-09-02 at 02:0x JST, the suite failed on this row again, inside the very
+    // window the pin had chosen as "surely nobody runs then". `speaking-window.sh` reads
+    // start == end as an empty window (the non-crossing branch needs hour >= start AND
+    // hour < end, which no hour satisfies), verified at hours 0, 3, 12 and 23 -- so "03-03"
+    // is quiet never, at any wall clock, which is the only pin that cannot rot.
     const OPEN_WINDOW = {
-      env: { ...process.env, WORKAHOLIC_QUIET_HOURS: "02-03", WORKAHOLIC_WORK_DAYS: "1-7" },
+      env: { ...process.env, WORKAHOLIC_QUIET_HOURS: "03-03", WORKAHOLIC_WORK_DAYS: "1-7" },
     };
     const j = JSON.parse(run(repo, `${RUN} --tick 20260817-090000`, OPEN_WINDOW).stdout);
     assertEq("every step of the ask is run and reported", j.steps.map((s) => s.step), STEPS);
@@ -27318,6 +27538,68 @@ esac
       cleanup(binR);
     }
 
+    // THE COMPARED SUMMARY CARRIES NO PER-PULL STATE LIST (2026-09-01, ticket
+    // `20260901122448-keep-a-transport-derived-state-list-out-of-the-post-gate`).
+    // `render-tick-post.sh` compares `(step, status, stabilized summary)` verbatim, and the
+    // stabilizer strips only a timestamp, a bare hex object name and a clock time — so the
+    // `<number>:<blocked_by>` pair list this summary used to carry made the gate open a root
+    // whenever GitHub reassigned a class between two pull requests, with the repository
+    // unmoved. Both directions are pinned: the re-shuffle must be silent, and the SET moving
+    // must still speak.
+    const many = (rows) => {
+      const d = mkdtempSync(join(tmpdir(), "wh-ghN-"));
+      const detail = rows.map(([n, mergeable, state]) =>
+        `  repos/*/pulls/${n}) emit '${JSON.stringify({ number: n, html_url: `https://x/${n}`, head: { ref: "work-20260817-030303" }, draft: false, mergeable, mergeable_state: state, title: "One" })}' ;;`).join("\n");
+      writeFileSync(join(d, "gh"), `#!/bin/sh
+path=""; jqexpr=""; seen=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    api) seen=1 ;;
+    --jq) jqexpr="$2"; shift ;;
+    -*) ;;
+    *) if [ "$seen" = 1 ] && [ -z "$path" ]; then path="$1"; fi ;;
+  esac
+  shift
+done
+emit() { if [ -n "$jqexpr" ]; then printf '%s' "$1" | jq -r "$jqexpr"; else printf '%s' "$1"; fi; }
+case "$path" in
+  repos/*/pulls\\?*) emit '${JSON.stringify(rows.map(([n]) => ({ number: n })))}' ;;
+${detail}
+  *) emit '[]' ;;
+esac
+`);
+      chmodSync(join(d, "gh"), 0o755);
+      return d;
+    };
+    // Same two pull requests, same two classes — only which one holds which has moved.
+    const binSwapA = many([[41, false, "dirty"], [42, true, "blocked"]]);
+    const binSwapB = many([[41, true, "blocked"], [42, false, "dirty"]]);
+    // The set itself moves: a third pull request joins.
+    const binGrew = many([[41, false, "dirty"], [42, true, "blocked"], [43, true, "unstable"]]);
+    const stuck = (b) => JSON.parse(run(repo, `${POSIX_SH} ${join(HK, "step-stuck-prs.sh")} --tick 20260817-150000 --root .`,
+      { env: { ...process.env, PATH: `${b}:${process.env.PATH}` } }).stdout);
+    try {
+      const a = stuck(binSwapA);
+      const b = stuck(binSwapB);
+      const grew = stuck(binGrew);
+      assertTrue("the compared summary carries no <number>:<blocked_by> list",
+        !/\d+:(conflict|review|checks|draft|behind|unknown)/.test(a.summary), a.summary);
+      assertEq("so a re-shuffle at an unchanged count and class set opens no root",
+        a.summary, b.summary);
+      assertTrue("while the question still names each pull request and why it is stuck",
+        a.needs_agent.length === 2 && a.needs_agent.every((n) => n.blocked_by && n.decision),
+        JSON.stringify(a.needs_agent));
+      assertTrue("and the ask key still moves with the per-pull state, so the ledger sees it",
+        a.ask_key !== b.ask_key, `${a.ask_key} ${b.ask_key}`);
+      assertTrue("a pull request entering the stuck set still opens a root",
+        grew.summary !== a.summary, `${grew.summary} :: ${a.summary}`);
+      assertEq("the headline is untouched by the coarsening", a.headline, "2 pull requests stuck: conflict, review");
+    } finally {
+      cleanup(binSwapA);
+      cleanup(binSwapB);
+      cleanup(binGrew);
+    }
+
     // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
     mkdirSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101"), { recursive: true });
     writeFileSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101/t.md"),
@@ -27849,8 +28131,8 @@ function testModerateRoutineTemplate() {
   // vocabularies — so it is marked by its sentence; `⚫ Closed` is genuinely new, because
   // *closed* and *merged* ask a reader for different things.
   {
-    for (const lead of ["🟢 Implemented - \\[#123 Title\\]\\(<repo-url>/pull/123\\)\\nMerged outside",
-                        "⚫ Closed - \\[#123 Title\\]"]) {
+    for (const lead of ["🟢 Implemented \\[#123 Title\\]\\(<repo-url>/pull/123\\)\\nMerged outside",
+                        "⚫ Closed \\[#123 Title\\]"]) {
       const c = block(catalog, lead);
       assertTrue(`the catalog carries the reconciliation reply ${lead}`, c !== "",
         "missing from notifications.md");
@@ -27902,8 +28184,8 @@ function testModerateRoutineTemplate() {
      "🙋 <@U…> - <what this tick could not decide>",
      "✅ 解消を確認 - <the question's subject, one line>",
      "🧾 対応結果 - <the question's subject, one line>",
-     "🟢 Implemented - [#123 Title](<repo-url>/pull/123)",
-     "⚫ Closed - [#123 Title](<repo-url>/pull/123)"]);
+     "🟢 Implemented [#123 Title](<repo-url>/pull/123)",
+     "⚫ Closed [#123 Title](<repo-url>/pull/123)"]);
   for (const retired of ["🔧 Needs a decision", "📦 Release Preparation"]) {
     assertEq(`no session may post ${retired} any more — the template`, block(template, retired), "");
     assertEq(`no session may post ${retired} any more — the catalog`, block(catalog, retired), "");
@@ -29445,6 +29727,211 @@ function testCiRetirementCandidateSetAndAct() {
       "the act reaches GitHub outside gather/scripts/gh-rest.sh");
     assertEq("an unknown unit is refused, and exits 0",
       run(fx.B, `${POSIX_SH} ${ACT} no-such-unit`, withStub).status, 0);
+  } finally { cleanup(fx.A); cleanup(fx.B); }
+}
+
+// ---------- the second candidate class: this branch's own pull request merged ----------
+//
+// (2026-09-01, mission `leave-only-live-work-in-the-unmerged-branch-list`.) Measured: 30
+// unmerged branches, 17 with a merged pull request, and `superseded` reaching almost none of
+// them — it is keyed on a UNIT and needs a claim commit, which a publish-tree publication never
+// has. What is pinned here is the four conditions the ticket's own gate names: the new class
+// appears with its word, a live row beats it, an unreadable read yields no candidate AND its
+// reason, and the existing class is untouched apart from the added field.
+function testRetirementCandidatePullRequestMerged() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  const read = () => JSON.parse(run(fx.B, `${POSIX_SH} ${READER}`, withStub).stdout);
+  try {
+    // A `work-*` BRANCH THE ORACLE HOLDS NO ROW FOR AT ALL — the publish-tree shape. It carries
+    // no `Claim` commit, so nothing in the claim protocol has ever been able to name it.
+    const orphan = "work-20260715-101010";
+    execSync(`git checkout -q -B ${orphan} origin/main && git commit -q --allow-empty -m "A publication"`
+      + ` && git push -q origin ${orphan} && git checkout -q main`, { cwd: fx.B });
+
+    // A LIVE CLAIM, whose heartbeat is this second's — the shape a run is actively driving.
+    tickSecond();
+    const live = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.claim} mission ${LONG_SLUG}`).stdout);
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    // EVERY pull request reads merged. The existing class is derived from the tree and is
+    // unaffected; the new class picks up the orphan.
+    stub(`echo '[{"number":1,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-19T00:00:00Z"}]'`);
+    const merged = read();
+    const byBranch = Object.fromEntries((merged.candidates || []).map((c) => [c.branch, c]));
+
+    assertEq("the superseded unit is still a candidate, now carrying its own word",
+      [byBranch[fx.batch.branch].unit, byBranch[fx.batch.branch].state,
+       byBranch[fx.batch.branch].candidate_reason],
+      [fx.batch.unit, "present", "superseded_only"]);
+
+    assertEq("a work-* branch with a merged pull request and no claim row is a candidate",
+      [!!byBranch[orphan], byBranch[orphan] && byBranch[orphan].candidate_reason],
+      [true, "pull_request_merged"]);
+
+    // A LIVE ROW BEATS A MERGED PULL REQUEST. This claim's heartbeat is fresh, so the oracle
+    // reads it live — and it must stay off the list even though the stub says its pull request
+    // merged. A run may be driving a FRESH claim over a merged predecessor, and the merged pull
+    // request is a fact about the OLD work.
+    assertTrue("a branch whose unit has a live claim row is never a candidate",
+      !byBranch[live.branch], JSON.stringify(Object.keys(byBranch)));
+
+    // AN UNREADABLE PULL REQUEST IS NOT A MERGED ONE — and its reason is carried, never dropped.
+    // A bare omission reads exactly like a branch whose pull request is open.
+    stub(`echo "API rate limit exceeded" >&2; exit 1`);
+    const degraded = read();
+    const unreadable = Object.fromEntries(
+      (degraded.pull_request_unreadable || []).map((u) => [u.branch, u.reason]));
+    assertEq("a degraded pull-request read yields no candidate for that branch",
+      (degraded.candidates || []).some((c) => c.branch === orphan), false);
+    assertEq("...and names its reason rather than dropping it",
+      unreadable[orphan], "rate_limited");
+    assertEq("while the tree-derived class is untouched by the transport",
+      (degraded.candidates || []).filter((c) => c.candidate_reason === "superseded_only")
+        .map((c) => c.branch), [fx.batch.branch]);
+    assertEq("and the whole read still answers ok, exit 0", [degraded.ok, degraded.reason],
+      [true, ""]);
+
+    // A LOOKUP THAT SUCCEEDED AND FOUND NO PULL REQUEST IS NOT A CANDIDATE EITHER — which is
+    // the pre-change behaviour for every branch, so nothing widened by accident.
+    stub("echo '[]'");
+    const none = read();
+    assertEq("no pull request at all leaves the candidate set exactly what it was",
+      (none.candidates || []).map((c) => `${c.branch}:${c.candidate_reason}`),
+      [`${fx.batch.branch}:superseded_only`]);
+    assertEq("...with nothing recorded as unreadable", (none.pull_request_unreadable || []).length, 0);
+
+    // A PERSON'S CLOSURE IS ITS OWN CLASS, never folded into the merged one: *the loop
+    // delivered this* and *a person discarded this* are different questions. Measured
+    // 2026-09-01 as five hand-closed branches, none of them reachable by `superseded`, because
+    // a hand-closed branch is not empty by construction.
+    stub(`echo '[{"number":2,"state":"closed","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    const closed = read();
+    const closedRow = (closed.candidates || []).find((c) => c.branch === orphan);
+    assertEq("a closed-unmerged pull request is its own candidate class",
+      closedRow && closedRow.candidate_reason, "pull_request_closed_unmerged");
+    assertTrue("...and never wears the merged class's word",
+      (closed.candidates || []).every((c) => c.candidate_reason !== "pull_request_merged"),
+      JSON.stringify(closed.candidates));
+
+    // THE EMPTINESS READING RIDES THE ROW AS EVIDENCE, three-valued, and the orphan branch is
+    // one empty commit off the base — so it reads `true` and the reading is real rather than
+    // hard-coded. It gates nothing here: the row exists whatever it says.
+    assertTrue("the row carries a three-valued branch_empty reading",
+      ["true", "false", "unanswerable"].includes(closedRow.branch_empty), closedRow.branch_empty);
+    assertEq("...and a superseded_only row carries none, because its verdict already asserts it",
+      (closed.candidates || []).filter((c) => c.candidate_reason === "superseded_only")
+        .every((c) => !("branch_empty" in c)), true);
+
+    // AN OPEN PULL REQUEST IS IN NO CLASS AT ALL — the one state that must never reach a delete.
+    stub(`echo '[{"number":3,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a branch with an open pull request appears in no candidate class",
+      (read().candidates || []).some((c) => c.branch === orphan), false);
+
+    // THE WORDS ARE CLASSIFIED WHERE EVERY OTHER CLAIM WORD IS, and as PROOFS — the suite fails
+    // on a word no table classifies, and each of these licenses a branch delete.
+    const claimsDoc = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+    for (const word of ["superseded_only", "pull_request_merged", "pull_request_closed_unmerged"]) {
+      assertTrue(`claims.md classifies \`${word}\` as a candidate reason`,
+        new RegExp(`\\\`${word}\\\`\\s*\\|\\s*\\*\\*proof\\*\\*`).test(claimsDoc), word);
+    }
+    // AND THE CLOSED-UNMERGED ARGUMENT IS ITS OWN, not borrowed from the merged one: what makes
+    // it safe is authorship rather than emptiness, and the residual risk is stated.
+    assertTrue("claims.md states the closed-unmerged proof rests on authorship, not emptiness",
+      /authorship/.test(claimsDoc) && /not empty by construction/.test(claimsDoc),
+      "the argument was borrowed rather than written");
+
+    // THE EMPTINESS DERIVATION ITSELF IS UNTOUCHED — this class reads it, it does not move it.
+    const lib = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
+    assertTrue("the reader composes claims_branch_empty_against_base rather than re-deriving it",
+      lib.includes("claims_branch_empty_against_base()")
+      && readFileSync(READER, "utf8").includes("claims_branch_empty_against_base"),
+      "the emptiness reading was re-derived in the candidate reader");
+
+    // ---- THE ACT, BOUNDED BY THE NEW CLASSES --------------------------------------------
+    // The candidate list is an INPUT and the gap between it and the act is a queue and a
+    // checkout, so each class re-asks its own question immediately before the delete. Every
+    // one of these paths exits 0 and deletes nothing — a refusal is an answer CI reports.
+    const ACT2 = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh");
+    const act = (args) => JSON.parse(run(fx.B, `${POSIX_SH} ${ACT2} ${args}`, withStub).stdout);
+
+    // A STATE THAT MOVED BETWEEN THE LIST AND THE ACT REFUSES BY ITS OWN WORD, never folded
+    // into `not_superseded:<verdict>` — which would send a reader to the claim oracle for a
+    // candidate the oracle never named.
+    stub(`echo '[{"number":4,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a candidate that claimed merged, on a now-open pull request, refuses by its own word",
+      [act(`"" --branch ${orphan} --reason pull_request_merged`).state,
+       act(`"" --branch ${orphan} --reason pull_request_merged`).reason],
+      ["not_attempted", "not_merged:open"]);
+    assertEq("...and a claimed closure on the same pull request refuses by its own word too",
+      act(`"" --branch ${orphan} --reason pull_request_closed_unmerged`).reason,
+      "not_closed_unmerged:open");
+
+    // AN ABSENT READING SENDS A READER TO THE LOOKUP THAT FAILED, NEVER TO A DELETE.
+    stub(`echo "API rate limit exceeded" >&2; exit 1`);
+    assertEq("a re-read that failed refuses pull_request_unreadable, naming why",
+      [act(`"" --branch ${orphan} --reason pull_request_merged`).deleted,
+       act(`"" --branch ${orphan} --reason pull_request_merged`).reason],
+      [false, "pull_request_unreadable:rate_limited"]);
+
+    // THE TERM THAT FAILS CLOSED. A hand-closed branch asserts nothing about the base, so a
+    // branch still holding work is refused rather than deleted — the direction issue #788
+    // turned `superseded`, applied to the one class whose proof is authorship.
+    const holds = "work-20260716-121212";
+    // `git add` NAMES THE FILE rather than sweeping: the stub `gh` lives in this checkout as an
+    // untracked directory, and a `git add -A` here would commit it onto this branch and then
+    // delete it on the way back to `main` — taking the transport out from under every later row.
+    execSync(`git checkout -q -B ${holds} origin/main && mkdir -p src`
+      + ` && printf 'kept\\n' > src/only-here.txt && git add src/only-here.txt`
+      + ` && git commit -q -m "Work found on no other ref" && git push -q origin ${holds}`
+      + ` && git checkout -q main`, { cwd: fx.B });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    stub(`echo '[{"number":5,"state":"closed","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertEq("a closed-unmerged branch that still holds work is refused, not deleted",
+      [act(`"" --branch ${holds} --reason pull_request_closed_unmerged`).deleted,
+       act(`"" --branch ${holds} --reason pull_request_closed_unmerged`).reason],
+      [false, "branch_holds_work"]);
+    assertTrue("...and the branch is still on origin afterwards",
+      execSync(`git rev-parse --verify --quiet refs/remotes/origin/${holds}`,
+        { cwd: fx.B, encoding: "utf8" }).trim().length > 0, holds);
+
+    // THE THREE SHARED BOUNDS STILL APPLY TO THE NEW CLASSES.
+    assertEq("a release ref is refused before anything else is read",
+      act(`"" --branch release/20260101-000000 --reason pull_request_merged`).reason,
+      "release_branch");
+    assertEq("a ref outside the one work-* pattern is refused",
+      act(`"" --branch feature-x --reason pull_request_merged`).reason, "not_a_work_branch");
+    assertEq("and a class with no branch to act on refuses rather than guessing",
+      act(`some-unit --reason pull_request_merged`).reason, "no_branch");
+
+    // A LIVE CLAIM OUTRANKS EVERY PULL-REQUEST READING, re-derived at the act.
+    stub(`echo '[{"number":6,"state":"closed","merged_at":"2026-08-20T00:00:00Z","created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertTrue("a branch whose unit holds a live claim is refused at the act too",
+      /^not_superseded:/.test(act(`"" --branch ${live.branch} --reason pull_request_merged`).reason),
+      act(`"" --branch ${live.branch} --reason pull_request_merged`).reason);
+
+    // THE DEFAULT IS THE ORIGINAL CLASS, so every caller that passed only a unit before this
+    // change behaves exactly as it did.
+    assertEq("an unknown unit on the default class is refused, and exits 0",
+      run(fx.B, `${POSIX_SH} ${ACT2} no-such-unit`, withStub).status, 0);
+    assertEq("...by the word it always used", act("no-such-unit").reason, "no_such_claim");
+
+    // AND NO NEW PERMISSION APPEARS IN THE WORKFLOW THAT RUNS IT.
+    const wf = readFileSync(join(REPO_ROOT, ".github/workflows/claim-retirement.yml"), "utf8");
+    assertEq("claim-retirement.yml still grants contents: write and nothing wider",
+      (wf.match(/^\s{2}\w+:\s*(read|write)$/gm) || []).map((s) => s.trim()),
+      ["contents: write"]);
+    assertTrue("and it passes each candidate's branch and claimed proof to the act",
+      /--branch/.test(wf) && /--reason/.test(wf), "the loop still keys on the unit alone");
   } finally { cleanup(fx.A); cleanup(fx.B); }
 }
 

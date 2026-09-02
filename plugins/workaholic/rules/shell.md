@@ -98,6 +98,10 @@ the judgement the rule is made of. So the enforcement here is a human reading it
 rather than dressed as a check — and the honest mechanical half is the configuration question
 `workaholic:workaholify` answers, not a grep.
 
+## A skill or reference file is read with the Read tool, never with a shell
+
+**A session that needs a skill section, a reference file or a command body under the plugin reads it with the Read tool — never with `sed`, `grep`, `cat`, `head` or any other shell reader** (2026-09-02, issue #865). A command that says *see `workaholic:notify`, One thread per feedback item* is naming a section; a routine session resolves that name the cheapest way it knows, and the cheapest way is `sed -n '/One thread/,/^## /p' $S/skills/notify/SKILL.md` over the plugin cache under `~/.claude` — which the container classifies as touching Claude's own configuration and parks the run on a permission prompt nobody unattended can answer. **Measured**: the Moderate, Propose and Implement routines all sitting at `requires_action` on exactly that shape, repeatedly, on records recreated fresh the day before. The Read tool is a read the harness already permits; a shell read of the same bytes is a prompt. The four routine-fired commands state this beside the references they make, and the suite pins that they do.
+
 ## Composing the call: the path in full, the reader first, no assignment prefix
 
 **A Bash call naming a plugin path writes that path out in full — one command per call, the

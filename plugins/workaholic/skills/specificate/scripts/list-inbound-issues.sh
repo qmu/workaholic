@@ -7,7 +7,7 @@
 # Output (one JSON line, always exit 0 for a reported outcome):
 #   {"ok": true, "identity": "<login>", "limit": N,
 #    "issues":   [{"number", "title", "url", "updated_at"}...],   oldest first
-#    "excluded": [{"number", "reason": "already_captured"|"captured_on_branch"}...]}
+#    "excluded": [{"number", "reason": "already_captured"|"captured_on_branch"|"self_originated"}...]}
 #   {"ok": false, "reason": "gh_unavailable" | "identity_unresolved" | "list_failed",
 #    "detail": "..."}
 #
@@ -130,11 +130,14 @@ slug="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1)" || emit_err "list_failed" 
 #
 # Oldest first: the ask that has waited longest is served first, so a busy hour never
 # starves an early report. @tsv escapes tabs/newlines inside the title, so the 4-field
-# read below is unambiguous (title deliberately last).
+# read below is unambiguous (title deliberately last). The `origin` field reads the
+# body's own header line: `source: moderate` is the tick's finding about the loop itself.
 rows="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
   "repos/${slug}/issues?state=open&assignee=${login}&per_page=${LIMIT}" \
   --jq 'map(select(.pull_request | not)) | sort_by(.number) | .[]
-        | [(.number|tostring), .html_url, .updated_at, .title] | @tsv' 2>&1)" \
+        | [(.number|tostring), .html_url, .updated_at,
+           (if ((.body // "") | test("^kind: [a-z_]+ / source: moderate"; "m")) then "self" else "human" end),
+           .title] | @tsv' 2>&1)" \
   || emit_err "list_failed" "$rows"
 
 TAB="$(printf '\t')"
@@ -172,10 +175,18 @@ fi
 
 issues=""
 excluded=""
-while IFS="$TAB" read -r number url updated title; do
+while IFS="$TAB" read -r number url updated origin title; do
   [ -n "$number" ] || continue
   captured=""
-  if [ -d "$FEEDBACKS_DIR" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$FEEDBACKS_DIR" 2>/dev/null; then
+  # THE LOOP'S OWN FINDING IS NOT AN ASK (2026-09-02, issue #864). `file-inbound-ask.sh
+  # --finding` stamps `source: moderate` on every issue the tick files about the loop's own
+  # artifacts. Measured: five consecutive such issues in one day, each proposed, ticketed,
+  # implemented and merged by the next ticks, every link refining the link before it, while
+  # the operator's development stopped entirely. Only a human's ask, or a strategy a human
+  # authored, originates a mission; the finding stays open as knowledge and is never taken.
+  if [ "$origin" = self ]; then
+    captured="self_originated"
+  elif [ -d "$FEEDBACKS_DIR" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$FEEDBACKS_DIR" 2>/dev/null; then
     captured="already_captured"
   elif [ -n "$BRANCH_RECORDS" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$BRANCH_RECORDS" 2>/dev/null; then
     captured="captured_on_branch"

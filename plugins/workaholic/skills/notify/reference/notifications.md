@@ -8,7 +8,7 @@ A **command** names its postable events and defers the line formats here. This f
 
 ### A post never mentions the identity it is posted as
 
-**A self-mention notifies nobody, so it is not a mention — it is decoration** (2026-08-23, the developer's instruction). Every routine post reaches Slack **as the developer's own account** (connector primary, or the tokened fallback bound to the same person), so a `<@U…>` resolving to that same account produces no notification, no badge and no unread: Slack does not notify you of your own message. The attribution line `by the [routine](<session URL>) of <@U…>` had carried that token on every `🔵 Proposed` and `🟢 Implemented` since the shapes were written, and `🟡 Handoff <@U…>` named the runner the same way. All three drop it. **The session URL stays** — it is the whole point of the line, and the surface the developer opens to answer.
+**A self-mention notifies nobody, so it is not a mention — it is decoration** (2026-08-23, the developer's instruction). Every routine post reaches Slack **as the developer's own account** (connector primary, or the tokened fallback bound to the same person), so a `<@U…>` resolving to that same account produces no notification, no badge and no unread: Slack does not notify you of your own message. The attribution line `by [web routine](<session URL>) of <@U…>` had carried that token on every `🔵 Proposed` and `🟢 Implemented` since the shapes were written, and `🟡 Handoff <@U…>` named the runner the same way. All three drop it. **The session URL stays** — it is the whole point of the line, and the surface the developer opens to answer.
 
 The rule generalises rather than enumerating three shapes: **resolve the mention target and the posting identity, and emit no `<@U…>` when they are the same.** Mentioning *someone else* is untouched and is exactly what a mention is for — which is why `🙋 <@U…>`, the maintenance tick's question, keeps its token unconditionally: it addresses a named assignee, it is the one post whose entire purpose is to reach a person, and a loop whose blockers reach nobody is the defect that produced issue #584. Nothing else in the catalog mentions anyone: the `📝 FB` description root, `🚀 Auto Merge`, `🔴 Blocked`, `⚪ Paused` and `📣 Standup` carry no token by their own prior rules, and this change does not give them one.
 
@@ -19,11 +19,12 @@ The measured cost, stated rather than hidden: a reader can no longer tell from t
 ### `/specificate` — the finish, plus a description root when no thread was found
 
 ```
-🔵 Proposed - [#123 [Proposal] PR Title](<repo-url>/pull/123)
-by the [routine](<session URL>)
+🔵 Proposed [#123 [Proposal] PR Title](<repo-url>/pull/123)
+One sentence, max 30 words, what this proposal queues.
+by [web routine](<session URL>)
 ```
 
-`🔵 Proposed` retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a top-level line only on the tokened fallback, which cannot search and is therefore reached with no resolved thread; there it carries the **record's URL** (`<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md`) rather than a bare key — the same identifier, in the one form that is also readable, so the fallback post stays attributable without printing a machine token at a person (2026-08-22). The retired `📐 Proposing` start once preceded it; nothing replaces it.
+`🔵 Proposed` keeps its name. **The separator after the emoji is gone** (2026-09-02, the developer's instruction), on every shape in this catalog: `🔵 Proposed [#123 …]` rather than `🔵 Proposed - [#123 …]` — the emoji already separates, and a dash between a status word and a link is furniture. **And the attribution reads `by [web routine](<session URL>)`** — *the routine* named a thing the reader has no handle on, where *web routine* names what actually ran and matches the surface the URL opens. It retires the earlier `🟢 Proposed to <@U…> - ...` shape. Since 2026-08-14 it is a **reply** in every connector case — into the thread the stateless lookup found, or into the description root below when it found none. It is a top-level line only on the tokened fallback, which cannot search and is therefore reached with no resolved thread; there it carries the **record's URL** (`<repo-url>/blob/main/.workaholic/feedbacks/<stem>.md`) rather than a bare key — the same identifier, in the one form that is also readable, so the fallback post stays attributable without printing a machine token at a person (2026-08-22). The retired `📐 Proposing` start once preceded it; nothing replaces it.
 
 #### The description root — every case 4
 
@@ -44,8 +45,9 @@ Then the run's finish line — `🔵 Proposed` for `/specificate`, `🟢`/`🚀`
 ### `/implement` — a unit's finish only
 
 ```
-🟢 Implemented - [#123 Title](<repo-url>/pull/123)
-by the [routine](<session URL>)
+🟢 Implemented [#123 Title](<repo-url>/pull/123)
+One sentence, max 30 words, what the unit changed.
+by [web routine](<session URL>)
 ```
 
 **The authorship line is retired from the post; the fact stays in the run report** (2026-08-21, the developer's instruction). Between 2026-08-14 and this change a unit whose tickets were not the runner's appended one body line — `tickets authored by <identity>`, or `ticket authorship unresolved` — to its finish post. It is gone from every finish shape. Two reasons, and the second is the stronger one:
@@ -55,14 +57,16 @@ by the [routine](<session URL>)
 
 **What did not change**: `unit-authors.sh` still returns `foreign` / `unresolved` / `mine`, and `/implement`'s per-unit run report still names the authors — the surface a person reads when they want the provenance. Disclosure moved to where it is read on purpose; it was not dropped.
 
+**Both status shapes carry a sentence** (2026-09-02, the developer's instruction). `🔵 Proposed` and `🟢 Implemented` were the only two lines in this catalog that were a title and nothing else — every other shape here already says what happened in its own words, and these two made the reader open a pull request to learn whether it concerned them. The sentence is the same one the other shapes take: one line, max 30 words, what the proposal queues or what the unit changed, drawn from the artifact the run just wrote and never invented for the post. It goes **between** the title line and the attribution, so the link stays first and the session URL stays last.
+
 `🟢 Implemented` is the finish shape for the **ordinary** case: the unit's pull request opened and merged (the immediate-merge route; a scan finding that held the merge still finishes with this line, the open PR URL saying the rest) — it retires the earlier `🟢 Merge Requested for <@U…> - ...` shape, which announced exactly the same event in more words, and the `🟠 Implementing` start post (with the older `🟠 drive started - <unit-id>` it had itself retired); nothing replaces the start. Three outcomes keep their own finish shape rather than collapsing into `🟢 Implemented`, because each carries information the generic line would lose — whether an unattended merge happened, whether the unit is genuinely unfinished, or what named blocker stopped it (the bright line in the SKILL: *an event earns its post*):
 
 ```
-🚀 Auto Merge - [#123 Title](<repo-url>/pull/123)
+🚀 Auto Merge [#123 Title](<repo-url>/pull/123)
 `from-branch` → `to-branch`, one sentence, max 40 words, what the PR does only.
 <session URL>
 
-🟡 Handoff <@U…> - [#123 Issue Title](<repo-url>/pull/123)
+🟡 Handoff <@U…> [#123 Issue Title](<repo-url>/pull/123)
 The next run resumes it automatically; `git fetch && git checkout <branch>` to take it sooner. One sentence, max 25 words, what remains only.
 <session URL>
 
@@ -161,7 +165,11 @@ in the window / queued now) instead of "item(s)".
 
 ### `/moderate` — the moderator's hourly thread: one root, its questions inside it
 
-**One thread per tick, and two speech acts told apart by position** (2026-08-21, the developer's design). The tick posts a **root** carrying what changed in the hour, and every question it has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
+**One thread per day, and two speech acts told apart by position** (2026-08-21, the developer's design; one thread per *tick* until 2026-09-01). The day's first speaking tick posts a **root** carrying what changed; every later speaking tick that day replies its hour's change lines into that same thread, with no restated head. Every question any of them has goes out as a **mentioned reply inside that root's thread**. The root is orientation and is addressed to nobody; the replies are directed and carry a name. Two kinds of speech, one place to look, no second routine.
+
+**What moved on 2026-09-01, and what did not** (mission `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself`). The root was keyed `` `tick:<tick-id>` ``, and the id is that tick's own timestamp — so the exact string this hour searched for is one no earlier message could contain, and the lookup could not match the previous hour *by construction*. Measured: **14 roots in one window, 12 of them carrying no question at all**. The key's derivation moved to the UTC day inside the same id (`` `tick-day:<YYYYMMDD>` ``), and the posting rule moved with it: found ⇒ reply the delta, not found ⇒ post the root. **The 2026-08-05 misfire and the prohibition it produced are untouched** — the tick still searches one exact string it derives, still posts a root rather than picking the closest thread when nothing matches, and still chooses no thread for looking related or for being recent. What changed is one key's derivation; the search is the same search.
+
+**The delta reply carries no mention token either.** A change line names a repository event and asks nobody for anything; the mention belongs on the question, which now sits in the same thread — so an hour with something a person must do already reaches them there. Adding one to the delta would wake the channel for orientation, which is what `📦 Release Preparation` was retired for.
 
 ```
 🔎 Moderation - <N> change(s), <M> question(s)
@@ -292,14 +300,14 @@ One sentence: the answer as recorded, and what came of it.
 **And a thread whose last word is false is corrected in that thread, once** (2026-08-28, mission `reconcile-a-stale-thread-with-the-unit-s-real-state`). A finish line is posted by the run that **finishes** a unit (SKILL, *Which thread an `/implement` unit's posts land in*), so a pull request a person merges or closes by hand gets its finish posted by nobody: the item's thread keeps `🔵 Proposed` or `🟡 Handoff` as its last word while the work is long merged. The merged form **reuses `🟢 Implemented`** and is marked by its sentence rather than by a new colour — the reader's question is *did this finish*, and a fifth finish emoji would make one event two vocabularies:
 
 ```
-🟢 Implemented - [#123 Title](<repo-url>/pull/123)
+🟢 Implemented [#123 Title](<repo-url>/pull/123)
 Merged outside the loop by <who> on <when> — no run posted this item's finish.
 ```
 
 A pull request that was **closed without merging** has no shape at all in this catalog, and needs one: *closed* and *merged* ask a reader for different things. It is as quiet as the rest — one line, the pull request link, no mention token:
 
 ```
-⚫ Closed - [#123 Title](<repo-url>/pull/123)
+⚫ Closed [#123 Title](<repo-url>/pull/123)
 Closed without merging outside the loop on <when> — no run posted this item's finish.
 ```
 

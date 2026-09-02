@@ -6,11 +6,11 @@ status: active
 merge_policy:
 created_at: 2026-08-21T15:12:42+09:00
 author: a@qmu.jp
-assignees: [tamura.yoshiya@gmail.com]
+assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260821151227-a-survey-run-under-a-placeholder-git-identity-returns-an-indistinguishable-ok.md]
+feedback: [20260821151227-a-survey-run-under-a-placeholder-git-identity-returns-an-indistinguishable-ok.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:

@@ -641,4 +641,5 @@
 * [The unmerged-branch list is 30 long and 22 of them are dead](20260901112130-the-unmerged-branch-list-is-30-long-and-22-of-them-are-dead.md)
 * [The tick can only behave like a bot: a per-tick thread key, a banned recency match, and a string-diff post gate](20260901122046-the-tick-can-only-behave-like-a-bot-a-per-tick-thread-key-a-banned-recency-match-and-a-string-diff-post-gate.md)
 * [The loop has clerks but no planner: nothing re-plans from the live board and convergence has no owner](20260901123318-the-loop-has-clerks-but-no-planner-nothing-re-plans-from-the-live-board-and-convergence-has-no-owner.md)
+* [A Slack post's Japanese must be read on first sight, not decoded](20260902042405-a-slack-post-s-japanese-must-be-read-on-first-sight-not-decoded.md)
 <!-- okf:generated:end -->

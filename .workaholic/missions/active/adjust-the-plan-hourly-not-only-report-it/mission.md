@@ -41,9 +41,10 @@ by the loop itself.
 
 - [ ] New divergence is held while work in flight is above a declared limit. (#20260901123357-hold-new-divergence-above-a-work-in-progress-limit.md)
 - [ ] The executor is offered work in an order derived from the board, not walk order. (#20260901123357-offer-the-executor-work-in-a-derived-order.md)
-- [ ] A date the arithmetic says cannot hold reaches its owner before it passes. (#20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md)
+- [x] A date the arithmetic says cannot hold reaches its owner before it passes. (#20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260901123357-say-which-directions-the-arithmetic-says-cannot-land.md
+- 2026-09-02 — ticket archived — 20260901123357-escalate-a-date-that-will-not-hold-never-re-date-it.md

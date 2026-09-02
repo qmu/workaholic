@@ -2,7 +2,7 @@
 type: Mission
 title: Leave only live work in the unmerged-branch list
 slug: leave-only-live-work-in-the-unmerged-branch-list
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-01T11:24:50+00:00
 author: a@qmu.jp
@@ -61,3 +61,5 @@ defect five times is written down rather than guessed at.
 - 2026-09-02 — ticket archived — 20260901112558-state-the-retirement-paths-where-the-claims-are-read.md
 - 2026-09-02 — story recorded — work-20260902-063614.md
 - 2026-09-02 — run recorded (+1.2h) — work-20260902-063614
+- 2026-09-02 — ticket archived — 20260902065500-close-a-mission-whose-work-landed-by-another-route.md
+- 2026-09-02 — mission achieved — mission.md

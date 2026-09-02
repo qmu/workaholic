@@ -645,4 +645,5 @@
 * [The moderation tick resolves and merges, it does not report stuckness](20260902042549-the-moderation-tick-resolves-and-merges-it-does-not-report-stuckness.md)
 * [The Propose tick parks on a permission prompt every hour](20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md)
 * [Only a human's ask originates a mission](20260902043338-only-a-human-s-ask-originates-a-mission.md)
+* [A reference to a skill section is what makes a session reach](20260902043718-a-reference-to-a-skill-section-is-what-makes-a-session-reach.md)
 <!-- okf:generated:end -->

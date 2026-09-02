@@ -21754,8 +21754,227 @@ function testStrandedClaimReachesItsHolder() {
   }
 }
 
+// ---------- feedback/ask-origin.sh: did a person want this? ----------
+// The reading the whole `refuse-an-ask-the-loop-wrote-to-itself` mission rests on. It must
+// answer from the `subject` axis and NEVER from the author: a human's channel message swept
+// into an issue by a routine is a HUMAN ask, and keying on the runner would refuse the loop's
+// main inbound path. `unreadable` is a real third value — a grandfathered record has no
+// subject at all, and `other` is inside the closed set and does not decide.
+function testAskOriginReader() {
+  const SCRIPT = join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/ask-origin.sh");
+  const dir = mkdtempSync(join(tmpdir(), "wh-ask-origin-"));
+  const read = (path) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPT} ${path}`).stdout);
+  // `run()` pins stdin to "ignore", so a body on stdin needs the pipe re-opened explicitly —
+  // otherwise the reader is handed an empty ask and answers `unreadable` for the right reason
+  // about the wrong thing.
+  const readBody = (body) => JSON.parse(
+    run(dir, `${POSIX_SH} ${SCRIPT}`, { input: body, stdio: ["pipe", "pipe", "pipe"] }).stdout);
+  try {
+    const rec = (name, fm) => {
+      const f = join(dir, name);
+      writeFileSync(f, `---\ntype: Feedback\n${fm}---\n\n# ask\n`);
+      return f;
+    };
+    let r = read(rec("person.md", "subject: person:a@qmu.jp\nauthor: a@qmu.jp\n"));
+    assertEq("a person's record is human", [r.origin, r.reason], ["human", ""]);
+    assertEq("and names the evidence it used", [r.subject_kind, r.author], ["person", "a@qmu.jp"]);
+
+    r = read(rec("machine.md", "subject: observer_ai:bot@example.com\nauthor: bot@example.com\n"));
+    assertEq("an observer_ai record is machine", [r.origin, r.subject_kind], ["machine", "observer_ai"]);
+
+    // A GRANDFATHERED RECORD IS NEITHER. `validate-feedback.sh` floors the subject on new
+    // writes only, so history has records with none; calling one `human` would let the loop's
+    // own past records through and calling it `machine` would silence real history.
+    r = read(rec("old.md", "author: a@qmu.jp\n"));
+    assertEq("a grandfathered record is unreadable, never human and never machine",
+      [r.origin, r.reason], ["unreadable", "no_subject"]);
+    assertTrue("...and still carries the author as evidence", r.author === "a@qmu.jp", r.author);
+
+    r = read(rec("other.md", "subject: other\nauthor: a@qmu.jp\n"));
+    assertEq("`other` is declared and indecisive, so it does not pick a side",
+      [r.origin, r.reason], ["unreadable", "subject_kind_other"]);
+
+    r = read(rec("bad.md", "subject: martian\nauthor: a@qmu.jp\n"));
+    assertEq("a kind outside the closed set is unreadable by name",
+      [r.origin, r.reason], ["unreadable", "bad_subject_kind"]);
+
+    r = read(join(dir, "absent.md"));
+    assertEq("an absent record is unreadable, not machine", [r.origin, r.reason], ["unreadable", "not_found"]);
+
+    // THE REGRESSION THAT WOULD BREAK THE LOOP'S MAIN INBOUND PATH. `/propose`'s sweep files
+    // a person's channel message as an issue whose body carries the three axes on one line;
+    // the subject is the PERSON, and the reader must say so even though a routine filed it.
+    r = readBody("# Ask\n\nkind: instruction / source: slack / subject: person:someone@example.com\n");
+    assertEq("a human message swept by a routine is a human ask",
+      [r.origin, r.subject_kind, r.subject_identity],
+      ["human", "person", "someone@example.com"]);
+
+    r = readBody("# Finding\n\nkind: instruction / source: moderate / subject: observer_ai:bot@example.com\n");
+    assertEq("and the tick's own finding is machine", r.origin, "machine");
+
+    assertEq("an empty ask is unreadable", readBody("").origin, "unreadable");
+
+    // A PURE READ. Nothing is written, and the exit status is 0 in every case above.
+    assertEq("the reader writes nothing",
+      readdirSync(dir).filter((f) => !f.endsWith(".md")).length, 0);
+    for (const path of ["person.md", "absent.md"]) {
+      assertEq(`exit 0 for ${path}`,
+        run(dir, `${POSIX_SH} ${SCRIPT} ${join(dir, path)}`).status, 0);
+    }
+  } finally { cleanup(dir); }
+}
+
+// ---------- the self-authored refusal, stated where the run reads it ----------
+// The refusal is prose the running model applies — nothing mechanical can check that a run
+// actually asked "did a person want this". What IS checkable is that the rule is stated at
+// the two surfaces the run reads, that both name the same word and the same reader, and that
+// no second parser of the `subject:` axis grew beside it.
+function testSelfAuthoredRefusalIsStated() {
+  const bar = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  const flow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  for (const [name, text] of [["the judgment bar", bar], ["step 7", flow], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the refusal by its own word`, text.includes("self_authored"), name);
+    assertTrue(`${name} names the one reader rather than a second test`,
+      text.includes("ask-origin.sh"), name);
+  }
+  // THE THREE PROPERTIES THAT MAKE IT SAFE, each stated where the run reads it.
+  assertTrue("the bar says an unreadable origin does not refuse",
+    /`unreadable`, do not refuse|unreadable.{0,40}(never refuses|do not refuse)/.test(bar), "bar");
+  assertTrue("step 7 says an unreadable origin proceeds unchanged",
+    /unreadable.{0,60}proceed unchanged/s.test(flow), "flow");
+  assertTrue("both say the inbound sweep is never caught",
+    /sweep is never caught|not catch the inbound sweep/.test(bar)
+    && /not catch the inbound sweep|sweep is never caught/.test(flow), "sweep");
+  assertTrue("and both say why it sits at the judgment rather than at discovery",
+    /at the judgment, not at discovery|at the judgment and not at discovery/.test(bar)
+    && /at the judgment and not at discovery|at the judgment, not at discovery/.test(flow), "seam");
+
+  // NO SECOND PARSER. `subject:` is read by `ask-origin.sh` and by the validate hook, and by
+  // nothing inside /specificate — two readers of one axis is how the two start to disagree.
+  const specDir = join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts");
+  for (const f of readdirSync(specDir).filter((n) => n.endsWith(".sh"))) {
+    const src = readFileSync(join(specDir, f), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue(`${f} does not parse the subject axis itself`,
+      !/subject:/.test(src), `${f} grew a second parser of subject:`);
+  }
+}
+
+// ---------- /propose's judgement refusals stay judgements ----------
+// `describing_move`, `self_refining` and `invented_obligation` are prose the running model
+// applies. What is checkable is that each is NAMED at the surfaces the run reads, and that
+// none of them leaked into the mechanical gates — a refusal that became an expression in
+// `survey-strategies.sh` would change which directions are eligible, which is the one thing
+// these three must never do.
+// ---------- what may originate a mission, stated once and cited ----------
+// The rule lived only as three consequences in three skills, and the next session
+// re-derived it wrong — five self-authored roots merged in one day. This pins the shape the
+// repair depends on: the statement exists at its one home with its measurement, the three
+// consuming skills CITE it rather than restating it, and the drift pin fails when a citing
+// surface starts saying something different.
+function testWhatMayOriginateAMission() {
+  const HOME = join(REPO_ROOT, "plugins/workaholic/rules/workaholic.md");
+  const home = readFileSync(HOME, "utf8");
+  assertTrue("the rule is stated at its one home",
+    /Only a human's ask, or a strategy a human authored, originates a mission/.test(home), "home");
+  assertTrue("with its measurement beside it",
+    /five consecutive `\[FB\]` roots in one day/.test(home), "measurement");
+  for (const w of ["self_authored", "self_refining", "only_the_loop_spoke"]) {
+    assertTrue(`and names what may not originate: ${w}`, home.includes(w), w);
+  }
+  assertTrue("and says why the home is this file rather than a skill or a CLAUDE.md",
+    /ships \*\*in the plugin\*\*|belongs to none of them/.test(home), "why here");
+
+  // THE CITING SURFACES REFERENCE IT. Three restatements is how the rule drifted into three
+  // consequences in the first place, so each must point at the home rather than re-say it.
+  const CITE = "rules/workaholic.md`, *What May Originate a Mission*";
+  for (const [name, rel] of [
+    ["specificate", "plugins/workaholic/skills/specificate/SKILL.md"],
+    ["propose", "plugins/workaholic/skills/propose/SKILL.md"],
+    ["feedback", "plugins/workaholic/skills/feedback/SKILL.md"],
+  ]) {
+    const text = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${name} cites the rule's home`, text.includes(CITE), `${name} does not cite it`);
+    assertTrue(`${name} says it is cited rather than restated`,
+      /cited here rather than restated|cited, never restated|never restated here/.test(text), name);
+  }
+  assertTrue("CLAUDE.md's Sources names whose input each source carries",
+    /Sources\*\*, each named with \*\*whose input it carries/.test(
+      readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8")), "sources");
+}
+
+// ---------- the run-level brake: only the loop has spoken ----------
+// A brake nothing mechanical can fire, so what is pinned is that it is stated at the three
+// surfaces the run reads, that it never brakes on an unreadable channel, that it costs no
+// second query, and that it did not become a per-strategy gate.
+function testOnlyTheLoopSpokeBrake() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  for (const [name, text] of [["the skill", skill], ["the loop reference", loop], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the brake by its own word`, text.includes("only_the_loop_spoke"), name);
+    assertTrue(`${name} names all three values`,
+      text.includes("human_spoke") && /unreadable/.test(text), name);
+    assertTrue(`${name} says an unreadable channel never brakes`,
+      /unreadable.{0,60}(never brake|never brakes)|never brakes/i.test(text), name);
+  }
+  assertTrue("the skill says it is run-level, unlike every per-direction gate",
+    /run-level/.test(skill) && /every other gate is per-direction/.test(skill), "run-level");
+  assertTrue("and that the reactive half is untouched",
+    /reactive half is untouched/.test(skill) && /reactive half is untouched/.test(loop), "reactive");
+  assertTrue("the window is the sweep's own, not a second constant",
+    /WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS/.test(skill)
+    && /no second query/.test(skill), "window");
+
+  // IT IS NOT A PER-STRATEGY GATE. The survey decides eligibility; a run-level brake that
+  // reached it would silently change which directions are eligible rather than stopping the
+  // tick, which is a different behaviour with the same name.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("survey-strategies.sh does not read the brake",
+    !mech.includes("only_the_loop_spoke") && !mech.includes("human_spoke"),
+    "the run-level brake leaked into the per-strategy gate");
+}
+
+function testProposeJudgementRefusals() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  const WORDS = ["describing_move", "self_refining", "invented_obligation"];
+
+  for (const w of WORDS) {
+    assertTrue(`the skill names ${w}`, skill.includes(w), w);
+    assertTrue(`CLAUDE.md names ${w}`, claude.includes(w), w);
+  }
+  assertTrue("the loop's step 4 tells the run to report self_refining",
+    loop.includes("self_refining"), "loop.md");
+  assertTrue("and the refusal names what it must not catch",
+    /must not catch|does not catch/.test(skill) && /repair mission/.test(skill), "bounds");
+
+  // THE MECHANICAL GATES ARE UNTOUCHED. Not one of the three may appear in the survey, whose
+  // job is eligibility; a judgement that reached it would silently change `selected`.
+  // Comments are stripped: the survey's header EXPLAINS which question belongs to
+  // `describing_move` and hands the answer in as `--aim-kind`, which is the documented
+  // arrangement. What must not exist is the word in an expression.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const w of WORDS) {
+    assertTrue(`survey-strategies.sh does not read ${w}`, !mech.includes(w),
+      `${w} leaked into the mechanical gate`);
+  }
+}
+
 const tests = [
   ["moderate/step-date-will-not-hold.sh: the date question asked before the date", testDateWillNotHoldStep],
+  ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
+  ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],
+  ["propose: the judgement refusals are named, and stay out of the gates", testProposeJudgementRefusals],
+  ["propose: the run-level brake when only the loop has spoken", testOnlyTheLoopSpokeBrake],
+  ["what may originate a mission is stated once and cited", testWhatMayOriginateAMission],
   ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
   ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
   ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],

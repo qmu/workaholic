@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:34:15+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -82,3 +83,43 @@ answered rather than blending them.
   carry a session trailer. That reads the runner rather than the opinion, and it would mark
   a human's ask captured by a routine as machine-authored. The subject axis is the one that
   means what this mission needs.
+
+## Final Report
+
+Development completed as planned.
+`plugins/workaholic/skills/feedback/scripts/ask-origin.sh` is the one reader, pure and
+network-free, answering **`human` / `machine` / `unreadable:<reason>`** and carrying the
+evidence it used (`subject_kind`, `subject_identity`, `author`) on every answer. Exit 0 in
+every case, including every degradation.
+
+- **Derived from the axes that already exist** (step 4): `subject:` decides — `person`,
+  `meeting`, `customer`, `team` are a person's opinion, `observer_ai` is a machine's, by the
+  schema's own definition. No field and no relation was added.
+- **`unreadable` is a real third value and never collapses** (step 2). Four ways in, each named:
+  `no_subject` (a grandfathered record — `validate-feedback.sh` floors the axis on new writes
+  only), `subject_kind_other` (inside the closed set and indecisive, so it does not pick a
+  side), `bad_subject_kind`, `not_found`, and `empty`.
+- **The judgement half stays out of the script** (step 3). It answers *who*; whether the
+  subject matter is the loop's own apparatus is the consuming bar's, in words. A script
+  guessing that would refuse the real asks about the loop that people write.
+- **It reads a record on disk or an ask's body on stdin** — a GitHub issue has no file to
+  name, and `open-issue.sh` writes the three axes as one visible line, so the field is read
+  line-wise rather than from a YAML block. Two surfaces of one record must not need two
+  parsers.
+- **Fourteen hermetic rows** (step 5), covering the four cases the ticket named plus the absent
+  record, the empty ask, the pure-read property and the exit status.
+
+### Discovered Insights
+
+- **Insight**: The regression that would matter most is not a wrong `machine` on a record — it
+  is a wrong `machine` on the **inbound sweep's** output. A person's channel message filed as
+  an issue by a routine has `subject: person:<author>` and an author that is the routine, so
+  keying on the author would refuse the loop's main inbound path entirely. That case is pinned
+  explicitly rather than left implied by the subject rule.
+  **Context**: Any future consumer tempted to "also check the author" would break the sweep.
+- **Insight**: The suite's `run()` helper pins stdin to `"ignore"`, so a test passing `input:`
+  gets an empty stdin unless it also passes `stdio: ["pipe","pipe","pipe"]` — and the reader
+  then answers `unreadable` for the right reason about the wrong thing, which reads like a
+  correct degradation.
+  **Context**: Every stdin-fed script tested here needs the explicit stdio, or its rows pass
+  while measuring nothing.

@@ -1569,6 +1569,49 @@ fail for the wrong reason and the breaker would "break" without proving anything
 | `tick_thread_ask_key_keeps_the_detail` | `step-stuck-prs.sh` — the coarsening reached `ask_key`, so the ledger can no longer tell one state from another |
 | `tick_thread_breaker` | the drill can no longer fail, so every row above proves nothing |
 
+## 5v. The plan the loop adjusts (does it hold, and does it order?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-plan-adjust [--json]
+```
+
+Drives the two mechanisms the planner added (2026-09-01, mission
+`adjust-the-plan-hourly-not-only-report-it`): `/propose`'s repository-wide `wip_limit` rung and
+`plan-units.sh`'s derived offer order. It needs **no seed, no issue number, no credential and no
+network** — the fixture is a throwaway git repository the drill builds, the limit is an
+environment variable it sets, and the open-proposal read is supplied as a file, which is the seam
+`/propose` and `direction-health` already take.
+
+**The two are drilled together because they fail in opposite directions.** A regression that
+*ignores* a declared limit puts six missions in flight again — the measured state the gate exists
+for. A regression that *holds* a repository which declared nothing stops the loop **silently**,
+which is the more dangerous of the two and is why `plan_adjust_absent_holds_nothing` carries the
+same weight as the hold itself rather than riding as a footnote.
+
+**The fixture's commit is dated into the past, and that is load-bearing.** `landed` is a
+`git log --since` read over the survey's window, so a fixture committed *now* falls inside any
+window: the eligible direction then reads `quiescent` and is refused `arrived` by the rung
+*above* the one under test. Measured while writing this drill — it passed or failed depending on
+whether a second had elapsed between the commit and the survey. `GIT_COMMITTER_DATE` is the same
+control `verify-cadence-lapse` uses, for the same reason.
+
+**The breaker wires the `wip_limit` rung out of the ladder**, and the held direction must
+originate again. Without it, the hold row could pass against a survey that never had the gate at
+all.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `plan_adjust_holds_above_the_limit` | `survey-strategies.sh` — the `wip_limit` rung is gone or unreachable, so N directions can put N missions in flight together again |
+| `plan_adjust_below_the_limit_proceeds` | `survey-strategies.sh` — the bound is off by one or the comparison inverted; a repository with room is being held |
+| `plan_adjust_absent_holds_nothing` | `survey-strategies.sh` — a repository that declared nothing is being braked by default, which stops the loop with no one told |
+| `plan_adjust_unreadable_limit_holds_nothing` | `survey-strategies.sh` — our own failed read became a gate, so a typo in the declaration silences origination |
+| `plan_adjust_offer_is_ordered` | `plan-units.sh` — the offer is back to walk order, so which direction converges is whatever the directory listing produced |
+| `plan_adjust_offer_set_unchanged` | `plan-units.sh` — the ordering dropped or added a unit; ordering must change order, never eligibility |
+| `plan_adjust_offer_says_why` | `plan-units.sh` — a row is ordered with no `order_reason`, so a derived order and a silent walk order look alike |
+| `plan_adjust_unreadable_order_is_named` | `plan-units.sh` — a failed resolution falls back to an unannotated walk order instead of naming every row `direction_unreadable` |
+| `plan_adjust_writes_nothing_outside_the_fixture` | the drill itself — a reader acquired a write |
+| `plan_adjust_breaker` | the drill can no longer fail, so every row above proves nothing |
+
 ## 9. The drill register
 
 **One table, three columns, one reader** (2026-08-29, mission
@@ -1648,6 +1691,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-claim-race` | `hermetic` | yes | `stop-two-runs-from-claiming-and-driving-one-unit` |
 | `verify-directed-notification` | `hermetic` | yes | `notify-the-person-a-directed-question-addresses` |
 | `verify-impairment` | `hermetic` | yes | `name-the-steps-a-tick-could-not-read` |
+| `verify-plan-adjust` | `hermetic` | yes | `adjust-the-plan-hourly-not-only-report-it` |
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |

@@ -51,3 +51,4 @@ by the loop itself.
 - 2026-09-02 — ticket archived — 20260901123357-name-a-mission-at-full-acceptance-with-tickets-left.md
 - 2026-09-02 — ticket archived — 20260901123357-offer-the-executor-work-in-a-derived-order.md
 - 2026-09-02 — ticket archived — 20260901123357-hold-new-divergence-above-a-work-in-progress-limit.md
+- 2026-09-02 — ticket archived — 20260901123358-drill-the-divergence-hold-and-the-offer-order-offline.md

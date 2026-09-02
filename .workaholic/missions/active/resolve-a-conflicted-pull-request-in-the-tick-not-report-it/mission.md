@@ -41,7 +41,7 @@ of the pass silently. Nothing is parked for a claim holder.
 
 - [x] A conflicted pull request the tick can settle is settled and merged by it, content
       conflicts included. (#20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it.md)
-- [ ] An uncomputed mergeable state drops the pull request from the pass and notifies
+- [x] An uncomputed mergeable state drops the pull request from the pass and notifies
       nobody. (#20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state.md)
 - [ ] No step and no prose defers a conflict to a claim holder or reports stuckness in
       place of resolving it. (#20260902042630-retire-the-surfaces-that-defer-a-conflict-to-a-claim-holder.md)
@@ -52,3 +52,4 @@ of the pass silently. Nothing is parked for a claim holder.
 - 2026-09-02 — ticket archived — 20260902042630-localize-which-step-posted-each-of-the-three-corrected-lines.md
 - 2026-09-02 — ticket archived — 20260902042630-let-the-tick-resolve-a-content-conflict-not-defer-it.md
 - 2026-09-02 — ticket archived — 20260902042630-let-the-tick-merge-what-it-resolved.md
+- 2026-09-02 — ticket archived — 20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state.md

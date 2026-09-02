@@ -27798,6 +27798,54 @@ esac
       cleanup(binGrew);
     }
 
+    // ---- AN UNCOMPUTED MERGEABLE STATE LEAVES THE PASS (2026-09-02, mission
+    // `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`, ticket
+    // `20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state`) ----
+    //
+    // `mergeable == null` means GitHub has not finished computing it. The only act the row ever
+    // named was "re-read before acting", which is nobody's, and the operator ruled it not worth
+    // a notification. The rows below are the ticket's own step 6: a pass holding one uncomputed
+    // row and one real one asks about the second and not the first.
+    const binMixed = many([[51, null, "unknown"], [52, false, "dirty"]]);
+    const binOnlyReal = many([[52, false, "dirty"]]);
+    const binOnlyUnknown = many([[51, null, "unknown"]]);
+    try {
+      const mixed = stuck(binMixed);
+      const onlyReal = stuck(binOnlyReal);
+      const onlyUnknown = stuck(binOnlyUnknown);
+
+      assertEq("a pass asks about the conflicted pull request and not the uncomputed one",
+        mixed.needs_agent.map((n) => n.pull), [52]);
+      assertTrue("and no candidate carries the uncomputed class",
+        mixed.needs_agent.every((n) => n.blocked_by !== "unknown"),
+        JSON.stringify(mixed.needs_agent));
+
+      // COUNTED, NOT ASKED. The number is evidence for the run report and reaches no channel.
+      assertEq("the uncomputed row is counted in its own field", mixed.uncomputed, 1);
+      assertTrue("and reaches neither the summary nor the headline",
+        !/computed/.test(mixed.summary) && !/computed/.test(mixed.headline),
+        `${mixed.summary} :: ${mixed.headline}`);
+
+      // THE FILTER IS AT CANDIDATE SELECTION, AND THIS IS HOW THAT IS OBSERVABLE FROM OUTSIDE:
+      // the ask key is the digest over the candidate set, so a pass with an extra uncomputed
+      // row must key identically to one without it. A post-time filter would leave the digest —
+      // and therefore the recorded key — different, which is the failure the ticket names.
+      assertEq("so the ask key is identical with and without the uncomputed row",
+        mixed.ask_key, onlyReal.ask_key);
+
+      // A pass holding ONLY uncomputed rows is not `blocked`: a blocked row with no candidate
+      // renders an impairment line in the root about something nobody may act on.
+      assertEq("a pass holding only uncomputed rows reports ok, asks nothing, and counts it",
+        [onlyUnknown.status, onlyUnknown.needs_agent.length, onlyUnknown.uncomputed],
+        ["ok", 0, 1]);
+      assertEq("naming why it is quiet rather than calling them mergeable",
+        onlyUnknown.reason, "mergeability_uncomputed");
+    } finally {
+      cleanup(binMixed);
+      cleanup(binOnlyReal);
+      cleanup(binOnlyUnknown);
+    }
+
     // Step 5: an open issue an archived ticket names is drift, and nothing is closed.
     mkdirSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101"), { recursive: true });
     writeFileSync(join(repo, ".workaholic/tickets/archive/work-20260817-010101/t.md"),

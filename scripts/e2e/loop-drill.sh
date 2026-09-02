@@ -9902,8 +9902,15 @@ STUB
     ln -s "${REPO_ROOT}/plugins/workaholic/skills/gather" "${_bskills}/gather"
     _broken="${_bskills}/moderate/scripts"
     sed 's|TTK_KEY="tick-day:${_ttk_day}"|TTK_KEY="tick:${1:-}"|' "$_key" > "${_broken}/lib/tick-thread-key.sh"
+    #     THE ARGUMENT LINE CARRIES `$uncomputed` SINCE 2026-09-02 (mission
+    #     `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`), so the anchor matches
+    #     it. This is the failure mode a breaker has that an ordinary assertion does not: when
+    #     the anchor stops matching, half B silently does not apply and the drill reports
+    #     `noisy=no` — which is the breaker doing its job, saying the rows above no longer prove
+    #     anything. Re-anchor it rather than relaxing the pattern; a loose anchor is a breaker
+    #     that stops noticing.
     sed -e 's|"summary": "%s — candidates for step 10|"summary": "%s (%s) — candidates for step 10|' \
-        -e 's|^    "\$HEADLINE" "\$HEADLINE" "\$needs" "\$ASK_KEY"$|    "$HEADLINE" "$pairs" "$HEADLINE" "$needs" "$ASK_KEY"|' \
+        -e 's|^    "\$HEADLINE" "\$HEADLINE" "\$needs" "\$ASK_KEY" "\$uncomputed"$|    "$HEADLINE" "$pairs" "$HEADLINE" "$needs" "$ASK_KEY" "$uncomputed"|' \
         "$_stuck" > "${_broken}/step-stuck-prs.sh"
     chmod +x "${_broken}/lib/tick-thread-key.sh" "${_broken}/step-stuck-prs.sh"
 

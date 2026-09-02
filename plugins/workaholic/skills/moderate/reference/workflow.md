@@ -273,12 +273,27 @@ is only what a line is allowed to prove.
   catch-up clears a generated-index conflict, a real content collision is the claim holder's and
   nobody else may push to that branch; `review` → a required review or gate is unsatisfied;
   `checks` → the author must fix a failing check or say it is expected; `draft` → mark it ready or
-  close it; `behind` → the claim holder must update it; `unknown` → GitHub has not computed
-  mergeability yet, re-read before acting.
+  close it; `behind` → the claim holder must update it.
+- **An `unknown` row leaves the pass and is counted instead** (2026-09-02, mission
+  `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`). `pulls-state.sh` answers
+  `unknown` for `mergeable == null` — GitHub has not finished computing it — which says nothing
+  about the pull request and everything about when we asked, and the only "act" it ever named
+  was *re-read before acting*, which is nobody's. The operator ruled it not worth a
+  notification. It is filtered at **candidate selection**, not at the post: `ask-question.sh`
+  records a key as asked when the question is composed, so a post-time filter would leave the
+  key spent while reaching nobody. It leaves the `ask_key` digest with it, so an uncomputed row
+  can never change the key of a question about a different pull request. A pass holding **only**
+  uncomputed rows reports `ok`, never `blocked` — a `blocked` row with no candidate renders an
+  impairment line in the root about something nobody may act on. The count survives on the
+  step's own **`uncomputed`** field, and deliberately not in the compared summary, on
+  `step-merge-conflicts.sh`'s 2026-09-01 measurement: that string is compared for the impairment
+  diff, so a count GitHub moves on its own schedule would open a root every time it settled one
+  pull request.
 - **The heading names the kind, the key does not move** (2026-08-18, issue #513). `headline` is
   derived from the same `blocked_by` set — `conflicting with main`, `waiting on review`, `with a
-  failing check`, `still in draft`, `behind main`, `with mergeability not yet computed`, and
-  `stuck: <kind>, <kind>` when one post covers several — and the `🔧` post's first line carries it,
+  failing check`, `still in draft`, `behind main`, and
+  `stuck: <kind>, <kind>` when one post covers several (the `with mergeability not yet computed`
+  heading is retired with the row it named) — and the `🔧` post's first line carries it,
   so a conflict finding and an un-run auto-merge no longer share a heading. It is **wording only**:
   the digest, the two gates and the post's frequency are untouched.
 - **One reminder per distinct state.** The key is `stuck:<digest>` over the sorted

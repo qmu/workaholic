@@ -60,7 +60,11 @@
 # once mistaken for the dedup key, and this change touches neither.
 #
 # Usage: step-stuck-prs.sh --tick <id> --root <repo-root> [--limit <n>]
-# Output: one JSON line {"step","status","reason","summary","headline","needs_agent":[...],"key":"","ask_key":"stuck-<digest>"}
+# Output: one JSON line {"step","status","reason","summary","headline","needs_agent":[...],"key":"","ask_key":"stuck-<digest>","uncomputed":<n>}
+#
+# `uncomputed` counts the rows GitHub had not finished computing when we asked. They are
+# counted and never asked about (see the filter below) — evidence for the run report, and
+# nothing a person can act on.
 
 # ONE OBJECT PER LINE, VIA awk. `tr '}' '}\n'` looks like it splits the JSON and
 # does not: tr maps one character to one character, so the replacement's second
@@ -97,11 +101,49 @@ case "$state" in
         ;;
 esac
 
-rows=$(printf '%s' "$state" | awk '{ gsub(/}/, "}\n"); print }' | grep '"blocked_by": "' | grep -v '"blocked_by": ""' || true)
+all_rows=$(printf '%s' "$state" | awk '{ gsub(/}/, "}\n"); print }' | grep '"blocked_by": "' | grep -v '"blocked_by": ""' || true)
+
+# AN UNCOMPUTED MERGEABLE STATE LEAVES THE PASS INSTEAD OF REACHING A PERSON (2026-09-02,
+# mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`, ticket
+# `20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state`). The operator's
+# words: that is not worth a notification. `blocked_by: "unknown"` is `pulls-state.sh`'s word
+# for `mergeable == null` — GitHub simply has not finished computing it — so it says nothing
+# about the pull request and everything about when we asked. Its own header records four pull
+# requests reading `unknown` hour after hour and one re-read settling all four. There is no act
+# to ask anybody for; the next tick reads it again.
+#
+# THE FILTER IS AT CANDIDATE SELECTION, NOT AT THE POST, and the difference is the whole
+# ticket. `ask-question.sh` records a key as asked when the question is composed, so filtering
+# at the post would leave the key spent — the row would reach nobody AND be marked answered-to.
+# A row that never becomes a candidate cannot become a key.
+#
+# IT IS DROPPED FROM THE QUESTION *AND* FROM THE DIGEST. `ask_key` is the digest over the
+# sorted `<number>:<blocked_by>` set, so leaving `unknown` in it would let an uncomputed row
+# change the key of a question about a DIFFERENT pull request, re-asking a settled subject for
+# a reason no reader could see.
+uncomputed=$(printf '%s' "$all_rows" | grep -c '"blocked_by": "unknown"' || true)
+case "$uncomputed" in '' | *[!0-9]*) uncomputed=0 ;; esac
+rows=$(printf '%s' "$all_rows" | grep -v '"blocked_by": "unknown"' || true)
 count=$(printf '%s' "$rows" | awk 'NF { n++ } END { print n + 0 }')
 
+# THE COUNT IS KEPT, IN ITS OWN FIELD, AND DELIBERATELY NOT IN THE COMPARED SUMMARY. The
+# ticket asked for it "in the step summary"; `step-merge-conflicts.sh` had exactly that and it
+# was removed on 2026-09-01 (ticket `20260901122448`) for a measured reason that applies here
+# with more force. `render-tick-post.sh` compares `(step, status, stabilized summary)` for the
+# impairment diff, and this step's `blocked` row is IN that diff — so an uncomputed count in
+# the summary would open a root every time GitHub finished computing one pull request, which is
+# the hourly noise the gate exists to prevent. The `uncomputed` FIELD carries it instead, the
+# sibling step's own shape, so the run report and any other reader still have the number.
 if [ "$count" -eq 0 ]; then
-    printf '{"step": "stuck-prs", "status": "ok", "reason": "", "summary": "nothing is stuck: every open pull request is mergeable", "headline": "", "needs_agent": [], "key": ""}\n'
+    # A tick with nothing stuck keeps today's wording byte-identically; one holding only
+    # uncomputed rows never claims they are mergeable, and never reports `blocked`, because a
+    # `blocked` row with no candidate renders an impairment line about a row nobody may act on.
+    if [ "$uncomputed" -eq 0 ]; then
+        printf '{"step": "stuck-prs", "status": "ok", "reason": "", "summary": "nothing is stuck: every open pull request is mergeable", "headline": "", "needs_agent": [], "key": "", "uncomputed": 0}\n'
+    else
+        printf '{"step": "stuck-prs", "status": "ok", "reason": "mergeability_uncomputed", "summary": "nothing is stuck: no open pull request reads as blocked, some not yet computed by GitHub", "headline": "", "needs_agent": [], "key": "", "uncomputed": %s}\n' \
+            "$uncomputed"
+    fi
     exit 0
 fi
 
@@ -124,7 +166,10 @@ if [ "$kind_count" -eq 1 ]; then
         checks)   what='with a failing check' ;;
         draft)    what='still in draft' ;;
         behind)   what='behind main' ;;
-        unknown)  what='with mergeability not yet computed' ;;
+        # No `unknown` arm: an uncomputed row left the pass above, so it can never reach the
+        # headline. The arm is deleted rather than left unreachable — a dead branch reading
+        # "with mergeability not yet computed" is exactly the stale sentence a later session
+        # would restore the behaviour from.
         *)        what='waiting on a human' ;;
     esac
 else
@@ -170,7 +215,9 @@ needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
         else if (b == "checks") decision = "a check is failing — the author must fix it or say it is expected"
         else if (b == "draft")  decision = "it is still a draft — the author must mark it ready or close it"
         else if (b == "behind") decision = "the base moved — the claim holder must update it"
-        else if (b == "unknown") decision = "GitHub has not computed mergeability yet — re-read before acting"
+        # No `unknown` arm, for the reason the headline has none: the row is gone before this
+        # program runs. Its text asked a person to "re-read before acting", which is not an act
+        # anybody can take and is the notification the operator refused.
         printf "%s{\"action\": \"ask\", \"pull\": %s, \"url\": \"%s\", \"blocked_by\": \"%s\", \"decision\": \"%s\", \"key\": \"%s\"}",
             (c++ ? ", " : ""), n, u, b, decision, key
     }')
@@ -200,5 +247,5 @@ needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
 # set, `headline` is unchanged, and `needs_agent` still names every pull request with its
 # `blocked_by` and its decision — nothing a person is asked loses detail. Only the compared
 # string is coarsened.
-printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s — candidates for step 10, never a status post", "headline": "%s", "needs_agent": [%s], "key": "", "ask_key": "%s"}\n' \
-    "$HEADLINE" "$HEADLINE" "$needs" "$ASK_KEY"
+printf '{"step": "stuck-prs", "status": "blocked", "reason": "", "summary": "%s — candidates for step 10, never a status post", "headline": "%s", "needs_agent": [%s], "key": "", "ask_key": "%s", "uncomputed": %s}\n' \
+    "$HEADLINE" "$HEADLINE" "$needs" "$ASK_KEY" "$uncomputed"

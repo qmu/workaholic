@@ -106,8 +106,21 @@ truncated=$(printf '%s' "$state" | sed 's/.*"truncated": //; s/,.*//')
 # in the same tick, which is the noise the gate exists to prevent.
 uncomputed=$(printf '%s' "$state" | awk '{ gsub(/}/, "}\n"); print }' | grep -c '"blocked_by": "unknown"' || true)
 case "$uncomputed" in ''|*[!0-9]*) uncomputed=0 ;; esac
-UNKNOWN_NOTE=""
-[ "$uncomputed" -eq 0 ] || UNKNOWN_NOTE=", ${uncomputed} not yet computed by GitHub"
+
+# `UNKNOWN_NOTE` IS RETIRED AND THE EVENT NO LONGER CARRIES IT (2026-09-02, mission
+# `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`, ticket
+# `20260902042630-drop-the-notification-for-an-uncomputed-mergeable-state`). The operator's
+# ruling: an uncomputed mergeable state is not worth a notification. The `event` is the ROOT
+# CHANGE LINE — the one thing this step puts on the channel — so the note was the whole of
+# what a reader was told about a state that says nothing about the pull request and everything
+# about when we happened to ask. GitHub computes it asynchronously and the next tick reads it.
+#
+# THE COUNT IS NOT LOST. It stays on the `uncomputed` field, where the run report and every
+# other reader already take it, and — for the zero-conflict branch — in that branch's own
+# summary, which carries no event and so reaches nobody's channel. The 2026-09-01 removal of
+# this count from the COMPARED summary stands unchanged and for its own separate reason; this
+# removes it from the CHANNEL. The variable is deleted rather than emptied: an unused
+# `UNKNOWN_NOTE=""` still threaded into the format string is how the note comes back.
 
 # THE UNCOMPUTED COUNT IS TRANSPORT-DERIVED AND NO LONGER RIDES THE COMPARED SUMMARY
 # (2026-09-01, ticket `20260901122448-name-every-step-summary-carrying-transport-derived-
@@ -122,9 +135,13 @@ UNKNOWN_NOTE=""
 # which. A pull request whose mergeability finally computes as `false` still changes that
 # count and still speaks. The `uncomputed` FIELD is untouched, so every reader that wants the
 # number still has it; only the compared string is coarsened, and `reason` never reaches the
-# tick log so `mergeability_uncomputed` cannot enter the comparison either. `UNKNOWN_NOTE`
-# survives on the `event` — a change line is rendered only when the summary already moved,
-# so it can add detail without earning a root of its own.
+# tick log so `mergeability_uncomputed` cannot enter the comparison either.
+#
+# It USED to survive on the `event`, on the reasoning that a change line is rendered only when
+# the summary already moved, so it could add detail without earning a root of its own. That
+# reasoning was sound about ROOTS and beside the point about READERS: the event is the line a
+# person actually sees, and 2026-09-02 the operator ruled the detail itself unwanted. It is
+# gone from there too (above); the count keeps its field.
 if [ "$count" -eq 0 ]; then
     # A tick with neither conflicts nor uncomputed rows keeps today's wording byte-identically;
     # one with uncomputed rows never claims `none conflicted` about them.
@@ -139,8 +156,8 @@ if [ "$count" -eq 0 ]; then
 fi
 
 numbers=$(printf '%s' "$conflicted" | sed 's/.*"number": //; s/,.*//' | tr '\n' ' ' | sed 's/ $//')
-printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s) — never rebased here: the catch-up clears what a generator settles, a content collision belongs to the claim holder", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)%s"}\n' \
+printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s) — never rebased here: the catch-up clears what a generator settles, a content collision belongs to the claim holder", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
     "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" \
     "$(printf '%s' "$numbers" | tr ' ' '\n' | awk 'NF { printf "%s%s", (n++ ? ", " : ""), $0 }')" \
     "$uncomputed" \
-    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" "$UNKNOWN_NOTE"
+    "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')"

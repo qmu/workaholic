@@ -11,6 +11,7 @@
 #    "backlog_error": "<reason, "" when the queue was read>",
 #    "backlog_size": <how many tickets the queue actually holds, owned or not>,
 #    "owner_unresolved": bool,
+#    "placeholder_identity": bool,
 #    "claimed": [{"unit", "branch", "stale", "resumable", "resume_reason"}],
 #    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale",
 #                   "resume_reason", "artifacts"}],
@@ -215,6 +216,22 @@
 #                       genuinely actionable. Claiming still needs an identity and
 #                       still fails loudly if there is none, which is the claim
 #                       protocol's business and is deliberately unchanged.
+#   `placeholder_identity`
+#                       the queue was read, ownership WAS judged, and the identity it
+#                       was judged against stands for nobody -- empty, or a known
+#                       placeholder domain (`noreply@anthropic.com`, the container's
+#                       default when no `.claude/git-identities` mapping exists). The
+#                       three other trustworthiness fields all pass on this state and
+#                       the survey is still worthless: every artifact resolves
+#                       `owned_by_other` against an address that is not a person, so
+#                       empty lists mean "nothing is mine" when nothing established
+#                       who "mine" is. It forbids `ok` with `owner_unresolved`'s
+#                       standing and, like it, terminates nothing: the run surveys,
+#                       reports and ends. It excludes nothing of its own -- the
+#                       artifacts are already named `owned_by_other` -- and `owns.sh`'s
+#                       comparison is unchanged. Derivation, the domain list and why
+#                       it is a third field rather than a widening of either
+#                       neighbour: beside `ME` below.
 #
 # EVERY ARTIFACT IS FILTERED BY THE SAME OWNERSHIP RULE, through the one oracle every
 # other consumer reads (gather/scripts/owns.sh over gather/scripts/owners.sh --
@@ -542,6 +559,44 @@ m_sep=""
 # it is must not claim work on anyone's behalf, but it must also not report that
 # certainty it does not have. Unowned artifacts stay offerable, as everywhere else.
 ME=$(git config user.email 2>/dev/null || true)
+# THE IDENTITY IS A PLACEHOLDER — the third trustworthiness fact, beside `current`,
+# `shallow`, `backlog_error` and `owner_unresolved` (2026-09-02, mission
+# `refuse-ok-under-a-placeholder-identity`). Those four all passed on the measured
+# state and the survey was still worthless: a container with no `.claude/git-identities`
+# keeps `noreply@anthropic.com`, `owns.sh` answers `other` for every artifact, and the
+# run reports empty `missions[]`, empty `backlog[]`, `owner_unresolved: false` — the
+# envelope §7's table calls `ok`. Measured 2026-09-02 in this repository: 68 artifacts
+# excluded `owned_by_other`, nothing offered, every other field clean.
+#
+# `owned_by_other` is the survey's CONFIDENT answer and `owner_unresolved` is its
+# "cannot tell"; this is the third state neither covers — it could tell, and the thing
+# it compared against stands for nobody. So it is its own field rather than a widening
+# of either: reading `owned_by_other` as uncertain would make a colleague's mission
+# forbid `ok` on every honest run, and answering `unresolved` would claim the identity
+# was unreadable when it read fine.
+#
+# NAMED FOR THE IDENTITY, NOT FOR THE ENVIRONMENT that produced it. Two ways in, one
+# field: an EMPTY identity (already `owner_unresolved`'s case, carried here too so the
+# field is self-contained and a caller need not read two) and a KNOWN PLACEHOLDER
+# domain. Matching a domain is matching on somebody else's default and could change,
+# which is exactly why the set is one list on one line — a future default is one word
+# to add, not a new field to wire.
+#
+# IT FORBIDS `ok`, with `owner_unresolved`'s standing (§7): the run still surveys,
+# still reports and still ends — it simply may not report that the queue was empty,
+# because it established nothing about what is assigned to it. It excludes nothing of
+# its own, drops no artifact and changes no comparison; `owns.sh` is untouched.
+PLACEHOLDER_IDENTITY_DOMAINS="anthropic.com"
+PLACEHOLDER_IDENTITY=false
+if [ -z "$ME" ]; then
+    PLACEHOLDER_IDENTITY=true
+else
+    for _pid_domain in $PLACEHOLDER_IDENTITY_DOMAINS; do
+        case "$ME" in
+            *"@${_pid_domain}") PLACEHOLDER_IDENTITY=true ;;
+        esac
+    done
+fi
 # Set by EITHER half — a mission and a ticket ask the same question, so one flag
 # answers "was there anything this runner could not judge". Initialized here rather
 # than beside the backlog it was first written for: the mission loop runs first, and
@@ -760,7 +815,7 @@ if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then
 fi
 ALL_EXCLUDED_JSON="{\"excluded\": ${ALL_EXCLUDED}, \"backlog_size\": ${BACKLOG_SIZE}, \"reasons\": [${EXCLUDED_REASONS}]}"
 
-printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "undelivered": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s], "backlog_all_excluded": %s}\n' \
+printf '{"fetched": %s, "shallow": %s, "base": "%s", "surveyed_sha": "%s", "base_sha": "%s", "current": %s, "user_slug": "%s", "backlog_error": "%s", "backlog_size": %d, "owner_unresolved": %s, "placeholder_identity": %s, "claimed": [%s], "resumable": [%s], "resurveyed": [%s], "undelivered": [%s], "missions": [%s], "backlog": [%s], "excluded": [%s], "backlog_all_excluded": %s}\n' \
     "$FETCHED" "$SHALLOW" "$BASE" "$SURVEYED_SHA" "$BASE_SHA" "$CURRENT" "$(json_escape "$USER_SLUG")" "$BACKLOG_ERROR" \
-    "$BACKLOG_SIZE" "$OWNER_UNRESOLVED" \
+    "$BACKLOG_SIZE" "$OWNER_UNRESOLVED" "$PLACEHOLDER_IDENTITY" \
     "$CLAIMED_JSON" "$RESUMABLE" "$RESURVEYED" "$UNDELIVERED" "$MISSIONS" "$BACKLOG" "$EXCLUDED" "$ALL_EXCLUDED_JSON"

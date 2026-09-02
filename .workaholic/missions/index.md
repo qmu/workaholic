@@ -9,7 +9,6 @@
 * [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
 * [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [refuse-an-ask-the-loop-wrote-to-itself](active/refuse-an-ask-the-loop-wrote-to-itself/mission.md) - Refuse an ask the loop wrote to itself
-* [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](active/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
 * [retire-a-claim-whose-work-is-finished-or-abandoned](active/retire-a-claim-whose-work-is-finished-or-abandoned/mission.md) - Retire a claim whose work is finished or abandoned
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
@@ -95,6 +94,7 @@
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
 * [refresh-the-outdated-documentation-to-match-current-behavior](archive/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
 * [refuse-a-commit-that-splits-a-rename](archive/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename
+* [refuse-ok-under-a-placeholder-identity](archive/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
 * [refuse-the-move-that-describes-the-aim-instead-of-advancing-it](archive/refuse-the-move-that-describes-the-aim-instead-of-advancing-it/mission.md) - Refuse the move that describes the aim instead of advancing it
 * [register-every-fb-as-an-issue](archive/register-every-fb-as-an-issue/mission.md) - Register every /fb as an issue
 * [rename-the-routine-pair-and-add-a-per-user-updater](archive/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater

@@ -28,6 +28,36 @@
    named exclusion; a missing connector is `no_slack_transport`, an unreadable channel
    `channel_unreadable`, and **every sweep outcome leaves steps 1-5 untouched**.
 
+   **And answer one more question off the read you just made** (2026-09-02, mission
+   `refuse-an-ask-the-loop-wrote-to-itself`): over this same window, **was there any human
+   message at all** — filed, excluded or ignored? Three values, and no second query:
+   **`human_spoke`** / **`only_the_loop_spoke`** / **`unreadable:<reason>`**. The sweep
+   already tells the loop's own posts from a person's by shape, which is the same
+   distinction; a run that reached no transport, or could not read the channel, answers
+   `unreadable` by that reason. **Report the reading whether or not it fires**, so a reader
+   can tell a quiet channel from a quiet loop. What it does with the answer is step 9's.
+
+0b. **Stop if only the loop has spoken.** When step 0's reading is
+   **`only_the_loop_spoke`**, originate nothing this tick: skip steps 1-5 entirely, open no
+   proposal, post nothing, and end the run reporting the refusal by that word — never as
+   idle and never as an error. This is the one **run-level** brake: it refuses every
+   direction at once, where every other gate is per-direction.
+
+   **`unreadable` never brakes.** A channel that could not be read is not silence — the rule
+   `inbox_unreadable` already holds — and a repository with no Slack transport at all reads
+   `unreadable`, never `only_the_loop_spoke`. Report the reason and continue.
+
+   **The reactive half is untouched.** An issue somebody filed, an ask this very sweep just
+   captured, a `/specificate` run: all still work. The brake is on **origination**, exactly
+   as `observing` and `arrived` are, and that asymmetry is the whole point.
+
+   **The cost is accepted, not tuned away.** A legitimately quiet stretch — a weekend, a
+   holiday — reads as abandonment and costs one tick of proposals; the alternative, measured,
+   was a day of merged work the operator tore out. No threshold is introduced against it, and
+   the window is the sweep's own `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26) because
+   that is the evidence the judgment is made against — a second, different number would be a
+   constant nobody can defend.
+
 1. **Survey.**
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-strategies.sh [window]`
    It makes the one network read itself. A run that already called

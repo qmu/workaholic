@@ -21826,6 +21826,40 @@ function testSelfAuthoredRefusalIsStated() {
 // none of them leaked into the mechanical gates — a refusal that became an expression in
 // `survey-strategies.sh` would change which directions are eligible, which is the one thing
 // these three must never do.
+// ---------- the run-level brake: only the loop has spoken ----------
+// A brake nothing mechanical can fire, so what is pinned is that it is stated at the three
+// surfaces the run reads, that it never brakes on an unreadable channel, that it costs no
+// second query, and that it did not become a per-strategy gate.
+function testOnlyTheLoopSpokeBrake() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  for (const [name, text] of [["the skill", skill], ["the loop reference", loop], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the brake by its own word`, text.includes("only_the_loop_spoke"), name);
+    assertTrue(`${name} names all three values`,
+      text.includes("human_spoke") && /unreadable/.test(text), name);
+    assertTrue(`${name} says an unreadable channel never brakes`,
+      /unreadable.{0,60}(never brake|never brakes)|never brakes/i.test(text), name);
+  }
+  assertTrue("the skill says it is run-level, unlike every per-direction gate",
+    /run-level/.test(skill) && /every other gate is per-direction/.test(skill), "run-level");
+  assertTrue("and that the reactive half is untouched",
+    /reactive half is untouched/.test(skill) && /reactive half is untouched/.test(loop), "reactive");
+  assertTrue("the window is the sweep's own, not a second constant",
+    /WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS/.test(skill)
+    && /no second query/.test(skill), "window");
+
+  // IT IS NOT A PER-STRATEGY GATE. The survey decides eligibility; a run-level brake that
+  // reached it would silently change which directions are eligible rather than stopping the
+  // tick, which is a different behaviour with the same name.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("survey-strategies.sh does not read the brake",
+    !mech.includes("only_the_loop_spoke") && !mech.includes("human_spoke"),
+    "the run-level brake leaked into the per-strategy gate");
+}
+
 function testProposeJudgementRefusals() {
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
   const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
@@ -21859,6 +21893,7 @@ const tests = [
   ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
   ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],
   ["propose: the judgement refusals are named, and stay out of the gates", testProposeJudgementRefusals],
+  ["propose: the run-level brake when only the loop has spoken", testOnlyTheLoopSpokeBrake],
   ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
   ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
   ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],

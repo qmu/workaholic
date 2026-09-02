@@ -173,6 +173,43 @@ once, never by an hourly line here.
 Both were vacated in the same change and neither is claimed by any live template
 (`reference/loop.md`, *Taking the name back*).
 
+## When only the loop has spoken, stop — the one run-level brake
+
+**Every other brake in `/propose` reads the repository** — a strategy's status, its date, its
+attributed work, its open proposals. None of them reads whether **anybody is still there**
+(2026-09-02, mission `refuse-an-ask-the-loop-wrote-to-itself`; the operator's instruction:
+*when the loop is the only one talking in the channel, that is the signal to stop, not to
+propose*). A loop whose channel carries only its own posts is a loop with no one to serve, and
+the measured cost of proposing into that silence was a day of merged work the operator tore
+out by hand.
+
+**The reading comes off the sweep the run already makes** — no second query, no second window,
+no cursor. Over the sweep's own window, was there any human message at all? Three values:
+**`human_spoke`**, **`only_the_loop_spoke`**, **`unreadable:<reason>`**. The sweep already
+tells the loop's own posts from a person's by shape (`workaholic:notify`'s catalog), which is
+the same distinction this needs.
+
+**On `only_the_loop_spoke` the tick originates nothing**: it opens no proposal, posts nothing,
+and reports the refusal by that word. It is the one brake that refuses **every** direction at
+once — every other gate is per-direction — and that difference is stated here so it is not
+mistaken for one of them.
+
+**An unreadable channel never brakes.** A gate that cannot be read is not a gate, the rule
+`inbox_unreadable` already holds; a repository with **no Slack transport at all** reads
+`unreadable`, never silence. The reading is reported whether or not it fires, so a reader can
+tell a quiet channel from a quiet loop.
+
+**The reactive half is untouched.** An issue somebody filed, an ask the sweep just captured, a
+`/specificate` run: all still work. The brake is on **origination**, exactly as `observing` and
+`arrived` are.
+
+**The cost is stated rather than tuned against.** A weekend or a holiday reads as abandonment
+and costs one tick of proposals. That is the operator's own framing accepted deliberately — a
+stopped origination costs an hour, and the alternative cost a day of work they tore out. The
+window is the sweep's own `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS` (default 26), reused because
+it is the evidence the judgment is made against; a second number would be a constant nobody
+can defend.
+
 ## The unit is a mission, not a change
 
 **One proposal plans one mission** (2026-08-26, the operator's ask). The issue names a mission

@@ -236,6 +236,31 @@ item or Schedule milestone it advances, on the strategy it targets — a move th
 itself only by "the same reasoning has not yet been applied to X" is describing the move, not
 the aim, and is refused with it.
 
+**A move that DEEPENS THE LOOP'S OWN INVENTION is refused by name** (2026-09-02, mission
+`refuse-an-ask-the-loop-wrote-to-itself`). **Measured**: a chain five links long in one day — a
+verdict, then where its difference is seen, then what present practice it is measured from, then
+recording that practice — each link a defensible `depth` move against the Aim, each proposed,
+ticketed, implemented and merged by the next ticks, and the operator abandoned the direction
+mid-drive and reported the whole day as waste with their own development stopped throughout.
+`depth` on a documentation-shaped aim can always invent one more axis, and nothing at the bar
+asked whether **the thing being deepened was itself the loop's own invention**.
+
+The refusal is **`self_refining`**, and the test the run applies at composition is: *does the
+thing this move deepens trace back to a human's ask or a human-authored strategy — or only to a
+previous proposal this loop wrote?* A chain whose root is the loop's own output is refused, and
+the tick reports the word rather than reading as idle.
+
+**What it must not catch**, named here so the rule is bounded rather than chilling: a second
+mission answering a **human's** ask on the same subject, and the follow-up repair mission the
+strategy's own scale allows (one mission of ~7–8 tickets plus at most one of 3–4 repair
+tickets). Depth is not banned; depth on the loop's own invention is.
+
+**It is a judgement, not a gate, and it stays out of the mechanics.** It reaches no expression
+in `survey-strategies.sh`, changes no `refusal`, no `pace`, no sort and no `selected`; a survey
+run over the current strategies is byte-identical before and after. It is not folded into
+`describing_move` either — one word answering two questions is how two questions drift, which
+this repository has recorded twice.
+
 *Why the housekeeping refusal below does not already catch it.* That one works because
 housekeeping is chosen against **nothing** — nobody argues for the mess — so the body floor's
 `## What this is chosen against` section catches it. A new page about the Aim passes that floor

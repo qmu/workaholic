@@ -42,7 +42,7 @@ spoken stops origination instead of feeding it.
 
 - [x] A machine-authored ask about the loop's own artifact is refused at the proposal seam,
       by name, before anything is emitted. (#20260902043416-refuse-a-machine-authored-ask-at-the-proposal-seam.md)
-- [ ] A proposal that refines a prior self-proposal is refused at the bar, by name. (#20260902043416-refuse-a-proposal-that-refines-a-prior-self-proposal.md)
+- [x] A proposal that refines a prior self-proposal is refused at the bar, by name. (#20260902043416-refuse-a-proposal-that-refines-a-prior-self-proposal.md)
 - [ ] A window in which only the loop spoke stops origination and says so. (#20260902043416-stop-origination-when-only-the-loop-has-spoken.md)
 
 ## Changelog
@@ -50,3 +50,4 @@ spoken stops origination instead of feeding it.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-02 — ticket archived — 20260902043415-read-whether-an-ask-is-the-loop-talking-to-itself.md
 - 2026-09-02 — ticket archived — 20260902043416-refuse-a-machine-authored-ask-at-the-proposal-seam.md
+- 2026-09-02 — ticket archived — 20260902043416-refuse-a-proposal-that-refines-a-prior-self-proposal.md

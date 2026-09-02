@@ -63,6 +63,13 @@
    That is the one refusal that is a judgment rather than a gate, and it is the honest end
    of a tick against a direction that is already where it wants to be.
 
+   **And ask what the move deepens.** Before committing to `depth`, trace the thing being
+   deepened: does it come from a human's ask or a human-authored strategy, or only from a
+   previous proposal this loop wrote? A chain whose root is the loop's own output is refused
+   — **emit nothing and report `self_refining`** (`workaholic:propose`, *A move that deepens
+   the loop's own invention*). It does not catch a second mission answering a **human's** ask
+   on the same subject, nor the follow-up repair mission the strategy's scale allows.
+
    **Refuse your own housekeeping instinct here.** A drifted document, a missing test, an
    inconsistent name: all real, all `/moderate`'s. The test is whether a reasonable person
    could argue for the other side. If nobody could, it is not a move.

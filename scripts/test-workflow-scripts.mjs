@@ -21820,9 +21820,45 @@ function testSelfAuthoredRefusalIsStated() {
   }
 }
 
+// ---------- /propose's judgement refusals stay judgements ----------
+// `describing_move`, `self_refining` and `invented_obligation` are prose the running model
+// applies. What is checkable is that each is NAMED at the surfaces the run reads, and that
+// none of them leaked into the mechanical gates — a refusal that became an expression in
+// `survey-strategies.sh` would change which directions are eligible, which is the one thing
+// these three must never do.
+function testProposeJudgementRefusals() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  const WORDS = ["describing_move", "self_refining", "invented_obligation"];
+
+  for (const w of WORDS) {
+    assertTrue(`the skill names ${w}`, skill.includes(w), w);
+    assertTrue(`CLAUDE.md names ${w}`, claude.includes(w), w);
+  }
+  assertTrue("the loop's step 4 tells the run to report self_refining",
+    loop.includes("self_refining"), "loop.md");
+  assertTrue("and the refusal names what it must not catch",
+    /must not catch|does not catch/.test(skill) && /repair mission/.test(skill), "bounds");
+
+  // THE MECHANICAL GATES ARE UNTOUCHED. Not one of the three may appear in the survey, whose
+  // job is eligibility; a judgement that reached it would silently change `selected`.
+  // Comments are stripped: the survey's header EXPLAINS which question belongs to
+  // `describing_move` and hands the answer in as `--aim-kind`, which is the documented
+  // arrangement. What must not exist is the word in an expression.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const w of WORDS) {
+    assertTrue(`survey-strategies.sh does not read ${w}`, !mech.includes(w),
+      `${w} leaked into the mechanical gate`);
+  }
+}
+
 const tests = [
   ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
   ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],
+  ["propose: the judgement refusals are named, and stay out of the gates", testProposeJudgementRefusals],
   ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
   ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
   ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],

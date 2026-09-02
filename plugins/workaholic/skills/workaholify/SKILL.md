@@ -251,7 +251,7 @@ A routine fires three ways — a schedule, an API call, or a GitHub event. The G
 **`/setup-dev-routines` and `/setup-repo-routines` configure the routines** — each over its own scope, each running the identical flow below. Neither is a renderer that occasionally gets to configure, and a session that succeeds must never describe its success as luck — "a tool happened to be available, so I registered them" was reported as the defect itself (issue #408, FB `20260812204800`), because it tells the developer the command's purpose is contingent when only its *reachability* is. One job, and every failure mode it has is named — `no_transport` (this session cannot reach an account routine) and `no_environment` (it can, and cannot resolve which environment to create in; *Which environment a routine is created in* above). Only the first falls back to a sheet:
 
 1. **Attempt the configuration.** Find the transport: `ToolSearch` for a `RemoteTrigger`-family tool (list/get/create/update/run over **account** routines), then **resolve the environment** by the four branches in *Which environment a routine is created in* above — a create cannot be built without its id, and `no_environment` is the second named refusal, the one that renders no sheet. Never assume either answer — an interactive session may well carry one (FB `20260810214929`, 2026-08-10: it did, and listing this repository's routines found both with an empty `cron_expression`), and the routine-fired class genuinely carries none.
-2. **Converge, one routine at a time.** For each template **of the invoking command's scope** (`list-routine-templates.sh <scope>`), list the account's routines, match by the rendered `name` (`render-routine.sh <id> <repo-url>`), and diff name/prompt/model/`cron_expression`/`autofix_on_pr_create`/`mcp` against the live record. A routine outside the command's scope is never read, diffed or touched — an out-of-scope live routine is not drift and is not this command's to report. The auto-fix flag lives at `job_config.ccr.session_context.autofix_on_pr_create` (discovered 2026-08-12 by toggling the UI option and re-reading the record; the API silently drops unknown fields, so the record read-back — never a 400 — is what confirms a write took). Where they differ, call the tool's own create/update method and report exactly which fields changed (or that the routine did not exist and was created). Where nothing differs, report that too; a silent "nothing to do" reads identically to "did not check."
+2. **Converge, one routine at a time.** For each template **of the invoking command's scope** (`list-routine-templates.sh <scope>`), list the account's routines, match by the rendered `name` (`render-routine.sh <id> <repo-url>`), and diff name/prompt/model/`cron_expression`/`autofix_on_pr_create`/`mcp`/**`notifications`** against the live record. A routine outside the command's scope is never read, diffed or touched — an out-of-scope live routine is not drift and is not this command's to report. The auto-fix flag lives at `job_config.ccr.session_context.autofix_on_pr_create` (discovered 2026-08-12 by toggling the UI option and re-reading the record; the API silently drops unknown fields, so the record read-back — never a 400 — is what confirms a write took). Where they differ, call the tool's own create/update method and report exactly which fields changed (or that the routine did not exist and was created). Where nothing differs, report that too; a silent "nothing to do" reads identically to "did not check."
 
    **One place builds the request body** (2026-09-02): `build-routine-body.sh <template-id> <repo-url> <environment-id>` composes `render-routine.sh` — still the one reader of a template's frontmatter — and emits the whole body plus the same values flat under `fields`, for a transport whose own envelope differs. **No caller parses a display string back into JSON**: the renderer emits `allowed_tools_json` / `mcp_json` / `sources_json` beside the sheet's display spellings, which are added rather than switched on, so the setup sheet and every other caller are byte-identical to before. The **nesting** it emits is the one a live record reads back in and is reported unproven (`body_shape_verified: false`), because only a write followed by a read-back settles that and the API silently drops unknown fields ([reference/routines.md](reference/routines.md), *The routine record, read back field by field*).
 
@@ -259,8 +259,34 @@ A routine fires three ways — a schedule, an API call, or a GitHub event. The G
 
    | Field | Standing |
    | ----- | -------- |
-   | `name`, prompt, `model`, `cron_expression`, `autofix_on_pr_create`, `sources`, `mcp`/connectors | **diffed and converged** — the template is the truth |
+   | `name`, prompt, `model`, `cron_expression`, `autofix_on_pr_create`, `sources`, `mcp`/connectors, `notifications` | **diffed and converged** — the template is the truth |
    | **enabled state** | **reported, never converged** — see the ruling below |
+
+   **`notifications` is converged, and ABSENT IS A VALUE** (2026-09-02, issue #514). It joined
+   the diffed set late, and only for creates: `render-routine.sh` reads it, `build-routine-body.sh`
+   puts it on the request body and `render-setup-sheet.sh` prints it, so a **new** routine got the
+   template's setting while an **existing** one kept whatever it already had. That is the half of
+   the reported symptom this repository owns. The field's rule is stated at the reader — *absent
+   means off, which is every other template; a routine whose result already reaches a channel must
+   not also push* — so convergence must treat an omitted `notifications:` as an explicit **off** and
+   correct a live routine that has one on. Skipping the field when the template omits it would make
+   the one value the design actually wants the one value convergence can never restore.
+
+   **A routine type that refuses the parameter is reported by name**, never failed on and never
+   silently dropped — the degradation discipline the rest of this section already uses. It is worth
+   stating because the mapping is **unverified**: `reference/routines.md` records that no record
+   read back so far carries a `notifications` key at all, so a refusal is a real possibility rather
+   than a hypothetical, and a run that dropped it silently would report a converged routine that is
+   not.
+
+   **What this does NOT fix, stated so the report is not read as more than it is.** The
+   notifications issue #514 reported came from one-shot, `send_later`-style check-ins bound to a
+   **persistent session** — a class the server will not even accept a `notifications` parameter
+   for — so **no workaholic routine was implicated**, and no setting here could have produced them.
+   That half is an Anthropic product surface with no exposed opt-out, outside repository
+   confinement, and reachable only through `/fb <ask> to <owner/name>`, which needs a human's
+   verbatim confirmation. It is named here, and in the run report, so the developer can run that
+   crossing themselves; an unattended run may not.
 
    **Report every routine's enabled state; never write it** (2026-08-19, issue #526). Every routine a run creates, updates, finds identical, or skips as out of scope **states whether it is switched on**, because a routine converged in every other field while switched off is a dead routine whose report line is otherwise indistinguishable from a healthy one's — measured on this account, where both live routines had been disabled for a week and no report anywhere said so. A disabled routine reads as **converged but off**, never as healthy. The **exact field name and shape are confirmed by reading a live record back**, never by the absence of a 400 — the same rule `autofix_on_pr_create` was discovered under.
 

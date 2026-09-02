@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-18T20:30:11+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -147,3 +148,67 @@ of those routines reports through Slack by design.
 - The honest risk: steps 3–5 may close a real gap and still leave the developer
   receiving the notifications they reported, because the cause is elsewhere. That is
   why step 1 is a diagnosis and why the Final Report must state which one it fixed.
+
+## Final Report
+
+**Step 1's diagnosis, which the ticket asks be recorded whatever it says: the workaholic
+routines were not implicated at all.** The notifications issue #514 reported came from
+one-shot, `send_later`-style check-ins bound to a **persistent session** — a class the server
+will not accept a `notifications` parameter for — so no setting in this repository could have
+produced them. The ask's own investigation said so, and nothing in the tree contradicts it.
+That half is an Anthropic product surface with no exposed opt-out.
+
+**The ticket's premise has also moved since it was written (2026-08-18), and the change is
+scoped to what is still true.** Its Key Files name five templates (`fb`, `prepare-release`,
+`standup`, `housekeep`, `implement`); three are retired and today there are **three**
+(`propose`, `implement`, `moderate`). More importantly, the field it asks for **already
+exists** and is carried end to end — `render-routine.sh` reads it, `build-routine-body.sh`
+puts it on the request body, `list-routine-templates.sh` reports it, `render-setup-sheet.sh`
+prints it — with the rule stated at the reader: **absent means off**, *a routine whose result
+already reaches a channel must not also push*. Two of the three templates are therefore already
+Slack-only by omission.
+
+**`[Propose]` declares `notifications: push` deliberately, and this run did not reverse it.**
+That was a later decision (2026-08-23) with its reason recorded: its audience is exactly one
+person — its own operator, the only one who can act on its refusal — and its connector is for
+the inbound sweep's **read**, not for posting, so its push is not the duplication this ticket
+names. Overwriting it to satisfy a clause written five days earlier would be an unattended run
+reversing a human-visible decision on a stale premise.
+
+**So what was actually missing is step 4's second half, and that is what shipped**:
+`notifications` was in the create path and **not in the convergence diff**, so a *new* routine
+got the template's setting while an *existing* one kept whatever it had. It now joins the
+converged field set in `workaholic:workaholify` §5 step 2 and its table — the one place the four
+command bodies read, so they cannot drift — and in `CLAUDE.md`, with two clauses that matter:
+
+- **Absent is a value.** Skipping the field when a template omits it would make *off* — the one
+  setting the design actually wants — the one setting convergence can never restore.
+- **A routine type that refuses the parameter is reported by name**, never dropped. That is not
+  hypothetical: `reference/routines.md` records the mapping as **unverified**, with no record
+  read back so far carrying a `notifications` key at all.
+
+**Open Decision 1, resolved: (a) plus the naming half of (b), and explicitly not the crossing.**
+The in-repo field is done and what is out of scope is written down — in the skill, where a
+reader of the convergence rule meets it, and in this report. Raising the platform half **with**
+the developer is done by naming it where they read; performing the crossing is not, because
+`/fb <ask> to <owner/name>` needs a human's verbatim confirmation and an unattended run cannot
+give one. Nothing was sent anywhere.
+
+**Step 2 could not be completed here, and that is the declared handoff.** Confirming which
+fields a fresh-session-per-fire routine accepts, and the server's default when the field is
+omitted, needs the routine-management transport this session does not carry; observing whether
+the notifications stopped needs the developer's own Claude app account and device. Both are
+exactly what `verification_handoff:` declares, so this unit takes the handoff route.
+
+### Discovered Insights
+
+- **Insight**: A convergence diff is a **closed list**, so a field added for creates alone is
+  invisible until somebody asks why an existing record never changes. `notifications` had four
+  seams carrying it and one list not naming it, and nothing failed — the create path worked
+  perfectly and the correction path silently did not exist.
+  **Context**: Any future routine field must land in the field set at `workaholify` §5 step 2 in
+  the same change, or it is a create-only field with no sign that it is one.
+- **Insight**: `absent means off` and `skip the field when absent` look identical in a template
+  and are opposites in a converger. Writing which one applies, at the converger rather than at
+  the template, is the difference between correcting a live routine and never touching it.
+  **Context**: The same trap waits for any tri-state field whose off value is its absence.

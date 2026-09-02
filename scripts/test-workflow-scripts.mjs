@@ -83,6 +83,7 @@ const SCRIPTS = {
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
   stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
   reconcileCandidates: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"),
+  listUnannouncedClosedAsks: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"),
   stepThreadReconcile: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
@@ -33510,6 +33511,144 @@ function testReconcileCandidates() {
     const src = readFileSync(SCRIPTS.reconcileCandidates, "utf8");
     assertTrue("the reader reaches GitHub only through gh-rest.sh",
       !/\bgh (issue|pr|repo|api)\b/.test(src.replace(/^#.*$/gm, "")), "a direct gh call");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// ---------------------------------------------------------------------------
+// THE ITEM GRAIN (2026-09-03, mission
+// `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). The reader above
+// answers *which PULL REQUEST*; this one answers *which ITEM*, which is the only grain that
+// can see an ask whose work landed without a `work-*` branch ever existing.
+//
+// The load-bearing assertions are the negative ones: a closed issue that is not an ask is not
+// a candidate, a `-` prefix number never borrows another issue's record, and an unreadable
+// listing is never rendered as *nothing to announce*.
+T("propose/list-unannounced-closed-asks.sh: the finished asks whose thread never heard", testListUnannouncedClosedAsks);
+function testListUnannouncedClosedAsks() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-unannounced-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const read = (args = "") => JSON.parse(execSync(
+    `sh ${SCRIPTS.listUnannouncedClosedAsks} --root ${repo} ${args}`,
+    { cwd: repo, env, encoding: "utf8" }));
+
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+
+    // Two records on the base. #917's ask landed outside `/implement` — the measured case —
+    // and #91 exists ONLY so the prefix trap has something to be caught on.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260903052643-an-ask-that-landed.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/917\n");
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260901010101-an-older-ask.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/91\n");
+    // The generated index names every record and must never be mistaken for one.
+    writeFileSync(join(repo, ".workaholic/feedbacks/index.md"),
+      "# Feedbacks\n\n- issues/917\n- issues/91\n");
+
+    const issue = (number, extra = {}) => ({
+      number,
+      closed_at: "2026-09-02T20:32:35Z",
+      html_url: `https://github.com/acme-org/source-repo/issues/${number}`,
+      title: `[FB] ask ${number}`,
+      body: "kind: instruction / source: slack / subject: person:YO\n",
+      ...extra,
+    });
+    // `gh api` APPLIES ITS `--jq` PROGRAM TO THE RESPONSE, so the stub must too. A stub that
+    // printed the raw JSON would exercise a shape the real transport never produces, and the
+    // reader's own extraction — the `slack-ref:` scan and the `-` sentinel every field carries
+    // — would go untested. The program is read off the argv the script actually passed.
+    const listing = (issues) => [
+      'prog=""',
+      'while [ $# -gt 0 ]; do',
+      '  case "$1" in --jq) prog="$2"; shift 2 ;; *) shift ;; esac',
+      'done',
+      `cat <<'JSON' | jq -r "$prog"`,
+      JSON.stringify(issues),
+      'JSON',
+    ].join("\n");
+
+    // 1. THE MEASURED CASE. A closed ask whose record is on the base resolves to its stem.
+    stub(listing([issue(917)]));
+    let r = read();
+    assertEq("a closed ask resolves through the record on the base",
+      [r.ok, r.candidates.length, r.candidates[0].number, r.candidates[0].stem],
+      [true, 1, 917, "20260903052643-an-ask-that-landed"]);
+    assertEq("...carrying its URL, title and close time",
+      [r.candidates[0].url, r.candidates[0].title, r.candidates[0].closed_at],
+      ["https://github.com/acme-org/source-repo/issues/917", "[FB] ask 917", "2026-09-02T20:32:35Z"]);
+
+    // 2. THE SWEEP'S OWN MARKER IS THE OTHER TERM, and it qualifies on its own.
+    stub(listing([issue(500, { body: "kind: ask / source: slack\nslack-ref: C123ABC:1756880000.123456\n" })]));
+    r = read();
+    assertEq("a sweep-captured ask with no record on the base is named, never dropped",
+      [r.candidates.length, r.unresolved.length, r.unresolved[0].number, r.unresolved[0].reason],
+      [0, 1, 500, "stems_unresolvable"]);
+    assertTrue("...and its marker was what qualified it",
+      /slack-ref/.test(readFileSync(SCRIPTS.listUnannouncedClosedAsks, "utf8")), "the marker term is gone");
+
+    // 3. A CLOSED ISSUE THAT IS NOT AN ASK IS NOT THIS READER'S SUBJECT. It is not a
+    //    candidate, not an `unresolved` row, and not counted — matching neither term.
+    stub(listing([issue(700, { body: "just an ordinary closed issue\n" })]));
+    r = read();
+    assertEq("a closed issue matching neither term is not a candidate at all",
+      [r.candidates.length, r.unresolved.length, r.read], [0, 0, 0]);
+
+    // 4. THE PREFIX TRAP. `issues/91` is a prefix of `issues/917`, and a substring match would
+    //    hand #91's thread key to #917 — a wrong thread, which `workaholic:notify` calls worse
+    //    than none. The right-hand bound is what this asserts.
+    stub(listing([issue(917), issue(91)]));
+    r = read();
+    const byNumber = Object.fromEntries(r.candidates.map((c) => [c.number, c.stem]));
+    assertEq("a shorter issue number never borrows a longer one's record",
+      [byNumber[917], byNumber[91]],
+      ["20260903052643-an-ask-that-landed", "20260901010101-an-older-ask"]);
+
+    // 5. A PULL REQUEST SHARES THE ENDPOINT AND IS NOT AN ISSUE.
+    stub(listing([issue(917), issue(918, { pull_request: { url: "x" } })]));
+    r = read();
+    assertEq("a pull request on the issues endpoint is dropped",
+      [r.candidates.length, r.candidates[0].number], [1, 917]);
+
+    // 6. THE BOUND IS REPORTED, NEVER SILENT.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260903052644-second.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/918\n");
+    stub(listing([issue(917), issue(918)]));
+    r = read("--limit 1");
+    assertEq("a listing past the limit reports truncated rather than cutting silently",
+      [r.read, r.truncated, r.candidates.length], [1, true, 1]);
+    r = read("--limit 5");
+    assertEq("...and within the limit it is not truncated",
+      [r.read, r.truncated], [2, false]);
+
+    // 7. AN UNREADABLE READ IS NEVER AN EMPTY ONE. This is the collapse the reader exists to
+    //    refuse: `ok: false` with a reason, exit 0, and NO candidate list to be misread.
+    for (const [body, reason] of [
+      [`echo "boom" >&2; exit 1`, "list_failed"],
+      [`echo "gh is not on PATH" >&2; exit 127`, "list_failed"],
+    ]) {
+      stub(body);
+      const deg = read();
+      assertEq(`a refused listing degrades by name (${reason})`, [deg.ok, deg.reason], [false, reason]);
+      assertTrue("and emits no candidate list at all", deg.candidates === undefined, JSON.stringify(deg));
+    }
+
+    // 8. THE BOUNDS THE READER IS WRITTEN AGAINST, read off its own source.
+    const src = readFileSync(SCRIPTS.listUnannouncedClosedAsks, "utf8");
+    const code = src.replace(/^#.*$/gm, "");
+    assertTrue("the reader reaches GitHub only through gh-rest.sh",
+      !/\bgh (issue|pr|repo|api)\b/.test(code) && code.includes("gh-rest.sh"), code.slice(0, 300));
+    assertTrue("...and never through search, which a bound session refuses outright",
+      !/["' ]search\//.test(code), code.slice(0, 300));
+    assertTrue("...and makes no channel read of any kind",
+      !/slack_read|conversations\.|slack_search|notify-slack/.test(code), "a channel read appeared");
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

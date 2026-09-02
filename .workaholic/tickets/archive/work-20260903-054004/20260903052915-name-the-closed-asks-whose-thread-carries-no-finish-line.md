@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T05:29:15+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,36 @@ therefore no candidate. This ticket adds the reader for the item grain.
   *Post the finish line from the tick, once per ask*'s question, answered from the thread, not
   from the repository. This reader answers *which items to look at* and nothing more — the same
   split `reconcile-candidates.sh` states in its own header.
+
+## Final Report
+
+Development completed as planned. `list-unannounced-closed-asks.sh` answers the item grain: this
+repository's closed issues through `gh-rest.sh` alone, kept when the body carries the sweep's
+`slack-ref:` marker or when a feedback record on the base names the issue's `/issues/<N>` URL,
+each resolved to its feedback stem. A candidate with no resolvable stem lands in `unresolved`
+under `stems_unresolvable`; an unreadable listing answers `ok: false` with its reason and exits 0,
+never an empty candidate list.
+
+The gap was reproduced before the reader was designed for it: `reconcile-candidates.sh` enumerates
+`repos/<slug>/pulls` and keeps only heads matching `work-*`, so issue #917 — closed 2026-09-02
+with its work merged — is named by no candidate and no `unresolved` row of a
+`--window-days 3 --limit 20` run. The excluded term is the branch pattern. A manual run of the new
+reader against this repository names #917 with its stem resolved.
+
+### Discovered Insights
+
+- **Insight**: A `gh` stub that prints the response JSON does not stand in for `gh api --jq` —
+  the transport applies the jq program before the caller ever sees bytes, so a raw-JSON stub
+  exercises a shape the real transport never produces. The suite's own precedent
+  (`testReconcileCandidates`) side-steps this by emitting the finished TSV, which leaves the jq
+  program itself untested. Here the stub reads the `--jq` argument off its own argv and pipes the
+  fixture through `jq -r`, so the `slack-ref:` scan and the `-` sentinel on every field are
+  covered by the same cases.
+  **Context**: Any future test of a script that reads through `gh-rest.sh api --jq` faces the
+  same fork, and the raw-JSON stub fails in a way that looks like a reader bug rather than a
+  fixture bug.
+- **Insight**: `issues/91` is a prefix of `issues/917`, so the record lookup binds its match on
+  the right (`issues/<N>([^0-9]|$)`). An unbounded substring search would hand one ask's thread
+  key to another ask's issue — the wrong-thread outcome `workaholic:notify` calls worse than none.
+  **Context**: The same trap waits for every future reader that resolves an artifact by an issue
+  number embedded in prose.

@@ -37,7 +37,7 @@ posts nothing, and a reading the tick could not make leaves the thread alone.
 
 ## Acceptance
 
-- [ ] A closed `[FB]` issue whose thread carries a receipt and no finish line is named by a
+- [x] A closed `[FB]` issue whose thread carries a receipt and no finish line is named by a
       repository-derived reader that never scans the channel. (#20260903052915-name-the-closed-asks-whose-thread-carries-no-finish-line.md)
 - [ ] The tick posts one finish line into that thread naming what landed and by whom, and
       posts nothing for an item already announced. (#20260903052915-post-the-finish-line-from-the-tick-once-per-ask.md)
@@ -47,3 +47,4 @@ posts nothing, and a reading the tick could not make leaves the thread alone.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903052915-name-the-closed-asks-whose-thread-carries-no-finish-line.md

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:33:57+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,32 @@ Evidence for the four tickets after it, and a verdict for nobody.
 - Attribution is transitive and lossy (`exhaustive: false`), so work no direction claims is
   outside this reading by construction. State that limit where the reading is read, or the
   first surprising answer will be read as a bug.
+
+## Final Report
+
+Development completed as planned. `strategy/scripts/landing-arithmetic.sh` answers, per direction,
+what remains against how long is left, in four verdicts (`clears`, `does_not_clear`,
+`no_target_date`, `unreadable`). It composes `standup/scripts/digest.sh` — the reading that
+already assembles each direction's missions, their acceptance and queued counts, and its
+`days_to_target` — and divides. 23 hermetic rows pin the shape, the degradation, the dateless
+case and the structural claims; the script was also read against this repository's own board.
+
+### Discovered Insights
+
+- **Insight**: The obvious rate numerator was wrong, and only a measurement showed it.
+  `digest.sh`'s `active_count` counts every attributed artifact that *changed* in the window —
+  a mission file a changelog append rewrote, a story the report wrote — and read **502** against
+  50 queued tickets here, so every direction cleared by construction and the reading said
+  nothing. The numerator has to be the same unit as the remainder: tickets that reached `done`
+  inside the window (337, against 351 archived repository-wide, which is the cross-check).
+  **Context**: any future reading that divides a remainder by a rate has the same trap. State
+  the unit of both sides before writing the arithmetic.
+- **Insight**: The caps in `digest.sh` are *render* caps, and a consumer that computes over its
+  output must raise them. `STANDUP_MAX_STRATEGIES`/`STANDUP_MAX_ITEMS` bound what a morning post
+  shows; an arithmetic over a truncated mission set under-counts what remains and answers
+  `clears` for a direction it had not finished reading — the one wrong answer this must never
+  give. **Context**: the same applies to any later consumer of `digest.sh`.
+- **Insight**: `digest.sh` costs ~110s on this repository, dominated by its honesty-line loop —
+  one `git log` per corpus file. Anything composing it inherits that. It was taken deliberately
+  here rather than duplicating the composition, but a third consumer would make the honesty
+  line's cost worth attacking at its source.

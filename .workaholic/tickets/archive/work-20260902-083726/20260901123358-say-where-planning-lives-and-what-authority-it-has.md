@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-01T12:33:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -89,3 +90,37 @@ own, and what it may only ask about — so the next ask against it argues with a
 - The honest summary may be that the loop plans **less** than the ask wants, with the gaps
   named. That is a better artifact than a section implying an autonomy that does not exist,
   and it is what makes the next ask against it arguable.
+
+## Final Report
+
+Development completed as planned, and driven last, as the ticket's Considerations required.
+`CLAUDE.md` gains *The planning job*: one section naming planning as a job and no new command,
+routine or artifact; a table of its five acts and where each lives; its authority stated in the
+repository's existing terms and **cited** to `drive/reference/claims.md` rather than duplicated;
+the four things it may not do, each with the rule that forbids it; and a direct answer to the
+ask's framing. `propose`, `drive` and `moderate` each carry one pointer sentence at the act they
+own, so a reader who arrives at a piece finds the whole.
+
+The honest summary is the one the ticket asked for rather than the one the ask wanted: **the loop
+plans less than the ask hoped, and the gaps are named.** Now the loop's — holding divergence
+against a number the operator declared, ordering its own offer, doing the arithmetic, saying what
+moved. Still the operator's — every date, every end state, every judgement about whether queued
+work still matters. The ask's fourth item is recorded as already largely answered, by the tick
+log's move to its own orphan branch and by squash-merging every pull request the loop merges,
+both shipped for exactly the reason the ask gives.
+
+### Discovered Insights
+
+- **Insight**: The section had to be counted before it could be written. "Planning" turned out to
+  be exactly five acts, of which **one** refuses work and **one** reorders an offer — the other
+  three only read and say. Writing that arithmetic down is what makes the next ask against it
+  arguable, and it is a much smaller claim than "the loop plans", which is what a vaguer section
+  would have implied.
+- **Insight**: A cross-skill job needs one home and N pointers, not N copies. Three skills own a
+  piece each and none of them owns the job, so the statement lives in `CLAUDE.md` — the one
+  document that already spans them — and each skill carries a sentence naming it. The alternative,
+  a paragraph per skill, is three statements that drift.
+- **Insight**: Every "may not" in the section already had a rule; none had to be invented. That is
+  itself the finding — the constraints on planning were all present and individually stated, and
+  what was missing was only that nothing gathered them, which is why a reader could not tell
+  design from defect.

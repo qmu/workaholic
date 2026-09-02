@@ -54,9 +54,16 @@ done
 # needs the repository's event. This step supplies it because it knows what its finding means.
 # **Empty means nothing happened here** — the renderer then emits no line at all, independently
 # of the change diff.
+# `plan` is the PLAN-facing block, beside `event` and `summary` and never instead of either
+# (2026-09-01, ticket `20260901123358-carry-the-plan-s-delta-in-the-hourly-post`). The hourly
+# root carried change lines derived per step, so an hour in which the board moved read as a list
+# of anomalies. This step already makes the one survey that knows how the board stands, so the
+# numbers are lifted off the reading it has in hand — NO new reader, NO new walker and NO field
+# on any artifact. `render-tick-post.sh` renders it; nothing here posts anything.
+PLAN='{}'
 emit() {
-    printf '{"step": "strategy-pace", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "event": "%s"}\n' \
-        "$1" "$2" "$3" "${4:-}" "${5:-}"
+    printf '{"step": "strategy-pace", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "event": "%s", "plan": %s}\n' \
+        "$1" "$2" "$3" "${4:-}" "${5:-}" "$PLAN"
     exit 0
 }
 
@@ -74,6 +81,20 @@ fi
 
 # Every surveyed row, eligible or refused, carries `pace`. The starving case is late AND
 # refused, so both lists are read; reading only the eligible ones would miss it entirely.
+# THE PLAN'S OWN NUMBERS, off the survey already in hand. `advancing` is how many directions
+# would originate work this tick and `held` how many would not, with the held reasons counted —
+# which is what "the plan moved" means at the direction grain. `wip` rides verbatim from the
+# survey: when the repository's own bound holds a tick, the root must say so with the count and
+# the limit, or a quieter loop is indistinguishable from a stopped one.
+#
+# NO IDENTIFIER: counts only. *How many* is news and *which* is a task, so a slug belongs in the
+# question addressed to whoever can act on it, never in a line addressed to nobody.
+PLAN=$(printf '%s' "$out" | jq -c '{advancing: ((.eligible // []) | length),
+    held: ((.refused // []) | length),
+    held_reasons: ((.refused // []) | group_by(.reason) | map({reason: .[0].reason, count: length})),
+    wip: (.wip // {})}' 2>/dev/null || printf '{}')
+[ -n "$PLAN" ] || PLAN='{}'
+
 late=$(printf '%s' "$out" | jq -c '[(.eligible // []), (.refused // [])] | flatten
     | map(select(.pace == "late"))
     | map({slug, title: (.title // .slug), assignees: (.assignees // ""),
@@ -81,12 +102,21 @@ late=$(printf '%s' "$out" | jq -c '[(.eligible // []), (.refused // [])] | flatt
 count=$(printf '%s' "$late" | jq 'length' 2>/dev/null || echo 0)
 unknown=$(printf '%s' "$out" | jq '[(.eligible // []), (.refused // [])] | flatten | map(select(.pace == "unknown")) | length' 2>/dev/null || echo 0)
 
+# THE SUMMARY CARRIES THE PLAN'S NUMBERS, because the root's change diff compares THIS STRING
+# and nothing else. One derivation, two renderings — the sentence here and the clause on the
+# root — which is the shape the impairment clause already uses. It carries no age and no
+# timestamp: those would mark the step changed every tick by construction.
+plan_words=$(printf '%s' "$PLAN" | jq -r '"\(.advancing) direction(s) advancing, \(.held) held"
+    + (if (.wip.declared // false) and (.wip.count != null)
+       then "; \(.wip.count) mission(s) in flight against a limit of \(.wip.limit)"
+       else "" end)' 2>/dev/null || printf 'plan unreadable')
+
 if [ "$count" -eq 0 ]; then
-    emit ok "" "no direction is late; ${unknown} pace reading(s) could not be made"
+    emit ok "" "no direction is late; ${unknown} pace reading(s) could not be made; ${plan_words}"
 fi
 
 needs=$(printf '%s' "$late" | jq -c '{action: "ask_the_owner_whether_this_direction_will_arrive",
     bound: "one question per strategy, addressed to its assignee; never a proposal, and never a reason to lift a gate",
     late: .}' 2>/dev/null || echo '{}')
-emit ok "" "${count} direction(s) will not arrive at this pace; ${unknown} reading(s) unknown" "$needs" \
+emit ok "" "${count} direction(s) will not arrive at this pace; ${unknown} reading(s) unknown; ${plan_words}" "$needs" \
     "${count} direction(s) will not arrive by their date at this pace"

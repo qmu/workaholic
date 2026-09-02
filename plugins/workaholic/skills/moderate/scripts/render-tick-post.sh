@@ -570,6 +570,74 @@ elif [ "$IMPAIRMENT_CHANGED" -eq 1 ]; then
 "
 fi
 
+# ═══ THE PLAN'S DELTA, BESIDE THE ANOMALY LINES RATHER THAN INSTEAD OF THEM ═══════
+# (2026-09-01, ticket `20260901123358-carry-the-plan-s-delta-in-the-hourly-post`.)
+#
+# The daily digest says where the work stands, once a day. The hourly root carried only change
+# lines derived per step, so an hour in which the board moved read as a list of anomalies rather
+# than as a plan that had moved. This adds the plan's own delta to the same root.
+#
+# IT COMPOSES A READING THAT ALREADY EXISTS. `strategy-pace` makes the one survey per tick that
+# knows how the board stands and now carries its numbers in a `plan` block. Nothing is walked
+# here, no reader is added, and no artifact gains a field.
+#
+# IT IS GATED ON THE DIFF, so an hour in which the plan did not move adds no line. That is the
+# whole difference between this and `📦 Release Preparation`, which was retired for restating an
+# unchanged answer every hour: the gate is `strategy-pace`'s own stabilized summary against the
+# last tick that SPOKE — the same two strings the change loop above compares, and the reason the
+# numbers had to go into that summary as well as into `plan`.
+#
+# IT EARNS NO POST. Like the impairment clause, it adds a line to a root that was already being
+# posted for a question, a digest or a delivery failure. A tick that would have been silent stays
+# silent.
+#
+# IT CARRIES NO IDENTIFIER. *How many* is news and *which* is a task, so a slug belongs in the
+# question addressed to whoever can act on it, never in a line addressed to nobody.
+#
+# WHAT IT DELIBERATELY DOES NOT SAY, and why. The ticket asked for "what is next in order" as
+# well. The executor's order is `plan-units.sh`'s, which no step here may reach (the survey runs
+# the living migrations and STAGES what they converge), and naming which unit is next would put
+# an identifier on a line addressed to nobody. Both rules are older than this clause and neither
+# is worth bending for it, so the delta says how the board moved and the question says which
+# artifact needs a person. That narrowing is stated here rather than left to be rediscovered.
+#
+# A DEGRADED READING IS NAMED AS DEGRADED, never rendered as an empty delta — a plan that could
+# not be read and a plan that did not move are the two states this clause exists to keep apart.
+# THE `plan` BLOCK IS READ WITH jq, NOT WITH THE `tr '{'` TOKENISATION the three passes above
+# use. Those split the input on `{` to get one row per line, which works for scalar fields and
+# would tear this one apart: `plan` is a nested object, so its own braces are exactly what that
+# idiom throws away. An unparseable or absent block yields `{}` and the clause below renders the
+# degraded sentence rather than a plan that did not move.
+PLAN_BODY=''
+PLAN_JSON=$(printf '%s' "$INPUT" | jq -c '
+    (if type == "object" then (.steps // .rows // []) else . end)
+    | if type == "array" then (map(select(.step == "strategy-pace")) | first) else null end
+    | .plan // {}' 2>/dev/null || printf '{}')
+[ -n "$PLAN_JSON" ] || PLAN_JSON='{}'
+plan_moved=0
+_pp_was=$(awk -F"$TAB" '$1 == "strategy-pace" { print $2; exit }' "${TMP}/prev")
+_pp_now=$(awk -F"$TAB" '$1 == "strategy-pace" { print $2; exit }' "${TMP}/now")
+if [ -n "$_pp_now" ] && [ "$(stabilize "$_pp_was")" != "$(stabilize "$_pp_now")" ]; then
+    plan_moved=1
+fi
+if [ "$plan_moved" -eq 1 ]; then
+    _plan_line=$(printf '%s' "$PLAN_JSON" | jq -r '
+        if (.advancing == null) then "📋 the plan could not be read this tick"
+        else "📋 " + (.advancing | tostring) + " direction(s) advancing, "
+             + (.held | tostring) + " held"
+             + (if (.wip.declared // false) and (.wip.count != null)
+                then "; new work is being held — " + (.wip.count | tostring)
+                     + " mission(s) in flight against a limit of " + (.wip.limit | tostring)
+                elif (.wip.readable == false)
+                then "; the repository'"'"'s own limit could not be read (" + (.wip.reason // "") + ")"
+                else "" end)
+        end' 2>/dev/null || printf '')
+    if [ -n "$_plan_line" ]; then
+        PLAN_BODY="${_plan_line}
+"
+    fi
+fi
+
 # A ROOT EARNED BY THE IMPAIRMENT ALONE SAYS SO IN ITS `reason`, so a machine reading this
 # JSON can tell it from one a question earned. `root_text` is unchanged either way: the clause
 # above is what carries the finding, and a second wording for the same fact is what this file
@@ -580,7 +648,7 @@ if [ "$QUESTIONS" -eq 0 ] && [ "$digest_ready" -eq 0 ] && [ "$delivery_failure" 
 fi
 
 HEAD="🔎 Moderation - ${count} change(s), ${QUESTIONS} question(s)${IMPAIRED_HEAD}"
-BODY=$(printf '%s%s' "$lines" "$IMPAIRED_BODY")
+BODY=$(printf '%s%s%s' "$lines" "$PLAN_BODY" "$IMPAIRED_BODY")
 # The root is the body under a head; the reply is the body. One composition, two renderings —
 # the caller picks by whether the day key resolved a thread, and never by re-deriving either.
 emit true "$READY_REASON" "$changes" "$count" "$PREV" "$(printf '%s\n%s' "$HEAD" "$BODY")" "$BODY"

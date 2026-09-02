@@ -259,6 +259,10 @@ fi
 
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+# For the offer order alone (see THE OFFER ORDER below): `mission-strategy.sh` answers which
+# direction a mission serves and `list.sh` supplies that direction's date. Both are pure LOCAL
+# reads, so the survey stays offline by construction.
+STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts/"
 
 # JSON-escape a value (backslash and double-quote only; titles are plain text --
 # the same assumption list.sh makes about .workaholic/ artifacts).
@@ -797,6 +801,108 @@ done
 # not express while the reason was folded into `claimed_reported`. It still moves no token --
 # that is `../SKILL.md` §7's own row, keyed on the units THIS RUN finished, and merging the two
 # would turn an hourly survey reading into a completion gate.
+# --- THE OFFER ORDER ----------------------------------------------------------
+# (2026-09-01, ticket `20260901123357-offer-the-executor-work-in-a-derived-order`.)
+#
+# THE ORDER IS STATED HERE AND NOWHERE ELSE, so no consumer re-derives it and a later change
+# moves one place — the treatment `propose/scripts/survey-strategies.sh` already gives its own
+# ordering. Before this, `missions[]` came back in whatever order the directory walk produced,
+# nothing anywhere said so, and with 30 tickets queued against three directions dated the same
+# day that was the difference between converging one direction and touching all three.
+#
+#   1. A MISSION UNIT BEFORE LOOSE BACKLOG. This term needs no code: `missions[]` and
+#      `backlog[]` are separate fields and `workaholic:drive` §3 already says *prefer a mission
+#      over backlog tickets*. It is written down here so the whole order can be read in one
+#      place rather than half here and half in the consumer.
+#   2. THE NEAREST `target_date` OF THE DIRECTION THE MISSION SERVES, ascending. Resolved
+#      through `strategy/scripts/mission-strategy.sh` — the existing inverse reader — so this
+#      adds NO relation, NO field on any artifact and no second walker. A mission serving more
+#      than one direction takes the NEAREST of their dates, because attribution is not a
+#      partition and the earliest date is the one that constrains it.
+#   3. THE MISSION'S OWN TICKET ORDER, which is untouched: ordering within a unit is
+#      `drive/reference/ticket-workflow.md`'s and happens after the claim.
+#
+# ORDERING CHANGES ORDER, NEVER ELIGIBILITY — `pace`'s own wording in `survey-strategies.sh`,
+# and the rule this must hold to. Which units are offered, which are excluded and every
+# exclusion reason are byte-identical to what they were; a unit offered before is offered now,
+# in a different position.
+#
+# A TERM THAT COULD NOT BE READ TAKES A STATED FALLBACK POSITION AND SAYS WHY. Each row carries
+# `order_reason`, and the four groups are ordered:
+#
+#   `direction_date`        a direction with a date — ascending by that date
+#   `direction_undated`     a direction that declares none: there is no key to sort on, and
+#                           inventing one would rank it against dated directions
+#   `unattributed`          no direction claims it (`attributed: false`) — attribution is
+#                           transitive and lossy, so this is an ordinary answer, not a fault
+#   `direction_unreadable`  the resolution itself failed — LAST, and named, because a reading
+#                           we could not make must never be ordered as though we had
+#
+# Inside every group the walk order (slug, `LC_ALL=C`) breaks the tie, so the order is total
+# and deterministic. A resolver that fails outright puts EVERY row in the last group, which is
+# exactly the pre-existing walk order with the reason named — the survey never fails on it.
+#
+# WHAT IT COSTS, STATED: `mission-strategy.sh` composes the attribution walk and measured 21s
+# on this repository, once per survey. It is a LOCAL read, so the survey stays offline by
+# construction, which is the property that mattered more than the seconds.
+# The program is a function so the fallback below runs THE SAME one rather than a second
+# copy: two orderings in one file is how two orderings disagree.
+order_missions() {
+    # $1 = mission-strategy.sh payload, $2 = list.sh payload, $3 = a forced order_reason
+    printf '[%s]' "$MISSIONS" | jq -c \
+        --argjson ms "$1" --argjson sl "$2" \
+        --arg today "$(date -u +%Y-%m-%d)" --arg forced "$3" '
+        def days($t): if ($t | type) == "string" and ($t | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$"))
+            then (((($t + "T00:00:00Z") | fromdateiso8601) - (($today + "T00:00:00Z") | fromdateiso8601)) / 86400 | floor)
+            else null end;
+        ($sl.strategies // [] | map({key: .slug, value: (.target_date // "")}) | from_entries) as $dates
+        | ($ms.missions // [] | map({key: .slug, value: .}) | from_entries) as $res
+        | ($ms.unreadable // [] | map(.slug)) as $bad
+        | [ .[]
+            | . as $m
+            | ($res[$m.slug]) as $r
+            | ( [ ($r.strategies // [])[] | $dates[.slug] | select(. != null and . != "") ]
+                | map(days(.)) | map(select(. != null)) | sort | first ) as $near
+            | ( [ ($r.strategies // [])[] | $dates[.slug] | select(. != null and . != "") ]
+                | sort | first ) as $date
+            | (if $forced != "" then $forced
+               elif $r == null then "direction_unreadable"
+               elif ($r.attributed | not) then "unattributed"
+               elif ((([($r.strategies // [])[] | .slug]) - $bad | length)
+                     < (($r.strategies // []) | length)) then "direction_unreadable"
+               elif $near == null then "direction_undated"
+               else "direction_date" end) as $why
+            | $m + {direction: (if $why == "direction_date" or $why == "direction_undated"
+                                then ([($r.strategies // [])[] | .slug] | first // "") else "" end),
+                    direction_target_date: (if $why == "direction_date" then $date else "" end),
+                    days_to_target: (if $why == "direction_date" then $near else null end),
+                    order_reason: $why} ]
+        | sort_by([ (if .order_reason == "direction_date" then 0
+                     elif .order_reason == "direction_undated" then 1
+                     elif .order_reason == "unattributed" then 2
+                     else 3 end),
+                    (.days_to_target // 0),
+                    .slug ])'
+}
+
+if [ -n "$MISSIONS" ]; then
+    MSJ=$(sh "${STRATEGY_SCRIPTS}/mission-strategy.sh" --root ".workaholic" 2>/dev/null || true)
+    SLJ=$(sh "${STRATEGY_SCRIPTS}/list.sh" --status active ".workaholic" 2>/dev/null || true)
+    printf '%s' "$MSJ" | jq -e '.ok == true' >/dev/null 2>&1 || MSJ='{"missions": []}'
+    printf '%s' "$SLJ" | jq -e '.strategies' >/dev/null 2>&1 || SLJ='{"strategies": []}'
+    ORDERED=$(order_missions "$MSJ" "$SLJ" "" 2>/dev/null || printf '')
+    # A DERIVATION THAT FAILED SAYS SO ON EVERY ROW. Falling back to the bare walk order with
+    # no annotation is the one outcome forbidden here: a consumer could not tell an order that
+    # was derived from one that silently was not, which is exactly the state this whole reading
+    # exists to end. So the same program runs again with the reason forced, which yields the
+    # walk order with `direction_unreadable` on each row.
+    [ -n "$ORDERED" ] || ORDERED=$(order_missions '{"missions": []}' '{"strategies": []}' \
+        direction_unreadable 2>/dev/null || printf '')
+    if [ -n "$ORDERED" ]; then
+        MISSIONS=$(printf '%s' "$ORDERED" | jq -c '.[]' | paste -sd, -)
+    fi
+fi
+
 ALL_EXCLUDED=false
 EXCLUDED_REASONS=""
 if [ "$BACKLOG_SIZE" -gt 0 ] && [ -z "$BACKLOG" ] && [ -n "$EXCLUDED" ]; then

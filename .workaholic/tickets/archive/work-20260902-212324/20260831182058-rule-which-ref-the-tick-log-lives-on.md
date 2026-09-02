@@ -1,5 +1,6 @@
 ---
 created_at: 2026-08-31T18:20:58+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -107,3 +108,34 @@ the new ref, or it will be misread the hour it appears:
   reader will assume it does.
 - Ticket 5 rules on the history already on `main`; this ticket rules only on
   where new log writes go. Keep them apart.
+
+## Final Report
+
+Development completed as planned; the ruling is on the base and this drive verified it rather than
+re-opening it.
+
+- **Which ref**: `workaholic-log`, an orphan branch in this same repository, derived in exactly one
+  place — `gather/scripts/log-ref.sh` — and matching neither `work-*` nor `release/*`, so the claim
+  scan never sees it. `WORKAHOLIC_LOG_REF` overrides it as a data source for a drill, never as a
+  gate opt-out.
+- **Why a branch and not a custom namespace**: `refs/claims/*` answers 403 on create and delete
+  over both transports (`drive/reference/claims.md`), so `refs/heads/*` is the only writable
+  namespace where this has to run. The ruling was not re-derived by guess.
+- **How it is created**: `gather/scripts/ensure-log-ref.sh`, composed by `persist-log.sh` before it
+  publishes, so a repository that has never had the ref grows one on its first tick.
+- **How a fresh container fetches it**: `hydrate-log.sh`, called from `step-open-log.sh` before any
+  reader runs — the half of the move that makes it survivable.
+- **What the two ref-reading mechanisms say**: the claim oracle ignores it by name shape, and the
+  refusal that keeps it honest lives in `persist-log.sh` (`log_ref_is_the_base`), not in
+  `log-ref.sh`, because only the publisher knows what the base is.
+
+Verified live: the drill reports the ref resolving to `workaholic-log`, and the refusal firing when
+the ref is pointed at `main`.
+
+### Discovered Insights
+
+- **Insight**: The base-naming refusal deliberately sits in the publisher rather than in the
+  derivation.
+  **Context**: `log-ref.sh` answers *which ref*; only `persist-log.sh` knows *which ref is the
+  base*. Putting the check in the derivation would need it to learn the base, which is the coupling
+  the split exists to avoid.

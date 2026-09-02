@@ -8,8 +8,11 @@
 * [make-the-routine-create-body-documented-and-buildable](active/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
 * [prove-a-claim-branch-is-empty-before-deleting-it](active/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
 * [read-the-base-s-colour-past-a-bookkeeping-tip](active/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
+* [refuse-an-ask-the-loop-wrote-to-itself](active/refuse-an-ask-the-loop-wrote-to-itself/mission.md) - Refuse an ask the loop wrote to itself
 * [refuse-ok-under-a-placeholder-identity](active/refuse-ok-under-a-placeholder-identity/mission.md) - Refuse ok under a placeholder identity
+* [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](active/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
+* [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 * [stop-two-runs-from-claiming-and-driving-one-unit](active/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
 * [take-the-moderation-tick-s-log-off-main](active/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 

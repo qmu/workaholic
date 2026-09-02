@@ -20657,6 +20657,12 @@ function testPostLanguageRuleShipsWithThePlugin() {
     // AND of its own reasoning: a routine's result is read by the same person the channel is.
     assertTrue(`/${id} states the language of its own report`,
       /this run's own reasoning and report/.test(cmd), id);
+    // A SKILL FILE IS OPENED WITH THE READ TOOL, NEVER A SHELL (2026-09-02, issue #865): a
+    // routine session that resolves "see workaholic:notify, <section>" with sed over the
+    // plugin cache parks on a permission prompt nobody unattended can answer. The command
+    // says so beside the references it makes; this pins that it keeps saying so.
+    assertTrue(`/${id} sends a session to the Read tool for skill sections, never to sed`,
+      /never with `sed`, `grep`, `cat` or `head`/.test(cmd), id);
     assertTrue(`/${id} cites the rule rather than restating it`,
       /rules\/interaction\.md/.test(cmd), id);
   }
@@ -22651,6 +22657,10 @@ function testListInboundIssues() {
     { number: 7, html_url: "https://github.com/o/r/issues/7", updated_at: "2026-08-12T00:00:00Z", title: "Oldest ask, taken first" },
     { number: 12, html_url: "https://github.com/o/r/issues/12", updated_at: "2026-08-12T01:00:00Z", title: "Already captured" },
     { number: 120, html_url: "https://github.com/o/r/issues/120", updated_at: "2026-08-12T02:00:00Z", title: "Boundary guard" },
+    // THE TICK'S OWN FINDING (2026-09-02, issue #864): `file-inbound-ask.sh --finding` stamps
+    // `source: moderate` on the body's header line. It is knowledge, never an ask.
+    { number: 30, html_url: "https://github.com/o/r/issues/30", updated_at: "2026-08-12T02:30:00Z", title: "[FB] the loop about itself",
+      body: "kind: instruction / source: moderate / subject: finding:base-health\n\n# the loop about itself\n" },
     // A pull request on the SAME endpoint. `GET /issues` returns these; `gh issue list`
     // did not — the one behavioral difference the REST conversion must not lose.
     { number: 55, html_url: "https://github.com/o/r/pull/55", updated_at: "2026-08-12T04:00:00Z", title: "A pull request", pull_request: { url: "https://github.com/o/r/pulls/55" } },
@@ -22679,8 +22689,8 @@ function testListInboundIssues() {
       r.issues.some((i) => i.number === 55), false);
     assertEq("a readable inbox is ok:true", r.ok, true);
     assertEq("the identity is the session's own login", r.identity, "tester");
-    assertEq("issue 12, already named by a record, is excluded", r.excluded.length, 1);
-    assertEq("and the exclusion is reported with its reason", r.excluded[0].reason, "already_captured");
+    assertEq("issue 12, already named by a record, and the tick's own finding are excluded",
+      r.excluded.map((e) => `${e.number}:${e.reason}`).sort(), ["12:already_captured", "30:self_originated"]);
     assertEq("three issues survive", r.issues.length, 3);
     assertEq("issue 120 is NOT swallowed by the record naming issue 12 (numeric boundary)",
       r.issues.some((i) => i.number === 120), true);
@@ -22731,7 +22741,7 @@ function testListInboundIssues() {
     // a pull request — they send you to different places.
     assertEq("a record on an unmerged proposal branch excludes its issue, under its own word",
       withBranch.excluded.map((e) => `${e.number}:${e.reason}`).sort(),
-      ["12:already_captured", "7:captured_on_branch"]);
+      ["12:already_captured", "30:self_originated", "7:captured_on_branch"]);
     assertEq("and an issue no record names anywhere is still offered",
       withBranch.issues.map((i) => i.number).sort((a, b) => a - b), [9, 120]);
 
@@ -22742,7 +22752,7 @@ function testListInboundIssues() {
     assertEq("a branch that is gone excludes nothing — issue 7 is offered again",
       afterDelete.issues.some((i) => i.number === 7), true);
     assertEq("and the base record's own exclusion is untouched",
-      afterDelete.excluded.map((e) => e.reason), ["already_captured"]);
+      afterDelete.excluded.map((e) => e.reason).sort(), ["already_captured", "self_originated"]);
 
     // A DEGRADED WALK IS NAMED ON STDERR AND ERRS TOWARD EXCLUDING. `.git/shallow` is what
     // `--is-shallow-repository` answers from, so a shallow clone's over-read warning is
@@ -22767,7 +22777,7 @@ function testListInboundIssues() {
     assertTrue("with the reason on stderr",
       /no base ref resolved/.test(readFileSync(errFile, "utf8")), readFileSync(errFile, "utf8"));
     assertEq("and the base grep is untouched by the walk it could not make",
-      noBaseJson.excluded.map((e) => e.reason), ["already_captured"]);
+      noBaseJson.excluded.map((e) => e.reason).sort(), ["already_captured", "self_originated"]);
     git("update-ref refs/remotes/origin/main HEAD");
 
     // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.

@@ -100,6 +100,18 @@ The token is **the unit's own addressee, never the runner** — resolved from th
 
 Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implement` unit's posts land in*): a unit posts `🟢 Implemented` **or** one of the three outcome shapes above, never both — `handoff` is the finish, never a third post, and the same holds for a blocked or merged unit.
 
+### `/propose` — the Slack turn's reply: a question answered in its own thread, within five minutes
+
+**The loop is a bot a person can talk to, at a five-minute latency** (2026-09-02, the developer's instruction). The loop now turns locally every five minutes (`workaholic:loops`), and the first thing `/propose` does each turn is read the inbound channel for what moved since the last turn. A person's **question** — what a command does, where something stands, why a run did what it did — gets one reply in its own thread; an **ask** is the inbound sweep's and gets the `📥 受理` receipt below; anything else a person wrote gets `:eyes:` on the message. Not the Claude Tag's instant reply, and the developer ruled that a reply inside five minutes is enough.
+
+```
+💬 [<the question, one line>]
+<the answer, max 80 words, in plain Japanese, what the repository says and where>
+<session URL>
+```
+
+**Read the thread first, and post nothing if it already carries a reply of ours after the message** — the dedup is the thread itself, not a marker, because a reply is not a filing and writes no `slack-ref`. **No mention token**, by the standing rule; **no question back**, because a run that asks is a run that waits; **no promise of an act** — an act is the sweep's issue or nothing. The window is `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10) so consecutive turns overlap. A failed read or post is `slack_turn_failed: <reason>` and never blocks the sweep.
+
 ### `/propose` — the inbound sweep's receipt: a reply in the swept message's thread, a reaction on the message
 
 **A capture the channel cannot see did not happen, as far as the person who wrote it is concerned** (2026-08-26, the developer's instruction). The sweep filed the `[FB]` issue and left **nothing** on the message it filed — so from `#dev-<repo>` a message that became an issue and a message nobody read are byte-identical. Measured the same day: two asks written at 18:56 and 19:20 JST were both captured as issues #620 and #621 within the hour, and the developer, seeing no trace in the channel, asked why neither had been treated as feedback. The capture worked; only its receipt was missing.

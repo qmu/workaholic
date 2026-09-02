@@ -31,6 +31,8 @@ every one lands on GitHub, not in the tree — the same contract `/standup` and
 
 ## The inbound sweep — the channel is read, not mentioned
 
+**Since 2026-09-02 the sweep is preceded by the Slack turn** (the developer's instruction, with the local five-minute loops — `workaholic:loops`): the same channel read, over the last `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10), answers a person's **question** in its own thread with the `💬` shape, reacts `:eyes:` to what is neither a question nor an ask, and hands every **ask** to the sweep below unchanged. The dedup for a reply is the thread itself — read first, post nothing if a reply of ours already follows the message — because a reply is not a filing and writes no `slack-ref`. The shape, its bounds and its degradations live in `commands/propose.md` and `workaholic:notify`'s catalog; this section owns the sweep and is otherwise unchanged.
+
 **Before the strategy judgment, the run sweeps the repository's designated Slack channel for
 asks nobody addressed to any bot** (2026-08-23, the developer's instruction). The loop's two
 inbound surfaces are now **GitHub issues** — which `[Specificate]`'s hourly discovery already

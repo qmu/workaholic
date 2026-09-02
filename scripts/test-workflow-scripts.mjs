@@ -21218,6 +21218,60 @@ function testWorkaholifyRepoSettings() {
 
 
 
+
+// ---------- loops: the local tmux premise (2026-09-02, the developer's instruction) ----------
+// The loop turns on the developer's server in minutes, one clone per loop. What is pinned:
+// the table is declared once and read by all three scripts; a dry run plans every loop and
+// runs nothing; the command spawns with permission prompts off and repeats the table's own
+// prompt; and the propose command and the catalog carry the Slack turn's shape byte-identically.
+function testLocalLoops() {
+  const LOOPS = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts");
+  const dir = mkdtempSync(join(tmpdir(), "wh-loops-"));
+  try {
+    execSync("git init -q", { cwd: dir });
+    execSync("git remote add origin https://github.com/o/r.git", { cwd: dir });
+    const env = { ...process.env, WORKAHOLIC_LOOPS_HOME: join(dir, "home") };
+    const plan = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run`, { env }).stdout);
+    assertEq("a dry run is ok and names the repository", [plan.ok, plan.repo_name, plan.dry_run], [true, "r", true]);
+    assertEq("it plans every declared loop", plan.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
+    assertTrue("and runs nothing", plan.loops.every((l) => l.state === "planned"), JSON.stringify(plan.loops));
+    assertTrue("no clone was made by a dry run", !existsSync(join(dir, "home")), "dry run wrote a clone");
+    for (const l of plan.loops) {
+      assertTrue(`${l.loop} runs in its own clone under the loops home`,
+        l.path === join(dir, "home", "r", l.loop), l.path);
+      assertTrue(`${l.loop}'s session is named after the repository and the loop`, l.session === `wh-r-${l.loop}`, l.session);
+      assertTrue(`${l.loop} spawns with permission prompts off and repeats its own prompt`,
+        /--dangerously-skip-permissions/.test(l.command) && l.command.includes(`/loop ${l.interval} ${l.prompt}`), l.command);
+    }
+    const table = Object.fromEntries(plan.loops.map((l) => [l.loop, [l.interval, l.prompt]]));
+    assertEq("propose supplies the ask and then ingests it, every five minutes",
+      table.propose, ["5m", "Run /propose, then run /specificate."]);
+    assertEq("implement drives every five minutes", table.implement, ["5m", "Run /implement."]);
+    assertEq("moderate ticks every thirty minutes", table.moderate, ["30m", "Run /moderate."]);
+    const only = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run --only propose`, { env }).stdout);
+    assertEq("--only narrows the plan", only.loops.map((l) => l.loop), ["propose"]);
+    const status = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/loop-status.sh`, { env }).stdout);
+    assertEq("status reads every declared loop", status.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
+    assertTrue("and a loop never spawned is neither running nor cloned",
+      status.loops.every((l) => l.running === false && l.exists === false), JSON.stringify(status.loops));
+    // THE TABLE IS ONE DECLARATION: the three scripts source it and carry no cadence of their own.
+    for (const f of ["spawn-loops.sh", "loop-status.sh", "stop-loops.sh"]) {
+      const src = readFileSync(join(LOOPS, f), "utf8");
+      assertTrue(`${f} reads the loop table`, /lib\/loop-table\.sh/.test(src), f);
+      assertTrue(`${f} declares no cadence of its own`, !/'(propose|implement|moderate)\|/.test(src), f);
+    }
+    // THE SLACK TURN'S SHAPE is byte-identical between the command and the catalog.
+    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+    const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+    const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
+    assertTrue("the propose command carries the Slack turn's reply shape", shape(cmd) !== "", "missing from propose.md");
+    assertEq("and the catalog carries it byte-identically", shape(catalog), shape(cmd));
+    assertTrue("the turn reads the thread before replying", /read the thread first/i.test(cmd) && /Read the thread first/.test(catalog), "dedup rule unwritten");
+    assertTrue("and the Web routines are named as the fallback",
+      /no_tmux/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/spawn-loops.md"), "utf8")), "fallback unnamed");
+  } finally { cleanup(dir); }
+}
+
 const tests = [
   ["moderate/condition-age.sh: how long a condition has been standing", testConditionAgeReader],
   ["moderate/condition-age.sh: the walk is bounded, and says when it was cut", testConditionAgeBound],
@@ -21302,6 +21356,7 @@ const tests = [
   ["propose: the gates that replace the dropped judgment bar", testProposeGates],
   ["propose: the write floor and its named refusals", testProposeWriteFloor],
   ["propose: the standing [Specificate] routine is retired into [Propose]", testProposeRoutineTemplate],
+  ["loops: the local tmux premise, one clone per loop, planned before run", testLocalLoops],
   ["standup: the command and skill are a reader", testStandupIsAReader],
   ["standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],

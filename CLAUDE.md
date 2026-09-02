@@ -240,6 +240,7 @@ The claim oracle degrades offline; the writer fails loudly. Under `/implement`, 
 | `/moderate` | The hourly maintenance tick. See *`/moderate`* below. |
 | `/setup-dev-routines [repo]` | Configure the `developer`-scoped routines (`[Propose]`, `[Implement]`). See *Routine convergence* below. Never touches a `repository`-scoped routine. |
 | `/setup-repo-routines [repo]` | Configure the `repository`-scoped routine (`[Moderate]`). Same flow, scoped to `repository` templates. **Run it from one account** — a designated person or a project/service account — because N members converging it leaves N copies firing every hour; a routine is an account-level record no other account can list, so this is a **stated convention the plugin cannot enforce**. Never touches a `developer`-scoped routine. |
+| `/spawn-loops` | **Start the local loops** (2026-09-02): one tmux session per loop — `propose` every 5 minutes (the Slack turn, the inbound sweep, the strategy judgement, then `/specificate`), `implement` every 5 minutes, `moderate` every 30 — each a Claude Code session running `/loop` in its **own clone** under `~/.workaholic/loops/<repo>/<loop>`. Idempotent; refusals by name; `no_tmux` names the Web routines as the fallback. See *Loops* below. |
 
 ### `/implement` — the run report
 
@@ -386,9 +387,21 @@ Running it leaves the repository prepared. Each apply takes exactly one confirma
 
 One job with one named failure mode, never two branches. Attempt it every time through a `RemoteTrigger`-family tool: list the account's routines, diff each against its template (name / prompt / model / `cron_expression` / `autofix_on_pr_create` / connectors), apply create/update to converge, report per-routine changes; no questions, and never framed as luck. Every report line also names that routine's **enabled state** — read and reported, never converged. **No transport reachable** (the routine-fired class; the session-only `CronCreate` family cannot touch an account routine): report `no_transport: RemoteTrigger-family tool`, then render the copy-paste setup sheets for that scope (`render-setup-sheet.sh --all <repo-url> <scope>`) **as that refusal's recovery path**, with the preconditions (Slack channel probe — `checked: false` is never "does not exist"; web bootstrap) and what cannot be verified. The account-management surface (digest gate, drift/fleet reports) stays retired.
 
-### Routines
+### Loops
 
-Claude Code Web routines, from the templates in `skills/workaholify/routines/`, each declaring its own **`scope:`**:
+**The loop turns on the developer's own server, in minutes** (2026-09-02, the developer's instruction). The Web routines' floor is one fire an hour, so one turn of the loop was one hour and a change to the loop could not be seen working for most of a day. The premise is now local: `/spawn-loops` starts one tmux session per loop, each an interactive Claude Code session driven by `/loop`, each in its **own clone** (`$WORKAHOLIC_LOOPS_HOME/<repo>/<loop>`, default `~/.workaholic/loops`) so `/implement`'s claim worktrees and `/specificate`'s publish tree never share a working tree with another loop — across loops the remote is the only shared state and the claim protocol arbitrates it; within a loop `/loop` turns are sequential. The table is declared once (`skills/loops/scripts/lib/loop-table.sh`):
+
+| Loop | Interval | `/loop` repeats |
+| ---- | -------- | --------------- |
+| `propose` | 5m | `Run /propose, then run /specificate.` |
+| `implement` | 5m | `Run /implement.` |
+| `moderate` | 30m | `Run /moderate.` |
+
+**`/propose` opens with the Slack turn**: read the inbound channel for what moved in the last `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10), answer a person's question in its own thread with the `💬` shape (read the thread first; post nothing if a reply of ours already follows), react `:eyes:` to what is neither question nor ask, and hand every ask to the inbound sweep — a bot at five-minute latency, which the developer ruled is enough. **Sessions run with permission prompts off** (`--dangerously-skip-permissions`): an unattended run never waits for a person, and on this server the sessions are the developer's own in clones the developer owns. `moderate` stays in the loop at 30 minutes rather than leaving it or folding into `propose` — its acts are hourly by nature and a local tick reaches them with full `gh` and `git`. `loop-status.sh` reads, `stop-loops.sh` ends. **The Web routines below are the fallback** for a machine without tmux; the two premises must not run against one repository at once.
+
+### Routines (the fallback)
+
+Claude Code Web routines, from the templates in `skills/workaholify/routines/`, each declaring its own **`scope:`** — **the fallback premise since 2026-09-02** (see *Loops* above):
 
 | Template | Routine | Scope | Cron | Configured by |
 | -------- | ------- | ----- | ---- | ------------- |

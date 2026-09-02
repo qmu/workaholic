@@ -44,10 +44,11 @@ resolve an environment says so by name, and still renders no setup sheet.
 
 ## Acceptance
 
-- [ ] The verified create/update body is recorded field by field; no caller walks 400s for it (#20260821150359-record-the-verified-routine-create-and-update-body.md)
+- [x] The verified create/update body is recorded field by field; no caller walks 400s for it (#20260821150359-record-the-verified-routine-create-and-update-body.md)
 - [ ] One place builds the body; templates carry `sources:` and it is rendered, not prose (#20260821150359-build-the-routine-api-body-in-one-place.md)
 - [ ] §5 states the environment rule and names a second refusal beside `no_transport` (#20260821150359-state-the-environment-rule-and-its-named-refusal.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-02 — ticket archived — 20260821150359-record-the-verified-routine-create-and-update-body.md

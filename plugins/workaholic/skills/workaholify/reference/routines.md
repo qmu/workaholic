@@ -38,6 +38,70 @@ The routine form's **Auto-fix pull requests** option (プルリクエストの�
 
 **A routine's enabled state is read and reported, never converged** (2026-08-19, issue #526). It is the one field a run states without diffing, and the asymmetry is deliberate rather than an oversight: a switched-off routine converged in every other field is dead, and until this change its report line was identical to a healthy routine's — measured on this account, where **both** live routines had been disabled since 2026-08-12 while every report read as clean. What the read means is therefore narrow and worth stating: it says *this record is currently off*, not *this record drifted*. No template declares an `enabled:` field, and none should be added to make one; a human switching a routine off is a signal, and the caller with the power to overrule it was `[Workaholic]`, an hourly unattended tick that would have re-enabled the routine every hour with nothing recording that a person had ever disabled it. That routine retired on 2026-08-22 (issue #557) and the ruling stands without it: a human-run convergence can make the same mistake, only more slowly and with somebody present to notice. The field's exact name and shape are confirmed by **reading a live record back** — the API silently drops unknown fields, so a write that returns 200 proves nothing, exactly as the auto-fix discovery above established.
 
+## The routine record, read back field by field (2026-09-02)
+
+Until this reading, exactly one leaf of the record was written down — `autofix_on_pr_create` — and everything else a create needs had been recovered by walking 400s. A caller converging an empty account therefore had no document to build a body from. This section is that document.
+
+**What was read, and through what.** One `list_triggers` call over the live account from an **unattended, routine-fired** `[Implement]` session on 2026-09-02, returning 8 routine records in full. That matters twice over. First, it is a **read projection**, not a write: what is recorded below is the shape a record comes back in, and the create body's own key paths are a separate question this reading does not answer (see *What is observed and what is not*). Second, the transport is **not** a `RemoteTrigger`-family tool — `ToolSearch` over this session's whole surface still finds none, exactly as every measurement since 2026-08-10 — it is `mcp__Claude_Code_Remote__list_triggers`, from the `Claude_Code_Remote` connector the three live routines carry in their own `mcp_connections`. So the standing "a clock-fired container can reach no account routine" is true of the tool the commands look for and **false of this account's routines as configured**, which is a fact worth knowing before anyone re-derives it from the older paragraphs above.
+
+### The record, as it comes back
+
+| Path | Kind | Standing |
+| ---- | ---- | -------- |
+| `id` | `trig_…` | server-assigned |
+| `name` | string | the rendered `name:` — what convergence matches on |
+| `cron_expression` | 5-field cron | **absent** on a one-shot record (which carries `run_once_at` instead) |
+| `enabled` | bool | **absent means off** — two records in this reading carry no key and are disabled |
+| `next_run_at` / `last_fired_at` / `created_at` / `updated_at` | timestamps | derived; `last_fired_at` is absent for a GitHub-triggered fire (line 13) |
+| `mcp_connections[]` | `{connector_uuid, name, url, transport_type}` | the connectors — see the asymmetry below |
+| `creator.account_uuid` | uuid | server-assigned |
+| `session_request.environment_id` | `env_…` | the environment pointer; every live routine here selects the one `Default` environment |
+| `session_request.config.sources[]` | `{git_repository: {url}}` | **which repository the routine checks out** |
+| `session_request.config.model` | model id | e.g. `claude-opus-5` |
+| `session_request.config.allowed_tools[]` | JSON array of strings | e.g. `["Bash","Read","Write","Edit","Glob","Grep"]` |
+| `session_request.config.autofix_on_pr_create` | bool | the UI's *Auto-fix pull requests* |
+| `session_request.events[].payload` | `{uuid, type: "user", internal_anthropic_catchall: {message: {content, role}, parent_tool_use_id, session_id}}` | **the prompt is `…message.content`** |
+| `created_via` | `http_api` \| `meta_mcp` | which surface created it |
+| `derived_state` | `{folders_state, prompt, model}` | a convenience mirror of the prompt and model |
+| `last_run` | `{status, fired_at, finished_at, session_id}` | absent until a run is recorded |
+
+**The prompt is nested three levels down and mirrored once.** A caller building a body writes it at `session_request.events[0].payload.internal_anthropic_catchall.message.content` with `role: "user"` and a caller-supplied `uuid`; `derived_state.prompt` is the server's mirror and is not a place to write.
+
+### What is observed and what is not
+
+- **Observed** (present in the read-back, one account, one day): every path in the table, the `env_…` pointer's shape, `allowed_tools` as a **JSON array** rather than a display string, `sources[]` as a list of `{git_repository:{url}}`, and `enabled`'s absent-means-off reading.
+- **Unverified**: the **create body's** own key paths. The recovered-by-400s account above names `job_config.ccr.{environment_id, session_context, events}`; the read-back names `session_request.{environment_id, config, events}`. Whether those are two names for one thing, a request/response asymmetry, or a shape that moved is **not established here**, and the standing rule decides what may be done about it: the API silently drops unknown fields, so **only a write followed by a read-back of the record** settles it — never a 200.
+- **Unverified**: `notifications`. `propose.md` declares `notifications: push` and **no record in this reading carries any notifications key at all**. So the template field's mapping to `notifications.channel.{email, push, slack}` is written down below as the shape a caller should try, and marked as what it is.
+- A field observed once is a **measurement**, not a contract: this is one account on one day, and the next account may differ.
+
+### Create and update are not symmetric about connectors
+
+**`mcp_connections: []` in a create does not empty the connector set.** The server auto-attaches the account's connectors, so a routine created "by the book" from a template declaring no `mcp:` carries connectors nobody asked for. Emptying it takes a **second call** — an `update` carrying `clear_mcp_connections: true`.
+
+Observed on this account, 2026-09-02: `implement.md` and `moderate.md` declare **no** `mcp:` field, and both live records carry **three** connectors (`Slack`, `Gmail`, `Claude_Code_Remote`); `propose.md` declares `mcp: [Slack]` and its record carries the same three. So the divergence is not hypothetical and it is not one template's — a converging caller that diffs `mcp` against the record will report drift on every routine, on every run, for a set it never wrote. The asymmetry is therefore the **first** thing to reach for when a `mcp` diff will not settle, and `clear_mcp_connections` is marked **unverified** here for the same reason the create paths are: no write-and-read-back has been performed from this session class.
+
+### Template field → record field
+
+Every field a template declares, and where it lands. A caller reads this table rather than guessing; a template field with no row here is a template field nothing converges.
+
+| Template frontmatter | Record path | Note |
+| -------------------- | ----------- | ---- |
+| `name` | `name` | after the `{repo_name}` substitution |
+| `cron_expression` | `cron_expression` | minute must be non-zero (a bare `:00` is rewritten to server jitter) |
+| `model` | `session_request.config.model` | mirrored at `derived_state.model` |
+| `allowed_tools` | `session_request.config.allowed_tools[]` | a JSON array on the record, a display string on the sheet |
+| `autofix_on_pr_create` | `session_request.config.autofix_on_pr_create` | discovered 2026-08-12 by toggling the UI |
+| `sources` | `session_request.config.sources[].git_repository.url` | added 2026-09-02; the repository the routine checks out |
+| `mcp` | `mcp_connections[].name` | see the asymmetry above — a create cannot empty it |
+| `notifications` | `notifications.channel.{email, push, slack}` | **unverified** — no record in the read-back carries the key |
+| `scope` | — | template-only: it says how many copies should exist, and the account has no field for it |
+| `trigger`, `trigger_kind`, `trigger_event`, `trigger_filters` | — | template-only: the *designed* wiring, for the reader and the sheet. The API carries no event field (line 11) |
+| `id`, `type`, `renamed_from` | — | template-only |
+
+### The account's environments
+
+`mcp__Claude_Code_Remote__list_environments` enumerates them with their ids, and it is available to the routine-fired session class. Read 2026-09-02: **exactly one**, `Default` (`env_01XM4EPbtZEi2gDLYN69PvYZ`, `kind: anthropic_cloud`, `state: active`), and all eight live routines select it. This reproduces the 2026-08-20 reading independently and is why `render-routine.sh`'s header no longer claims how many an account has — one account having one, twice measured, is not this repository's licence to state a count for anybody else's. The rule built on it is `SKILL.md` §5, *Which environment a routine is created in*.
+
 ## Per-developer routines: two mechanisms, not one (P6, 2026-08-06)
 
 A repository has several developers, each with their own copy of both routines, and the trigger filter alone cannot answer "whose run is this" — a trigger is a UI setting nothing in the plugin can read or verify. So the filter bounds the cost (N−1 sessions per event find nothing to do and end `ok`) and the data decides the ownership: `/specificate` writes the triggering issue's assignee onto every artifact it emits (`--assignee`, `workaholic:specificate`), so the identity enters once at the trigger and rides the chain. Ownership is the load-bearing half — it lives in the repository, every runner reads it through one oracle, and it holds even when a trigger is misconfigured. Before it existed, a proposal-born artifact was unowned (correctly meaning "claimable by anyone"), so every developer's runner raced for it and whose push landed first decided whose job it was. Neither trigger narrows to a person: the routines UI offers no assignee filter, which killed the original `assignee = the developer` design; an `author` filter on `[Implement]` was tried and dropped with it.

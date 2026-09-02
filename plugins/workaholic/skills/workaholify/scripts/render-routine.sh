@@ -26,9 +26,11 @@
 # would make every existing routine read as drifted on its first comparison.
 #
 # THE CALLER BUILDS THE API BODY. This script deliberately does not emit a `job_config`:
-# the environment id is an account-level fact this repository has no business hardcoding
-# (there are two, and the right one is a question for the developer), and the `RemoteTrigger`
-# body shape belongs to the tool's own contract, not to a shell script that cannot call it.
+# the environment id is an account-level fact this repository has no business hardcoding,
+# and HOW MANY an account has is not this repository's claim to make either — the count is
+# enumerated at run time, and the one account measured (twice: 2026-08-20 and 2026-09-02)
+# had exactly one. The record's own shape is written down field by field in
+# reference/routines.md, *The routine record, read back field by field*.
 # A routine carries no environment variables either — it selects an environment and the
 # variables live on that record, so no field for them is emitted or expected here. The rule
 # and the measurement behind it: SKILL.md, *Where a routine's environment variables live*.

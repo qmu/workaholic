@@ -512,6 +512,31 @@ a person has learned to skip. Measured — three merged pull requests were each 
 The keying is untouched: `stalled-unit:<unit>` still keys a genuine stall, and only which rows
 reach it moved.
 
+**And a `stranded` claim is a fact with another step's question on it** (2026-09-02, ticket
+`20260831203454-tell-a-person-about-a-stranded-claim-branch`). Its tickets are archived on the
+base while its branch still holds content found on no other ref: it has not *stalled*, it has
+been **orphaned**, and *a claimed unit has not moved for a day or more* sends a person looking
+for a run that died when what they must rule on is work nobody can reach. `retire-claims` asks
+it, naming the files; this step filters and **counts** it (`N stranded (tickets archived, branch
+still holds work)`), the same half of the same rule `superseded` and `awaiting_verification`
+already follow — **one step asks and the other filters, and either half alone is a defect.**
+
+**And a claim the RETIREMENT PATH already owns is a fact with no question on it at all**
+(2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`). The same argument as
+`superseded`, extended to the classes that joined it: measured, the operator closed a pull
+request and closed its mission `abandoned`, and this step asked them about that branch every hour
+until they deleted it by hand — a question asking a person to do the tick's own job. The set is
+**composed** from `drive/scripts/list-retirable-claims.sh`, never re-derived: its four classes
+(`superseded_only`, `pull_request_merged`, `pull_request_closed_unmerged`, `mission_not_active`)
+are defined once, and restating them here would be two definitions of one set. What was
+subtracted is **counted** in the summary (`N already owned by the retirement path`), because
+filtering is not silence. **An unreadable retirement read filters nothing** and says so in the
+summary: a gate that cannot be read is not a gate, and an over-eager question beats a silently
+dropped one. **It is read only when there is something to subtract from** — the retirement
+reader makes its own claim scan and a bounded pull-request read per `work-*` ref, and a
+subtraction over an empty candidate set changes nothing — so the common tick, with nothing past
+the staleness threshold, pays none of it.
+
 **The summary carries no age, and that is a correctness requirement** (same change). The root
 calls a step changed when its summary differs from the same step's an hour ago, and
 `render-tick-post.sh` normalises out a timestamp, a bare hex object name and a clock time — and
@@ -1640,6 +1665,41 @@ the branch can never land and holds no work. The step hands each to
 `drive/scripts/retire-claim.sh` — its **only** caller, deliberately, because one caller is what
 keeps the retirement's bounds checkable — which closes the pull request, deletes the remote
 branch and reaps the worktree.
+
+**And every claim the oracle reads `stranded` — asked about, never acted on** (2026-09-01, issue
+#788; the question given its content 2026-09-02). A `stranded` row is the photographic negative
+of the one above: the unit's tickets *are* archived on the base, and its branch **still carries
+files that exist on no other ref**. It is not a retirement candidate by construction —
+`retire-claim.sh` refuses anything but the word `superseded` — and it is the same shape of
+finding this step already owns, *a claim that looks finished and is not*, so it is asked here
+rather than growing a step of its own.
+
+**The question, under the composition contract.** Keyed `stranded-unit:<unit>`, so one branch
+costs one question however many ticks see it, addressed to the **claim holder**. It leads with
+what happened in words a reader outside the repository understands — this unit's tickets are
+archived on the base while its branch still carries files that exist nowhere else — and names
+the unit and the exact branch *after* that. **It names the files**, from the row's own
+`stranded_files` (bounded, with `stranded_file_count` the true total, so a branch differing in
+a thousand files says `and N more` rather than listing them): a person cannot rule on work they
+cannot see, and *your branch holds work nothing else has* without the names is a verdict word
+standing alone, which the catalog forbids. It says plainly that deleting the branch would lose
+that work, asks what should happen to it — landed on the base, or discarded deliberately — and
+**never suggests deleting the branch**. The two payloads ride separately for that reason: a
+blocked retirement asks *please delete this branch* and a stranded claim asks the opposite, and
+one instruction carrying both would carry two contradictory actions.
+
+**The age rides it** through `lib/read-age.sh`, keyed on the key the step already composed, the
+reader's words verbatim — an unreadable age named as unreadable, an absent one not mentioned.
+**A branch stranded for weeks with nobody answering is a real possibility, and this is what
+happens then**: the question is asked exactly once and the age is the only thing that says how
+long it has been standing, so the arrears are visible on the one question rather than becoming a
+silent backlog or an hourly re-ask.
+
+**The tick acts on none of it.** It never deletes the branch, never merges it, never closes a
+pull request, never releases the claim and never re-drives a ticket. `stranded` is a
+**judgement** (`drive/reference/claims.md`, *Proofs and judgements*), and the right act — port
+the work onto a live branch, open it as its own pull request, or discard it deliberately — is
+genuinely unclear and is the holder's to choose.
 
 **Why it exists** (2026-08-27, mission `deliver-and-retire-what-the-loop-already-proved-finished`).
 `superseded` has been *reported, never acted on* since it shipped, so nothing retired the **claim
@@ -2871,6 +2931,15 @@ left whose own drive meets the conflict, `awaiting_verification` draws `handoff-
 drops a pull request whose head branch is asked about here. One step asks and the others count,
 exactly as `handoff-units` and `stalled-units` divide — either half alone is a defect, because
 *retry your merge* is the wrong instruction for a branch that no longer merges.
+
+**And a claim the RETIREMENT PATH already owns draws nothing here either** (2026-09-02, mission
+`retire-a-claim-whose-work-is-finished-or-abandoned`). Asking somebody to resolve a conflict on
+a branch the tick is about to delete is asking them to do work that will be thrown away — the
+shape `raced-units` above already carves out, one class over. The set is **composed** from
+`drive/scripts/list-retirable-claims.sh` rather than re-derived, what is subtracted is
+**counted** in the summary, and an **unreadable** retirement read filters nothing and says so:
+a gate that cannot be read is not a gate. It is read **only when there is something to subtract
+from**, for the cost reason `stalled-units` records.
 
 **The conflicted files ride the claim row.** A question that cannot name what collided does not
 say what to look at, and reading the mergeability a second time here would be a second

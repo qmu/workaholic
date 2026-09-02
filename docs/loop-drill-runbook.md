@@ -48,10 +48,11 @@ Run every command from the repository root, on a clean `main`.
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-close --json` | a throwaway repository carrying three finished units — proves all four closing outcomes (merged, session-type-refused-then-retryable, refused-and-unretryable, scan-held) with the transport stubbed, plus one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-catch-up --json` | a throwaway repository holding four finished-and-undelivered units — proves a mechanical conflict is caught up, validated and pushed with the higher version winning the manifest collision, a `content` one **attempted and then** refused with the branch byte-identical, a scan-held pull request never caught up, a second run a no-op, the refused conflict reaching its claim holder exactly once, and — since 2026-08-30 — the widened trigger: a `queue_drained` claim still `mechanical` offered and caught up, a reviewed pull request refused, and a degraded scan answering null counts; and — since 2026-09-02 — that a `content` **prediction** is offered to the act while a colleague's claim still is not; with the transport stubbed and three rows that deliberately break the identity bound and the two widenings |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-retire --json` | a throwaway repository holding a `superseded` claim, a live one and a unit held by two — proves the retirement's three acts, that a judgement is refused by its own verdict word, and that the step asks nobody anything, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-stranded-claim-branch --json` | a throwaway repository whose bare origin permits a real branch delete — proves the ordinary superseded twin is still deleted, that a branch holding a file on no other ref is refused at both grains with the file still on origin afterwards, that an unreadable emptiness licenses nothing, and that the row names the files a person must rule on, with the pull-request half stubbed and one breaker asserting surviving content rather than a return word |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-ci-retirement --json` | a throwaway repository whose bare origin refuses the container's branch delete and permits CI's — proves the act the container is refused is taken where the write is permitted, re-proved at the moment of it, bounded four ways, and asked about only once CI has also refused, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-delivery-retry --json` | a throwaway repository holding three units finished in the identical shape — proves the survey offers an undelivered unit in a field of its own, that only the proof reaches the merge seam, and that a scan-held or unrecorded one never does, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-handoff-question --json` | a throwaway repository holding a reported claim whose still-queued work declares `verification_handoff:` — proves the declared reason reaches its holder verbatim exactly once, that `stalled-units` asks nothing about the same unit, and that nothing is cleared, with the transport stubbed and one row that deliberately breaks the seam |
-| — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
+| — | Any time | `sh scripts/e2e/loop-drill.sh verify-base-health --json` | a throwaway repository whose base is red at a mid-walk merge — proves the reader's three states, that a bookkeeping tip is walked past to the newest checked ancestor while every other unanswerable stays terminal, the attribution walk's two outcomes, that one broken commit costs exactly one question, and that the reading gates nothing, with the transport stubbed and one row that deliberately breaks the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-return-path --json` | a throwaway repository holding two asked questions with their coordinates recorded — walks ask → reply → record → file → stamp → **outcome reply**, proves the read is bounded to the question's own thread, that a second tick files, stamps and replies nothing, that only a settled outcome earns a reply, and that neither the stamp nor the reply is load-bearing, with the transport stubbed and **two** rows that deliberately break the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-checkin-delivery --json` | a throwaway tick log spanning several days, with the day's asks all on **earlier** days — walks the whole path from a machine finding to a person (gate → ordering → step → event → root), proving a held question lands, that it is not re-asked, that the drain honours `max_per_tick` oldest-held first, that a genuinely spent day still holds, and that a tick which reached nobody supplies its event while a quiet hour stays silent, that the arrears name their depth, their age and the gate's own refusal word per held question, and that an `all_held` tick past the working-day boundary earns a root line while one inside it stays silent, with no network and two rows that deliberately break the seam |
 | — | Any time | `sh scripts/e2e/loop-drill.sh verify-findings-to-work --json` | a throwaway git repository and a stubbed `gh` — walks the whole path from a tick finding to the work queue (classification → brake → filing → dedup → suppression), proving a `needs_ruling` finding never reaches the filer, that one open finding issue holds the rest, that a second tick files nothing, and that the filed step's question is held while every other step's still asks, with no network and one row that deliberately breaks the seam |
@@ -1199,6 +1200,8 @@ with one that already merged.
 | `base_health_reads_green` | every completed check passing does not read `green` | `read-base-checks.sh`'s success path |
 | `base_health_reads_red_with_names` | a failing check does not read `red`, or the failing check is unnamed | a red tip with no names sends a person to the Actions tab to re-derive what the reader already knew |
 | `base_health_unanswerable_by_name` | a running check, a **checkless** commit or an unknown commit does not read `unanswerable` under its own reason | the three-valued shape: each of these is a reading about **us**, and collapsing any into `green` is the defect the reader exists to close |
+| `base_health_walks_past_a_checkless_tip` | a tip **no workflow ran on** does not resolve to the newest checked ancestor, or the verdict does not say which commit it rests on and how far back | `attribute-base-red.sh`'s tip `case`. This loop commits to its own base constantly and every workflow filters `.workaholic/` out, so the tip is *usually* checkless: when this row is red the step that exists to notice a broken base is dark exactly when the loop is busiest — measured over a day and a half of `base_unreadable:tip_no_checks` on a base that was green throughout |
+| `base_health_only_no_checks_is_walked_past` | an `unanswerable` that is a fact about **us** (a reader that failed, a rate limit, a refused transport) is walked past, or names a checked ancestor | the same `case`'s `*)` arm. `no_checks` is a statement about the **commit** and has a defined answer one step back; every other reason means we could not look, and walking past one reports an older commit's colour as though it were current — the collapse the three-valued reader exists to prevent |
 | `base_health_attributes_the_merge` | the oldest red commit after the last green one is not named, with its pull request and author | `attribute-base-red.sh`'s walk, and its pull-request lookup |
 | `base_health_unattributable_tail` | a walk that exhausts its bound names a culprit anyway | **never the tip by default**: blaming the head because the walk ran out of room is what `unattributable` exists to prevent |
 | `base_health_step_asks_once_per_commit` | the step's question is not keyed `base-red:<attributed commit>` | the key is what makes *exactly once per broken commit* mechanical rather than a rule somebody remembers |
@@ -1483,6 +1486,58 @@ repository may be on a different plugin version; this exercises this checkout's 
 | `stranded_content_reaches_a_person` | `step-stranded-publications.sh` — the collision a person owns reaches nobody |
 | `stranded_breaker` / `stranded_clean_breaker` | the drill can no longer fail, so every row above proves nothing |
 
+## 5t-b. The stranded claim branch (does the loop refuse to delete work nothing else has?)
+
+```sh
+sh scripts/e2e/loop-drill.sh verify-stranded-claim-branch [--json]
+```
+
+The one mechanism in this loop whose regression **destroys work rather than delaying it**
+(2026-09-02, mission `prove-a-claim-branch-is-empty-before-deleting-it`). `superseded` licenses
+`retire-claim.sh` to delete a remote branch; until 2026-09-01 it proved only that the unit's
+tickets were archived on the base, and that implies *the branch holds no work* only when a branch
+carries nothing but its own unit's tickets. Measured: two branches whose tickets had landed
+through **different** branches still held ~300 lines of code and a documentation section present
+on no other ref, and the tick was asking for both to be deleted. Only a 403 on `push --delete`
+had prevented the loss, for five days — which is precisely why the drill is owed: **the day the
+transport is repaired is the day a regression here becomes a silent loss instead of a reported
+nuisance.**
+
+It needs **no seed, no issue number, no credential and no network**: the origin is a bare local
+repository and the GitHub transport is a stub on `PATH` — stubbed for the pull-request half
+alone. **The branch delete is real**, over the file transport, so a regression actually removes
+the refs and the rows below can see it.
+
+**What it proves.** Three seeded cases at both grains: a branch differing from the base only
+inside `.workaholic/` — the ordinary superseded twin, which a bare `diff --quiet` would wrongly
+call stranded — is still proved empty and is really deleted from origin; a branch holding a file
+that is on no other ref reads `stranded` at the batch grain *and* at the mission grain, is
+refused `not_superseded:stranded` by the act, and **its file is still on origin afterwards**; an
+emptiness nobody could read answers `unknown` and the verdict answers `stranded`, so no delete is
+licensed by an absence. The row a person is asked from carries the **file names**, because a
+holder cannot rule on work they cannot see.
+
+**The breaker asserts surviving content, not a return word.** It hands the work-holding branches
+straight to the act at both grains with the delete permitted, and asserts the refs and their file
+**contents** are still on origin. Measured with the diff term reverted: both branches came back
+`retired: true, remote_branch_deleted: deleted` — the loss reproduced on demand — and restoring
+the term turns it green. A row asserting the JSON shape instead would have passed over exactly
+that.
+
+**What this drill does not prove** is the transport. It cannot show that the production 403 is
+gone, or that a real remote delete behaves identically to a file-transport one; it proves the
+refusal and the derivation behind it.
+
+| Row | What a failure means |
+| --- | -------------------- |
+| `stranded_empty_branch_is_superseded` | `lib/claims.sh` — the `:(exclude).workaholic` term went, so the ordinary retirement stopped firing and every claim reads stranded |
+| `stranded_holding_branch_is_stranded` | `lib/claims.sh` — the emptiness term left `claims_superseded` at one of the two grains |
+| `stranded_row_names_the_files` | `list-claims.sh` or `claims_branch_emptiness` — the question can no longer say what the branch holds |
+| `stranded_unreadable_is_never_superseded` | `lib/claims.sh` — an absence of a reading started licensing the act |
+| `stranded_proved_branch_is_deleted` | `retire-claim.sh` — the act stopped acting on a real proof |
+| `stranded_holding_branch_survives_the_act` | the drill can no longer fail, **or work was actually deleted** — the one row here whose red means loss rather than doubt |
+| `stranded_branch_checkout_untouched` | the drill wrote outside its own fixture |
+
 ## 5u. The retirement candidates (does the loop offer only branches it may delete?)
 
 ```sh
@@ -1652,7 +1707,9 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
+| `verify-stranded-claim-branch` | `hermetic` | yes | `prove-a-claim-branch-is-empty-before-deleting-it` |
 | `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |
+| `verify-retired-claim` | `hermetic` | yes | `retire-a-claim-whose-work-is-finished-or-abandoned` |
 | `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |
 
 ### The evidence behind the classification

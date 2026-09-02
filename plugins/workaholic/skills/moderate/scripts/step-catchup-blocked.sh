@@ -146,10 +146,45 @@ raced=$(printf '%s' "$out" | jq --argjson r "$raced_json" '
     [.claims[]? | select(.mergeability == "content")
                 | select(.resume_reason == "report_undelivered" or .resume_reason == "queue_drained")
                 | select(.unit as $u | $r | index($u))] | length')
+
+# AND A CLAIM THE RETIREMENT PATH ALREADY OWNS IS NOT A CONFLICT FOR A PERSON TO RESOLVE
+# (2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`). Asking somebody to
+# rebase a branch the tick is about to delete is asking them to do work that will be thrown
+# away — the same shape as `raced-units` above, one class over. `list-retirable-claims.sh` is
+# composed rather than re-derived: its four classes are defined once, and restating them here
+# would be two definitions of one set. An UNREADABLE read filters nothing and is named in the
+# summary; a gate that cannot be read is not a gate.
+#
+# IT IS READ ONLY WHEN THERE IS SOMETHING TO SUBTRACT FROM, for the reason
+# `step-stalled-units.sh` records: the retirement reader makes its own claim scan and one
+# bounded pull-request read per `work-*` ref, and a subtraction over an empty set changes
+# nothing. The common tick — nothing blocked — pays nothing at all.
+retirable_readable=false
+retirable_attempted=false
+retiring=0
+RETIRABLE="${DRIVE_SCRIPTS}/list-retirable-claims.sh"
+if [ "$(printf '%s' "$candidates" | jq 'length')" -gt 0 ] && [ -f "$RETIRABLE" ]; then
+    retirable_attempted=true
+    _ret=$( ( cd "$ROOT" && sh "$RETIRABLE" ) 2>/dev/null || true )
+    if [ -n "$_ret" ] && printf '%s' "$_ret" | jq -e '.ok // false' >/dev/null 2>&1; then
+        retirable_readable=true
+        _ret_units=$(printf '%s' "$_ret" \
+            | jq -c '[.candidates[]? | .unit // "" | select(. != "")]' 2>/dev/null || printf '[]')
+        retiring=$(printf '%s' "$candidates" | jq --argjson r "$_ret_units" \
+            '[.[] | select(.unit as $u | $r | index($u))] | length' 2>/dev/null || printf '0')
+        candidates=$(printf '%s' "$candidates" | jq -c --argjson r "$_ret_units" \
+            '[.[] | select(.unit as $u | ($r | index($u)) | not)]' 2>/dev/null || printf '%s' "$candidates")
+    fi
+fi
+
 n=$(printf '%s' "$candidates" | jq 'length')
 
 summary="${total} claimed unit(s); ${n} finished and no longer merging"
 [ "$raced" -eq 0 ] || summary="${summary}; ${raced} held by two live claims (asked by raced-units)"
+[ "$retiring" -eq 0 ] || summary="${summary}; ${retiring} already owned by the retirement path"
+if [ "$retirable_attempted" = "true" ] && [ "$retirable_readable" != "true" ]; then
+    summary="${summary}; which claims the retirement path owns could not be read, so nothing was filtered on it"
+fi
 [ "$n" -eq 0 ] && emit ok "" "$summary"
 
 # The pull request's coordinates, one lookup per candidate and no more — the question has to

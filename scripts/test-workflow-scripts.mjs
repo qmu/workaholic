@@ -21360,7 +21360,582 @@ function testWorkaholifyRepoSettings() {
 
 
 
+
+// ---------- loops: the local tmux premise (2026-09-02, the developer's instruction) ----------
+// The loop turns on the developer's server in minutes, one clone per loop. What is pinned:
+// the table is declared once and read by all three scripts; a dry run plans every loop and
+// runs nothing; the command spawns with permission prompts off and repeats the table's own
+// prompt; and the propose command and the catalog carry the Slack turn's shape byte-identically.
+function testLocalLoops() {
+  const LOOPS = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts");
+  const dir = mkdtempSync(join(tmpdir(), "wh-loops-"));
+  try {
+    execSync("git init -q", { cwd: dir });
+    execSync("git remote add origin https://github.com/o/r.git", { cwd: dir });
+    const env = { ...process.env, WORKAHOLIC_LOOPS_HOME: join(dir, "home") };
+    const plan = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run`, { env }).stdout);
+    assertEq("a dry run is ok and names the repository", [plan.ok, plan.repo_name, plan.dry_run], [true, "r", true]);
+    assertEq("it plans every declared loop", plan.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
+    assertTrue("and runs nothing", plan.loops.every((l) => l.state === "planned"), JSON.stringify(plan.loops));
+    assertTrue("no clone was made by a dry run", !existsSync(join(dir, "home")), "dry run wrote a clone");
+    for (const l of plan.loops) {
+      assertTrue(`${l.loop} runs in its own clone under the loops home`,
+        l.path === join(dir, "home", "r", l.loop), l.path);
+      assertTrue(`${l.loop}'s session is named after the repository and the loop`, l.session === `wh-r-${l.loop}`, l.session);
+      assertTrue(`${l.loop} spawns with permission prompts off and repeats its own prompt`,
+        /--dangerously-skip-permissions/.test(l.command) && l.command.includes(`/loop ${l.interval} ${l.prompt}`), l.command);
+    }
+    const table = Object.fromEntries(plan.loops.map((l) => [l.loop, [l.interval, l.prompt]]));
+    assertEq("propose supplies the ask and then ingests it, every five minutes",
+      table.propose, ["5m", "Run /propose, then run /specificate."]);
+    assertEq("implement drives every five minutes", table.implement, ["5m", "Run /implement."]);
+    assertEq("moderate ticks every thirty minutes", table.moderate, ["30m", "Run /moderate."]);
+    const only = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/spawn-loops.sh --dry-run --only propose`, { env }).stdout);
+    assertEq("--only narrows the plan", only.loops.map((l) => l.loop), ["propose"]);
+    const status = JSON.parse(run(dir, `${POSIX_SH} ${LOOPS}/loop-status.sh`, { env }).stdout);
+    assertEq("status reads every declared loop", status.loops.map((l) => l.loop).sort(), ["implement", "moderate", "propose"]);
+    assertTrue("and a loop never spawned is neither running nor cloned",
+      status.loops.every((l) => l.running === false && l.exists === false), JSON.stringify(status.loops));
+    // THE TABLE IS ONE DECLARATION: the three scripts source it and carry no cadence of their own.
+    for (const f of ["spawn-loops.sh", "loop-status.sh", "stop-loops.sh"]) {
+      const src = readFileSync(join(LOOPS, f), "utf8");
+      assertTrue(`${f} reads the loop table`, /lib\/loop-table\.sh/.test(src), f);
+      assertTrue(`${f} declares no cadence of its own`, !/'(propose|implement|moderate)\|/.test(src), f);
+    }
+    // THE SLACK TURN'S SHAPE is byte-identical between the command and the catalog.
+    const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+    const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
+    const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
+    assertTrue("the propose command carries the Slack turn's reply shape", shape(cmd) !== "", "missing from propose.md");
+    assertEq("and the catalog carries it byte-identically", shape(catalog), shape(cmd));
+    assertTrue("the turn reads the thread before replying", /read the thread first/i.test(cmd) && /Read the thread first/.test(catalog), "dedup rule unwritten");
+    assertTrue("and the Web routines are named as the fallback",
+      /no_tmux/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/spawn-loops.md"), "utf8")), "fallback unnamed");
+  } finally { cleanup(dir); }
+}
+
+// ---------- the reading a claim branch's emptiness is derived from ----------
+// `claims_branch_emptiness` is the term that makes `superseded` mean what its header claims —
+// the branch holds no work — and `stranded` mean the opposite. It is the one mechanism in this
+// loop whose regression DESTROYS work rather than delaying it, so every case is pinned here:
+// the ordinary superseded twin (which differs from the base inside `.workaholic/` by
+// construction and must still read empty), a branch carrying a file on no other ref, the bound
+// on the file list, and every way the reading can fail to be made — each of which must answer
+// `unknown` and never `true`, because an absence of a reading licenses no delete.
+const CLAIMS_LIB = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/lib/claims.sh");
+const readEmptiness = (dir, args, env = "") =>
+  run(dir, `${env} ${POSIX_SH} -c '. ${CLAIMS_LIB}; claims_branch_emptiness ${args}'`).stdout.split("\t");
+
+function testClaimBranchEmptinessReading() {
+  const dir = makeRepo();
+  try {
+    mkdirSync(join(dir, "docs"), { recursive: true });
+    writeFileSync(join(dir, "docs/base.md"), "base\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: dir });
+
+    // THE ORDINARY SUPERSEDED TWIN: it archived the same tickets under its OWN branch
+    // directory, so it differs from the base inside `.workaholic/` and nowhere else.
+    execSync(`git checkout -q -b work-twin`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/tickets/archive/work-twin"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-twin/T1.md"), "# T1\n");
+    execSync(`git add -A && git commit -q -m twin`, { cwd: dir });
+
+    // THE MEASURED SHAPE: a file present on no other ref.
+    execSync(`git checkout -q -b work-holds main`, { cwd: dir });
+    writeFileSync(join(dir, "docs/orphan.md"), "forty six lines nobody else has\n");
+    execSync(`git add -A && git commit -q -m holds`, { cwd: dir });
+    execSync(`git checkout -q main`, { cwd: dir });
+
+    let r = readEmptiness(dir, "main work-twin files");
+    assertEq("a branch differing from the base only inside .workaholic/ reads empty", r[0], "true");
+    assertEq("an answered reading carries no reason", r[1], "");
+
+    r = readEmptiness(dir, "main work-holds files");
+    assertEq("a branch holding a file the base does not have reads non-empty", r[0], "false");
+    assertEq("and names it", r[3], "docs/orphan.md");
+    assertEq("with the count beside the names", r[2], "1");
+
+    // THE BOUND. A branch differing in many files reports the true count and a few names.
+    execSync(`git checkout -q -b work-many main`, { cwd: dir });
+    for (let i = 1; i <= 7; i++) writeFileSync(join(dir, `docs/f${i}.md`), `f${i}\n`);
+    execSync(`git add -A && git commit -q -m many`, { cwd: dir });
+    execSync(`git checkout -q main`, { cwd: dir });
+    r = readEmptiness(dir, "main work-many files", "WORKAHOLIC_CLAIM_STRANDED_FILES_MAX=2");
+    assertEq("the file list is bounded", r[3].split(",").length, 2);
+    assertEq("but the count is the true total", r[2], "7");
+
+    // THE LISTING IS OPT-IN — the verdict path runs once per claim per scan and pays nothing.
+    r = readEmptiness(dir, "main work-many");
+    assertEq("without `files` the verdict is unchanged", r[0], "false");
+    assertEq("and no names are listed", r[3], "");
+
+    // EVERY WAY THE READING CANNOT BE MADE ANSWERS `unknown`, NEVER `true`.
+    r = readEmptiness(dir, "main work-nope files");
+    assertEq("an absent ref is unanswerable", [r[0], r[1]], ["unknown", "no_ref"]);
+    r = readEmptiness(dir, "origin/nope work-many files");
+    assertEq("an absent base ref is unanswerable", [r[0], r[1]], ["unknown", "no_base_ref"]);
+    r = readEmptiness(dir, "'' ''");
+    assertEq("empty arguments are unanswerable", [r[0], r[1]], ["unknown", "no_args"]);
+
+    execSync(`git checkout -q --orphan unrelated && git rm -rqf . && echo x > x.md && git add -A && git commit -q -m unrelated`, { cwd: dir, shell: "/bin/bash" });
+    execSync(`git checkout -q main`, { cwd: dir });
+    r = readEmptiness(dir, "main unrelated files");
+    assertEq("an unrelated history has no merge base and is unanswerable", [r[0], r[1]], ["unknown", "no_merge_base"]);
+
+    // THE WRAPPER every existing caller reads returns the word ALONE.
+    const w = run(dir, `${POSIX_SH} -c '. ${CLAIMS_LIB}; claims_branch_empty_against_base main work-holds'`).stdout;
+    assertEq("claims_branch_empty_against_base returns the verdict word alone", w, "false");
+  } finally { cleanup(dir); }
+}
+
+// A SHALLOW CLONE IS ITS OWN FIXTURE. It is the case the routines actually run in, and the one
+// where a wrong answer is most expensive: the graph is truncated, `merge-base` cannot answer,
+// and reading that as `true` would delete a branch nobody proved was empty.
+function testClaimBranchEmptinessUnderShallowHistory() {
+  const origin = makeRepo();
+  let shallow = null;
+  try {
+    mkdirSync(join(origin, "docs"), { recursive: true });
+    writeFileSync(join(origin, "docs/base.md"), "base\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: origin });
+    execSync(`git checkout -q -b work-holds`, { cwd: origin });
+    writeFileSync(join(origin, "docs/orphan.md"), "orphan\n");
+    execSync(`git add -A && git commit -q -m holds`, { cwd: origin });
+    execSync(`git checkout -q main`, { cwd: origin });
+    for (let i = 0; i < 3; i++) {
+      writeFileSync(join(origin, `docs/m${i}.md`), `m${i}\n`);
+      execSync(`git add -A && git commit -q -m m${i}`, { cwd: origin });
+    }
+
+    shallow = mkdtempSync(join(tmpdir(), "workaholic-shallow-"));
+    execSync(`git clone -q --depth 1 --branch main file://${origin} ${shallow}/c`, { cwd: shallow });
+    const c = join(shallow, "c");
+    execSync(`git fetch -q --depth 1 origin work-holds:work-holds`, { cwd: c });
+    const truncated = run(c, `git rev-parse --is-shallow-repository`).stdout.trim();
+    assertEq("the fixture really is shallow", truncated, "true");
+    const r = readEmptiness(c, "main work-holds files");
+    assertEq("a truncated history is unanswerable, never empty", [r[0], r[1]], ["unknown", "no_merge_base"]);
+  } finally {
+    cleanup(origin);
+    if (shallow) cleanup(shallow);
+  }
+}
+
+// ---------- the narrowing: `superseded` now means the branch is EMPTY ----------
+// The change may only ever REMOVE a `superseded`, never add one — that is the direction that
+// matters when a proof gates a destructive act — so the rows below pin both halves: the
+// ordinary squash-merged claim still reads `superseded` and still retires, and the same claim
+// with one orphaned file on it reads `stranded` and reaches no destructive consumer.
+function testSupersededNarrowedToAnEmptyBranch() {
+  // FIRST, THE DERIVATION ITSELF, AT BOTH GRAINS, offline and network-free. The mission grain
+  // is exercised with the merged-pull-request lookup DISABLED: left enabled it would answer
+  // `unanswerable` here and the row would be measuring the transport rather than the verdict.
+  const dir = makeRepo();
+  try {
+    const lib = `. ${CLAIMS_LIB};`;
+    const verdict = (args, env = "WORKAHOLIC_CLAIM_MERGED_LOOKUP=0") =>
+      run(dir, `${env} ${POSIX_SH} -c '${lib} claims_superseded ${args}'`).stdout;
+
+    mkdirSync(join(dir, "docs"), { recursive: true });
+    writeFileSync(join(dir, "docs/base.md"), "base\n");
+    execSync(`git add -A && git commit -q -m base`, { cwd: dir });
+
+    // The claim branch: its own archive directory, plus a file present on no other ref.
+    execSync(`git checkout -q -b work-a`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/tickets/archive/work-a"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-a/T1.md"), "# T1\n");
+    // The mission grain's LOCAL test walks the tickets that NAME the mission at the branch tip;
+    // without one it falls through to the merged-pull-request lookup, which is disabled here so
+    // the row measures the verdict rather than the transport.
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/todo/T2.md"), "---\nmission: m\n---\n\n# T2\n");
+    mkdirSync(join(dir, ".workaholic/missions/active/m"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/m/mission.md"), "---\nslug: m\n---\n");
+    writeFileSync(join(dir, "docs/orphan.md"), "on no other ref\n");
+    execSync(`git add -A && git commit -q -m claim`, { cwd: dir });
+
+    // The base: the same ticket archived under ANOTHER branch's directory — the measured shape.
+    execSync(`git checkout -q main`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/tickets/archive/work-other"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-other/T1.md"), "# T1\n");
+    writeFileSync(join(dir, ".workaholic/tickets/archive/work-other/T2.md"), "---\nmission: m\n---\n\n# T2\n");
+    execSync(`git add -A && git commit -q -m "archive elsewhere"`, { cwd: dir });
+
+    assertEq("batch grain: tickets landed, branch still holds work -> stranded",
+      verdict("main '.workaholic/tickets/todo/T1.md' work-a work-a"), "stranded");
+    assertEq("mission grain: the same shape reads stranded too",
+      verdict("main '.workaholic/missions/active/m/mission.md' work-a work-a"), "stranded");
+
+    // The same branch with the orphaned file removed is the ordinary superseded twin.
+    execSync(`git checkout -q work-a && git rm -q docs/orphan.md && git commit -q -m drop && git checkout -q main`, { cwd: dir });
+    assertEq("batch grain: a branch empty outside .workaholic/ is still superseded",
+      verdict("main '.workaholic/tickets/todo/T1.md' work-a work-a"), "superseded");
+    assertEq("mission grain: likewise",
+      verdict("main '.workaholic/missions/active/m/mission.md' work-a work-a"), "superseded");
+
+    // AN UNANSWERABLE EMPTINESS IS NEVER `superseded`. A missing tip ref cannot be read, and
+    // the protocol never lets an absence of a reading license a delete.
+    assertEq("an unanswerable emptiness answers stranded, never superseded",
+      verdict("main '.workaholic/tickets/todo/T1.md' work-a work-gone"), "stranded");
+  } finally { cleanup(dir); }
+
+  // THEN THE CONSUMERS, over a real claim fixture. The baseline first: a squash-merged batch
+  // claim still reads `superseded`, is still resurveyed, and is still a retirement candidate.
+  const fx = makeSquashMergedClaims();
+  try {
+    const LIST_RETIRABLE = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
+    const row = (cwd) => Object.fromEntries(
+      JSON.parse(run(cwd, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.map((c) => [c.unit, c]));
+
+    let by = row(fx.B);
+    assertEq("baseline: a squash-merged batch claim reads superseded",
+      by[fx.batch.unit].resume_reason, "superseded");
+    // NOTE ON WHAT IS *NOT* ASSERTED HERE. `plan-units.sh` can only exclude an artifact it would
+    // otherwise offer, and every ticket of a `superseded`/`stranded` batch is archived on the
+    // base by construction — so this fixture produces neither a `claimed_superseded` nor a
+    // `claimed_stranded` exclusion row, and asserting either would be a row that passes for the
+    // wrong reason. What IS observable, and is asserted below, is `resurveyed[]`: the survey
+    // returns a superseded claim's work to the offer and must never return a stranded one's.
+    let plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    let retirable = JSON.parse(run(fx.B, `${POSIX_SH} ${LIST_RETIRABLE}`).stdout);
+    assertTrue("baseline: and it is offered to the retirement path",
+      (retirable.candidates || []).some((c) => c.branch === fx.batch.branch),
+      JSON.stringify(retirable.candidates || retirable));
+
+    // NOW STRAND IT: one file on the claim branch that reached no other ref. Nothing else
+    // about the fixture moves — the tickets are still archived on the base.
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync(`mkdir -p docs && printf 'on no other ref\\n' > docs/orphan.md`
+      + ` && git add -A && git commit -q -m "Strand" && git push -q origin ${fx.batch.branch}`,
+      { cwd: fx.batch.worktree_path, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    by = row(fx.B);
+    assertEq("a branch whose tickets landed but which still holds work reads stranded",
+      [by[fx.batch.unit].resume_reason, by[fx.batch.unit].resumable], ["stranded", false]);
+
+    plan = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("plan-units.sh never returns its work through resurveyed[]",
+      !(plan.resurveyed || []).some((x) => x.claim === fx.batch.branch),
+      JSON.stringify(plan.resurveyed));
+
+    retirable = JSON.parse(run(fx.B, `${POSIX_SH} ${LIST_RETIRABLE}`).stdout);
+    assertTrue("and the retirement path is offered no candidate for it",
+      !(retirable.candidates || []).some((c) => c.branch === fx.batch.branch),
+      JSON.stringify(retirable.candidates || retirable));
+
+    // `claim.sh` STEPS OVER A `superseded` ROW SO A FRESH CLAIM GOES THROUGH; a `stranded` one
+    // is not that, and must keep refusing — its branch still holds work nobody has ruled on.
+    // Asserted on the SKIP ITSELF rather than on a claim attempt: this fixture's tickets are
+    // archived, so a real attempt refuses `artifact_missing` before the skip is ever consulted
+    // and the row would pass without testing anything.
+    const claimSrc = readFileSync(SCRIPTS.claim, "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("claim.sh steps over `superseded` and over no other verdict",
+      /superseded/.test(claimSrc) && !/stranded/.test(claimSrc), "claim.sh names a second skippable verdict");
+  } finally {
+    cleanup(fx.origin); cleanup(fx.A); cleanup(fx.B);
+  }
+}
+
+// ---------- a stranded claim branch reaches a person, once, with its files ----------
+// The verdict says *this branch carries work nothing else has*. A person asked to rule on it
+// cannot without knowing WHAT, so the names ride the row and the question; and because the
+// question is asked exactly once, the age is the only thing that can say how long it has been
+// standing. The sibling filter is the other half: one step asks and the other counts, and
+// either half alone is a defect.
+function testStrandedClaimReachesItsHolder() {
+  const fx = makeSquashMergedClaims();
+  const RETIRE_STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh")}`;
+  const STALLED_STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stalled-units.sh")}`;
+  // OUTSIDE the fixture repository: a stub inside it is an untracked path, and the row asserting
+  // the step wrote nothing would then fail on the test's own scaffolding.
+  const bin = mkdtempSync(join(tmpdir(), "wh-stranded-bin-"));
+  try {
+    // Strand the batch claim: two files on its branch that reached no other ref.
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync(`mkdir -p docs`
+      + ` && printf 'a\\n' > docs/orphan-a.md && printf 'b\\n' > docs/orphan-b.md`
+      + ` && git add -A && git commit -q -m "Strand" && git push -q origin ${fx.batch.branch}`,
+      { cwd: fx.batch.worktree_path, env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old } });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+
+    // THE ROW CARRIES THE FILES, so the question reads them rather than deriving them again.
+    const claims = JSON.parse(run(fx.B, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims;
+    const row = claims.find((c) => c.unit === fx.batch.unit);
+    assertEq("the stranded row is stranded", row.resume_reason, "stranded");
+    assertEq("and names the files the branch holds",
+      [...row.stranded_files].sort(), ["docs/orphan-a.md", "docs/orphan-b.md"]);
+    assertEq("with the true count beside them", row.stranded_file_count, 2);
+    const other = claims.find((c) => c.unit !== fx.batch.unit);
+    assertTrue("and no other row pays for the listing",
+      !other || (other.stranded_files.length === 0 && other.stranded_file_count === 0),
+      JSON.stringify(other));
+
+    // THE QUESTION. `gh` is stubbed so the CI-retirement read is answerable offline; nothing
+    // about the stranded half depends on it.
+    writeFileSync(join(bin, "gh"), "#!/bin/sh\ncase \"$2\" in rate_limit) echo 5000 ;; *) echo '[]' ;; esac\n");
+    chmodSync(join(bin, "gh"), 0o755);
+    const stubbed = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+
+    const j = JSON.parse(run(fx.B, `${RETIRE_STEP} --tick 20260902-000000 --root ${fx.B}`, stubbed).stdout);
+    const payload = (j.needs_agent || []).find((n) => n.stranded_claims);
+    assertTrue("the step composes a stranded question", !!payload, JSON.stringify(j.needs_agent));
+    const sc = payload.stranded_claims.find((c) => c.unit === fx.batch.unit);
+    assertTrue("addressed at the stranded unit", !!sc, JSON.stringify(payload.stranded_claims));
+    assertEq("keyed once per unit", sc.key, `stranded-unit:${fx.batch.unit}`);
+    assertEq("naming the exact branch", sc.branch, fx.batch.branch);
+    assertEq("and the files a person must rule on",
+      [...sc.files].sort(), ["docs/orphan-a.md", "docs/orphan-b.md"]);
+    assertEq("with the true count", sc.file_count, 2);
+    assertTrue("and the age reader's own answer rides it", sc.age !== undefined, JSON.stringify(sc));
+    assertTrue("the compose instruction never suggests deleting the branch",
+      /never suggest deleting the branch/i.test(payload.compose), payload.compose);
+    assertTrue("and it is not offered as a retirement candidate",
+      !(j.needs_agent || []).some((n) => (n.blocked_retirements || [])
+        .some((b) => b.unit === fx.batch.unit)), JSON.stringify(j.needs_agent));
+    assertTrue("the summary counts it", /stranded/.test(j.summary), j.summary);
+    assertEq("and the step wrote nothing",
+      execSync("git status --porcelain", { cwd: fx.B, encoding: "utf8" }).trim(), "");
+
+    // THE SIBLING FILTER. `stalled-units` must count it, never ask about it too.
+    const st = JSON.parse(run(fx.B,
+      `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STALLED_STEP} --tick 20260902-000000 --root ${fx.B}`, stubbed).stdout);
+    assertTrue("stalled-units asks nothing about a stranded unit",
+      !((st.needs_agent[0]?.stalled) || []).some((c) => c.unit === fx.batch.unit),
+      JSON.stringify(st.needs_agent));
+    assertTrue("...and counts it instead",
+      /stranded \(tickets archived, branch still holds work\)/.test(st.summary), st.summary);
+  } finally {
+    rmSync(bin, { recursive: true, force: true });
+    cleanup(fx.origin); cleanup(fx.A); cleanup(fx.B);
+  }
+}
+
+// ---------- feedback/ask-origin.sh: did a person want this? ----------
+// The reading the whole `refuse-an-ask-the-loop-wrote-to-itself` mission rests on. It must
+// answer from the `subject` axis and NEVER from the author: a human's channel message swept
+// into an issue by a routine is a HUMAN ask, and keying on the runner would refuse the loop's
+// main inbound path. `unreadable` is a real third value — a grandfathered record has no
+// subject at all, and `other` is inside the closed set and does not decide.
+function testAskOriginReader() {
+  const SCRIPT = join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/ask-origin.sh");
+  const dir = mkdtempSync(join(tmpdir(), "wh-ask-origin-"));
+  const read = (path) => JSON.parse(run(dir, `${POSIX_SH} ${SCRIPT} ${path}`).stdout);
+  // `run()` pins stdin to "ignore", so a body on stdin needs the pipe re-opened explicitly —
+  // otherwise the reader is handed an empty ask and answers `unreadable` for the right reason
+  // about the wrong thing.
+  const readBody = (body) => JSON.parse(
+    run(dir, `${POSIX_SH} ${SCRIPT}`, { input: body, stdio: ["pipe", "pipe", "pipe"] }).stdout);
+  try {
+    const rec = (name, fm) => {
+      const f = join(dir, name);
+      writeFileSync(f, `---\ntype: Feedback\n${fm}---\n\n# ask\n`);
+      return f;
+    };
+    let r = read(rec("person.md", "subject: person:a@qmu.jp\nauthor: a@qmu.jp\n"));
+    assertEq("a person's record is human", [r.origin, r.reason], ["human", ""]);
+    assertEq("and names the evidence it used", [r.subject_kind, r.author], ["person", "a@qmu.jp"]);
+
+    r = read(rec("machine.md", "subject: observer_ai:bot@example.com\nauthor: bot@example.com\n"));
+    assertEq("an observer_ai record is machine", [r.origin, r.subject_kind], ["machine", "observer_ai"]);
+
+    // A GRANDFATHERED RECORD IS NEITHER. `validate-feedback.sh` floors the subject on new
+    // writes only, so history has records with none; calling one `human` would let the loop's
+    // own past records through and calling it `machine` would silence real history.
+    r = read(rec("old.md", "author: a@qmu.jp\n"));
+    assertEq("a grandfathered record is unreadable, never human and never machine",
+      [r.origin, r.reason], ["unreadable", "no_subject"]);
+    assertTrue("...and still carries the author as evidence", r.author === "a@qmu.jp", r.author);
+
+    r = read(rec("other.md", "subject: other\nauthor: a@qmu.jp\n"));
+    assertEq("`other` is declared and indecisive, so it does not pick a side",
+      [r.origin, r.reason], ["unreadable", "subject_kind_other"]);
+
+    r = read(rec("bad.md", "subject: martian\nauthor: a@qmu.jp\n"));
+    assertEq("a kind outside the closed set is unreadable by name",
+      [r.origin, r.reason], ["unreadable", "bad_subject_kind"]);
+
+    r = read(join(dir, "absent.md"));
+    assertEq("an absent record is unreadable, not machine", [r.origin, r.reason], ["unreadable", "not_found"]);
+
+    // THE REGRESSION THAT WOULD BREAK THE LOOP'S MAIN INBOUND PATH. `/propose`'s sweep files
+    // a person's channel message as an issue whose body carries the three axes on one line;
+    // the subject is the PERSON, and the reader must say so even though a routine filed it.
+    r = readBody("# Ask\n\nkind: instruction / source: slack / subject: person:someone@example.com\n");
+    assertEq("a human message swept by a routine is a human ask",
+      [r.origin, r.subject_kind, r.subject_identity],
+      ["human", "person", "someone@example.com"]);
+
+    r = readBody("# Finding\n\nkind: instruction / source: moderate / subject: observer_ai:bot@example.com\n");
+    assertEq("and the tick's own finding is machine", r.origin, "machine");
+
+    assertEq("an empty ask is unreadable", readBody("").origin, "unreadable");
+
+    // A PURE READ. Nothing is written, and the exit status is 0 in every case above.
+    assertEq("the reader writes nothing",
+      readdirSync(dir).filter((f) => !f.endsWith(".md")).length, 0);
+    for (const path of ["person.md", "absent.md"]) {
+      assertEq(`exit 0 for ${path}`,
+        run(dir, `${POSIX_SH} ${SCRIPT} ${join(dir, path)}`).status, 0);
+    }
+  } finally { cleanup(dir); }
+}
+
+// ---------- the self-authored refusal, stated where the run reads it ----------
+// The refusal is prose the running model applies — nothing mechanical can check that a run
+// actually asked "did a person want this". What IS checkable is that the rule is stated at
+// the two surfaces the run reads, that both name the same word and the same reader, and that
+// no second parser of the `subject:` axis grew beside it.
+function testSelfAuthoredRefusalIsStated() {
+  const bar = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  const flow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+
+  for (const [name, text] of [["the judgment bar", bar], ["step 7", flow], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the refusal by its own word`, text.includes("self_authored"), name);
+    assertTrue(`${name} names the one reader rather than a second test`,
+      text.includes("ask-origin.sh"), name);
+  }
+  // THE THREE PROPERTIES THAT MAKE IT SAFE, each stated where the run reads it.
+  assertTrue("the bar says an unreadable origin does not refuse",
+    /`unreadable`, do not refuse|unreadable.{0,40}(never refuses|do not refuse)/.test(bar), "bar");
+  assertTrue("step 7 says an unreadable origin proceeds unchanged",
+    /unreadable.{0,60}proceed unchanged/s.test(flow), "flow");
+  assertTrue("both say the inbound sweep is never caught",
+    /sweep is never caught|not catch the inbound sweep/.test(bar)
+    && /not catch the inbound sweep|sweep is never caught/.test(flow), "sweep");
+  assertTrue("and both say why it sits at the judgment rather than at discovery",
+    /at the judgment, not at discovery|at the judgment and not at discovery/.test(bar)
+    && /at the judgment and not at discovery|at the judgment, not at discovery/.test(flow), "seam");
+
+  // NO SECOND PARSER. `subject:` is read by `ask-origin.sh` and by the validate hook, and by
+  // nothing inside /specificate — two readers of one axis is how the two start to disagree.
+  const specDir = join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts");
+  for (const f of readdirSync(specDir).filter((n) => n.endsWith(".sh"))) {
+    const src = readFileSync(join(specDir, f), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue(`${f} does not parse the subject axis itself`,
+      !/subject:/.test(src), `${f} grew a second parser of subject:`);
+  }
+}
+
+// ---------- /propose's judgement refusals stay judgements ----------
+// `describing_move`, `self_refining` and `invented_obligation` are prose the running model
+// applies. What is checkable is that each is NAMED at the surfaces the run reads, and that
+// none of them leaked into the mechanical gates — a refusal that became an expression in
+// `survey-strategies.sh` would change which directions are eligible, which is the one thing
+// these three must never do.
+// ---------- what may originate a mission, stated once and cited ----------
+// The rule lived only as three consequences in three skills, and the next session
+// re-derived it wrong — five self-authored roots merged in one day. This pins the shape the
+// repair depends on: the statement exists at its one home with its measurement, the three
+// consuming skills CITE it rather than restating it, and the drift pin fails when a citing
+// surface starts saying something different.
+function testWhatMayOriginateAMission() {
+  const HOME = join(REPO_ROOT, "plugins/workaholic/rules/workaholic.md");
+  const home = readFileSync(HOME, "utf8");
+  assertTrue("the rule is stated at its one home",
+    /Only a human's ask, or a strategy a human authored, originates a mission/.test(home), "home");
+  assertTrue("with its measurement beside it",
+    /five consecutive `\[FB\]` roots in one day/.test(home), "measurement");
+  for (const w of ["self_authored", "self_refining", "only_the_loop_spoke"]) {
+    assertTrue(`and names what may not originate: ${w}`, home.includes(w), w);
+  }
+  assertTrue("and says why the home is this file rather than a skill or a CLAUDE.md",
+    /ships \*\*in the plugin\*\*|belongs to none of them/.test(home), "why here");
+
+  // THE CITING SURFACES REFERENCE IT. Three restatements is how the rule drifted into three
+  // consequences in the first place, so each must point at the home rather than re-say it.
+  const CITE = "rules/workaholic.md`, *What May Originate a Mission*";
+  for (const [name, rel] of [
+    ["specificate", "plugins/workaholic/skills/specificate/SKILL.md"],
+    ["propose", "plugins/workaholic/skills/propose/SKILL.md"],
+    ["feedback", "plugins/workaholic/skills/feedback/SKILL.md"],
+  ]) {
+    const text = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${name} cites the rule's home`, text.includes(CITE), `${name} does not cite it`);
+    assertTrue(`${name} says it is cited rather than restated`,
+      /cited here rather than restated|cited, never restated|never restated here/.test(text), name);
+  }
+  assertTrue("CLAUDE.md's Sources names whose input each source carries",
+    /Sources\*\*, each named with \*\*whose input it carries/.test(
+      readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8")), "sources");
+}
+
+// ---------- the run-level brake: only the loop has spoken ----------
+// A brake nothing mechanical can fire, so what is pinned is that it is stated at the three
+// surfaces the run reads, that it never brakes on an unreadable channel, that it costs no
+// second query, and that it did not become a per-strategy gate.
+function testOnlyTheLoopSpokeBrake() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  for (const [name, text] of [["the skill", skill], ["the loop reference", loop], ["CLAUDE.md", claude]]) {
+    assertTrue(`${name} names the brake by its own word`, text.includes("only_the_loop_spoke"), name);
+    assertTrue(`${name} names all three values`,
+      text.includes("human_spoke") && /unreadable/.test(text), name);
+    assertTrue(`${name} says an unreadable channel never brakes`,
+      /unreadable.{0,60}(never brake|never brakes)|never brakes/i.test(text), name);
+  }
+  assertTrue("the skill says it is run-level, unlike every per-direction gate",
+    /run-level/.test(skill) && /every other gate is per-direction/.test(skill), "run-level");
+  assertTrue("and that the reactive half is untouched",
+    /reactive half is untouched/.test(skill) && /reactive half is untouched/.test(loop), "reactive");
+  assertTrue("the window is the sweep's own, not a second constant",
+    /WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS/.test(skill)
+    && /no second query/.test(skill), "window");
+
+  // IT IS NOT A PER-STRATEGY GATE. The survey decides eligibility; a run-level brake that
+  // reached it would silently change which directions are eligible rather than stopping the
+  // tick, which is a different behaviour with the same name.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("survey-strategies.sh does not read the brake",
+    !mech.includes("only_the_loop_spoke") && !mech.includes("human_spoke"),
+    "the run-level brake leaked into the per-strategy gate");
+}
+
+function testProposeJudgementRefusals() {
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
+  const WORDS = ["describing_move", "self_refining", "invented_obligation"];
+
+  for (const w of WORDS) {
+    assertTrue(`the skill names ${w}`, skill.includes(w), w);
+    assertTrue(`CLAUDE.md names ${w}`, claude.includes(w), w);
+  }
+  assertTrue("the loop's step 4 tells the run to report self_refining",
+    loop.includes("self_refining"), "loop.md");
+  assertTrue("and the refusal names what it must not catch",
+    /must not catch|does not catch/.test(skill) && /repair mission/.test(skill), "bounds");
+
+  // THE MECHANICAL GATES ARE UNTOUCHED. Not one of the three may appear in the survey, whose
+  // job is eligibility; a judgement that reached it would silently change `selected`.
+  // Comments are stripped: the survey's header EXPLAINS which question belongs to
+  // `describing_move` and hands the answer in as `--aim-kind`, which is the documented
+  // arrangement. What must not exist is the word in an expression.
+  const mech = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  for (const w of WORDS) {
+    assertTrue(`survey-strategies.sh does not read ${w}`, !mech.includes(w),
+      `${w} leaked into the mechanical gate`);
+  }
+}
+
 const tests = [
+  ["feedback/ask-origin.sh: did a person want this?", testAskOriginReader],
+  ["specificate: the self-authored refusal is stated where the run reads it", testSelfAuthoredRefusalIsStated],
+  ["propose: the judgement refusals are named, and stay out of the gates", testProposeJudgementRefusals],
+  ["propose: the run-level brake when only the loop has spoken", testOnlyTheLoopSpokeBrake],
+  ["what may originate a mission is stated once and cited", testWhatMayOriginateAMission],
+  ["drive: a claim branch's own emptiness, with its reason and its files", testClaimBranchEmptinessReading],
+  ["drive: a truncated history answers unknown, never empty", testClaimBranchEmptinessUnderShallowHistory],
+  ["drive: superseded narrowed to a branch that is actually empty", testSupersededNarrowedToAnEmptyBranch],
+  ["moderate: a stranded claim branch reaches its holder, once, with its files", testStrandedClaimReachesItsHolder],
   ["moderate/condition-age.sh: how long a condition has been standing", testConditionAgeReader],
   ["moderate/condition-age.sh: the walk is bounded, and says when it was cut", testConditionAgeBound],
   ["release-scan: too-large-commit counts implementation, not motion", testCommitSizeSemantics],
@@ -21446,6 +22021,7 @@ const tests = [
   ["propose: the gates that replace the dropped judgment bar", testProposeGates],
   ["propose: the write floor and its named refusals", testProposeWriteFloor],
   ["propose: the standing [Specificate] routine is retired into [Propose]", testProposeRoutineTemplate],
+  ["loops: the local tmux premise, one clone per loop, planned before run", testLocalLoops],
   ["standup: the command and skill are a reader", testStandupIsAReader],
   ["standup: the [Standup] routine template and its one post shape", testStandupRoutineTemplate],
   ["hooks/validate-strategy.sh (the write-time floor)", testValidateStrategy],
@@ -21579,6 +22155,7 @@ const tests = [
   ["story/record-merge-outcome.sh: the durable home for a merge outcome", testRecordMergeOutcome],
   ["drive claim protocol: the act the container is refused, taken in CI", testCiRetirementCandidateSetAndAct],
   ["drive claim protocol: a merged pull request is its own retirement candidate", testRetirementCandidatePullRequestMerged],
+  ["drive claim protocol: a claim whose mission ended is its own retirement candidate", testRetirementCandidateMissionEnded],
   ["moderate/retire-claims: which executor took the branch delete", testRetirementExecutorRendering],
   ["claims: two verdicts are proofs, and every consumer gates on one", testProofJudgementSplit],
   ["moderate: the gap between a tick finding and the work queue", testFindingToWorkGap],
@@ -21718,6 +22295,7 @@ const tests = [
   ["an arrival is refused over a residue we could not read", testArrivalRefusedOverUnreadableResidue],
   ["the arrival question names the residue by slug", testArrivalQuestionNamesResidue],
   ["a direction is read before its date silences the loop", testExpiringDirectionIsRead],
+  ["drive/claim-mission-state.sh: is the work behind this claim still wanted", testClaimMissionState],
   ["the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls],
   ["branching/list-headless-pulls.sh: an open pull request with no branch left", testHeadlessPulls],
   ["expiring: the boundary, and the window it is derived from", testExpiringBoundary],
@@ -26915,6 +27493,75 @@ function testStalledUnitsStep() {
     assertEq("asking touches no claim",
       execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
 
+    // A CLAIM THE RETIREMENT PATH ALREADY OWNS IS A FACT WITH NO QUESTION ON IT (2026-09-02,
+    // mission `retire-a-claim-whose-work-is-finished-or-abandoned`). Measured: the operator
+    // closed a pull request and closed its mission `abandoned`, and this step asked them about
+    // that branch every hour until they deleted it by hand. The set is COMPOSED from
+    // `list-retirable-claims.sh`, so the four classes are defined once.
+    {
+      const bin = join(A, ".stub-bin");
+      mkdirSync(bin, { recursive: true });
+      // The lookup SUCCEEDS and finds no pull request — a fact, and specifically not `open`,
+      // which the mission class declines to offer at all.
+      writeFileSync(join(bin, "gh"), "#!/bin/sh\ncase \"$2\" in rate_limit) echo 5000 ;; *) echo '[]' ;; esac\n");
+      chmodSync(join(bin, "gh"), 0o755);
+      const stubbed = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+      const stale0 = `WORKAHOLIC_CLAIM_STALE_HOURS=0 ${STEP} --tick 20260902-000000 --root ${A}`;
+
+      // The retirement path never touches a claim a run is DRIVING, so the fixture's tip has to
+      // be out of the heartbeat window before the subtraction can be exercised at all — which is
+      // itself the bound worth having: `claim_active` is the one loss that cannot be recovered.
+      const old = "2026-08-01T00:00:00+00:00";
+      execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD', {
+        cwd: join(A, ".worktrees/m1"),
+        env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+      });
+
+      const before = JSON.parse(run(A, stale0, stubbed).stdout);
+      assertTrue("while its mission is active the claim is still asked about",
+        (before.needs_agent[0]?.stalled ?? []).some((c) => c.unit === "m1"),
+        JSON.stringify(before.needs_agent));
+
+      // The operator ends the mission — `close.sh`'s own move, replayed.
+      execSync("mkdir -p .workaholic/missions/archive"
+        + " && git mv .workaholic/missions/active/m1 .workaholic/missions/archive/m1", { cwd: A });
+      writeFileSync(join(A, ".workaholic/missions/archive/m1/mission.md"),
+        "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: abandoned\nassignees: [test@example.com]\n---\n\n# M1\n\n## Acceptance\n\n- [ ] x\n");
+      execSync('git add -A && git commit -q -m "Abandon m1" && git push -q origin main', { cwd: A });
+
+      const after = JSON.parse(run(A, stale0, stubbed).stdout);
+      assertTrue("once the retirement path owns it, no stalled-unit question is composed",
+        !(after.needs_agent[0]?.stalled ?? []).some((c) => c.unit === "m1"),
+        JSON.stringify(after.needs_agent));
+      assertTrue("...and the subtraction is COUNTED rather than silent",
+        /1 already owned by the retirement path/.test(after.summary), after.summary);
+      assertTrue("...and the summary still carries no age and no timestamp",
+        !/\d+h\b/.test(after.summary) && !/\d{4}-\d{2}-\d{2}/.test(after.summary), after.summary);
+
+      // Put it back so the assertions after this block see the fixture they were written for.
+      execSync("git mv .workaholic/missions/archive/m1 .workaholic/missions/active/m1", { cwd: A });
+      writeFileSync(join(A, ".workaholic/missions/active/m1/mission.md"),
+        "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: approved\nassignees: [test@example.com]\n---\n\n# M1\n\n## Acceptance\n\n- [ ] x\n");
+      execSync('git add -A && git commit -q -m "Reopen m1" && git push -q origin main', { cwd: A });
+      rmSync(bin, { recursive: true, force: true });
+    }
+
+    // AN UNREADABLE RETIREMENT READ FILTERS NOTHING, and both steps say so. A gate that cannot
+    // be read is not a gate: every question stays standing and the degraded read is named.
+    for (const step of ["step-stalled-units.sh", "step-catchup-blocked.sh"]) {
+      const src = readFileSync(
+        join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts", step), "utf8");
+      assertTrue(`${step} composes the retirement reader rather than re-deriving its classes`,
+        src.includes("list-retirable-claims.sh")
+        && !/pull_request_closed_unmerged|mission_not_active/.test(
+          src.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
+        `${step} restates the retirement classes`);
+      assertTrue(`${step} names an unreadable retirement read rather than filtering on it`,
+        /retirable_readable/.test(src)
+        && /could not be read, so nothing was filtered on it/.test(src),
+        `${step} would filter on a read it could not make`);
+    }
+
     // A `superseded` CLAIM IS A FACT, NOT A QUESTION (2026-08-26). Its work already reached
     // the base, so there is nothing to look at and nothing to decide. The cost of asking
     // anyway is not neutral: the asked-once ledger then delivers the one REAL stalled unit
@@ -30279,6 +30926,165 @@ function testCiRetirementCandidateSetAndAct() {
 // has. What is pinned here is the four conditions the ticket's own gate names: the new class
 // appears with its word, a live row beats it, an unreadable read yields no candidate AND its
 // reason, and the existing class is untouched apart from the added field.
+// ---------- the fourth candidate class: the unit's MISSION has ended ----------
+//
+// (2026-09-02, mission `retire-a-claim-whose-work-is-finished-or-abandoned`.) Measured: the
+// operator closed a pull request and closed its mission `abandoned`, and the tick reported that
+// branch as stuck work hourly until a person deleted it. The per-ref arm cannot reach such a
+// branch — it skips every unit the ORACLE has a row for, which a claim branch always is — so
+// this class is enumerated from the rows instead. Six things are pinned:
+//
+//   1. AN ARCHIVED MISSION'S CLAIM IS A CANDIDATE, with its word and its `mission_status`.
+//   2. A LIVE HEARTBEAT BEATS IT. An ended mission is not a licence to delete work in flight.
+//   3. AN UNREADABLE MISSION YIELDS NO CANDIDATE AND ITS REASON — never a candidate.
+//   4. A `batch-<ts>` UNIT IS NEVER NAMED BY THIS CLASS.
+//   5. AN OPEN PULL REQUEST IS NOT OFFERED AT ALL — the act's `pull_request_open` bound is not
+//      widened, because deleting an open pull request's head branch leaves it unmergeable.
+//   6. THE ACT RE-DERIVES IT and fails closed on the emptiness, exactly as the third class does.
+function testRetirementCandidateMissionEnded() {
+  const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
+  const ACT = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh");
+  const fx = makeSquashMergedClaims();
+  const bin = join(fx.B, ".stub-bin");
+  mkdirSync(bin, { recursive: true });
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const withStub = { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } };
+  const read = () => JSON.parse(run(fx.B, `${POSIX_SH} ${READER}`, withStub).stdout);
+  const rowFor = (r, branch) => (r.candidates || []).find((c) => c.branch === branch);
+  try {
+    // The lookup succeeds and finds no pull request — a fact, and specifically NOT `open`.
+    stub("echo '[]'");
+    assertTrue("before the mission ends, its claim is no candidate of this class",
+      !(read().candidates || []).some((c) => c.candidate_reason === "mission_not_active"),
+      JSON.stringify(read().candidates));
+
+    // THE OPERATOR ENDS THE MISSION: `close.sh`'s own move, replayed on the base.
+    execSync("git checkout -q main && git pull -q --ff-only origin main"
+      + " && mkdir -p .workaholic/missions/archive"
+      + " && git mv .workaholic/missions/active/m1 .workaholic/missions/archive/m1", { cwd: fx.B });
+    writeFileSync(join(fx.B, ".workaholic/missions/archive/m1/mission.md"),
+      "---\ntype: Mission\ntitle: M1\nslug: m1\nstatus: abandoned\nassignees: [test@example.com]\n---\n\n# M1\n\n## Acceptance\n\n- [ ] x\n");
+    execSync('git add -A && git commit -q -m "Abandon m1" && git push -q origin main'
+      + " && git fetch -q --prune origin", { cwd: fx.B });
+
+    // --- 1. THE CANDIDATE ---------------------------------------------------------------------
+    const named = read();
+    const row = rowFor(named, fx.mission.branch);
+    assertEq("a claim whose mission has ended is a candidate under its own word",
+      [!!row, row && row.candidate_reason, row && row.unit],
+      [true, "mission_not_active", fx.mission.unit]);
+    assertEq("...carrying the mission's status, so three reasons the work stopped stay apart",
+      row.mission_status, "abandoned");
+    assertTrue("...and a three-valued branch_empty reading as evidence",
+      ["true", "false", "unanswerable"].includes(row.branch_empty), row.branch_empty);
+
+    // --- 4. A BATCH UNIT IS NEVER NAMED BY THIS CLASS -----------------------------------------
+    assertTrue("a batch unit is never named by the mission class",
+      (named.candidates || []).every(
+        (c) => !(String(c.unit).startsWith("batch-") && c.candidate_reason === "mission_not_active")),
+      JSON.stringify(named.candidates));
+
+    // --- 5. AN OPEN PULL REQUEST IS NOT OFFERED AT ALL ----------------------------------------
+    stub(`echo '[{"number":9,"state":"open","merged_at":null,"created_at":"2026-08-19T00:00:00Z"}]'`);
+    assertTrue("an ended mission whose pull request is still open is offered to nothing",
+      !(read().candidates || []).some((c) => c.candidate_reason === "mission_not_active"),
+      "an open pull request's head branch would be deleted");
+    stub("echo '[]'");
+
+    // --- 2. A LIVE HEARTBEAT BEATS IT ---------------------------------------------------------
+    execSync('git commit -q --allow-empty -m "Refresh heartbeat" && git push -q origin HEAD',
+      { cwd: fx.mission.worktree_path });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    assertTrue("a claim a run is driving right now is never named, however ended its mission",
+      !(read().candidates || []).some((c) => c.candidate_reason === "mission_not_active"),
+      "work in flight would have been offered for deletion");
+
+    // Age the tip back out of the heartbeat window for the remaining cases.
+    const old = "2026-08-01T00:00:00+00:00";
+    execSync('git commit -q --allow-empty -m "Heartbeat" && git push -q origin HEAD', {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: old, GIT_AUTHOR_DATE: old },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    assertTrue("...and it comes back once nothing is driving it",
+      !!rowFor(read(), fx.mission.branch), "the class stopped naming it entirely");
+
+    // --- 6. THE ACT RE-DERIVES IT, AND FAILS CLOSED ON THE EMPTINESS --------------------------
+    const act = (args) => JSON.parse(
+      run(fx.B, `${POSIX_SH} ${ACT} ${args}`, withStub).stdout);
+    // A `work-*` branch the oracle holds NO row for — the publish-tree shape. It has no unit,
+    // so this class has nothing to re-derive a mission from and refuses by its own word.
+    const orphan = "work-20260715-101010";
+    execSync(`git checkout -q -B ${orphan} origin/main && git commit -q --allow-empty -m "A publication"`
+      + ` && git push -q origin ${orphan} && git checkout -q main && git fetch -q --prune origin`,
+      { cwd: fx.B });
+    assertEq("the act refuses the class on a branch with no claim to name a mission",
+      act(`"" --branch ${orphan} --reason mission_not_active`).reason,
+      "no_unit_for_mission_class");
+    // THE EMPTINESS IS A GATE HERE, NOT THE EVIDENCE IT IS ON THE ROW. A mission's end state is
+    // a decision about the WORK and asserts nothing about what this BRANCH holds, so a branch
+    // carrying commits found on no other ref fails closed — issue #788's direction, applied to
+    // the class whose proof is authorship one grain out.
+    const emptyTip = execSync(`git rev-parse origin/${fx.mission.branch}`,
+      { cwd: fx.B, encoding: "utf8" }).trim();
+    writeFileSync(join(fx.mission.worktree_path, "work-nobody-else-has.txt"), "unlanded\n");
+    // The commit carries an OLD date, or the tip goes fresh and the act refuses
+    // `not_superseded:claim_active` before it ever reaches the emptiness gate — that bound
+    // working, but not the one this row is about.
+    execSync('git add -A && git commit -q -m "Work found on no other ref"'
+      + " && git push -q origin HEAD", {
+      cwd: fx.mission.worktree_path,
+      env: { ...process.env, GIT_COMMITTER_DATE: "2026-08-01T00:00:00+00:00",
+             GIT_AUTHOR_DATE: "2026-08-01T00:00:00+00:00" },
+    });
+    execSync("git fetch -q --prune origin", { cwd: fx.B });
+    const holds = act(`${fx.mission.unit} --branch ${fx.mission.branch} --reason mission_not_active`);
+    assertEq("on a branch that still holds work the act fails closed by name",
+      [holds.reason, holds.deleted, holds.state], ["branch_holds_work", false, "not_attempted"]);
+    assertTrue("...and the branch is still on origin",
+      execSync(`git ls-remote --heads origin ${fx.mission.branch}`,
+        { cwd: fx.B, encoding: "utf8" }).includes(fx.mission.branch), "the branch was deleted");
+
+    // AND ON AN EMPTY BRANCH IT TAKES THE DELETE, which is what the class exists to do.
+    execSync(`git push -q -f origin ${emptyTip}:refs/heads/${fx.mission.branch}`
+      + " && git fetch -q --prune origin", { cwd: fx.B });
+    const took = act(`${fx.mission.unit} --branch ${fx.mission.branch} --reason mission_not_active`);
+    assertEq("an ended mission's empty branch is deleted, and the act exits 0",
+      [took.deleted, took.state,
+       run(fx.B, `${POSIX_SH} ${ACT} ${fx.mission.unit} --branch ${fx.mission.branch}`
+         + " --reason mission_not_active", withStub).status],
+      [true, "deleted", 0]);
+
+    // --- 3. AN UNREADABLE MISSION YIELDS NO CANDIDATE AND ITS REASON --------------------------
+    execSync("git checkout -q main && git rm -q -r .workaholic/missions/archive/m1"
+      + ' && git commit -q -m "Remove the mission" && git push -q origin main'
+      + " && git fetch -q --prune origin", { cwd: fx.B });
+    const gone = read();
+    assertTrue("a mission that cannot be read yields no candidate at all",
+      !(gone.candidates || []).some((c) => c.branch === fx.mission.branch),
+      JSON.stringify(gone.candidates));
+    assertEq("...and its reason is carried rather than dropped",
+      (gone.pull_request_unreadable || []).find((u) => u.branch === fx.mission.branch)?.reason,
+      "mission_not_found");
+    assertEq("and the whole read still answers ok, exit 0", [gone.ok, gone.reason], [true, ""]);
+    assertEq("the act refuses it too, by its own word",
+      act(`${fx.mission.unit} --branch ${fx.mission.branch} --reason mission_not_active`).reason,
+      "mission_unreadable:mission_not_found");
+
+    // THE CLASS IS CLASSIFIED WHERE EVERY CLAIM WORD IS.
+    const claimsDoc = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+    assertTrue("`mission_not_active` is classified a proof, on authorship one grain out",
+      /\| `mission_not_active` \| \*\*proof\*\*/.test(claimsDoc), "the class is unclassified");
+    assertTrue("and claims.md states the open-pull-request bound was NOT widened for it",
+      /`pull_request_open` bound is NOT widened/.test(claimsDoc),
+      "the decision step 4 required is not written down");
+  } finally { cleanup(fx.A); cleanup(fx.B); }
+}
+
 function testRetirementCandidatePullRequestMerged() {
   const READER = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-retirable-claims.sh");
   const fx = makeSquashMergedClaims();
@@ -34681,6 +35487,104 @@ esac
     assertEq("an unreadable reading asks nobody", [s2.needs_agent.length, s2.event], [0, ""]);
     assertTrue("...and is named as unreadable, never as nothing headless",
       /could not be read \(branches_unreadable\)/.test(s2.summary), s2.summary);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// IS THE WORK BEHIND THIS CLAIM STILL WANTED (2026-09-02, mission
+// `retire-a-claim-whose-work-is-finished-or-abandoned`).
+//
+// Retirement is keyed on the branch's own pull request, so nothing could answer whether the
+// mission the claim serves has ended. Five things are pinned, each because it is what a later
+// change would quietly lose:
+//
+//   1. THE AREA DECIDES, and `status` rides beside the answer rather than being it.
+//   2. A `batch-<ts>` UNIT IS A REAL ANSWER, never `not_active` — the wrong direction would
+//      make every batch claim in a repository read as retired-by-definition.
+//   3. AN UNREADABLE MISSION IS `ok: false`, and every degradation emits NO `state` KEY at
+//      all: a wrong `not_active` deletes a live branch.
+//   4. IT EXITS 0 IN EVERY CASE, so a caller's scan is never turned into a failed scan.
+//   5. THE WORDS ARE CLASSIFIED in `claims.md`, each as a proof or a judgement.
+//
+// Offline throughout: a throwaway repository, no `gh`, no network.
+function testClaimMissionState() {
+  const DRV = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-claim-mission-state-"));
+  const repo = join(tmp, "repo");
+  mkdirSync(repo, { recursive: true });
+
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+    execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false",
+      { cwd: repo });
+    const w = (p, body) => {
+      mkdirSync(join(repo, dirname(p)), { recursive: true });
+      writeFileSync(join(repo, p), body);
+    };
+    w(".workaholic/missions/active/alpha/mission.md",
+      "---\ntype: Mission\nslug: alpha\nstatus: active\nassignees: []\n---\n\n# Alpha\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    w(".workaholic/missions/archive/beta/mission.md",
+      "---\ntype: Mission\nslug: beta\nstatus: abandoned\nassignees: []\n---\n\n# Beta\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    // An archived mission whose `status:` never got written: the PLACE is the record.
+    w(".workaholic/missions/archive/gamma/mission.md",
+      "---\ntype: Mission\nslug: gamma\nstatus:\nassignees: []\n---\n\n# Gamma\n\n## Experience\n\nx\n\n## Acceptance\n\n- [ ] a\n");
+    execSync('git add -A && git commit -q -m "Seed the missions"', { cwd: repo });
+
+    const read = (unit) => {
+      const r = run(repo, `${POSIX_SH} ${DRV}/claim-mission-state.sh ${unit}`);
+      return { ...JSON.parse(r.stdout), status_code: r.status };
+    };
+
+    // --- 1. THE AREA DECIDES -----------------------------------------------------------------
+    assertEq("a mission in missions/active/ is active",
+      [read("alpha").ok, read("alpha").kind, read("alpha").state], [true, "mission", "active"]);
+    assertTrue("...and carries no status of its own to disagree with the place",
+      !Object.prototype.hasOwnProperty.call(read("alpha"), "status"), JSON.stringify(read("alpha")));
+    assertEq("a mission in missions/archive/ is not_active, with its status beside it",
+      [read("beta").state, read("beta").status], ["not_active", "abandoned"]);
+    assertEq("an archived mission with no status is still not_active, with an empty status",
+      [read("gamma").state, read("gamma").status], ["not_active", ""]);
+
+    // --- 2. A BATCH UNIT IS A REAL ANSWER ----------------------------------------------------
+    const batch = read("batch-20260902-010203");
+    assertEq("a batch unit names no mission and answers kind: batch",
+      [batch.ok, batch.kind], [true, "batch"]);
+    assertTrue("...and never not_active, which would retire every batch claim by construction",
+      !Object.prototype.hasOwnProperty.call(batch, "state"), JSON.stringify(batch));
+
+    // --- 3. EVERY DEGRADATION IS NAMED AND CARRIES NO `state` --------------------------------
+    for (const [unit, reason] of [["no-such-mission", "mission_not_found"]]) {
+      const bad = read(unit);
+      assertEq(`an unreadable mission is ok:false with reason ${reason}`,
+        [bad.ok, bad.reason], [false, reason]);
+      assertTrue("...and emits no state key at all",
+        !Object.prototype.hasOwnProperty.call(bad, "state"), JSON.stringify(bad));
+    }
+    const noArg = JSON.parse(run(repo, `${POSIX_SH} ${DRV}/claim-mission-state.sh`).stdout);
+    assertEq("no unit at all is named rather than guessed", [noArg.ok, noArg.reason],
+      [false, "no_unit"]);
+
+    // --- 4. EXIT 0 IN EVERY CASE -------------------------------------------------------------
+    assertEq("every reading exits 0, so a caller's scan is never failed by one",
+      [read("alpha").status_code, read("beta").status_code, read("no-such-mission").status_code],
+      [0, 0, 0]);
+
+    // --- 5. THE WORDS ARE CLASSIFIED ---------------------------------------------------------
+    const claimsDoc = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+    assertTrue("claim-mission-state.sh's vocabulary has its own sub-table in the one home",
+      claimsDoc.includes("#### Whether the work behind a claim is still wanted"),
+      "claims.md carries no classification for it");
+    assertTrue("`not_active` is classified a proof, on authorship",
+      /\| `not_active` \| \*\*proof\*\*/.test(claimsDoc), "not_active is unclassified");
+    assertTrue("`active` is classified a judgement — it is designed to become false",
+      /\| `active` \| judgement \|/.test(claimsDoc), "active is unclassified");
+    assertTrue("and the degradations are judgements, being the absence of a reading",
+      /mission_list_unreadable[^|]*\| judgement \|/.test(claimsDoc),
+      "the degraded words are unclassified");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260902-075157
 ---
 
 # Retire a claim whose work is finished or abandoned

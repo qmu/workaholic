@@ -114,7 +114,7 @@ shallow=$(printf '%s' "$out" | jq -r '.shallow // false')
 total=$(printf '%s' "$out" | jq '[.claims[]?] | length')
 # ONE UNIT NEVER DRAWS TWO QUESTIONS (2026-08-29, mission
 # `land-the-loop-s-own-work-when-the-base-moves-under-it`). A unit whose branch the base no
-# longer accepts reads `mergeability: content`, and `catchup-blocked` asks its holder to
+# longer accepts reads `mergeability: content`, which the next `[Implement]` tick attempts and
 # resolve that conflict. *Retry your merge* is the wrong instruction for such a branch — the
 # transport is not what stopped it — so this step FILTERS the reading out of its own candidates
 # and COUNTS it instead. One step asks and the other counts, exactly as `stalled-units` and
@@ -146,7 +146,7 @@ raced=$(printf '%s' "$out" \
 n=$(printf '%s' "$candidates" | jq 'length')
 
 summary="${total} claimed unit(s); ${n} finished and undelivered"
-[ "$blocked" -eq 0 ] || summary="${summary}; ${blocked} no longer merging (asked by catchup-blocked)"
+[ "$blocked" -eq 0 ] || summary="${summary}; ${blocked} no longer merging (the next [Implement] tick attempts each)"
 [ "$raced" -eq 0 ] || summary="${summary}; ${raced} held by two live claims (asked by raced-units)"
 
 if [ "$n" -eq 0 ]; then

@@ -194,7 +194,7 @@ not write a second story generator.
   `mergeability_unanswerable:<reason>`, `validation_failed:<check>`, `push_failed`.
 
   **It overrides no gate and resolves no judgement.** A `content` conflict is a person's, and
-  reaches its claim holder through `/moderate`'s `catchup-blocked:<unit>` question; a scan-held
+  is reported by the act's own report — `/implement` names `catch_up_refused: content_conflict` with the colliding files where the attempt happened, and **no step asks anybody about it** (`catchup-blocked` retired 2026-09-02); a scan-held
   pull request is refused by name; a colleague's claim is untouchable at any age; a branch a run
   is still committing to is left alone. This **narrows** the standing rule that resolving a
   conflict on a claimed branch is nobody's job here — to the mechanical case, on this identity's
@@ -259,7 +259,7 @@ not write a second story generator.
   whether the *base* still accepts a branch, ran only on units the *transport* had refused. A
   `queue_drained` claim is the other half of the same shape: finished, pushed, at an open pull
   request, waiting on a person — and its conflict hardens from `mechanical` to `content` while
-  nothing looks. `/moderate`'s `catchup-blocked` step already **asks** about both verdicts; only
+  nothing looks. `/moderate` used to **ask** about both verdicts; only
   the acting side was narrow. Measured live: one claim mechanical for four days, another content
   for twelve.
 

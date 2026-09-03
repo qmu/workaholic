@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-101727
 ---
 
 # Deliver a post the transport refused, or say it reached nobody

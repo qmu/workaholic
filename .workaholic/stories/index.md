@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260903-085404](work-20260903-085404.md) - The tick reads how much work is claimable and what the machine can carry, fans out implement runners to a declared bound, splits the ingest half onto its own capture, and reports the allocation it chose
 * [work-20260902-234711](work-20260902-234711.md) - Removed the suite's hand-maintained test array so a test is registered where it is declared, ending the collision every concurrently-driven unit hit by construction
 * [work-20260902-225923](work-20260902-225923.md) - Ask whether the version a branch bumped to is still free — five merges had carried two numbers between them, every branch having bumped correctly against its own base
 * [work-20260902-220412](work-20260902-220412.md) - Converge a routine's notification setting — the field was in the create path and not in the diff, so a live routine was never corrected; the reported symptom came from elsewhere and is named

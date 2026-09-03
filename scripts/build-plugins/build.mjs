@@ -47,6 +47,15 @@ const WORKFLOWS_PLUGIN = join(OUTPUTS_ROOT, "workflows"); // outputs/workflows
 // removed after a full build; left in place (and its path printed) for partial dev builds.
 const SCRATCH = mkdtempSync(join(tmpdir(), "workaholic-skills-"));
 
+// `work` -- THE LOOP -- IS DELIBERATELY NOT HERE (2026-09-03, and it was tried). This bundle is
+// the SELF-CONTAINED subset: six workflows a foreign agent can run with nothing else present.
+// The loop is the opposite shape -- its tick drives `implement`, `propose`, `specificate` and
+// `moderate`, so building it here pulled nineteen skills into the closure and still missed the
+// `lib/` and `../bootstrap/` files those carry, which this bundle's copier does not follow.
+// It needs no bundling: `plugins/workaholic/.codex-plugin/plugin.json` already exposes
+// `"skills": "./skills/"` over the WHOLE plugin, so `skills/work/` reaches Codex through the
+// full plugin the marketplace already installs -- which is also the only tree where the rest of
+// the loop exists. Making `work` a skill is what publishes it; no build change was needed.
 const DEFAULT_TARGETS = ["create-ticket", "drive", "story", "ship", "catch", "mission"];
 // review-sections / write-release-note are pure prose (no scripts) but are skill-preload
 // dependencies of report, so they ship as their own skills alongside the workflows.

@@ -326,6 +326,20 @@ sh "${GATHER}/gh-rest.sh" available >/dev/null 2>&1 || report settled gh_unavail
 slug="$(sh "${GATHER}/gh-rest.sh" slug 2>/dev/null || printf '')"
 [ -n "$slug" ] || report settled slug_unresolved
 
+# THE PUBLICATION'S OWN CHECKS ARE READ BEFORE THE MERGE (2026-09-03).
+# `drive/scripts/branch-checks.sh` is the one derivation of the gate: it refuses on
+# `checks_red` and `checks_pending` and passes on every other degradation. A refusal is a
+# `merge_refused:` DELIVERY, never a refusal of the settlement -- the branch is caught up and
+# pushed, the publication stays open, and the next tick lists it again (as `clean` by then,
+# needing no push) and delivers it once the checks have concluded.
+check_gate="$(sh "${SCRIPT_DIR}/../../drive/scripts//branch-checks.sh" "${NUMBER}" 2>/dev/null || printf '')"
+case "$(printf '%s' "$check_gate" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')" in
+    refuse)
+        DELIVERY="merge_refused: $(printf '%s' "$check_gate" | jq -r '.reason // "checks_red"' 2>/dev/null || printf 'checks_red')"
+        report settled ""
+        ;;
+esac
+
 method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
 # THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
 # is the one derivation of `commit_title` / `commit_message`; without them the forge

@@ -184,6 +184,17 @@ pr_json=$(sh "$GH_REST" api "repos/${SLUG}/pulls?head=${OWNER}:${BRANCH}&state=o
 PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf '')
 [ -n "$PR" ] || report false no_open_pull_request
 
+# THE BRANCH'S OWN CHECKS ARE READ BEFORE THE RETRY (2026-09-03). `branch-checks.sh` is the one
+# derivation of the gate; it refuses on `checks_red` and `checks_pending` and passes on every
+# other degradation. A refusal here is recorded in the ordinary merge vocabulary and the unit
+# stays `report_undelivered`, so the NEXT tick retries it -- which is exactly what this script
+# is for. Nothing is re-run, held, closed or written outside the recorded outcome.
+CHECK_GATE=$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" 2>/dev/null || printf '')
+GATE_REFUSAL=""
+case "$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')" in
+    refuse) GATE_REFUSAL=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // "checks_red"' 2>/dev/null || printf 'checks_red') ;;
+esac
+
 # THE ONE OUTWARD ACT. REST, exactly as the original attempt made it -- including the method,
 # which is read from the one derivation rather than spelled here (2026-09-01).
 # THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
@@ -194,14 +205,20 @@ BODY_JSON=$(sh "${SCRIPT_DIR}/../../gather/scripts//merge-commit-body.sh" --bran
 MERGE_TITLE=$(printf '%s' "$BODY_JSON" | jq -r '.title // ""' 2>/dev/null || printf '')
 MERGE_BODY=$(printf '%s' "$BODY_JSON" | jq -r '.body // ""' 2>/dev/null || printf '')
 MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
-if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT \
-        -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts//merge-method.sh")" \
-        -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
-    OUTCOME="merged"
-    report true ""
+if [ -n "$GATE_REFUSAL" ]; then
+    # The gate refused, so THE MERGE IS NOT ATTEMPTED AT ALL. The refusal is recorded in the
+    # ordinary merge vocabulary below, which leaves the unit `report_undelivered` for the next
+    # tick to retry once the checks conclude.
+    MERGE_REASON_WORD="$GATE_REFUSAL"
+else
+    if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT \
+            -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts//merge-method.sh")" \
+            -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
+        OUTCOME="merged"
+        report true ""
+    fi
+    MERGE_REASON_WORD=$(sh "$MERGE_REASON" "$merge_out" 2>/dev/null || printf 'merge_failed')
 fi
-
-MERGE_REASON_WORD=$(sh "$MERGE_REASON" "$merge_out" 2>/dev/null || printf 'merge_failed')
 OUTCOME="merge_refused: ${MERGE_REASON_WORD}"
 
 # Record the current answer on the branch, unless it is the answer already there.

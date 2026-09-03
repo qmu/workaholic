@@ -2,7 +2,7 @@
 type: Mission
 title: Compose the squash body so a unit's housekeeping stays off the trunk
 slug: compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T10:41:45+09:00
 author: a@qmu.jp
@@ -53,3 +53,5 @@ History already on the trunk is left alone.
 - 2026-09-03 — ticket archived — 20260903104222-compose-the-squash-body-at-the-three-recovery-merges.md
 - 2026-09-03 — ticket archived — 20260903104222-compose-the-squash-body-at-the-agent-level-merges.md
 - 2026-09-03 — ticket archived — 20260903104222-fail-a-merge-call-site-that-spells-its-own-body.md
+- 2026-09-03 — ticket archived — 20260903104222-state-the-composed-squash-body-where-the-merge-rule-lives.md
+- 2026-09-03 — mission achieved — mission.md

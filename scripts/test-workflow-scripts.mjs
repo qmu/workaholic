@@ -212,6 +212,7 @@ const SCRIPTS = {
   convergeLayout: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"),
   missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
   missionCheckFloor: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/check-floor.sh"),
+  missionSizeDistribution: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/size-distribution.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
@@ -36948,3 +36949,166 @@ for (const [label, fn] of tests) {
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+
+
+// ---------- the mission grain: what the container must be able to hold ----------
+// (2026-09-03, mission `emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold`.)
+//
+// Measured over 94 missions: one at a single ticket -- which rule 1 says cannot exist -- 21% at
+// four or fewer, and 52% at exactly seven or eight, which is the old wording `roughly 7-8
+// tickets, the ruled scale` printed straight into the distribution. Two mechanisms made it: one
+// mission per inbound ask, and a scale written as a count to hit.
+//
+// What is pinned here is the SHAPE of the answer, never its prose: the rule has one home, no
+// surface states a count as the criterion, the floor's number lives in one script, and the
+// corpus reader answers what the audit and the daily report both read.
+T("the mission grain is stated once and no surface makes a ticket count the criterion",
+  testMissionGrainStatedOnce);
+function testMissionGrainStatedOnce() {
+  const rules = readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/workaholic.md"), "utf8");
+  assertTrue("rules/workaholic.md is the rule's home",
+    /What a Mission Must Be Able to Hold/.test(rules), "the rule has no home");
+  assertTrue("and it states the container, not a size",
+    /mid-term container between a strategy and a ticket/.test(rules));
+  assertTrue("rule 2 is a position, and the document says it is a judgement",
+    /never become a second threshold/.test(rules), "rule 2 could be read as a gate");
+  assertTrue("and the measurement is recorded where the rule is stated",
+    /52%/.test(rules) && /94 missions/.test(rules), "the evidence is not arguable");
+  assertTrue("the ingest path's cap is refused by name rather than by omission",
+    /deliberately not added/.test(rules) && /WORKAHOLIC_WIP_LIMIT/.test(rules));
+
+  // THE COUNT IS NOT THE CRITERION, on every surface that describes the unit. The old wording
+  // is the exact string the distribution came out of, so its absence is the check.
+  for (const rel of [
+    "CLAUDE.md",
+    "README.md",
+    "plugins/workaholic/commands/propose.md",
+    "plugins/workaholic/skills/propose/SKILL.md",
+    "plugins/workaholic/skills/specificate/SKILL.md",
+    "plugins/workaholic/skills/propose/scripts/open-proposal.sh",
+  ]) {
+    const body = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${rel} no longer states the ruled 7-8 scale as the criterion`,
+      !/ruled 7[-–]8 scale|ruled scale, roughly|roughly \*\*7[-–]8 tickets\*\*|~7[-–]8 tickets|roughly 7[-–]8 tickets/.test(body), rel);
+  }
+
+  // Row 1 gained its second term, and the judgement is reported rather than silent.
+  const spec = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  assertTrue("row 1 requires a mid-term plan beside decomposition",
+    /and there is a mid-term plan to hold/.test(spec), "row 1 still reads on decomposition alone");
+  assertTrue("and an ask with no such plan takes the next row it fits",
+    /takes the next row it fits/.test(spec));
+  assertTrue("the judgement is reported, so a reader can disagree with it",
+    /a reader can disagree with it/.test(spec));
+  assertTrue("and no cap is placed on the ingest path",
+    /No cap is placed on the ingest path/.test(spec));
+
+  // The floor is enumerated at every seam, and the hook says why it is not one of them.
+  const missionSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+  for (const seam of ["specificate", "Creation Interrogation", "replan"]) {
+    assertTrue(`the seam enumeration names ${seam}`,
+      new RegExp(seam, "i").test(missionSkill), seam);
+  }
+  assertTrue("and no seam spells the floor's number",
+    /No seam spells the number/i.test(missionSkill));
+  const flows = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/command-flows.md"), "utf8");
+  assertTrue("the replan flow checks the floor before its publish commit",
+    /check-floor\.sh <slug>/.test(flows) && /Check the floor, record the history/.test(flows),
+    "replan can still publish a below-floor mission");
+  const hook = readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh"), "utf8");
+  assertTrue("the write-time hook records why the count is not in it",
+    /before any of its tickets exist/.test(hook), "the next reader will try to put it there");
+}
+
+// ---------- mission/size-distribution.sh (the corpus, in one pass) ----------
+// Rule 2 is a position about the corpus and nothing could see the corpus. The reader is pinned
+// on three things: it matches a hand count on a fixture, it reads the floor rather than
+// spelling it, and a walk it could not make says so instead of returning an empty distribution.
+T("mission: the size distribution matches a hand count and names a degraded read",
+  testMissionSizeDistribution);
+function testMissionSizeDistribution() {
+  const dir = makeRepo("main");
+  try {
+    const mk = (area, slug) => {
+      const d = join(dir, `.workaholic/missions/${area}/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nIt does the thing.\n\n## Acceptance\n\n- [ ] a criterion\n\n## Changelog\n`);
+    };
+    // A hand count: zero / one / three / seven tickets, across both areas.
+    mk("active", "zero-t");
+    mk("active", "one-t");
+    mk("active", "three-t");
+    mk("archive", "seven-t");
+    let n = 0;
+    const seed = (slug, count) => {
+      for (let i = 0; i < count; i++) seedMissionTicket(dir, slug, `2026090300${String(++n).padStart(4, "0")}`);
+    };
+    seed("one-t", 1);
+    seed("three-t", 3);
+    seed("seven-t", 7);
+
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSizeDistribution} ${dir}/.workaholic`).stdout);
+    assertEq("the walk completed", out.ok, true);
+    assertEq("and says so", out.readable, true);
+    assertEq("four missions across both areas", out.missions, 4);
+    // THE FLOOR IS READ, NOT SPELLED -- the value comes from queue-size.sh's own derivation.
+    const qs = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionQueueSize} zero-t ${dir}/.workaholic`).stdout);
+    assertEq("the distribution's floor is queue-size.sh's own", out.floor, qs.floor);
+
+    const bucket = (name) => (out.buckets.find((b) => b.bucket === name) || {}).count;
+    assertEq("the zero-ticket mission buckets at 0", bucket("0"), 1);
+    assertEq("the one-ticket mission buckets at 1", bucket("1"), 1);
+    assertEq("the three-ticket mission buckets at 2-3", bucket("2-3"), 1);
+    assertEq("the seven-ticket mission buckets at 7-8", bucket("7-8"), 1);
+    assertEq("and nothing lands where nothing belongs", bucket("9+"), 0);
+
+    // BELOW-FLOOR NAMES SLUGS, and only for the audit: two here, in both areas.
+    const below = out.below_floor.map((r) => r.slug).sort();
+    assertEq("both sub-floor missions are named", below.join(","), "one-t,zero-t");
+    assertTrue("and the archived seven-ticket one is not",
+      !below.includes("seven-t"), "a conforming mission was named");
+
+    // A DEGRADED READ IS NAMED, never rendered as an empty distribution -- the collapse this
+    // repository refuses everywhere else.
+    const empty = mkdtempSync(join(tmpdir(), "workaholic-nomissions-"));
+    const bad = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSizeDistribution} ${empty}`).stdout);
+    assertEq("a tree with no missions area is not a distribution of zero", bad.ok, false);
+    assertEq("and it says it could not read", bad.readable, false);
+    assertEq("with its own reason", bad.reason, "no_missions_area");
+    assertEq("and null counts rather than an honest-looking zero", bad.missions, null);
+  } finally { cleanup(dir); }
+}
+
+// ---------- layout-doctor: the mission the forward-only floor left behind ----------
+// An advisory, never a finding: a finding sets `conforming: false` and fails the merge gate over
+// history that harms nothing until somebody tries to act on it -- the shape refused once already
+// for the duplicate-slug pair.
+T("layout-doctor names a below-floor mission as an advisory and leaves conforming alone",
+  testLayoutDoctorBelowFloorAdvisory);
+function testLayoutDoctorBelowFloorAdvisory() {
+  const dir = makeRepo("main");
+  try {
+    const mk = (slug) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nIt does the thing.\n\n## Acceptance\n\n- [ ] a criterion\n\n## Changelog\n`);
+    };
+    mk("under-floored");
+    mk("conforming-one");
+    seedMissionTicket(dir, "under-floored", "20260903100001");
+    seedMissionTicket(dir, "conforming-one", "20260903100002");
+    seedMissionTicket(dir, "conforming-one", "20260903100003");
+
+    const doc = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.layoutDoctor} ${dir}`).stdout);
+    const below = doc.advisories.filter((a) => /below the ticket floor/.test(a.reason));
+    assertEq("exactly the sub-floor mission is named", below.length, 1);
+    assertTrue("by its own path",
+      below[0].path === ".workaholic/missions/active/under-floored", below[0].path);
+    assertEq("the audit stays conforming -- an advisory never fails the merge gate",
+      doc.conforming, true);
+    assertTrue("and it names no finding of its own",
+      !doc.findings.some((f) => /floor/.test(f.reason || "")), "the advisory became a finding");
+  } finally { cleanup(dir); }
+}

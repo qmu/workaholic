@@ -1147,6 +1147,25 @@ unreadable digest is `digest_unreadable`, named rather than rendered as a quiet 
 zero questions — the day's opening statement, the exception the developer asked for — while every
 other hour the question gate stands alone.
 
+**And the morning render carries the corpus's own mission-size distribution** (2026-09-03, ticket
+`20260903053713-report-the-mission-size-distribution.md`): one line off
+`mission/scripts/size-distribution.sh` — the buckets and their counts, nothing else. Rule 2 of
+`rules/workaholic.md`, *What a Mission Must Be Able to Hold*, is a position about the **corpus**,
+and nothing in the loop could see the corpus: the distribution that produced the rule was counted
+by hand, so without a reading the next report of the defect would be another hand count.
+
+**It rides THIS step and no hourly one.** The number moves slowly by construction, and an
+unchanged answer restated every hour is what `📦 Release Preparation` was retired for — the same
+reasoning the mission grain above already carries. **It gates nothing**: nothing is refused,
+ordered, closed, held or sorted on it, and it is reported as evidence in the voice `pace` and the
+base's own health already use. **It names no slug** — *how many* is news and *which* is a task,
+and this line is addressed to nobody; the one place a slug appears is the reader's `below_floor`,
+which is `layout-doctor.sh`'s advisory rather than this step's. A reading that answers
+`ok: false` is named **as unreadable, by its reason**, with null counts, never as an empty
+distribution, which means the opposite. The reader is **one pass** over the ticket tree
+(measured 7s here against 126 missions and 1335 tickets) and composes `read-relation.sh` and
+`queue-size.sh`'s own floor rather than re-deriving either.
+
 **The plan's shape is daily, not hourly, and that is an answer rather than an omission**
 (2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). The ask that put
 the mission grain here asked for it on **every** tick — "post where the work stands on the

@@ -14,7 +14,10 @@ landed against it, choose **one** move (`depth`, `breadth` or `contraction`), an
 `open-proposal.sh`.
 
 **The unit is a mission, not a change.** The issue names a mission title, the experience it
-demands, and its ordered ticket set — roughly 7–8 tickets, the ruled scale. `open-proposal.sh`
+demands, and its ordered ticket set — sized by what the container must be able to hold
+(`plugins/workaholic/rules/workaholic.md`, *What a Mission Must Be Able to Hold*: is there a
+mid-term plan here — several tickets wanting ordering and allocation across a period?). Seven or
+eight is an observation about typical size, never the criterion. `open-proposal.sh`
 floors it: the body carries `## Experience` and `## Tickets` beside the three commitment
 sections, and fewer than two tickets is refused `under_planned`. The ceiling stays this run's
 judgement. `/propose` plans; `/specificate` writes.

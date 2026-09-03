@@ -40,10 +40,11 @@ it was never addressed to.
 ## Acceptance
 
 - [x] `base-health` requires a verdict per declared suite on the tip and answers `unverified: <suite>` for one with no run on that commit (#20260903090250-require-a-verdict-per-declared-suite-on-the-tip.md)
-- [ ] Every surface reporting the base colour names an unverified suite, and never renders it as green (#20260903090250-name-an-unverified-suite-wherever-the-base-colour-is-reported.md)
+- [x] Every surface reporting the base colour names an unverified suite, and never renders it as green (#20260903090250-name-an-unverified-suite-wherever-the-base-colour-is-reported.md)
 - [ ] A red base is reported as `🔴 Blocked` under the existing failure-signature cool-down rather than held as a question by `quiet_hours` (#20260903090250-report-a-red-base-instead-of-asking-about-it.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-03 — ticket archived — 20260903090250-require-a-verdict-per-declared-suite-on-the-tip.md
+- 2026-09-03 — ticket archived — 20260903090250-name-an-unverified-suite-wherever-the-base-colour-is-reported.md

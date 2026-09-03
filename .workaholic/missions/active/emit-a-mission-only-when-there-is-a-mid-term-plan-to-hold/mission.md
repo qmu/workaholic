@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-104341
 ---
 
 # Emit a mission only when there is a mid-term plan to hold

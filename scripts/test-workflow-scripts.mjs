@@ -24241,6 +24241,59 @@ function testStatelessThreadLookup() {
     /🙋 <@U…>/u.test(catalog), "the check-in question lost the token that makes it reach anyone");
   assertTrue("the notify skill states the no-self-mention rule",
     /Never mention the identity you are posting as/i.test(notifySkill));
+
+  // ---- a refused call is not an absent surface, and a token-less directed post says so ----
+  // (2026-09-03, mission `deliver-a-post-the-transport-refused-or-say-it-reached-nobody`.)
+  // Measured 2026-09-02: with SLACK_BOT_TOKEN unset, one run had every connector call refused
+  // and reported the model's THIRD branch -- written for a session that never had a surface --
+  // losing three lines, while a run minutes later in the same session posted three of the same
+  // shape. And the three that did land were `🟡 Handoff` lines carrying no token, so six
+  // directed lines reached nobody and nothing said so.
+  //
+  // Both wordings live in FOUR places -- the model, the catalog, and the two command ceilings a
+  // routine-fired session actually reads -- and a paraphrase in any one of them is a third
+  // version of the rule. Byte for byte, exactly as the wire formats above are pinned.
+  const REFUSAL_WORDING =
+    "**A refused call and an absent surface are different outcomes.** `post_refused` is one " +
+    "call a transport that exists declined — the surface answered no, so the line is still " +
+    "sendable and the run carries it. `no_slack_transport` is this session holding no surface " +
+    "at all, which nothing inside the run can change. A refusal is per call; an absence is per " +
+    "session, and reporting the first as the second is what made a run whose every call was " +
+    "denied say the post did not exist.";
+  const PAGED_NOBODY_WORDING =
+    "**A directed post carrying no mention token says so in its own line** — " +
+    "`(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token " +
+    "was omitted reached the channel and paged nobody, and an unanswered thread must never be " +
+    "read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's " +
+    "two-transport model is one transport**: every post is made as the operator's own account, " +
+    "so a directed shape whose addressee *is* that account loses its token by *Never mention " +
+    "the identity you are posting as* and provably reaches nobody.";
+  const notifySurfaces = [
+    ["the notify model", notifySkill],
+    ["the shape catalog", catalog],
+    ["the /implement ceiling", implementTemplate],
+    ["the /moderate ceiling", moderateTemplate],
+  ];
+  for (const [name, body] of notifySurfaces) {
+    assertTrue(`${name} carries the refused-call wording byte-identically`,
+      body.includes(REFUSAL_WORDING), name);
+    assertTrue(`${name} carries the paged-nobody wording byte-identically`,
+      body.includes(PAGED_NOBODY_WORDING), name);
+  }
+  // The word is distinct from the absent-surface word, and BOTH are in the report contract --
+  // a vocabulary that names only one of them cannot tell the two apart where it matters.
+  assertTrue("the drive run report names post_refused beside no_slack_transport",
+    /post_refused/u.test(driveSkill) && /no_slack_transport/u.test(driveSkill));
+  // The carry is what makes the distinction worth anything: naming the refusal and dropping the
+  // line leaves the measured failure exactly where it was.
+  assertTrue("the /implement ceiling names the carry, the re-send and the clear",
+    /record-unposted-line\.sh/u.test(implementTemplate)
+    && /list-unposted-lines\.sh/u.test(implementTemplate)
+    && /clear-unposted-line\.sh/u.test(implementTemplate),
+    "the ceiling names a word with no act behind it");
+  assertTrue("and states the limit rather than implying the carry is total",
+    /unit that merged has no branch left to carry the record/u.test(implementTemplate),
+    "a merged unit's lost line reads as carried");
 }
 
 // ---------- the authorship disclosure (issue #454) ----------

@@ -506,10 +506,18 @@ moments.
   surface, and the branch story already holds the durable answer.
 - **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
   reports nothing): for the one thread the unit posted into, the surface used and the result —
-  `posted` with the thread it landed in, or the failure named (`no_surface` when the session has
+  `posted` with the thread it landed in, or the failure named (`post_refused` when a surface that
+  exists declined the call, `no_slack_transport` / `no_surface` when the session has
   neither connector nor token, `no_token` / `no_channel` / `http_<code>` / `slack_<error>` as the
   fallback script reports them, `posted_as_root` when no thread was found and a keyed root was
-  started instead). The shape follows `/specificate`'s `notified` flag, which already reports this way.
+  started instead). **A refusal is per call and an absence is per session** (2026-09-03, mission
+  `deliver-a-post-the-transport-refused-or-say-it-reached-nobody`): the first leaves a line that is
+  still sendable, so the run carries it on the unit's own story through
+  `story/scripts/record-unposted-line.sh` and a later tick sends it once
+  (`drive/scripts/list-unposted-lines.sh` → the transport → `clear-unposted-line.sh` on a landed
+  send); the second cannot be repaired inside the run at all. Reporting the first as the second is
+  what made a run whose every call was denied say the post did not exist.
+  The shape follows `/specificate`'s `notified` flag, which already reports this way.
   **A post that did not happen is stated, never omitted**: silence in this list read as success is
   the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
   `{"notified": false, "reason": "no_token"}` and nothing downstream said so).

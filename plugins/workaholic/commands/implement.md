@@ -64,5 +64,11 @@ One sentence, max 30 words, what the feedback asks for.
 
 If the run stops before claiming anything, post `workaholic:notify`'s precondition-stop shape instead. An attended `/drive` run posts none of this.
 
+**A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
+
+**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+
+**A line this run could not send is carried on the unit's own story, and a later tick sends it once.** Where the finish line does not post, record it before the run ends — `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/record-unposted-line.sh <story-file> "<shape>" "<reason>" "<the line>"` from inside the worktree, then commit and push, exactly as a refused merge outcome is recorded. At the head of a later run, read `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-unposted-lines.sh`, send each candidate **once** through the transport this section already selects, and on a send that landed run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/clear-unposted-line.sh <unit-id>`. A send refused again leaves the record standing and is reported in the same vocabulary the first attempt used; a candidate named with no outcome reported is non-conformant on its face. **A unit that merged has no branch left to carry the record**, so its refused line is reported by the run that lost it and carried by nobody.
+
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or guess retired namespaces.

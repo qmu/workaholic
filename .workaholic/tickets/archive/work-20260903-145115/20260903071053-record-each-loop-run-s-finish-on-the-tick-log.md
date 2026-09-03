@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:10:53+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,23 @@ tick reads (`CLAUDE.md`, `.workaholic/` runtime conventions). A tick running whe
 cannot survive loses the cadence source and every loop reads as due — the same degradation
 `moderate`'s own gate already accepts, and the honest one: over-spawning beats a loop that
 silently stops.
+
+## Final Report
+
+**Outcome**: implemented.
+
+The tick that **first observes a run idle** — the same tick that is about to stop it — writes one
+`loop-finish-<name>` line through `moderate/scripts/log-append.sh`, the writer the tick log already
+has. **No second walk and no new store**, exactly as the ticket asked, and `log-append.sh` is
+idempotent per `(tick, step)`, so observing one idle agent twice in a tick writes one line.
+
+**The tick id is the finish time**, so the record needs no field of its own: reading it back is
+`log-read.sh --step-prefix loop-finish-<name> --latest-tick`, which composes the one-line reader
+this repository added in the sibling mission `pay-only-the-operative-cost-on-every-tick` hours
+earlier — the cadence read costs a timestamp rather than a day of log.
+
+**Ordering is load-bearing and stated**: the record is written **before** the stop. A stop that
+succeeded with no record would leave the loop reading *no recorded finish*, which means **due** — a
+respawn one tick early, which is the safe direction, but the ordering makes even that unnecessary.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

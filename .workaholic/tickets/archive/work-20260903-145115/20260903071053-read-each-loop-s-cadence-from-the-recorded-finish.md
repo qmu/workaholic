@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:10:53+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -68,3 +69,25 @@ the recorded finish; the listing then answers exactly one question — is this l
 
 This ticket must land before the reaping ticket or the tick loses its clock: the two are
 ordered for that reason and not by preference.
+
+## Final Report
+
+**Outcome**: implemented.
+
+Every cadence is now derived from the recorded finish, and `ListAgents` answers **exactly one
+question — is this loop still running**. `started N ago` is read by nothing.
+
+**That is what un-loads the idle agent.** While the clock lived on the agent, the reaping *had* to
+wait for the next spawn; with the clock elsewhere, a finished run has no remaining job and the
+sibling ticket stops it at the head of the tick.
+
+**No recorded finish means DUE**, stated explicitly because the absence has three ordinary causes —
+a fresh session, a first run, and a log this tick could not read — and every one of them must
+**start** the loop rather than silence it. A degraded read is named (`cadence_unreadable`) and the
+loop is spawned, which is this repository's standing rule about degraded readings applied here.
+
+**The old cost is retired with it**: `started` measured the previous run's start **plus its whole
+duration**, so the fifteen-minute `propose` loop respawned at ages of 21, 31 and 45 minutes. A
+finish time has no such drift.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

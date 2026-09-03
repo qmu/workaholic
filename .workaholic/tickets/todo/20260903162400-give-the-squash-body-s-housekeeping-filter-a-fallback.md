@@ -6,6 +6,7 @@ depends_on:
 feedback: 20260903053327-draft-deploy-plan-sh-renders-non-ascii-target-titles-as-escape-sequences.md
 merge_policy:
 verification_handoff: 
+claim: work-20260903-172646
 ---
 
 # Give the squash body's housekeeping filter a fallback

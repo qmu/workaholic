@@ -7,8 +7,9 @@
 #
 # Output: JSON
 #   {"handoff": true|false, "kind": "mission"|"tickets", "unit": "<id>",
-#    "members": [{"id": "...", "verification_handoff": "..."}],
-#    "reason": "<the declared reason, verbatim>", "member": "<id>", "missing": [...]}
+#    "members": [{"id": "...", "verification_handoff": "...", "probe": "...", "unmeasured": bool}],
+#    "reason": "<the declared reason, verbatim>", "member": "<id>", "missing": [...],
+#    "probe": "<the deciding member's probe, or empty>", "measurable": bool, "unmeasured": bool}
 #
 # THE SIGNAL IS A FIELD, DECLARED IN ADVANCE, AND ITS VALUE IS THE REASON.
 # `verification_handoff:` is optional ticket/mission frontmatter. Non-empty means
@@ -52,6 +53,33 @@
 #
 # THE MISSION FILE IS STILL CLASSIFIED FIRST, so a mission-level declaration keeps winning and
 # the pre-2026-09-01 behaviour is a strict subset of this one.
+#
+# A DECLARATION MAY BE A PROBE, AND THE PROBE IS READ HERE BUT NEVER RUN HERE (2026-09-03,
+# mission `make-a-verification-handoff-a-probe-re-run-at-claim-time`). A prose value cannot be
+# falsified, so a blocker true at creation stays true forever and the work behind it stops being
+# attempted -- measured on a consuming repository as four parked pull requests, three of whose
+# declarations were false when somebody finally probed them.
+#
+# THE FORM IS `verification_handoff: probe: <command>`, and it is ADDITIVE rather than a
+# replacement. MEASURED in this repository before the shape was fixed: **zero** of the 32 queued
+# tickets declare anything at all, and all six declarations anywhere in the tree are prose
+# sentences, none of them a command. A format that replaced prose would therefore invalidate every
+# declaration that exists, so prose stays exactly as valid as it was and reads `unmeasured`.
+#
+# THREE VALUES, REPORTED PER MEMBER AND ONCE FOR THE UNIT:
+#
+#   probe      the declared command, verbatim, when the value begins `probe:`; "" otherwise
+#   measurable true when a probe was declared -- *somebody could re-run this*
+#   unmeasured true when a NON-EMPTY declaration carries no probe -- not false, not true, nobody
+#              can re-probe it. It is a fact reported beside the verdict and it gates nothing:
+#              retro-blocking the six declarations already on disk would park the work they name
+#              with no way to unpark it.
+#
+# THIS SCRIPT DOES NOT RUN THE PROBE, and that separation is the point: running it is
+# `run-verification-probe.sh`s job at CLAIM time, and this reader is called at route time, inside
+# `/moderate`, and by anything that wants to know what a unit declares. A reader that executed a
+# command every time somebody asked what a ticket says would be a different and much larger thing.
+# Every verdict here is byte-identical to what it was before the probe existed.
 #
 # THIS SCRIPT ANSWERS "CAN ITS VERIFICATION RUN HERE", NEVER "MAY IT MERGE".
 # effective-policy.sh answers the merge-policy axis and this one answers the
@@ -153,17 +181,34 @@ DECLARER=""
 # but every member is still listed: a unit handed off for two different missing
 # verifications owes the reader both, and the report that stopped at the first
 # would hide the second.
+# THE PROBE IS PARSED, NEVER EXECUTED. One prefix, `probe:`, with surrounding whitespace
+# trimmed; anything else is prose and reads `unmeasured`. No shell runs here.
+declared_probe() {
+    case "${1:-}" in
+        probe:*) printf '%s' "${1#probe:}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' ;;
+        *) : ;;
+    esac
+}
+
 consider() {
     _c_id="$1"
     _c_value="$2"
-    MEMBERS="${MEMBERS}${sep}{\"id\": \"$(json_escape "$_c_id")\", \"verification_handoff\": \"$(json_escape "$_c_value")\"}"
+    _c_probe=$(declared_probe "$_c_value")
+    _c_unmeasured=false
+    if [ -n "$_c_value" ] && [ -z "$_c_probe" ]; then _c_unmeasured=true; fi
+    MEMBERS="${MEMBERS}${sep}{\"id\": \"$(json_escape "$_c_id")\", \"verification_handoff\": \"$(json_escape "$_c_value")\", \"probe\": \"$(json_escape "$_c_probe")\", \"unmeasured\": ${_c_unmeasured}}"
     sep=", "
     if [ -n "$_c_value" ] && [ -z "$REASON" ]; then
         HANDOFF="true"
         REASON="$_c_value"
         DECLARER="$_c_id"
+        PROBE="$_c_probe"
+        UNMEASURED="$_c_unmeasured"
     fi
 }
+
+PROBE=""
+UNMEASURED=false
 
 classify() {
     _f="$1"
@@ -240,5 +285,8 @@ case "$KIND" in
         ;;
 esac
 
-printf '{"handoff": %s, "kind": "%s", "unit": "%s", "members": [%s], "reason": "%s", "member": "%s", "missing": [%s]}\n' \
-    "$HANDOFF" "$KIND" "$(json_escape "$UNIT")" "$MEMBERS" "$(json_escape "$REASON")" "$(json_escape "$DECLARER")" "$MISSING"
+_measurable=false
+if [ -n "${PROBE:-}" ]; then _measurable=true; fi
+printf '{"handoff": %s, "kind": "%s", "unit": "%s", "members": [%s], "reason": "%s", "member": "%s", "missing": [%s], "probe": "%s", "measurable": %s, "unmeasured": %s}\n' \
+    "$HANDOFF" "$KIND" "$(json_escape "$UNIT")" "$MEMBERS" "$(json_escape "$REASON")" "$(json_escape "$DECLARER")" "$MISSING" \
+    "$(json_escape "${PROBE:-}")" "$_measurable" "${UNMEASURED:-false}"

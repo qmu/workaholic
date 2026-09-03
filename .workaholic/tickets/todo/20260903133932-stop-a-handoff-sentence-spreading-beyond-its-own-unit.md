@@ -77,3 +77,25 @@ bound — a handoff is derived per unit, through the one reader, and never inher
 - Prose is checkable by nothing, and this repository has recorded that limit before. It is
   stated rather than papered over: the pinning test proves the words reach the ceiling, never
   that a run obeyed them.
+
+## Final Report
+
+**Outcome**: implemented — the bound is written where a run will read it.
+
+`workaholic:drive` §6 now states it in one paragraph: **a run never declares a handoff for its own
+unit, and never inherits one it did not derive.** The declaration is read **per unit, through the one
+reader, at the moment it routes**; a sentence read out of one ticket is a fact about *that* unit and
+about nothing else; and if a unit's own reader says nothing, the unit has no handoff.
+
+**The measurement is stated with it**, because the rule without its failure gets rationalised away:
+one file read once became a session-wide premise that stopped **six** tickets, **three of which
+declared nothing at all**. That is the contagion — a per-ticket sentence becoming a premise, then a
+brief, then a runner's instruction.
+
+**It is prose, and that bound is itself stated.** No script can see a session forming a belief from
+something it read; what the suite can prove is that the rule is present where a run reads it, and the
+assertion says exactly that rather than implying more. The mechanical half is already load-bearing:
+`verification-handoff.sh` is the one reader, it is called per unit, and it answers only from that
+unit's own members — so a run following the route cannot inherit anything.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` asserts the bound's presence in the skill.

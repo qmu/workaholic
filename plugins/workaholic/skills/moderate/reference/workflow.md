@@ -2790,6 +2790,29 @@ reading and the oracle's cannot answer from two different ticket sets. Resolving
 candidate rather than on every claim row** is deliberate: `stalled-units`, `undelivered-units`
 and `retire-claims` all read `list-claims.sh` and none of them wants the string.
 
+**And where the declaration is a PROBE, the step RE-PROBES rather than re-reading the sentence**
+(2026-09-03, mission `make-a-verification-handoff-a-probe-re-run-at-claim-time`). A declaration
+that has gone false must be named the hour it goes false, not the next time somebody happens to
+claim the unit — measured on a consuming repository as four parked pull requests, three of whose
+declarations were false when finally probed. So per candidate the step runs
+`drive/scripts/run-verification-probe.sh` and reports its word beside the reason:
+
+- **`clean`** — the declaration has gone false. The step **says so** and asks the claim holder to
+  take the unit back into the ordinary route. It **clears no handoff, merges nothing and touches
+  no claim**: this step asks and does nothing else, which is the bound every step here carries,
+  and the next `/implement` claim re-derives the same `clean` and proceeds on it by itself.
+- **`blocking`** — unchanged, and the question now quotes the **probe's own output and exit
+  status** rather than a sentence: a `302` and its redirect target say more than any prose, and
+  unlike prose they go stale visibly.
+- **`unmeasured`** — a prose declaration nobody can re-probe. The question is exactly the one this
+  step already asked, and the step **names the class** so the operator can see that this one was
+  not checked rather than assuming it was. **Every declaration on disk today is this.**
+- **`unreadable`** — named as unreadable and never as `clean`. The declaration stands.
+
+**The probe runs bounded and its cost is stated**: one `run-verification-probe.sh` per
+`awaiting_verification` candidate, capped by `WORKAHOLIC_PROBE_TIMEOUT_SECONDS` (default 60). A
+tick with no such claims runs none, which is the ordinary hour.
+
 **The pull request's coordinates cost one lookup per candidate**, through `claim-merged.sh`. An
 `unanswerable` read leaves them unstated and **keeps** the candidate — the unit waits on a person
 whether or not we could name its URL. A candidate whose declared **reason** could not be resolved

@@ -76,3 +76,24 @@ verification and the unit takes its ordinary route instead of parking.
 - A wrong `clean` merges work whose real-world verification never happened. That is why the
   probe's exit status is the only reading and why the timeout answers `blocked`: the failure mode
   is deliberately biased toward parking.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`workaholic:drive` §6's verification axis now runs the declared probe at claim time and routes on
+its word, in a table beside the existing one: **`clean` is not a handoff** — the environment the
+declaration named is here, so the run performs the verification and the unit takes its **ordinary**
+route (`auto` ships, `review` merges). `blocking` takes the handoff route exactly as a declaration
+always did. `unmeasured` and `unreadable` both leave the declaration **standing**.
+
+**Nothing is retro-blocked and nothing is retro-unblocked.** Every declaration on disk today is
+prose, so every one of them reads `unmeasured` and behaves precisely as it did before this ticket —
+the behaviour change reaches only declarations written as probes from here on.
+
+**The run still never declares a handoff for its own unit.** What changed is that it may now
+*measure* a declaration somebody else wrote; it may not write one. A run that could declare its own
+unit unverifiable mid-drive would be the soft landing `handoff` is written never to become, and that
+rule did not move.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

@@ -16,7 +16,8 @@ assignees: [developer@company.com]       # who owns the work — plural; empty =
 depends_on:
 mission:                                 # optional: every mission this ticket advances
 merge_policy:                            # optional: auto | review — ABSENT MEANS review
-verification_handoff:                    # optional: what this work's verification needs and
+verification_handoff:                    # optional: `probe: <command>` (preferred — its exit
+                                         # status is re-measured at claim time), or prose naming
                                          # an unattended run does not have — ABSENT MEANS none
 ---
 ```
@@ -36,6 +37,23 @@ verification_handoff:                    # optional: what this work's verificati
   the merge-policy table and routes the unit to `handoff` whatever `merge_policy` says
   (`drive` §6). It is a creation-time declaration like `merge_policy` and is never
   edited by a run — a run that could declare its own unit unverifiable would be excusing itself.
+
+  **Prefer a PROBE to a sentence** (2026-09-03, mission
+  `make-a-verification-handoff-a-probe-re-run-at-claim-time`). Write
+  `verification_handoff: probe: <command>` — a command whose **exit status** decides — and the
+  claim-time runner re-measures it every time the unit is claimed. A sentence cannot be falsified,
+  so a blocker true the day it was written stays true forever and the work behind it stops being
+  attempted: **measured** on a consuming repository as four parked pull requests, three of whose
+  declarations were **false** when somebody finally probed them. A good probe is the cheapest
+  command that fails exactly when the verification cannot run — `test -n "$SLACK_BOT_TOKEN"`,
+  `test -f ~/.config/<thing>/credentials`, a `curl -fsS` against the entrance — and it must be
+  **safe to run on every claim**, because it will be: read-only, bounded, no side effect.
+
+  **Prose stays valid and is classed `unmeasured`** — not false, not true, nobody can re-probe it.
+  It is a fact reported beside the verdict and it **gates nothing**: the six declarations already
+  on disk are all prose, and retro-blocking them would park the work they name with no way to
+  unpark it. What it buys is that an operator reading a question can see this declaration was
+  *not* checked, rather than assuming it was.
 
 ### Retired (2026-08-07) — never written anew
 

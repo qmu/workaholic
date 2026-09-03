@@ -74,3 +74,23 @@ ticket puts the probe's own output into the `## Handoff` section and into the `�
   over the branch diff and would catch a literal, but a body composed at route time is not a
   branch diff — so the field's definition must say a probe prints a status, never a credential,
   and this section is where that cost is recorded.
+
+## Final Report
+
+**Outcome**: implemented.
+
+A `blocking` probe carries its **captured output and exit status** into the `## Handoff` section and
+the `🟡 Handoff` post, in place of a sentence. The runner captures stdout and stderr together —
+a failing probe usually says why on stderr, and the caller wants the sentence it printed wherever it
+printed it — and the route table in `workaholic:drive` §6 states that the output *is* the reason.
+
+**Why this is better than prose, in the ticket's own terms**: a `302` and its redirect target say
+more than any sentence, and unlike a sentence they **go stale visibly** — the next claim re-runs the
+probe and the output changes when the world does.
+
+**Bounded, because a pull-request body is not a log**: the output is truncated at
+`WORKAHOLIC_PROBE_OUTPUT_MAX` (2000 bytes) with `truncated: true` saying so, so a probe that printed
+a megabyte cannot become the `## Handoff` section.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` asserts a non-zero probe's own text reaches
+the `output` field and that a large one is truncated and says so.

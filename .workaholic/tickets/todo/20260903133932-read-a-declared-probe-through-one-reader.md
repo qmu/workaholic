@@ -72,3 +72,25 @@ route still behaves exactly as it does today.
 
 - Reading a command out of frontmatter is not running it; keeping those two tickets apart is
   deliberate, so the reader stays a pure read and the execution has its own bounds.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`verification-handoff.sh` — still the **one** reader of the field — now reports three new facts per
+member and once for the unit: `probe` (the command, verbatim, or empty), `measurable` (a probe was
+declared), and `unmeasured` (a non-empty declaration carrying no probe).
+
+**It does not run the probe, and that separation is the point.** This reader is called at route
+time, inside `/moderate`, and by anything that wants to know what a unit declares; a reader that
+executed a command every time somebody asked what a ticket says would be a different and much larger
+thing. Running it is the claim-time runner's job.
+
+**No verdict changed.** `handoff`, `reason`, `member`, `members[].verification_handoff` and
+`missing` are byte-identical for all three input classes, proved directly: a probe declaration, a
+prose declaration and an absent one each still answer exactly what they answered before.
+
+**The suite proves the reader is a reader**: the probe under test is `touch <canary>`, and the
+assertion is that the canary does **not** exist after the read.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

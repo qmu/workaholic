@@ -231,6 +231,8 @@ const SCRIPTS = {
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
   mergeMethod: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-method.sh"),
   mergeCommitBody: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-commit-body.sh"),
+  runVerificationProbe: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/run-verification-probe.sh"),
+  verificationHandoff: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh"),
   checkRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh"),
   applyRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-repo-settings.sh"),
   applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
@@ -21695,6 +21697,87 @@ function testMergeMethodIsSingleSourced() {
   assertTrue("and no commit claims to be logging the tick",
     !/Log the moderation tick/.test(persistCode) && !/Log the propose tick/.test(persistCode),
     "a log-committing subject is back; the log branch is retired");
+}
+
+// ---------- a verification handoff may be a PROBE, re-measured at claim time (2026-09-03) ------
+// A prose declaration cannot be falsified, so a blocker true the day it was written stays true
+// forever and the work behind it stops being attempted. MEASURED on a consuming repository: four
+// parked pull requests, THREE of whose declarations were false when somebody finally probed them.
+//
+// THE SHAPE IS ADDITIVE, and that was a measurement rather than a preference: before it was fixed,
+// ZERO of this repository's 32 queued tickets declared anything at all and all six declarations
+// anywhere in the tree were prose sentences, none of them a command. A format that REPLACED prose
+// would have invalidated every declaration that exists.
+//
+// WHAT IS PINNED: the reader parses the probe and never runs it, every pre-existing verdict is
+// byte-identical, prose reads `unmeasured`, and the runner answers in its own four words with an
+// absence never rendered as `clean`.
+T("a verification handoff may be a probe, re-measured at claim time", testVerificationProbe);
+function testVerificationProbe() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-probe-"));
+  try {
+    const ticket = (name, value) => {
+      const p = join(dir, `${name}.md`);
+      writeFileSync(p, `---\nmission:\nverification_handoff: ${value}\n---\n\n# ${name}\n`);
+      return p;
+    };
+    const read = (p) =>
+      JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.verificationHandoff} tickets ${p}`).stdout);
+
+    // A PROBE IS PARSED, NOT RUN. The command below would create a file if anything executed it;
+    // the assertion that it does not exist is what proves the reader stays a reader.
+    const canary = join(dir, "canary");
+    const probed = read(ticket("probed", `probe: touch ${canary}`));
+    assertEq("a probe declaration is read as measurable",
+      [probed.handoff, probed.probe, probed.measurable, probed.unmeasured],
+      [true, `touch ${canary}`, true, false]);
+    assertTrue("and the reader never runs it", !existsSync(canary), "the reader executed the probe");
+
+    // PROSE IS UNMEASURED -- not false, not true. Its verdict is byte-identical to before.
+    const prose = read(ticket("prose", "A Slack bot token nobody here holds"));
+    assertEq("prose is a handoff and reads unmeasured",
+      [prose.handoff, prose.probe, prose.measurable, prose.unmeasured],
+      [true, "", false, true]);
+
+    // ABSENT IS UNCHANGED, and is neither measurable nor unmeasured.
+    const none = read(ticket("none", ""));
+    assertEq("an absent declaration is no handoff and no class",
+      [none.handoff, none.measurable, none.unmeasured], [false, false, false]);
+
+    // THE RUNNER'S FOUR WORDS.
+    const probe = (cmd, env = {}) => JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.runVerificationProbe} --probe '${cmd}'`,
+        { env: { ...process.env, ...env } }).stdout);
+    const clean = probe("true");
+    assertEq("an exit-0 probe is clean, which is NOT a handoff",
+      [clean.ok, clean.outcome, clean.exit_status], [true, "clean", 0]);
+
+    const blocking = probe("echo 302-somewhere; exit 7");
+    assertEq("a non-zero probe is blocking", [blocking.outcome, blocking.exit_status], ["blocking", 7]);
+    assertTrue("and carries its OWN output as the reason, not a sentence",
+      /302-somewhere/.test(blocking.output), blocking.output);
+
+    // AN ABSENCE OF A READING IS NEVER A CLEAN PROBE -- the direction of failure is chosen, as it
+    // is for the base-checks reader: a timeout leaves the declaration standing.
+    const timedOut = probe("sleep 5", { WORKAHOLIC_PROBE_TIMEOUT_SECONDS: "1" });
+    assertEq("a timed-out probe is unreadable, never clean",
+      [timedOut.ok, timedOut.outcome], [false, "unreadable"]);
+    assertTrue("and names the timeout", /timed_out/.test(timedOut.reason), timedOut.reason);
+
+    // THE OUTPUT IS BOUNDED and says when it was cut.
+    const big = probe("seq 1 2000; exit 1", { WORKAHOLIC_PROBE_OUTPUT_MAX: "100" });
+    assertTrue("a large output is truncated and says so", big.truncated === true, JSON.stringify(big).slice(0, 200));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  // THE BOUND, WRITTEN DOWN. A handoff is derived per unit through the one reader and never
+  // inherited from prose -- one file read once became a session-wide premise that stopped six
+  // tickets, three of which declared nothing at all.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the skill states that a clean probe is not a handoff",
+    /clean probe is not a handoff|`clean`/.test(skill) && /run-verification-probe\.sh/.test(skill),
+    "the route does not name the probe");
+  assertTrue("and that a handoff is never inherited across units",
+    /never inherits? one it did not derive|never inherited/.test(skill), "the contagion bound is unstated");
 }
 
 // ---------- the squash BODY is one derivation too, and no call site spells it (2026-09-03) ----

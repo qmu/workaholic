@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-135930
 ---
 
 # Make a verification handoff a probe re-run at claim time

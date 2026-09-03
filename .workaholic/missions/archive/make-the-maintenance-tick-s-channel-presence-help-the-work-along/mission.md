@@ -2,7 +2,7 @@
 type: Mission
 title: Make the maintenance tick's channel presence help the work along
 slug: make-the-maintenance-tick-s-channel-presence-help-the-work-along
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T10:12:37+09:00
 author: a@qmu.jp
@@ -52,3 +52,5 @@ subject, and no rendered line describes the tick's machinery.
 - 2026-09-03 — ticket archived — 20260903101320-take-the-tick-s-own-counters-out-of-a-question-addressed-to-a-person.md
 - 2026-09-03 — ticket archived — 20260903101320-keep-the-tick-s-internals-out-of-every-rendered-post.md
 - 2026-09-03 — ticket archived — 20260903101321-state-an-impairment-once-in-the-root-or-the-digest-and-not-in-both.md
+- 2026-09-03 — ticket archived — 20260903101321-stop-promising-an-act-no-step-is-obliged-to-keep.md
+- 2026-09-03 — mission achieved — mission.md

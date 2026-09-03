@@ -83,9 +83,25 @@ done
 
 json_escape() {
   # One reader of the JSON string escape, so the three emit paths cannot disagree.
-  printf '%s' "$1" | python3 -c 'import json,sys; sys.stdout.write(json.dumps(sys.stdin.read())[1:-1])' 2>/dev/null || {
-    printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' '\001' | sed -e 's/\001/\\n/g'
-  }
+  #
+  # THE INTERIOR OF A JSON STRING, without the surrounding quotes -- `emit` supplies those in its
+  # own `printf` template, which is why this cannot simply be `read-deployments.sh`'s `escape_json`.
+  #
+  # NON-ASCII STAYS RAW UTF-8 (2026-09-03, ticket `20260903064753`). This composes the squash
+  # `commit_title` and `commit_message` of every merge the loop makes, so a Japanese story
+  # description used to land on the trunk's permanent record as `リポ...` -- the same
+  # hand-decoding the deployment-plan repair (`20260903053345`) removed, one artifact over. Raw
+  # UTF-8 is valid JSON, so every JSON-parsing consumer is untouched.
+  #
+  # ALL THREE INTERPRETERS ARE PINNED, and the `sed` fallback is GONE rather than patched. It was
+  # the second half of the defect: the two paths of one function disagreed, so which answer a
+  # caller got depended on whether `python3` was installed. Measured on one input carrying a tab,
+  # a carriage return and a `\001`, `sed` emitted all three RAW -- bytes a JSON string may not
+  # contain at all -- so it could never be made to agree, only replaced. python3, node and perl
+  # agree byte for byte; this is `read-deployments.sh`'s shape with the outer quotes trimmed.
+  printf '%s' "${1:-}" | python3 -c 'import json,sys; sys.stdout.buffer.write(json.dumps(sys.stdin.buffer.read().decode("utf-8","surrogateescape"), ensure_ascii=False).encode("utf-8","surrogateescape")[1:-1])' 2>/dev/null \
+    || printf '%s' "${1:-}" | node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(0,"utf8")).slice(1,-1))' 2>/dev/null \
+    || printf '%s' "${1:-}" | perl -MJSON::PP -e 'binmode(STDIN, ":encoding(UTF-8)"); binmode(STDOUT, ":raw"); my $s = do { local $/; <STDIN> }; my $j = JSON::PP->new->allow_nonref->utf8->encode($s); print substr($j, 1, length($j) - 2)'
 }
 
 emit() {

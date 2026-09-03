@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260903-054004](work-20260903-054004.md) - The tick now announces an ask whose work landed outside an /implement unit, replying one finish line into that ask's own thread, once, and saying nothing where it cannot see
 * [work-20260902-234711](work-20260902-234711.md) - Removed the suite's hand-maintained test array so a test is registered where it is declared, ending the collision every concurrently-driven unit hit by construction
 * [work-20260902-225923](work-20260902-225923.md) - Ask whether the version a branch bumped to is still free — five merges had carried two numbers between them, every branch having bumped correctly against its own base
 * [work-20260902-220412](work-20260902-220412.md) - Converge a routine's notification setting — the field was in the create path and not in the diff, so a live routine was never corrected; the reported symptom came from elsewhere and is named

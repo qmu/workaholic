@@ -118,6 +118,45 @@ open before either is attempted. Degradations are named: `no_slack_transport`,
 `channel_unreadable` (naming the channel it resolved — Slack answers *not found* for a channel
 the token cannot see, so absent and invisible are one response), `sweep_dedup_unreadable`.
 
+**And an ask whose work landed outside an `/implement` unit gets its finish line here** — the one step positioned to post it, because this tick already reads the channel and already resolves threads. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-unannounced-closed-asks.sh`, and for each candidate resolve its thread by the `fb:<stem>` exact string, **read that thread first**, and reply once:
+
+```
+🟢 Implemented [<ask title>](<issue url>)
+<one sentence, max 30 words, what landed and by whom.>
+```
+
+**It reuses `🟢 Implemented` and is marked by its sentence, never by a fifth colour** — the precedent `thread-reconcile` set for a merged item announced late. A channel reader's finish vocabulary stays at the colours it already has; a new colour for the same event, differing only in which reader noticed it, is a distinction only the loop cares about.
+
+**The bounds, each of them a refusal rather than a preference:**
+
+- **No mention token.** It is addressed to the thread, not to a person — the standing rule of this catalog, unchanged.
+- **A reply, never a root.** The thread is resolved by the `fb:<stem>` **exact string** (SKILL, *One thread per feedback item*, case 2), and an item whose thread cannot be resolved — no match, or more than one — is **left alone** rather than announced somewhere else. Case 4's keyed root is deliberately **not** available here: a root would be a top-level post about an item whose own thread the run could not find, which is the wrong-thread outcome one step removed.
+- **Once ever per item.** The dedup is **structural and read from the thread**: the thread is read before anything is posted, and a thread already carrying a finish line of ours for this item is skipped. No ledger, no cursor, no field on any artifact — a store would have to survive a fresh container, which is the property this loop has repeatedly failed to keep.
+- **The connector carries it, and nothing else does.** It is the only transport that can **search**, so it is the only one that can resolve the thread at all; the tokened fallback posts nothing here, because a caller with no connector never resolved a thread to reply into.
+- **What landed, or nothing about it.** The sentence is composed from the reader's `landed[]` — what merged and by whom — and an unresolvable field is **stated as unresolved**, never filled with a plausible name or time.
+
+**The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins. The command is the ceiling a routine-fired session actually reads; the catalog is where the shape is decided. A diff between them is a drift to fix, never a second wording.
+
+
+**Report one outcome per candidate, and naming a candidate without one is non-conformant on its face** — the enforcement every act in this repository carries, and for its reason: no mechanical check tells a real attempt from a claimed one.
+
+| Outcome | What it means |
+| ------- | ------------- |
+| `announced` | the reply landed in that item's own thread |
+| `already_announced` | the thread already carried a finish line of ours for this item — the whole dedup, read from the thread and stored nowhere |
+| `thread_unresolved: <reason>` | the `fb:<stem>` search matched nothing, or matched more than one thread; the tie goes to silence and nothing is posted |
+| `post_failed: <reason>` | the reply was attempted and refused; never load-bearing and never retried inside the turn |
+| `held: <reason>` | the item is real but the sentence could not be made true — its `landed[]` was unreadable and the reply would have had to invent what merged |
+
+**A tick that cannot see says so, and posts nothing.** Each of these is a behaviour with its own reported word, not a preference:
+
+- **An idle tick** — no candidate — reports `no_candidates`, opens no root and says nothing in the channel about having nothing to say.
+- **An unreadable candidate read** (`ok: false`) reports the reader's own reason **verbatim** and is **never** rendered as `no_candidates`. *Nothing finished* and *I could not see what finished* send a reader to different places, and this repository has twice measured a reader rendering its own blindness as *nothing found*.
+- **An unresolved or ambiguous thread** — the `fb:<stem>` search matched nothing, or matched more than one — posts nothing and reports `thread_unresolved: <reason>`. **The tie goes to silence**: a wrong thread is worse than none (`workaholic:notify`, *Fuzzy matching is prohibited*), and case 4's keyed root is refused here by name.
+- **A candidate whose `landed[]` could not be read** is announced only if the sentence stays true without the unresolved field; otherwise it is `held: <reason>` and left for a later tick. Never an invented name or time.
+
+Report every held candidate with its own word, so a quiet tick and a blind one are distinguishable in the run report. The step costs the tick nothing that waits on work: it runs on the reads the turn has already made, before any subagent is spawned, and a failure anywhere in it blocks neither the sweep nor the spawns.
+
 ## 2. Spawn the work, and do not wait for it
 
 Call `ListAgents` once. It is the whole record — no cursor, no lock file, no stored state — and
@@ -180,6 +219,10 @@ its own run; `/ship` and `/mission-close` already reap the claim worktrees they 
 - **Per message**: `replied` / `reacted` / `swept` (with the issue URL, the receipt's reply and
   reaction each, and `direction:<slug>`) / `already_answered` / `skipped_own_post`, or the named
   degradation.
+- **Per announced ask**: the issue and one of `announced` / `already_announced` /
+  `thread_unresolved: <reason>` / `post_failed: <reason>` / `held: <reason>`. A tick with no
+  candidate says `no_candidates`; a candidate read that failed says the reader's own reason and
+  is never rendered as `no_candidates`.
 - **Per loop**: `spawned` / `still_running` / `not_due` (naming the age it read), each with
   `reaped` when an idle agent was stopped first.
 - Nothing else. A tick that read a quiet channel and spawned nothing says exactly that.

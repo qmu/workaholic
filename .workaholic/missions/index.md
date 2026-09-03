@@ -19,6 +19,7 @@
 * [add-the-standup-daily-per-strategy-summary](archive/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
 * [adjust-the-plan-hourly-not-only-report-it](archive/adjust-the-plan-hourly-not-only-report-it/mission.md) - Adjust the plan hourly, not only report it
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
+* [announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread](archive/announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread/mission.md) - Announce an ask that landed outside a unit route in its own thread
 * [announce-one-event-once-and-give-its-root-a-shape](archive/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [answer-what-is-waiting-and-stamp-what-was-accepted](archive/answer-what-is-waiting-and-stamp-what-was-accepted/mission.md) - Answer what is waiting, and stamp what was accepted
 * [ask-for-the-one-act-a-declared-handoff-is-waiting-on](archive/ask-for-the-one-act-a-declared-handoff-is-waiting-on/mission.md) - Ask for the one act a declared handoff is waiting on

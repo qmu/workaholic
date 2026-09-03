@@ -2,20 +2,21 @@
 type: Mission
 title: Announce an ask that landed outside a unit route in its own thread
 slug: announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T05:27:53+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.6
 feedback: [20260903052643-give-an-ask-that-landed-outside-implement-a-finish-line-in-its-own-thread.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-054004
 ---
 
 # Announce an ask that landed outside a unit route in its own thread
@@ -36,13 +37,21 @@ posts nothing, and a reading the tick could not make leaves the thread alone.
 
 ## Acceptance
 
-- [ ] A closed `[FB]` issue whose thread carries a receipt and no finish line is named by a
+- [x] A closed `[FB]` issue whose thread carries a receipt and no finish line is named by a
       repository-derived reader that never scans the channel. (#20260903052915-name-the-closed-asks-whose-thread-carries-no-finish-line.md)
-- [ ] The tick posts one finish line into that thread naming what landed and by whom, and
+- [x] The tick posts one finish line into that thread naming what landed and by whom, and
       posts nothing for an item already announced. (#20260903052915-post-the-finish-line-from-the-tick-once-per-ask.md)
-- [ ] An idle tick and an unreadable read both leave the thread alone, and a drift in the
+- [x] An idle tick and an unreadable read both leave the thread alone, and a drift in the
       post shape fails a check. (#20260903052915-hold-the-tick-silent-where-it-cannot-see.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903052915-name-the-closed-asks-whose-thread-carries-no-finish-line.md
+- 2026-09-03 — ticket archived — 20260903052915-carry-what-landed-onto-each-unannounced-closed-ask.md
+- 2026-09-03 — ticket archived — 20260903052915-state-the-finish-line-for-an-ask-that-landed-outside-a-unit.md
+- 2026-09-03 — ticket archived — 20260903052915-post-the-finish-line-from-the-tick-once-per-ask.md
+- 2026-09-03 — ticket archived — 20260903052915-hold-the-tick-silent-where-it-cannot-see.md
+- 2026-09-03 — ticket archived — 20260903052915-pin-the-finish-line-shape-and-update-the-documents.md
+- 2026-09-03 — mission achieved — mission.md
+- 2026-09-03 — run recorded (+1.6h) — implement-20260903-084400

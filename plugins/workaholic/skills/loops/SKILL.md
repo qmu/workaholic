@@ -117,6 +117,24 @@ sweep's **scripts** (`list-swept-slack-refs.sh`, `file-inbound-ask.sh`) — movi
 churn for nothing — and `commands/infinite-development.md` is the one place their use is
 specified.
 
+**And the tick announces what finished, in the same turn** (2026-09-03, mission
+`announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). `🟢 Implemented` is a
+**per-unit** post of `/implement`'s route step, so an ask whose work landed through a session
+working it directly reaches no route step and its thread ends at the `📥 受理` receipt — from the
+channel, an ask that shipped hours ago and one nobody started are byte-identical. Measured
+2026-09-02: three merged pull requests, the issue closed, and the operator found out by asking a
+session.
+
+The tick is the one place positioned to close that: it already reads the channel and already
+resolves threads, so the step costs it no read it was not making. `list-unannounced-closed-asks.sh`
+names the candidates from the repository and the issues alone — **never a channel scan** — and the
+tick replies once into each item's own thread, resolved by the `fb:<stem>` exact string. **The
+dedup is the thread itself**: the thread is read before anything is posted, and one already
+carrying a finish line for this item is skipped. No ledger, no cursor and no field on any
+artifact — a store would have to survive a fresh container, which is the property this loop has
+repeatedly failed to keep. The shape and its bounds are `workaholic:notify`'s, carried
+byte-identical into `commands/infinite-development.md`, which is the ceiling the run reads.
+
 ## Permission prompts are off in this session
 
 An unattended run never waits for a person (`rules/interaction.md`). The session runs with

@@ -83,6 +83,7 @@ const SCRIPTS = {
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
   stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
   reconcileCandidates: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"),
+  listUnannouncedClosedAsks: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"),
   stepThreadReconcile: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
@@ -21780,6 +21781,48 @@ function testOneSessionLoop() {
   const receipt = (t) => { const m = t.match(/```\n(📥 受理 [^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
   assertTrue("the tick carries the receipt with a reply line", receipt(tick) !== "", "missing from infinite-development.md");
   assertEq("and the catalog carries it byte-identically", receipt(catalog), receipt(tick));
+
+  // THE FINISH LINE FOR AN ASK THAT LANDED OUTSIDE A UNIT (2026-09-03, mission
+  // `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). The shape and every
+  // bound stated with it live in two files, and the two must not drift by one byte: the catalog
+  // decides the shape, the command is the ceiling a routine-fired session actually reads.
+  const finish = (t) => {
+    const i = t.indexOf("```\n🟢 Implemented [<ask title>](<issue url>)");
+    if (i < 0) return "";
+    const j = t.indexOf("never a second wording.\n", i);
+    return j < 0 ? "" : t.slice(i, j + "never a second wording.\n".length);
+  };
+  assertTrue("the tick carries the outside-a-unit finish line", finish(tick) !== "",
+    "missing from infinite-development.md");
+  assertEq("and the catalog carries it byte-identically", finish(catalog), finish(tick));
+
+  // NO FIFTH FINISH COLOUR. The shape reuses 🟢 Implemented and is marked by its sentence —
+  // the precedent `thread-reconcile` set — so a channel reader's vocabulary does not grow.
+  assertTrue("the shape reuses the green circle rather than minting a colour",
+    /reuses `🟢 Implemented`/u.test(finish(tick)), finish(tick).slice(0, 200));
+
+  // THE BOUNDS ARE STATED WITH THE SHAPE, not left to a reader to infer. Each is a refusal.
+  for (const [what, re] of [
+    ["no mention token", /No mention token/],
+    ["a reply and never a root", /A reply, never a root/],
+    ["once ever per item", /Once ever per item/],
+    ["the connector as the only transport", /The connector carries it, and nothing else does/],
+    ["an unresolvable field stated as unresolved", /stated as unresolved/],
+  ]) assertTrue(`the shape states ${what}`, re.test(finish(tick)), what);
+
+  // THE READER EMITS NO UNCLASSIFIED OUTCOME WORD, the pattern the claim vocabularies use:
+  // every word the tick may report for a candidate is named in the ceiling, and the ceiling
+  // names no word the run has no way to produce.
+  const OUTCOMES = ["announced", "already_announced", "thread_unresolved", "post_failed", "held",
+    "no_candidates"];
+  for (const w of OUTCOMES)
+    assertTrue(`the ceiling names the outcome ${w}`, tick.includes(w), w);
+  const reader = readFileSync(
+    P("plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"), "utf8");
+  for (const w of ["stems_unresolvable", "timeline_unreadable", "gh_unavailable",
+    "slug_unresolved", "list_failed"])
+    assertTrue(`the reader's own word ${w} is documented in its header`,
+      reader.split("set -eu")[0].includes(w), w);
 }
 
 
@@ -33566,6 +33609,282 @@ function testReconcileCandidates() {
     const src = readFileSync(SCRIPTS.reconcileCandidates, "utf8");
     assertTrue("the reader reaches GitHub only through gh-rest.sh",
       !/\bgh (issue|pr|repo|api)\b/.test(src.replace(/^#.*$/gm, "")), "a direct gh call");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// ---------------------------------------------------------------------------
+// THE ITEM GRAIN (2026-09-03, mission
+// `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). The reader above
+// answers *which PULL REQUEST*; this one answers *which ITEM*, which is the only grain that
+// can see an ask whose work landed without a `work-*` branch ever existing.
+//
+// The load-bearing assertions are the negative ones: a closed issue that is not an ask is not
+// a candidate, a `-` prefix number never borrows another issue's record, and an unreadable
+// listing is never rendered as *nothing to announce*.
+T("propose/list-unannounced-closed-asks.sh: the finished asks whose thread never heard", testListUnannouncedClosedAsks);
+function testListUnannouncedClosedAsks() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-unannounced-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const read = (args = "") => JSON.parse(execSync(
+    `sh ${SCRIPTS.listUnannouncedClosedAsks} --root ${repo} ${args}`,
+    { cwd: repo, env, encoding: "utf8" }));
+
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+
+    // Two records on the base. #917's ask landed outside `/implement` — the measured case —
+    // and #91 exists ONLY so the prefix trap has something to be caught on.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260903052643-an-ask-that-landed.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/917\n");
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260901010101-an-older-ask.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/91\n");
+    // The generated index names every record and must never be mistaken for one.
+    writeFileSync(join(repo, ".workaholic/feedbacks/index.md"),
+      "# Feedbacks\n\n- issues/917\n- issues/91\n");
+
+    const issue = (number, extra = {}) => ({
+      number,
+      closed_at: "2026-09-02T20:32:35Z",
+      html_url: `https://github.com/acme-org/source-repo/issues/${number}`,
+      title: `[FB] ask ${number}`,
+      body: "kind: instruction / source: slack / subject: person:YO\n",
+      ...extra,
+    });
+    // `gh api` APPLIES ITS `--jq` PROGRAM TO THE RESPONSE, so the stub must too. A stub that
+    // printed the raw JSON would exercise a shape the real transport never produces, and the
+    // reader's own extraction — the `slack-ref:` scan, the `-` sentinel every field carries,
+    // and the timeline's merged-only filter — would go untested. The program is read off the
+    // argv the script actually passed, and the fixture is chosen by the endpoint, because the
+    // reader now makes three kinds of call and one canned body cannot answer all three.
+    //
+    // AN ABSENT FIXTURE IS AN EMPTY ANSWER, NOT A REFUSED READ: a timeline nobody staged means
+    // *no cross-reference*, which is exactly the `closed_unmerged` case. A refused read is
+    // staged deliberately, by installing a failing `gh` instead.
+    const FIX = join(tmp, "fix");
+    mkdirSync(FIX, { recursive: true });
+    writeFileSync(join(FIX, "empty-array.json"), "[]");
+    writeFileSync(join(FIX, "empty-object.json"), "{}");
+    const fixture = (name, value) =>
+      writeFileSync(join(FIX, `${name}.json`), JSON.stringify(value));
+    const GH_STUB = [
+      'prog=""; url=""',
+      'while [ $# -gt 0 ]; do',
+      '  case "$1" in',
+      '    --jq) prog="$2"; shift 2 ;;',
+      '    repos/*) url="$1"; shift ;;',
+      '    *) shift ;;',
+      '  esac',
+      'done',
+      `FIX=${FIX}`,
+      'f=""',
+      'case "$url" in',
+      '  *"/timeline"*) n=$(printf "%s" "$url" | sed -e "s#.*/issues/##" -e "s#/timeline.*##");',
+      '    f="$FIX/timeline-$n.json"; [ -f "$f" ] || f="$FIX/empty-array.json" ;;',
+      '  *"/pulls/"*) n=$(printf "%s" "$url" | sed -e "s#.*/pulls/##" -e "s#[?].*##");',
+      '    f="$FIX/pull-$n.json"; [ -f "$f" ] || f="$FIX/empty-object.json" ;;',
+      '  *"/issues?"*) f="$FIX/issues.json" ;;',
+      'esac',
+      '[ -n "$f" ] && [ -f "$f" ] || { echo "no fixture for $url" >&2; exit 1; }',
+      'jq -r "$prog" < "$f"',
+    ].join("\n");
+    // The dispatcher lives in its own file so a test that wants ONE endpoint to fail can chain
+    // to it. Inlining it into a `sh -c "..."` would let the outer shell expand `$1` and `$prog`
+    // before the inner one ever saw them.
+    const GH_REAL = join(tmp, "gh-real.sh");
+    writeFileSync(GH_REAL, `#!/bin/sh\n${GH_STUB}\n`);
+    chmodSync(GH_REAL, 0o755);
+    const serve = (issues) => { fixture("issues", issues); stub(`exec ${GH_REAL} "$@"`); };
+    // A merged cross-reference, in the shape the timeline endpoint returns it.
+    const crossRef = (number, title, mergedAt) => ({
+      event: "cross-referenced",
+      source: {
+        issue: {
+          number,
+          title,
+          html_url: `https://github.com/acme-org/source-repo/pull/${number}`,
+          pull_request: { merged_at: mergedAt },
+        },
+      },
+    });
+
+    // 1. THE MEASURED CASE. A closed ask whose record is on the base resolves to its stem.
+    serve([issue(917)]);
+    let r = read();
+    assertEq("a closed ask resolves through the record on the base",
+      [r.ok, r.candidates.length, r.candidates[0].number, r.candidates[0].stem],
+      [true, 1, 917, "20260903052643-an-ask-that-landed"]);
+    assertEq("...carrying its URL, title and close time",
+      [r.candidates[0].url, r.candidates[0].title, r.candidates[0].closed_at],
+      ["https://github.com/acme-org/source-repo/issues/917", "[FB] ask 917", "2026-09-02T20:32:35Z"]);
+
+    // 2. THE SWEEP'S OWN MARKER IS THE OTHER TERM, and it qualifies on its own.
+    serve([issue(500, { body: "kind: ask / source: slack\nslack-ref: C123ABC:1756880000.123456\n" })]);
+    r = read();
+    assertEq("a sweep-captured ask with no record on the base is named, never dropped",
+      [r.candidates.length, r.unresolved.length, r.unresolved[0].number, r.unresolved[0].reason],
+      [0, 1, 500, "stems_unresolvable"]);
+    assertTrue("...and its marker was what qualified it",
+      /slack-ref/.test(readFileSync(SCRIPTS.listUnannouncedClosedAsks, "utf8")), "the marker term is gone");
+
+    // 3. A CLOSED ISSUE THAT IS NOT AN ASK IS NOT THIS READER'S SUBJECT. It is not a
+    //    candidate, not an `unresolved` row, and not counted — matching neither term.
+    serve([issue(700, { body: "just an ordinary closed issue\n" })]);
+    r = read();
+    assertEq("a closed issue matching neither term is not a candidate at all",
+      [r.candidates.length, r.unresolved.length, r.read], [0, 0, 0]);
+
+    // 4. THE PREFIX TRAP. `issues/91` is a prefix of `issues/917`, and a substring match would
+    //    hand #91's thread key to #917 — a wrong thread, which `workaholic:notify` calls worse
+    //    than none. The right-hand bound is what this asserts.
+    serve([issue(917), issue(91)]);
+    r = read();
+    const byNumber = Object.fromEntries(r.candidates.map((c) => [c.number, c.stem]));
+    assertEq("a shorter issue number never borrows a longer one's record",
+      [byNumber[917], byNumber[91]],
+      ["20260903052643-an-ask-that-landed", "20260901010101-an-older-ask"]);
+
+    // 5. A PULL REQUEST SHARES THE ENDPOINT AND IS NOT AN ISSUE.
+    serve([issue(917), issue(918, { pull_request: { url: "x" } })]);
+    r = read();
+    assertEq("a pull request on the issues endpoint is dropped",
+      [r.candidates.length, r.candidates[0].number], [1, 917]);
+
+    // 6. THE BOUND IS REPORTED, NEVER SILENT.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260903052644-second.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/918\n");
+    serve([issue(917), issue(918)]);
+    r = read("--limit 1");
+    assertEq("a listing past the limit reports truncated rather than cutting silently",
+      [r.read, r.truncated, r.candidates.length], [1, true, 1]);
+    r = read("--limit 5");
+    assertEq("...and within the limit it is not truncated",
+      [r.read, r.truncated], [2, false]);
+
+    // 7. AN UNREADABLE READ IS NEVER AN EMPTY ONE. This is the collapse the reader exists to
+    //    refuse: `ok: false` with a reason, exit 0, and NO candidate list to be misread.
+    for (const [body, reason] of [
+      [`echo "boom" >&2; exit 1`, "list_failed"],
+      [`echo "gh is not on PATH" >&2; exit 127`, "list_failed"],
+    ]) {
+      stub(body);
+      const deg = read();
+      assertEq(`a refused listing degrades by name (${reason})`, [deg.ok, deg.reason], [false, reason]);
+      assertTrue("and emits no candidate list at all", deg.candidates === undefined, JSON.stringify(deg));
+    }
+
+    // 8. WHAT LANDED (2026-09-03, ticket
+    //    `20260903052915-carry-what-landed-onto-each-unannounced-closed-ask`). The keep terms
+    //    name the ITEM; these name what CLOSED it, which is the half a finish line says out
+    //    loud. The timeline carries every field but `merged_by`, which lives only on the
+    //    single-pull GET.
+    fixture("timeline-917", [
+      { event: "assigned" },
+      crossRef(922, "[Proposal] an ask that landed", "2026-09-02T20:32:34Z"),
+      { event: "closed" },
+    ]);
+    fixture("pull-922", { merged_by: { login: "a-merger" } });
+    serve([issue(917)]);
+    r = read();
+    assertEq("a candidate carries the merged pull request that closed it",
+      [r.candidates[0].landed.length, r.candidates[0].landed[0].number,
+       r.candidates[0].landed[0].merged_at, r.candidates[0].landed[0].merged_by],
+      [1, 922, "2026-09-02T20:32:34Z", "a-merger"]);
+    assertEq("...with its title and URL, so the sentence needs no second read",
+      [r.candidates[0].landed[0].title, r.candidates[0].landed[0].url],
+      ["[Proposal] an ask that landed", "https://github.com/acme-org/source-repo/pull/922"]);
+    assertEq("...and a landed item is not closed_unmerged",
+      [r.candidates[0].closed_unmerged, r.candidates[0].landed_read], [false, "ok"]);
+
+    // AN UNMERGED CROSS-REFERENCE IS NOT A LANDING. A pull request that mentioned the issue
+    // and was closed did not close it, and announcing it as what landed would be a lie about
+    // a real pull request number.
+    fixture("timeline-917", [
+      crossRef(922, "[Proposal] an ask that landed", null),
+      { event: "closed" },
+    ]);
+    serve([issue(917)]);
+    r = read();
+    assertEq("an unmerged cross-reference is filtered, and the item reads hand-closed",
+      [r.candidates[0].landed.length, r.candidates[0].closed_unmerged], [0, true]);
+
+    // A PERSON CLOSED IT. No cross-reference at all is a different sentence from a merge, and
+    // the reader must be able to say which.
+    fixture("timeline-917", [{ event: "closed" }]);
+    serve([issue(917)]);
+    r = read();
+    assertEq("an issue closed with nothing merged says so positively",
+      [r.candidates[0].landed.length, r.candidates[0].closed_unmerged,
+       r.candidates[0].landed_read], [0, true, "ok"]);
+
+    // ONE PULL REQUEST CROSS-REFERENCING TWICE IS ONE LANDING.
+    fixture("timeline-917", [
+      crossRef(922, "[Proposal] an ask that landed", "2026-09-02T20:32:34Z"),
+      crossRef(922, "[Proposal] an ask that landed", "2026-09-02T20:32:34Z"),
+    ]);
+    fixture("pull-922", { merged_by: { login: "a-merger" } });
+    serve([issue(917)]);
+    r = read();
+    assertEq("a repeated cross-reference is counted once", r.candidates[0].landed.length, 1);
+
+    // AN UNRESOLVABLE `merged_by` IS EMPTY, NEVER SUBSTITUTED — the other four fields, which
+    // the timeline carried, survive it intact.
+    fixture("pull-922", {});
+    serve([issue(917)]);
+    r = read();
+    assertEq("an unreadable merger is empty, and the rest of the landing survives",
+      [r.candidates[0].landed[0].merged_by, r.candidates[0].landed[0].number,
+       r.candidates[0].landed[0].merged_at],
+      ["", 922, "2026-09-02T20:32:34Z"]);
+
+    // THE PER-CANDIDATE READ IS BOUNDED, AND THE BOUND IS REPORTED.
+    fixture("timeline-917", [
+      crossRef(801, "one", "2026-09-02T01:00:00Z"),
+      crossRef(802, "two", "2026-09-02T02:00:00Z"),
+      crossRef(803, "three", "2026-09-02T03:00:00Z"),
+    ]);
+    serve([issue(917)]);
+    r = JSON.parse(execSync(
+      `sh ${SCRIPTS.listUnannouncedClosedAsks} --root ${repo}`,
+      { cwd: repo, env: { ...env, WORKAHOLIC_ANNOUNCE_LANDED_MAX: "2" }, encoding: "utf8" }));
+    assertEq("the landed read is capped and says it was capped",
+      [r.candidates[0].landed.length, r.candidates[0].landed_truncated], [2, true]);
+    r = read();
+    assertEq("...and within the cap it is not truncated",
+      [r.candidates[0].landed.length, r.candidates[0].landed_truncated], [3, false]);
+
+    // 9. AN UNREADABLE TIMELINE IS NOT AN UNMERGED ONE. This is the same collapse the reader
+    //    refuses at the listing grain, one field down: *nobody merged anything* and *I could
+    //    not see what merged* send a caller to different places, and only the first may be
+    //    announced.
+    stub([
+      'case "$*" in',
+      '  *timeline*) echo "boom" >&2; exit 1 ;;',
+      `  *) exec ${GH_REAL} "$@" ;;`,
+      'esac',
+    ].join("\n"));
+    r = read();
+    assertEq("an unreadable timeline is named, never rendered as hand-closed",
+      [r.candidates[0].landed.length, r.candidates[0].closed_unmerged,
+       r.candidates[0].landed_read], [0, false, "timeline_unreadable"]);
+
+    // 10. THE BOUNDS THE READER IS WRITTEN AGAINST, read off its own source.
+    const src = readFileSync(SCRIPTS.listUnannouncedClosedAsks, "utf8");
+    const code = src.replace(/^#.*$/gm, "");
+    assertTrue("the reader reaches GitHub only through gh-rest.sh",
+      !/\bgh (issue|pr|repo|api)\b/.test(code) && code.includes("gh-rest.sh"), code.slice(0, 300));
+    assertTrue("...and never through search, which a bound session refuses outright",
+      !/["' ]search\//.test(code), code.slice(0, 300));
+    assertTrue("...and makes no channel read of any kind",
+      !/slack_read|conversations\.|slack_search|notify-slack/.test(code), "a channel read appeared");
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

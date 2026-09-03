@@ -49,3 +49,4 @@ heartbeat commits, and ending a claim retires its liveness state without manual 
 - 2026-09-03 — ticket archived — 20260903222521-move-heartbeat-writes-and-claim-freshness-reads-onto-the-liveness-carrier.md
 - 2026-09-03 — ticket archived — 20260903222521-retire-claim-liveness-state-without-polluting-review-history.md
 - 2026-09-03 — mission achieved — mission.md
+- 2026-09-03 — story reported — work-20260903-225834.md

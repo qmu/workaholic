@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:21:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,35 @@ an `/implement` run to one PR-unit. The two are complementary and neither subsum
 unit per run is what makes several runners coherent rather than several long-lived contexts. If
 that mission has not landed, a fan-out multiplies the residency it removes — note the ordering in
 the pull request.
+
+## Final Report
+
+Development completed as planned. The concurrency rule is **narrowed, not dropped**: `propose`,
+`ingest` and `moderate` stay one agent per name, and `implement` spawns
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound − running)` runners, each under its own
+name (`implement-1`, `implement-2`, …), each in the background, each given
+`commands/implement.md` as its ceiling. **Absent means 1** — the present single runner — so a
+repository declaring nothing is byte-identical to one before this existed, and `bad_fanout` holds
+nothing and falls back to 1.
+
+**No runner is handed a unit.** Each surveys and claims for itself; the arbiter settles the race.
+Assigning at the tick would put a second allocator beside `plan-units.sh`'s order, and a tick that
+names a unit is naming an identifier it cannot see the state of. The cost is stated where the rule
+is: a losing race spends an agent run that produces nothing, bounded by the declared number.
+
+Only `running` runners count against the bound, so a fan-out does not compound across ticks. A
+degraded claimable reading yields **no** fan-out — one runner, exactly as before — reported
+`fanout_unreadable` with the reader's own word.
+
+The declaration itself is `WORKAHOLIC_IMPLEMENT_FANOUT` in `.claude/settings.json`, which is a
+separate ticket and a declared handoff: this change lands complete and inert until the operator
+adds the line.
+
+### Discovered Insights
+
+- **Insight**: The safety this rests on shipped a day earlier and for a different reason —
+  `claim.sh` §3b's create-only lease per claimed artifact (2026-09-02). Without it a fan-out would
+  be two runners driving one unit, which this repository measured for over an hour on 2026-08-30.
+  The fan-out is not a new safety argument; it is the first consumer of one already made.
+  **Context**: Worth knowing before anyone considers relaxing the arbiter.
+

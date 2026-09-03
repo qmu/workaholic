@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-145115
 ---
 
 # Stop a finished subagent and take the loop's clock off it

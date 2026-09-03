@@ -1417,7 +1417,7 @@ riding the **heading**, exactly as they did — the body's one sentence is reser
 
 | Key | Heading leads with | Body asks for |
 | --- | ------------------ | ------------- |
-| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *N item(s) landed and nothing is waiting; it reads finished* (or *finished except for work no direction claims*) — then *announce that it ended, or say it still stands.* |
+| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *nothing is waiting; it reads finished* (or *finished except for unclaimed work*) — then *announce that it ended, or say it still stands.* |
 | `direction-cutover:<slug>` | *`<title>`'s work is all in and it is still declared 進行中* — then the slug, what landed, the residue | *can it cut over now, or is something still holding it?* |
 | `direction-settled:<slug>` | *improving `<title>` has gone quiet* — then the slug, 改良中, the window nothing landed in | *is this observation now, or is there still work to do?* |
 | `direction-overdue:<slug>` | *`<title>` went past its date on `<target_date>`* — then the slug, the stage, the leaving | *re-date it, close it, or say it is still running.* |
@@ -1449,9 +1449,13 @@ morning's thread:
    repository rather than about the subject.
 
 **And the `arrived` body states a reading rather than offering a bare choice.** It said a count and
-asked; every other part of this loop states a judgement and lets a person veto it. It now names what
-landed and says whether the evidence **reads finished** — a reading, never a verdict: nothing closes
-a direction but the operator announcement, and that rule does not move.
+asked; every other part of this loop states a judgement and lets a person veto it. It now says
+whether the evidence **reads finished** — a reading, never a verdict: nothing closes a direction but
+the operator announcement, and that rule does not move. **What landed and when stays on the
+heading**, which is rule 5 of the composition contract and is also what keeps the sentence inside
+the ceiling: the first wording repeated the count into the body and ran to 26 words, one over, and
+the residue variant would have run to 30. Without it the two branches are 20 and 24 words, and
+`verify-arrival`'s `arrival_body_describes_the_reading` row measures them.
 
 **What is refused here**: leading with `arrived`, `dormant`, `quiescent`, `expiring` or
 `overdue`. Those are the loop's readings, not the operator's facts — `quiescent` in particular

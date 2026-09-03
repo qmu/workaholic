@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260903-160624](work-20260903-160624.md) - Agree the squash-body and verification-probe JSON escapers on raw UTF-8, dropping the sed rung that could never match them
 * [work-20260903-151729](work-20260903-151729.md) - A deployment record's non-ASCII title now reaches the drafted Deployment Plan as characters instead of \uXXXX escape sequences, and the three interpreter fallbacks that serialise it agree byte for byte
 * [work-20260903-145115](work-20260903-145115.md) - A finished subagent is now stopped at the head of the tick and the loop's clock moved onto a recorded finish, so an idle run no longer has to be kept alive to tell the time — and an /implement run takes one PR-unit
 * [work-20260903-142217](work-20260903-142217.md) - A tick now pays for what it does — the cadence gate reads one line instead of the day, the command's record moved out of the body, a result reaches the parent once, and a tick that did nothing says one line

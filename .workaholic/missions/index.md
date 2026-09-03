@@ -5,7 +5,6 @@
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
-* [stop-a-finished-subagent-and-take-the-loop-s-clock-off-it](active/stop-a-finished-subagent-and-take-the-loop-s-clock-off-it/mission.md) - Stop a finished subagent and take the loop's clock off it
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 
 ## archive
@@ -122,6 +121,7 @@
 * [settle-a-mergeability-reading-before-it-becomes-a-question](archive/settle-a-mergeability-reading-before-it-becomes-a-question/mission.md) - Settle a mergeability reading before it becomes a question
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
+* [stop-a-finished-subagent-and-take-the-loop-s-clock-off-it](archive/stop-a-finished-subagent-and-take-the-loop-s-clock-off-it/mission.md) - Stop a finished subagent and take the loop's clock off it
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
 * [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit

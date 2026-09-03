@@ -160,25 +160,43 @@ Report every held candidate with its own word, so a quiet tick and a blind one a
 
 ## 2. Spawn the work, and do not wait for it
 
-Call `ListAgents` once. It is the whole record — no cursor, no lock file, no stored state — and
-it answers every question below, because a finished subagent stays listed as **idle** carrying
-the age it started at.
+Call `ListAgents` once. It answers **exactly one question**: is this loop still running.
 
 **A loop whose subagent is still `running` is not spawned again.** That is the concurrency rule
 and it has not moved.
 
-**An `idle` one is a finished run, and it is reaped before anything is spawned** — `TaskStop`
-with that loop's own name. Nothing is discarded: the run is over and its result already arrived
-as a task notification. A tick that skips this leaves one corpse per tick in the very listing
-the concurrency rule has to read, and the next spawn cannot even take its own name.
+**Every `idle` subagent is stopped at the HEAD of this tick, unconditionally** — `TaskStop` with
+that loop's own name, before the cadence is read, before anything is spawned, and **whatever any
+cadence says**. An idle agent is **not a corpse**: it is a resumable session holding its whole
+transcript, and a send resumes it inside that context — measured twice in one session. Stopping it
+is the only act that actually returns the context window, which is the operator's intent: a
+finished run holds none. **Record each stop first** (below), then stop it; the listing that the
+concurrency rule reads then carries **running runs only**.
 
-**An idle one is also this loop's own clock**, which is why it is reaped at the spawn and not at
-the finish. `started N ago` is when that run began, so a loop with a cadence needs no timestamp
-of its own: an idle agent **younger** than the cadence is left standing and the loop reports
-`not_due`; an **older** one is reaped and respawned. Stated cost: the age is measured from the
-start of the previous run rather than its finish, so a run that took four minutes is respawned
-four minutes sooner than the cadence reads. Absent listing — a session just restarted — means
-every loop is due.
+**Record the finish before stopping it**, one line per loop, through the writer the tick log
+already has:
+
+```
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-append.sh --tick <this tick's id>   --step loop-finish-<name> --status ok --summary "<name> finished"
+```
+
+It is written by the tick that **first observes the run idle** — the same tick that is about to
+stop it — so there is no second walk and no new store. `log-append.sh` is idempotent per
+`(tick, step)`, so observing the same idle agent twice in one tick writes one line.
+
+**The cadence is read from that recorded finish, never from a live agent's `started` age**, which
+is what used to make the idle agent load-bearing and force the reaping to wait for the next spawn:
+
+```
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-<name> --latest-tick
+```
+
+The tick id it answers **is** the finish time. A loop whose recorded finish is older than its
+cadence is **due**; one younger is `not_due`. **No recorded finish means due** — a fresh session,
+a first run, or a log this tick could not read, all of which must start the loop rather than
+silence it. `started N ago` is read by nothing now, which also retires its stated cost: the
+cadence measured the previous run's start **plus its whole duration**, so the fifteen-minute
+`propose` loop respawned at ages of 21, 31 and 45 minutes.
 
 | Name | Cadence | Preloads | Runs |
 | ---- | ------- | -------- | ---- |
@@ -247,6 +265,13 @@ that this mission's archive is non-empty.
   stopped. A loop that was `still_running` or `not_due` gets **no line** — the gate working is not
   news, and the majority of ticks are that. Where **every** loop was quiet, say so in one line
   (`loops: none due`) rather than three.
+- **Every reaping is named** — `reaped: <name>` — even on a tick that spawns nothing, because
+  stopping a session is an act the tick took and the listing afterwards is the only other evidence.
+- **The cadence's own source is named where a loop was skipped**: `not_due: <name> (finish
+  recorded <age>)`, or `not_due: <name> (finish unrecorded — treated as due)` — which cannot occur,
+  and saying so is how a later reader learns the absence means *due*. A log this tick **could not
+  read** is named as unreadable (`cadence_unreadable: <reason>`) and the loop is spawned: a
+  degraded read is never rendered as a healthy `not_due`, which is this loop's standing rule.
 - **Progress**, from the reading that has landed: the queue total, then one line per active
   mission carrying queued work — acceptance `checked/total` and tickets left — and the
   origination gate's next answer with what has to clear for it to open. Name when the reading

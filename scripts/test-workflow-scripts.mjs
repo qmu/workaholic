@@ -21699,6 +21699,59 @@ function testMergeMethodIsSingleSourced() {
     "a log-committing subject is back; the log branch is retired");
 }
 
+// ---------- a finished subagent is stopped and the clock is off it (2026-09-03) ----------------
+// The operator's intent is that a subagent is discarded when its work finishes, so every run starts
+// on a fresh context window. The tick specified the OPPOSITE: an idle agent was the loop's clock, so
+// it was kept alive until the next spawn. MEASURED twice in one session -- a send woke an idle agent
+// inside its prior context; an idle agent is a resumable session, not a corpse. And nothing bounded
+// a run: one `implement` agent lived 90 minutes, landed an eight-ticket mission, then claimed a
+// SECOND unrelated one and planned it inside a context still carrying the whole of the first.
+//
+// WHAT IS PINNED is prose in three ceilings, and the assertions say so: none of this is a script, so
+// what is checkable is that each rule is present where the run reads it.
+T("a finished subagent is stopped and the clock is off it", testSubagentReaping);
+function testSubagentReaping() {
+  const tick = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+
+  // THE REAPING IS UNCONDITIONAL AND AT THE HEAD -- not "before the spawn", which is what made the
+  // idle agent load-bearing.
+  assertTrue("every idle subagent is stopped at the head of the tick",
+    /stopped at the HEAD of this tick, unconditionally/.test(tick), "the reaping still waits");
+  assertTrue("and the reason is that it is a resumable session, not a corpse",
+    /resumable session holding its whole\s+transcript/.test(tick), "the reason is unstated");
+
+  // THE CLOCK IS A RECORDED FINISH. Both halves must be present: the write and the read.
+  assertTrue("the finish is recorded through the existing log writer",
+    /log-append\.sh/.test(tick) && /loop-finish-/.test(tick), "no finish is recorded");
+  assertTrue("and the cadence is read from it",
+    /--step-prefix loop-finish-.*--latest-tick/.test(tick), "the cadence reads no finish");
+  assertTrue("an absent finish means DUE, never silence",
+    /No recorded finish means due/.test(tick), "an absent finish is unspecified");
+  assertTrue("and `started` is no longer the clock",
+    /`started N ago` is read by nothing now/.test(tick), "the agent is still the clock");
+
+  // THE REPORT NAMES THE SOURCE AND EVERY REAPING -- three invisible rules need one surface.
+  assertTrue("every reaping is named", /Every reaping is named/.test(tick), "reapings are silent");
+  assertTrue("and the cadence's source is named where a loop was skipped",
+    /finish\s+recorded/.test(tick), "the source is unnamed");
+  assertTrue("and an unreadable log is never rendered as a healthy not_due",
+    /cadence_unreadable/.test(tick), "a degraded read reads healthy");
+
+  // ONE PR-UNIT PER RUN, in the ceiling the unattended run reads and in the skill it preloads.
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
+  assertTrue("the /implement ceiling bounds a run to one PR-unit",
+    /claims ONE PR-unit/.test(impl), "the run is unbounded");
+  assertTrue("and says what that costs", /drains over more ticks/.test(impl), "the cost is hidden");
+  assertTrue("and that the terminal token does not move",
+    /token does not move/.test(impl), "the token rule is unstated");
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the drive skill carries the same bound",
+    /one unit is also the whole run/.test(drive), "the skill still says keep going");
+  // AN ATTENDED RUN IS UNCHANGED -- a person is present and chose what to take.
+  assertTrue("and exempts the attended entry point by name",
+    /attended `\/drive` is unchanged/.test(drive), "the attended run was bound too");
+}
+
 // ---------- a tick pays only its operative cost (2026-09-03) -----------------------------------
 // The loop runs in ONE session that never resets, so the tick's fixed per-tick cost is the number
 // that matters and it was larger than the work most ticks do. MEASURED over two hours: ~23 ticks,

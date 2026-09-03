@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:10:53+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -69,3 +70,36 @@ exists to prevent, and the only one the current rules cannot reach.
 
 The report's `N units: X shipped, Y PR'd, Z blocked` reconciliation still reads correctly with
 N=1; nothing in the `/goal /implement ok` contract assumes N>1.
+
+## Final Report
+
+**Outcome**: implemented, in the ceiling and in the skill.
+
+**An `/implement` run claims one PR-unit, drives it to its routed end, reports, and ends.** It does
+not survey again for a second. If the offer still holds work, that is the next tick's run, on a
+fresh context.
+
+**The bound is on claiming a second unit, not on the run's other work** — stated explicitly, because
+the run does several things that touch *other* units' claims and none of them claims or drives: the
+freshen, the survey, the once-per-run readings, a catch-up, a delivery retry, a stranded
+publication. Bounding those would strand exactly the work those acts exist to unstick.
+
+**The cost is stated rather than hidden**: the loop lands one unit per tick, so a full queue drains
+over more ticks. That is the trade the ask makes — a plan made inside a context carrying an
+unrelated mission is worse than a plan made an hour later on a clean one.
+
+**The terminal token does not move**, and saying so was necessary: a run that drives its one unit
+cleanly and leaves a claimable offer behind still reports `pending` through §7's survey row, exactly
+as before. `ok` still means *nothing claimable remains*, and a reader must not take the new bound as
+licence to call a bounded run `ok`.
+
+**An attended `/drive` is exempt by name.** A person is present and chose what to take, which is the
+whole difference; the fresh-context concern is about an unattended runner nobody is watching.
+
+**A note on the run that implemented this.** This very `/implement` run drove **six** units before
+reaching this ticket, under an explicit instruction to drain the offer. That is not a violation —
+the rule lands with this merge and did not exist while the run was driving — but it is the exact
+behaviour the ticket forbids, observed once more, and the next tick's run will be the first bounded
+one.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

@@ -13,6 +13,32 @@ skills:
 
 Run the preloaded `workaholic:drive` skill's **Unified Run** section end to end. This is the **unattended** entry point — the one the `[Implement]` routine and every caller-side loop invoke: **no `AskUserQuestion` anywhere, at any step**; a decision the run cannot make is deferred and recorded in the final report, never asked. It **never overrides a gate** (a `secret` hard-stops; a `size`/`leak` block or a missing confirmation method demotes to the PR path, reported with the gate that caused it) and never calls `land-unit.sh`. `$ARGUMENTS`, when present, names one unit (a mission slug or a ticket path) — a scope, not a mode. End with the reconciliation line and the terminal token derived from the skill's §7 table — the `/goal /implement ok` caller contract, never self-graded.
 
+## One PR-unit, then end
+
+**An `/implement` run claims ONE PR-unit, drives it to its routed end, reports, and ends** (2026-09-03,
+mission `stop-a-finished-subagent-and-take-the-loop-s-clock-off-it`). It does not survey again for a
+second unit. If the offer still holds work, that is the **next tick's** run, on a fresh context.
+
+**Why, measured**: one `implement` agent lived one hour thirty minutes, landed a mission of eight
+tickets, then claimed and began a **second, unrelated** mission and planned it inside a context still
+carrying the whole of the first. The concurrency rule permits one runner and nothing bounded what
+that runner did inside its own context — this is the case the fresh-context intention exists to
+prevent and the only one the other rules cannot reach.
+
+**What it costs, stated**: the loop lands one unit per tick rather than as many as one context can
+hold, so a full queue drains over more ticks. That is the trade the operator asked for — a plan made
+inside a context carrying an unrelated mission is worse than a plan made an hour later on a clean
+one.
+
+**The terminal token does not move.** A run that drove its one unit cleanly and leaves a claimable
+offer behind still reports `pending` by §7's survey row, exactly as it always did: the queue is not
+empty, and the token says so. `ok` still means *nothing claimable remains*.
+
+**Everything before the claim is unchanged** — the freshen, the survey, the once-per-run readings and
+every act on another unit's claim (a catch-up, a delivery retry, a stranded publication) still run,
+because none of them claims a unit or drives a ticket. The bound is on **claiming a second unit**,
+not on the run's other work.
+
 ## What this run reports about the base
 
 **The base's health is read once per run, and a suite that never ran is named beside the colour** (2026-09-03, mission `make-a-red-base-impossible-for-the-loop-to-miss`). `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/read-base-checks.sh <tip> --declared` answers `green` / `red` / `unanswerable` **and** `unverified[]`, the declared workflows with no run on that commit. Report both: a degraded read is reported as degraded and **never as green**, a degraded declared-read (`unverified_readable: false`) is named by its reason and **never as *every declared suite ran***, and an unverified suite **moves no token** — it is a fact about the repository rather than about the unit this run drove.

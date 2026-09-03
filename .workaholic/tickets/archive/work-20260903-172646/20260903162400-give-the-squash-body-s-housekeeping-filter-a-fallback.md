@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-03T16:24:00+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: 20260903053327-draft-deploy-plan-sh-renders-non-ascii-target-titles-as-escape-sequences.md
 merge_policy:
 verification_handoff: 
+claim: work-20260903-172646
 ---
 
 # Give the squash body's housekeeping filter a fallback
@@ -82,3 +84,35 @@ each other and explicitly declined to compare the subject list across them, nami
 - The two `pr_json` parsers a few lines above have the same `python3`-only shape. They already fall
   back to an empty string and set `lookup_reason`, so they degrade *and say so* — which is the
   behaviour this ticket is asking the filter to reach, and they may not need changing.
+
+## Final Report
+
+Development completed as planned. The filter was given no fallback rung — the interpreter was
+removed instead, so the two paths that could disagree no longer exist. Reproduced first (with
+`python3` present the composer returned the description and the commit list; with it shimmed to
+exit 127, the description alone, `source` still `story`, `reason` still empty), then repaired,
+then re-run: the whole body is now byte-identical across both.
+
+### Discovered Insights
+
+- **Insight**: The escaper's answer to this shape and the filter's are opposites, and both are
+  right. `json_escape()` pins three interpreters against each other because escaping a JSON
+  string is beyond `sed`; the housekeeping subtraction is set membership plus an
+  order-preserving dedupe, which is `case` and string append, so the honest repair is to delete
+  the dependency rather than to add rungs to it. Rungs approximate "one answer"; one path *is*
+  one answer.
+  **Context**: A later reader meeting a third `python3 -c` in this tree should ask which of the
+  two shapes it is before copying either repair.
+
+- **Insight**: `source` was computed with `description` tested first, so *the story resolved*
+  outranked *something I needed was missing* — which meant the pre-existing `no_commit_range`
+  reason was also unreachable whenever a story existed, not just the filter's new one. One
+  reordering fixed a defect the ticket did not know was there.
+  **Context**: Three-valued readings in this repository put the degradation ahead of the happy
+  answer for exactly this reason; this one had it backwards.
+
+- **Insight**: `json_escape()` still returns empty with all three of `python3`, `node` and `perl`
+  absent — its last rung is unguarded — so the composer emits `{"ok": true, "title": "", ...}`.
+  Not minted: this repository's own verification requires `node`, so the state is unreachable
+  where the loop runs, and a ticket for it would be a diary entry rather than an observed problem.
+  **Context**: Recorded here so a future measurement of that state starts from a known fact.

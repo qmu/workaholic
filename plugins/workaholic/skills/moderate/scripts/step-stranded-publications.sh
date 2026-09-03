@@ -142,7 +142,7 @@ stale=$(printf '%s' "$out" | jq -c --argjson h "$STALE_HOURS" '[.publications[]?
     | select((.age_hours|type) == "number" and .age_hours >= $h)]' 2>/dev/null || printf '[]')
 sn=$(printf '%s' "$stale" | jq 'length' 2>/dev/null || printf 0)
 
-summary="${total} open publication(s); ${n} colliding on content — the next [Implement] tick attempts each, and asks nobody"
+summary="${total} open publication(s); ${n} colliding on content — settling them belongs to an [Implement] run, not to this tick, which asks nobody about them"
 [ "$settleable" -eq 0 ] || summary="${summary}; ${settleable} settleable by the loop itself"
 [ "$sn" -eq 0 ] || summary="${summary}; ${sn} of those open long enough for its plan to be stale"
 [ "$unreadable" -eq 0 ] || summary="${summary}; ${unreadable} whose mergeability could not be read"
@@ -187,9 +187,9 @@ staleneeds=$(printf '%s' "$stalerows" | jq -c '{action: "ask_the_publication_aut
 # person", which was the deferral in the root's own voice; the next `[Implement]` tick attempts
 # every one of these.
 if [ "$n" -eq 1 ]; then
-    event="a published artifact collides with the base; the next [Implement] tick attempts it"
+    event="a published artifact collides with the base"
 elif [ "$n" -gt 1 ]; then
-    event="${n} published artifacts collide with the base; the next [Implement] tick attempts each"
+    event="${n} published artifacts collide with the base"
 else
     event=""
 fi

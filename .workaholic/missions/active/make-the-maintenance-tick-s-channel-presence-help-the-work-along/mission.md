@@ -51,3 +51,4 @@ subject, and no rendered line describes the tick's machinery.
 - 2026-09-03 — ticket archived — 20260903101320-keep-a-repository-wide-fact-out-of-a-per-direction-question-body.md
 - 2026-09-03 — ticket archived — 20260903101320-take-the-tick-s-own-counters-out-of-a-question-addressed-to-a-person.md
 - 2026-09-03 — ticket archived — 20260903101320-keep-the-tick-s-internals-out-of-every-rendered-post.md
+- 2026-09-03 — ticket archived — 20260903101321-state-an-impairment-once-in-the-root-or-the-digest-and-not-in-both.md

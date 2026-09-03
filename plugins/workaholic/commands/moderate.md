@@ -49,6 +49,8 @@ The root's shape — no mention token of any kind:
 <session URL>
 ```
 
+**An impairment is stated once, on the root, and never again in the digest** (2026-09-03, mission `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). Measured: the same three `⚠️` lines appeared on the root and again, verbatim, at the bottom of the `📣` digest thirty-eight minutes later — and the one line worth breaking silence for, `base-health` unable to read the base's checks, arrived as the fourth bullet of a digest in the same weight as a commit count. **The root is where a reader acts on it**, because it is the message the impairment itself can open; the digest reports where the work stands and carries no `⚠️` line at all. On a morning tick the digest is rendered **above** the impairment lines in the same root, so the reader meets it once, in the place that can be acted on.
+
 **Nothing the tick knows about itself reaches a rendered post** (2026-09-03, mission `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). `render-tick-post.sh` prints none of it — its own header records that the dedup token is derived and never rendered — so the internals enter **here**, at the composing surface, where this command turns a step's payload into a message. Measured on one morning's root: a printed `tick-day:20260903`, and a sentence explaining which internal step would have handled a thing the tick decided not to say.
 
 So a rendered post carries **none** of the following, on the root, on a question, on a confirmation or on a reconciliation reply alike:
@@ -57,7 +59,7 @@ So a rendered post carries **none** of the following, on the root, on a question
 - **a step id or a step name** — `base-health`, `direction-health`, `human-checkin`. A reader of the channel has no model of *steps*, which are this loop's own machinery.
 - **a counter about the tick** — how many candidates it held, how many it delivered, how many it will leave, what its counters would read afterwards. What happened in the repository is news; what the tick's bookkeeping now holds is not.
 - **a sentence about a step's own reasoning** — which internal step would have handled something, why one was skipped, what the tick decided not to say. Say the thing or do not; explaining the omission is the machinery talking about itself.
-- **a promise no step must keep** — *the loop will follow up*, *this will be re-checked next hour*. No step is bound by it, so it is a commitment nobody made.
+- **a promise no step must keep** — *the loop will follow up*, *this will be re-checked next hour*, *the next `[Implement]` tick will try this*. No step is bound by it, so it is a commitment nobody made. **Measured**: the tick said twice in one morning that the next `[Implement]` tick would resolve each conflict itself, across many ticks while nothing tried — those units were excluded from claiming, and the tick could not have known, because the executor's order is `plan-units.sh`'s and no step here may reach it. **Say what will happen only when the tick can derive it, and otherwise say what is true**: name whose act it is (*resolving this belongs to an `[Implement]` run rather than to this tick, which reads and does not merge*), never when it will happen.
 
 What a post carries instead is the repository's own facts and the act being asked for. The step payloads are already composed to that rule — `heading`, `body`, `event`, `summary` — so the composition here is a rendering, never a re-invention: adding a fact of your own at this surface is exactly how the internals got out.
 

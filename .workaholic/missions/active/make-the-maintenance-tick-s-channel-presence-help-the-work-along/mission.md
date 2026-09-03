@@ -49,3 +49,4 @@ subject, and no rendered line describes the tick's machinery.
 - 2026-09-03 — ticket archived — 20260903101320-ask-one-question-per-kind-naming-every-subject-not-one-per-subject.md
 - 2026-09-03 — ticket archived — 20260903101320-give-an-arrived-direction-question-what-the-direction-achieved-and-the-tick-s-reading.md
 - 2026-09-03 — ticket archived — 20260903101320-keep-a-repository-wide-fact-out-of-a-per-direction-question-body.md
+- 2026-09-03 — ticket archived — 20260903101320-take-the-tick-s-own-counters-out-of-a-question-addressed-to-a-person.md

@@ -40,7 +40,7 @@ subject, and no rendered line describes the tick's machinery.
       directions cost one reply. (#20260903101320-ask-one-question-per-kind-naming-every-subject-not-one-per-subject.md)
 - [x] Every question carries what the reader needs to answer it and no fact that is not about its
       subject. (#20260903101320-give-an-arrived-direction-question-what-the-direction-achieved-and-the-tick-s-reading.md)
-- [ ] No post carries a key, a step id, a counter about the tick, a repeated impairment line, or a
+- [x] No post carries a key, a step id, a counter about the tick, a repeated impairment line, or a
       promise no step must keep. (#20260903101320-keep-the-tick-s-internals-out-of-every-rendered-post.md)
 
 ## Changelog
@@ -50,3 +50,4 @@ subject, and no rendered line describes the tick's machinery.
 - 2026-09-03 — ticket archived — 20260903101320-give-an-arrived-direction-question-what-the-direction-achieved-and-the-tick-s-reading.md
 - 2026-09-03 — ticket archived — 20260903101320-keep-a-repository-wide-fact-out-of-a-per-direction-question-body.md
 - 2026-09-03 — ticket archived — 20260903101320-take-the-tick-s-own-counters-out-of-a-question-addressed-to-a-person.md
+- 2026-09-03 — ticket archived — 20260903101320-keep-the-tick-s-internals-out-of-every-rendered-post.md

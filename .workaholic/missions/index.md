@@ -4,7 +4,6 @@
 
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](active/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
 * [make-a-red-base-impossible-for-the-loop-to-miss](active/make-a-red-base-impossible-for-the-loop-to-miss/mission.md) - Make a red base impossible for the loop to miss
 * [make-the-maintenance-tick-s-channel-presence-help-the-work-along](active/make-the-maintenance-tick-s-channel-presence-help-the-work-along/mission.md) - Make the maintenance tick's channel presence help the work along
 * [pay-only-the-operative-cost-on-every-tick](active/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick
@@ -42,6 +41,7 @@
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](archive/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
 * [drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is](archive/drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is/mission.md) - Drive the work the loop wrote: one resolution of who a person is
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
+* [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](archive/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
 * [finish-a-proved-retirement-where-the-write-is-permitted](archive/finish-a-proved-retirement-where-the-write-is-permitted/mission.md) - Finish a proved retirement where the write is permitted
 * [finish-the-retirement-the-loop-cannot-complete](archive/finish-the-retirement-the-loop-cannot-complete/mission.md) - Finish the retirement the loop cannot complete
 * [follow-the-pull-requests-the-loop-opens-for-a-person](archive/follow-the-pull-requests-the-loop-opens-for-a-person/mission.md) - Follow the pull requests the loop opens for a person

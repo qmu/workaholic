@@ -2,7 +2,7 @@
 type: Mission
 title: Emit a mission only when there is a mid-term plan to hold
 slug: emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T05:36:16+09:00
 author: a@qmu.jp
@@ -51,3 +51,5 @@ record, and the run says which; and the scale is stated as what the container mu
 - 2026-09-03 — ticket archived — 20260903053713-report-the-mission-size-distribution.md
 - 2026-09-03 — ticket archived — 20260903053712-name-the-missions-already-below-the-floor.md
 - 2026-09-03 — ticket archived — 20260903053713-judge-whether-an-ask-has-a-mid-term-plan-in-it.md
+- 2026-09-03 — ticket archived — 20260903053713-update-the-documents-to-the-container-scale.md
+- 2026-09-03 — mission achieved — mission.md

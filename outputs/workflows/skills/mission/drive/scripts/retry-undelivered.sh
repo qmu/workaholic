@@ -122,8 +122,8 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || report false not_a_reposi
 # `list-claims.sh`'s JSON — the survey that offered this unit and the gate that acts on it must
 # not be able to disagree about a verdict.
 BASE="${WORKAHOLIC_BASE_BRANCH:-origin/main}"
-if git fetch --quiet origin >/dev/null 2>&1; then
-    CLAIMS_FETCH_OK=1
+if [ "$(claims_fetch)" = "true" ]; then
+    CLAIMS_FETCH_OK=true
     export CLAIMS_FETCH_OK
 fi
 ROWS=$(claims_scan "$BASE" 2>/dev/null || true)

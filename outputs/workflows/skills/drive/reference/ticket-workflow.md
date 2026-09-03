@@ -69,12 +69,17 @@ the project has decided to defer.
 
 ### 0. Beat the heartbeat
 
+`heartbeat.sh <unit-id>` advances the unit's separate remote liveness carrier before work starts.
+It does not commit to the work branch; a legacy claim without a carrier remains readable from its
+branch tip during the transition. A failed or unreadable carrier update is reported and never
+silently interpreted as expiry.
+
 ```bash
 bash ../drive/scripts/heartbeat.sh <unit-id>
 ```
 
 **The first act of every ticket, before reading it** (2026-08-31, ticket `20260831150500`). The
-heartbeat is the branch tip and the resume gate is
+resume gate reads the dedicated carrier, or the branch tip for a legacy claim, and is
 `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`, **default 30** — not the 24-hour
 `WORKAHOLIC_CLAIM_STALE_HOURS`, which is the *reported* staleness and governs nothing here.
 `archive.sh` beats for free, but only at the **end** of a ticket, so a unit of several short
@@ -102,9 +107,8 @@ naming it afterwards recovers none of it.
 a script beating on a schedule would be a second liveness authority beside the branch tip, which is
 the one oracle (`reference/claims.md`).
 
-A failed beat is **reported, never fatal** — the branch tip is a liveness signal, not a gate — and
-the beat adds no store, no cursor and no field on any artifact: it is the empty commit
-`heartbeat.sh` already makes against a scratch index.
+A failed beat is **reported, never fatal** — liveness is a signal, not a gate — and the beat adds
+no store, cursor, artifact field, or work-branch commit.
 
 **The one moment the beat does not apply: a merge in progress** (2026-09-02, ticket
 `20260902103500`). A run catching its branch up with the base is *between* tickets, and while that

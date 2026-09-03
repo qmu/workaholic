@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T22:25:21+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -70,3 +71,17 @@ and never alter the work branch or destroy recoverable work.
 
 - A legacy heartbeat commit is history and is not rewritten; the guarantee applies after cutover.
 - A cleanup failure delays collection but must never release or overwrite an active claim.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Cleanup uses the carrier's object id as its lease**: release and merged-worktree teardown delete
+  only the payload they read and report a refusal without discarding branch work.
+  **Context**: A late cleanup cannot erase a newer runner's beat.
+- **The lifecycle proof belongs beside existing claim fixtures**: claim, beat, resume, land and
+  release now assert the carrier while also asserting that `Refresh heartbeat` is absent from the
+  work branch.
+  **Context**: This tests the operational ref and reviewer-visible history as one contract.

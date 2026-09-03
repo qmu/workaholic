@@ -5,18 +5,14 @@
 # Usage: heartbeat.sh <unit-id>
 # Output: {"beat": bool, "unit": "...", "branch": "...", "reason": "..."}
 #
-# THE BRANCH TIP *IS* THE HEARTBEAT (see lib/claims.sh). There is no lock file, no
-# heartbeat file, and no server -- the protocol forbids all three, and each of them
-# leaks when a runner dies, which is the exact failure the claim protocol was built to
-# avoid. Instead this pushes an EMPTY commit onto the unit's own claim branch: it
-# changes no file, so it never appears in the PR diff, and it is cleaned up by the very
-# merge or release that already cleans up the claim. Any ordinary work commit refreshes
-# the same signal, which is correct -- a run that is committing is a run that is alive
-# -- so this script is only needed during a long stretch with nothing to commit.
+# LIVENESS LIVES ON A DEDICATED REMOTE REF (see lib/claims.sh), not on the review
+# branch. The ref points at a timestamped blob and is compare-and-pushed, so it remains
+# shared across ephemeral runners without adding commits to pull-request history. Claims
+# created before this carrier existed retain the branch-tip fallback.
 #
 # CALL IT AT A BOUNDED INTERVAL, comfortably inside
 # WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES (default 30): a unit driven for an hour with
-# no commit and no beat becomes resumable while its run is still working, and two
+# no beat becomes resumable while its run is still working, and two
 # runners on one worktree is worse than a stalled unit. Roughly every ten minutes, or
 # once per ticket, is the shape /drive uses.
 #
@@ -63,7 +59,7 @@ if [ -z "$repo_root" ]; then
 fi
 worktree_path="${repo_root}/.worktrees/${unit}"
 
-# The beat is pushed FROM THE UNIT'S OWN WORKTREE. Beating from anywhere else would
+# The beat is written FROM THE UNIT'S OWN WORKTREE. Beating from anywhere else would
 # mean guessing which branch the unit is on, and a heartbeat written onto the wrong
 # branch is worse than none: it would keep an idle claim looking alive forever.
 if [ ! -d "$worktree_path" ]; then
@@ -103,19 +99,10 @@ if git -C "$worktree_path" rev-parse --verify --quiet MERGE_HEAD >/dev/null 2>&1
     report false "$branch" merge_in_progress
 fi
 
-# A DIRTY WORKTREE STILL BEATS. The run is plainly alive -- that is what dirty means --
-# and the empty commit records nothing from the working tree, so uncommitted work is
-# neither staged, committed, nor disturbed.
-( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --allow-empty \
-    --housekeeping heartbeat \
-    "Refresh heartbeat" \
-    "" \
-    "None -- coordination only; the beat changes no file and never reaches the PR diff" \
-    "None" "None" \
-    "The claim branch tip advances, so the shared claim scan keeps reporting this unit active rather than resumable" ) >/dev/null 2>&1 \
-    || report false "$branch" commit_failed
-
-git -C "$worktree_path" push --quiet origin "$branch" >/dev/null 2>&1 \
-    || report false "$branch" push_failed
+# A DIRTY WORKTREE STILL BEATS. The liveness blob contains no worktree bytes and its
+# dedicated ref is outside the branch ancestry, so neither staged nor unstaged work is
+# touched and repeated beats add no review commits.
+reason=$(cd "$worktree_path" && claims_liveness_write "$unit" "$branch")
+[ -z "$reason" ] || report false "$branch" "$reason"
 
 report true "$branch" ""

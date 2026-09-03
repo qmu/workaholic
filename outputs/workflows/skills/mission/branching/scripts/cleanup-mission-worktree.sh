@@ -28,6 +28,10 @@
 
 set -eu
 
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+CLAIMS_LIB_DIR="${SCRIPT_DIR}/../../drive/scripts//lib"
+. "${CLAIMS_LIB_DIR}/claims.sh"
+
 slug="${1:-}"
 
 if [ -z "$slug" ]; then
@@ -42,6 +46,7 @@ worktree_removed=false
 branch_removed=false
 branch_kept_reason=""
 branch=""
+carrier_cleanup="not_attempted"
 
 if [ -d "$worktree_path" ]; then
   # Never discard uncommitted work — refuse a dirty worktree.
@@ -55,6 +60,11 @@ if [ -d "$worktree_path" ]; then
 fi
 
 git worktree prune >&2
+
+if [ -n "$branch" ]; then
+  carrier_reason=$(claims_liveness_delete "$slug" "$branch")
+  carrier_cleanup="${carrier_reason:-removed_or_absent}"
+fi
 
 if [ -n "$branch" ] && git show-ref --verify --quiet "refs/heads/${branch}"; then
   case "$branch" in
@@ -70,5 +80,5 @@ if [ -n "$branch" ] && git show-ref --verify --quiet "refs/heads/${branch}"; the
 fi
 
 cat <<EOF
-{"cleaned": true, "worktree_path": "$worktree_path", "slug": "$slug", "branch": "$branch", "worktree_removed": $worktree_removed, "branch_removed": $branch_removed, "branch_kept_reason": "$branch_kept_reason"}
+{"cleaned": true, "worktree_path": "$worktree_path", "slug": "$slug", "branch": "$branch", "worktree_removed": $worktree_removed, "branch_removed": $branch_removed, "branch_kept_reason": "$branch_kept_reason", "carrier_cleanup": "$carrier_cleanup"}
 EOF

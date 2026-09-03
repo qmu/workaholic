@@ -16543,6 +16543,8 @@ function testClaimProtocol() {
     assertTrue("release-claim removes the worktree", !existsSync(join(B, ".worktrees", batch.unit)));
     assertEq("the released branch is gone from origin",
       run(origin, `git rev-parse --verify --quiet refs/heads/${batch.branch}`).status, 1);
+    assertEq("the released claim's liveness carrier is gone from origin",
+      run(origin, `git rev-parse --verify --quiet refs/workaholic/claim-liveness/${batch.branch}`).status, 1);
     assertEq("the reader is empty once every claim is merged or released",
       JSON.parse(run(A, LIST).stdout).claims.length, 0);
 
@@ -16681,6 +16683,8 @@ function testLandUnit() {
       { w: true, present: false });
     assertEq("land deletes the remote claim branch",
       run(origin, `git rev-parse --verify --quiet refs/heads/${claimed.branch}`).status, 1);
+    assertEq("land deletes the claim's liveness carrier",
+      run(origin, `git rev-parse --verify --quiet refs/workaholic/claim-liveness/${claimed.branch}`).status, 1);
     assertEq("the reader sees no claim once the unit has landed",
       JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 0);
 
@@ -16720,6 +16724,12 @@ function testClaimOfflineAsymmetry() {
     assertEq("the offline reader still reports the last-known claim",
       { n: r.claims.length, u: r.claims[0]?.unit, b: r.claims[0]?.branch },
       { n: 1, u: "m1", b: claimed.branch });
+    const unreadable = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, {
+      env: { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" },
+    }).stdout);
+    assertEq("an unreadable declared carrier is never interpreted as expired",
+      { why: unreadable.claims[0]?.resume_reason, at: unreadable.claims[0]?.last_commit_at },
+      { why: "claim_active", at: "liveness_unreadable" });
 
     const w = run(B, `${POSIX_SH} ${SCRIPTS.claim} mission m1`);
     assertTrue("the offline writer exits non-zero", w.status !== 0, `status ${w.status}`);
@@ -19762,14 +19772,15 @@ function testHeartbeatRefusesMidMerge() {
     assertEq("the merge is still there for the run to resolve",
       run(wt, `git rev-parse --verify --quiet MERGE_HEAD`).status, 0);
 
-    // Once resolved, the beat is exactly what it was before this change.
+    // Once resolved, the separate carrier can advance without touching the merge commit.
     writeFileSync(join(wt, "c.txt"), "resolved\n");
     execSync(`git add c.txt && git commit -q --no-edit`, { cwd: wt });
+    const resolvedTip = execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim();
     const after = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
     assertEq("with the merge resolved the beat succeeds again",
       { b: after.beat, r: after.reason }, { b: true, r: "" });
-    assertEq("and that beat changed no file",
-      execSync(`git show --stat --format= HEAD`, { cwd: wt, encoding: "utf8" }).trim(), "");
+    assertEq("and that beat leaves the resolved branch tip untouched",
+      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim(), resolvedTip);
   } finally {
     for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
   }
@@ -19789,14 +19800,16 @@ function testHeartbeat() {
     const before = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
 
     const beat = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
-    assertEq("the beat reports success and the branch it advanced",
+    assertEq("the beat reports success and the branch whose carrier it advanced",
       { b: beat.beat, br: beat.branch }, { b: true, br: claimed.branch });
     const after = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
-    assertTrue("the beat advanced the claim branch tip", after !== before, `${before} -> ${after}`);
-    assertEq("the beat changed no file — it can never reach the PR diff",
-      execSync(`git show --stat --format= HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim(), "");
-    assertTrue("the beat is pushed, so other runners can see it",
-      execSync(`git rev-parse refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" }).trim() === after);
+    assertEq("the beat leaves the claim branch tip untouched", after, before);
+    const carrier = `refs/workaholic/claim-liveness/${claimed.branch}`;
+    assertTrue("the separate carrier is pushed, so other runners can see it",
+      run(origin, `git cat-file -e ${carrier}^{blob}`).status === 0, carrier);
+    assertTrue("the branch history carries no heartbeat commit",
+      !execSync(`git log --format=%s refs/heads/${claimed.branch}`,
+        { cwd: origin, encoding: "utf8" }).includes("Refresh heartbeat"));
     // A beaten claim reads as ACTIVE within a real window.
     const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: oneMinute }).stdout);
     assertEq("a just-beaten claim is active, not resumable",
@@ -19825,8 +19838,8 @@ function testHeartbeat() {
       { b: inside.beat, br: inside.branch }, { b: true, br: claimed.branch });
     assertEq("and reports the same branch it reports from the main checkout",
       inside.branch, beat.branch);
-    assertTrue("the beat from inside the worktree advanced the tip",
-      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim() !== fromMain);
+    assertEq("the beat from inside the worktree still leaves the tip untouched",
+      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim(), fromMain);
 
     // The refusal words are untouched from either directory.
     const missingInside = run(wt, `${HEARTBEAT} no-such-unit`);

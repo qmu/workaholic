@@ -137,6 +137,11 @@ if [ "$has_origin" = true ] && [ -n "$branch" ]; then
     fi
 fi
 
+carrier_reason=""
+if [ "$has_origin" = true ] && [ -n "$branch" ]; then
+    carrier_reason=$(claims_liveness_delete "$unit" "$branch")
+fi
+
 # The cleaner already dropped the local branch when it removed the worktree; this
 # covers the worktree-already-gone case. Guarded by the same ephemeral pattern, so a
 # release can never delete main or a hand-made branch.
@@ -149,5 +154,5 @@ if [ -n "$branch" ] && git show-ref --verify --quiet "refs/heads/${branch}"; the
     esac
 fi
 
-printf '{"released": true, "state": "released", "unit": "%s", "branch": "%s", "worktree_removed": %s, "remote_branch_deleted": %s, "local_branch_deleted": %s}\n' \
-    "$unit" "$branch" "$worktree_removed" "$remote_deleted" "$local_deleted"
+printf '{"released": true, "state": "released", "unit": "%s", "branch": "%s", "worktree_removed": %s, "remote_branch_deleted": %s, "local_branch_deleted": %s, "carrier_cleanup": "%s"}\n' \
+    "$unit" "$branch" "$worktree_removed" "$remote_deleted" "$local_deleted" "${carrier_reason:-removed_or_absent}"

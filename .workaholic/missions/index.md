@@ -2,7 +2,6 @@
 
 ## active
 
-* [carry-claim-liveness-off-the-review-branch](active/carry-claim-liveness-off-the-review-branch/mission.md) - Carry claim liveness off the review branch
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
@@ -20,6 +19,7 @@
 * [ask-for-the-one-act-a-declared-handoff-is-waiting-on](archive/ask-for-the-one-act-a-declared-handoff-is-waiting-on/mission.md) - Ask for the one act a declared handoff is waiting on
 * [attribute-an-inbound-ask-to-the-direction-it-answers](archive/attribute-an-inbound-ask-to-the-direction-it-answers/mission.md) - Attribute an inbound ask to the direction it answers
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
+* [carry-claim-liveness-off-the-review-branch](archive/carry-claim-liveness-off-the-review-branch/mission.md) - Carry claim liveness off the review branch
 * [catch-a-reported-claim-up-before-its-conflict-hardens](archive/catch-a-reported-claim-up-before-its-conflict-hardens/mission.md) - Catch a reported claim up before its conflict hardens
 * [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [close-the-units-the-loop-already-finished](archive/close-the-units-the-loop-already-finished/mission.md) - Close the units the loop already finished

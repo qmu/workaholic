@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.7
 feedback: [20260903071947-the-tick-walks-three-names-in-order-instead-of-allocating-capacity-to-where-the-work-is.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ chose.
 - 2026-09-03 — ticket archived — 20260903072108-run-the-ingest-half-on-the-tick-s-own-capture.md
 - 2026-09-03 — ticket archived — 20260903072108-skip-a-runner-whose-last-answer-cannot-have-moved.md
 - 2026-09-03 — ticket archived — 20260903072108-report-the-allocation-the-tick-chose-and-why.md
+- 2026-09-03 — run recorded (+0.7h) — implement-20260903-093600

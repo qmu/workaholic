@@ -49,3 +49,4 @@ reaped and spawned nothing says one line, and the channel read asks for what the
 - 2026-09-03 — ticket archived — 20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md
 - 2026-09-03 — ticket archived — 20260903071726-read-the-channel-in-the-concise-format.md
 - 2026-09-03 — ticket archived — 20260903071726-say-nothing-at-length-on-a-tick-that-did-nothing.md
+- 2026-09-03 — ticket archived — 20260903071726-deliver-a-subagent-result-to-the-parent-once.md

@@ -51,3 +51,4 @@ declaration forward as a premise.
 - 2026-09-03 — ticket archived — 20260903133932-drop-a-handoff-whose-probe-comes-back-clean.md
 - 2026-09-03 — ticket archived — 20260903133932-make-a-failing-probe-s-own-output-the-handoff-reason.md
 - 2026-09-03 — ticket archived — 20260903133932-name-a-declaration-nobody-can-re-probe-as-unmeasured.md
+- 2026-09-03 — ticket archived — 20260903133932-re-read-every-standing-handoff-against-its-probe-each-tick.md

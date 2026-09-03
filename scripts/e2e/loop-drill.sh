@@ -5952,8 +5952,10 @@ STUB
 #                                      every other unanswerable reason is a fact about us
 #   2. the walk's two outcomes         a red tip attributed to a mid-walk merge with its pull
 #                                      request and author, and the `unattributable` tail
-#   3. the asked-once gate             two ticks over one red commit, one question, keyed
-#                                      `base-red:<commit>`; a degraded read asks nothing
+#   3. the report, not a question     a red base reaches the check-in as a `🔴 Blocked` report
+#                                      addressed to nobody, carrying the attributed merge and no
+#                                      question key, signed by the failing checks with no sha in
+#                                      it; a degraded read still reports nothing at all
 #   4. the reading gates NOTHING       the survey the terminal token is derived from is
 #                                      byte-identical over a red base and a green one, and no
 #                                      script in the driving chain reaches either reader
@@ -5966,9 +5968,11 @@ cmd_verify_base_health() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/read-base-checks.sh"
     _walk="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/attribute-base-red.sh"
     _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-base-health.sh"
-    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
     _plan="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/plan-units.sh"
-    for _f in "$_reader" "$_walk" "$_step" "$_ask" "$_plan"; do
+    # `ask-question.sh` is deliberately NOT a precondition here: the `base-red:<commit>` question
+    # is retired and this drill exercises the report path instead, so requiring the asking seam
+    # would be a precondition on a script this step no longer reaches.
+    for _f in "$_reader" "$_walk" "$_step" "$_plan"; do
         [ -f "$_f" ] || emit_err "base_health_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
 
@@ -6118,31 +6122,50 @@ cmd_verify_base_health() {
         add_row "base_health_unattributable_tail" false "an exhausted walk did not answer unattributable: $(one_line "$_wb")" load
     fi
 
-    # 3. THE STEP, AND THE ASKED-ONCE GATE.
+    # 3. THE STEP: A RED BASE IS REPORTED, NOT ASKED ABOUT (2026-09-03, mission
+    # `make-a-red-base-impossible-for-the-loop-to-miss`). This row used to prove the opposite --
+    # a `base-red:<commit>` question and the asked-once gate behind it -- and that question is
+    # RETIRED. `ask-question.sh` holds a question under `quiet_hours` because a question
+    # addresses a named person; a red base asks the operator to decide nothing, so the reason
+    # the window exists does not apply to it, and the loop used to build on a broken base all
+    # night while its own announcement waited for morning. What the step must now hand the
+    # check-in is a `🔴 Blocked` REPORT addressed to nobody, carrying the attribution the walk
+    # made -- and no question key at all, because two announcements of one fact is what this
+    # repository retires roots for.
     _s=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
-    _key=$(printf '%s' "$_s" | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | head -1)
-    if [ "$_key" = "base-red:${_c3}" ] && printf '%s' "$_s" | grep -q '"status": "ok"'; then
-        add_row "base_health_step_asks_once_per_commit" true "the step keys its question on the attributed commit, not on the tick or the day" load
+    _action=$(_field "$_s" action)
+    _shape=$(_field "$_s" shape)
+    if [ "$_action" = "report_the_red_base_as_a_blocked_alert" ] \
+        && [ "$_shape" = "🔴 Blocked" ] \
+        && printf '%s' "$_s" | grep -q '"status": "ok"' \
+        && printf '%s' "$_s" | grep -q "\"commit\": *\"${_c3}\"" \
+        && printf '%s' "$_s" | grep -q '"pull_request": *"https://example.invalid/pull/42"' \
+        && ! printf '%s' "$_s" | grep -q 'base-red:'; then
+        add_row "base_health_step_reports_the_red_base" true "the step hands the check-in a 🔴 Blocked report carrying the attributed merge, and opens no question" load
     else
-        add_row "base_health_step_asks_once_per_commit" false "the step's question key is wrong: $(one_line "$_s")" load
+        add_row "base_health_step_reports_the_red_base" false "the step did not report the red base as a blocked alert: $(one_line "$_s")" load
     fi
 
-    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
-    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "$_key" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
-    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
-    if printf '%s' "$_a1" | grep -q '"ask": true'; then
-        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
-           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
-        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "$_key" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
-        if printf '%s' "$_a2" | grep -q '"ask": false'; then
-            add_row "base_health_asked_once" true "a second tick over the same red commit is refused: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
-        else
-            add_row "base_health_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
-        fi
+    # AND THE SIGNATURE IS THE FAILING CHECKS, WITH NO SHA IN IT. That is the cool-down's own
+    # rule and it is what makes the report affordable: a key that changed every commit would
+    # suppress nothing, and this loop merges onto its own base every half hour. Proved by moving
+    # the red boundary one commit back -- a DIFFERENT attributed merge, the same failing suite --
+    # and requiring the two signatures to be byte-identical while both ticks still report. A step
+    # that went silent on the second would be the retired asked-once gate leaking back in, where
+    # the dedup now belongs to `workaholic:notify`'s cool-down and to nothing here.
+    _set "$_c2" "$_RED"
+    _s2=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-010000 --root "$_read" ) 2>&1 || true )
+    _set "$_c2" "$_GREEN"
+    _sig=$(_field "$_s" signature)
+    _sig2=$(_field "$_s2" signature)
+    if [ -n "$_sig" ] && [ "$_sig" = "$_sig2" ] \
+        && printf '%s' "$_s2" | grep -q "\"commit\": *\"${_c2}\"" \
+        && printf '%s' "$_s2" | grep -q '"action": *"report_the_red_base_as_a_blocked_alert"' \
+        && ! printf '%s' "$_sig" | grep -qi '[0-9a-f]\{7,\}'; then
+        add_row "base_health_signature_is_the_failing_checks" true "two red commits failing the same suite carry one signature and no sha, and the later tick still reports: ${_sig}" load
     else
-        add_row "base_health_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+        add_row "base_health_signature_is_the_failing_checks" false "the report's signature is not the failing checks: '${_sig}' then '${_sig2}' — $(one_line "$_s2")" load
     fi
-    rm -rf "$_qroot"
 
     # A DEGRADED READ ASKS NOTHING. Our own blindness is not a finding about the repository.
     for _sha in "$_tip" "$_c4" "$_c3" "$_c2" "$_c1"; do _clear "$_sha"; done

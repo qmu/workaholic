@@ -38,7 +38,7 @@ record, and the run says which; and the scale is stated as what the container mu
 
 - [x] A mission below two tickets cannot be written at any seam, and the ones already on disk
       are named rather than rewritten. (#20260903053712-floor-a-mission-at-two-tickets-at-every-seam.md)
-- [ ] `/specificate` emits a mission only when it judges a mid-term plan is there, and reports
+- [x] `/specificate` emits a mission only when it judges a mid-term plan is there, and reports
       what a smaller ask became instead. (#20260903053713-judge-whether-an-ask-has-a-mid-term-plan-in-it.md)
 - [x] The scale is stated once as what the container must hold, and no surface names a ticket
       count to hit. (#20260903053712-state-what-a-mission-must-be-able-to-hold.md)
@@ -50,3 +50,4 @@ record, and the run says which; and the scale is stated as what the container mu
 - 2026-09-03 — ticket archived — 20260903053712-floor-a-mission-at-two-tickets-at-every-seam.md
 - 2026-09-03 — ticket archived — 20260903053713-report-the-mission-size-distribution.md
 - 2026-09-03 — ticket archived — 20260903053712-name-the-missions-already-below-the-floor.md
+- 2026-09-03 — ticket archived — 20260903053713-judge-whether-an-ask-has-a-mid-term-plan-in-it.md

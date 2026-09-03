@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-123219
 ---
 
 # Make a red base impossible for the loop to miss

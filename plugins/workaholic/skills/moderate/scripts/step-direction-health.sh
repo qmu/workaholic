@@ -293,12 +293,14 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
       # THE BODY CARRIES COUNTS ONLY. `workaholic:notify` bounds the body to one
       # sentence of 25 words and reserves it for THE ACT THE OPERATOR MUST TAKE, so the named detail
       # stays in the heading above and the body carries only the size of what is at stake.
-      | ((.leaving // {}) | if ((.readable // false)
-                                and (((.waiting.count // 0) + (.waiting.missions // 0)
-                                      + (.residue.mission_count // 0)) > 0))
-           then "It would leave " + (((.waiting.count // 0) + (.waiting.missions // 0)) | tostring)
-                + " unreached and " + ((.residue.mission_count // 0) | tostring) + " unclaimed. "
-           else "" end) as $leaving_clause
+      # RETIRED (2026-09-03, mission
+      # `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). It rendered
+      # `It would leave N unreached and M unclaimed.` at the head of EVERY body -- the ticks own
+      # bookkeeping, in a sentence addressed to a person, saying what its counters would hold
+      # afterwards. Nobody asked. The sizes still ride the HEADING through `$waiting_phrase`,
+      # where the named detail belongs, and the body keeps its one sentence for the act.
+      # (No apostrophes in this block: the jq program is a single-quoted shell string.)
+      | "" as $leaving_clause
       # WHY THIS ONE STILL ASKS while a ruling is open: some of its residue the loop could not
       # judge, and an unjudged subject is exactly the one that most needs a person.
       | (if ($anyruling == "true" and .state == "arrived"
@@ -382,12 +384,12 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                    elif $reading == "settled"
                    then "the direction `" + .slug + "` has been quiet for " + $window
                         + " while declared 改良中"
-                        + $waiting_phrase + $residue_phrase
+                        + $waiting_phrase
                    elif .state == "overdue"
                    then "the direction `" + .slug + "` has run past its target date"
                         + (if (.days_to_target != null)
                            then " (" + ((-.days_to_target) | tostring) + " day(s) ago)" else "" end)
-                        + $waiting_phrase + $residue_phrase
+                        + $waiting_phrase
                    # EXPIRING (2026-08-29). The heading names the DATE and the DAYS LEFT, because
                    # the whole point of asking early is that the person can still act, and a
                    # warning that does not say how long they have is not a warning. The leaving
@@ -399,7 +401,7 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                                  else " in " + ((.days_to_target) | tostring) + " day(s)" end)
                            else "" end)
                         + (if (.target_date != "") then " (" + .target_date + ")" else "" end)
-                        + $waiting_phrase + $residue_phrase
+                        + $waiting_phrase
                    elif .state == "arrived"
                    then "the direction `" + .slug + "` has its work in"
                         + (if ((.landed // 0) > 0)
@@ -420,8 +422,22 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                 # originating nothing, which is what `direction-last` says one reading earlier.
                 elif .state == "expiring"
                 then $leaving_clause + "Re-date it, announce a successor when you end it, or say it still stands — the loop carries what you announce and decides nothing."
+                # WHAT LANDED, AND THE TICKS OWN READING (2026-09-03, mission
+                # `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). It said a
+                # count and asked a bare question, while every other part of this loop states a
+                # judgement and lets a person veto it. It now names what landed and says whether
+                # the evidence looks finished -- a READING, never a verdict: nothing closes a
+                # direction but the operator announcement, which is the standing rule here.
+                # (No apostrophes in this block: the jq program is a single-quoted shell string.)
                 elif .state == "arrived"
-                then $leaving_clause + "Everything attributed to it has landed. Announce that it ended, or say it still stands — the loop closes nothing."
+                then $leaving_clause
+                     + (if ((.landed // 0) > 0)
+                        then ((.landed) | tostring) + " item(s) landed against it and nothing is waiting. "
+                        else "Nothing is waiting against it. " end)
+                     + (if (((.residue // {}) | (.readable // false)) and (((.residue.missions // []) | length) > 0))
+                        then "It reads finished except for work no direction claims. "
+                        else "It reads finished. " end)
+                     + "Announce that it ended, or say it still stands — the loop closes nothing."
                 else "File its next move, or say it still stands — the loop will not close or change it either way."
                 end)} ]' 2>/dev/null || echo '[]')
 n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)
@@ -500,9 +516,37 @@ if [ "$n_subjects" -eq 0 ]; then
     emit ok "" "$summary"
 fi
 
-needs=$(printf '%s' "$subjects" | jq -c '{action: "ask_the_owner_what_becomes_of_this_direction",
-    bound: "one question per reading, addressed to the strategy'"'"'s assignee (direction-none is addressed to nobody), keyed on `key` so it is asked once; the tick asks and never closes a strategy, never proposes, and never lifts a gate",
-    compose: "post `heading` as the 🙋 subject and `body` as the one sentence beneath it, per workaholic:notify; the three parts are already in that order and must not be re-invented here",
+# ONE QUESTION PER KIND, NAMING EVERY SUBJECT (2026-09-03, mission
+# `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). MEASURED: one morning sent
+# five `🙋` questions in twenty-four seconds, three of them the same sentence with a direction slug
+# swapped. `lib/question-id.sh` derives an id per KEY, and this step composed a key per SUBJECT, so
+# N candidates cost N questions and the per-tick cap only spaced them out.
+#
+# `groups` is that same candidate set folded by READING. Each group carries a kind-level key, the
+# union of the assignees, and every subject it holds, so three arrived directions cost one reply.
+# `directions` is UNCHANGED beside it: the composer still needs each subject's own heading and
+# body, and removing it would trade one defect for a worse one.
+#
+# THE KEY CARRIES THE SUBJECT SET, not the kind alone, and the cost is stated rather than hidden.
+# A bare `direction-arrived` key would be asked once ever, so a direction arriving next week would
+# never be asked about at all -- the asked-once gate turned into a silence. Keying on the sorted
+# slugs keeps the gate honest; the cost is that a fourth direction joining an already-asked group
+# re-asks the whole group once. That is one extra question against five in twenty-four seconds.
+# `question_slug` truncates to 24 characters and appends a digest of the WHOLE key, so a long
+# group key stays injective.
+groups=$(printf '%s' "$subjects" | jq -c '
+    [ group_by(.reading)[]
+      | { reading: (.[0].reading),
+          key: ("direction-" + (.[0].reading) + ":" + ((map(.slug) | sort) | join("+"))),
+          subject_count: length,
+          slugs: (map(.slug) | sort),
+          assignees: ((map(.assignees) | unique) | join(", ")),
+          subjects: . } ]' 2>/dev/null || echo '[]')
+
+needs=$(printf '%s' "$subjects" | jq -c --argjson groups "$groups" '{action: "ask_the_owner_what_becomes_of_this_direction",
+    bound: "ONE question per GROUP in `groups`, never one per direction: each group is a reading, its `key` is what the asked-once gate keys on, and its `assignees` is who it addresses (direction-none is addressed to nobody). A group holding several subjects is one message naming every one of them. The tick asks and never closes a strategy, never proposes, and never lifts a gate",
+    compose: "for each group, post one 🙋 whose subject is the group reading stated once and whose body names every subject in `subjects` with its own `heading` and `body`, per workaholic:notify; the parts are already composed and must not be re-invented here. A group of one renders exactly as it did before.",
+    groups: $groups,
     directions: .}' 2>/dev/null || echo '{}')
 
 # THE EVENT NAMES A REPOSITORY EVENT, NOT A COUNTER OF WHAT THE STEP EXAMINED (2026-08-23's

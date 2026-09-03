@@ -46,3 +46,6 @@ docs/.vitepress/dist/
 # destination of the commit moved. `step-open-log.sh` hydrates this directory from the log
 # branch at the start of each tick, which is what keeps the dedup's memory across containers.
 .workaholic/moderations/
+
+# The Codex loop supervisor's per-tick transcripts (scripts/codex-loop.sh)
+.codex-loop/

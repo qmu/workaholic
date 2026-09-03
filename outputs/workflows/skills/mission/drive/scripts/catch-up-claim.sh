@@ -472,6 +472,19 @@ PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf ''
 
 # The method is READ, never spelled — `gather/scripts/merge-method.sh` is the one derivation
 # and the suite fails on a literal at a call site (`CLAUDE.md`, *Enforcement gates*).
+# THE BRANCH'S OWN CHECKS ARE READ BEFORE THE MERGE, AND ONLY `checks_red` REFUSES HERE
+# (2026-09-03). `drive/scripts/branch-checks.sh` is the one derivation of the gate. This act
+# merges immediately after ITS OWN push, so the head commit's checks are normally `no_checks`
+# or `checks_pending` and the gate passes -- THE LIMIT IS STATED RATHER THAN HIDDEN: what it
+# catches here is a branch that was already red before the catch-up ran, and nothing more.
+# Refusing on `checks_pending` too was rejected by name: this script reports `already_current`
+# and returns before the delivery half on its next run, so a unit held on pending here would
+# never be delivered by anything.
+check_gate="$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" 2>/dev/null || printf '')"
+case "$(printf '%s' "$check_gate" | jq -r '.reason // ""' 2>/dev/null || printf '')" in
+    checks_red) DELIVERY="not_attempted: checks_red"; report caught_up "" ;;
+esac
+
 method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
 # THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
 # is the one derivation of `commit_title` / `commit_message`; without them the forge

@@ -134,6 +134,7 @@ const SCRIPTS = {
   settleStrandedPublication: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh"),
   stepStrandedPublications: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stranded-publications.sh"),
   catchUpClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"),
+  branchChecks: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/branch-checks.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   retryUndelivered: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"),
   stepMergeConflicts: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-merge-conflicts.sh"),
@@ -33181,7 +33182,11 @@ function testProofJudgementSplit() {
   // — the act proceeds unless the judgement is positive evidence against it. Registering the
   // reader here is what makes DIRECTION ONE sweep `archive.sh` in, so a later edit that drops
   // the re-derivation turns a row red instead of passing quietly.
-  const JUDGEMENT_READERS = ["claim-mergeability.sh", "claim-holder.sh"];
+  // `branch-checks.sh` joined on 2026-09-03: the merge seams read the branch's OWN checks
+  // before merging, which is the rule's GATING shape again — the act proceeds unless the
+  // judgement is positive evidence against it. Registering the reader here is what makes
+  // DIRECTION ONE sweep the four merge seams in.
+  const JUDGEMENT_READERS = ["claim-mergeability.sh", "claim-holder.sh", "branch-checks.sh"];
   // Regexes, not substrings: `git -C "$WORKTREE" push` is the same act as `git push`, and a
   // literal match would miss precisely the consumer this rule was written for.
   const ACT_SITES = [/\bgit\b[^\n]*\bpush\b/, /--method PUT/, /--method PATCH/,
@@ -37425,16 +37430,7 @@ T("the hourly root carries the plan's delta", testPlanDeltaOnTheRoot);
 // reverted file does not pay for 6400 unrelated rows. It narrows only which rows RUN -- every
 // row's own assertions, the failure accounting and the exit status are untouched, and CI passes
 // no argument, so an unfiltered run is byte-for-byte what it always was.
-const ONLY = process.argv[2] || "";
-for (const [label, fn] of tests) {
-  if (ONLY && !label.includes(ONLY)) continue;
-  console.log(`\n# ${label}`);
-  try { await fn(); }
-  catch (e) { fail(label, e.stack || String(e)); }
-}
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed ? 1 : 0);
 
 
 // ---------- the mission grain: what the container must be able to hold ----------
@@ -37598,3 +37594,64 @@ function testLayoutDoctorBelowFloorAdvisory() {
       !doc.findings.some((f) => /floor/.test(f.reason || "")), "the advisory became a finding");
   } finally { cleanup(dir); }
 }
+
+// ---- THE PRE-MERGE CHECK GATE (2026-09-03) ----
+//
+// The dangerous direction is a WRONG REFUSAL: this gate sits in front of every merge the loop
+// makes, so a refusal it cannot justify parks finished work in every repository whose checks
+// this session cannot read. The rule is that it refuses on two words and PROCEEDS on every
+// absence, and that is what these rows pin -- never the network path, which is not hermetic.
+//
+// Proved able to fail: making the `no_pull_request` arm refuse turns
+// `an unreadable input never refuses` red; deleting the env arm turns `the gate can be
+// declared off` red; adding `checks_red` to the merge seams' composition without the reader
+// turns the claims.md table's own bidirectional pin red (above).
+T("the pre-merge check gate proceeds on every absence and refuses only on its own two words",
+  testBranchChecksGate);
+function testBranchChecksGate() {
+  const dir = makeRepo("main");
+  try {
+    const call = (args, env = "") =>
+      JSON.parse(run(dir, `${env} ${POSIX_SH} ${SCRIPTS.branchChecks} ${args}`).stdout);
+
+    const off = call("123", "WORKAHOLIC_MERGE_CHECK_GATE=0");
+    assertEq("the gate can be declared off", off.gate, "pass");
+    assertEq("and says so by name", off.reason, "gate_disabled");
+
+    for (const bad of ["", "not-a-number"]) {
+      const r = call(bad);
+      assertEq(`an unreadable input never refuses (${bad || "empty"})`, r.gate, "pass");
+      assertTrue("and names the reading it could not make",
+        /^unreadable:/.test(r.reason), r.reason);
+    }
+
+    // No remote, so the slug cannot resolve: the deepest absence this script can reach without
+    // a network, and it must still pass.
+    const noRemote = call("1");
+    assertEq("a repository whose checks cannot be read stays exactly as deliverable", noRemote.gate, "pass");
+    assertTrue("with the absence named rather than treated as green",
+      /^unreadable:/.test(noRemote.reason), noRemote.reason);
+    assertEq("and never claims to have read a state", noRemote.state, "unread");
+
+    // Absent means ON: the same call with no declaration must not answer `gate_disabled`.
+    assertTrue("absent means the gate is on", call("1").reason !== "gate_disabled",
+      "an undeclared repository is ungated");
+  } finally { cleanup(dir); }
+}
+
+// ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).
+// `T()` only REGISTERS; the loop below runs what is registered by the time it is reached.
+// Four tests had been appended BELOW it and therefore never ran once -- no pass, no failure,
+// no output -- which is exactly the silent non-run the comment above warns about, and it
+// went unnoticed because the total kept rising from the rows that did run. Nothing may be
+// added after this block.
+const ONLY = process.argv[2] || "";
+for (const [label, fn] of tests) {
+  if (ONLY && !label.includes(ONLY)) continue;
+  console.log(`\n# ${label}`);
+  try { await fn(); }
+  catch (e) { fail(label, e.stack || String(e)); }
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);

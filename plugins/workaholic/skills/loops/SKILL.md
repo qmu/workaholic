@@ -35,6 +35,34 @@ moved and nothing was replaced by a summary**: `workaholic:notify` states that *
 ceiling*, and a rule the run must read to act stays inlined there byte-identical while a provenance
 citation stays a citation.
 
+## The same loop on Codex
+
+`/work` and `/infinite-development` are **not reachable from Codex** — both `.codex-plugin`
+manifests expose `"skills"` and nothing else, so `commands/` reaches Codex as files in the tree
+and never as commands — and Codex has no in-process recurring timer and no **detached** subagent.
+Diagnosed 2026-09-03 with the Codex CLI itself (`codex-cli 0.149.1`).
+
+```sh
+sh scripts/codex-loop.sh            # the clock: one `codex exec` per interval, sequential
+sh scripts/codex-loop.sh --once     # one tick, for a cron or systemd timer
+```
+
+The supervisor is the clock and **`workaholic:work` is the contract both agents read** — the
+operator's own shape: Claude Code calls the loop as a command, every other agent calls it as a
+skill, and `build.mjs` publishes it. The work runs **inline and in sequence** off Claude Code,
+because there is nothing to detach it to.
+Ticks cannot overlap by construction; `flock` refuses a second supervisor; the cadences are read
+from the same tick log, which never depended on an agent listing. `.claude/settings.json`'s `env`
+block is read and exported by the supervisor, so there is one declaration for both agents.
+
+**What the port loses is stated rather than discovered**: the five-minute answer to a person
+(here the Slack turn is the tick's first act, so the worst case is one tick's work duration) and
+the Claude-Code tool-level hooks (the script-level gates still hold; install the git-native
+`commit-msg` hook for the rest). **Codex has no interval feature at all** — measured against `codex-cli 0.149.1`: no subcommand
+and no feature flag; its `goals` is goal *continuation* inside a thread, not a clock. The
+measurements, the rejected two-loop split and the full substitution table:
+`workaholic:work`'s `reference/other-agents.md`.
+
 ## Why the tick does not wait
 
 The loop's job is two things at different speeds: **advancing the work**, which takes minutes to

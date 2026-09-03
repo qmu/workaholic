@@ -45,10 +45,23 @@
 # so a reader in `lib/` would ship to every non-Claude agent with its transport missing. The
 # convention bends to the build, and the build's rule is the one with a failure mode.
 #
-# NOTHING MAY ACT ON WHAT THIS ANSWERS. All three words are JUDGEMENTS, not proofs — a
-# re-run can turn a red check green and a green one red, which is precisely the property a
-# proof must not have (`drive/reference/claims.md`, *Proofs and judgements*). Report it, ask
-# about it; never revert, re-run, gate, hold or merge on it.
+# NOTHING MAY ACT ON WHAT THIS ANSWERS, WITH ONE ENUMERATED EXCEPTION. All three words are
+# JUDGEMENTS, not proofs — a re-run can turn a red check green and a green one red, which is
+# precisely the property a proof must not have (`drive/reference/claims.md`, *Proofs and
+# judgements*). Report it, ask about it; never revert, re-run or hold work on it.
+#
+# THE EXCEPTION IS THE PRE-MERGE GATE (2026-09-03), and it is the rule's own bounded shape
+# rather than a hole in it: `branch-checks.sh` composes this reader on a pull request's HEAD
+# commit, re-derives it at the moment of the merge, refuses `checks_red` and `checks_pending`
+# by their own words with nothing attempted, and PROCEEDS on every absence — which is what a
+# GATING act must do (`claims.md`, *When a bounded act may read a judgement*, and *Two shapes,
+# one rule*). Its consumers are enumerated there and the suite pins the table in both
+# directions. Nothing else may gate, and this reader still gates nothing itself.
+#
+# WHY THE EXCEPTION EXISTS. Without it the loop merged its own branches without ever reading
+# their checks: MEASURED 2026-09-03, PR #957 merged three and a half minutes BEFORE its own
+# `Loop Drills` run completed, and it was red; `main` then carried a red drill suite for four
+# hours with six further merges landing on it.
 #
 # A SUITE THAT NEVER RAN IS NOT A SUITE THAT PASSED (2026-09-03, mission
 # `make-a-red-base-impossible-for-the-loop-to-miss`). Everything above answers from the

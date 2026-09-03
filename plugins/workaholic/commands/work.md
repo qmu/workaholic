@@ -9,7 +9,7 @@ and let it run.
 
 That is the whole command. `/work` exists because the loop is the thing a developer starts
 most often and `/loop 5m /infinite-development` is three pieces of syntax to remember for one
-intention; the cadence and the tick live here so a person types neither.
+intention; the cadence and the tick live behind it so a person types neither.
 
 **One session, one loop.** If this session is already looping, say so and start nothing —
 a second loop would spawn a second `implement` against the same claim protocol, and the
@@ -19,5 +19,8 @@ To stop it, the developer stops the loop the `loop` skill created; `/work` does 
 stop argument, because a command whose behaviour depends on the first word of its argument is
 the shape this repository refuses (`rules/general.md`, *One behaviour per command*).
 
-The tick itself, the subagent contract and what the cadence buys: `workaholic:loops` and
-`plugins/workaholic/commands/infinite-development.md`.
+**The loop is `workaholic:work`, and this command is a thin alias onto it** — which is what
+lets the same loop run off Claude Code, where `commands/` is not a command surface and only
+skills are published. That skill carries how the loop is started when the agent has no
+interval feature. The tick, the subagent contract and what the cadence buys: `workaholic:loops`
+and `plugins/workaholic/commands/infinite-development.md`.

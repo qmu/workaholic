@@ -1,6 +1,8 @@
 #!/bin/sh -eu
 # The development loop, on the Codex CLI. This script IS the clock — the piece Claude Code
-# supplies as `/loop 5m <command>` and Codex has no equivalent for.
+# supplies as `/loop 5m <command>` and Codex CLI/IDE have no equivalent for. The ChatGPT
+# desktop app does: use a chat-bound Scheduled task there (`workaholic:work`). This script is
+# deliberately the fallback for a CLI-only environment, not the preferred desktop clock.
 #
 # WHY IT EXISTS (2026-09-03). `/work` invokes Claude Code's `loop` skill and the tick spawns
 # `propose`, `implement` and `moderate` as BACKGROUND subagents it never waits for. Diagnosed

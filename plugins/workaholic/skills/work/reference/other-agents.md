@@ -1,5 +1,11 @@
 # The loop off Claude Code: what was measured, what was substituted, what was lost
 
+**Corrected 2026-09-04**: the 2026-09-03 diagnosis below measured **Codex CLI**, not every
+Codex surface. The ChatGPT desktop app has Scheduled tasks that can return to an existing chat
+on a minute interval and work in a local project. That is the preferred clock when the loop is
+started from a desktop Codex chat; the external supervisor remains the CLI/IDE fallback. The
+tick contract stays shared with Claude Code.
+
 **Asked 2026-09-03**: can the loop-premised `/work` command run under Codex, and make it loop
 there properly. **The answer to the shape was the operator's**: make `/work` a *skill*, so Claude
 Code calls it as a command and every other agent calls it as a skill. That is what shipped —
@@ -30,21 +36,21 @@ apparatus, and the whole apparatus is the full plugin — which Codex already in
 
 | Claude mechanism | Codex, measured | Substitution |
 | ---------------- | --------------- | ------------ |
-| `/loop <interval> <command>` — an in-process recurring timer | **None.** No subcommand across `codex {,exec,agents,features,queue,debug} --help` and no flag in `codex features list`. The nearest, `goals` (stable), is goal *continuation* inside one thread: it keeps a run working toward an aim across turns and never starts a run | `scripts/codex-loop.sh`, an external sequential supervisor |
+| `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **CLI/IDE:** no Scheduled management interface | a Scheduled task in the current chat for desktop; `scripts/codex-loop.sh` for CLI/IDE |
 | slash-command dispatch of `commands/*.md` | **None** (manifests expose skills only) | the loop is a **skill** (`workaholic:work`); the tick reads the other command bodies as files and executes them |
 | a **detached** background subagent whose parent ends first | Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their results** — there is no parent-ends-children-continue lifetime | the work runs **inline, in sequence** |
 | `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | ticks cannot overlap by construction; `flock` refuses a second **supervisor** |
 | `${CLAUDE_PLUGIN_ROOT}` | not defined | the tick names `plugins/workaholic` and writes paths out in full |
 | `.claude/settings.json` `env` | not read | `codex-loop.sh` reads that same block and exports it, so there is **one** declaration |
 | the plugin's `hooks/hooks.json` | not carried by either Codex manifest; Codex hooks are its own configuration | **the gates are absent on Codex** — see *What is lost* |
-| Slack MCP connector | supported in general; **none configured on this machine** (`codex mcp list` is empty) | the tick reports `no_slack_transport` by name and still does its work |
+| Slack MCP connector | Scheduled tasks can use the chat's available plugins; the measured CLI run had none configured (`codex mcp list` was empty) | use the chat's connector when available; otherwise report `no_slack_transport` by name and continue |
 
 ## What is lost, stated rather than discovered later
 
-1. **The responsiveness property.** The Claude tick answers a person within five minutes
+1. **The responsiveness property inside a tick.** The Claude tick answers a person within five minutes
    *whatever the work is doing*, because the work is detached. A sequential tick answers at its
-   own **top**, so the worst case is one tick's work duration. This is the whole reason the
-   Claude tick is shaped the way it is, and the port does not get it back.
+   own **top**, so the worst case is one tick's work duration. A chat-bound Scheduled task does
+   restore one thing the external CLI supervisor cannot: its final report returns to the chat.
 2. **The hooks.** `guard-git-branch.sh`, `guard-git-commit.sh`, `validate-ticket.sh` and the
    rest are Claude Code `PreToolUse`/`PostToolUse` hooks. On Codex the **script-level** gates
    still hold — `check-subject.sh` runs inside `commit.sh` and `archive.sh`, and the opt-in
@@ -62,7 +68,23 @@ reported nothing claimable, each correct in isolation and neither able to see th
 requests had sat conflicted since the previous day. Three places to look and no place that held
 the whole loop. One slower loop that can see itself beats two fast ones that cannot.
 
-## Running it
+## Running it in the ChatGPT desktop app
+
+Create a Scheduled task **inside the current chat**, choose this repository's **local project**
+(not a fresh scheduled-task worktree), and set the requested cadence. For a ten-minute loop, use
+ten minutes and this prompt:
+
+> Run the `workaholic:work` skill. This scheduled invocation is the clock: execute exactly one
+> development-loop tick in the current local project, apply the non-Claude substitutions, return
+> the tick's report block to this chat, and end. Do not start `scripts/codex-loop.sh`, do not create
+> another schedule, and do not wait for the next tick.
+
+The local-project choice is load-bearing: the tick already isolates implementation and
+publication writes in its own worktrees, while its git-ignored cadence log must persist between
+runs. Keep the computer and desktop app running when the task needs those local files. Do not run
+this schedule and the external supervisor against the same repository at once.
+
+## Running it from Codex CLI or the IDE
 
 ```sh
 sh scripts/codex-loop.sh                 # every 5 minutes until stopped

@@ -39,8 +39,16 @@ citation stays a citation.
 
 `/work` and `/infinite-development` are **not reachable from Codex** — both `.codex-plugin`
 manifests expose `"skills"` and nothing else, so `commands/` reaches Codex as files in the tree
-and never as commands — and Codex has no in-process recurring timer and no **detached** subagent.
-Diagnosed 2026-09-03 with the Codex CLI itself (`codex-cli 0.149.1`).
+and never as commands — and Codex has no **detached** subagent whose parent ends first.
+
+**In the ChatGPT desktop app, the clock is a Scheduled task inside the current chat.** It runs
+one tick per invocation in the local project and returns the report to that chat; the durable
+prompt and the local-project requirement live in `workaholic:work`. Scheduled tasks are an app
+surface. They do not make `/work` a CLI command and do not change the sequential tick below.
+
+**In Codex CLI or the IDE, the clock remains external.** Those surfaces have no Scheduled
+management interface; diagnosed 2026-09-03 with `codex-cli 0.149.1` and retained as the CLI
+fallback:
 
 ```sh
 sh scripts/codex-loop.sh            # the clock: one `codex exec` per interval, sequential
@@ -55,11 +63,11 @@ Ticks cannot overlap by construction; `flock` refuses a second supervisor; the c
 from the same tick log, which never depended on an agent listing. `.claude/settings.json`'s `env`
 block is read and exported by the supervisor, so there is one declaration for both agents.
 
-**What the port loses is stated rather than discovered**: the five-minute answer to a person
+**What the sequential port loses is stated rather than discovered**: the five-minute answer to a person
 (here the Slack turn is the tick's first act, so the worst case is one tick's work duration) and
 the Claude-Code tool-level hooks (the script-level gates still hold; install the git-native
-`commit-msg` hook for the rest). **Codex has no interval feature at all** — measured against `codex-cli 0.149.1`: no subcommand
-and no feature flag; its `goals` is goal *continuation* inside a thread, not a clock. The
+`commit-msg` hook for the rest). **Codex CLI has no Scheduled management surface**; the desktop
+app does, and a chat-bound task restores the missing report path without changing the tick. The
 measurements, the rejected two-loop split and the full substitution table:
 `workaholic:work`'s `reference/other-agents.md`.
 

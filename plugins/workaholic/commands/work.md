@@ -21,6 +21,7 @@ the shape this repository refuses (`rules/general.md`, *One behaviour per comman
 
 **The loop is `workaholic:work`, and this command is a thin alias onto it** — which is what
 lets the same loop run off Claude Code, where `commands/` is not a command surface and only
-skills are published. That skill carries how the loop is started when the agent has no
-interval feature. The tick, the subagent contract and what the cadence buys: `workaholic:loops`
+skills are published. That skill carries how the loop is started from a chat-bound Scheduled
+task in the ChatGPT desktop app and from an external clock in CLI-only environments. The tick,
+the subagent contract and what the cadence buys: `workaholic:loops`
 and `plugins/workaholic/commands/infinite-development.md`.

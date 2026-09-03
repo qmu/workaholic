@@ -17,15 +17,28 @@ it is a harness feature rather than anything this repository can ship:
 | Agent | The clock |
 | ----- | --------- |
 | **Claude Code** | the harness's own `loop` skill — `/loop 5m /infinite-development`, which `/work` invokes for you |
-| **Codex CLI, and any agent with no interval feature** | an external one: `sh scripts/codex-loop.sh` (or a cron entry / systemd timer running it `--once`) |
+| **Codex in the ChatGPT desktop app** | a Scheduled task **inside the current chat**, at the requested minute interval, running in the local project |
+| **Codex CLI, IDE, and any agent with no Scheduled management surface** | an external one: `sh scripts/codex-loop.sh` (or a cron entry / systemd timer running it `--once`) |
 
-**Codex has no interval, loop, schedule or cron feature**, measured 2026-09-03 against
-`codex-cli 0.149.1`: no subcommand across `codex {,exec,agents,features,queue,debug} --help`
-and no feature flag in `codex features list`. The nearest, `goals`, is goal *continuation*
-inside one thread — it keeps a run working toward an aim across turns and never starts a run.
-So the clock is supplied from outside, and `scripts/codex-loop.sh` is that clock: one
-`codex exec` per interval, sequential, `flock`ed against a second supervisor, exporting
-`.claude/settings.json`'s `env` block so both agents read one declaration.
+**Scheduled tasks are an app surface, not a Codex CLI subcommand.** The ChatGPT desktop app can
+return to an existing chat on a minute interval, use its existing context, and run against the
+local project. Create the schedule in this chat, select the local project rather than a fresh
+worktree (the tick owns its own claim/publish worktrees and its local cadence log must survive),
+and give it this durable instruction:
+
+> Run the `workaholic:work` skill. This scheduled invocation is the clock: execute exactly one
+> development-loop tick in the current local project, apply the non-Claude substitutions below,
+> return the tick's report block to this chat, and end. Do not start `scripts/codex-loop.sh`, do
+> not create another schedule, and do not wait for the next tick.
+
+The computer and desktop app must remain running for a scheduled task that needs local files.
+Use the requested cadence; when none was requested, retain `/work`'s five-minute default.
+
+**The CLI itself still has no Scheduled management interface.** That boundary was measured
+2026-09-03 against `codex-cli 0.149.1` and is also the current documented product boundary.
+For a CLI-only environment, `scripts/codex-loop.sh` supplies the clock: one `codex exec` per
+interval, sequential, `flock`ed against a second supervisor, exporting `.claude/settings.json`'s
+`env` block so both agents read one declaration.
 
 ## The tick
 
@@ -42,7 +55,7 @@ loop reaches every agent through the plugin the marketplace already installs.
 
 | What the command body says | Off Claude Code |
 | -------------------------- | --------------- |
-| `/loop 5m` keeps calling this | the external clock does; **execute one tick and end** |
+| `/loop 5m` keeps calling this | the Scheduled task or external clock does; **execute one tick and end** |
 | `/implement`, `/propose`, `/specificate`, `/moderate` | read `plugins/workaholic/commands/<name>.md` and execute it |
 | spawn the runs as **background** subagents and do not wait | run them **inline, in sequence** — `implement` first, because it moves the queue every other reading is a function of |
 | `ListAgents` answers *is this loop still running*; `TaskStop` reaps the idle ones | **nothing**. Sequential ticks cannot overlap, and there is no agent to stop |

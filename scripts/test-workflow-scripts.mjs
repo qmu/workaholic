@@ -37652,6 +37652,33 @@ function testBranchChecksGate() {
   } finally { cleanup(dir); }
 }
 
+// ---- THE CODEX CLOCK IS SURFACE-SPECIFIC (2026-09-04) ----
+// Codex CLI having no Scheduled management command does not imply the ChatGPT desktop app has
+// no clock. The broad claim produced a supervisor whose reports could never return to the chat.
+T("the Codex clock distinguishes desktop Scheduled tasks from the CLI fallback",
+  testCodexClockSurfaces);
+function testCodexClockSurfaces() {
+  const work = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8");
+  const loops = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/loops/SKILL.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/work/reference/other-agents.md"), "utf8");
+  const supervisor = readFileSync(join(REPO_ROOT, "scripts/codex-loop.sh"), "utf8");
+
+  for (const [name, body] of [["work", work], ["loops", loops], ["reference", ref]]) {
+    assertTrue(`${name} names the desktop Scheduled clock`,
+      /Scheduled task/.test(body) && /current chat/.test(body), body.slice(0, 500));
+    assertTrue(`${name} preserves the CLI fallback`,
+      /Codex CLI/.test(body) && /scripts\/codex-loop\.sh/.test(body), body.slice(0, 500));
+  }
+  assertTrue("the scheduled prompt forbids a second clock",
+    /Do not start `scripts\/codex-loop\.sh`/.test(work), "the durable prompt lost its refusal");
+  assertTrue("the old claim about every Codex surface stays retired",
+    !work.includes("Codex has no interval, loop, schedule or cron feature") &&
+    !loops.includes("Codex has no interval feature at all"), "a CLI measurement became a product claim");
+  assertTrue("the shell supervisor calls itself the CLI fallback",
+    /fallback for a CLI-only environment/.test(supervisor), supervisor.slice(0, 500));
+}
+
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).
 // `T()` only REGISTERS; the loop below runs what is registered by the time it is reached.
 // Four tests had been appended BELOW it and therefore never ran once -- no pass, no failure,

@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260903-104341](work-20260903-104341.md) - A mission is stated once as the mid-term container it must be able to hold, the two-ticket floor now runs at every seam including replan, and the corpus can see its own size distribution for the first time
 * [work-20260903-101727](work-20260903-101727.md) - A refused Slack post is named as refused rather than as absent, carried on the unit's own story for a later tick to send once, and a directed line that paged nobody says so
 * [work-20260903-054004](work-20260903-054004.md) - The tick now announces an ask whose work landed outside an /implement unit, replying one finish line into that ask's own thread, once, and saying nothing where it cannot see
 * [work-20260902-234711](work-20260902-234711.md) - Removed the suite's hand-maintained test array so a test is registered where it is declared, ending the collision every concurrently-driven unit hit by construction

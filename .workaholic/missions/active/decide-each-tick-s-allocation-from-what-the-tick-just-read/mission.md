@@ -50,3 +50,4 @@ chose.
 - 2026-09-03 — ticket archived — 20260903082012-read-the-machine-s-cores-and-load-average.md
 - 2026-09-03 — ticket archived — 20260903072108-fan-out-one-implement-runner-per-claimable-unit.md
 - 2026-09-03 — ticket archived — 20260903072108-run-the-ingest-half-on-the-tick-s-own-capture.md
+- 2026-09-03 — ticket archived — 20260903072108-skip-a-runner-whose-last-answer-cannot-have-moved.md

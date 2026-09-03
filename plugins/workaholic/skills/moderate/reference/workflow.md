@@ -2109,7 +2109,27 @@ sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-base-health.sh --tick <id>
 
 The base's own checks, read once per tick through `drive/scripts/attribute-base-red.sh` — which
 composes `drive/scripts/read-base-checks.sh`, the one derivation of a commit's check state. A red
-base is handed to the check-in as **one question addressed to the attributed merge's author**.
+base is handed to the check-in as **one `🔴 Blocked` report addressed to nobody** (2026-09-03,
+mission `make-a-red-base-impossible-for-the-loop-to-miss`).
+
+**It is a report rather than a question, and the `base-red:<commit>` question is retired.**
+`ask-question.sh` holds a question under `quiet_hours` because a question addresses a named person
+and nobody should be paged at 23:00 to choose between two dates. A red base asks the operator to
+decide **nothing** — it reports that the ground everything is landing on is broken — so the reason
+the window exists does not apply to it, and the loop used to build on a broken base all night while
+its own announcement waited for morning. `🔴 Blocked` already exists for that class and carries its
+own failure-signature cool-down, which this **composes and never re-derives**: no second clock gate,
+no new constant. The signature carries **no SHA** (that rule is the cool-down's own — a key that
+changes every commit suppresses nothing), so it is the failing check names: the same suite still
+failing is one alert however many red commits carry it. The attribution walk is untouched — who
+broke it is still `attribute-base-red.sh`'s answer and rides the report's own sentence.
+
+**And every reading of the colour names the suites that never ran.** The step reads the tip once
+through `read-base-checks.sh --declared` and carries `unverified` **beside** the colour in its
+`summary`, on the green, red and `unanswerable` paths alike — a tip can carry a green verdict and an
+unverified suite at once. A degraded declared-read is named as degraded (`unverified_readable:
+false` with its reason) and never rendered as *every declared suite ran*. It is **evidence and
+gates nothing**: it opens no question, earns no post of its own, and moves no token.
 
 **A red base reached a person through no path at all** (2026-08-27). `/implement` may not ask
 anyone anything; `stuck-prs` and `merge-conflicts` read **pull requests** and find nothing wrong

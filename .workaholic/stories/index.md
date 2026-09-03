@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260903-123219](work-20260903-123219.md) - A suite that never ran on the tip is now named as unverified rather than folded into green, and a red base breaks the quiet window as a report instead of waiting for morning as a question
 * [work-20260903-113842](work-20260903-113842.md) - Every merge the loop makes now composes its squash body from the branch story instead of letting the forge concatenate the claim stamps and heartbeats onto the trunk
 * [work-20260903-104341](work-20260903-104341.md) - A mission is stated once as the mid-term container it must be able to hold, the two-ticket floor now runs at every seam including replan, and the corpus can see its own size distribution for the first time
 * [work-20260903-101727](work-20260903-101727.md) - A refused Slack post is named as refused rather than as absent, carried on the unit's own story for a later tick to send once, and a directed line that paged nobody says so

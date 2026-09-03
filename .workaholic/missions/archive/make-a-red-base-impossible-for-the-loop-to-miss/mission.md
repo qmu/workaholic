@@ -2,7 +2,7 @@
 type: Mission
 title: Make a red base impossible for the loop to miss
 slug: make-a-red-base-impossible-for-the-loop-to-miss
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T09:02:21+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-123219
 ---
 
 # Make a red base impossible for the loop to miss
@@ -38,10 +39,14 @@ it was never addressed to.
 
 ## Acceptance
 
-- [ ] `base-health` requires a verdict per declared suite on the tip and answers `unverified: <suite>` for one with no run on that commit (#20260903090250-require-a-verdict-per-declared-suite-on-the-tip.md)
-- [ ] Every surface reporting the base colour names an unverified suite, and never renders it as green (#20260903090250-name-an-unverified-suite-wherever-the-base-colour-is-reported.md)
-- [ ] A red base is reported as `🔴 Blocked` under the existing failure-signature cool-down rather than held as a question by `quiet_hours` (#20260903090250-report-a-red-base-instead-of-asking-about-it.md)
+- [x] `base-health` requires a verdict per declared suite on the tip and answers `unverified: <suite>` for one with no run on that commit (#20260903090250-require-a-verdict-per-declared-suite-on-the-tip.md)
+- [x] Every surface reporting the base colour names an unverified suite, and never renders it as green (#20260903090250-name-an-unverified-suite-wherever-the-base-colour-is-reported.md)
+- [x] A red base is reported as `🔴 Blocked` under the existing failure-signature cool-down rather than held as a question by `quiet_hours` (#20260903090250-report-a-red-base-instead-of-asking-about-it.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903090250-require-a-verdict-per-declared-suite-on-the-tip.md
+- 2026-09-03 — ticket archived — 20260903090250-name-an-unverified-suite-wherever-the-base-colour-is-reported.md
+- 2026-09-03 — ticket archived — 20260903090250-report-a-red-base-instead-of-asking-about-it.md
+- 2026-09-03 — mission achieved — mission.md

@@ -2937,7 +2937,11 @@ function testBaseHealthStep() {
     JSON.parse(run(dir, `${POSIX_SH} ${STEP} --tick ${tick} --root ${dir}`, { env }).stdout);
 
   try {
-    // ---- A RED BASE IS ONE QUESTION, KEYED ON THE COMMIT AND ADDRESSED TO ITS AUTHOR ----
+    // ---- A RED BASE IS ONE `🔴 Blocked` REPORT, ADDRESSED TO NOBODY (2026-09-03) ----
+    // It was a `base-red:<commit>` question until this mission, and `ask-question.sh` holds a
+    // question under `quiet_hours` -- rightly, because a question addresses a named person. A red
+    // base asks the operator to decide NOTHING, so the reason the window exists does not apply and
+    // the loop built on a broken base all night while its announcement waited for morning.
     mkdirSync(join(dir, ".claude"), { recursive: true });
     writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
     set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
@@ -2945,8 +2949,13 @@ function testBaseHealthStep() {
     assertEq("a red base reports ok and hands back exactly one question",
       [j.step, j.status, j.reason, j.needs_agent.length], ["base-health", "ok", "", 1]);
     const base = j.needs_agent[0].base;
-    assertEq("keyed on the attributed commit, not on the tick and not on the day",
-      base.key, `base-red:${tip}`);
+    assertEq("it is a report rather than a question, so it carries no question key",
+      base.key, "");
+    assertEq("and names the Blocked shape with a signature that carries no SHA",
+      [j.needs_agent[0].action, j.needs_agent[0].shape, j.needs_agent[0].signature],
+      ["report_the_red_base_as_a_blocked_alert", "🔴 Blocked", "base red: Validate Plugins"]);
+    assertTrue("and its bound says the quiet window does not hold it",
+      /not\s+held by .quiet_hours./i.test(j.needs_agent[0].bound), j.needs_agent[0].bound);
     assertEq("naming the merge, its pull request, its author and the failing checks",
       [base.attribution, base.commit, base.pull_request, base.owner, base.failing],
       ["attributed", tip, "https://x/7", "someone@example.com", "Validate Plugins"]);
@@ -2957,12 +2966,12 @@ function testBaseHealthStep() {
       step().needs_agent[0].base.owner, "unknown");
     writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
 
-    // ---- `unattributable` STILL ASKS, KEYED ON THE TIP ----
+    // ---- `unattributable` STILL REPORTS ----
     set({ [tip]: RED, [c2]: RED, [c1]: RED });
     j = step();
-    assertEq("a walk that could not attribute still asks, keyed on the tip",
+    assertEq("a walk that could not attribute still reports, carrying no question key",
       [j.status, j.needs_agent.length, j.needs_agent[0].base.key],
-      ["ok", 1, `base-red:${tip}`]);
+      ["ok", 1, ""]);
     assertTrue("and says so rather than naming a merge it did not identify",
       /^unattributable: /.test(j.needs_agent[0].base.attribution), j.needs_agent[0].base.attribution);
 
@@ -33014,9 +33023,15 @@ function testProofJudgementSplit() {
     for (const m of src.matchAll(/\bemit (green|red|unattributable|unanswerable)\b/g)) {
       baseEmitted.add(m[1]);
     }
+    // `unverified` is emitted as a FIELD rather than as a state (2026-09-03): it rides BESIDE the
+    // colour, because a tip can carry a green verdict and an unverified suite at once. It is still
+    // a word of this vocabulary with a rule of its own, so it is parsed out of the reader's own
+    // output shape rather than added to a list -- the same "the scripts say what they emit"
+    // property the state words have.
+    if (/"unverified":/.test(src)) baseEmitted.add("unverified");
   }
   assertEq("the base reading's vocabulary parses out of the two scripts",
-    [...baseEmitted].sort().join(","), "green,red,unanswerable,unattributable");
+    [...baseEmitted].sort().join(","), "green,red,unanswerable,unattributable,unverified");
 
   const baseClassified = new Map();
   for (const m of baseTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {

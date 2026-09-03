@@ -100,17 +100,42 @@ tip=$(printf '%s' "$out" | jq -r '.tip // ""')
 checked_at=$(printf '%s' "$out" | jq -r '.checked_at // ""')
 checked_behind=$(printf '%s' "$out" | jq -r '.checked_behind // 0')
 
+# A DECLARED SUITE THAT NEVER RAN ON THE TIP (2026-09-03, mission
+# `make-a-red-base-impossible-for-the-loop-to-miss`). It rides BESIDE the colour rather than
+# instead of it -- a tip can carry a green verdict and an unverified suite at once, and
+# collapsing them loses precisely the fact that was missed for an hour. One extra call, once per
+# tick, against the TIP: the attribution walk passes no flag and its cost does not move.
+#
+# A DEGRADED DECLARED-READ IS NAMED AS DEGRADED, never rendered as *every suite ran* -- the same
+# rule this step already holds for the colour itself.
+unverified_clause=""
+reader="${DRIVE_SCRIPTS}/read-base-checks.sh"
+if [ -f "$reader" ] && [ -n "$tip" ]; then
+    tip_look=$( ( cd "$ROOT" && sh "$reader" "$tip" --declared ) 2>/dev/null || true )
+    uv_readable=$(printf '%s' "$tip_look" | jq -r '.unverified_readable // false' 2>/dev/null || printf false)
+    if [ "$uv_readable" = "true" ]; then
+        uv_names=$(printf '%s' "$tip_look" | jq -r '(.unverified // []) | join(", ")' 2>/dev/null || printf '')
+        if [ -n "$uv_names" ]; then
+            unverified_clause="; unverified on the tip (no run there): ${uv_names}"
+        fi
+    else
+        uv_reason=$(printf '%s' "$tip_look" | jq -r '.unverified_reason // ""' 2>/dev/null || printf '')
+        [ -n "$uv_reason" ] || uv_reason="unreadable"
+        unverified_clause="; which declared suites ran on the tip could not be read (${uv_reason})"
+    fi
+fi
+
 case "$state" in
     green)
         if [ -n "$checked_at" ]; then
-            emit ok "" "the base is green at ${checked_at}, ${checked_behind} commit(s) behind the tip — the tip itself carries no checks"
+            emit ok "" "the base is green at ${checked_at}, ${checked_behind} commit(s) behind the tip — the tip itself carries no checks${unverified_clause}"
         else
-            emit ok "" "the base is green at ${tip}"
+            emit ok "" "the base is green at ${tip}${unverified_clause}"
         fi
         ;;
     unanswerable)
         emit degraded "base_unreadable:${reason}" \
-            "the base's checks could not be read (${reason}); a red base is indistinguishable from a green one this tick"
+            "the base's checks could not be read (${reason}); a red base is indistinguishable from a green one this tick${unverified_clause}"
         ;;
     red|unattributable) ;;
     *)
@@ -131,7 +156,6 @@ fi
 [ -n "$commit" ] || commit="$tip"
 
 failing="[]"
-reader="${DRIVE_SCRIPTS}/read-base-checks.sh"
 if [ -f "$reader" ]; then
     look=$( ( cd "$ROOT" && sh "$reader" "$commit" ) 2>/dev/null || true )
     got=$(printf '%s' "$look" | jq -c '.failing // []' 2>/dev/null || printf '')
@@ -156,9 +180,9 @@ names=$(printf '%s' "$failing" | jq -r '[.[].name] | join(", ")' 2>/dev/null || 
 [ -n "$names" ] || names="check names unavailable"
 
 if [ "$state" = "red" ]; then
-    summary="the base is red at ${commit}; attributed to that merge; failing: ${names}"
+    summary="the base is red at ${commit}; attributed to that merge; failing: ${names}${unverified_clause}"
 else
-    summary="the base is red at ${tip}; unattributable (${reason}); failing: ${names}"
+    summary="the base is red at ${tip}; unattributable (${reason}); failing: ${names}${unverified_clause}"
 fi
 
 row=$(printf '%s' "$out" | jq -c \
@@ -172,7 +196,7 @@ row=$(printf '%s' "$out" | jq -c \
       attribution: (if $st == "red" then "attributed" else ("unattributable: " + (.reason // "")) end),
       last_green: (.last_green // ""),
       walked: (.walked // 0),
-      key: ("base-red:" + $commit)}' 2>/dev/null || printf '')
+      key: ""}' 2>/dev/null || printf '')
 [ -n "$row" ] || emit degraded walk_unparseable "the base attribution could not be turned into a question"
 
 # THE ROOT LINE — supplied ONLY for a red base (2026-08-27, the mission's fourth ticket). A
@@ -212,9 +236,36 @@ else
     event="the base is red at ${commit_link} — ${names} failing; the merge that broke it could not be attributed"
 fi
 
-needs=$(printf '%s' "$row" | jq -c '{action: "tell_the_attributed_author_the_base_is_red",
-    bound: "one question per red commit, addressed to `owner` (nobody when it is `unknown`), keyed on `key` so it is asked once however many ticks see the same red commit; the tick asks and never re-runs a check, reverts, merges or touches a claim",
-    compose: "name the commit, its pull request, the failing checks, and that a re-run may clear it -- this is a reading, not a verdict; when `attribution` is not `attributed`, say plainly that the walk could not name the merge and why, and do not send anyone after a merge this step did not identify",
+# A RED BASE IS REPORTED, NOT ASKED ABOUT (2026-09-03, mission
+# `make-a-red-base-impossible-for-the-loop-to-miss`). It used to be a `base-red:<commit>` question,
+# and `ask-question.sh` holds a question under `quiet_hours` -- rightly, because a question
+# addresses a named person and nobody should be paged at 23:00 to choose between two dates. A red
+# base asks the operator to decide NOTHING: it reports that the ground everything is landing on is
+# broken, while the loop keeps merging into it all night. So the reason the quiet window exists
+# does not apply, and the announcement moves onto `🔴 Blocked`, which already exists for exactly
+# that class and is governed by its own failure-signature cool-down.
+#
+# THE `base-red:<commit>` QUESTION IS RETIRED rather than kept beside the report. Two
+# announcements of one fact is the noise this repository has twice retired status roots for, and
+# the report is strictly the better of the two: it reaches the channel when the base breaks
+# instead of the next working morning.
+#
+# THE COOL-DOWN IS COMPOSED, NEVER RE-DERIVED -- `workaholic:notify`'s own rule, whose expiry is
+# the earlier of 24 hours and the start of the next working day, built from the check-in gate's
+# `WORKAHOLIC_WORK_DAYS` / `WORKAHOLIC_QUIET_HOURS` / `WORKAHOLIC_QUIET_TZ`. No second clock gate
+# and no new constant: a third copy is how three copies drift.
+#
+# THE SIGNATURE CARRIES NO SHA, by that same rule -- a dedup key that changes every commit
+# suppresses nothing. It is the failing check names, so *the same suite still failing* is one
+# alert however many red commits carry it, and a newly broken suite is a fresh root.
+#
+# THE ATTRIBUTION WALK IS UNTOUCHED: who broke it is still `attribute-base-red.sh`'s answer, and
+# it rides the report's own sentence.
+needs=$(printf '%s' "$row" | jq -c --arg names "$names" '{action: "report_the_red_base_as_a_blocked_alert",
+    shape: "🔴 Blocked",
+    signature: ("base red: " + $names),
+    bound: "a REPORT, never a question: it is addressed to nobody, it is NOT held by `quiet_hours` or `WORKAHOLIC_WORK_DAYS`, and it is deduped by `signature` under `workaholic:notify`s existing red-alert cool-down -- composed from that rule, never re-derived here. The tick reports and never re-runs a check, reverts, merges or touches a claim",
+    compose: "name the commit, its pull request and the failing checks, and say that a re-run may clear it -- this is a reading, not a verdict; when `attribution` is not `attributed`, say plainly that the walk could not name the merge and why, and send nobody after a merge this step did not identify",
     base: .}' 2>/dev/null || echo '{}')
 
 emit ok "" "$summary" "$needs" "$event"

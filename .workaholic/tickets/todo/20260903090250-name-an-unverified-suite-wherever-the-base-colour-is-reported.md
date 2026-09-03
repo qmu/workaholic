@@ -72,3 +72,35 @@ green.
 - Depends on the sibling ticket: without `unverified` in the reader there is nothing to report.
 - Whether an unverified suite should forbid `ok` is a judgement this ticket must make out loud
   rather than inherit; the ask does not decide it.
+
+## Final Report
+
+**Outcome**: implemented.
+
+**Reproduced and localized first.** The colour is stated in two places. `step-base-health.sh`
+emitted `the base is green at <sha>` (or `…, N commit(s) behind the tip`), `the base's checks could
+not be read (<reason>)`, or `the base is red at <sha>; … failing: <names>`. `/implement`'s ceiling
+and `workaholic:drive` §7 state the run-report line in the same three-valued shape. Neither had a
+sentence for *a suite that left no verdict*.
+
+**Both now name it beside the colour, never instead of it.** The step reads the tip once through
+`read-base-checks.sh --declared` and appends one clause to the `summary` on **all three** paths —
+green, `unanswerable` and red alike — because a tip can carry a green verdict and an unverified
+suite at once. A degraded declared-read renders *which declared suites ran on the tip could not be
+read (<reason>)* rather than silence, under the rule that surface already holds: a degraded read is
+reported as degraded and never as green.
+
+**Step 3's judgement, made explicitly rather than inherited.** An unverified suite **moves no
+token**. The reasoning is the base colour's own, already written in `workaholic:drive` §7: it is a
+fact about the *repository*, not about the unit this run drove, and a run that drove its unit
+cleanly reports `ok` while naming it. Withholding `ok` would put the token out of reach for as long
+as a path filter keeps a workflow from running, which is indefinitely — and the person who must act
+is reached by the tick's `🔴 Blocked` report, not by this token. It is stated in that section, in
+the `/implement` ceiling and in `CLAUDE.md`.
+
+**Documentation updated in the same change**: `CLAUDE.md`'s base-health bullet and `/moderate` step
+table, `commands/implement.md`, `workaholic:drive` §7, and the step's own spec in
+`moderate/reference/workflow.md`.
+
+**Verified**: the step's live output on this tip now reads *the base is green at 5c11616b…;
+unverified on the tip (no run there): Docs Deploy*.

@@ -16,7 +16,21 @@
 # Usage:
 #   log-read.sh [--since <YYYY-MM-DD>] [--tick <YYYYMMDD-HHMMSS>] [--step <slug>]
 #               [--step-prefix <slug->] [--status <status>] [--contains <needle>]
-#               [--root <repo-root>]
+#               [--root <repo-root>] [--latest-tick]
+#
+# `--latest-tick` ANSWERS ONE VALUE AND CARRIES NO ENTRIES (2026-09-03, mission
+# `pay-only-the-operative-cost-on-every-tick`). The loop's `moderate` cadence gate needs exactly
+# one thing -- how old the newest tick in the log is -- and got the whole day to supply it:
+# MEASURED in one session at about 12 KB early on and **50,087 bytes two hours later**, read
+# twelve times an hour and growing monotonically until the day rolls over, with nothing else in
+# the tick consuming those entries. With the flag the output is
+# `{"read", "latest_tick", "day", "count": 0, "entries": []}` -- the newest `(day, tick)` in the
+# scanned range and an EMPTY entries array, which is honest rather than a truncation: the caller
+# asked for a timestamp, not for a sample of the log.
+#
+# Every filter still applies, so `--step-prefix foo --latest-tick` answers *when did a `foo…` step
+# last run*. `latest_tick` is the empty string when nothing matched, which a caller must read as
+# *no such tick* and never as *just now*.
 #
 # `--step-prefix` exists because the log is idempotent per (tick, step): a step that
 # records SEVERAL facts in one tick — the check-in asking up to five questions — has
@@ -26,6 +40,8 @@
 # Output: one JSON line
 #   {"read": true, "count": <n>, "days": <n>,
 #    "entries": [{"day","tick","step","status","summary"}, ...]}
+#   {"read": true, "count": 0, "days": <n>, "entries": [],
+#    "latest_tick": "<YYYYMMDD-HHMMSS>", "day": "<YYYY-MM-DD>"}   (--latest-tick)
 #   {"read": false, "reason": "no_log_area", "count": 0, "entries": []}
 #
 # `--contains` is a plain substring match over the summary, not a regex: callers
@@ -41,6 +57,7 @@ STEP_PREFIX=''
 STATUS=''
 CONTAINS=''
 ROOT='.'
+LATEST_TICK=false
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -51,6 +68,7 @@ while [ $# -gt 0 ]; do
         --status)   STATUS="${2:-}"; shift 2 ;;
         --contains) CONTAINS="${2:-}"; shift 2 ;;
         --root)     ROOT="${2:-}"; shift 2 ;;
+        --latest-tick) LATEST_TICK=true; shift ;;
         *) echo "{\"read\": false, \"reason\": \"unknown_argument\", \"count\": 0, \"entries\": []}"; exit 1 ;;
     esac
 done
@@ -110,5 +128,19 @@ for file in "$DIR"/*.md; do
 done
 
 count=$(printf '%s' "$entries" | awk '{ n = gsub(/\{"day":/, "&"); total += n } END { print total + 0 }')
+
+if [ "$LATEST_TICK" = "true" ]; then
+    # The newest `(day, tick)` among the rows the filters kept, and NOTHING ELSE. The rows were
+    # built anyway -- the saving is entirely in what crosses the boundary to the caller, which is
+    # where the 50 KB was being paid.
+    latest=$(printf '%s' "$entries" | tr ',' '\n' \
+        | sed -n 's/.*"tick": "\([^"]*\)".*/\1/p' | LC_ALL=C sort | tail -1)
+    latest_day=$(printf '%s' "$entries" | tr '}' '\n' \
+        | grep -F "\"tick\": \"${latest}\"" 2>/dev/null \
+        | sed -n 's/.*"day": "\([^"]*\)".*/\1/p' | LC_ALL=C sort | tail -1)
+    printf '{"read": true, "count": 0, "days": %s, "entries": [], "latest_tick": "%s", "day": "%s"}\n' \
+        "$days" "${latest:-}" "${latest_day:-}"
+    exit 0
+fi
 
 printf '{"read": true, "count": %s, "days": %s, "entries": [%s]}\n' "$count" "$days" "$entries"

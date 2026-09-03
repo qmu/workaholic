@@ -38,7 +38,7 @@ reaped and spawned nothing says one line, and the channel read asks for what the
 
 ## Acceptance
 
-- [ ] The `moderate` cadence gate reads one line rather than the day's log. (#20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md)
+- [x] The `moderate` cadence gate reads one line rather than the day's log. (#20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md)
 - [ ] The command body carries only what a run must read to act; its measurements and rejected
       alternatives move to a `reference/` page with nothing lost. (#20260903071726-split-the-tick-command-into-operative-text-and-record.md)
 - [ ] A quiet tick reports one line and a run's result reaches the parent once. (#20260903071726-say-nothing-at-length-on-a-tick-that-did-nothing.md)
@@ -46,3 +46,4 @@ reaped and spawned nothing says one line, and the channel read asks for what the
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md

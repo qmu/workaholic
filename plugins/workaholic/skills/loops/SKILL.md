@@ -18,6 +18,15 @@ Each tick reads the inbound Slack channel and answers on it, spawns `propose` an
 as background subagents, and ends. The tick is short by construction, so a person's message is
 answered within five minutes whatever the work is doing.
 
+**The tick's own measurements, rejected alternatives and history live in
+[reference/tick-record.md](reference/tick-record.md)**, not in the command body (2026-09-03,
+mission `pay-only-the-operative-cost-on-every-tick`). The command runs in one session that never
+resets, so every byte of it is re-paid on every five-minute tick — a run applying a rule needs the
+rule, and a person deciding whether to *change* a rule needs the record. **No operative instruction
+moved and nothing was replaced by a summary**: `workaholic:notify` states that *the command is the
+ceiling*, and a rule the run must read to act stays inlined there byte-identical while a provenance
+citation stays a citation.
+
 ## Why the tick does not wait
 
 The loop's job is two things at different speeds: **advancing the work**, which takes minutes to

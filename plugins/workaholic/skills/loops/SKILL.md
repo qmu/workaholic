@@ -117,6 +117,81 @@ sweep's **scripts** (`list-swept-slack-refs.sh`, `file-inbound-ask.sh`) — movi
 churn for nothing — and `commands/infinite-development.md` is the one place their use is
 specified.
 
+## The allocation is decided from what the tick just read
+
+**The tick's allocation was a constant and the loop's state was not** (2026-09-03, mission
+`decide-each-tick-s-allocation-from-what-the-tick-just-read`), so the bottleneck never got
+capacity and a runner with nothing to do was walked anyway. Measured over two hours: 54 tickets
+across 8 active missions, **one** `implement` runner by construction — the concurrency rule
+forbade a second — about seven hours of serial queue; and `propose`'s strategy half produced no
+proposal on any run, each time re-deriving a gate only `implement` could clear.
+
+**The concurrency rule is narrowed, not dropped.** `propose`, `ingest` and `moderate` stay one
+agent per name. `implement` fans out to `min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound
+− running)`, each runner under its own name, and only `running` runners count against the bound
+so a fan-out does not compound across ticks. **Absent means 1** — the present single runner — so
+a repository that declares nothing is byte-identical to one before this existed.
+
+**No runner is handed a unit.** Each surveys and claims for itself, and the claim arbiter settles
+a race (`claim.sh` §3b wins one ref per claimed artifact before it creates anything, so the loser
+refuses `claim_race_lost` holding no branch, worktree or commit). Assigning units at the tick
+would put a second allocator beside `plan-units.sh`'s order. The stated cost is that a losing race
+spends an agent run that produces nothing, bounded by the declared number.
+
+**Two readers, and both answer `null` rather than a plausible number when they cannot read:**
+
+| Reader | Answers | Degradation |
+| ------ | ------- | ----------- |
+| `loops/scripts/claimable-units.sh` | how many PR-units are independently claimable — `claimable`, `missions`, `backlog_units`, `resumable` | `readable: false` with `not_current` / `shallow` / `backlog_error` / `owner_unresolved` / `placeholder_identity` / `survey_unreadable`, and **null** counts |
+| `loops/scripts/read-machine-load.sh` | the machine it is about to start runners on — `cores`, `load1`, `load_per_core` | `readable: false` with `no_loadavg` / `no_core_count` / `unparseable`, and **null** counts |
+
+`claimable-units.sh` **composes `plan-units.sh`** and derives nothing of its own — counting
+`todo/` files would ignore missions, claims, ownership and every exclusion the survey already
+makes, and would hand the tick a number the executor would then refuse. It counts all loose
+backlog as **one** unit, because the batch partition is a judgement made at §2 of the Unified Run:
+under-counting spawns fewer runners than the queue could carry, over-counting spawns runners that
+find nothing. **Cost, measured and stated rather than worked around**: 68–73 seconds on this
+machine, three consecutive warm runs — roughly a quarter of a five-minute tick.
+
+`read-machine-load.sh` exists because the tick decided how many runners to start and read nothing
+about the machine it started them on. Measured mid-fan-out here: three concurrent runners on a
+**four-core** machine at loadavg `7.99 / 6.42 / 5.60`, the fifteen-minute figure saying it had
+been over capacity for a while rather than spiking. Memory was half free and the SoC was not
+throttling, so **CPU was the binding resource** — the reader answers about CPU alone and says so
+rather than claiming a verdict about the machine's health. It answers **`null`, never `0`**: a
+zero load reads as *an idle machine*, the one answer that would make a consumer fan out hardest at
+exactly the moment it must not.
+
+**`readable` is absent on a completed read** on both — the `merge_policy` / `status:` convention
+this repository already holds — so a consumer tests `readable == false` and never `readable //
+true`.
+
+**The ingest half runs on the tick's own capture.** `propose` bundled an event-driven half with a
+state-gated one behind a single number, so a captured ask waited up to fifteen minutes for a
+clock. They are split at the spawn: the strategy judgement keeps
+`WORKAHOLIC_PROPOSE_CADENCE_MINUTES`, and the ingest is spawned whenever §1 filed an issue this
+tick — keyed on the tick's own act and on nothing else, with no queue reading, inbox poll or
+change detector. The ingest still runs on the cadence too, because an ask filed directly on GitHub
+is one §1 never sees; and when both run in one tick the strategy judgement is spawned first, so
+the issue it opens is in the inbox the ingest reads.
+
+**A runner whose last answer cannot have moved is skipped.** The strategy half's deferral reads
+the *previous* strategy run's reported refusal from the tick log — the gate's last answer, never a
+recomputation of it — and fires **only** on `work_waiting`, the one refusal `implement` can clear.
+It is lifted the moment an `implement` run lands a unit, capped at `WORKAHOLIC_PROPOSE_DEFER_MAX`
+skipped cadences (default 3) after which the strategy half runs regardless, and an unreadable log
+defers nothing. A brake with no ceiling is how the one routine that originates work stops silently,
+which this repository has measured twice.
+
+**Every allocation is reported, and a tick that chose to watch says so.** The tick's §3 report
+names how many runners were spawned out of how many claimable units against what bound;
+`watching` with its reason where it spawned none; the deferral with the refusal it read and how
+many cadences it has held; and every unreadable input by its own word (`fanout_unreadable`,
+`bad_fanout`, `cadence_unreadable`). A tick that did nothing still reports **one line** — an
+allocation of zero is one line, not five. Nothing here reaches Slack: this is the tick's own run
+report, which the operator reads in the session, and the loop posts no status line about its own
+capacity, for the reason the two retired status roots record.
+
 ## Permission prompts are off in this session
 
 An unattended run never waits for a person (`rules/interaction.md`). The session runs with

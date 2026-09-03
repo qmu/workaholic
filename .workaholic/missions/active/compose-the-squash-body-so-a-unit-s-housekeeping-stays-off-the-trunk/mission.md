@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-113842
 ---
 
 # Compose the squash body so a unit's housekeeping stays off the trunk

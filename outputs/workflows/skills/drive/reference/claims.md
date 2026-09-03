@@ -1530,7 +1530,9 @@ refusal is untouched. It is passed **only** immediately after this run's own `ca
 
 `heartbeat.sh` writes a small blob and compare-and-pushes the dedicated liveness ref. The payload
 is operational state, not a `.workaholic/` artifact: it carries `version`, `unit`, `branch`,
-`author`, `at`, `epoch`, and a uniqueness nonce. The expected old object id closes concurrent
+`author`, `at`, `epoch`, the observed branch `tip`, and a uniqueness nonce. While the
+branch tip matches, the carrier timestamp supplies liveness; a later ordinary work commit is
+itself progress evidence and its commit timestamp wins until the next beat. The expected old object id closes concurrent
 update and compare-and-delete races. Beating over a dirty index is deliberately allowed because no
 worktree byte is read or staged. Merge cleanup and deliberate release compare-and-delete the
 carrier; a refusal is named and leaves the work branch recoverable. Legacy heartbeat commits remain

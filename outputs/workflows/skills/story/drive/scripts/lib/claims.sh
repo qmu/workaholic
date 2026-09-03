@@ -315,8 +315,9 @@ claims_liveness_write() {
         esac
     fi
     _clw_author=$(git config user.email 2>/dev/null || true)
-    _clw_oid=$(printf 'version=1\nunit=%s\nbranch=%s\nauthor=%s\nat=%s\nepoch=%s\nnonce=%s\n' \
-        "$_clw_unit" "$_clw_branch" "$_clw_author" "$_clw_now" "$_clw_epoch" "$$" \
+    _clw_tip=$(git rev-parse HEAD 2>/dev/null || true)
+    _clw_oid=$(printf 'version=1\nunit=%s\nbranch=%s\nauthor=%s\nat=%s\nepoch=%s\ntip=%s\nnonce=%s\n' \
+        "$_clw_unit" "$_clw_branch" "$_clw_author" "$_clw_now" "$_clw_epoch" "$_clw_tip" "$$" \
         | git hash-object -w --stdin 2>/dev/null) || {
             printf 'carrier_object_failed'
             return 0
@@ -1319,17 +1320,26 @@ claims_scan() {
         _cs_liveness_tracking=$(claims_liveness_tracking_ref "$_cs_branch")
         _cs_liveness_declared=$(git log --format='%(trailers:key=Liveness-Ref,valueonly)' \
             "${_cs_base}..${_cs_ref}" 2>/dev/null | awk 'NF { print; exit }')
-        if git cat-file -e "${_cs_liveness_tracking}^{blob}" 2>/dev/null; then
+        _cs_liveness_unreadable=false
+        if [ -n "$_cs_liveness_declared" ] \
+            && [ "$CLAIMS_FETCH_OK" != "true" ] && [ "$CLAIMS_FETCH_OK" != "1" ]; then
+            _cs_at=liveness_unreadable
+            _cs_ct="$_cs_now"
+            _cs_liveness_unreadable=true
+        elif git cat-file -e "${_cs_liveness_tracking}^{blob}" 2>/dev/null; then
             _cs_liveness_oid=$(git rev-parse "$_cs_liveness_tracking")
             _cs_liveness_at=$(claims_liveness_payload_field "$_cs_liveness_oid" at)
             _cs_liveness_ct=$(claims_liveness_payload_field "$_cs_liveness_oid" epoch)
-            case "$_cs_liveness_ct" in
-                *[!0-9]*|'') ;;
-                *) _cs_at="${_cs_liveness_at:-unknown}"; _cs_ct="$_cs_liveness_ct" ;;
-            esac
-        elif [ -n "$_cs_liveness_declared" ] && [ "$CLAIMS_FETCH_OK" != "true" ]; then
-            _cs_at=liveness_unreadable
-            _cs_ct="$_cs_now"
+            _cs_liveness_tip=$(claims_liveness_payload_field "$_cs_liveness_oid" tip)
+            # An ordinary work commit after the last beat is itself progress evidence.
+            # Only use the carrier clock while it names the current branch tip; otherwise
+            # the branch's newer activity is the authoritative timestamp until the next beat.
+            if [ "$_cs_liveness_tip" = "$(git rev-parse "$_cs_ref" 2>/dev/null || true)" ]; then
+                case "$_cs_liveness_ct" in
+                    *[!0-9]*|'') ;;
+                    *) _cs_at="${_cs_liveness_at:-unknown}"; _cs_ct="$_cs_liveness_ct" ;;
+                esac
+            fi
         fi
 
         # STALENESS IS REPORTED, NEVER AUTO-BROKEN. A tip older than the threshold
@@ -1412,6 +1422,9 @@ claims_scan() {
             # one point where the input, not the unit, is the problem.
             _cs_resumable=false
             _cs_reason=shallow_history
+        elif [ "$_cs_liveness_unreadable" = "true" ]; then
+            _cs_resumable=false
+            _cs_reason=claim_active
         elif [ $((_cs_now - _cs_ct)) -lt "$_cs_hb_threshold" ]; then
             _cs_resumable=false
             _cs_reason=claim_active

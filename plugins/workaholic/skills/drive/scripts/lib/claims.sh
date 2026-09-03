@@ -1321,7 +1321,8 @@ claims_scan() {
         _cs_liveness_declared=$(git log --format='%(trailers:key=Liveness-Ref,valueonly)' \
             "${_cs_base}..${_cs_ref}" 2>/dev/null | awk 'NF { print; exit }')
         _cs_liveness_unreadable=false
-        if [ -n "$_cs_liveness_declared" ] && [ "$CLAIMS_FETCH_OK" != "true" ]; then
+        if [ -n "$_cs_liveness_declared" ] \
+            && [ "$CLAIMS_FETCH_OK" != "true" ] && [ "$CLAIMS_FETCH_OK" != "1" ]; then
             _cs_at=liveness_unreadable
             _cs_ct="$_cs_now"
             _cs_liveness_unreadable=true

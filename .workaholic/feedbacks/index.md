@@ -662,4 +662,5 @@
 * [A red base can go unseen: an unrun suite reads as a pass and a detected red waits for morning](20260903090153-a-red-base-can-go-unseen-an-unrun-suite-reads-as-a-pass-and-a-detected-red-waits-for-morning.md)
 * [Make the maintenance tick's channel presence help the work along](20260903100937-make-the-maintenance-tick-s-channel-presence-help-the-work-along.md)
 * [Compose the squash body so a unit's housekeeping stays off the trunk](20260903103841-compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk.md)
+* [A verification handoff must name a probe that runs at claim time, not a sentence written once](20260903133636-a-verification-handoff-must-name-a-probe-that-runs-at-claim-time-not-a-sentence-written-once.md)
 <!-- okf:generated:end -->

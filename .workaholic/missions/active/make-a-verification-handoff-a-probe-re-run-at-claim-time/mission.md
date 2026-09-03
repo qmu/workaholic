@@ -38,7 +38,7 @@ declaration forward as a premise.
 
 ## Acceptance
 
-- [ ] A declared handoff carries a probe read by one reader, and a prose-only one reads as unmeasured. (#20260903133932-name-a-declaration-nobody-can-re-probe-as-unmeasured.md)
+- [x] A declared handoff carries a probe read by one reader, and a prose-only one reads as unmeasured. (#20260903133932-name-a-declaration-nobody-can-re-probe-as-unmeasured.md)
 - [x] The probe runs at claim time: clean drops the handoff, blocking hands the unit over quoting its output. (#20260903133932-make-a-failing-probe-s-own-output-the-handoff-reason.md)
 - [ ] Standing declarations are re-probed each tick, and no run inherits a handoff it did not derive. (#20260903133932-stop-a-handoff-sentence-spreading-beyond-its-own-unit.md)
 
@@ -50,3 +50,4 @@ declaration forward as a premise.
 - 2026-09-03 — ticket archived — 20260903133932-run-the-declared-probe-when-the-unit-is-claimed.md
 - 2026-09-03 — ticket archived — 20260903133932-drop-a-handoff-whose-probe-comes-back-clean.md
 - 2026-09-03 — ticket archived — 20260903133932-make-a-failing-probe-s-own-output-the-handoff-reason.md
+- 2026-09-03 — ticket archived — 20260903133932-name-a-declaration-nobody-can-re-probe-as-unmeasured.md

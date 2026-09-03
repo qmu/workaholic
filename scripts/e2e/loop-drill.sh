@@ -1905,14 +1905,33 @@ EOF
         add_row "direction_state_unreadable" false "a refused survey was not named: $(one_line "$_bad")" load
     fi
 
-    # THE QUESTION KEYS. They are what `ask-question.sh`'s asked-once ledger keys on, so a
-    # key that drifts is a question asked twice or never.
+    # THE QUESTION KEYS, AT BOTH GRAINS. Since 2026-09-03 (mission
+    # `make-the-maintenance-tick-s-channel-presence-help-the-work-along`) the step hands back
+    # `groups` — ONE entry per reading, carrying every subject that reading holds — and it is the
+    # GROUP key that `ask-question.sh`'s asked-once ledger keys on, so a group key that drifts is a
+    # question asked twice or never. The per-subject keys stay in `directions` as the composer's
+    # input, which is why both grains are read here: reading only the groups would let the
+    # composition input vanish, and reading only the subjects is what this row did before the
+    # collapse and is why it was asserting the retired contract.
     _out=$(cd "$REPO_ROOT" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
-    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-dormant:quiet direction-dormant:undated direction-overdue:gone " ]; then
-        add_row "direction_health_keys" true "the step asks exactly direction-overdue:gone, direction-dormant:quiet and direction-dormant:undated" load
+    _gkeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]?.key] | sort | join(" ")' 2>/dev/null || printf '')
+    _skeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]?.key] | sort | unique | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gkeys" = "direction-dormant:quiet+undated direction-overdue:gone" ] \
+        && [ "$_skeys" = "direction-dormant:quiet direction-dormant:undated direction-overdue:gone" ]; then
+        add_row "direction_health_keys" true "two dormant directions cost one question keyed on both slugs, the overdue one keeps its own, and each subject is still composable" load
     else
-        add_row "direction_health_keys" false "unexpected question keys: '${_keys}'" load
+        add_row "direction_health_keys" false "unexpected question keys: groups '${_gkeys}' over subjects '${_skeys}'" load
+    fi
+
+    # AND THE GROUP CARRIES WHAT THE ONE MESSAGE MUST NAME. A group that folded two subjects into
+    # one key while carrying one of them would ask about half the directions it silenced -- the
+    # collapse trading five questions for a lost one.
+    _gsubj=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "dormant") | (.slugs | join("+")) + "/" + ((.subjects | length) | tostring)] | join(" ")' 2>/dev/null || printf '')
+    _gassign=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "dormant") | .assignees] | join("|")' 2>/dev/null || printf '')
+    if [ "$_gsubj" = "quiet+undated/2" ] && [ -n "$_gassign" ]; then
+        add_row "direction_health_group_names_every_subject" true "the dormant group carries both subjects and the assignees it is addressed to (${_gassign})" load
+    else
+        add_row "direction_health_group_names_every_subject" false "the dormant group did not carry its subjects: '${_gsubj}' addressed to '${_gassign}'" load
     fi
     # THE ACT NAMED IN THE `overdue` BODY (2026-08-27). Re-dating is something the operator can
     # now do THROUGH the loop, so the question about an expired direction must offer it -- in
@@ -2125,26 +2144,51 @@ EOF
         add_row "arrival_state_unreadable" false "a refused survey was not named: $(one_line "$_bad")" load
     fi
 
-    # THE QUESTION KEY. It is what `ask-question.sh`'s asked-once ledger keys on, so a key that
-    # drifts is a question asked twice or never.
+    # THE QUESTION KEYS, AT BOTH GRAINS. Since 2026-09-03 the two arrived directions are ONE
+    # question keyed on both slugs (`groups`), while `directions` keeps a per-subject entry as the
+    # composer's input. The group key carries the sorted slug set rather than the kind alone,
+    # which is what keeps the asked-once gate from turning into a silence when a third direction
+    # arrives next week.
     _out=$(cd "$_root" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
-    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-arrived:arrived direction-arrived:latearrived direction-dormant:quiet direction-overdue:gone " ]; then
-        add_row "arrival_question_keys" true "the step asks direction-arrived for both arrived directions and nothing about the live one" load
+    _gkeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]?.key] | sort | join(" ")' 2>/dev/null || printf '')
+    _skeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]?.key] | sort | unique | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gkeys" = "direction-arrived:arrived+latearrived direction-dormant:quiet direction-overdue:gone" ] \
+        && [ "$_skeys" = "direction-arrived:arrived direction-arrived:latearrived direction-dormant:quiet direction-overdue:gone" ]; then
+        add_row "arrival_question_keys" true "both arrived directions cost one question keyed on both slugs, nothing is asked about the live one, and each subject is still composable" load
     else
-        add_row "arrival_question_keys" false "unexpected question keys: '${_keys}'" load
+        add_row "arrival_question_keys" false "unexpected question keys: groups '${_gkeys}' over subjects '${_skeys}'" load
     fi
 
-    # THE BODY IS A DESCRIPTION OF THE READING. It names WHAT LANDED and THE DATE, stays inside
-    # notify's 25-word bound, and asserts NOTHING about the direction being finished -- the
-    # discipline `dormant` is already held to.
-    _abody=$(printf '%s' "$_out" | sed -n 's/.*"body": *"\(Everything attributed[^"]*\)".*/\1/p' | head -1)
+    # AND THE KEY IS NOT THE KIND ALONE. `direction-arrived` on its own would be asked once ever,
+    # so the direction arriving next week would never be asked about at all -- the asked-once gate
+    # turned into a silence. Proved rather than trusted to the prose: the group key must carry
+    # every slug it stands for.
+    _gsubj=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "arrived") | (.slugs | join("+")) + "/" + ((.subjects | length) | tostring)] | join(" ")' 2>/dev/null || printf '')
+    # The key must be BUILT from that subject set, not merely accompanied by it: a group keyed on
+    # the kind while carrying its slugs elsewhere is the same silence with better bookkeeping.
+    _gkeyed=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "arrived") | (.key == ("direction-" + .reading + ":" + (.slugs | sort | join("+"))))] | all' 2>/dev/null || printf 'false')
+    if [ "$_gsubj" = "arrived+latearrived/2" ] && [ "$_gkeyed" = "true" ]; then
+        add_row "arrival_group_key_carries_the_subject_set" true "the arrived group names both subjects and keys on both slugs, so a later arrival is a new key rather than a silence" load
+    else
+        add_row "arrival_group_key_carries_the_subject_set" false "the arrived group did not carry its subject set: '${_gsubj}'" load
+    fi
+
+    # THE BODY IS A DESCRIPTION OF THE READING. What landed and the date ride the HEADING, which
+    # is where `workaholic:notify`s rule 5 puts a named detail; the body states the reading and
+    # the act, stays inside notify's 25-word ceiling, and asserts NOTHING about the direction
+    # being finished -- the discipline `dormant` is already held to. It is anchored on the
+    # arrived SUBJECT rather than on the sentence's opening words, so a rewording is a change to
+    # the wording and not a silently empty match: the first version of this row read the body out
+    # with a `sed` keyed on `Everything attributed`, and when 2026-09-03 restated the sentence it
+    # found nothing and reported `0 words` -- a row that had stopped reading anything at all.
+    _abody=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]? | select(.reading == "arrived") | .body] | first // ""' 2>/dev/null || printf '')
     _awords=$(printf '%s' "$_abody" | wc -w | tr -d ' ')
     if printf '%s' "$_out" | grep -q 'item(s) landed, dated ' \
         && [ -n "$_abody" ] && [ "$_awords" -le 25 ] \
+        && printf '%s' "$_abody" | grep -q 'reads finished' \
         && printf '%s' "$_abody" | grep -q 'the loop closes nothing' \
         && ! printf '%s' "$_abody" | grep -qi 'is finished\|is done\|has been achieved'; then
-        add_row "arrival_body_describes_the_reading" true "the arrival question names what landed and the date in ${_awords} words, and claims nothing about being finished" load
+        add_row "arrival_body_describes_the_reading" true "the arrival question states the reading in ${_awords} words, leaves what landed and the date on the heading, and claims nothing about being finished" load
     else
         add_row "arrival_body_describes_the_reading" false "the arrival body is wrong (${_awords} words): $(one_line "$_abody")" load
     fi
@@ -2838,12 +2882,26 @@ EOF
 
     # THE QUESTION. Its key is what the asked-once ledger keys on, so a key that drifts is a
     # question asked twice or never; and a direction with runway must draw none.
+    # BOTH GRAINS, since 2026-09-03: the GROUP key is what the asked-once ledger keys on, and the
+    # per-subject keys stay in `directions` as the composer's input. Reading only the subjects is
+    # the retired contract this row used to assert.
     _out=$(cd "$_root" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
-    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-arrived:finished direction-expiring:boundary direction-expiring:soon direction-overdue:gone " ]; then
-        add_row "expiry_question_keys" true "the step asks direction-expiring for both directions inside the window and nothing about the live one" load
+    _gkeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]?.key] | sort | join(" ")' 2>/dev/null || printf '')
+    _skeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]?.key] | sort | unique | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gkeys" = "direction-arrived:finished direction-expiring:boundary+soon direction-overdue:gone" ] \
+        && [ "$_skeys" = "direction-arrived:finished direction-expiring:boundary direction-expiring:soon direction-overdue:gone" ]; then
+        add_row "expiry_question_keys" true "both directions inside the window cost one question keyed on both slugs, nothing is asked about the live one, and each subject is still composable" load
     else
-        add_row "expiry_question_keys" false "unexpected question keys: '${_keys}'" load
+        add_row "expiry_question_keys" false "unexpected question keys: groups '${_gkeys}' over subjects '${_skeys}'" load
+    fi
+
+    # AND THE ONE MESSAGE NAMES BOTH DIRECTIONS. A group is one reply about several subjects; a
+    # group that named one of them would silence the other while reporting itself asked.
+    _gsubj=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "expiring") | (.slugs | join("+")) + "/" + ((.subjects | length) | tostring)] | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gsubj" = "boundary+soon/2" ]; then
+        add_row "expiry_group_names_every_subject" true "the expiring group carries both subjects, so one message names every direction it stands for" load
+    else
+        add_row "expiry_group_names_every_subject" false "the expiring group did not carry its subjects: '${_gsubj}'" load
     fi
 
     # A WARNING THAT DOES NOT SAY HOW LONG SOMEBODY HAS IS NOT A WARNING. The heading names the

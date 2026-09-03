@@ -422,21 +422,26 @@ subjects=$(printf '%s' "$out" | jq -c --arg window "14 days" \
                 # originating nothing, which is what `direction-last` says one reading earlier.
                 elif .state == "expiring"
                 then $leaving_clause + "Re-date it, announce a successor when you end it, or say it still stands — the loop carries what you announce and decides nothing."
-                # WHAT LANDED, AND THE TICKS OWN READING (2026-09-03, mission
+                # THE TICKS OWN READING (2026-09-03, mission
                 # `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). It said a
                 # count and asked a bare question, while every other part of this loop states a
-                # judgement and lets a person veto it. It now names what landed and says whether
-                # the evidence looks finished -- a READING, never a verdict: nothing closes a
-                # direction but the operator announcement, which is the standing rule here.
+                # judgement and lets a person veto it. It now says whether the evidence looks
+                # finished -- a READING, never a verdict: nothing closes a direction but the
+                # operator announcement, which is the standing rule here.
+                #
+                # AND IT SAYS IT INSIDE THE BOUND (2026-09-03, the same day, one merge later).
+                # The first wording repeated the landed count and ran to 26 words, one over
+                # `workaholic:notify`s ceiling, while rule 5 of that same contract puts a named
+                # detail on the HEADING -- which already carries what landed and when. Dropping
+                # the count costs nothing a reader can see and buys both branches back inside the
+                # bound: 20 words here, 24 with the residue clause.
                 # (No apostrophes in this block: the jq program is a single-quoted shell string.)
                 elif .state == "arrived"
                 then $leaving_clause
-                     + (if ((.landed // 0) > 0)
-                        then ((.landed) | tostring) + " item(s) landed against it and nothing is waiting. "
-                        else "Nothing is waiting against it. " end)
+                     + "Nothing is waiting; it reads finished"
                      + (if (((.residue // {}) | (.readable // false)) and (((.residue.missions // []) | length) > 0))
-                        then "It reads finished except for work no direction claims. "
-                        else "It reads finished. " end)
+                        then " except for unclaimed work. "
+                        else ". " end)
                      + "Announce that it ended, or say it still stands — the loop closes nothing."
                 else "File its next move, or say it still stands — the loop will not close or change it either way."
                 end)} ]' 2>/dev/null || echo '[]')

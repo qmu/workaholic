@@ -284,6 +284,7 @@ The claim oracle degrades offline; the writer fails loudly. Under `/implement`, 
 | `/moderate` | The hourly maintenance tick. See *`/moderate`* below. |
 | `/setup-dev-routines [repo]` | Configure the `developer`-scoped routines (`[Propose]`, `[Implement]`). See *Routine convergence* below. Never touches a `repository`-scoped routine. |
 | `/setup-repo-routines [repo]` | Configure the `repository`-scoped routine (`[Moderate]`). Same flow, scoped to `repository` templates. **Run it from one account** — a designated person or a project/service account — because N members converging it leaves N copies firing every hour; a routine is an account-level record no other account can list, so this is a **stated convention the plugin cannot enforce**. Never touches a `developer`-scoped routine. |
+| `/work` | Start the development loop in this session: invoke the `loop` skill with `5m /infinite-development` and let it run. No stop argument — a command's behaviour never depends on the first word of its argument. |
 | `/infinite-development` | **One tick of the loop** (2026-09-03): read the Slack channel and answer on it, spawn `propose` and `implement` (and `moderate` on a 30-minute gate) as background subagents, and end — it never waits for them. Run under `/loop 5m /infinite-development` in one session. See *Loops* below. |
 
 ### `/implement` — the run report

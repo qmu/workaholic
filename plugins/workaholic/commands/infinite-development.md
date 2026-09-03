@@ -211,6 +211,25 @@ arrive as task notifications, and the next tick reports what landed. A subagent 
 its own run; `/ship` and `/mission-close` already reap the claim worktrees they opened
 (`cleanup-mission-worktree.sh`).
 
+## 2b. The progress reading — start it, never wait for it
+
+The tick says which loops it spawned; on its own that never says whether the work is
+**moving**. `skills/loops/scripts/tick-progress.sh` answers that from readers this
+repository already owns — per active mission the acceptance `checked/total`, the tickets
+still queued against it, and whether anything has landed there at all; then the queue's own
+total, how many missions carry queued work, and what the origination gate would therefore
+answer next.
+
+**Start it in the background and render the reading the PREVIOUS tick started.** It walks
+every queued ticket through `read-relation.sh` and measured ~60s here — a tick that waits for
+it is a tick that cannot answer a person for a minute, which is the one thing the cadence
+exists to prevent. The cost is stated rather than hidden: the numbers a tick prints are up to
+one tick old, and the render names when they were read.
+
+It holds no cursor and no store, so a **trend** is the caller's to see: this tick's reading
+beside the last one is what says *draining* or *stuck*. `draining` on a row is only the fact
+that this mission's archive is non-empty.
+
 ## 3. Report, in one short block
 
 - **The checkout**, when it is dirty: `checkout_dirty: <n> file(s)` and the one sentence that
@@ -225,6 +244,10 @@ its own run; `/ship` and `/mission-close` already reap the claim worktrees they 
   is never rendered as `no_candidates`.
 - **Per loop**: `spawned` / `still_running` / `not_due` (naming the age it read), each with
   `reaped` when an idle agent was stopped first.
+- **Progress**, from the reading that has landed: the queue total, then one line per active
+  mission carrying queued work — acceptance `checked/total` and tickets left — and the
+  origination gate's next answer with what has to clear for it to open. Name when the reading
+  was taken. A reading that has not landed yet is named as pending, never rendered as zero.
 - Nothing else. A tick that read a quiet channel and spawned nothing says exactly that.
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or

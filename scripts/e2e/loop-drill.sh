@@ -9718,8 +9718,15 @@ cmd_verify_plan_adjust() {
     _open="${_tmp}/open.json"
     printf '{"ok": true, "identity": "drill@example.invalid", "proposals": []}\n' > "$_open"
     # Four active missions carry queued work, so the repository's work in flight is 4.
+    # THE FIXTURE ESTABLISHES THE CONDITION IT ASSERTS, INCLUDING THE ABSENCE OF ONE. Row 3 reads
+    # the UNDECLARED shape, and the sanctioned home for the declaration is the repository's own
+    # `.claude/settings.json` `env` block — so on a repository that has declared a limit the value
+    # reached this fixture and row 3 read `{declared: true, limit: 3}`: green in CI, where no such
+    # environment exists, and red on the operator's own machine. A drill that depends on what the
+    # operator happens to have declared is not hermetic, which is the one property this file has.
+    # `env -u` removes it first; the drill's own value, when it has one, is applied after.
     _run_survey() {
-        ( cd "$_fx" && env ${1:+WORKAHOLIC_WIP_LIMIT="$1"} sh "$_survey" --open-proposals "$_open" "1 days ago" 2>&1 ) || true
+        ( cd "$_fx" && env -u WORKAHOLIC_WIP_LIMIT ${1:+WORKAHOLIC_WIP_LIMIT="$1"} sh "$_survey" --open-proposals "$_open" "1 days ago" 2>&1 ) || true
     }
 
     # 1. ABOVE THE LIMIT: the direction is HELD, by name, with the count and the limit said.

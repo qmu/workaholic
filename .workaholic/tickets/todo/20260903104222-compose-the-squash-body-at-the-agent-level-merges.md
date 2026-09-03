@@ -80,3 +80,30 @@ fix confined to the scripts leaves the loop's most common merge path untouched.
 - This half is prose a session must follow, so nothing mechanical proves a run obeyed it. The
   suite can only prove the instruction is present, and the ticket says so rather than implying a
   stronger guarantee.
+
+## Final Report
+
+**Outcome**: implemented, with one step deliberately narrowed and the reason stated.
+
+The `review` route in `plugins/workaholic/skills/drive/SKILL.md` now names the composer beside
+`merge-method.sh`: the session runs `merge-commit-body.sh <n>` and passes its `title` and `body` as
+`-f commit_title=` / `-f commit_message=`, with the values **read and never spelled** — the shape
+`merge-method.sh` already established. The same instruction covers the connector retry, whose one
+sanctioned attempt through `mcp__github__merge_pull_request` carries the composer's answer as its
+commit title and message. §7's per-unit report line now names the `source` beside the merge outcome,
+as evidence that moves no token.
+
+**Step 3 reached one ceiling, not two, and this is a judgement rather than an oversight.**
+`commands/implement.md` carries the instruction, because `/implement` is where both agent-level merges
+happen. `commands/specificate.md` does **not**, because that command performs no merge at all: its
+publication is merged by `publish-tree-pr.sh`, a script, which the sibling ticket already patched.
+Inlining a merge instruction there would put a rule into a ceiling whose command never executes it —
+the same shape the existing thread-lookup row forbids. Step 4's *absent where the search is not
+performed* half is therefore asserted positively: the suite pins that `/implement` carries the composer
+and that `/specificate` does not, so a later contributor adding one is making a visible decision.
+
+**What nothing can check, named rather than implied**: an agent's merge call is composed at run time and
+appears in no file, so the suite can only prove the instruction is present in the ceiling that will be
+read. The assertion says so in its own comment; the ticket's Considerations predicted exactly this.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

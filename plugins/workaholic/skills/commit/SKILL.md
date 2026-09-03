@@ -97,13 +97,16 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### The trailer block
 
-`commit.sh` owns it; callers stay trailer-agnostic and add no attribution line themselves. Three trailers, each conditional in its own way:
+`commit.sh` owns it; callers stay trailer-agnostic and add no attribution line themselves. Four trailers, each conditional in its own way:
 
 | Trailer | Emitted when | Read by |
 | ------- | ------------ | ------- |
 | `Category:` | `--category` was passed | `/story`'s `collect-commits.sh`, for Added/Changed/Removed grouping |
+| `Workaholic-Housekeeping:` | `--housekeeping <kind>` was passed, `kind` from the closed set `heartbeat \| claim \| index \| hours` | `gather/scripts/merge-commit-body.sh`, which drops such a commit from the squash body it composes |
 | `Claude-Session:` | the process environment carries `CLAUDE_CODE_REMOTE_SESSION_ID` — a cloud session, which every routine-fired run is | a human auditing which run produced a commit |
 | `Co-Authored-By:` | always | GitHub's co-author attribution |
+
+**The housekeeping marker is a marker, never a title** (2026-09-03, mission `compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk`). A heartbeat, a claim stamp and a takeover are the loop's own memory rather than a change to the development target, and the composer must be able to tell them apart from work. It keys on **this trailer** because `Refresh heartbeat` is one wording of one writer and the next housekeeping commit will carry another; an unlisted kind is refused `bad_housekeeping_kind` with **nothing committed**, so a kind invented at a call site cannot be silently dropped by every reader that has not heard of it. **A commit carrying a unit's actual work never takes it** — which is why the OKF index refresh and the mission's run hours carry no marker: both ride `archive.sh`'s commit, and that commit moves the ticket. **Commits already on the trunk carry no marker and are not rewritten**; the composer therefore treats an unmarked commit as ordinary work, which is the safe direction — it over-includes on history and under-includes on nothing.
 
 **Which run, not which routine** (issue #453, measured 2026-08-14 in a live `[Implement]` container). The report was that every web-routine commit reads as "Claude" and cannot be attributed. Half of it was already false: `user.email` is set repo-locally by the web bootstrap from `.claude/git-identities`, so the **person** was attributable in the commit object all along. What was genuinely unrecoverable is which **run** produced a commit — `[Specificate]` and `[Implement]` were indistinguishable.
 

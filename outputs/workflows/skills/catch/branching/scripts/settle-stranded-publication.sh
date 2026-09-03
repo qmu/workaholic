@@ -142,10 +142,11 @@ teardown_worktree() {
 
 report() {
     teardown_worktree "$1"
-    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "age_hours": %s, "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s"}\n' \
+    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "age_hours": %s, "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s"}\n' \
         "$1" "$NUMBER" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" "$(json_str "$CLASS")" \
         "$AGE" "$CONFLICTED" "$(json_str "$WORKTREE")" \
-        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")"
+        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")" \
+        "$(json_str "${MERGE_BODY_SOURCE:-}")"
     exit 0
 }
 refuse() { report settle_refused "$1"; }
@@ -326,9 +327,18 @@ slug="$(sh "${GATHER}/gh-rest.sh" slug 2>/dev/null || printf '')"
 [ -n "$slug" ] || report settled slug_unresolved
 
 method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
+# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# is the one derivation of `commit_title` / `commit_message`; without them the forge
+# concatenates every commit on the branch into the trunk's record. A composer that could not
+# read still yields a fallback body, so the merge is never held on it.
+body_json="$(sh "${GATHER}/merge-commit-body.sh" "${NUMBER}" 2>/dev/null || printf '')"
+merge_title="$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')"
+merge_body="$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')"
+MERGE_BODY_SOURCE="$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')"
 set +e
 merge_resp="$(sh "${GATHER}/gh-rest.sh" api "repos/${slug}/pulls/${NUMBER}/merge" \
-    --method PUT -f "merge_method=${method}" 2>&1)"
+    --method PUT -f "merge_method=${method}" \
+    -f "commit_title=${merge_title}" -f "commit_message=${merge_body}" 2>&1)"
 merge_status=$?
 set -e
 

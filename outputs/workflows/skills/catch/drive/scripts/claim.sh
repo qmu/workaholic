@@ -273,6 +273,7 @@ if [ "$kind" = "resume" ]; then
     # arbiter, which is why it happens before a single line of work.
     ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --allow-empty \
         --trailer "Unit: ${unit}" \
+        --housekeeping claim \
         "Resume a PR-unit" \
         "An earlier run claimed this unit and stopped before delivering it -- mid-drive, or with its queue drained and no pull request opened; its branch tip fell outside the heartbeat window, so the unit was offered as resumable and this runner took it over" \
         "None -- coordination only; the takeover changes no file and never reaches the PR diff" \
@@ -560,7 +561,7 @@ done
 # longer than 44 characters permanently unclaimable -- four of five active missions, each
 # refused as an unexplained `commit_failed`. The subject is now fixed and short; the id
 # goes where length does not matter and a script can read it back exactly.
-set -- --trailer "Unit: ${unit}" "Claim a PR-unit" \
+set -- --trailer "Unit: ${unit}" --housekeeping claim "Claim a PR-unit" \
     "The runner takes PR-unit ${unit} before driving it; the claim is published so every other runner's reader sees the unit in flight and never double-picks it" \
     "None -- coordination only; the stamp is branch-local and never reaches main" \
     "None" "None" \

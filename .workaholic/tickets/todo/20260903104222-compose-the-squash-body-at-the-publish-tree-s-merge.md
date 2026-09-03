@@ -73,3 +73,20 @@ same forge default puts them on the trunk.
 - A publication's fallback line is the only body it will ever have. It should name the artifact
   the publication carries — the record, the mission, the ticket count — rather than repeat the
   title.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`branching/scripts/publish-tree-pr.sh` composes the body immediately before its REST merge and passes
+the two fields. As the ticket predicted, a publication has no branch story by construction, so
+`fallback` is its ordinary answer rather than a failure — one line naming what was published, in place
+of the tree's staging and index-refresh commits.
+
+**Every refusal is untouched and runs first**: `strategy_touching` and `ruling_touching` still refuse
+the merge before any body is composed, so no work is done for a merge that will not happen, and the
+`merge_reason` ladder is byte-identical. The script reports `body_source` in its JSON output beside
+`merge_reason`.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` — the call-site enumeration covers this file,
+and the existing publish-seam rows are unchanged.

@@ -85,9 +85,15 @@ not write a second story generator.
   2026-08-11, superseding the earlier stop-at-the-PR route): once `/story` has opened the unit's
   pull request, read the scan through `release-scan`'s `gate-decision.sh` — never the raw
   `verdict` — and merge it when that reader says `decision: pass` or `override_only: true` (REST
-  `PUT repos/{owner}/{repo}/pulls/{n}/merge` with `merge_method: merge`, through
-  `gather/scripts/gh-rest.sh` — never the GraphQL-backed `gh pr merge`, which a web session
-  may 403) with
+  `PUT repos/{owner}/{repo}/pulls/{n}/merge` through `gather/scripts/gh-rest.sh` — never the
+  GraphQL-backed `gh pr merge`, which a web session may 403 — carrying **three read, never
+  spelled** fields: `merge_method` from `gather/scripts/merge-method.sh` (it answers `squash`),
+  and `commit_title` / `commit_message` from `gather/scripts/merge-commit-body.sh`. Without the
+  last two the forge concatenates every commit on the branch into the trunk's record, which is
+  how the claim stamp and the heartbeats reached `main` — measured, 48 such squash bodies here,
+  the longest 11,515 lines. A composer answering `unreadable:<reason>` still yields a fallback
+  body, so the merge is **never held on it**; its `source` is reported beside the merge outcome
+  and moves no token) with
   no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
   downstream at the `release/*` QA window, not at merge time. A `hard` (`secret`) or `confirm`
   (`leak`) finding is what leaves the PR open instead (there is no human here to override — the

@@ -46,3 +46,4 @@ History already on the trunk is left alone.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903104222-derive-a-merge-s-squash-title-and-body-in-one-place.md

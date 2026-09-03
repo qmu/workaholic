@@ -9468,7 +9468,7 @@ echo "boom" >&2
 exit 1
 BLIND
     chmod +x "${_bin}/gh"
-    _blind=$(( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_reader" --root "$_fx" 2>&1; printf ' exit=%s' "$?" ) || true)
+    _blind=$( ( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_reader" --root "$_fx" 2>&1; printf ' exit=%s' "$?" ) || true)
     case "$_blind" in
         *'"ok": false'*'"reason": "list_failed"'*' exit=0')
             case "$_blind" in
@@ -9506,7 +9506,7 @@ echo "boom" >&2
 exit 1
 BLIND2
     chmod +x "${_bin}/gh"
-    _bk=$(( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_broken" --root "$_fx" 2>&1 ) || true)
+    _bk=$( ( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_broken" --root "$_fx" 2>&1 ) || true)
     if printf '%s' "$_bk" | jq -e '.ok == true and (.candidates | length == 0)' >/dev/null 2>&1; then
         add_row "announced_breaker" true "with the refusal wired to an empty list, a blind hour reads exactly like a quiet one (this drill can fail)" breaker
     else

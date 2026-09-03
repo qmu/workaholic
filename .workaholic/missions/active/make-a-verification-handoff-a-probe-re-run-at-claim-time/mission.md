@@ -46,3 +46,4 @@ declaration forward as a premise.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-03 — ticket archived — 20260903133932-declare-a-verification-handoff-as-a-probe-command.md
+- 2026-09-03 — ticket archived — 20260903133932-read-a-declared-probe-through-one-reader.md

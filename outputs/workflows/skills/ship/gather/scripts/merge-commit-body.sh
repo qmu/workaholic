@@ -35,12 +35,16 @@
 #
 # `source` IS THREE-VALUED AND EACH IS NAMED:
 #
-#   story            the branch story resolved and its description was read
+#   story            the branch story resolved, its description was read, AND nothing this script
+#                    needed was missing. A reason outranks it: a run whose commit walk was dropped
+#                    reported `story` until 2026-09-03, which is the word for a complete read.
 #   fallback         no story resolved -- the body is one line naming the unit and its pull
 #                    request. A publication (a proposal, a ruling draft, a `/ticket`) has no
 #                    branch story by construction, so this is its ordinary answer, not a failure.
-#   unreadable:<why> something this script needed could not be read. It STILL yields the fallback
-#                    body: a composer that fails must never hand the forge its default back by
+#   unreadable:<why> something this script needed could not be read (`pull_request_unreadable`,
+#                    `no_slug`, `no_commit_range`, `commit_walk_failed`). It STILL yields a body --
+#                    the story's description when one was read, the fallback line otherwise:
+#                    a composer that fails must never hand the forge its default back by
 #                    omission, and a merge is never held on a body.
 #
 # IT WRITES NOTHING. No file, no ref, no commit, no Slack transport. Its one network read is the
@@ -196,46 +200,75 @@ if [ -n "$BRANCH" ]; then
     # subject and every commit read as one. The second walk asks git itself which commits carry
     # the marker (`--grep` matches the whole message, trailers included) and the first subtracts
     # them -- no separator to lose, and the marker test stays git's own.
-    all=$(git log --no-merges --reverse --format='%H %s' "${base_ref}..${head_ref}" 2>/dev/null || true)
-    housekeeping=$(git log --no-merges --format='%H' --grep='^Workaholic-Housekeeping:' \
-      "${base_ref}..${head_ref}" 2>/dev/null || true)
-    subjects=$(printf '%s\n' "$all" | HOUSEKEEPING="$housekeeping" python3 -c '
-import os, sys
-skip = set(os.environ.get("HOUSEKEEPING", "").split())
-seen = set(); out = []
-for line in sys.stdin.read().splitlines():
-    line = line.strip()
-    if not line:
-        continue
-    sha, _, subject = line.partition(" ")
-    subject = subject.strip()
-    if not subject or sha in skip or subject in seen:
-        continue
-    seen.add(subject); out.append(subject)
-print("\n".join(out))
-' 2>/dev/null || true)
+    #
+    # THE SUBTRACTION NEEDS NO INTERPRETER (2026-09-03, ticket `20260903162400`). It was one
+    # `python3 -c` program under `2>/dev/null || true` with NO fallback rung, so on a machine
+    # without that interpreter `subjects` came back empty, nothing set `subject_reason`, and the
+    # body was assembled with no commit list at all while `source` still read `story`. Measured by
+    # shimming `python3` to exit 127: the same call returned the description AND the commit list
+    # with the interpreter present and the description ALONE without it, silently.
+    #
+    # The escaper one function over answered its own version of this by pinning three
+    # interpreters against each other, because escaping a JSON string is beyond `sed`. Set
+    # subtraction and an order-preserving dedupe are not: they are `case` and string append. So
+    # the interpreter is REMOVED rather than given rungs -- one path cannot disagree with itself,
+    # which is the property the rungs were bought to approximate.
+    if all=$(git log --no-merges --reverse --format='%H %s' "${base_ref}..${head_ref}" 2>/dev/null) \
+      && housekeeping=$(git log --no-merges --format='%H' --grep='^Workaholic-Housekeeping:' \
+        "${base_ref}..${head_ref}" 2>/dev/null)
+    then
+      subjects=$(printf '%s\n' "$all" | {
+        seen='
+'
+        while IFS= read -r line; do
+          [ -n "$line" ] || continue
+          sha=${line%% *}
+          subject=${line#"$sha"}
+          subject=${subject# }
+          [ -n "$subject" ] || continue
+          # A 40-character object name cannot be a proper substring of another, and a subject
+          # cannot contain a newline (`%s` is one line), so both membership tests are exact.
+          case "$housekeeping" in *"$sha"*) continue ;; esac
+          case "$seen" in *"
+${subject}
+"*) continue ;; esac
+          seen="${seen}${subject}
+"
+          printf '%s\n' "$subject"
+        done
+      })
+    else
+      # A WALK THAT DID NOT RUN IS NAMED, never rendered as a branch with no commits.
+      subject_reason="commit_walk_failed"
+    fi
   else
     subject_reason="no_commit_range"
   fi
 fi
 
 # --- Assemble ---------------------------------------------------------------------------------
+# A NAMED REASON OUTRANKS A STORY THAT WAS READ (2026-09-03, ticket `20260903162400`). The
+# description used to be tested first, so a run whose commit walk was dropped reported `story` --
+# the word that means everything this composer needed was there. The body is unchanged by the
+# reordering: the story's description is still the best body available and is still used, and a
+# reason only changes what the composer SAYS about it.
 source_word=""
 reason=""
 if [ -n "$description" ]; then
-  source_word="story"
   body="$description"
-elif [ -n "$lookup_reason" ]; then
+else
+  body=$(fallback_body)
+fi
+if [ -n "$lookup_reason" ]; then
   source_word="unreadable:${lookup_reason}"
   reason="$lookup_reason"
-  body=$(fallback_body)
 elif [ -n "$subject_reason" ]; then
   source_word="unreadable:${subject_reason}"
   reason="$subject_reason"
-  body=$(fallback_body)
+elif [ -n "$description" ]; then
+  source_word="story"
 else
   source_word="fallback"
-  body=$(fallback_body)
 fi
 
 if [ -n "$subjects" ]; then

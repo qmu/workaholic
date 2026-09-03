@@ -330,7 +330,7 @@ method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
 # THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
 # is the one derivation of `commit_title` / `commit_message`; without them the forge
 # concatenates every commit on the branch into the trunk's record. A composer that could not
-# read still yields a fallback body, so the merge is never held on it.
+# read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
 body_json="$(sh "${GATHER}/merge-commit-body.sh" "${NUMBER}" 2>/dev/null || printf '')"
 merge_title="$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')"
 merge_body="$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')"

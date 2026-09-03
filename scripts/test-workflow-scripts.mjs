@@ -22049,11 +22049,38 @@ function testMergeBodyIsSingleSourced() {
       jpFallback.title, jp.title);
     assertEq("and the same escaped description",
       jpFallback.body.split("\n")[0], jp.body.split("\n")[0]);
-    // The SUBJECT LIST is deliberately not compared across the rungs. The housekeeping filter has
-    // its own `python3` dependency with no fallback of its own, so it drops the list entirely when
-    // that interpreter is gone -- a real defect, and a different one from the escaper this row is
-    // about. Ticketed 2026-09-03 rather than widened into here.
+    // AND THE SUBJECT LIST SURVIVES THE MISSING INTERPRETER (2026-09-03, ticket
+    // `20260903162400`). The housekeeping filter carried its own `python3` program under
+    // `2>/dev/null || true` with no fallback rung, so with that interpreter gone the list was
+    // dropped ENTIRELY and `source` still read `story` -- measured, the same call returned the
+    // description and the commit list with it present and the description alone without it. The
+    // repair removed the interpreter rather than giving it rungs, so this compares the WHOLE
+    // body: there is one path now, and one path cannot disagree with itself.
+    assertEq("the whole body is byte-identical with python3 gone",
+      jpFallback.body, jp.body);
+    assertTrue("and it still carries the commit list",
+      /\n\* Add a non-ASCII story/.test(jpFallback.body), jpFallback.body);
+    assertEq("and the source is still the complete read's own word",
+      jpFallback.source, jp.source);
     rmSync(shim, { recursive: true, force: true });
+
+    // A DROPPED COMMIT LIST IS NAMED, EVEN OVER A STORY THAT WAS READ (the same ticket). The
+    // description was tested first, so a run that could not walk the range reported `story` --
+    // the word that means everything the composer needed was there. The story here resolves from
+    // the working tree while the branch names no ref at all, which is the reachable shape of that
+    // state: a body is still yielded, and the merge is still never held on it.
+    const orphanDir = makeRepo("main");
+    try {
+      mkdirSync(join(orphanDir, ".workaholic/stories"), { recursive: true });
+      writeFileSync(join(orphanDir, ".workaholic/stories/work-20260903-000009.md"),
+        "---\ntype: Story\nbranch: work-20260903-000009\ndescription: A story with no range\n---\n");
+      const dropped = JSON.parse(run(orphanDir,
+        `${POSIX_SH} ${SCRIPTS.mergeCommitBody} --branch work-20260903-000009 --number 11`).stdout);
+      assertEq("a story whose commit range could not be read never reads source story",
+        dropped.source, "unreadable:no_commit_range");
+      assertTrue("and the story's own description is still the body",
+        dropped.body.startsWith("A story with no range"), dropped.body);
+    } finally { rmSync(orphanDir, { recursive: true, force: true }); }
 
     // It writes NOTHING: no file, no ref, no commit.
     assertEq("the composer leaves the tree untouched",

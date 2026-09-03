@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:21:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -66,3 +67,28 @@ place a person can see what the tick decided and whether it was right.
 This is last because it reports what the other five establish, and it is the ticket that makes
 the fan-out arguable from outside the session — the same reason the sibling mission's reporting
 ticket exists.
+
+## Final Report
+
+Development completed as planned. §3 reports the allocation as **one decision**: how many
+`implement` runners were spawned, out of how many claimable units, against what bound. A tick that
+spawned none because every runner was busy and nothing was captured reports **`watching`** with
+that reason — a decision the tick made, never silence and never the residue of three gates all
+answering no.
+
+The deferral is reported by name with the refusal it read and how many cadences it has held. Every
+unreadable input is named by its own word — `fanout_unreadable` carrying the claimable reader's own
+reason, `bad_fanout`, `cadence_unreadable` — and no degraded reading renders as a healthy one.
+
+The sibling rule from the cost mission holds: a tick that swept, reaped and spawned nothing still
+reports **one line**. An allocation of zero is one line, not five.
+
+### Discovered Insights
+
+- **Insight**: `watching` had to be a word rather than an absence. The tick could already choose to
+  do nothing, and that choice was byte-identical in the report to a tick that failed to read
+  anything — which is the same collapse `no_candidates` versus a degraded read closes one section
+  over. With the allocation variable, the report is the only place a person can see what was
+  decided and whether it was right.
+  **Context**: Any future variable decision in this loop needs its zero case named, not implied.
+

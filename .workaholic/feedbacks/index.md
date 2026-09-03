@@ -659,4 +659,5 @@
 * [Read the machine before fanning out onto it](20260903081548-read-the-machine-before-fanning-out-onto-it.md)
 * [missions_root_default resolves through the process cwd, so a worktree runner can write into the root checkout](20260903083618-missions-root-default-resolves-through-the-process-cwd-so-a-worktree-runner-can-write-into-the-root-checkout.md)
 * [A refused post is a foreseeable condition the notification model has no name for](20260903085539-a-refused-post-is-a-foreseeable-condition-the-notification-model-has-no-name-for.md)
+* [A red base can go unseen: an unrun suite reads as a pass and a detected red waits for morning](20260903090153-a-red-base-can-go-unseen-an-unrun-suite-reads-as-a-pass-and-a-detected-red-waits-for-morning.md)
 <!-- okf:generated:end -->

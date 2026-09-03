@@ -49,6 +49,47 @@ What the statement buys is that a run originating from the loop's own output is 
 non-conformant, against one sentence, rather than against three consequences a reader has to
 reassemble.
 
+# What a Mission Must Be Able to Hold
+
+**A mission is the mid-term container between a strategy and a ticket — an artifact with room to
+plan and allocate tickets across a period.** The operator's own words, 2026-09-03: *a mission is
+the mid-term container, not an envelope around one ask.*
+
+Stated here, once, and **cited rather than restated** by `workaholic:mission`,
+`workaholic:propose`, `workaholic:specificate` and `CLAUDE.md`. This file is the home for the
+reason the origination rule above is: the grain governs several skills and belongs to none of
+them, and it ships in the plugin, so it reaches every repository that installs it.
+
+**Rule 1 — the floor, and it is mechanical.** A mission is created with two or more tickets, or
+it is not a mission. It is checkable, so it is a **gate**: `mission/scripts/check-floor.sh` is the
+one derivation of the number, read at **every** seam that publishes a mission together with its
+ticket set, and no seam spells the number itself. The full statement, including what the count is
+and why it cannot live at the write of `mission.md`, is below under *Work Directory Structure*.
+
+**Rule 2 — the position, and it is a judgement.** Many two- and three-ticket missions is a
+**defect the loop refuses**, not a size it may choose. What the loop does about it: it declines to
+**emit** a mission for an ask with no mid-term plan in it, and says what the ask became instead.
+What the loop does **not** do: rewrite, merge, close or re-scope a mission already on disk — that
+asserts intent, and only the operator does that. Rule 2 must never become a second threshold; the
+moment a number is written as the criterion, the criterion is the number.
+
+**The criterion, in one question**: *is there a mid-term plan here — several tickets wanting
+ordering and allocation across a period?* It is arguable by a reader, and a run that emits a
+mission is expected to be able to answer it. A count may still be quoted as an **observation about
+typical size**; it is never the test.
+
+**The measurement.** 2026-09-03, over 94 missions in this repository: one at a single ticket —
+which rule 1 says cannot exist — 21% at four or fewer, and **52% at exactly seven or eight**, which
+is the previously written *roughly 7–8 tickets, the ruled scale* printed straight into the
+distribution. Separately, in a single hour: eight asks arrived from the channel, seven became
+missions, forty-eight tickets between them, inside twenty-one minutes. Two mechanisms produced
+that — one mission per inbound ask, and a scale written as a count to hit — and rules 1 and 2 are
+aimed at exactly those two.
+
+**What was deliberately not added**: a cap on how many missions the ingest path may open in a
+window. `WORKAHOLIC_WIP_LIMIT` holds **origination** only and says so, and a limit that swallowed
+the operator's own instructions on a busy day would be a worse defect than the one it cures.
+
 # Work Directory Structure
 
 The `.workaholic/` directory has a fixed structure. Only these subdirectories are allowed:

@@ -239,6 +239,65 @@ if [ -d "${WH}/missions/active" ] && [ -d "${WH}/missions/archive" ]; then
   done
 fi
 
+# --- Advisory: a mission already below the ticket floor ----------------------
+# THE FLOOR IS FORWARD-ONLY, AND WHAT IT LEAVES BEHIND WAS INVISIBLE (2026-09-03, ticket
+# `20260903053712-name-the-missions-already-below-the-floor.md`). Rule 1 -- a mission is created
+# with two or more tickets -- is enforced at every publishing seam, and a mission already on disk
+# below it simply stays there. Measured 2026-09-03 over 94 missions in this repository: one at a
+# single ticket, which the rule says cannot exist.
+#
+# IT IS AN ADVISORY, NOT A FINDING, on the duplicate-slug pair's own reasoning above: a finding
+# sets `conforming: false` and fails the `Validate Plugins` merge gate, and an under-floored
+# mission harms nothing until somebody tries to act on it. Failing every merge over history is
+# the shape this repository already refused once.
+#
+# IT DELETES NOTHING, CLOSES NOTHING, MERGES NOTHING AND CHOOSES NOTHING. Which mission survives
+# -- closed, folded into another, or extended -- asserts intent, and only the operator does that.
+# The reading says which missions are below the floor and stops.
+#
+# IT COMPOSES ONE READER AND ONE WALK. `mission/scripts/size-distribution.sh` reads every
+# ticket's `mission:` relation ONCE -- through `read-relation.sh`, still the single reader of that
+# many-valued field -- and tallies by slug, with the floor read from `queue-size.sh`'s own
+# derivation rather than spelled. Composing `queue-size.sh` PER MISSION was tried and rejected by
+# measurement: it walks the whole ticket tree for each answer, which is 126 x 1335 file reads and
+# ran over ten minutes here, in an audit CI runs on every merge. One pass is 7 seconds.
+#
+# A DEGRADED READING NAMES ITSELF and yields no per-mission advisory: `ok: false` says the walk
+# could not be made, which is a different fact from *every mission is fine* -- the collapse this
+# repository refuses everywhere else.
+_sd="${SCRIPT_DIR}/../skills/mission/scripts/size-distribution.sh"
+if [ -f "$_sd" ]; then
+  _bf_tmp=$(mktemp 2>/dev/null || printf '')
+  _sd_out=$(sh "$_sd" "$WH" 2>/dev/null || true)
+  [ -n "$_bf_tmp" ] || _sd_out=""
+  case "$_sd_out" in
+    *'"ok": true'*)
+      printf '%s' "$_sd_out" \
+        | sed -n 's/.*"below_floor": \[\(.*\)\].*/\1/p' \
+        | tr '}' '\n' \
+        | while IFS= read -r _row; do
+            case "$_row" in *'"slug"'*) ;; *) continue ;; esac
+            _bslug=$(printf '%s' "$_row" | sed -n 's/.*"slug": "\([^"]*\)".*/\1/p')
+            _barea=$(printf '%s' "$_row" | sed -n 's/.*"area": "\([^"]*\)".*/\1/p')
+            [ -n "$_bslug" ] || continue
+            printf '%s\t%s\n' "$_barea" "$_bslug"
+          done > "$_bf_tmp" || true
+      if [ -s "$_bf_tmp" ]; then
+        while IFS="$(printf '\t')" read -r _barea _bslug; do
+          [ -n "${_bslug:-}" ] || continue
+          add_advisory ".workaholic/missions/${_barea}/${_bslug}" \
+            "mission is below the ticket floor; the operator rules whether to close, fold or extend it -- the audit changes nothing"
+        done < "$_bf_tmp"
+      fi
+      rm -f "$_bf_tmp"
+      ;;
+    *)
+      add_advisory ".workaholic/missions" \
+        "mission ticket counts could not be read -- neither conforming nor below the floor; the reading was not made"
+      ;;
+  esac
+fi
+
 # --- Emit -------------------------------------------------------------------
 conforming=true
 [ -n "$findings" ] && conforming=false

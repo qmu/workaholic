@@ -13,6 +13,16 @@
 # Scope: active/<slug>/mission.md and a legacy flat missions/<slug>/mission.md.
 # archive/ is history and is never retro-blocked.
 #
+# THE TWO-TICKET FLOOR IS NOT HERE, AND MUST NOT BE ADDED (2026-09-03, ticket
+# `20260903053712-floor-a-mission-at-two-tickets-at-every-seam.md`). This hook fires when
+# `mission.md` is WRITTEN, which is before any of its tickets exist -- the normal authoring
+# order -- so counting the `mission:` relation here would refuse every legitimate mission on
+# its first write. The floor belongs at the seam that publishes the mission and its ticket set
+# TOGETHER, where the count is answerable; every one of those seams is enumerated in
+# `workaholic:mission`, *The ticket floor*, and each reads `mission/scripts/check-floor.sh`
+# rather than spelling the number. Stated here because this is where the next reader looks
+# for it.
+#
 # THE FLOOR FIRES ON ANY ACTIVE MISSION, NOT ON A STATUS WORD (2026-07-31 --
 # docs/loop-engineering-workflow.md K1/K2). It used to fire only on
 # `status: approved`, letting a `draft` through with nothing required. `draft` is

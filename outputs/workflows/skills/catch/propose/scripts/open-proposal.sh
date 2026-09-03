@@ -77,10 +77,10 @@
 # `## Tickets` carries a **two-or-more** floor, `under_planned`, mirroring
 # `mission/scripts/check-floor.sh` in both discipline and wording: the count is judged in
 # one place and the refusal NAMES THE ALTERNATIVE, because a proposal naming one unit of
-# work is a plain ticket's worth of direction, not a mission's. The ruled scale — roughly
-# 7–8 tickets, with a follow-up repair mission of 3–4 available — is stated in
-# `SKILL.md` and stays the RUN'S JUDGEMENT: a floor is checkable, "roughly seven" is not,
-# and this script has never pretended to grade a proposal.
+# work is a plain ticket's worth of direction, not a mission's. The SCALE -- what the
+# container must be able to hold -- is stated in `rules/workaholic.md`, *What a Mission Must
+# Be Able to Hold*, and stays the RUN'S JUDGEMENT: a floor is checkable, "is there a
+# mid-term plan here" is not, and this script has never pretended to grade a proposal.
 #
 # The third is the anti-hedging floor and the one that does the most work. `/propose` is
 # defined against housekeeping: "tidy this up", "the docs drifted", "add a test" are

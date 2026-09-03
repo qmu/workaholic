@@ -84,10 +84,15 @@ tick into a window where only the loop has spoken (`only_the_loop_spoke`) may no
 ## The unit is a mission, not a change
 
 **One proposal plans one mission** (2026-08-26, the operator's ask). The issue names a mission
-**title**, the **experience** it demands once it lands, and its **ordered ticket set** — held to
-the ruled scale, roughly **7–8 tickets**, with a follow-up repair mission of 3–4 available and a
-second concurrent mission refused (`workaholic:specificate`, *A strategy is not a mission
-factory*). `/specificate` emits that plan rather than re-deriving one.
+**title**, the **experience** it demands once it lands, and its **ordered ticket set** — sized by
+**what the container must be able to hold** (`rules/workaholic.md`, *What a Mission Must Be Able
+to Hold*, cited rather than restated: a mission is the mid-term container between a strategy and a
+ticket, and the criterion is whether there is a mid-term plan here — several tickets wanting
+ordering and allocation across a period). A follow-up repair mission is available and a second
+concurrent mission is refused (`workaholic:specificate`, *A strategy is not a mission factory*).
+**A count is an observation about typical size, never the test** — 52% of this repository's corpus
+sat at exactly seven or eight, which was the old wording printed into the distribution.
+`/specificate` emits that plan rather than re-deriving one.
 
 **The move vocabulary and every refusal built on it are unchanged; only the scale of the unit
 they are declared over moves.** A move is now what the *mission* does to the Aim, and
@@ -160,8 +165,8 @@ the tick reports the word rather than reading as idle.
 
 **What it must not catch**, named here so the rule is bounded rather than chilling: a second
 mission answering a **human's** ask on the same subject, and the follow-up repair mission the
-strategy's own scale allows (one mission of ~7–8 tickets plus at most one of 3–4 repair
-tickets). Depth is not banned; depth on the loop's own invention is.
+strategy's own scale allows beside its first (`rules/workaholic.md`, *What a Mission Must Be Able
+to Hold*). Depth is not banned; depth on the loop's own invention is.
 
 **It is a judgement, not a gate, and it stays out of the mechanics.** It reaches no expression
 in `survey-strategies.sh`, changes no `refusal`, no `pace`, no sort and no `selected`; a survey

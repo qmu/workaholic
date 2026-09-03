@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T13:39:32+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -76,3 +77,23 @@ already on disk.
 - The refusal-versus-warning fork in step 1 is decided by the measurement ticket 1 takes. It is
   recorded here as the deciding fact rather than pre-empted, and it is a judgement a driving run
   can make from that evidence — not an operator-only ruling.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`unmeasured` is now its own class — **not false, not true** — reported by the one reader per member
+and once for the unit, and named at both surfaces the ticket asked for: the writing seam
+(`create-ticket/reference/ticket-format.md`) and `/moderate`'s `handoff-units` question, which now
+says that this declaration was **not checked** rather than letting an operator assume it was.
+
+**It gates nothing, and that is the whole of "without retro-blocking anything already on disk".**
+All six declarations in the tree are prose, so all six are `unmeasured`; making the class a refusal
+would park the work they name with no way to unpark it. What the class buys is visibility.
+
+**It is distinguishable from an absent declaration**, which is neither `measurable` nor
+`unmeasured` — *nobody said anything* and *somebody said something nobody can re-check* are
+different facts, and collapsing them would lose exactly the one the ticket exists to surface.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` asserts all three classes, including that an
+absent declaration carries neither flag.

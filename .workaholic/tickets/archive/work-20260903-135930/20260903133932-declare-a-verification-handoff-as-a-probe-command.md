@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T13:39:32+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -84,3 +85,28 @@ declarations that already exist.
   than force a probe onto them.
 - A probe is a command a run will execute. Its blast radius is the run's own environment; it must
   be a read, never a write, and that bound belongs in the field's definition.
+
+## Final Report
+
+**Outcome**: implemented.
+
+**Measured this repository's own declarations before fixing a format**, as the ticket required.
+Among the **32 queued tickets: zero** carry any declaration at all. Across the whole tree —
+`tickets/` and `missions/`, both areas — there are **six** non-empty declarations, and every one is
+a prose sentence: a Slack bot token, a Cloudflare account and DNS binding, the developer's own app
+account and device, and three about a `RemoteTrigger`-family tool. **None is a command.**
+
+**That measurement chose the shape.** A format that *replaced* prose would have invalidated all six
+and parked the work they name with no way to unpark it. So the declaration is **additive**:
+`verification_handoff: probe: <command>` — one prefix, the rest of the line the command, surrounding
+whitespace trimmed — and anything not starting `probe:` is prose, exactly as valid as before.
+
+**No new frontmatter key.** A sibling `verification_probe:` would give one axis two fields that can
+disagree, and the reader would then have to rule on which wins; a prefix inside the existing field
+cannot disagree with itself.
+
+**Written where the field is written**: `create-ticket/reference/ticket-format.md` now states the
+probe form, says to prefer it, and says what makes a good one — *the cheapest command that fails
+exactly when the verification cannot run, safe to run on every claim, because it will be*.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

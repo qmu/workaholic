@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260903-135930](work-20260903-135930.md) - A verification handoff can now be a probe whose exit status is re-measured every time the unit is claimed, so a blocker that has gone false stops parking the work behind it
 * [work-20260903-130125](work-20260903-130125.md) - The maintenance tick's thread now reads as a colleague reporting on the work rather than a bot reporting its own internals — one question per kind, no counters in a body, and a closed list of what a post never carries
 * [work-20260903-123219](work-20260903-123219.md) - A suite that never ran on the tip is now named as unverified rather than folded into green, and a red base breaks the quiet window as a report instead of waiting for morning as a question
 * [work-20260903-113842](work-20260903-113842.md) - Every merge the loop makes now composes its squash body from the branch story instead of letting the forge concatenate the claim stamps and heartbeats onto the trunk

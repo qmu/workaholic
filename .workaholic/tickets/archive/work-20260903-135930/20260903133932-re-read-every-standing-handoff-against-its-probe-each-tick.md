@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T13:39:32+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -75,3 +76,29 @@ claim; this ticket makes that step re-probe rather than re-read the sentence.
 - This runs probes on the tick's own schedule, which is a cost per tick that no other
   `/moderate` step pays. The per-tick bound is what keeps it proportionate, and the bound is
   declared rather than tuned silently.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`/moderate`'s `handoff-units` step re-probes per candidate rather than re-reading the sentence, and
+its spec in `moderate/reference/workflow.md` states the four readings: **`clean`** — the declaration
+has gone false, and the step **says so** and asks the claim holder to take the unit back into the
+ordinary route; **`blocking`** — unchanged, but the question quotes the probe's own output and exit
+status; **`unmeasured`** — the question is exactly what it was, with the class named; **`unreadable`**
+— named as unreadable and never as `clean`.
+
+**The step still asks and does nothing else.** It clears no handoff, merges nothing and touches no
+claim — the bound every step there carries. That is not a gap: the next `/implement` claim re-derives
+the same `clean` and proceeds on it by itself, so the repair happens on the acting path rather than
+in the asking one.
+
+**Why a re-probe rather than the next claim**: a declaration that has gone false must be named the
+hour it goes false, not the next time somebody happens to claim the unit — which for a parked unit is
+never, since `awaiting_verification` excludes it from the offer. That circularity is what kept four
+measured pull requests parked.
+
+**Cost stated**: one bounded probe per `awaiting_verification` candidate, capped at 60s; a tick with
+no such claims runs none, which is the ordinary hour.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

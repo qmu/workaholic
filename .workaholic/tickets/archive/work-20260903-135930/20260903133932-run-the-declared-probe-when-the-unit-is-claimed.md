@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T13:39:32+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,29 @@ declared probe and answers in its own vocabulary. It changes no route yet.
   is a read; neither is enforced by a script, and that limit belongs in the record.
 - A probe that is flaky answers `blocked` on a bad day and the unit is handed to a person — the
   same outcome as today, so a flaky probe is never worse than no probe.
+
+## Final Report
+
+**Outcome**: implemented.
+
+Added `plugins/workaholic/skills/drive/scripts/run-verification-probe.sh`:
+`mission <slug>` / `tickets <file>...` / `--probe '<command>'`, emitting
+`{ok, outcome, reason, probe, exit_status, output, truncated, unit}`.
+
+**Four outcomes, each saying what the caller may do**: `clean` (exit 0 — *not* a handoff),
+`blocking` (non-zero — the probe's own output is the reason), `unmeasured` (a non-empty declaration
+with no probe — the declaration stands), `unreadable` (no exit status was obtained — the declaration
+stands). **It changes no route**; that is the next ticket.
+
+**The probe is read through the one reader**, never re-parsed here — a second parser of that field is
+the drift this repository single-sources against.
+
+**Nothing is inferred from the output, only from the exit status.** Parsing a probe's text would be
+the guess the field exists to avoid; the output is carried for a person to read.
+
+**Bounded**: `WORKAHOLIC_PROBE_TIMEOUT_SECONDS` (60) and `WORKAHOLIC_PROBE_OUTPUT_MAX` (2000, with
+`truncated: true` saying so). **A timeout is `unreadable`, never `blocking`** — we did not learn what
+the probe would have said, and an absence of a reading must never be dressed up as one. It writes no
+file, no ref and no commit.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` exercises all four outcomes and the bound.

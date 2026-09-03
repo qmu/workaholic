@@ -2,7 +2,7 @@
 type: Mission
 title: Deliver a post the transport refused, or say it reached nobody
 slug: deliver-a-post-the-transport-refused-or-say-it-reached-nobody
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T08:58:14+09:00
 author: a@qmu.jp
@@ -40,10 +40,12 @@ nobody says so — so an absent answer is never read as silence from the person.
 
 - [x] A refused connector call reports `post_refused`, distinct from `no_slack_transport`, on every surface that reports a notification outcome (#20260903085928-name-a-refused-connector-post-as-its-own-degradation.md)
 - [x] An unposted line is left on the unit's own story and re-sent by a later tick, once, without duplicating a line that landed (#20260903085928-carry-an-unposted-line-on-the-unit-story-for-the-next-tick.md)
-- [ ] A directed shape posted with no mention token states that it paged nobody, and the deployment's single-transport reality is written where the transport model is stated (#20260903085928-say-when-a-directed-post-paged-nobody.md)
+- [x] A directed shape posted with no mention token states that it paged nobody, and the deployment's single-transport reality is written where the transport model is stated (#20260903085928-say-when-a-directed-post-paged-nobody.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-03 — ticket archived — 20260903085928-carry-an-unposted-line-on-the-unit-story-for-the-next-tick.md
 - 2026-09-03 — ticket archived — 20260903085928-name-a-refused-connector-post-as-its-own-degradation.md
+- 2026-09-03 — ticket archived — 20260903085928-say-when-a-directed-post-paged-nobody.md
+- 2026-09-03 — mission achieved — mission.md

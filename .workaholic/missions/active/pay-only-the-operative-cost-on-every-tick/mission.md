@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-142217
 ---
 
 # Pay only the operative cost on every tick

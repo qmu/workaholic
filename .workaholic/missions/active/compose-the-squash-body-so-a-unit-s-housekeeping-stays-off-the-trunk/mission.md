@@ -37,7 +37,7 @@ History already on the trunk is left alone.
 
 ## Acceptance
 
-- [ ] Every merge call site reads one composer for its squash title and body, and a merge made by
+- [x] Every merge call site reads one composer for its squash title and body, and a merge made by
       the loop never carries the forge's concatenation. (#20260903104222-compose-the-squash-body-at-the-agent-level-merges.md)
 - [x] A run's housekeeping commits carry a machine-readable marker, and the composer excludes them
       by that marker rather than by a title pattern. (#20260903104222-mark-a-run-s-housekeeping-commits-as-housekeeping.md)
@@ -51,3 +51,4 @@ History already on the trunk is left alone.
 - 2026-09-03 — ticket archived — 20260903104222-compose-the-squash-body-at-the-unit-route-s-merge.md
 - 2026-09-03 — ticket archived — 20260903104222-compose-the-squash-body-at-the-publish-tree-s-merge.md
 - 2026-09-03 — ticket archived — 20260903104222-compose-the-squash-body-at-the-three-recovery-merges.md
+- 2026-09-03 — ticket archived — 20260903104222-compose-the-squash-body-at-the-agent-level-merges.md

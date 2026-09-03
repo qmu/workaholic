@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T05:33:45+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -94,3 +95,42 @@ one the reproduction names.
   candidate, since it takes a JSON string value and never decodes it.
 - Changing `escape_json` to emit raw UTF-8 changes the bytes every consumer of that JSON sees.
   It stays valid JSON, but the sweep in step 4 exists so that is checked rather than assumed.
+
+## Final Report
+
+Development completed as planned.
+
+The reproduction ran the three stages against a throwaway repository holding one deployment
+record titled `リポジトリ文書サイト`. The escape sequences appear at **stage 1**: `escape_json()`
+in `read-deployments.sh`, whose `python3` branch is the one that ran here and whose `json.dumps`
+defaults to `ensure_ascii=True`. `read-deploy-state.sh`'s `sed` extraction and
+`draft-deploy-plan.sh`'s writer both carry that string forward faithfully — neither introduces the
+escape and neither is the defect. The repair therefore sits at stage 1 and nowhere else, and the
+reporter's hypothesis is confirmed as far as the JSON is concerned but wrong about where to fix it:
+the escaping does survive into the Markdown writer, and the writer is not the place to decode it.
+
+The three interpreter fallbacks were measured on one input and disagreed **three ways**, which is
+more than the ticket suspected: `python3` emitted `\uXXXX`, `node` emitted raw UTF-8, and `perl`
+emitted mojibake — `encode_json` re-encoded bytes it had never decoded. All three are now pinned to
+node's answer, so the serialisation no longer depends on which interpreter is installed.
+
+The sweep found the identical `escape_json` block copied into `read-release-notes.sh` and (as
+`escape_file_json`) into `draft-release-note.sh`; both were repaired the same way. The other two
+readers of these fields — `report-deploy-status.sh` and `read-deploy-state.sh` — carry `sed`-based
+escapers that already pass non-ASCII through raw and needed no change.
+
+### Discovered Insights
+
+- **Insight**: `\uXXXX` escaping is correct JSON, so this defect is invisible to every consumer
+  that actually parses the JSON — it only surfaces where a value is lifted back out as text by
+  `sed`. The pipeline has one such extractor, `read-deploy-state.sh`, and it is by design (the
+  reader splices the entry object rather than re-parsing the record).
+  **Context**: the repair is not "stop producing escapes because they are wrong" but "stop
+  producing an encoding the one text-consuming reader cannot decode". A future reviewer looking at
+  `ensure_ascii=False` should know the JSON was never invalid.
+- **Insight**: a three-way interpreter fallback with no shared test is three implementations, not
+  one. The perl branch had been silently corrupting non-ASCII since it was written, and nothing
+  caught it because the branch only runs on a machine without python3 or node.
+  **Context**: the new hermetic case pins the pipeline's output rather than the escaper, so it
+  exercises whichever branch the test machine has; the same shape is worth applying wherever a
+  script carries interpreter fallbacks.

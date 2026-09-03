@@ -36,7 +36,7 @@ subject, and no rendered line describes the tick's machinery.
 
 ## Acceptance
 
-- [ ] Questions of one kind arrive as one message naming every subject, so three arrived
+- [x] Questions of one kind arrive as one message naming every subject, so three arrived
       directions cost one reply. (#20260903101320-ask-one-question-per-kind-naming-every-subject-not-one-per-subject.md)
 - [ ] Every question carries what the reader needs to answer it and no fact that is not about its
       subject. (#20260903101320-give-an-arrived-direction-question-what-the-direction-achieved-and-the-tick-s-reading.md)
@@ -46,3 +46,4 @@ subject, and no rendered line describes the tick's machinery.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903101320-ask-one-question-per-kind-naming-every-subject-not-one-per-subject.md

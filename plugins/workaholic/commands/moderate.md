@@ -49,7 +49,19 @@ The root's shape — no mention token of any kind:
 <session URL>
 ```
 
-Then post each question the check-in step cleared as a reply into that root, addressed to the resolved person:
+**Nothing the tick knows about itself reaches a rendered post** (2026-09-03, mission `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). `render-tick-post.sh` prints none of it — its own header records that the dedup token is derived and never rendered — so the internals enter **here**, at the composing surface, where this command turns a step's payload into a message. Measured on one morning's root: a printed `tick-day:20260903`, and a sentence explaining which internal step would have handled a thing the tick decided not to say.
+
+So a rendered post carries **none** of the following, on the root, on a question, on a confirmation or on a reconciliation reply alike:
+
+- **a dedup key or a search token** — `tick-day:<YYYYMMDD>`, `fb:<stem>`, a question id or a step id. They are strings a machine searches for; a reader has no use for one, and the root's own link already carries what a machine needs.
+- **a step id or a step name** — `base-health`, `direction-health`, `human-checkin`. A reader of the channel has no model of *steps*, which are this loop's own machinery.
+- **a counter about the tick** — how many candidates it held, how many it delivered, how many it will leave, what its counters would read afterwards. What happened in the repository is news; what the tick's bookkeeping now holds is not.
+- **a sentence about a step's own reasoning** — which internal step would have handled something, why one was skipped, what the tick decided not to say. Say the thing or do not; explaining the omission is the machinery talking about itself.
+- **a promise no step must keep** — *the loop will follow up*, *this will be re-checked next hour*. No step is bound by it, so it is a commitment nobody made.
+
+What a post carries instead is the repository's own facts and the act being asked for. The step payloads are already composed to that rule — `heading`, `body`, `event`, `summary` — so the composition here is a rendering, never a re-invention: adding a fact of your own at this surface is exactly how the internals got out.
+
+Then post each question the check-in step cleared as a reply into that root, addressed to the resolved person. **A step that hands back `groups` asks one question per group, naming every subject it holds** — three arrived directions cost one reply, not three near-identical ones (the same mission; `lib/question-id.sh` keys on the group's own key, so the asked-once gate is unchanged):
 
 ```
 🙋 <@U…> - <what this tick could not decide>

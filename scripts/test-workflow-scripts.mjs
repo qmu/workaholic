@@ -972,10 +972,18 @@ function testDirectionHealthLeaving() {
     assertTrue("the overdue direction is asked about", !!gone, JSON.stringify(subjectsOf(j)));
     assertTrue("its heading names what it never reached",
       /never reached: 1 mission\(s\), 2 ticket\(s\) still queued/.test(gone.heading), gone.heading);
-    assertTrue("and what no direction claimed, by slug",
-      /not attributed to any direction: orphan \(0 queued\)/.test(gone.heading), gone.heading);
-    assertTrue("its body carries the size and the operator's act",
-      /^It would leave 3 unreached and 1 unclaimed\. Re-date it, announce/.test(gone.body), gone.body);
+    // THE REPOSITORY-WIDE RESIDUE IS NOT ON THIS QUESTION (2026-09-03, mission
+    // `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). It was pasted onto every
+    // direction heading because the composer had it in hand; it is a fact about the REPOSITORY, not
+    // about this direction, and it now rides only `arrived` and its `cutover` refinement, where
+    // whether the loop could see everything IS the question (the 2026-08-28 mission that added it).
+    assertTrue("and NOT what no direction claimed — that is not a fact about this direction",
+      !/not attributed to any direction/.test(gone.heading), gone.heading);
+    // AND THE TICK'S OWN COUNTERS ARE NOT IN THE BODY. `It would leave N unreached and M unclaimed.`
+    // was the tick saying what its counters would hold afterwards, in a sentence addressed to a
+    // person. The sizes still ride the heading, which the assertion above this one checks.
+    assertTrue("its body opens with the operator's act and no counter of ours",
+      /^Re-date it, announce/.test(gone.body), gone.body);
     assertEq("and it is addressed to the direction's assignee", gone.assignees, "test@example.com");
 
     // THE LEAVING IS CARRIED, not composed twice: what the step renders is what
@@ -2378,15 +2386,15 @@ function testExpiringQuestion() {
     // somebody has is not a warning.
     assertTrue("the heading names the days left and the date",
       /reaches its target date in 3 day\(s\) \(\d{4}-\d{2}-\d{2}\)/.test(soon.heading), soon.heading);
-    assertTrue("and what it never reached, beside what no direction claimed",
+    assertTrue("and what it never reached — but NOT the repository-wide residue (2026-09-03)",
       /never reached: 1 mission\(s\), 1 ticket\(s\) still queued/.test(soon.heading)
-      && /not attributed to any direction: orphan \(0 queued\)/.test(soon.heading), soon.heading);
-    assertTrue("its body carries the size and one sentence naming the operator's act",
-      /^It would leave 2 unreached and 1 unclaimed\. Re-date it, announce a successor when you end it, or say it still stands/.test(soon.body),
+      && !/not attributed to any direction/.test(soon.heading), soon.heading);
+    assertTrue("its body is one sentence naming the operator's act, with no counter of ours",
+      /^Re-date it, announce a successor when you end it, or say it still stands/.test(soon.body),
       soon.body);
-    // The act sentence is what `workaholic:notify` bounds; the leaving clause is a prefix the
-    // other readings carry the same way.
-    const act = soon.body.split(". ").slice(1).join(". ");
+    // The act sentence is what `workaholic:notify` bounds. The tick's own leaving counters used to
+    // sit in front of it and are retired, so the whole body is now the act.
+    const act = soon.body;
     assertTrue(`the act is one sentence inside the 25-word bound (${act.split(/\s+/).length})`,
       act.split(/\s+/).length <= 25, act);
 
@@ -21532,6 +21540,23 @@ function testTickRendersARootAndADeltaReply() {
     /reply_text/.test(cmd) && /tick-day:/.test(cmd), "commands/moderate.md");
   assertTrue("and that no thread found means the root",
     /root_text/.test(cmd), "commands/moderate.md");
+
+  // 5. AND THE TICK'S OWN INTERNALS ARE REFUSED AT THAT SAME SURFACE (2026-09-03, mission
+  //    `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). `render-tick-post.sh`
+  //    prints none of them, so a printed `tick-day:20260903` and a sentence explaining which
+  //    internal step would have handled something entered where the AGENT composes the post. The
+  //    rule therefore lives in the ceiling and is pinned here.
+  //
+  //    WHAT THIS CANNOT SEE, named rather than implied: what a session actually emits at run time.
+  //    All that is checkable is that the rule is present where the composition happens — the same
+  //    bound every other ceiling assertion in this suite carries.
+  assertTrue("the ceiling refuses the tick's own internals in a rendered post",
+    /Nothing the tick knows about itself reaches a rendered post/.test(cmd), "commands/moderate.md");
+  for (const item of ["dedup key", "step id", "counter about the tick", "promise no step must keep"]) {
+    assertTrue(`and names ${item} as one of them`, cmd.includes(item), "commands/moderate.md");
+  }
+  assertTrue("and it asks one question per group rather than one per subject",
+    /one question per group/.test(cmd) && /groups/.test(cmd), "commands/moderate.md");
 }
 
 // ---------- the tick log is committed nowhere, and the log branch stays retired (2026-09-03) --

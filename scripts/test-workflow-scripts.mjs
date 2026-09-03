@@ -19663,6 +19663,62 @@ function testResumeRace() {
 
 // heartbeat.sh keeps a WORKING unit out of the resumable offer. Without it a run that
 // spends an hour on one ticket looks abandoned and gets taken over underneath itself.
+
+// A BEAT DURING AN UNRESOLVED MERGE WOULD WRITE THE MERGE COMMIT (2026-09-02, ticket
+// `20260902103500`). `git commit --allow-empty` does not write an empty commit while `MERGE_HEAD`
+// exists: it writes the MERGE commit, second parent from `MERGE_HEAD` and tree from the index it
+// was handed -- the scratch one, holding the branch's own PRE-MERGE tree. The branch then records
+// the base as a parent while carrying none of the base's content, and `git merge origin/main` is a
+// no-op ever after. Measured on `work-20260902-083726`: `4c7749ef`, titled `Refresh heartbeat`,
+// two parents, an empty diff against its first -- a branch claiming to have merged a base whose 97
+// changed files it had silently reverted.
+//
+// The refusal is the fix, not a repair: a heartbeat that wrote the RIGHT merge commit would be a
+// second liveness authority beside the branch tip. Asserted here at the shape that produced it --
+// a real conflicting merge left unresolved in the unit's own worktree.
+T("drive/heartbeat.sh refuses to beat while a merge is resolving", testHeartbeatRefusesMidMerge);
+function testHeartbeatRefusesMidMerge() {
+  const { origin, A, B } = makeClaimFixture();
+  const HEARTBEAT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/heartbeat.sh")}`;
+  try {
+    const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} mission m1`).stdout);
+    const wt = join(A, ".worktrees/m1");
+
+    // The base moves under the branch, and the branch touches the same file: an ordinary
+    // catch-up conflict, which is exactly the stretch a run spends resolving.
+    writeFileSync(join(B, "c.txt"), "theirs\n");
+    execSync(`git add c.txt && git commit -q -m theirs && git push -q origin main`, { cwd: B });
+    writeFileSync(join(wt, "c.txt"), "ours\n");
+    execSync(`git add c.txt && git commit -q -m ours`, { cwd: wt });
+    execSync(`git fetch -q origin`, { cwd: A });
+    try { execSync(`git merge origin/main`, { cwd: wt, stdio: "ignore" }); } catch { /* conflicts, as intended */ }
+
+    assertEq("the fixture really is mid-merge",
+      run(wt, `git rev-parse --verify --quiet MERGE_HEAD`).status, 0);
+    const before = execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim();
+
+    const beat = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
+    assertEq("the beat refuses by name, at exit 0 as every failed beat does",
+      { b: beat.beat, r: beat.reason, br: beat.branch },
+      { b: false, r: "merge_in_progress", br: claimed.branch });
+    assertEq("and nothing was written — the tip is untouched",
+      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim(), before);
+    assertEq("the merge is still there for the run to resolve",
+      run(wt, `git rev-parse --verify --quiet MERGE_HEAD`).status, 0);
+
+    // Once resolved, the beat is exactly what it was before this change.
+    writeFileSync(join(wt, "c.txt"), "resolved\n");
+    execSync(`git add c.txt && git commit -q --no-edit`, { cwd: wt });
+    const after = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
+    assertEq("with the merge resolved the beat succeeds again",
+      { b: after.beat, r: after.reason }, { b: true, r: "" });
+    assertEq("and that beat changed no file",
+      execSync(`git show --stat --format= HEAD`, { cwd: wt, encoding: "utf8" }).trim(), "");
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
 T("drive/heartbeat.sh keeps a working unit out of the resumable offer", testHeartbeat);
 function testHeartbeat() {
   const { origin, A, B } = makeClaimFixture();

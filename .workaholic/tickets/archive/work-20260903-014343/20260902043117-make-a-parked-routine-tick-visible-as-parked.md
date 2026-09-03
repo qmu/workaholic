@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-02T04:31:17+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,42 @@ recurrence is named within an hour rather than noticed by a person days later.
   trusted.
 - Widening `/propose` to write a log is a real cost and the reason the decision is a step
   rather than an assumption. An outside reading that needs no write may be the better trade.
+
+## Final Report
+
+**Outcome**: implemented.
+
+**What changed.** `/propose` now leaves a trace of having run at all: `propose-open` as the
+first act of the run and `propose-close` as the last, both through `log-append.sh` /
+`persist-log.sh`, written into `plugins/workaholic/commands/propose.md` — the command body is
+the ceiling, so the rule reaches every routine copy with no routine edit. `step-blocked-tick.sh`
+reads that pair as a **second subject** of the step it already runs, keyed
+`blocked-tick:propose:<tick-id>` so the two arms are asked and settled separately.
+
+**The decision the ticket asked for, with its cost.** The trace lives in the tick log, which
+widens `/propose`'s pure-reader contract — and the widening is bounded to what the log already
+is: git-ignored, on the `workaholic-log` orphan branch, so **no commit on `main`, no
+`.workaholic/` artifact that lands, and no pull request**. The alternative — reading the
+routine's own record from outside, which needs no write at all — was refused because a routine
+record is **account-level** and no repository-side reader can list one, the same fact that
+retired the `user` scope. The widening is stated where the contract is stated
+(`commands/propose.md` and `CLAUDE.md`, *`/propose`*).
+
+**Read here rather than in a step of its own**: the question is identical — *this opened and
+never closed* — and the log is already in hand from the one read the step makes. A sibling step
+would be a second reader of one file answering one question. The bound is the same **structural**
+one, the tick **before last**, never a threshold.
+
+**It says what is known and no more**: the reason a tick parked is not on the base by
+construction, so the question names the tick and the last propose step it recorded, and guesses
+no cause.
+
+**A log with no `propose-open` line anywhere is silent, never a stop** — the ordinary state of
+every checkout that has not yet run the widened `/propose` — and the moderate half's sentence is
+said only where there is a moderate tick to say it about, rather than asserting a reading the
+step never made.
+
+**Verification**: `sh scripts/e2e/loop-drill.sh verify-blocked-tick` → `pass`, 11 load-bearing
+rows, 0 failed, 1 breaker; `node scripts/test-workflow-scripts.mjs` → 6373 passed, 0 failed;
+`build.mjs` + `verify.mjs` + `validate-metadata.mjs` clean; `layout-doctor.sh` conforming
+(advisories only, pre-existing).

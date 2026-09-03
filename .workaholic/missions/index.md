@@ -2,9 +2,15 @@
 
 ## active
 
+* [announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread](active/announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread/mission.md) - Announce an ask that landed outside a unit route in its own thread
+* [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
+* [deliver-a-post-the-transport-refused-or-say-it-reached-nobody](active/deliver-a-post-the-transport-refused-or-say-it-reached-nobody/mission.md) - Deliver a post the transport refused, or say it reached nobody
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](active/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
+* [make-a-red-base-impossible-for-the-loop-to-miss](active/make-a-red-base-impossible-for-the-loop-to-miss/mission.md) - Make a red base impossible for the loop to miss
+* [pay-only-the-operative-cost-on-every-tick](active/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
+* [stop-a-finished-subagent-and-take-the-loop-s-clock-off-it](active/stop-a-finished-subagent-and-take-the-loop-s-clock-off-it/mission.md) - Stop a finished subagent and take the loop's clock off it
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 
 ## archive

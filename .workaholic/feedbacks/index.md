@@ -651,4 +651,13 @@
 * [Give an ask that landed outside /implement a finish line in its own thread](20260903052643-give-an-ask-that-landed-outside-implement-a-finish-line-in-its-own-thread.md)
 * [draft-deploy-plan.sh renders non-ASCII target titles as escape sequences](20260903053327-draft-deploy-plan-sh-renders-non-ascii-target-titles-as-escape-sequences.md)
 * [A mission is the mid-term container, not an envelope around one ask](20260903053558-a-mission-is-the-mid-term-container-not-an-envelope-around-one-ask.md)
+* [survey-strategies.sh marks an arrived direction eligible, so the quiescent refusal lives only in prose](20260903053954-survey-strategies-sh-marks-an-arrived-direction-eligible-so-the-quiescent-refusal-lives-only-in-prose.md)
+* [No maintenance step reads for a mission whose premise a later ask retired](20260903054432-no-maintenance-step-reads-for-a-mission-whose-premise-a-later-ask-retired.md)
+* [The loop keeps a finished subagent alive as its clock, so no run starts from a fresh context](20260903070805-the-loop-keeps-a-finished-subagent-alive-as-its-clock-so-no-run-starts-from-a-fresh-context.md)
+* [The tick's fixed cost is paid every five minutes, and most of it answers nothing](20260903071448-the-tick-s-fixed-cost-is-paid-every-five-minutes-and-most-of-it-answers-nothing.md)
+* [The tick walks three names in order instead of allocating capacity to where the work is](20260903071947-the-tick-walks-three-names-in-order-instead-of-allocating-capacity-to-where-the-work-is.md)
+* [Read the machine before fanning out onto it](20260903081548-read-the-machine-before-fanning-out-onto-it.md)
+* [missions_root_default resolves through the process cwd, so a worktree runner can write into the root checkout](20260903083618-missions-root-default-resolves-through-the-process-cwd-so-a-worktree-runner-can-write-into-the-root-checkout.md)
+* [A refused post is a foreseeable condition the notification model has no name for](20260903085539-a-refused-post-is-a-foreseeable-condition-the-notification-model-has-no-name-for.md)
+* [A red base can go unseen: an unrun suite reads as a pass and a detected red waits for morning](20260903090153-a-red-base-can-go-unseen-an-unrun-suite-reads-as-a-pass-and-a-detected-red-waits-for-morning.md)
 <!-- okf:generated:end -->

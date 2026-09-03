@@ -4,6 +4,7 @@
 
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [make-a-verification-handoff-a-probe-re-run-at-claim-time](active/make-a-verification-handoff-a-probe-re-run-at-claim-time/mission.md) - Make a verification handoff a probe re-run at claim time
 * [make-the-maintenance-tick-s-channel-presence-help-the-work-along](active/make-the-maintenance-tick-s-channel-presence-help-the-work-along/mission.md) - Make the maintenance tick's channel presence help the work along
 * [pay-only-the-operative-cost-on-every-tick](active/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction

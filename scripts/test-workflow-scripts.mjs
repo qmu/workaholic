@@ -10601,6 +10601,40 @@ function testDraftDeployPlan() {
     assertTrue("draft-deploy-plan did not create the missing note",
       !existsSync(join(noNote.dir, ".workaholic/release-notes/absent.md")), "the note was created");
   } finally { cleanup(noNote.dir); }
+
+  // A NON-ASCII TITLE REACHES THE HEADING AS TEXT (2026-09-03, ticket
+  // `20260903053345`). The plan is written to be read by people, and the title
+  // travels from the record through `read-deployments.sh`'s JSON and a `sed`
+  // extraction that never JSON-decodes — so an ASCII-escaping serialiser put
+  // `\u30ea\u30dd...` in the heading and a human decoded it by hand. Both halves
+  // are asserted together on purpose: raw UTF-8 in the heading is only the right
+  // repair if the JSON on stdout is still parseable for every other consumer.
+  const nonAscii = makeRepo("main");
+  try {
+    const title = "リポジトリ文書サイト";
+    mkdirSync(join(nonAscii, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(nonAscii, ".workaholic/deployments/jp.md"),
+      `---\ntitle: ${title}\nenvironment: production\nconfirmation_method: api-probe\ndeploy_model: deploy-on-merge\n---\n\n` +
+      "## Procedure\n\n1. deploy\n\n## Confirmation\n\n1. probe\n");
+    mkdirSync(join(nonAscii, ".workaholic/release-notes"), { recursive: true });
+    const jpNote = ".workaholic/release-notes/work-20260903-000000.md";
+    writeFileSync(join(nonAscii, jpNote),
+      "---\ntype: Release Note\nbranch: work-20260903-000000\n---\n\n# Sample\n\n## Summary\n\nA sample note.\n");
+    execSync(`git add -A && git commit -q -m "Add a non-ASCII target"`, { cwd: nonAscii });
+    execSync(`git checkout -q -b work-20260903-000000`, { cwd: nonAscii });
+
+    const read = JSON.parse(run(nonAscii, `${POSIX_SH} ${SCRIPTS.readDeployments}`).stdout);
+    assertEq("read-deployments keeps a non-ASCII title as text in valid JSON",
+      read.deployments[0].title, title);
+
+    const r = JSON.parse(run(nonAscii, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${jpNote}`).stdout);
+    assertEq("draft-deploy-plan drafts the non-ASCII target", { ok: r.ok, t: r.targets }, { ok: true, t: 1 });
+    const jpBody = readFileSync(join(nonAscii, jpNote), "utf8");
+    assertTrue("draft-deploy-plan renders a non-ASCII title as characters",
+      jpBody.includes(`### ${title} (\`jp\`)`), jpBody);
+    assertTrue("draft-deploy-plan leaves no escape sequence in the heading",
+      !/\\u[0-9a-fA-F]{4}/.test(jpBody), jpBody);
+  } finally { cleanup(nonAscii); }
 }
 
 // ---------- ship/record-evidence.sh (pre-merge deployment evidence capture) ----------

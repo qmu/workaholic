@@ -76,9 +76,22 @@ read_field() {
 }
 
 escape_json() {
-  python3 -c 'import json,sys; sys.stdout.write(json.dumps(sys.stdin.read()))' 2>/dev/null \
+  # NON-ASCII STAYS RAW UTF-8 IN THE JSON STRING (2026-09-03, ticket
+  # `20260903053345`). A field serialised here reaches a human-facing Markdown
+  # heading through a `sed` extraction that never JSON-decodes, so an
+  # ASCII-escaped title rendered as `\u30ea\u30dd...` in a drafted Deployment
+  # Plan and had to be decoded by hand. Raw UTF-8 is still valid JSON, so every
+  # JSON-parsing consumer is untouched; what changes is that the one consumer
+  # which treats a string value as text now gets text.
+  #
+  # ALL THREE INTERPRETERS ARE PINNED, not only the branch that happens to run.
+  # Measured on one input: python3 emitted `\uXXXX`, node emitted UTF-8, and
+  # perl emitted mojibake - it re-encoded bytes it had never decoded - so the
+  # serialisation depended on which interpreter was installed. They now agree
+  # byte for byte on node's answer.
+  python3 -c 'import json,sys; sys.stdout.buffer.write(json.dumps(sys.stdin.buffer.read().decode("utf-8","surrogateescape"), ensure_ascii=False).encode("utf-8","surrogateescape"))' 2>/dev/null \
     || node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(0,"utf8")))' 2>/dev/null \
-    || perl -e 'use JSON::PP; print encode_json(do { local $/; <STDIN> })'
+    || perl -e 'use JSON::PP; binmode(STDIN, ":encoding(UTF-8)"); binmode(STDOUT, ":raw"); print encode_json(do { local $/; <STDIN> })'
 }
 
 # Newest first. Filenames carry the branch timestamp, so a reverse sort is

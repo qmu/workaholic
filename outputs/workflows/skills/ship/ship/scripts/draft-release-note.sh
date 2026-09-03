@@ -170,9 +170,14 @@ json_escape() {
 
 # JSON-escape a whole file (the rendered body) into a quoted JSON string.
 escape_file_json() {
-  python3 -c 'import json,sys; sys.stdout.write(json.dumps(sys.stdin.read()))' 2>/dev/null \
+  # Non-ASCII stays RAW UTF-8, on `read-deployments.sh`'s escape_json reasoning
+  # (2026-09-03, ticket `20260903053345`): the string carried here is a whole
+  # rendered note, and a consumer that lifts it back out as text must get text.
+  # Raw UTF-8 is still valid JSON. All three interpreters are pinned because
+  # they disagreed three ways - `\uXXXX`, UTF-8, and perl's mojibake.
+  python3 -c 'import json,sys; sys.stdout.buffer.write(json.dumps(sys.stdin.buffer.read().decode("utf-8","surrogateescape"), ensure_ascii=False).encode("utf-8","surrogateescape"))' 2>/dev/null \
     || node -e 'process.stdout.write(JSON.stringify(require("fs").readFileSync(0,"utf8")))' 2>/dev/null \
-    || perl -e 'use JSON::PP; print encode_json(do { local $/; <STDIN> })'
+    || perl -e 'use JSON::PP; binmode(STDIN, ":encoding(UTF-8)"); binmode(STDOUT, ":raw"); print encode_json(do { local $/; <STDIN> })'
 }
 
 # Drop leading and trailing blank lines from a section body before it is quoted,

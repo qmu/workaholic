@@ -39,7 +39,7 @@ agent's start age, and an `/implement` run takes one PR-unit and ends.
 
 - [ ] A finished subagent is stopped at the head of the next tick whatever its cadence reads,
       and the listing carries only running runs. (#20260903071053-reap-every-idle-subagent-at-the-head-of-the-tick.md)
-- [ ] Each loop's cadence is derived from a recorded finish time, never from an idle agent's
+- [x] Each loop's cadence is derived from a recorded finish time, never from an idle agent's
       `started` age. (#20260903071053-read-each-loop-s-cadence-from-the-recorded-finish.md)
 - [ ] An `/implement` run takes one PR-unit and ends, so no context spans two missions. (#20260903071053-bound-an-implement-run-to-one-pr-unit.md)
 
@@ -47,3 +47,4 @@ agent's start age, and an `/implement` run takes one PR-unit and ends.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-03 — ticket archived — 20260903071053-record-each-loop-run-s-finish-on-the-tick-log.md
+- 2026-09-03 — ticket archived — 20260903071053-read-each-loop-s-cadence-from-the-recorded-finish.md

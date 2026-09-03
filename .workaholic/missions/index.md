@@ -2,6 +2,7 @@
 
 ## active
 
+* [compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk](active/compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk/mission.md) - Compose the squash body so a unit's housekeeping stays off the trunk
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](active/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold

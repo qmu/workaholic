@@ -48,3 +48,4 @@ declaration forward as a premise.
 - 2026-09-03 — ticket archived — 20260903133932-declare-a-verification-handoff-as-a-probe-command.md
 - 2026-09-03 — ticket archived — 20260903133932-read-a-declared-probe-through-one-reader.md
 - 2026-09-03 — ticket archived — 20260903133932-run-the-declared-probe-when-the-unit-is-claimed.md
+- 2026-09-03 — ticket archived — 20260903133932-drop-a-handoff-whose-probe-comes-back-clean.md

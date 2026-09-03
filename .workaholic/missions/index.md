@@ -2,6 +2,7 @@
 
 ## active
 
+* [compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk](active/compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk/mission.md) - Compose the squash body so a unit's housekeeping stays off the trunk
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-a-post-the-transport-refused-or-say-it-reached-nobody](active/deliver-a-post-the-transport-refused-or-say-it-reached-nobody/mission.md) - Deliver a post the transport refused, or say it reached nobody
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act

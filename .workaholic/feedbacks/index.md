@@ -661,4 +661,5 @@
 * [A refused post is a foreseeable condition the notification model has no name for](20260903085539-a-refused-post-is-a-foreseeable-condition-the-notification-model-has-no-name-for.md)
 * [A red base can go unseen: an unrun suite reads as a pass and a detected red waits for morning](20260903090153-a-red-base-can-go-unseen-an-unrun-suite-reads-as-a-pass-and-a-detected-red-waits-for-morning.md)
 * [Make the maintenance tick's channel presence help the work along](20260903100937-make-the-maintenance-tick-s-channel-presence-help-the-work-along.md)
+* [Compose the squash body so a unit's housekeeping stays off the trunk](20260903103841-compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk.md)
 <!-- okf:generated:end -->

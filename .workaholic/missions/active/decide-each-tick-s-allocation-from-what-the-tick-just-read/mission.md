@@ -47,3 +47,4 @@ chose.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-03 — ticket archived — 20260903072107-read-what-is-independently-claimable-this-tick.md
+- 2026-09-03 — ticket archived — 20260903082012-read-the-machine-s-cores-and-load-average.md

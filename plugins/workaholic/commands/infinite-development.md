@@ -42,16 +42,17 @@ notice this, and why it is the tick's to say.
 
 It **blocks nothing and commits nothing**. The tree belongs to a person, half-finished work is
 the normal state of one, and a loop that commits what it finds lying around is a worse failure
-than the one it would cure. Measured 2026-09-03: an entire change — this command's own first
-version, the retirement it performed, and the environment declaration beside it — sat
-uncommitted in the loop's checkout across every tick of its first hour, driving the loop's
-behaviour the whole time, and no step anywhere was looking at it.
+than the one it would cure. What was measured: `workaholic:loops`, *The record behind the tick*.
 
 ## 1. The Slack turn — the steering surface
 
 Read `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default the repository's own name) through the **Slack
 connector** over the last `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10, so consecutive
-five-minute ticks overlap and nothing falls between them). This is the one place the loop reads
+five-minute ticks overlap and nothing falls between them), **in the concise format**: the tick
+uses the author, the timestamp and the text, and the detailed format adds reactions and thread
+metadata for every message on every tick that nothing here reads. Naming the format changes no
+behaviour the tick depends on — the thread it must read before replying is fetched per message,
+by the reply step that needs it, not by this listing. This is the one place the loop reads
 a person, and it runs **before** anything is spawned — a redirection must not wait behind a
 build.
 
@@ -169,8 +170,7 @@ and it has not moved.
 **An `idle` one is a finished run, and it is reaped before anything is spawned** — `TaskStop`
 with that loop's own name. Nothing is discarded: the run is over and its result already arrived
 as a task notification. A tick that skips this leaves one corpse per tick in the very listing
-the concurrency rule has to read, and the next spawn cannot even take its own name (measured
-2026-09-03: three ticks, three idle `propose` agents, the third spawned as `propose-3`).
+the concurrency rule has to read, and the next spawn cannot even take its own name.
 
 **An idle one is also this loop's own clock**, which is why it is reaped at the spawn and not at
 the finish. `started N ago` is when that run began, so a loop with a cadence needs no timestamp
@@ -189,11 +189,8 @@ every loop is due.
 `implement` carries no cadence because there is always more of its work to do and the claim
 protocol already refuses what is taken. **`propose` carries one because its answer is a function
 of what is queued**, and the queue moves only when `implement` lands something or a person
-writes an ask — neither of which happens inside five minutes. Measured 2026-09-03: three
-consecutive ticks, three full agent runs, every one answering `work_waiting` / `nothing_in_hand`
-and writing nothing anywhere. A cadence is the honest bound and a change-detector is not —
-*has the queue moved* is a second derivation of the gate `/propose` already owns, and this
-repository keeps one rule in one place. `0` means every tick.
+writes an ask — neither of which happens inside five minutes. `0` means every tick. What was
+measured, and why a change-detector was refused: `workaholic:loops`, *The record behind the tick*.
 
 Spawn each **due** one as `subagent_type: "general-purpose"`, in the **background**, under that
 loop's own name. Give each the command body it answers to — `commands/propose.md` and
@@ -202,12 +199,16 @@ with the Read tool.
 
 **`moderate`'s gate is read from its own tick log rather than from the listing**, because its
 acts are hourly by nature and the log is a reader that already exists: run
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh` and spawn it only when the
-newest tick there is **older than 30 minutes**. An unreadable log spawns it — over-reporting
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --latest-tick` — which answers
+that one timestamp and **carries no entries** — and spawn it only when the newest tick there is
+**older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just now*. An unreadable log spawns it — over-reporting
 beats a maintenance tick that silently stopped.
 
 Then **end the turn**. Do not poll, do not await, do not summarise their work: their results
-arrive as task notifications, and the next tick reports what landed. A subagent tears down with
+arrive as task notifications, and the next tick reports what landed. **A run's result reaches the
+parent once**: the idle notification always arrives, so a subagent must not also be asked for a
+summary message. The notification is the one that cannot be turned off, so it is the one that
+stays. What was measured: `workaholic:loops`, *The record behind the tick*. A subagent tears down with
 its own run; `/ship` and `/mission-close` already reap the claim worktrees they opened
 (`cleanup-mission-worktree.sh`).
 
@@ -242,13 +243,18 @@ that this mission's archive is non-empty.
   `thread_unresolved: <reason>` / `post_failed: <reason>` / `held: <reason>`. A tick with no
   candidate says `no_candidates`; a candidate read that failed says the reader's own reason and
   is never rendered as `no_candidates`.
-- **Per loop**: `spawned` / `still_running` / `not_due` (naming the age it read), each with
-  `reaped` when an idle agent was stopped first.
+- **Per loop, only when something happened**: `spawned`, or `reaped` when an idle agent was
+  stopped. A loop that was `still_running` or `not_due` gets **no line** — the gate working is not
+  news, and the majority of ticks are that. Where **every** loop was quiet, say so in one line
+  (`loops: none due`) rather than three.
 - **Progress**, from the reading that has landed: the queue total, then one line per active
   mission carrying queued work — acceptance `checked/total` and tickets left — and the
   origination gate's next answer with what has to clear for it to open. Name when the reading
   was taken. A reading that has not landed yet is named as pending, never rendered as zero.
-- Nothing else. A tick that read a quiet channel and spawned nothing says exactly that.
+- **Nothing else, and a tick that did nothing says one line.** A quiet channel, no candidate, no
+  loop due and a clean checkout is `idle` and nothing further — the principle this plugin already
+  holds one surface over (`/moderate`'s post gate makes an idle hour silent), applied to the tick's
+  own report. What was measured: `workaholic:loops`, *The record behind the tick*.
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or
 guess retired namespaces.

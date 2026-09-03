@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:17:26+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -79,3 +80,39 @@ nothing is replaced by a summary: a paraphrased ceiling is a third version of th
 The measurements moved here are the same ones a later reader needs to argue against a rule; the
 value of the split is entirely in *where* they live, so a move that loses a paragraph is worse
 than no split at all.
+
+## Final Report
+
+**Outcome**: implemented, and the hard bound is now falsifiable rather than asserted.
+
+**The record moved to `plugins/workaholic/skills/loops/reference/tick-record.md`**, cited from the
+command and from `workaholic:loops`. Five passages moved, each **verbatim**, each replaced by a
+one-line citation and none by a summary:
+
+1. why the checkout is read and why the tick does not commit it (the uncommitted-change measurement);
+2. why an idle subagent is reaped at the spawn (the three-corpse / `propose-3` measurement);
+3. why `propose` carries a cadence and `implement` does not (the three-wasted-runs measurement **and
+   the rejected change-detector**);
+4. why a run's result reaches the parent once (the doubled thirty-one step table);
+5. why a quiet tick says one line (the four-to-six-lines measurement).
+
+**No operative instruction moved, and that is checked rather than claimed.** *Nothing operative
+moved* is unfalsifiable as prose, so the suite row **names the instructions that must remain** and
+asserts each is still in the command: the Slack window, the dedup ledger, the capture, the propose
+cadence, the moderate gate, the checkout read, and the `💬` and `📥 受理` shapes. A later split that
+took one of them out goes red on that instruction by name.
+
+**The bound the ticket named is the one that governed.** `workaholic:notify` states that *the command
+is the ceiling*, and the routine-template rule says a rule the run must **read to act** is inlined
+byte-identical while a **provenance citation** stays a citation. Every one of the five is a
+provenance citation by that test — a person deciding whether to change a rule needs them; a run
+applying one does not.
+
+**The honest accounting of the size.** The body was 18,373 bytes when this mission started. The other
+four tickets in it **added** operative text — the concise format, the deliver-once rule, the quiet-tick
+rule and the `--latest-tick` flag, about 1.4 KB — and this split removed about 2.4 KB of record, so
+the body is now 19,090 bytes: **larger than it started**, and smaller than it would have been. Saying
+that plainly is better than quoting the 2.4 KB alone, and the record page is where the next split has
+somewhere to put what it finds.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`; `node scripts/build-plugins/build.mjs && verify.mjs`.

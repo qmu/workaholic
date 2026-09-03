@@ -21699,6 +21699,70 @@ function testMergeMethodIsSingleSourced() {
     "a log-committing subject is back; the log branch is retired");
 }
 
+// ---------- a tick pays only its operative cost (2026-09-03) -----------------------------------
+// The loop runs in ONE session that never resets, so the tick's fixed per-tick cost is the number
+// that matters and it was larger than the work most ticks do. MEASURED over two hours: ~23 ticks,
+// 4 capturing an ask, the rest quiet; `log-read.sh` returning 50,087 bytes to answer one timestamp;
+// an 11,291-byte command body re-paid every five minutes.
+//
+// WHAT IS PINNED: the cadence gate has a one-line answer that carries no entries, the record page
+// exists and the command cites it, and — the hard bound the split had to hold — no OPERATIVE
+// instruction left the command. That last one is checked by naming the instructions that must
+// remain, because "nothing operative moved" is otherwise unfalsifiable.
+T("a tick pays only its operative cost", testTickOperativeCost);
+function testTickOperativeCost() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-tick-cost-"));
+  try {
+    mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/moderations/2026-09-03.md"),
+      "## 20260903-100000\n\n- `open-log`: ok — opened\n- `base-health`: ok — green\n\n" +
+      "## 20260903-110000\n\n- `open-log`: ok — opened\n");
+    const logRead = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-read.sh");
+    const full = run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir}`).stdout;
+    const one = run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir} --latest-tick`).stdout;
+    const parsed = JSON.parse(one);
+    assertEq("the cadence gate gets the newest tick and no entries",
+      [parsed.latest_tick, parsed.entries.length, parsed.count],
+      ["20260903-110000", 0, 0]);
+    assertTrue("and it is smaller than the day it replaced", one.length < full.length,
+      `${one.length} vs ${full.length}`);
+    // EVERY FILTER STILL APPLIES, so the flag answers *when did a step last run* too.
+    const filtered = JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir} --step base-health --latest-tick`).stdout);
+    assertEq("a filtered latest-tick answers that filter's newest",
+      filtered.latest_tick, "20260903-100000");
+    // NOTHING MATCHED IS THE EMPTY STRING, which a caller must read as *no such tick* and never
+    // as *just now* -- the direction of failure this repository chooses everywhere else.
+    const none = JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir} --step nope --latest-tick`).stdout);
+    assertEq("no match answers the empty string, never a time", none.latest_tick, "");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+  const record = join(REPO_ROOT, "plugins/workaholic/skills/loops/reference/tick-record.md");
+  assertTrue("the record page exists", existsSync(record), record);
+  assertTrue("and the command cites it rather than carrying it",
+    /The record behind the tick/.test(cmd), "the command cites no record");
+  assertTrue("the cadence gate asks for one line", /--latest-tick/.test(cmd), "the gate reads the day");
+  assertTrue("the channel is read in the concise format", /concise format/.test(cmd), "format unnamed");
+  assertTrue("a run's result reaches the parent once", /reaches the\s+parent once/.test(cmd), "unstated");
+
+  // THE HARD BOUND: no operative instruction left the command. Naming them is what makes
+  // "nothing operative moved" falsifiable rather than a claim.
+  for (const [what, re] of [
+    ["the Slack window", /WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES/],
+    ["the dedup ledger", /list-swept-slack-refs\.sh/],
+    ["the capture", /file-inbound-ask\.sh/],
+    ["the propose cadence", /WORKAHOLIC_PROPOSE_CADENCE_MINUTES/],
+    ["the moderate gate", /log-read\.sh/],
+    ["the checkout read", /git status --porcelain/],
+    ["the reply shape", /💬/],
+    ["the receipt shape", /📥 受理/],
+  ]) {
+    assertTrue(`${what} stayed in the command`, re.test(cmd), `${what} left the ceiling`);
+  }
+}
+
 // ---------- a verification handoff may be a PROBE, re-measured at claim time (2026-09-03) ------
 // A prose declaration cannot be falsified, so a blocker true the day it was written stays true
 // forever and the work behind it stops being attempted. MEASURED on a consuming repository: four

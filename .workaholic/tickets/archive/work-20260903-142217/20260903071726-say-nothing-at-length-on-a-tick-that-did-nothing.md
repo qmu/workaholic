@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:17:26+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,21 @@ tick's own terminal report does not follow it.
 The failure to avoid is a quieter loop that is indistinguishable from a stopped one — the
 outage this repository has measured twice. That is why the degradation clause is an acceptance
 criterion and not a note.
+
+## Final Report
+
+**Outcome**: implemented.
+
+The per-loop line is now reported **only when something happened** — `spawned`, or `reaped` when an
+idle agent was stopped. A `still_running` or `not_due` loop gets **no line**, and where every loop was
+quiet the tick says `loops: none due` in one line rather than three. A tick with a quiet channel, no
+candidate, no loop due and a clean checkout reports `idle` and nothing further.
+
+**The principle was already in this plugin and the tick was not following it** — `/moderate`'s post
+gate makes an idle hour silent, and the ticket's own Overview says so. What changed is that the
+tick's own terminal report now holds the same rule.
+
+**The gate working is not news.** `not_due` is the cadence doing exactly what it was written to do;
+printing it every five minutes is the shape this repository has twice retired status roots for.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

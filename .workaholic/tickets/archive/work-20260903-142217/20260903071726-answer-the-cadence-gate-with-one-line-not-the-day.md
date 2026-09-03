@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:17:26+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -63,3 +64,24 @@ until the day rolls over. Nothing else in the tick consumes those entries.
 
 This is the smallest of the five and the only one that touches a script rather than prose;
 it is first because it is independent of the others.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`log-read.sh` gained `--latest-tick`: the newest `(day, tick)` among the rows the filters kept, with
+an **empty `entries` array** and `count: 0`. The tick's `moderate` gate now asks for that one value.
+
+**The empty array is honest rather than a truncation** — the caller asked for a timestamp, not for a
+sample of the log. **Every filter still applies**, so `--step-prefix foo --latest-tick` answers *when
+did a `foo…` step last run*, which is a second use the flag gets for free.
+
+**`latest_tick` is the empty string when nothing matched**, and the header says a caller must read
+that as *no such tick* and never as *just now* — the direction of failure this repository chooses
+everywhere else, and the one that matters here because *just now* would silence the gate.
+
+**Measured on a two-tick fixture**: 487 bytes → 108. The reported production case is 50,087 bytes at
+two hours, read twelve times an hour and growing monotonically until the day rolls over.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`, including that a filtered `--latest-tick`
+answers that filter's newest and that no match answers the empty string.

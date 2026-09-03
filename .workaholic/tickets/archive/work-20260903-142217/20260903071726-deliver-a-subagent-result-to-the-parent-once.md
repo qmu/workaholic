@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:17:26+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -62,3 +63,17 @@ always arrives; the summary is the duplicate.
 If the doubled delivery turns out to be entirely the harness's, the honest outcome is to say so
 in the command and change nothing — a ticket that reports the measurement was wrong is a real
 outcome, not a failure.
+
+## Final Report
+
+**Outcome**: implemented.
+
+The spawn section now states that **a run's result reaches the parent once**: the idle notification
+always arrives, so a subagent must not also be asked for a summary message.
+
+**Which of the two survives was decided on a property, not a preference**: the notification is the
+one that cannot be turned off, so it is the one that stays and the summary is the duplicate. The
+measurement is recorded beside it — a thirty-one step table delivered twice into the parent's
+context, both carrying substantially the same content.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` asserts the rule is present in the ceiling.

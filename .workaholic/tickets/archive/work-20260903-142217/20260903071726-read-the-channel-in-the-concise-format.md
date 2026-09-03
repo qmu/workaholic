@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:17:26+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -61,3 +62,17 @@ command is free and changes no behaviour the tick depends on.
 If the concise format omits a field §1 consumes — the reaction set is used only for the
 loop's own stamps, but the author's shape test reads the message text — the honest outcome is to
 say which and keep the detailed format, reporting the measurement rather than forcing the change.
+
+## Final Report
+
+**Outcome**: implemented.
+
+The command now names the **concise format** on the channel read, with the reason beside it: the
+tick uses the author, the timestamp and the text, and the detailed format adds reactions and thread
+metadata for every message on every tick that nothing here reads.
+
+**It changes no behaviour the tick depends on**, and the sentence says why rather than asserting it:
+the thread the reply step must read before posting is fetched **per message, by that step**, not by
+this listing — so dropping thread metadata from the listing removes nothing any step consumes.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` asserts the format is named.

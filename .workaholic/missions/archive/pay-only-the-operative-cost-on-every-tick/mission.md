@@ -2,7 +2,7 @@
 type: Mission
 title: Pay only the operative cost on every tick
 slug: pay-only-the-operative-cost-on-every-tick
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T07:16:57+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-142217
 ---
 
 # Pay only the operative cost on every tick
@@ -37,11 +38,17 @@ reaped and spawned nothing says one line, and the channel read asks for what the
 
 ## Acceptance
 
-- [ ] The `moderate` cadence gate reads one line rather than the day's log. (#20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md)
-- [ ] The command body carries only what a run must read to act; its measurements and rejected
+- [x] The `moderate` cadence gate reads one line rather than the day's log. (#20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md)
+- [x] The command body carries only what a run must read to act; its measurements and rejected
       alternatives move to a `reference/` page with nothing lost. (#20260903071726-split-the-tick-command-into-operative-text-and-record.md)
-- [ ] A quiet tick reports one line and a run's result reaches the parent once. (#20260903071726-say-nothing-at-length-on-a-tick-that-did-nothing.md)
+- [x] A quiet tick reports one line and a run's result reaches the parent once. (#20260903071726-say-nothing-at-length-on-a-tick-that-did-nothing.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md
+- 2026-09-03 — ticket archived — 20260903071726-read-the-channel-in-the-concise-format.md
+- 2026-09-03 — ticket archived — 20260903071726-say-nothing-at-length-on-a-tick-that-did-nothing.md
+- 2026-09-03 — ticket archived — 20260903071726-deliver-a-subagent-result-to-the-parent-once.md
+- 2026-09-03 — ticket archived — 20260903071726-split-the-tick-command-into-operative-text-and-record.md
+- 2026-09-03 — mission achieved — mission.md

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.9
 feedback: [20260903222258-carry-a-claim-s-liveness-somewhere-other-than-an-empty-commit-on-the-work-branch.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -50,3 +50,4 @@ heartbeat commits, and ending a claim retires its liveness state without manual 
 - 2026-09-03 — ticket archived — 20260903222521-retire-claim-liveness-state-without-polluting-review-history.md
 - 2026-09-03 — mission achieved — mission.md
 - 2026-09-03 — story reported — work-20260903-225834.md
+- 2026-09-03 — run recorded (+0.9h) — 20260903-135439

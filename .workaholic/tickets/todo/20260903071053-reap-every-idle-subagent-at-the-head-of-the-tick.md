@@ -67,3 +67,26 @@ A subagent this tick did not spawn — one a person started in the same session 
 `idle` in the listing. Reaping it is the honest reading of *stop what has finished*, but it is
 the tick acting on something outside the loop, so the command names the bound it applies
 rather than leaving it to the run's judgement.
+
+## Final Report
+
+**Outcome**: implemented.
+
+Every `idle` subagent is stopped at the **head** of the tick — before the cadence is read, before
+anything is spawned, and **whatever any cadence says**. The listing the concurrency rule reads then
+carries **running runs only**.
+
+**The reason is in the command, because it is the part a reader will not guess**: an idle agent is
+**not a corpse**. It is a resumable session holding its whole transcript, and a send resumes it
+inside that context — measured twice in one session. Stopping it is the only act that actually
+returns the context window, which is the operator's stated intent.
+
+**"Unconditionally" is the load-bearing word.** The previous rule reaped *before the spawn*, which
+meant a loop that was not due kept its finished agent for a whole cadence — precisely the case the
+intent excludes. Removing the condition is the change; the `TaskStop` call is not new.
+
+**It depends on the sibling ticket and would be wrong without it**: with the clock still on the
+agent, reaping at the head would destroy the cadence. The order of the two in this mission is not
+arbitrary.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

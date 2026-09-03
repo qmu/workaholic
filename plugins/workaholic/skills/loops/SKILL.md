@@ -18,6 +18,14 @@ Each tick reads the inbound Slack channel and answers on it, spawns `propose` an
 as background subagents, and ends. The tick is short by construction, so a person's message is
 answered within five minutes whatever the work is doing.
 
+**The clock is a recorded finish, not a live agent** (2026-09-03, mission
+`stop-a-finished-subagent-and-take-the-loop-s-clock-off-it`). `ListAgents` answers **is this loop
+still running** and nothing else; every `idle` subagent is stopped at the **head** of the tick,
+unconditionally, because an idle agent is a **resumable session holding its whole transcript** and
+stopping it is the only act that returns the context window. The tick that first observes a run idle
+records `loop-finish-<name>` on the tick log and every cadence is read from that. **An `/implement`
+run takes one PR-unit and ends**, so no context spans two missions.
+
 **The tick's own measurements, rejected alternatives and history live in
 [reference/tick-record.md](reference/tick-record.md)**, not in the command body (2026-09-03,
 mission `pay-only-the-operative-cost-on-every-tick`). The command runs in one session that never

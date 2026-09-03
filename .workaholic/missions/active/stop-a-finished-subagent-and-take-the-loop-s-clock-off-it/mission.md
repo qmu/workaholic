@@ -46,3 +46,4 @@ agent's start age, and an `/implement` run takes one PR-unit and ends.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903071053-record-each-loop-run-s-finish-on-the-tick-log.md

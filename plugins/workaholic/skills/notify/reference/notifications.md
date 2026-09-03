@@ -18,6 +18,16 @@ The rule generalises rather than enumerating three shapes: **resolve the mention
 
 The measured cost, stated rather than hidden: a reader can no longer tell from the finish line alone *which* account's routine posted it in a channel several people's routines post into. That was already only readable as the mention, which rendered as the reader's own name and read as self-addressed; the account is the message's own author, which Slack shows, and the run report names it in words.
 
+**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+
+Measured 2026-09-02: three `🟡 Handoff` lines delivered, every one waiting on one person's act, none of them paging anyone. The clause is appended where the token would have been, so a line that *does* carry a token is byte-identical to what it always was.
+
+### A refused call is not an absent surface
+
+**A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
+
+Measured 2026-09-02, two `/implement` runs minutes apart in one session: one had every connector call refused and lost three lines to the third branch, written for a session that never had a surface; the other posted three of the same shape. Where the line is carried, and by what, is SKILL's — this catalog names shapes and never re-derives the transport.
+
 ### `/specificate` — the finish, plus a description root when no thread was found
 
 ```

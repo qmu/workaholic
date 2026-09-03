@@ -94,5 +94,11 @@ If the rendered post says not to post, post nothing at all — no root, no quest
 
 **One issue for the hour, not one per line**, and **the ledger is untouched**: a question that reached nobody is never recorded as asked, so every held question stays held and is offered again the moment a transport returns. Restoring the transport is **provisioning, not code** — re-authorize the connector against the workspace holding the channel, or set `SLACK_BOT_TOKEN` and `WORKAHOLIC_SLACK_CHANNEL` on the cloud environment the routines select — so the issue names it and asks for it rather than pretending the tick can fix it.
 
+**A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
+
+**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+
+Adding that clause changes the question's **text** and nothing else: `already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text, so no question is re-asked by it.
+
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or guess retired namespaces.

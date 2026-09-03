@@ -1417,7 +1417,7 @@ riding the **heading**, exactly as they did — the body's one sentence is reser
 
 | Key | Heading leads with | Body asks for |
 | --- | ------------------ | ------------- |
-| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *is this direction finished — close it, or name what is still missing?* |
+| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *N item(s) landed and nothing is waiting; it reads finished* (or *finished except for work no direction claims*) — then *announce that it ended, or say it still stands.* |
 | `direction-cutover:<slug>` | *`<title>`'s work is all in and it is still declared 進行中* — then the slug, what landed, the residue | *can it cut over now, or is something still holding it?* |
 | `direction-settled:<slug>` | *improving `<title>` has gone quiet* — then the slug, 改良中, the window nothing landed in | *is this observation now, or is there still work to do?* |
 | `direction-overdue:<slug>` | *`<title>` went past its date on `<target_date>`* — then the slug, the stage, the leaving | *re-date it, close it, or say it is still running.* |
@@ -1425,6 +1425,33 @@ riding the **heading**, exactly as they did — the body's one sentence is reser
 | `direction-dormant:<slug>` | *nothing has answered `<title>` since it was set* — then the slug, the stage, the date | *is it still the direction, or should it be re-dated or closed?* |
 | `direction-last:<slug>` | *`<title>` is the last live direction, and the loop originates nothing after it* — then the slug, the stage, the leaving | *close it with a successor, or keep it open?* |
 | `direction-none` | *no live direction remains, so nothing is proposing work* — addressed to nobody, because no owner is left to name | *set one, or leave the loop reactive.* |
+
+**Three rules the bodies gained on 2026-09-03** (mission
+`make-the-maintenance-tick-s-channel-presence-help-the-work-along`), each measured on one
+morning's thread:
+
+1. **One question per KIND, not per subject.** `lib/question-id.sh` keys on the key and the step
+   composed one per subject, so five `🙋` went out in twenty-four seconds, three of them the same
+   sentence with a slug swapped. The step now hands back **`groups`** beside `directions`: one
+   entry per reading, carrying the union of the assignees and every subject. **The key carries the
+   sorted subject set, not the kind alone** — a bare `direction-arrived` would be asked once ever
+   and a direction arriving next week would never be asked at all, turning the asked-once gate into
+   a silence. The stated cost is that a fourth direction joining an already-asked group re-asks the
+   whole group once. A group of one renders exactly as it did before.
+2. **The tick's own counters left every body.** `It would leave N unreached and M unclaimed.` stood
+   at the head of each one: the tick saying what its counters would hold afterwards, in a sentence
+   addressed to a person. The sizes still ride the **heading**, where the named detail belongs.
+3. **A repository-wide fact left the four questions it is not about.** The unattributed residue —
+   *not attributed to any direction: `<mission>` (N queued)* — was pasted into every heading because
+   the composer had it in hand. It stays on **`arrived`** and its `cutover` refinement, where
+   whether the loop could see everything is exactly the question (the 2026-08-28 mission that added
+   it), and leaves `overdue`, `expiring`, `dormant` and `settled`, where it is a fact about the
+   repository rather than about the subject.
+
+**And the `arrived` body states a reading rather than offering a bare choice.** It said a count and
+asked; every other part of this loop states a judgement and lets a person veto it. It now names what
+landed and says whether the evidence **reads finished** — a reading, never a verdict: nothing closes
+a direction but the operator announcement, and that rule does not move.
 
 **What is refused here**: leading with `arrived`, `dormant`, `quiescent`, `expiring` or
 `overdue`. Those are the loop's readings, not the operator's facts — `quiescent` in particular

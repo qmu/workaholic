@@ -211,7 +211,7 @@ needs=$(printf '%s' "$rows" | awk -v key="$ASK_KEY" '
         b = $0; sub(/.*"blocked_by": "/, "", b); sub(/".*/, "", b)
         u = $0; sub(/.*"url": "/, "", u); sub(/".*/, "", u)
         decision = "a human decision"
-        if (b == "conflict") decision = "the next [Implement] tick attempts this conflict itself and merges what it settles; only a hunk that merge cannot settle needs a person, and it says so by name"
+        if (b == "conflict") decision = "resolving this conflict belongs to an [Implement] run rather than to this tick, which reads and does not merge; a hunk the merge itself cannot settle needs a person and is named by the act that meets it"
         else if (b == "review") decision = "a required review or gate is unsatisfied — somebody must review it"
         else if (b == "checks") decision = "a check is failing — the author must fix it or say it is expected"
         else if (b == "draft")  decision = "it is still a draft — the author must mark it ready or close it"

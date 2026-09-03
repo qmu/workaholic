@@ -4,7 +4,7 @@
 
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [make-the-maintenance-tick-s-channel-presence-help-the-work-along](active/make-the-maintenance-tick-s-channel-presence-help-the-work-along/mission.md) - Make the maintenance tick's channel presence help the work along
+* [make-a-verification-handoff-a-probe-re-run-at-claim-time](active/make-a-verification-handoff-a-probe-re-run-at-claim-time/mission.md) - Make a verification handoff a probe re-run at claim time
 * [pay-only-the-operative-cost-on-every-tick](active/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-finished-subagent-and-take-the-loop-s-clock-off-it](active/stop-a-finished-subagent-and-take-the-loop-s-clock-off-it/mission.md) - Stop a finished subagent and take the loop's clock off it
@@ -71,6 +71,7 @@
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
 * [make-the-draft-release-note-an-agent-s-release-plan](archive/make-the-draft-release-note-an-agent-s-release-plan/mission.md) - Make the draft release note an agent's release plan
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
+* [make-the-maintenance-tick-s-channel-presence-help-the-work-along](archive/make-the-maintenance-tick-s-channel-presence-help-the-work-along/mission.md) - Make the maintenance tick's channel presence help the work along
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](archive/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 * [make-the-propose-implement-loop-drillable-on-demand](archive/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
 * [make-the-routine-create-body-documented-and-buildable](archive/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable

@@ -21918,6 +21918,30 @@ function testVerificationProbe() {
     // THE OUTPUT IS BOUNDED and says when it was cut.
     const big = probe("seq 1 2000; exit 1", { WORKAHOLIC_PROBE_OUTPUT_MAX: "100" });
     assertTrue("a large output is truncated and says so", big.truncated === true, JSON.stringify(big).slice(0, 200));
+
+    // A NON-ASCII PROBE OUTPUT SURVIVES AS CHARACTERS (2026-09-03, ticket `20260903064753`).
+    // This output reaches a person twice -- quoted into `## Handoff` and into the `🟡 Handoff`
+    // Slack post -- so an ASCII-escaping serialiser handed its reader `\uXXXX` to decode by hand.
+    // Both halves are asserted together, as the deployment-plan repair asserts them: raw UTF-8 is
+    // only the right answer if the stdout is still parseable JSON for every other consumer, and
+    // `probe()` parses it to get here at all.
+    const jp = probe('printf "本番の鍵がありません\\t1\\r\\n"; exit 4');
+    assertEq("a non-ASCII probe output keeps its characters",
+      jp.output, "本番の鍵がありません\t1\r");
+    assertTrue("and leaves no escape sequence for a reader to decode",
+      !/\\u[0-9a-fA-F]{4}/.test(jp.output), jp.output);
+
+    // AND THE TWO PATHS OF ONE ESCAPER AGREE. The defect this repaired was not the escaping alone
+    // but the DISAGREEMENT: the `python3` path ASCII-escaped and the `sed` fallback did not, so
+    // which answer a caller got depended on which interpreter was installed. Forcing the first
+    // rung to fail must produce the same bytes rather than a second answer.
+    const shim = join(dir, "shim");
+    mkdirSync(shim, { recursive: true });
+    writeFileSync(join(shim, "python3"), "#!/bin/sh\nexit 127\n", { mode: 0o755 });
+    const jpFallback = probe('printf "本番の鍵がありません\\t1\\r\\n"; exit 4',
+      { PATH: `${shim}:${process.env.PATH}` });
+    assertEq("the escaper's fallback rung returns the same bytes as its first",
+      jpFallback.output, jp.output);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 
   // THE BOUND, WRITTEN DOWN. A handoff is derived per unit through the one reader and never
@@ -21990,6 +22014,46 @@ function testMergeBodyIsSingleSourced() {
     const un = JSON.parse(run(dir, `${composer} --branch no-such-branch-at-all`).stdout);
     assertTrue("an unreadable read names its reason", /^unreadable:/.test(un.source), un.source);
     assertTrue("and still yields a non-empty body", un.body.length > 0, JSON.stringify(un));
+
+    // A NON-ASCII TITLE AND DESCRIPTION SURVIVE AS CHARACTERS (2026-09-03, ticket
+    // `20260903064753`). What this composes becomes the squash `commit_title` and
+    // `commit_message` of every merge the loop makes, so an ASCII-escaping serialiser wrote
+    // `リポ...` onto the trunk's PERMANENT record -- the same hand-decoding the
+    // deployment-plan repair removed, one artifact over. Both halves are asserted together:
+    // raw UTF-8 is only the right answer if the stdout is still parseable, and `JSON.parse`
+    // getting this far is that half.
+    run(dir, `git checkout -q -b work-20260903-000003 main`);
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-20260903-000003.md"),
+      "---\ntype: Story\nbranch: work-20260903-000003\ndescription: 見出しを日本語のまま渡す\n---\n\n## 1. Overview\n");
+    run(dir, `git add -A && git commit -q -m "Add a non-ASCII story"`);
+    const jp = JSON.parse(run(dir,
+      `${composer} --branch work-20260903-000003 --number 9 --title 'ドキュメントサイトの見出しを直す'`).stdout);
+    assertEq("a non-ASCII title reaches the squash title as characters",
+      jp.title, "ドキュメントサイトの見出しを直す (#9)");
+    assertTrue("and the description reaches the body as characters",
+      jp.body.startsWith("見出しを日本語のまま渡す"), jp.body);
+    assertTrue("and neither carries an escape sequence for the trunk to keep",
+      !/\\u[0-9a-fA-F]{4}/.test(jp.title + jp.body), jp.title + jp.body);
+
+    // AND THE TWO PATHS OF ONE ESCAPER AGREE. The disagreement was the defect, not the escaping
+    // alone: which answer a caller got depended on whether `python3` was installed. Forcing the
+    // first rung to fail must produce the same bytes rather than a second answer.
+    const shim = join(dir, "shim");
+    mkdirSync(shim, { recursive: true });
+    writeFileSync(join(shim, "python3"), "#!/bin/sh\nexit 127\n", { mode: 0o755 });
+    const jpFallback = JSON.parse(run(dir,
+      `${composer} --branch work-20260903-000003 --number 9 --title 'ドキュメントサイトの見出しを直す'`,
+      { env: { ...process.env, PATH: `${shim}:${process.env.PATH}` } }).stdout);
+    assertEq("the escaper's fallback rung returns the same title as its first",
+      jpFallback.title, jp.title);
+    assertEq("and the same escaped description",
+      jpFallback.body.split("\n")[0], jp.body.split("\n")[0]);
+    // The SUBJECT LIST is deliberately not compared across the rungs. The housekeeping filter has
+    // its own `python3` dependency with no fallback of its own, so it drops the list entirely when
+    // that interpreter is gone -- a real defect, and a different one from the escaper this row is
+    // about. Ticketed 2026-09-03 rather than widened into here.
+    rmSync(shim, { recursive: true, force: true });
 
     // It writes NOTHING: no file, no ref, no commit.
     assertEq("the composer leaves the tree untouched",

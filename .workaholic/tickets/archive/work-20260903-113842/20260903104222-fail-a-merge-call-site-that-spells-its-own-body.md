@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T10:42:22+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,34 @@ invisible to a literal-text check.
 
 - Enumerating merge call sites by pattern will match a comment or a documentation example. The
   row should exclude comments the way the existing `gh issue|pr|repo` row does.
+
+## Final Report
+
+**Outcome**: implemented.
+
+One suite row, *the squash body is one derivation, and no call site spells it*, carrying the two
+assertions the ticket asked for plus the composer's own behaviour:
+
+1. **No literal body at a call site** — mirroring the `merge_method=` row, with comments stripped first
+   for the same reason (every one of these files explains the choice in prose, and a whole-document
+   match would read the explanation as the violation).
+2. **Every merge call site reads the composer** — the assertion a literal-text check cannot make,
+   because omission is the defect itself and omission has no text. The enumeration is **derived from the
+   tree**: every `.sh` under `plugins/workaholic/skills/` whose non-comment code contains a
+   `pulls/${…}/merge` REST call. It found five and asserts at least five, so a sixth call site added
+   tomorrow is covered the day it lands with no hand-kept list to update.
+3. **The two agent-level ceilings**, in both directions — present in `commands/implement.md`, absent
+   from `commands/specificate.md`, which merges nothing itself.
+4. **The composer's three `source` values**, the housekeeping filter (two commits with the same subject,
+   one marked and one not), and that it writes nothing.
+
+**Step 4's bound is named in the assertion's own comment**: what it cannot see is an agent's merge call,
+composed at run time and present in no file; all that is checkable there is that the instruction sits
+where the session will read it.
+
+**Step 5, proved rather than asserted**: `ship/scripts/merge-pr.sh` was reverted locally — the two `-f`
+fields stripped and `BODY_JSON` blanked — and the suite re-run. The row went red on that file by name,
+failing both `spells no literal body`'s sibling assertion `reads the composer instead` and the run's
+total. The call site was then restored and the suite returned green.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`.

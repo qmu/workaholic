@@ -107,6 +107,7 @@ fi
 # and the empty commit records nothing from the working tree, so uncommitted work is
 # neither staged, committed, nor disturbed.
 ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" --allow-empty \
+    --housekeeping heartbeat \
     "Refresh heartbeat" \
     "" \
     "None -- coordination only; the beat changes no file and never reaches the PR diff" \

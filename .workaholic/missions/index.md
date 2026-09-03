@@ -2,7 +2,6 @@
 
 ## active
 
-* [compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk](active/compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk/mission.md) - Compose the squash body so a unit's housekeeping stays off the trunk
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [make-a-red-base-impossible-for-the-loop-to-miss](active/make-a-red-base-impossible-for-the-loop-to-miss/mission.md) - Make a red base impossible for the loop to miss
@@ -29,6 +28,7 @@
 * [close-the-units-the-loop-already-finished](archive/close-the-units-the-loop-already-finished/mission.md) - Close the units the loop already finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
 * [compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it](archive/compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it/mission.md) - Compose an unattended run's shell so an allowlist can name it
+* [compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk](archive/compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk/mission.md) - Compose the squash body so a unit's housekeeping stays off the trunk
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [correct-the-release-note-automation-to-its-intended-design](archive/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue

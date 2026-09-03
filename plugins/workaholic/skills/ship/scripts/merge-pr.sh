@@ -84,13 +84,23 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 MERGE_METHOD=$(sh "${GATHER_SCRIPTS}/merge-method.sh")
 
+# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# is the one derivation of `commit_title` / `commit_message`; without them the forge
+# concatenates every commit on the branch into the trunk's record. A composer that could not
+# read still yields a fallback body, so the merge is never held on it.
+BODY_JSON=$(sh "${GATHER_SCRIPTS}/merge-commit-body.sh" "${pr_number}" 2>/dev/null || printf '')
+MERGE_TITLE=$(printf '%s' "$BODY_JSON" | jq -r '.title // ""' 2>/dev/null || printf '')
+MERGE_BODY=$(printf '%s' "$BODY_JSON" | jq -r '.body // ""' 2>/dev/null || printf '')
+MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
+
 slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1) || {
   echo '{"merged": false, "reason": "no_remote", "detail": "'"$(printf '%s' "$slug" | tr -d '"\\' | tr '\n' ' ')"'"}' >&2
   exit 1
 }
 
 if ! merge_out=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=${MERGE_METHOD}" 2>&1); then
+    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=${MERGE_METHOD}" \
+    -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
   # The underlying message rides the error rather than being swallowed: a 405 (GitHub
   # refusing the merge) and a 403 (the transport being restricted) need different
   # actions from whoever reads this.
@@ -159,5 +169,5 @@ if git merge-base --is-ancestor "$commit_hash" "origin/${base}" >/dev/null 2>&1;
 fi
 
 cat <<EOF
-{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "commit_hash_source": "$commit_hash_source", "on_base": $on_base, "branch_head": "$branch_head", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base"}
+{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "commit_hash_source": "$commit_hash_source", "on_base": $on_base, "branch_head": "$branch_head", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base", "body_source": "$MERGE_BODY_SOURCE"}
 EOF

@@ -109,9 +109,10 @@ MERGE_REASON_WORD=""
 RECORDED=false
 
 report() {
-    printf '{"attempted": %s, "unit": "%s", "branch": "%s", "pull_request": "%s", "outcome": "%s", "merge_reason": "%s", "recorded": %s, "reason": "%s"}\n' \
+    printf '{"attempted": %s, "unit": "%s", "branch": "%s", "pull_request": "%s", "outcome": "%s", "merge_reason": "%s", "recorded": %s, "body_source": "%s", "reason": "%s"}\n' \
         "$1" "$(json_str "$unit")" "$(json_str "$BRANCH")" "$(json_str "$PR")" \
-        "$(json_str "$OUTCOME")" "$(json_str "$MERGE_REASON_WORD")" "$RECORDED" "$(json_str "${2:-}")"
+        "$(json_str "$OUTCOME")" "$(json_str "$MERGE_REASON_WORD")" "$RECORDED" \
+        "$(json_str "${MERGE_BODY_SOURCE:-}")" "$(json_str "${2:-}")"
     exit 0
 }
 
@@ -185,8 +186,17 @@ PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf ''
 
 # THE ONE OUTWARD ACT. REST, exactly as the original attempt made it -- including the method,
 # which is read from the one derivation rather than spelled here (2026-09-01).
+# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# is the one derivation of `commit_title` / `commit_message`; without them the forge
+# concatenates every commit on the branch into the trunk's record. A composer that could not
+# read still yields a fallback body, so the merge is never held on it.
+BODY_JSON=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')
+MERGE_TITLE=$(printf '%s' "$BODY_JSON" | jq -r '.title // ""' 2>/dev/null || printf '')
+MERGE_BODY=$(printf '%s' "$BODY_JSON" | jq -r '.body // ""' 2>/dev/null || printf '')
+MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
 if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT \
-        -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-method.sh")" 2>&1); then
+        -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-method.sh")" \
+        -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
     OUTCOME="merged"
     report true ""
 fi

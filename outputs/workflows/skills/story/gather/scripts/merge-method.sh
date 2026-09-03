@@ -40,12 +40,21 @@
 # disappearing at the merge. `workaholify/scripts/check-repo-settings.sh` is where that setting
 # is applied, and its header carries the other half of this reasoning.
 #
-# ONE DERIVATION, FOUR CONSUMERS -- `ship/scripts/merge-pr.sh`, `branching/scripts/publish-tree-pr.sh`,
-# `drive/scripts/retry-undelivered.sh`, and the `review` route's inline merge in `workaholic:drive`.
-# A literal `merge_method=` at a call site is refused by `scripts/test-workflow-scripts.mjs`: four
+# ONE DERIVATION, SEVEN CONSUMERS -- five REST call sites (`ship/scripts/merge-pr.sh`,
+# `branching/scripts/publish-tree-pr.sh`, `drive/scripts/retry-undelivered.sh`,
+# `drive/scripts/catch-up-claim.sh`, `branching/scripts/settle-stranded-publication.sh`) and two
+# AGENT-level merges (the `review` route's inline merge in `workaholic:drive`, and the connector
+# retry a `session_type_cannot_merge` refusal licenses, carried in `commands/implement.md`).
+# A literal `merge_method=` at a call site is refused by `scripts/test-workflow-scripts.mjs`: seven
 # copies of one word is exactly the drift this repository keeps single-sourcing to avoid, and a
 # call site that merges the OTHER way would put the noise back on `main` for one route only,
 # which is the hardest kind of inconsistency to notice.
+#
+# ITS SIBLING IS `merge-commit-body.sh` (2026-09-03), which answers the squash `commit_title` and
+# `commit_message` the same way and for the same reason. The method alone was half the record: a
+# squash whose call carries no body gets the forge's concatenation of every commit on the branch,
+# so the bookkeeping this method exists to keep off `main` landed there inside the squash body --
+# measured, 48 such commits on `main`, the longest 11,515 lines. Every call site above reads both.
 
 set -eu
 printf 'squash\n'

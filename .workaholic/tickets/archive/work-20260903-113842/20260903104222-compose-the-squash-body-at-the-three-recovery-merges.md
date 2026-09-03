@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T10:42:22+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,24 @@ not fewer.
 
 - `catch-up-claim.sh` merges inside a turn that has just pushed; the composer must read the
   pushed tip rather than a stale local ref.
+
+## Final Report
+
+**Outcome**: implemented.
+
+All three now read the composer before their REST merge and pass the two fields:
+`drive/scripts/retry-undelivered.sh`, `drive/scripts/catch-up-claim.sh` and
+`branching/scripts/settle-stranded-publication.sh`. Each reports the composer's word as its own
+`body_source` field beside its existing `merge_outcome` / `delivery`.
+
+**The catch-up's timing question from step 2 is answered where it arises.** `catch-up-claim.sh` composes
+**after** its own push, so the branch story and the commit range the composer reads are the ones the
+merge will actually squash — not a stale local ref. The comment at the call site says so. A branch
+carrying `catchup-main.sh`'s merge commits still resolves its story (the composer reads the story file
+by branch name, from the checkout or from the ref), and where it does not, `fallback` covers it.
+
+**Every refusal at all three is byte-identical and still runs before the composer** — `scan_held`,
+`content_conflict`, `not_undelivered`, `not_mechanical`, `no_open_pull_request` and the rest — so no
+body is composed for a merge that will not be attempted.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`; the call-site enumeration covers all three.

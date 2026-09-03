@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T10:42:22+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,38 @@ it.
   concatenation.
 - A body has a size ceiling at the forge. The composer should stay well inside it rather than
   discover the limit at a merge.
+
+## Final Report
+
+**Outcome**: implemented.
+
+**Reproduced and localized first**, as step 1 required. On this repository's `main`: **48** commits
+whose message body carries the text `Refresh heartbeat`, and **48 of 48** have a subject that is
+*not* `Refresh heartbeat` — every one is a squash body rather than a heartbeat commit. The longest
+is 11,515 lines (`499a7435`). Reading the five REST merge call sites confirmed the other half:
+**zero** of them passed `commit_message` or `commit_title`; the repository contained no occurrence
+of either string.
+
+**Added** `plugins/workaholic/skills/gather/scripts/merge-commit-body.sh`, the sibling of
+`merge-method.sh`: `merge-commit-body.sh <number>` or `--branch <branch> [--number <n>] [--title <t>]`,
+emitting `{ok, title, body, source, reason}` on stdout and nothing else. `source` is three-valued and
+each is named — `story` (the branch story's `description:` line), `fallback` (one sentence naming the
+unit and its pull request, a publication's ordinary answer), `unreadable:<reason>` (which **still**
+yields the fallback body, so a composer failure never hands the forge its default back by omission).
+The body appends the branch's own commit subjects with housekeeping-marked ones dropped, capped at
+`WORKAHOLIC_MERGE_BODY_MAX_SUBJECTS` (40, remainder counted) and `WORKAHOLIC_MERGE_BODY_MAX_BYTES`
+(8000, a truncation that says so). It writes no file, touches no ref, and its one network read is the
+pull-request lookup `--branch` skips.
+
+**Two implementation notes worth keeping.** The obvious `%s%x00%b` single-walk record format cannot
+work: a command substitution drops NUL bytes, so every commit body ran into the next subject and the
+first version emitted one mangled entry. The shipped shape is two walks — subjects, and `git log
+--grep='^Workaholic-Housekeeping:'` for the marked set — which loses no separator and leaves the
+marker test as git's own. And the ticket's own hypothesis held: the branch story is the right source,
+and the fallback covers the publication case the ticket named.
+
+**No call site was changed by this ticket** (its gate says so); the five are the four tickets after it.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs` — the new row *the squash body is one
+derivation, and no call site spells it* exercises all three `source` values plus the marker filter and
+the write-nothing assertion.

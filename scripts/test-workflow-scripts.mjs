@@ -230,6 +230,7 @@ const SCRIPTS = {
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
   mergeMethod: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-method.sh"),
+  mergeCommitBody: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-commit-body.sh"),
   checkRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh"),
   applyRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-repo-settings.sh"),
   applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
@@ -21662,6 +21663,120 @@ function testMergeMethodIsSingleSourced() {
     "a log-committing subject is back; the log branch is retired");
 }
 
+// ---------- the squash BODY is one derivation too, and no call site spells it (2026-09-03) ----
+// `merge-method.sh` settled that every merge is a squash. A squash whose API call carries no
+// `commit_message` gets the forge's default -- the concatenation of every commit message on the
+// branch -- so the very bookkeeping the squash exists to keep off `main` lands there inside the
+// squash body. MEASURED on this repository: 48 commits on `main` whose body carries `Refresh
+// heartbeat`, every one a squash body rather than a heartbeat commit, the longest 11,515 lines.
+//
+// TWO ROWS, because the method needed only one. A literal-text check cannot see an OMISSION,
+// and omission is exactly the defect here: a call site that simply passes neither field is
+// invisible to the `merge_method=`-shaped assertion. So the second row ENUMERATES the merge
+// call sites from the tree and fails when one reads no composer.
+//
+// WHAT THIS ROW CANNOT SEE, named rather than implied: the two AGENT-level merges (the `review`
+// route's REST call and the `mcp__github__merge_pull_request` retry) are composed at run time by
+// a session and appear in no file. All that is checkable is that the instruction is PRESENT in
+// the ceiling that performs them, which is what the third assertion does.
+T("the squash body is one derivation, and no call site spells it", testMergeBodyIsSingleSourced);
+function testMergeBodyIsSingleSourced() {
+  const dir = makeRepo("main");
+  try {
+    const composer = `${POSIX_SH} ${SCRIPTS.mergeCommitBody}`;
+
+    // `story` -- a branch whose story resolves. The description line is the body.
+    run(dir, `git checkout -q -b work-20260903-000001`);
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-20260903-000001.md"),
+      "---\ntype: Story\nbranch: work-20260903-000001\ndescription: The composer read this line\n---\n\n## 1. Overview\n");
+    run(dir, `git add -A && git commit -q -m "Add a story"`);
+    const storied = JSON.parse(run(dir, `${composer} --branch work-20260903-000001 --number 7`).stdout);
+    assertEq("a branch with a story reads source story", storied.source, "story");
+    assertTrue("and its body is the story's own description",
+      /The composer read this line/.test(storied.body), storied.body);
+    assertTrue("and its title carries the pull request number", /\(#7\)$/.test(storied.title), storied.title);
+
+    // HOUSEKEEPING IS DROPPED BY THE MARKER, NEVER BY A TITLE. Two commits with the SAME
+    // subject, one marked and one not: a title-keyed filter cannot tell them apart, and this
+    // asserts the marked one is gone while the unmarked one survives.
+    run(dir, `git commit -q --allow-empty -m "Refresh heartbeat" -m "Workaholic-Housekeeping: heartbeat"`);
+    run(dir, `git commit -q --allow-empty -m "Refresh heartbeat"`);
+    run(dir, `git commit -q --allow-empty -m "Implement the thing"`);
+    const filtered = JSON.parse(run(dir, `${composer} --branch work-20260903-000001 --number 7`).stdout);
+    assertTrue("an ordinary work commit reaches the body",
+      /Implement the thing/.test(filtered.body), filtered.body);
+    assertTrue("and an UNMARKED lookalike does too -- history is not rewritten by title",
+      /Refresh heartbeat/.test(filtered.body), filtered.body);
+
+    // `fallback` -- a branch with no story at all. This is a PUBLICATION's ordinary answer,
+    // not a failure, so the body is a real sentence rather than an empty string.
+    run(dir, `git checkout -q -b work-20260903-000002 main`);
+    run(dir, `git commit -q --allow-empty -m "Publish a proposal"`);
+    const fb = JSON.parse(run(dir, `${composer} --branch work-20260903-000002 --number 8`).stdout);
+    assertEq("a branch with no story reads source fallback", fb.source, "fallback");
+    assertTrue("and still yields a non-empty body", fb.body.length > 0, JSON.stringify(fb));
+
+    // `unreadable:<reason>` -- and it STILL yields a body. A composer that fails must never
+    // hand the forge its default back by omission.
+    const un = JSON.parse(run(dir, `${composer} --branch no-such-branch-at-all`).stdout);
+    assertTrue("an unreadable read names its reason", /^unreadable:/.test(un.source), un.source);
+    assertTrue("and still yields a non-empty body", un.body.length > 0, JSON.stringify(un));
+
+    // It writes NOTHING: no file, no ref, no commit.
+    assertEq("the composer leaves the tree untouched",
+      run(dir, `git status --porcelain`).stdout.trim(), "");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  // NO CALL SITE SPELLS A BODY, and every merge call site READS the composer. The enumeration
+  // is derived from the tree -- a `pulls/<n>/merge` REST call under `plugins/` -- never a
+  // hand-kept list, so a sixth call site added tomorrow is covered the day it lands. Comments
+  // are stripped first, exactly as the merge-method row does: every one of these files explains
+  // the choice in prose, and a whole-document match would read the explanation as the violation.
+  const mergeSites = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { walk(full); continue; }
+      if (!e.name.endsWith(".sh")) continue;
+      const code = readFileSync(full, "utf8")
+        .split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+      if (/pulls\/\$\{[A-Za-z_]+\}\/merge/.test(code)) mergeSites.push([full, code]);
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic/skills"));
+  assertTrue("the enumeration found the merge call sites", mergeSites.length >= 5,
+    `found ${mergeSites.length}`);
+  for (const [full, code] of mergeSites) {
+    const rel = full.slice(REPO_ROOT.length + 1);
+    assertTrue(`${rel} spells no literal body`,
+      !/commit_(title|message)=(?!\$)[A-Za-z"']/.test(code), rel);
+    assertTrue(`${rel} reads the composer instead`, /merge-commit-body\.sh/.test(code), rel);
+  }
+
+  // THE AGENT-LEVEL MERGES. Their call is composed at run time and appears in no file, so what
+  // is checkable is only that the instruction is where the session will read it.
+  const driveSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the review route reads the composer rather than naming a body",
+    /merge-commit-body\.sh/.test(driveSkill), "the review route composes no body");
+  const implementCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
+  assertTrue("the /implement ceiling carries the instruction",
+    /merge-commit-body\.sh/.test(implementCmd), "the ceiling names no composer");
+  // ABSENT WHERE NO MERGE IS PERFORMED: `/specificate` opens its publication through
+  // `publish-tree-pr.sh`, which merges from the SCRIPT, so its ceiling composes no body. A
+  // later contributor adding one is making a decision, and this asserts the current answer.
+  const specificateCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/specificate.md"), "utf8");
+  assertTrue("and the /specificate ceiling does not, because it merges nothing itself",
+    !/merge-commit-body\.sh/.test(specificateCmd), "the proposal ceiling grew a merge body");
+
+  // THE HOUSEKEEPING MARKER HAS ONE WRITER and a CLOSED kind set.
+  const commitSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"), "utf8");
+  assertTrue("commit.sh is the one writer of the housekeeping trailer",
+    /Workaholic-Housekeeping: \$\{HOUSEKEEPING\}/.test(commitSh), "the trailer moved");
+  assertTrue("and an unlisted kind is refused by name",
+    /bad_housekeeping_kind/.test(commitSh), "the kind set is open");
+}
+
 // ---------- workaholify: the remote setting the claim oracle reads (2026-09-01) ----------
 // The claim protocol's only oracle is "unmerged remote branches", and `git rev-list --count
 // base..ref` only reduces when the merge base is in the clone -- which in the shallow clone a
@@ -36941,7 +37056,13 @@ T("the hourly root carries the plan's delta", testPlanDeltaOnTheRoot);
 // passes, zero failures, and no output — a test that silently does not run, which is
 // strictly worse than one that fails. (Measured 2026-08-05, on the first async test.)
 // Top-level await is available here because this is an ES module.
+// A single-row filter, so a contributor proving one assertion goes red against a deliberately
+// reverted file does not pay for 6400 unrelated rows. It narrows only which rows RUN -- every
+// row's own assertions, the failure accounting and the exit status are untouched, and CI passes
+// no argument, so an unfiltered run is byte-for-byte what it always was.
+const ONLY = process.argv[2] || "";
 for (const [label, fn] of tests) {
+  if (ONLY && !label.includes(ONLY)) continue;
   console.log(`\n# ${label}`);
   try { await fn(); }
   catch (e) { fail(label, e.stack || String(e)); }

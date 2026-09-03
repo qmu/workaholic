@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T10:42:22+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -82,3 +83,38 @@ non-goal, so a later session does not read the mission as licence to rewrite his
 
 - This ticket runs last on purpose: documenting a behaviour before it exists is how a document
   drifts in the other direction.
+
+## Final Report
+
+**Outcome**: implemented. Run last, as the ticket intended.
+
+**`CLAUDE.md`'s squash-merge bullet** was wrong in both ways the ticket named and is rewritten: the
+method and the body are two derivations, the call sites are enumerated correctly (**five** REST plus
+**two** agent-level, where the bullet said four), and both suite rows are named — including *why* the
+second exists, that a literal-text check cannot see an omission. The measurement that produced the
+change is stated where the rule is: 48 commits on `main` carrying `Refresh heartbeat`, every one a
+squash body, the longest 11,515 lines. **The non-goal is stated in the same breath**: commits already on
+the trunk stay as they are and history is not rewritten for tidiness.
+
+**The commit-trailers bullet** names `Workaholic-Housekeeping:` with its closed kind set and its
+refusal, and says the composer drops such a commit **by marker rather than by title**.
+
+**`skills/commit/SKILL.md`'s trailer block** is now four trailers rather than three, with a paragraph
+giving the marker's reason, its closed set, why a work commit never takes it (which is why the index and
+hours seams carry none — both ride `archive.sh`'s commit), and why an unmarked commit is read as
+ordinary work.
+
+**`drive/reference/routing.md`** carried a **second, older defect** found while doing this: it still
+described the `review` merge as `merge_method: merge`, which stopped being true on 2026-09-01. It now
+names all three read-never-spelled fields.
+
+**`merge-method.sh`'s own header** said `ONE DERIVATION, FOUR CONSUMERS` and enumerated four; it now
+names seven and points at its new sibling.
+
+**`README.md` was checked and needed nothing** — it describes no merge behaviour, so there was nothing
+to bring current. Named here rather than silently skipped.
+
+**`outputs/` regenerated** with `node scripts/build-plugins/build.mjs`.
+
+**Verified**: `node scripts/build-plugins/build.mjs && node scripts/build-plugins/verify.mjs`,
+`node scripts/test-workflow-scripts.mjs`.

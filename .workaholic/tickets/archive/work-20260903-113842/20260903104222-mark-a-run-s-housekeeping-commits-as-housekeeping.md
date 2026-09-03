@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T10:42:22+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,27 @@ already uses for its `Unit:` line.
   The composer must therefore treat an unmarked commit as ordinary work, which is the safe
   direction: it over-includes on history and under-includes on nothing.
 - The subject-line gate is untouched; a trailer is not a subject.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`commit.sh` gained `--housekeeping <kind>`, emitting one `Workaholic-Housekeeping: <kind>` trailer.
+The kind set is closed — `heartbeat | claim | index | hours` — and an unlisted one is refused
+`bad_housekeeping_kind` **before the staging section**, so nothing is committed and the working tree
+is untouched. `commit.sh` stays the trailer's only writer; callers remain trailer-agnostic, exactly as
+they are for `--category`.
+
+**Passed at two writers, not four, and the difference is the ticket's own rule.** `heartbeat.sh` takes
+`--housekeeping heartbeat`; `claim.sh` takes `--housekeeping claim` at both its stamps (the fresh claim
+and the resume takeover). The **index and hours seams take none** — and that is conformance rather than
+an omission: neither commits through `commit.sh` on its own. `refresh-index.sh` runs *inside*
+`archive.sh` so the refreshed index rides the archive commit, and that commit moves the ticket, which
+is a unit's actual work. The ticket says in its own step 3 that *a commit that carries a unit's actual
+work never takes it*, so marking it would be wrong. Stated here rather than left as a silent
+four-minus-two.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`, including the row that commits two commits with
+the identical subject `Refresh heartbeat` — one marked, one not — and asserts the marked one is dropped
+from the composed body while the unmarked one survives. That is the assertion a title-keyed filter
+cannot pass, and it is also the guarantee that history already on the trunk is treated as ordinary work.

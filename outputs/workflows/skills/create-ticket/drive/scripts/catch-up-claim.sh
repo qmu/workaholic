@@ -130,11 +130,11 @@ report() {
     # other exit path -- a field, not a second vocabulary. It is written only when a check went
     # red, so a caller that finds it non-empty has the bytes; a caller that finds it empty is
     # not being told the checks passed, only that none of them left a log to read.
-    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "check_log": "%s"}\n' \
+    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s", "check_log": "%s"}\n' \
         "$1" "$(json_str "$unit")" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" \
         "$(json_str "$CLASS")" "$CONFLICTED" "$(json_str "$WORKTREE")" \
         "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")" \
-        "$(json_str "${CHECK_LOG:-}")"
+        "$(json_str "${MERGE_BODY_SOURCE:-}")" "$(json_str "${CHECK_LOG:-}")"
     exit 0
 }
 refuse() { report catch_up_refused "$1"; }
@@ -473,9 +473,20 @@ PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf ''
 # The method is READ, never spelled — `gather/scripts/merge-method.sh` is the one derivation
 # and the suite fails on a literal at a call site (`CLAUDE.md`, *Enforcement gates*).
 method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
+# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# is the one derivation of `commit_title` / `commit_message`; without them the forge
+# concatenates every commit on the branch into the trunk's record. A composer that could not
+# read still yields a fallback body, so the merge is never held on it.
+# THE COMPOSER READS THE PUSHED TIP. This runs after the catch-up's own push, so the
+# branch story and the commit range it reads are the ones the merge will actually squash.
+body_json="$(sh "${GATHER}/merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')"
+merge_title="$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')"
+merge_body="$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')"
+MERGE_BODY_SOURCE="$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')"
 set +e
 merge_resp="$(sh "$GH_REST" api "repos/${slug}/pulls/${PR}/merge" \
-    --method PUT -f "merge_method=${method}" 2>&1)"
+    --method PUT -f "merge_method=${method}" \
+    -f "commit_title=${merge_title}" -f "commit_message=${merge_body}" 2>&1)"
 merge_status=$?
 set -e
 

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T10:42:22+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -75,3 +76,18 @@ route's own merge, so every driven unit's bookkeeping reaches the trunk through 
 
 - This is the highest-traffic merge in the loop; a defect here stops units landing. The fallback
   path is what keeps a composer failure from becoming a merge failure.
+
+## Final Report
+
+**Outcome**: implemented.
+
+`ship/scripts/merge-pr.sh` reads `merge-commit-body.sh` for the pull request being merged, beside the
+`merge-method.sh` read already there, and passes `-f commit_title=` / `-f commit_message=` as fields
+whose values are never spelled inline. A composer answering `unreadable` still yields the fallback
+body, so **the merge is never held on it**; the script reports the composer's own word as a new
+`body_source` field in its JSON output, and every existing refusal word (`gh_unavailable`, `no_remote`,
+the merge-failure detail) is byte-identical.
+
+**Verified**: `node scripts/test-workflow-scripts.mjs`. The suite's tree-derived enumeration of
+`pulls/<n>/merge` call sites now covers this file in both directions — it spells no literal body, and
+it reads the composer.

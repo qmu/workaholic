@@ -33104,9 +33104,9 @@ function testProofJudgementSplit() {
     "the moves-no-token statement is gone from drive/SKILL.md");
   const moderateSkill = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/moderate/SKILL.md"), "utf8");
-  assertTrue("workaholic:moderate states that its step asks and acts on nothing",
-    /base-health[\s\S]{0,1200}?asks and nothing else/.test(moderateSkill),
-    "the asks-and-nothing-else statement is gone from moderate/SKILL.md");
+  assertTrue("workaholic:moderate states that its step reports and acts on nothing",
+    /base-health[\s\S]{0,1600}?reports and nothing else/.test(moderateSkill),
+    "the reports-and-nothing-else statement is gone from moderate/SKILL.md");
 }
 
 // ---------- the gap between a tick finding and the work queue (2026-08-29) ----------

@@ -1598,7 +1598,7 @@ answers it: one question per channel, ever, with the per-tick cap, the quiet hou
 working-day hold applying unchanged. An hourly restatement of an unchanged reading is what this
 repository retired two roots for, and this cannot produce one by construction. The cost is stated:
 a channel that breaks, is fixed and breaks again is not re-asked — the same property
-`base-red:<commit>` and `stalled-unit:<unit>` already carry; a **different** channel is a
+`stalled-unit:<unit>` and `undrivable-unit:<path>` already carry; a **different** channel is a
 different key, which is the change that actually matters. `no_slack_transport` asks nothing: it is
 this session holding no connector, not a fact about the channel.
 
@@ -2168,39 +2168,41 @@ said, so a green base and a base nobody looked at were one reading.
 
 | Axis | Follows | Why |
 | ---- | ------- | --- |
-| whose question | `stalled-units` | the **attributed merge's author** is a real person who made the change and can act on it |
+| whose announcement | nobody | it is a **report**, not a question: the attributed merge's author rides the sentence so a person can act on it, but nothing is addressed to them and nothing is held for their working hours |
 | the running identity | `undrivable-units` | never consulted — a red base is a fact about the **repository**, so an hourly question that answered differently per container is exactly the failure that axis exists to prevent |
 | what it may read | `undrivable-units` | the ticket-2 walk and nothing else; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge — the composition `closable-missions` already refused |
 
-**The key is the commit, not the tick and not the day.** `base-red:<commit>` is what makes *exactly
-once per broken commit* mechanical rather than a rule somebody remembers: twenty-four ticks may see
-one red base and exactly one question goes out. The overlap with a person already watching CI is
-deliberate and cheap for the same reason.
+**The signature is the failing checks, not the commit.** The dedup lives in the red-alert
+cool-down, which this composes rather than re-derives, and that rule's own terms forbid a SHA:
+a key that changed every commit would suppress nothing on a base the loop merges onto every half
+hour. So *the same suite still failing* is one alert however many red commits carry it, and a newly
+broken suite is a fresh root. The overlap with a person already watching CI is deliberate and cheap.
 
-**`unattributable` still asks, keyed on the tip.** The base is red and that is worth a person's
-attention whether or not the walk could name a culprit — but the question says plainly that the
-attribution failed and why, so nobody is sent after a merge this step did not identify. Left silent
-it would be a real finding with no path to a person, which is the shape the step exists to remove.
+**`unattributable` still reports, keyed on the tip.** The base is red and that is worth saying
+whether or not the walk could name a culprit — but the report says plainly that the attribution
+failed and why, so nobody is sent after a merge this step did not identify. Left silent it would be
+a real finding with no path to anyone, which is the shape the step exists to remove.
 
-**The addressee is an address, not a login.** The walk names the pull request's GitHub login;
-`gather/scripts/identity.sh` — the one mapping reader — converts it, and a login the mapping does
-not name leaves the question addressed to nobody rather than stamping an address nobody verified.
-That gap is `undrivable-units`' finding, not this step's to guess at.
+**The attributed author is still resolved to an address, not left a login.** The walk names the
+pull request's GitHub login; `gather/scripts/identity.sh` — the one mapping reader — converts it,
+and a login the mapping does not name leaves the report naming nobody rather than stamping an
+address nobody verified. That gap is `undrivable-units`' finding, not this step's to guess at.
 
-**A degraded read asks nothing** and is named (`no_walker`, `walk_unreadable`, `walk_unparseable`,
+**A degraded read reports nothing** and is named (`no_walker`, `walk_unreadable`, `walk_unparseable`,
 `base_unreadable:<reader reason>`). `unanswerable` is a reading **we** could not make, not a
 finding about the repository — the rule `direction-health` already holds for `unreadable` and
 `strategy-pace` for our own degradation.
 
-**It asks and nothing else.** It never re-runs a failing check ("flake" is not a root cause and a
+**It reports and nothing else.** It never re-runs a failing check ("flake" is not a root cause and a
 re-run is an *act*), never reverts, never merges, never touches a claim, and writes nothing
 anywhere but its own tick-log line. What it reads is a **judgement**, not a proof: a re-run can
 turn a red check green (`drive/reference/claims.md`, *Proofs and judgements*), so acting on it is
 forbidden and reporting it is the whole job.
 
-**It is placed before `human-checkin`**, like every question-producing step. Note that
-`human-checkin` is exempt from `--deadline-seconds` and this step is not: a slow tick may not reach
-it, which is reported as unreached — never as green.
+**It is placed before `human-checkin`**, where it was when it produced a question and where its
+report is still assembled with the tick's other announcements. Note that `human-checkin` is exempt
+from `--deadline-seconds` and this step is not: a slow tick may not reach it, which is reported as
+unreached — never as green.
 
 **The summary carries no timestamp**, for the correctness reason `stalled-units`' header records.
 It names the reading and the failing checks; the commit sha it carries is normalised out of the
@@ -2214,19 +2216,22 @@ renders no line at all — the renderer's own rule, *a step with no event render
 independent guard against a nothing-happened line reaching the root even on a tick whose diff
 calls this step changed. An `unattributable` red base supplies a line too, saying in words that
 the merge could not be attributed. **It is not a second posting gate**: the root posts when the
-tick has at least one question, and on a red tick this step has already supplied one. The base URL
+tick has at least one question, and this step no longer supplies one — the red base's own
+announcement is the `🔴 Blocked` report, which breaks the quiet window on its own terms. The base URL
 is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
 and an absent remote degrades to the bare short sha rather than to a broken link.
 
-**The question, under the composition contract** (2026-08-31, mission
-`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `base-red:<commit>`,
-unchanged — a commit sha is the least readable identifier the tick holds, and it leads nothing.
+**The report, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`; the shape is `🔴 Blocked` since
+2026-09-03). It leads with what happened, in words a reader outside the repository understands, and
+the commit sha — the least readable identifier the tick holds — comes after it, never before.
 
-- **Heading** — *`main` is failing its own checks*, then the failing check names, the merge the
-  walk attributed (its pull request and title) and the commit.
-- **Body** — the one act: *fix it or say it is expected.* Never *re-run it*: a re-run is an act,
-  and this step takes none.
-- **`unattributable` still asks, and says so in plain words** — *`main` is failing and the walk
+- **Lead** — *`main` is failing its own checks*, then the failing check names, the merge the walk
+  attributed (its pull request and title) and the commit.
+- **Body** — what is known and no more: a re-run may clear it, because this is a reading and not a
+  verdict. Never *re-run it* as an instruction to the tick: a re-run is an act, and this step takes
+  none.
+- **`unattributable` still reports, and says so in plain words** — *`main` is failing and the walk
   could not name the merge that broke it*, keyed on the tip, so nobody is sent after a merge the
   step did not identify.
 

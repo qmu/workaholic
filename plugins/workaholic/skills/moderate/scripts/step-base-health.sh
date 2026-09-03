@@ -10,9 +10,10 @@
 #
 # WHICH SIBLING IT FOLLOWS, ON EACH AXIS (the ticket required this stated):
 #
-#   whose question       the ATTRIBUTED MERGE'S AUTHOR — `stalled-units`' axis. A real person
-#                        who made the change and can act on it, rather than the repository's
-#                        owner in the abstract.
+#   whose announcement   NOBODY. Since 2026-09-03 this is a `🔴 Blocked` REPORT, not a question:
+#                        the attributed merge's author rides its sentence so a real person can
+#                        act on it, but nothing is addressed to them and nothing waits for their
+#                        working hours.
 #   running identity     `undrivable-units`'. NEVER consulted. A red base is a fact about the
 #                        repository, so an hourly question that answered differently per
 #                        container is exactly the failure that axis exists to prevent.
@@ -23,22 +24,24 @@
 #                        they converge, and a step whose contract is *writes nothing* may not
 #                        reach it through something that writes.
 #
-# THE KEY IS THE COMMIT, NOT THE TICK AND NOT THE DAY. `base-red:<commit>` is what makes
-# "exactly once per broken commit" mechanical rather than a rule somebody remembers: twenty-four
-# ticks may see one red base and exactly one question goes out.
+# THE SIGNATURE IS THE FAILING CHECKS, NOT THE COMMIT. The dedup is the red-alert cool-down's,
+# composed rather than re-derived (see the report block at the foot of this script), and that
+# rule forbids a SHA: a key changing every commit would suppress nothing on a base this loop
+# merges onto every half hour. The same suite still failing is one alert; a newly broken suite is
+# a fresh root.
 #
-# `unattributable` STILL ASKS, keyed on the TIP. The base is red and that is worth a person's
-# attention whether or not the walk could name a culprit; the question says plainly that the
+# `unattributable` STILL REPORTS, keyed on the TIP. The base is red and that is worth a person's
+# attention whether or not the walk could name a culprit; the report says plainly that the
 # attribution failed and why, so nobody is sent after a merge this step did not identify. Left
 # silent it would be the shape this mission exists to remove — a real finding with no path to
 # a person.
 #
-# A DEGRADED READ ASKS NOTHING and is reported by name. `unanswerable` is a reading WE could
+# A DEGRADED READ ANNOUNCES NOTHING and is reported by name. `unanswerable` is a reading WE could
 # not make, not a finding about the repository — the rule `direction-health` already holds for
 # `unreadable` and `strategy-pace` for our own degradation. Spending a person's attention on
 # our own blindness is what those steps refuse.
 #
-# IT ASKS AND NOTHING ELSE. It never re-runs a check ("flake" is not a root cause and a re-run
+# IT REPORTS AND NOTHING ELSE. It never re-runs a check ("flake" is not a root cause and a re-run
 # is an ACT), never reverts, never merges, never touches a claim, and writes nothing anywhere
 # but its own tick-log line. What it reads is a JUDGEMENT, not a proof: a re-run can turn a red
 # check green (`drive/reference/claims.md`, *Proofs and judgements*), so acting on it is
@@ -207,7 +210,9 @@ row=$(printf '%s' "$out" | jq -c \
 # on a tick whose diff calls this step changed.
 #
 # IT IS NOT A SECOND POSTING GATE. The root posts when the tick has at least one question; this
-# event never opens one on its own, and on a red tick this step has supplied the question anyway.
+# event never opens one on its own, and since 2026-09-03 this step supplies no question either --
+# the red base's own announcement is the `🔴 Blocked` report below, which breaks the quiet window
+# on its own terms rather than through the root.
 #
 # EVERY ROOT LINE LINKS ITS ITEM, so a person following the line reaches the commit rather than
 # the tick. The base URL is derived from the LOCAL remote — no network call, `step-direction

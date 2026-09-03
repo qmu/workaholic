@@ -71,3 +71,17 @@ commits into the branch a reviewer opens.
 
 - Updating a separate ref must not force-push or rewrite a colleague's signal.
 - Preserve the merge-in-progress safety even though the heartbeat no longer commits the worktree.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Unreadable carrier state must outrank the numeric timeout**: a declared carrier whose namespace
+  cannot be refreshed reports `liveness_unreadable` and remains `claim_active`.
+  **Context**: Even a zero-minute test window must not turn absence of a remote reading into
+  permission to take over.
+- **Compatibility is positive, not guessed**: fetched carrier data wins, a legacy claim with no
+  carrier uses its branch tip, and ordinary commits after a beat use their own timestamp.
+  **Context**: New and old claims therefore pass through the same verdict chain.

@@ -48,10 +48,12 @@ on another machine coordinates through exactly the same artifact.
   claim whose **heartbeat** lapsed, both computed in the one shared scan and carried on every row
   (`resumable`, `resume_reason`) — a writer free to decide independently could take over a unit
   the reader still calls active.
-  - **Liveness is the branch tip**, refreshed by `heartbeat.sh` and by every ordinary work
-    commit. The window is `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30) — minutes, not
-    the 24-hour `stale`, because a routine that recovers its own dropped unit only after a day is
-    not a recovery path.
+  - **Liveness is `refs/workaholic/claim-liveness/<work-branch>`**, a remote ref pointing at a
+    versioned payload with the unit, branch, holder and UTC timestamp. `heartbeat.sh` advances it
+    with compare-and-push, so no beat enters the review branch. A fetched carrier wins outright;
+    a legacy claim with no carrier continues to use its branch tip. If a claim declares a carrier
+    but its namespace cannot be read, the verdict stays conservatively active — unreadable never
+    means expired. The window is `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30).
   - **Something left to drive.** At least one of the unit's tickets must still be undriven on
     that branch (for a mission unit: at least one tip-side todo ticket naming it). Without this
     the verdict cannot tell a run that died from a unit that finished: a `review` unit's branch
@@ -1526,15 +1528,13 @@ refusal is untouched. It is passed **only** immediately after this run's own `ca
 
 ## Heartbeat mechanics
 
-`heartbeat.sh` pushes an empty commit through `commit.sh --allow-empty`, so coordination markers
-get the subject gate and trailers. There, **`--allow-empty` means empty**: the commit is built
-against a scratch index seeded from `HEAD`, so its tree equals `HEAD`'s by construction and the
-caller's index is left byte-identical (git's own flag merely permits a changeless commit and
-otherwise commits whatever is staged — a beat fired over a staged `git rm` once swept real
-deletions into a `Refresh heartbeat` commit). Beating over a dirty index is deliberately allowed:
-mid-ticket is exactly when the index is dirty and exactly when a missed beat makes a working unit
-look abandoned. The beat changes no file, so it never reaches the PR diff, and the merge or
-release that cleans up the claim cleans it up too.
+`heartbeat.sh` writes a small blob and compare-and-pushes the dedicated liveness ref. The payload
+is operational state, not a `.workaholic/` artifact: it carries `version`, `unit`, `branch`,
+`author`, `at`, `epoch`, and a uniqueness nonce. The expected old object id closes concurrent
+update and compare-and-delete races. Beating over a dirty index is deliberately allowed because no
+worktree byte is read or staged. Merge cleanup and deliberate release compare-and-delete the
+carrier; a refusal is named and leaves the work branch recoverable. Legacy heartbeat commits remain
+history and are never rewritten.
 
 ## Publication branches are not claims
 

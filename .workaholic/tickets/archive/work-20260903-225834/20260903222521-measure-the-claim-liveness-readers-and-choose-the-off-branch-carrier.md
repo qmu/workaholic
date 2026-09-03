@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T22:25:21+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -70,3 +71,18 @@ namespace. Define the compatibility rule for claims created before the cutover.
 
 - The carrier is operational state, not a new `.workaholic/` artifact or permanent work record.
 - Do not change either stale-window default; this ticket relocates the signal, not its policy.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **A dedicated ref is the smallest shared carrier**: `refs/workaholic/claim-liveness/<work-branch>`
+  points at a versioned blob and supports compare-and-push without entering PR ancestry.
+  **Context**: Git notes need a separately fetched namespace and local files disappear with an
+  ephemeral runner; the dedicated ref uses the repository transport already required by claims.
+- **The carrier must name the observed branch tip**: a later ordinary work commit remains valid
+  progress evidence until the next explicit beat.
+  **Context**: This preserves the old reader semantics without putting heartbeat commits back into
+  review history.

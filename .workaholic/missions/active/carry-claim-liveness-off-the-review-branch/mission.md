@@ -35,7 +35,7 @@ heartbeat commits, and ending a claim retires its liveness state without manual 
 
 ## Acceptance
 
-- [ ] The liveness carrier is selected from measured reader and transport behavior, with legacy
+- [x] The liveness carrier is selected from measured reader and transport behavior, with legacy
       branch-tip claims remaining readable during the transition. (#20260903222521-measure-the-claim-liveness-readers-and-choose-the-off-branch-carrier.md)
 - [ ] Heartbeats advance only the separate carrier while every exclusion and takeover path reads
       the same freshness decision. (#20260903222521-move-heartbeat-writes-and-claim-freshness-reads-onto-the-liveness-carrier.md)
@@ -45,3 +45,4 @@ heartbeat commits, and ending a claim retires its liveness state without manual 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903222521-measure-the-claim-liveness-readers-and-choose-the-off-branch-carrier.md

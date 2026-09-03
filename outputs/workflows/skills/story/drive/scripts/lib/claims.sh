@@ -251,12 +251,110 @@ claims_fetch() {
     if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
         git fetch --unshallow --prune --quiet origin >/dev/null 2>&1 || true
     fi
-    if git fetch --prune --quiet origin >/dev/null 2>&1; then
+    if git fetch --prune --quiet origin >/dev/null 2>&1 \
+        && git fetch --prune --quiet origin \
+            '+refs/workaholic/claim-liveness/*:refs/remotes/origin/workaholic-claim-liveness/*' \
+            >/dev/null 2>&1; then
         CLAIMS_FETCH_OK=true
         printf 'true'
     else
         CLAIMS_FETCH_OK=false
         printf 'false'
+    fi
+}
+
+# A claim's short-lived liveness is carried outside the review branch. The remote ref
+# points at a small blob rather than at a commit, so refreshing it cannot enter a pull
+# request's ancestry. The branch name makes the coordinate unique even when an old,
+# superseded claim and its replacement temporarily name the same unit.
+claims_liveness_ref() {
+    printf 'refs/workaholic/claim-liveness/%s' "$1"
+}
+
+claims_liveness_tracking_ref() {
+    printf 'refs/remotes/origin/workaholic-claim-liveness/%s' "$1"
+}
+
+claims_liveness_payload_field() {
+    git cat-file blob "$1" 2>/dev/null | sed -n "s/^${2}=//p" | head -1
+}
+
+# Compare-and-push one beat. A refused update is never load-bearing: the caller reports
+# it and the branch remains recoverable. Echoes an empty string on success, a reason on
+# refusal.
+claims_liveness_write() {
+    _clw_unit="$1"
+    _clw_branch="$2"
+    _clw_ref=$(claims_liveness_ref "$_clw_branch")
+    _clw_remote=$(git ls-remote --refs origin "$_clw_ref" 2>/dev/null) || {
+        printf 'carrier_unreadable'
+        return 0
+    }
+    _clw_old=$(printf '%s' "$_clw_remote" | awk 'NR == 1 { print $1 }')
+    if [ -n "$_clw_old" ]; then
+        [ "$(claims_liveness_payload_field "$_clw_old" branch)" = "$_clw_branch" ] || {
+            printf 'carrier_branch_mismatch'
+            return 0
+        }
+        [ "$(claims_liveness_payload_field "$_clw_old" unit)" = "$_clw_unit" ] || {
+            printf 'carrier_unit_mismatch'
+            return 0
+        }
+    fi
+    _clw_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    _clw_epoch=$(date -u +%s)
+    # Git's date override is how the hermetic claim fixtures place a signal on a
+    # timeline without sleeping. Honour it at this writer boundary just as the former
+    # commit-backed signal did.
+    if [ -n "${GIT_COMMITTER_DATE:-}" ]; then
+        _clw_ident=$(git var GIT_COMMITTER_IDENT 2>/dev/null || true)
+        _clw_test_epoch=$(printf '%s' "$_clw_ident" | awk '{ print $(NF - 1) }')
+        case "$_clw_test_epoch" in
+            *[!0-9]*|'') ;;
+            *) _clw_epoch="$_clw_test_epoch"; _clw_now="${GIT_COMMITTER_DATE}" ;;
+        esac
+    fi
+    _clw_author=$(git config user.email 2>/dev/null || true)
+    _clw_oid=$(printf 'version=1\nunit=%s\nbranch=%s\nauthor=%s\nat=%s\nepoch=%s\nnonce=%s\n' \
+        "$_clw_unit" "$_clw_branch" "$_clw_author" "$_clw_now" "$_clw_epoch" "$$" \
+        | git hash-object -w --stdin 2>/dev/null) || {
+            printf 'carrier_object_failed'
+            return 0
+        }
+    if git push --quiet --force-with-lease="${_clw_ref}:${_clw_old}" origin \
+        "${_clw_oid}:${_clw_ref}" >/dev/null 2>&1; then
+        git update-ref "$(claims_liveness_tracking_ref "$_clw_branch")" "$_clw_oid" >/dev/null 2>&1 || true
+        printf ''
+    else
+        printf 'carrier_race_or_push_failed'
+    fi
+}
+
+# Compare-and-delete only the carrier that still identifies this unit and branch. A
+# newer or foreign signal is left standing. Echoes an empty string on success/absence.
+claims_liveness_delete() {
+    _cld_unit="$1"
+    _cld_branch="$2"
+    _cld_ref=$(claims_liveness_ref "$_cld_branch")
+    _cld_remote=$(git ls-remote --refs origin "$_cld_ref" 2>/dev/null) || {
+        printf 'carrier_unreadable'
+        return 0
+    }
+    _cld_old=$(printf '%s' "$_cld_remote" | awk 'NR == 1 { print $1 }')
+    [ -n "$_cld_old" ] || { printf ''; return 0; }
+    [ "$(claims_liveness_payload_field "$_cld_old" branch)" = "$_cld_branch" ] || {
+        printf 'carrier_branch_mismatch'
+        return 0
+    }
+    [ "$(claims_liveness_payload_field "$_cld_old" unit)" = "$_cld_unit" ] || {
+        printf 'carrier_unit_mismatch'
+        return 0
+    }
+    if git push --quiet --force-with-lease="${_cld_ref}:${_cld_old}" origin ":${_cld_ref}" >/dev/null 2>&1; then
+        git update-ref -d "$(claims_liveness_tracking_ref "$_cld_branch")" "$_cld_old" >/dev/null 2>&1 || true
+        printf ''
+    else
+        printf 'carrier_race_or_delete_failed'
     fi
 }
 
@@ -1213,8 +1311,26 @@ claims_scan() {
             fi
         done
 
+        # A fetched carrier wins outright. Claims without one retain the legacy branch-tip
+        # reading. A claim that declares the carrier but whose namespace could not be
+        # refreshed is conservatively active: an unreadable signal is never expiry.
         _cs_at=$(git log -1 --format='%cI' "$_cs_ref" 2>/dev/null || true)
         _cs_ct=$(git log -1 --format='%ct' "$_cs_ref" 2>/dev/null || echo "$_cs_now")
+        _cs_liveness_tracking=$(claims_liveness_tracking_ref "$_cs_branch")
+        _cs_liveness_declared=$(git log --format='%(trailers:key=Liveness-Ref,valueonly)' \
+            "${_cs_base}..${_cs_ref}" 2>/dev/null | awk 'NF { print; exit }')
+        if git cat-file -e "${_cs_liveness_tracking}^{blob}" 2>/dev/null; then
+            _cs_liveness_oid=$(git rev-parse "$_cs_liveness_tracking")
+            _cs_liveness_at=$(claims_liveness_payload_field "$_cs_liveness_oid" at)
+            _cs_liveness_ct=$(claims_liveness_payload_field "$_cs_liveness_oid" epoch)
+            case "$_cs_liveness_ct" in
+                *[!0-9]*|'') ;;
+                *) _cs_at="${_cs_liveness_at:-unknown}"; _cs_ct="$_cs_liveness_ct" ;;
+            esac
+        elif [ -n "$_cs_liveness_declared" ] && [ "$CLAIMS_FETCH_OK" != "true" ]; then
+            _cs_at=liveness_unreadable
+            _cs_ct="$_cs_now"
+        fi
 
         # STALENESS IS REPORTED, NEVER AUTO-BROKEN. A tip older than the threshold
         # says "look at this", not "take it": a runner that reclaims on its own

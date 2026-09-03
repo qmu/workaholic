@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260903-142217](work-20260903-142217.md) - A tick now pays for what it does — the cadence gate reads one line instead of the day, the command's record moved out of the body, a result reaches the parent once, and a tick that did nothing says one line
 * [work-20260903-135930](work-20260903-135930.md) - A verification handoff can now be a probe whose exit status is re-measured every time the unit is claimed, so a blocker that has gone false stops parking the work behind it
 * [work-20260903-130125](work-20260903-130125.md) - The maintenance tick's thread now reads as a colleague reporting on the work rather than a bot reporting its own internals — one question per kind, no counters in a body, and a closed list of what a post never carries
 * [work-20260903-123219](work-20260903-123219.md) - A suite that never ran on the tip is now named as unverified rather than folded into green, and a red base breaks the quiet window as a report instead of waiting for morning as a question

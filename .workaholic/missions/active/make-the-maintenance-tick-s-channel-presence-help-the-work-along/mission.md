@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-130125
 ---
 
 # Make the maintenance tick's channel presence help the work along

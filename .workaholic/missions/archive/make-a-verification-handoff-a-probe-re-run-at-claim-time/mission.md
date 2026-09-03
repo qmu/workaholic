@@ -2,7 +2,7 @@
 type: Mission
 title: Make a verification handoff a probe re-run at claim time
 slug: make-a-verification-handoff-a-probe-re-run-at-claim-time
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T13:38:13+09:00
 author: a@qmu.jp
@@ -40,7 +40,7 @@ declaration forward as a premise.
 
 - [x] A declared handoff carries a probe read by one reader, and a prose-only one reads as unmeasured. (#20260903133932-name-a-declaration-nobody-can-re-probe-as-unmeasured.md)
 - [x] The probe runs at claim time: clean drops the handoff, blocking hands the unit over quoting its output. (#20260903133932-make-a-failing-probe-s-own-output-the-handoff-reason.md)
-- [ ] Standing declarations are re-probed each tick, and no run inherits a handoff it did not derive. (#20260903133932-stop-a-handoff-sentence-spreading-beyond-its-own-unit.md)
+- [x] Standing declarations are re-probed each tick, and no run inherits a handoff it did not derive. (#20260903133932-stop-a-handoff-sentence-spreading-beyond-its-own-unit.md)
 
 ## Changelog
 
@@ -52,3 +52,5 @@ declaration forward as a premise.
 - 2026-09-03 — ticket archived — 20260903133932-make-a-failing-probe-s-own-output-the-handoff-reason.md
 - 2026-09-03 — ticket archived — 20260903133932-name-a-declaration-nobody-can-re-probe-as-unmeasured.md
 - 2026-09-03 — ticket archived — 20260903133932-re-read-every-standing-handoff-against-its-probe-each-tick.md
+- 2026-09-03 — ticket archived — 20260903133932-stop-a-handoff-sentence-spreading-beyond-its-own-unit.md
+- 2026-09-03 — mission achieved — mission.md

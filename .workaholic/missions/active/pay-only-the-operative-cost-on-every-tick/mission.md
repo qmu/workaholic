@@ -47,3 +47,4 @@ reaped and spawned nothing says one line, and the channel read asks for what the
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-03 — ticket archived — 20260903071726-answer-the-cadence-gate-with-one-line-not-the-day.md
+- 2026-09-03 — ticket archived — 20260903071726-read-the-channel-in-the-concise-format.md

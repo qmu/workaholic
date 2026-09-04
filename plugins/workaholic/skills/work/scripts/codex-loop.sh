@@ -39,7 +39,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PLUGIN_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/../../.." && pwd)
 TICK_PROMPT="${PLUGIN_ROOT}/skills/work/SKILL.md"
 COMMAND_BODY="${PLUGIN_ROOT}/commands/infinite-development.md"
-RELAY_CONTRACT="${PLUGIN_ROOT}/skills/work/scripts/relay-contract.sh"
+RELAY_CONTRACT="${SCRIPT_DIR}/relay-contract.sh"
 
 if [ ! -f "$TICK_PROMPT" ]; then
     printf 'plugin_skill_missing: %s\n' "$TICK_PROMPT" >&2

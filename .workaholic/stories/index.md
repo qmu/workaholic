@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Document the shared development loop](work-20260904-192506.md) - Bring the public and operator documentation into line with the shared work loop.
 * [Relay Codex Slack through its owning chat](work-20260904-184903.md) - Relay Codex Slack operations through the connector-owning parent with explicit acknowledgements and failure states.
 * [work-20260904-173127](work-20260904-173127.md) - Codex can start the development clock from the installed plugin, distinguish each missing runtime layer, and prove that path in an isolated drill.
 * [work-20260904-165310](work-20260904-165310.md) - Prove Codex loop readiness and expose durable tick status

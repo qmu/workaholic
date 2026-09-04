@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T17:16:58+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,14 @@ and proves the documented Codex CLI entrypoint can launch exactly one dry-run ti
 ## Considerations
 
 The fixture must not use source-tree fallback paths that hide a packaging failure.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The integration fixture can copy the full plugin into an isolated install path and
+  invoke its launcher directly from a separate Git repository.
+  **Context**: The positive row cannot pass through source-tree fallback paths, while the breaker
+  proves that removing the packaged launcher is load-bearing.

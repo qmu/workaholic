@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260904-165310
 ---
 
 # Prove Codex loop progress

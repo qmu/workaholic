@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T17:16:58+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,14 @@ missing wrapper never becomes a false plugin-reinstallation diagnosis.
 ## Considerations
 
 Keep the diagnostic vocabulary aligned between the shell launcher and skill prose.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The launcher can validate its work skill and tick command body relative to its own
+  installed path before resolving any consuming-repository state.
+  **Context**: Missing plugin artifacts, a missing repository, and a missing Codex CLI now retain
+  separate recovery paths instead of collapsing into one installation diagnosis.

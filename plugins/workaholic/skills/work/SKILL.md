@@ -34,6 +34,22 @@ and give it this durable instruction:
 The computer and desktop app must remain running for a scheduled task that needs local files.
 Use the requested cadence; when none was requested, retain `/work`'s five-minute default.
 
+### Relaying a nested Codex worker through this chat
+
+A chat that owns the Slack connector may delegate repository work to one nested `codex exec`
+without delegating its connector. It invokes the installed launcher once with `--relay --once`,
+waits for the returned envelope, validates it with `scripts/relay-contract.sh envelope <path>`,
+then performs the ordered Slack intents itself under `workaholic:notify`. It writes one
+acknowledgement per stable intent key and passes that file back with `--ack <path>`. The parent
+resolves threads with the existing exact, private-inclusive lookup, uses supplied coordinates
+directly, and reads before replaying a write. It never broadens the allowed shapes and never sends
+OAuth material to the worker.
+
+This handshake requires the owning chat to remain present until acknowledgement. A free-running
+CLI supervisor has no parent and must report `relay_pending`/`parent_absent`; emitted intent is
+never delivery. The closed envelope, acknowledgement outcomes, retry rule, and rejection cases are
+defined in [reference/codex-slack-relay.md](reference/codex-slack-relay.md).
+
 **The CLI itself still has no Scheduled management interface.** That boundary was measured
 2026-09-03 against `codex-cli 0.149.1` and is also the current documented product boundary.
 For a CLI-only environment, this skill's own `scripts/codex-loop.sh` supplies the clock: one `codex exec` per
@@ -106,6 +122,11 @@ Two further limits off Claude Code: **an absent channel transport is reported by
 (`no_slack_transport`) and never worked around, and the **tool-level hooks do not fire** — the
 script-level gates still hold, and `sh plugins/workaholic/hooks/install-git-hooks.sh` is the
 repair for the rest.
+
+A connector-less worker with an explicitly waiting parent emits relay intents; a worker with no
+such parent reports `no_slack_transport`. Do not infer a parent from a shell process. Only
+`--relay` plus a matching parent acknowledgement proves the return path, and no acknowledgement
+means `relay_pending`, never `notified`.
 
 The measurements, the full mechanism-by-mechanism comparison and the rejected alternatives:
 [reference/other-agents.md](reference/other-agents.md).

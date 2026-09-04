@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:31:52+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260904143152-return-slack-intents-from-codex-worker-ticks.md, 20260904143152-execute-relayed-slack-operations-in-the-owning-chat.md, 20260904142405-record-each-codex-tick-outcome-and-next-due-time.md]
@@ -73,3 +74,12 @@ as delivered while the supervisor continues silently.
 A continuously scheduled CLI process cannot manufacture a chat-bound connector. If no parent can
 be kept present by the product, the supported result is an explicit unavailable relay, not hidden
 credential duplication or a claim that the same delivery guarantees exist.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Readiness and work completion are separate from notification completion.
+  **Context**: Durable status now retains relay state and evidence; pending or refused acknowledgement remains visible without rewriting completed repository work as failed or Slack intent as delivered.

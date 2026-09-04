@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Relay Codex Slack through its owning chat](work-20260904-184903.md) - Relay Codex Slack operations through the connector-owning parent with explicit acknowledgements and failure states.
 * [work-20260904-173127](work-20260904-173127.md) - Codex can start the development clock from the installed plugin, distinguish each missing runtime layer, and prove that path in an isolated drill.
 * [work-20260904-165310](work-20260904-165310.md) - Prove Codex loop readiness and expose durable tick status
 * [work-20260903-225834](work-20260903-225834.md) - Moves claim liveness onto a disposable off-branch carrier while preserving takeover safety.

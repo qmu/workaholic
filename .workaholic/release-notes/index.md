@@ -99,4 +99,5 @@
 * [Retire the always-on mission-lens hook](work-20260826-195732.md)
 * [Prove Codex loop readiness and expose durable status](work-20260904-165310.md)
 * [Ship the Codex clock inside the installed plugin](work-20260904-173127.md)
+* [Relay Codex Slack through its owning chat](work-20260904-184903.md)
 <!-- okf:generated:end -->

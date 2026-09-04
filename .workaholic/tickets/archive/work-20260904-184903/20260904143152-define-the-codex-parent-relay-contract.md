@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:31:52+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,12 @@ owning conversation to read or write Slack and returns a tick outcome without cl
 
 Do not invent a second thread resolver. The parent still applies the existing exact-string,
 private-inclusive lookup and notification ceiling; the relay merely crosses the ownership boundary.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The only durable proof of cross-session Slack delivery is a complete parent acknowledgement; process ancestry is not connector ownership.
+  **Context**: Keeping intent and acknowledgement as separate validated documents prevents a worker from turning an emitted request into a delivery claim.

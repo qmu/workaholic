@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.4
 feedback: [20260904171517-make-the-codex-work-entrypoint-self-contained-and-diagnostic.md]
 tickets: []
 stories: []
@@ -46,3 +46,4 @@ is absent, the entrypoint names the missing layer and recommends repair only for
 - 2026-09-04 — ticket archived — 20260904171658-drill-the-installed-codex-start-path.md
 - 2026-09-04 — mission achieved — mission.md
 - 2026-09-04 — story reported — work-20260904-173127.md
+- 2026-09-04 — run recorded (+0.4h) — 20260904-082601

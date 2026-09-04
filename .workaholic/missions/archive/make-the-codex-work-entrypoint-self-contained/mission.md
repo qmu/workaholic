@@ -45,3 +45,4 @@ is absent, the entrypoint names the missing layer and recommends repair only for
 - 2026-09-04 — ticket archived — 20260904171658-diagnose-codex-clock-and-plugin-layers.md
 - 2026-09-04 — ticket archived — 20260904171658-drill-the-installed-codex-start-path.md
 - 2026-09-04 — mission achieved — mission.md
+- 2026-09-04 — story reported — work-20260904-173127.md

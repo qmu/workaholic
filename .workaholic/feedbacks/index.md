@@ -666,4 +666,5 @@
 * [Carry a claim's liveness somewhere other than an empty commit on the work branch](20260903222258-carry-a-claim-s-liveness-somewhere-other-than-an-empty-commit-on-the-work-branch.md)
 * [Improve the work loop from Codex findings without diverging from Claude Code](20260903222844-improve-the-work-loop-from-codex-findings-without-diverging-from-claude-code.md)
 * [Make /work prove transport and progress instead of silently looping](20260904142216-make-work-prove-transport-and-progress-instead-of-silently-looping.md)
+* [Make the Codex work entrypoint self-contained and diagnostic](20260904171517-make-the-codex-work-entrypoint-self-contained-and-diagnostic.md)
 <!-- okf:generated:end -->

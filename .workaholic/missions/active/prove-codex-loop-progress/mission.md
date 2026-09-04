@@ -35,7 +35,7 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 
 ## Acceptance
 
-- [ ] Starting the Codex loop executes and evaluates a first tick before reporting the loop ready. (#20260904142404-gate-codex-loop-startup-on-the-first-tick.md)
+- [x] Starting the Codex loop executes and evaluates a first tick before reporting the loop ready. (#20260904142404-gate-codex-loop-startup-on-the-first-tick.md)
 - [ ] Every tick records its outcome, blocked reason, and next due time in one observable status. (#20260904142405-record-each-codex-tick-outcome-and-next-due-time.md)
 - [ ] Missing Slack/report transport is a visible readiness failure, while successful runs preserve FB and Implemented threading. (#20260904142405-expose-codex-loop-status-to-the-invoking-session.md)
 
@@ -43,3 +43,4 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 
 - 2026-09-04: Proposed from issue #974 after reproducing the supervisor/process-versus-progress gap.
 - 2026-09-04 — ticket archived — 20260904142404-reproduce-and-classify-codex-loop-readiness-failures.md
+- 2026-09-04 — ticket archived — 20260904142404-gate-codex-loop-startup-on-the-first-tick.md

@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260904-192506
 ---
 
 # Bring the loop operator docs up to date

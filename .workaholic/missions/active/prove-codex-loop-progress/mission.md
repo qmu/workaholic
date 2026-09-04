@@ -10,7 +10,7 @@ assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260904142216-make-work-prove-transport-and-progress-instead-of-silently-looping.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
+feedback: [20260904142216-make-work-prove-transport-and-progress-instead-of-silently-looping.md, 20260904142833-relay-codex-loop-slack-notifications-through-the-connector-owning-main-thread.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
@@ -41,3 +41,4 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 ## Changelog
 
 - 2026-09-04: Proposed from issue #974 after reproducing the supervisor/process-versus-progress gap.
+- 2026-09-04: Extended from issue #975 with a connector-owning parent relay plan.

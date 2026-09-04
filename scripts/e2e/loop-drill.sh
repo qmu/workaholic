@@ -8868,6 +8868,64 @@ cmd_verify_stage() {
     emit_verdict "stage" 0 "pass" 0
 }
 
+# ------------------------------------------------------------- verify-codex-clock
+
+# The supported CLI clock must launch from the installed full plugin, with no supervisor copied
+# into the consuming repository. The breaker removes that packaged launcher and proves the
+# compatibility entrypoint names the clock layer rather than misdiagnosing the intact skill.
+cmd_verify_codex_clock() {
+    _launcher_src="${REPO_ROOT}/plugins/workaholic/skills/work/scripts/codex-loop.sh"
+    _shim_src="${REPO_ROOT}/scripts/codex-loop.sh"
+    [ -f "$_launcher_src" ] || emit_err "codex_clock_unreadable" 4 "$_launcher_src is not present"
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _repo="${_tmp}/consumer"
+    _plugin="${_tmp}/installed/workaholic"
+    _bin="${_tmp}/bin"
+    mkdir -p "$_repo" "$(dirname "$_plugin")" "$_bin"
+    git -C "$_repo" -c init.defaultBranch=main init -q
+    git -C "$_repo" config user.email drill@example.com
+    git -C "$_repo" config user.name 'Loop Drill'
+    printf 'empty consumer\n' > "${_repo}/README.md"
+    git -C "$_repo" add README.md
+    git -C "$_repo" commit -q -m initial
+    cp -R "${REPO_ROOT}/plugins/workaholic" "$_plugin"
+    printf '#!/bin/sh\nexit 0\n' > "${_bin}/codex"
+    chmod +x "${_bin}/codex"
+
+    _launcher="${_plugin}/skills/work/scripts/codex-loop.sh"
+    _out=$(cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --dry-run --once 2>&1 || true)
+    case "$_out" in
+        *"codex exec -C ${_repo}"*)
+            add_row "installed_codex_clock_launches" true "the full plugin launches one dry-run tick from an otherwise empty consuming repository" load ;;
+        *) add_row "installed_codex_clock_launches" false "the installed launcher did not produce the tick command: $(one_line "$_out")" load ;;
+    esac
+
+    mkdir -p "${_repo}/scripts"
+    cp "$_shim_src" "${_repo}/scripts/codex-loop.sh"
+    rm "$_launcher"
+    _broken=$(cd "$_repo" && PATH="${_bin}:$PATH" sh scripts/codex-loop.sh --dry-run --once 2>&1 || true)
+    case "$_broken" in
+        *clock_wrapper_missing:*plugin_skill_missing:*)
+            add_row "codex_clock_breaker" false "the missing launcher was also misdiagnosed as a missing skill: $(one_line "$_broken")" breaker ;;
+        *clock_wrapper_missing:*)
+            add_row "codex_clock_breaker" true "removing the packaged launcher produces clock_wrapper_missing and no plugin-skill diagnosis (this drill can fail)" breaker ;;
+        *) add_row "codex_clock_breaker" false "removing the packaged launcher did not produce clock_wrapper_missing: $(one_line "$_broken")" breaker ;;
+    esac
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "codex_clock_writes_nothing_outside_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "codex_clock_writes_nothing_outside_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then emit_verdict "codex-clock" 0 "fail" 1; fi
+    emit_verdict "codex-clock" 0 "pass" 0
+}
+
 # ------------------------------------------------------------------ verify-all
 #
 # THE AGGREGATE VERB (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`).
@@ -10979,7 +11037,7 @@ cmd_verify_retirement_candidates() {
     emit_verdict "retirement-candidates" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-announced-asks [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-codex-clock [--json]|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-announced-asks [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -11009,6 +11067,7 @@ case "$CMD" in
     reset) cmd_reset "$@" ;;
     verify-specificate) cmd_verify_specificate "$@" ;;
     verify-implement) cmd_verify_implement "$@" ;;
+    verify-codex-clock) cmd_verify_codex_clock "$@" ;;
     verify-plan) cmd_verify_plan "$@" ;;
     verify-status) cmd_verify_status "$@" ;;
     verify-cadence) cmd_verify_cadence "$@" ;;

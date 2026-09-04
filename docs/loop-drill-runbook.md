@@ -1809,6 +1809,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-retired-claim` | `hermetic` | yes | `retire-a-claim-whose-work-is-finished-or-abandoned` |
 | `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |
 | `verify-announced-asks` | `hermetic` | yes | `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread` |
+| `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 
 ### The evidence behind the classification
 

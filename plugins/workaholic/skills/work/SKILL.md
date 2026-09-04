@@ -18,7 +18,7 @@ it is a harness feature rather than anything this repository can ship:
 | ----- | --------- |
 | **Claude Code** | the harness's own `loop` skill — `/loop 5m /infinite-development`, which `/work` invokes for you |
 | **Codex in the ChatGPT desktop app** | a Scheduled task **inside the current chat**, at the requested minute interval, running in the local project |
-| **Codex CLI, IDE, and any agent with no Scheduled management surface** | an external one: `sh scripts/codex-loop.sh` (or a cron entry / systemd timer running it `--once`) |
+| **Codex CLI, IDE, and any agent with no Scheduled management surface** | an external one: run the `scripts/codex-loop.sh` beside this skill (or a cron entry / systemd timer running it `--once`) |
 
 **Scheduled tasks are an app surface, not a Codex CLI subcommand.** The ChatGPT desktop app can
 return to an existing chat on a minute interval, use its existing context, and run against the
@@ -36,9 +36,15 @@ Use the requested cadence; when none was requested, retain `/work`'s five-minute
 
 **The CLI itself still has no Scheduled management interface.** That boundary was measured
 2026-09-03 against `codex-cli 0.149.1` and is also the current documented product boundary.
-For a CLI-only environment, `scripts/codex-loop.sh` supplies the clock: one `codex exec` per
+For a CLI-only environment, this skill's own `scripts/codex-loop.sh` supplies the clock: one `codex exec` per
 interval, sequential, `flock`ed against a second supervisor, exporting `.claude/settings.json`'s
 `env` block so both agents read one declaration.
+
+The launcher is part of the full Workaholic plugin. From an installed skill, run
+`sh <directory-containing-this-SKILL.md>/scripts/codex-loop.sh`; the repository-local
+`sh scripts/codex-loop.sh` remains a compatibility shim. Startup names a missing clock wrapper,
+work skill, tick command body, repository, or Codex CLI separately, and recommends a plugin
+update only for a missing plugin-owned layer.
 
 ## The tick
 

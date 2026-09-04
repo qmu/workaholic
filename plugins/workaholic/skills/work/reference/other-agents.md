@@ -36,7 +36,7 @@ apparatus, and the whole apparatus is the full plugin — which Codex already in
 
 | Claude mechanism | Codex, measured | Substitution |
 | ---------------- | --------------- | ------------ |
-| `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **CLI/IDE:** no Scheduled management interface | a Scheduled task in the current chat for desktop; `scripts/codex-loop.sh` for CLI/IDE |
+| `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **CLI/IDE:** no Scheduled management interface | a Scheduled task in the current chat for desktop; the installed work skill's `scripts/codex-loop.sh` for CLI/IDE |
 | slash-command dispatch of `commands/*.md` | **None** (manifests expose skills only) | the loop is a **skill** (`workaholic:work`); the tick reads the other command bodies as files and executes them |
 | a **detached** background subagent whose parent ends first | Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their results** — there is no parent-ends-children-continue lifetime | the work runs **inline, in sequence** |
 | `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | ticks cannot overlap by construction; `flock` refuses a second **supervisor** |
@@ -86,12 +86,20 @@ this schedule and the external supervisor against the same repository at once.
 
 ## Running it from Codex CLI or the IDE
 
+The launcher ships beside this skill, so it works when the plugin is installed into an otherwise
+empty repository. Resolve the directory containing this `SKILL.md`, then run:
+
 ```sh
-sh scripts/codex-loop.sh                 # every 5 minutes until stopped
-sh scripts/codex-loop.sh --interval 600  # every 10
-sh scripts/codex-loop.sh --once          # one tick — what a cron or systemd timer wants
-sh scripts/codex-loop.sh --dry-run --once
+sh <work-skill-directory>/scripts/codex-loop.sh                 # every 5 minutes until stopped
+sh <work-skill-directory>/scripts/codex-loop.sh --interval 600  # every 10
+sh <work-skill-directory>/scripts/codex-loop.sh --once          # one tick for cron/systemd
+sh <work-skill-directory>/scripts/codex-loop.sh --dry-run --once
 ```
+
+In this source repository, `sh scripts/codex-loop.sh` is a compatibility shim onto that same
+implementation. Startup reports `clock_wrapper_missing`, `plugin_skill_missing`,
+`plugin_command_missing`, `repository_missing`, or `codex_cli_missing` for the precise missing
+layer. Only missing plugin-owned files recommend updating or reinstalling the plugin.
 
 Transcripts land in the git-ignored `.codex-loop/`. `--dangerously-bypass-approvals-and-sandbox`
 is passed for the reason the Claude loop passes `--dangerously-skip-permissions`: an unattended

@@ -91,9 +91,17 @@ sh scripts/codex-loop.sh                 # every 5 minutes until stopped
 sh scripts/codex-loop.sh --interval 600  # every 10
 sh scripts/codex-loop.sh --once          # one tick — what a cron or systemd timer wants
 sh scripts/codex-loop.sh --dry-run --once
+sh scripts/codex-loop.sh --status        # read state; start no supervisor or tick
 ```
 
-Transcripts land in the git-ignored `.codex-loop/`. `--dangerously-bypass-approvals-and-sandbox`
+Startup is ready only after its first tick returns a readable report through an available report
+transport. The current atomic reading is `.codex-loop/status.json`: it distinguishes `ready`,
+`tick_failure`, `report_missing`, `transport_absent`, and `work_blocked`, and carries the immutable
+report/transcript paths plus the next due time. Later tick failures remain non-destructive to the
+supervisor and replace that same reading; they never leave an earlier green verdict under a new
+timestamp. Transcripts land in the git-ignored `.codex-loop/`.
+
+`--dangerously-bypass-approvals-and-sandbox`
 is passed for the reason the Claude loop passes `--dangerously-skip-permissions`: an unattended
 run never waits for a person, the tick pushes branches and calls `gh`, and Codex's
 `workspace-write` sandbox refuses both. An allowlist was not attempted for the same reason it

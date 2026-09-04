@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260904-165310](work-20260904-165310.md) - Prove Codex loop readiness and expose durable tick status
 * [work-20260903-225834](work-20260903-225834.md) - Moves claim liveness onto a disposable off-branch carrier while preserving takeover safety.
 * [work-20260903-172646](work-20260903-172646.md) - Removes the interpreter the squash body's housekeeping filter depended on, so the commit list is byte-identical whether or not python3 is installed, and puts a named reason ahead of a story that was read so a dropped commit range can never report source story.
 * [work-20260903-160624](work-20260903-160624.md) - Agree the squash-body and verification-probe JSON escapers on raw UTF-8, dropping the sed rung that could never match them

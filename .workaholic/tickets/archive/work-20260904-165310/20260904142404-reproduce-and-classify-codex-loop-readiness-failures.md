@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:24:04+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -70,3 +71,13 @@ those states and establish one readiness vocabulary before changing startup beha
 Slack connectivity belongs to the agent session, while the shell supervisor sees only the report
 returned to it. The contract must distinguish an absent transport from a refused post and from a
 tick that never produced a readable result.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The supervisor can classify readiness entirely from the `codex exec` exit status,
+  final-message file, and the tick report's existing transport words.
+  **Context**: This keeps cadence in the tick log and avoids adding a second workflow oracle.

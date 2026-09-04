@@ -76,3 +76,12 @@ current operating instructions in the runbook rather than treating the decision 
 The baseline includes generated copies under `outputs/workflows/`; those demonstrate distribution
 drift but should not be documented separately. The canonical plugin source is the authority and the
 generated bundle must remain derived from it.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The runbook still treated the hourly `[Implement]` routine and direct cron invocation as primary even after `/work` became the shared orchestration boundary.
+  **Context**: Operator documentation now distinguishes the one-tick contract from the clock and names connector relay, allocation, prompt-refusal, and recovery outcomes at their owning seams.

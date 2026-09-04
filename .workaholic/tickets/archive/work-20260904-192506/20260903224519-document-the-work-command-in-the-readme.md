@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-03T22:45:19+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260904-192506
 ---
 
 # Document the `/work` command in the README
@@ -71,3 +73,12 @@ it relates to `/specificate`, `/implement`, and `/moderate` without copying thei
 
 The README is orientation, not another executable contract. Exact timing, agent-capability
 substitutions, and maintenance step behavior stay beside the command and skill that own them.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The command table already named `/work`, while the full command graph still claimed a closed set of fourteen commands and omitted the orchestration edges.
+  **Context**: Public orientation must update both the discoverable command entry and the diagram that explains how commands relate.

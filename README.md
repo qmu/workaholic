@@ -104,6 +104,20 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 
 ## How It Works
 
+### The development loop
+
+`/work` starts the orchestration surface; it is not another executor. One tick first handles the
+inbound channel, then runs `/implement`, runs `/propose` followed by `/specificate` when that
+cadence is due, and runs `/moderate` when its own cadence is due. `/drive` and `/implement` remain
+the single executor, with attended and unattended entry points respectively.
+
+Claude Code supplies repetition with `/loop 5m /infinite-development`. In the ChatGPT desktop app,
+a Scheduled task invokes one `workaholic:work` tick in the current chat. A CLI or IDE has no
+schedule-management surface, so the launcher beside the installed work skill supplies the clock;
+this repository's `scripts/codex-loop.sh` is its compatibility entry point. The launcher invokes
+one tick at a time and `--status` only reads its durable status. Detailed capability and cadence
+rules remain in [`plugins/workaholic/skills/work/SKILL.md`](plugins/workaholic/skills/work/SKILL.md).
+
 ### Ticket-Driven Development
 
 A ticket is a markdown file describing a change you want to make — the context, plan, and rationale. Run `/ticket your change request` and a coding agent explores both codebase and history, then writes the ticket for you. It is published onto a `work-*` branch behind a pull request — from whatever branch you happen to be on, without disturbing your working tree — and merging that pull request is what puts it on `main`, visible to every runner, machine, and fresh clone. Committed alongside the code, tickets become searchable history for future coding agents.
@@ -303,7 +317,12 @@ flowchart LR
 <details>
 <summary><strong>The full map</strong> — every command and every artifact in one graph</summary>
 
-Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all fourteen commands at once (`/drive` and `/implement` share one node — one executor, two entry points; rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
+Development commands communicate through the documents they write to `.workaholic/`; the `/work`
+orchestrator is the explicit exception, sequencing the loop's command bodies without becoming an
+artifact writer or a second executor. The graph covers all 22 command entry files (`/report` is the
+deprecated `/story` alias; `/drive` and `/implement` share one executor node; the two routine setup
+commands share one node). Rounded **blue** = command, rectangular **grey** = artifact, dashed grey
+border = an artifact that lands *outside* `.workaholic/`.
 
 ```mermaid
 flowchart LR
@@ -324,6 +343,9 @@ flowchart LR
   releasestatus(["/prepare-release"])
   standup(["/standup"])
   moderate(["/moderate"])
+  work(["/work"])
+  tick(["/infinite-development"])
+  propose(["/propose"])
 
   %% ---------- artifacts under .workaholic/ (grey) ----------
   TODO["tickets/todo/"]
@@ -350,6 +372,8 @@ flowchart LR
   ticket --> ICE
   feedback --> EXT
   feedback --> OWN
+  tick --> OWN
+  propose --> OWN
   mission --> MIS
   mission --> TODO
   missionclose --> MIS
@@ -396,6 +420,13 @@ flowchart LR
   standup -.-> MIS
   standup -.-> STORY
 
+  %% ========== orchestration: the explicit command-to-command exception ==========
+  work -. one tick .-> tick
+  tick -. every tick .-> drive
+  tick -. cadence .-> propose
+  tick -. after propose .-> specificate
+  tick -. cadence .-> moderate
+
   %% ========== mission rolls: dashed, labelled ==========
   drive -. rolls .-> MIS
   report -. rolls .-> MIS
@@ -408,7 +439,7 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,mission,missionclose,specificate,feedback,drive,report,ship,releasestatus,standup,moderate,catch,commit,explain,workaholify,setuproutines cmd;
+  class ticket,mission,missionclose,specificate,feedback,drive,report,ship,releasestatus,standup,moderate,catch,commit,explain,workaholify,setuproutines,work,tick,propose cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP,HK art;
   class EXT,OWN,PDF,WT,CFG,ROUT ext;
 ```
@@ -416,6 +447,7 @@ flowchart LR
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
+- **Orchestration arrows** are the only command-to-command edges: `/work` enters one tick; the tick sequences the existing source, executor, ingestion and maintenance commands. They do not make `/work` an executor.
 - **Node style tells the kind apart.** Rounded **blue** = the commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — the `[FB] ` issue every `/fb` files, here or across the boundary, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-dev-routines` and `/setup-repo-routines` read and converge in the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/specificate` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/specificate` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.

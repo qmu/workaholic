@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:24:04+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260904142404-reproduce-and-classify-codex-loop-readiness-failures.md]
@@ -66,3 +67,13 @@ report transport exists before it claims the loop is ready.
 
 The desktop Scheduled-task path has no long-lived supervisor; its invocation result is its startup
 evidence. Keep that path distinct while sharing the tick-result vocabulary.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Returning a non-zero readiness result only for the first tick preserves the
+  supervisor's later retry behavior without ever calling a PID or lock “ready.”
+  **Context**: Startup proof and steady-state resilience need different exit handling.

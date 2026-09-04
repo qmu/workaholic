@@ -56,6 +56,7 @@ for (const k of Object.keys(process.env)) {
 process.env.WORKAHOLIC_BOOTSTRAP_ACCOUNT = "";
 
 const SCRIPTS = {
+  codexLoop: join(REPO_ROOT, "scripts/codex-loop.sh"),
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
   createMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh"),
@@ -37726,6 +37727,79 @@ function testInstalledCodexClock() {
       wrapperMissing.status === 2 && wrapperMissing.stderr.includes("clock_wrapper_missing") &&
         !wrapperMissing.stderr.includes("plugin_skill_missing"), wrapperMissing.stderr);
   } finally { cleanup(dir); }
+}
+
+// ---- THE CODEX CLOCK PROVES ITS FIRST TICK (2026-09-04) ----
+// A living supervisor is not evidence that its agent ran or that its report can reach anyone.
+// These fixtures put each result at the exact shell boundary the supervisor owns: process exit,
+// final-message file and report text. No Codex process or network is involved.
+T("the Codex CLI loop gates readiness on a classified first tick and records status atomically",
+  testCodexLoopReadiness);
+function testCodexLoopReadiness() {
+  const makeFixture = () => {
+    const dir = makeRepo("main");
+    mkdirSync(join(dir, "scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/skills/work"), { recursive: true });
+    mkdirSync(join(dir, "bin"), { recursive: true });
+    copyFileSync(SCRIPTS.codexLoop, join(dir, "scripts/codex-loop.sh"));
+    writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    const stub = join(dir, "bin/codex");
+    writeFileSync(stub, `#!/bin/sh
+out=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then out=$2; shift 2; else shift; fi
+done
+printf 'stub transcript\\n'
+if [ "\${STUB_WRITES_REPORT:-1}" = 1 ]; then printf '%s\\n' "\${STUB_REPORT:-idle}" >"$out"; fi
+exit "\${STUB_EXIT:-0}"
+`);
+    chmodSync(stub, 0o755);
+    return dir;
+  };
+  const invoke = (dir, env = {}) => run(dir,
+    `sh scripts/codex-loop.sh --once --interval 60`, {
+      env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env.PATH}`, ...env }
+    });
+
+  const readyDir = makeFixture();
+  try {
+    const r = invoke(readyDir, { STUB_REPORT: "no_candidates\\nloops: none due" });
+    assertEq("a successful reported first tick starts the clock", r.status, 0);
+    assertTrue("the completed first-tick verdict is printed before readiness can succeed",
+      r.stdout.includes("outcome=ready"), r.stdout + r.stderr);
+    const statusPath = join(readyDir, ".codex-loop/status.json");
+    const status = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("the ready status is sleeping", status.state, "sleeping");
+    assertEq("the outcome is closed vocabulary", status.outcome, "ready");
+    assertEq("the transport was observed", status.transport_verdict, "available");
+    assertTrue("the next due time and immutable transcript are retained",
+      Boolean(status.next_due) && existsSync(status.transcript_path) && existsSync(status.report_path));
+    assertTrue("the atomic writer leaves no partial status beside the current one",
+      !readdirSync(join(readyDir, ".codex-loop")).some((name) => name.startsWith("status.json.tmp.")));
+
+    const before = readFileSync(statusPath, "utf8");
+    const statusRead = run(readyDir, `PATH=/usr/bin:/bin sh scripts/codex-loop.sh --status`);
+    assertEq("status is read-only and does not require Codex", statusRead.status, 0);
+    assertTrue("status names the sleeping result", /state=sleeping outcome=ready/.test(statusRead.stdout), statusRead.stdout);
+    assertEq("status mode changes no durable byte", readFileSync(statusPath, "utf8"), before);
+  } finally { cleanup(readyDir); }
+
+  for (const row of [
+    { name: "tick failure", env: { STUB_EXIT: "9" }, outcome: "tick_failure", reason: "codex_exit_9" },
+    { name: "missing report", env: { STUB_WRITES_REPORT: "0" }, outcome: "report_missing", reason: "no_tick_report" },
+    { name: "absent transport", env: { STUB_REPORT: "no_slack_transport" }, outcome: "transport_absent", reason: "no_slack_transport" },
+    { name: "blocked work", env: { STUB_REPORT: "slack_turn_failed: channel_unreadable" }, outcome: "work_blocked", reason: "slack_turn_failed" },
+  ]) {
+    const dir = makeFixture();
+    try {
+      const r = invoke(dir, row.env);
+      assertEq(`${row.name} refuses first-tick readiness`, r.status, 6);
+      const status = JSON.parse(readFileSync(join(dir, ".codex-loop/status.json"), "utf8"));
+      assertEq(`${row.name} has its own verdict`, status.outcome, row.outcome);
+      assertTrue(`${row.name} carries the evidence`, status.blocked_reason.includes(row.reason), status.blocked_reason);
+      assertEq(`${row.name} is visibly blocked`, status.state, "blocked");
+    } finally { cleanup(dir); }
+  }
 }
 
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).

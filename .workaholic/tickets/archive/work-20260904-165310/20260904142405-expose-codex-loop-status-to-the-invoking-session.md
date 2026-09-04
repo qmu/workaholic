@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:24:05+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260904142404-gate-codex-loop-startup-on-the-first-tick.md, 20260904142405-record-each-codex-tick-outcome-and-next-due-time.md]
@@ -70,3 +71,12 @@ must distinguish a sleeping loop from one that is moving work or has lost its re
 An external background launch can disconnect stdout from the original terminal. The durable
 status remains authoritative in that case, while issue #975 separately asks for a connector-owning
 parent relay rather than pretending the child inherited Slack OAuth.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: `--status` must be resolved before the Codex executable check.
+  **Context**: A read-only diagnosis remains available precisely when the runner binary is absent.

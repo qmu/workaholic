@@ -2,7 +2,7 @@
 type: Mission
 title: Prove Codex loop progress
 slug: prove-codex-loop-progress
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-04T14:23:28+09:00
 author: a@qmu.jp
@@ -37,7 +37,7 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 
 - [x] Starting the Codex loop executes and evaluates a first tick before reporting the loop ready. (#20260904142404-gate-codex-loop-startup-on-the-first-tick.md)
 - [x] Every tick records its outcome, blocked reason, and next due time in one observable status. (#20260904142405-record-each-codex-tick-outcome-and-next-due-time.md)
-- [ ] Missing Slack/report transport is a visible readiness failure, while successful runs preserve FB and Implemented threading. (#20260904142405-expose-codex-loop-status-to-the-invoking-session.md)
+- [x] Missing Slack/report transport is a visible readiness failure, while successful runs preserve FB and Implemented threading. (#20260904142405-expose-codex-loop-status-to-the-invoking-session.md)
 
 ## Changelog
 
@@ -45,3 +45,5 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 - 2026-09-04 — ticket archived — 20260904142404-reproduce-and-classify-codex-loop-readiness-failures.md
 - 2026-09-04 — ticket archived — 20260904142404-gate-codex-loop-startup-on-the-first-tick.md
 - 2026-09-04 — ticket archived — 20260904142405-record-each-codex-tick-outcome-and-next-due-time.md
+- 2026-09-04 — ticket archived — 20260904142405-expose-codex-loop-status-to-the-invoking-session.md
+- 2026-09-04 — mission achieved — mission.md

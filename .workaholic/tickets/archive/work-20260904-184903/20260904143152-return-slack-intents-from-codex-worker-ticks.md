@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:31:52+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260904143152-define-the-codex-parent-relay-contract.md]
@@ -71,3 +72,12 @@ as a delivered notification.
 
 The no-connector token script remains a valid transport under `workaholic:notify`; this ticket
 changes only the Codex scheduled-worker path whose parent is expected to own a richer connector.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Relay mode must be explicit at launch; treating every parent process as an owning chat recreates the false-transport claim.
+  **Context**: `--relay` changes the worker prompt and requires a valid v1 envelope, while ordinary CLI execution retains `no_slack_transport`.

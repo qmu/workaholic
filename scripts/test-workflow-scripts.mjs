@@ -37739,10 +37739,14 @@ function testCodexLoopReadiness() {
   const makeFixture = () => {
     const dir = makeRepo("main");
     mkdirSync(join(dir, "scripts"), { recursive: true });
-    mkdirSync(join(dir, "plugins/workaholic/skills/work"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/commands"), { recursive: true });
     mkdirSync(join(dir, "bin"), { recursive: true });
     copyFileSync(SCRIPTS.codexLoop, join(dir, "scripts/codex-loop.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/codex-loop.sh"));
     writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    writeFileSync(join(dir, "plugins/workaholic/commands/infinite-development.md"), "# Tick\n");
     const stub = join(dir, "bin/codex");
     writeFileSync(stub, `#!/bin/sh
 out=""

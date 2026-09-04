@@ -37677,7 +37677,56 @@ function testCodexClockSurfaces() {
     !work.includes("Codex has no interval, loop, schedule or cron feature") &&
     !loops.includes("Codex has no interval feature at all"), "a CLI measurement became a product claim");
   assertTrue("the shell supervisor calls itself the CLI fallback",
-    /fallback for a CLI-only environment/.test(supervisor), supervisor.slice(0, 500));
+    /Compatibility entrypoint/.test(supervisor), supervisor.slice(0, 500));
+  assertTrue("the full plugin owns the maintained clock wrapper",
+    existsSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh")),
+    "plugin launcher missing");
+}
+
+T("the installed Workaholic plugin launches one Codex dry-run tick and diagnoses each layer",
+  testInstalledCodexClock);
+function testInstalledCodexClock() {
+  const dir = makeRepo("main");
+  try {
+    const plugin = join(dir, "installed/workaholic");
+    const workDir = join(plugin, "skills/work");
+    const commandDir = join(plugin, "commands");
+    const binDir = join(dir, "bin");
+    mkdirSync(dirname(plugin), { recursive: true });
+    cpSync(join(REPO_ROOT, "plugins/workaholic"), plugin, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, "codex"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(binDir, "codex"), 0o755);
+
+    const launcher = join(workDir, "scripts/codex-loop.sh");
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH || ""}` };
+    const positive = run(dir, `${POSIX_SH} ${launcher} --dry-run --once`, { env });
+    assertEq("the installed launcher exits cleanly", positive.status, 0);
+    assertTrue("and launches exactly one dry-run tick from the consuming repository",
+      positive.stdout.includes(`codex exec -C ${dir}`), positive.stdout + positive.stderr);
+    assertTrue("and resolves the skill from the installed launcher rather than a source-tree fallback",
+      readFileSync(launcher, "utf8").includes('TICK_PROMPT="${PLUGIN_ROOT}/skills/work/SKILL.md"'),
+      readFileSync(launcher, "utf8").slice(0, 500));
+
+    rmSync(join(commandDir, "infinite-development.md"));
+    const commandMissing = run(dir, `${POSIX_SH} ${launcher} --dry-run --once`, { env });
+    assertTrue("a missing command body names the plugin command layer",
+      commandMissing.status === 2 && commandMissing.stderr.includes("plugin_command_missing"),
+      commandMissing.stderr);
+    writeFileSync(join(commandDir, "infinite-development.md"), "# installed tick body\n");
+    rmSync(join(workDir, "SKILL.md"));
+    const skillMissing = run(dir, `${POSIX_SH} ${launcher} --dry-run --once`, { env });
+    assertTrue("a missing work skill names the plugin skill layer",
+      skillMissing.status === 2 && skillMissing.stderr.includes("plugin_skill_missing"),
+      skillMissing.stderr);
+
+    mkdirSync(join(dir, "scripts"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "scripts/codex-loop.sh"), join(dir, "scripts/codex-loop.sh"));
+    const wrapperMissing = run(dir, `${POSIX_SH} scripts/codex-loop.sh --dry-run --once`, { env });
+    assertTrue("a missing repository compatibility target names only the clock wrapper",
+      wrapperMissing.status === 2 && wrapperMissing.stderr.includes("clock_wrapper_missing") &&
+        !wrapperMissing.stderr.includes("plugin_skill_missing"), wrapperMissing.stderr);
+  } finally { cleanup(dir); }
 }
 
 // ---- THE CODEX CLOCK PROVES ITS FIRST TICK (2026-09-04) ----
@@ -37690,10 +37739,14 @@ function testCodexLoopReadiness() {
   const makeFixture = () => {
     const dir = makeRepo("main");
     mkdirSync(join(dir, "scripts"), { recursive: true });
-    mkdirSync(join(dir, "plugins/workaholic/skills/work"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/commands"), { recursive: true });
     mkdirSync(join(dir, "bin"), { recursive: true });
     copyFileSync(SCRIPTS.codexLoop, join(dir, "scripts/codex-loop.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/codex-loop.sh"));
     writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    writeFileSync(join(dir, "plugins/workaholic/commands/infinite-development.md"), "# Tick\n");
     const stub = join(dir, "bin/codex");
     writeFileSync(stub, `#!/bin/sh
 out=""

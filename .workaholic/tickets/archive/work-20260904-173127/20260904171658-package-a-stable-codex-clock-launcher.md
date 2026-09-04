@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T17:16:58+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,14 @@ launcher that works without a repository-local `scripts/codex-loop.sh`.
 ## Considerations
 
 Avoid copying two independently editable supervisor scripts into source and package output.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The full plugin already publishes every file below `plugins/workaholic`, so placing
+  the maintained launcher beside the work skill requires no second generated bundle.
+  **Context**: The repository entrypoint can remain a compatibility shim while installed plugins
+  and source checkouts execute one supervisor implementation.

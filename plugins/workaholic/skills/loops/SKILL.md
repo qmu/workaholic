@@ -51,11 +51,12 @@ management interface; diagnosed 2026-09-03 with `codex-cli 0.149.1` and retained
 fallback:
 
 ```sh
-sh scripts/codex-loop.sh            # the clock: one `codex exec` per interval, sequential
-sh scripts/codex-loop.sh --once     # one tick, for a cron or systemd timer
+sh <work-skill-directory>/scripts/codex-loop.sh         # one `codex exec` per interval
+sh <work-skill-directory>/scripts/codex-loop.sh --once  # one tick for cron or systemd
 ```
 
-The supervisor is the clock and **`workaholic:work` is the contract both agents read** — the
+The supervisor ships beside the installed `workaholic:work` skill, so no repository-local
+wrapper is required. The supervisor is the clock and **`workaholic:work` is the contract both agents read** — the
 operator's own shape: Claude Code calls the loop as a command, every other agent calls it as a
 skill, and `build.mjs` publishes it. The work runs **inline and in sequence** off Claude Code,
 because there is nothing to detach it to.

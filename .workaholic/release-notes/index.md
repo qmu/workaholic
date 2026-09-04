@@ -98,4 +98,5 @@
 * [Two routines, one behaviour per command](work-20260807-004323.md)
 * [Retire the always-on mission-lens hook](work-20260826-195732.md)
 * [Prove Codex loop readiness and expose durable status](work-20260904-165310.md)
+* [Ship the Codex clock inside the installed plugin](work-20260904-173127.md)
 <!-- okf:generated:end -->

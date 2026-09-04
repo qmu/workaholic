@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260904-173127
 ---
 
 # Make the Codex work entrypoint self-contained

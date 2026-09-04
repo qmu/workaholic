@@ -18,6 +18,16 @@ The rule generalises rather than enumerating three shapes: **resolve the mention
 
 The measured cost, stated rather than hidden: a reader can no longer tell from the finish line alone *which* account's routine posted it in a channel several people's routines post into. That was already only readable as the mention, which rendered as the reader's own name and read as self-addressed; the account is the message's own author, which Slack shows, and the run report names it in words.
 
+**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+
+Measured 2026-09-02: three `🟡 Handoff` lines delivered, every one waiting on one person's act, none of them paging anyone. The clause is appended where the token would have been, so a line that *does* carry a token is byte-identical to what it always was.
+
+### A refused call is not an absent surface
+
+**A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
+
+Measured 2026-09-02, two `/implement` runs minutes apart in one session: one had every connector call refused and lost three lines to the third branch, written for a session that never had a surface; the other posted three of the same shape. Where the line is carried, and by what, is SKILL's — this catalog names shapes and never re-derives the transport.
+
 ### `/specificate` — the finish, plus a description root when no thread was found
 
 ```
@@ -139,6 +149,27 @@ It rides the same coordinate and the same bounds as the reply — `<channel>:<ts
 **Only a message this run actually filed.** A message excluded as already swept gets **nothing** — the receipt is on the issue that already exists, posted by the run that filed it, and a second one an hour later would be the hourly restatement this catalog retires posts for. Nor does an exclusion, a degradation or the strategy half of the tick ever post: `no_slack_transport`, `channel_unreadable` and `sweep_dedup_unreadable` are reported in the run report and said nowhere else.
 
 **The receipt never gates the capture.** The issue is already open when the reply is attempted; a reply that fails is reported as `ack_failed: <reason>` per message and changes nothing about the filing, the dedup marker, or what `/specificate` ingests next. A capture that landed and a receipt that did not are two facts, and the run states both.
+
+### `/infinite-development` — the finish line for an ask that landed outside a unit
+
+**An ask whose work landed outside an `/implement` unit is announced by nobody** (2026-09-03, mission `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). `🟢 Implemented` above is a **per-unit** post of the route step, so an ask a session worked directly reaches no route step at all: its thread ends at the `📥 受理` receipt, and from the channel an ask that shipped three hours ago and one nobody has started are byte-identical. Measured 2026-09-02: three merged pull requests, the issue closed, and the operator learned of it by asking a session.
+
+```
+🟢 Implemented [<ask title>](<issue url>)
+<one sentence, max 30 words, what landed and by whom.>
+```
+
+**It reuses `🟢 Implemented` and is marked by its sentence, never by a fifth colour** — the precedent `thread-reconcile` set for a merged item announced late. A channel reader's finish vocabulary stays at the colours it already has; a new colour for the same event, differing only in which reader noticed it, is a distinction only the loop cares about.
+
+**The bounds, each of them a refusal rather than a preference:**
+
+- **No mention token.** It is addressed to the thread, not to a person — the standing rule of this catalog, unchanged.
+- **A reply, never a root.** The thread is resolved by the `fb:<stem>` **exact string** (SKILL, *One thread per feedback item*, case 2), and an item whose thread cannot be resolved — no match, or more than one — is **left alone** rather than announced somewhere else. Case 4's keyed root is deliberately **not** available here: a root would be a top-level post about an item whose own thread the run could not find, which is the wrong-thread outcome one step removed.
+- **Once ever per item.** The dedup is **structural and read from the thread**: the thread is read before anything is posted, and a thread already carrying a finish line of ours for this item is skipped. No ledger, no cursor, no field on any artifact — a store would have to survive a fresh container, which is the property this loop has repeatedly failed to keep.
+- **The connector carries it, and nothing else does.** It is the only transport that can **search**, so it is the only one that can resolve the thread at all; the tokened fallback posts nothing here, because a caller with no connector never resolved a thread to reply into.
+- **What landed, or nothing about it.** The sentence is composed from the reader's `landed[]` — what merged and by whom — and an unresolvable field is **stated as unresolved**, never filled with a plausible name or time.
+
+**The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins. The command is the ceiling a routine-fired session actually reads; the catalog is where the shape is decided. A diff between them is a drift to fix, never a second wording.
 
 ### `/prepare-release` — retired, and nothing replaced it
 

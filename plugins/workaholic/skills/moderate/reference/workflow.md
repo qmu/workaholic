@@ -1147,6 +1147,25 @@ unreadable digest is `digest_unreadable`, named rather than rendered as a quiet 
 zero questions — the day's opening statement, the exception the developer asked for — while every
 other hour the question gate stands alone.
 
+**And the morning render carries the corpus's own mission-size distribution** (2026-09-03, ticket
+`20260903053713-report-the-mission-size-distribution.md`): one line off
+`mission/scripts/size-distribution.sh` — the buckets and their counts, nothing else. Rule 2 of
+`rules/workaholic.md`, *What a Mission Must Be Able to Hold*, is a position about the **corpus**,
+and nothing in the loop could see the corpus: the distribution that produced the rule was counted
+by hand, so without a reading the next report of the defect would be another hand count.
+
+**It rides THIS step and no hourly one.** The number moves slowly by construction, and an
+unchanged answer restated every hour is what `📦 Release Preparation` was retired for — the same
+reasoning the mission grain above already carries. **It gates nothing**: nothing is refused,
+ordered, closed, held or sorted on it, and it is reported as evidence in the voice `pace` and the
+base's own health already use. **It names no slug** — *how many* is news and *which* is a task,
+and this line is addressed to nobody; the one place a slug appears is the reader's `below_floor`,
+which is `layout-doctor.sh`'s advisory rather than this step's. A reading that answers
+`ok: false` is named **as unreadable, by its reason**, with null counts, never as an empty
+distribution, which means the opposite. The reader is **one pass** over the ticket tree
+(measured 7s here against 126 missions and 1335 tickets) and composes `read-relation.sh` and
+`queue-size.sh`'s own floor rather than re-deriving either.
+
 **The plan's shape is daily, not hourly, and that is an answer rather than an omission**
 (2026-09-01, mission `report-where-the-work-stands-not-only-what-is-wrong`). The ask that put
 the mission grain here asked for it on **every** tick — "post where the work stands on the
@@ -1398,7 +1417,7 @@ riding the **heading**, exactly as they did — the body's one sentence is reser
 
 | Key | Heading leads with | Body asks for |
 | --- | ------------------ | ------------- |
-| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *is this direction finished — close it, or name what is still missing?* |
+| `direction-arrived:<slug>` | *everything the loop can attribute to `<title>` has landed* — then the slug, the declared stage, what landed and when, and the residue by mission slug | *nothing is waiting; it reads finished* (or *finished except for unclaimed work*) — then *announce that it ended, or say it still stands.* |
 | `direction-cutover:<slug>` | *`<title>`'s work is all in and it is still declared 進行中* — then the slug, what landed, the residue | *can it cut over now, or is something still holding it?* |
 | `direction-settled:<slug>` | *improving `<title>` has gone quiet* — then the slug, 改良中, the window nothing landed in | *is this observation now, or is there still work to do?* |
 | `direction-overdue:<slug>` | *`<title>` went past its date on `<target_date>`* — then the slug, the stage, the leaving | *re-date it, close it, or say it is still running.* |
@@ -1406,6 +1425,37 @@ riding the **heading**, exactly as they did — the body's one sentence is reser
 | `direction-dormant:<slug>` | *nothing has answered `<title>` since it was set* — then the slug, the stage, the date | *is it still the direction, or should it be re-dated or closed?* |
 | `direction-last:<slug>` | *`<title>` is the last live direction, and the loop originates nothing after it* — then the slug, the stage, the leaving | *close it with a successor, or keep it open?* |
 | `direction-none` | *no live direction remains, so nothing is proposing work* — addressed to nobody, because no owner is left to name | *set one, or leave the loop reactive.* |
+
+**Three rules the bodies gained on 2026-09-03** (mission
+`make-the-maintenance-tick-s-channel-presence-help-the-work-along`), each measured on one
+morning's thread:
+
+1. **One question per KIND, not per subject.** `lib/question-id.sh` keys on the key and the step
+   composed one per subject, so five `🙋` went out in twenty-four seconds, three of them the same
+   sentence with a slug swapped. The step now hands back **`groups`** beside `directions`: one
+   entry per reading, carrying the union of the assignees and every subject. **The key carries the
+   sorted subject set, not the kind alone** — a bare `direction-arrived` would be asked once ever
+   and a direction arriving next week would never be asked at all, turning the asked-once gate into
+   a silence. The stated cost is that a fourth direction joining an already-asked group re-asks the
+   whole group once. A group of one renders exactly as it did before.
+2. **The tick's own counters left every body.** `It would leave N unreached and M unclaimed.` stood
+   at the head of each one: the tick saying what its counters would hold afterwards, in a sentence
+   addressed to a person. The sizes still ride the **heading**, where the named detail belongs.
+3. **A repository-wide fact left the four questions it is not about.** The unattributed residue —
+   *not attributed to any direction: `<mission>` (N queued)* — was pasted into every heading because
+   the composer had it in hand. It stays on **`arrived`** and its `cutover` refinement, where
+   whether the loop could see everything is exactly the question (the 2026-08-28 mission that added
+   it), and leaves `overdue`, `expiring`, `dormant` and `settled`, where it is a fact about the
+   repository rather than about the subject.
+
+**And the `arrived` body states a reading rather than offering a bare choice.** It said a count and
+asked; every other part of this loop states a judgement and lets a person veto it. It now says
+whether the evidence **reads finished** — a reading, never a verdict: nothing closes a direction but
+the operator announcement, and that rule does not move. **What landed and when stays on the
+heading**, which is rule 5 of the composition contract and is also what keeps the sentence inside
+the ceiling: the first wording repeated the count into the body and ran to 26 words, one over, and
+the residue variant would have run to 30. Without it the two branches are 20 and 24 words, and
+`verify-arrival`'s `arrival_body_describes_the_reading` row measures them.
 
 **What is refused here**: leading with `arrived`, `dormant`, `quiescent`, `expiring` or
 `overdue`. Those are the loop's readings, not the operator's facts — `quiescent` in particular
@@ -1552,7 +1602,7 @@ answers it: one question per channel, ever, with the per-tick cap, the quiet hou
 working-day hold applying unchanged. An hourly restatement of an unchanged reading is what this
 repository retired two roots for, and this cannot produce one by construction. The cost is stated:
 a channel that breaks, is fixed and breaks again is not re-asked — the same property
-`base-red:<commit>` and `stalled-unit:<unit>` already carry; a **different** channel is a
+`stalled-unit:<unit>` and `undrivable-unit:<path>` already carry; a **different** channel is a
 different key, which is the change that actually matters. `no_slack_transport` asks nothing: it is
 this session holding no connector, not a fact about the channel.
 
@@ -2090,7 +2140,27 @@ sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-base-health.sh --tick <id>
 
 The base's own checks, read once per tick through `drive/scripts/attribute-base-red.sh` — which
 composes `drive/scripts/read-base-checks.sh`, the one derivation of a commit's check state. A red
-base is handed to the check-in as **one question addressed to the attributed merge's author**.
+base is handed to the check-in as **one `🔴 Blocked` report addressed to nobody** (2026-09-03,
+mission `make-a-red-base-impossible-for-the-loop-to-miss`).
+
+**It is a report rather than a question, and the `base-red:<commit>` question is retired.**
+`ask-question.sh` holds a question under `quiet_hours` because a question addresses a named person
+and nobody should be paged at 23:00 to choose between two dates. A red base asks the operator to
+decide **nothing** — it reports that the ground everything is landing on is broken — so the reason
+the window exists does not apply to it, and the loop used to build on a broken base all night while
+its own announcement waited for morning. `🔴 Blocked` already exists for that class and carries its
+own failure-signature cool-down, which this **composes and never re-derives**: no second clock gate,
+no new constant. The signature carries **no SHA** (that rule is the cool-down's own — a key that
+changes every commit suppresses nothing), so it is the failing check names: the same suite still
+failing is one alert however many red commits carry it. The attribution walk is untouched — who
+broke it is still `attribute-base-red.sh`'s answer and rides the report's own sentence.
+
+**And every reading of the colour names the suites that never ran.** The step reads the tip once
+through `read-base-checks.sh --declared` and carries `unverified` **beside** the colour in its
+`summary`, on the green, red and `unanswerable` paths alike — a tip can carry a green verdict and an
+unverified suite at once. A degraded declared-read is named as degraded (`unverified_readable:
+false` with its reason) and never rendered as *every declared suite ran*. It is **evidence and
+gates nothing**: it opens no question, earns no post of its own, and moves no token.
 
 **A red base reached a person through no path at all** (2026-08-27). `/implement` may not ask
 anyone anything; `stuck-prs` and `merge-conflicts` read **pull requests** and find nothing wrong
@@ -2102,39 +2172,41 @@ said, so a green base and a base nobody looked at were one reading.
 
 | Axis | Follows | Why |
 | ---- | ------- | --- |
-| whose question | `stalled-units` | the **attributed merge's author** is a real person who made the change and can act on it |
+| whose announcement | nobody | it is a **report**, not a question: the attributed merge's author rides the sentence so a person can act on it, but nothing is addressed to them and nothing is held for their working hours |
 | the running identity | `undrivable-units` | never consulted — a red base is a fact about the **repository**, so an hourly question that answered differently per container is exactly the failure that axis exists to prevent |
 | what it may read | `undrivable-units` | the ticket-2 walk and nothing else; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge — the composition `closable-missions` already refused |
 
-**The key is the commit, not the tick and not the day.** `base-red:<commit>` is what makes *exactly
-once per broken commit* mechanical rather than a rule somebody remembers: twenty-four ticks may see
-one red base and exactly one question goes out. The overlap with a person already watching CI is
-deliberate and cheap for the same reason.
+**The signature is the failing checks, not the commit.** The dedup lives in the red-alert
+cool-down, which this composes rather than re-derives, and that rule's own terms forbid a SHA:
+a key that changed every commit would suppress nothing on a base the loop merges onto every half
+hour. So *the same suite still failing* is one alert however many red commits carry it, and a newly
+broken suite is a fresh root. The overlap with a person already watching CI is deliberate and cheap.
 
-**`unattributable` still asks, keyed on the tip.** The base is red and that is worth a person's
-attention whether or not the walk could name a culprit — but the question says plainly that the
-attribution failed and why, so nobody is sent after a merge this step did not identify. Left silent
-it would be a real finding with no path to a person, which is the shape the step exists to remove.
+**`unattributable` still reports, keyed on the tip.** The base is red and that is worth saying
+whether or not the walk could name a culprit — but the report says plainly that the attribution
+failed and why, so nobody is sent after a merge this step did not identify. Left silent it would be
+a real finding with no path to anyone, which is the shape the step exists to remove.
 
-**The addressee is an address, not a login.** The walk names the pull request's GitHub login;
-`gather/scripts/identity.sh` — the one mapping reader — converts it, and a login the mapping does
-not name leaves the question addressed to nobody rather than stamping an address nobody verified.
-That gap is `undrivable-units`' finding, not this step's to guess at.
+**The attributed author is still resolved to an address, not left a login.** The walk names the
+pull request's GitHub login; `gather/scripts/identity.sh` — the one mapping reader — converts it,
+and a login the mapping does not name leaves the report naming nobody rather than stamping an
+address nobody verified. That gap is `undrivable-units`' finding, not this step's to guess at.
 
-**A degraded read asks nothing** and is named (`no_walker`, `walk_unreadable`, `walk_unparseable`,
+**A degraded read reports nothing** and is named (`no_walker`, `walk_unreadable`, `walk_unparseable`,
 `base_unreadable:<reader reason>`). `unanswerable` is a reading **we** could not make, not a
 finding about the repository — the rule `direction-health` already holds for `unreadable` and
 `strategy-pace` for our own degradation.
 
-**It asks and nothing else.** It never re-runs a failing check ("flake" is not a root cause and a
+**It reports and nothing else.** It never re-runs a failing check ("flake" is not a root cause and a
 re-run is an *act*), never reverts, never merges, never touches a claim, and writes nothing
 anywhere but its own tick-log line. What it reads is a **judgement**, not a proof: a re-run can
 turn a red check green (`drive/reference/claims.md`, *Proofs and judgements*), so acting on it is
 forbidden and reporting it is the whole job.
 
-**It is placed before `human-checkin`**, like every question-producing step. Note that
-`human-checkin` is exempt from `--deadline-seconds` and this step is not: a slow tick may not reach
-it, which is reported as unreached — never as green.
+**It is placed before `human-checkin`**, where it was when it produced a question and where its
+report is still assembled with the tick's other announcements. Note that `human-checkin` is exempt
+from `--deadline-seconds` and this step is not: a slow tick may not reach it, which is reported as
+unreached — never as green.
 
 **The summary carries no timestamp**, for the correctness reason `stalled-units`' header records.
 It names the reading and the failing checks; the commit sha it carries is normalised out of the
@@ -2148,19 +2220,22 @@ renders no line at all — the renderer's own rule, *a step with no event render
 independent guard against a nothing-happened line reaching the root even on a tick whose diff
 calls this step changed. An `unattributable` red base supplies a line too, saying in words that
 the merge could not be attributed. **It is not a second posting gate**: the root posts when the
-tick has at least one question, and on a red tick this step has already supplied one. The base URL
+tick has at least one question, and this step no longer supplies one — the red base's own
+announcement is the `🔴 Blocked` report, which breaks the quiet window on its own terms. The base URL
 is derived from the **local** remote (`step-direction-health.sh`'s precedent) — no network call —
 and an absent remote degrades to the bare short sha rather than to a broken link.
 
-**The question, under the composition contract** (2026-08-31, mission
-`make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `base-red:<commit>`,
-unchanged — a commit sha is the least readable identifier the tick holds, and it leads nothing.
+**The report, under the composition contract** (2026-08-31, mission
+`make-the-tick-s-questions-readable-and-close-them-in-the-thread`; the shape is `🔴 Blocked` since
+2026-09-03). It leads with what happened, in words a reader outside the repository understands, and
+the commit sha — the least readable identifier the tick holds — comes after it, never before.
 
-- **Heading** — *`main` is failing its own checks*, then the failing check names, the merge the
-  walk attributed (its pull request and title) and the commit.
-- **Body** — the one act: *fix it or say it is expected.* Never *re-run it*: a re-run is an act,
-  and this step takes none.
-- **`unattributable` still asks, and says so in plain words** — *`main` is failing and the walk
+- **Lead** — *`main` is failing its own checks*, then the failing check names, the merge the walk
+  attributed (its pull request and title) and the commit.
+- **Body** — what is known and no more: a re-run may clear it, because this is a reading and not a
+  verdict. Never *re-run it* as an instruction to the tick: a re-run is an act, and this step takes
+  none.
+- **`unattributable` still reports, and says so in plain words** — *`main` is failing and the walk
   could not name the merge that broke it*, keyed on the tip, so nobody is sent after a merge the
   step did not identify.
 
@@ -2723,6 +2798,29 @@ boolean says a unit is waiting, only the string says what for. It is resolved pe
 reading and the oracle's cannot answer from two different ticket sets. Resolving it **per
 candidate rather than on every claim row** is deliberate: `stalled-units`, `undelivered-units`
 and `retire-claims` all read `list-claims.sh` and none of them wants the string.
+
+**And where the declaration is a PROBE, the step RE-PROBES rather than re-reading the sentence**
+(2026-09-03, mission `make-a-verification-handoff-a-probe-re-run-at-claim-time`). A declaration
+that has gone false must be named the hour it goes false, not the next time somebody happens to
+claim the unit — measured on a consuming repository as four parked pull requests, three of whose
+declarations were false when finally probed. So per candidate the step runs
+`drive/scripts/run-verification-probe.sh` and reports its word beside the reason:
+
+- **`clean`** — the declaration has gone false. The step **says so** and asks the claim holder to
+  take the unit back into the ordinary route. It **clears no handoff, merges nothing and touches
+  no claim**: this step asks and does nothing else, which is the bound every step here carries,
+  and the next `/implement` claim re-derives the same `clean` and proceeds on it by itself.
+- **`blocking`** — unchanged, and the question now quotes the **probe's own output and exit
+  status** rather than a sentence: a `302` and its redirect target say more than any prose, and
+  unlike prose they go stale visibly.
+- **`unmeasured`** — a prose declaration nobody can re-probe. The question is exactly the one this
+  step already asked, and the step **names the class** so the operator can see that this one was
+  not checked rather than assuming it was. **Every declaration on disk today is this.**
+- **`unreadable`** — named as unreadable and never as `clean`. The declaration stands.
+
+**The probe runs bounded and its cost is stated**: one `run-verification-probe.sh` per
+`awaiting_verification` candidate, capped by `WORKAHOLIC_PROBE_TIMEOUT_SECONDS` (default 60). A
+tick with no such claims runs none, which is the ordinary hour.
 
 **The pull request's coordinates cost one lookup per candidate**, through `claim-merged.sh`. An
 `unanswerable` read leaves them unstated and **keeps** the candidate — the unit waits on a person

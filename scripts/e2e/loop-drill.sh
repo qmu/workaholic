@@ -1905,14 +1905,33 @@ EOF
         add_row "direction_state_unreadable" false "a refused survey was not named: $(one_line "$_bad")" load
     fi
 
-    # THE QUESTION KEYS. They are what `ask-question.sh`'s asked-once ledger keys on, so a
-    # key that drifts is a question asked twice or never.
+    # THE QUESTION KEYS, AT BOTH GRAINS. Since 2026-09-03 (mission
+    # `make-the-maintenance-tick-s-channel-presence-help-the-work-along`) the step hands back
+    # `groups` — ONE entry per reading, carrying every subject that reading holds — and it is the
+    # GROUP key that `ask-question.sh`'s asked-once ledger keys on, so a group key that drifts is a
+    # question asked twice or never. The per-subject keys stay in `directions` as the composer's
+    # input, which is why both grains are read here: reading only the groups would let the
+    # composition input vanish, and reading only the subjects is what this row did before the
+    # collapse and is why it was asserting the retired contract.
     _out=$(cd "$REPO_ROOT" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
-    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-dormant:quiet direction-dormant:undated direction-overdue:gone " ]; then
-        add_row "direction_health_keys" true "the step asks exactly direction-overdue:gone, direction-dormant:quiet and direction-dormant:undated" load
+    _gkeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]?.key] | sort | join(" ")' 2>/dev/null || printf '')
+    _skeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]?.key] | sort | unique | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gkeys" = "direction-dormant:quiet+undated direction-overdue:gone" ] \
+        && [ "$_skeys" = "direction-dormant:quiet direction-dormant:undated direction-overdue:gone" ]; then
+        add_row "direction_health_keys" true "two dormant directions cost one question keyed on both slugs, the overdue one keeps its own, and each subject is still composable" load
     else
-        add_row "direction_health_keys" false "unexpected question keys: '${_keys}'" load
+        add_row "direction_health_keys" false "unexpected question keys: groups '${_gkeys}' over subjects '${_skeys}'" load
+    fi
+
+    # AND THE GROUP CARRIES WHAT THE ONE MESSAGE MUST NAME. A group that folded two subjects into
+    # one key while carrying one of them would ask about half the directions it silenced -- the
+    # collapse trading five questions for a lost one.
+    _gsubj=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "dormant") | (.slugs | join("+")) + "/" + ((.subjects | length) | tostring)] | join(" ")' 2>/dev/null || printf '')
+    _gassign=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "dormant") | .assignees] | join("|")' 2>/dev/null || printf '')
+    if [ "$_gsubj" = "quiet+undated/2" ] && [ -n "$_gassign" ]; then
+        add_row "direction_health_group_names_every_subject" true "the dormant group carries both subjects and the assignees it is addressed to (${_gassign})" load
+    else
+        add_row "direction_health_group_names_every_subject" false "the dormant group did not carry its subjects: '${_gsubj}' addressed to '${_gassign}'" load
     fi
     # THE ACT NAMED IN THE `overdue` BODY (2026-08-27). Re-dating is something the operator can
     # now do THROUGH the loop, so the question about an expired direction must offer it -- in
@@ -2125,26 +2144,51 @@ EOF
         add_row "arrival_state_unreadable" false "a refused survey was not named: $(one_line "$_bad")" load
     fi
 
-    # THE QUESTION KEY. It is what `ask-question.sh`'s asked-once ledger keys on, so a key that
-    # drifts is a question asked twice or never.
+    # THE QUESTION KEYS, AT BOTH GRAINS. Since 2026-09-03 the two arrived directions are ONE
+    # question keyed on both slugs (`groups`), while `directions` keeps a per-subject entry as the
+    # composer's input. The group key carries the sorted slug set rather than the kind alone,
+    # which is what keeps the asked-once gate from turning into a silence when a third direction
+    # arrives next week.
     _out=$(cd "$_root" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
-    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-arrived:arrived direction-arrived:latearrived direction-dormant:quiet direction-overdue:gone " ]; then
-        add_row "arrival_question_keys" true "the step asks direction-arrived for both arrived directions and nothing about the live one" load
+    _gkeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]?.key] | sort | join(" ")' 2>/dev/null || printf '')
+    _skeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]?.key] | sort | unique | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gkeys" = "direction-arrived:arrived+latearrived direction-dormant:quiet direction-overdue:gone" ] \
+        && [ "$_skeys" = "direction-arrived:arrived direction-arrived:latearrived direction-dormant:quiet direction-overdue:gone" ]; then
+        add_row "arrival_question_keys" true "both arrived directions cost one question keyed on both slugs, nothing is asked about the live one, and each subject is still composable" load
     else
-        add_row "arrival_question_keys" false "unexpected question keys: '${_keys}'" load
+        add_row "arrival_question_keys" false "unexpected question keys: groups '${_gkeys}' over subjects '${_skeys}'" load
     fi
 
-    # THE BODY IS A DESCRIPTION OF THE READING. It names WHAT LANDED and THE DATE, stays inside
-    # notify's 25-word bound, and asserts NOTHING about the direction being finished -- the
-    # discipline `dormant` is already held to.
-    _abody=$(printf '%s' "$_out" | sed -n 's/.*"body": *"\(Everything attributed[^"]*\)".*/\1/p' | head -1)
+    # AND THE KEY IS NOT THE KIND ALONE. `direction-arrived` on its own would be asked once ever,
+    # so the direction arriving next week would never be asked about at all -- the asked-once gate
+    # turned into a silence. Proved rather than trusted to the prose: the group key must carry
+    # every slug it stands for.
+    _gsubj=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "arrived") | (.slugs | join("+")) + "/" + ((.subjects | length) | tostring)] | join(" ")' 2>/dev/null || printf '')
+    # The key must be BUILT from that subject set, not merely accompanied by it: a group keyed on
+    # the kind while carrying its slugs elsewhere is the same silence with better bookkeeping.
+    _gkeyed=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "arrived") | (.key == ("direction-" + .reading + ":" + (.slugs | sort | join("+"))))] | all' 2>/dev/null || printf 'false')
+    if [ "$_gsubj" = "arrived+latearrived/2" ] && [ "$_gkeyed" = "true" ]; then
+        add_row "arrival_group_key_carries_the_subject_set" true "the arrived group names both subjects and keys on both slugs, so a later arrival is a new key rather than a silence" load
+    else
+        add_row "arrival_group_key_carries_the_subject_set" false "the arrived group did not carry its subject set: '${_gsubj}'" load
+    fi
+
+    # THE BODY IS A DESCRIPTION OF THE READING. What landed and the date ride the HEADING, which
+    # is where `workaholic:notify`s rule 5 puts a named detail; the body states the reading and
+    # the act, stays inside notify's 25-word ceiling, and asserts NOTHING about the direction
+    # being finished -- the discipline `dormant` is already held to. It is anchored on the
+    # arrived SUBJECT rather than on the sentence's opening words, so a rewording is a change to
+    # the wording and not a silently empty match: the first version of this row read the body out
+    # with a `sed` keyed on `Everything attributed`, and when 2026-09-03 restated the sentence it
+    # found nothing and reported `0 words` -- a row that had stopped reading anything at all.
+    _abody=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]? | select(.reading == "arrived") | .body] | first // ""' 2>/dev/null || printf '')
     _awords=$(printf '%s' "$_abody" | wc -w | tr -d ' ')
     if printf '%s' "$_out" | grep -q 'item(s) landed, dated ' \
         && [ -n "$_abody" ] && [ "$_awords" -le 25 ] \
+        && printf '%s' "$_abody" | grep -q 'reads finished' \
         && printf '%s' "$_abody" | grep -q 'the loop closes nothing' \
         && ! printf '%s' "$_abody" | grep -qi 'is finished\|is done\|has been achieved'; then
-        add_row "arrival_body_describes_the_reading" true "the arrival question names what landed and the date in ${_awords} words, and claims nothing about being finished" load
+        add_row "arrival_body_describes_the_reading" true "the arrival question states the reading in ${_awords} words, leaves what landed and the date on the heading, and claims nothing about being finished" load
     else
         add_row "arrival_body_describes_the_reading" false "the arrival body is wrong (${_awords} words): $(one_line "$_abody")" load
     fi
@@ -2838,12 +2882,26 @@ EOF
 
     # THE QUESTION. Its key is what the asked-once ledger keys on, so a key that drifts is a
     # question asked twice or never; and a direction with runway must draw none.
+    # BOTH GRAINS, since 2026-09-03: the GROUP key is what the asked-once ledger keys on, and the
+    # per-subject keys stay in `directions` as the composer's input. Reading only the subjects is
+    # the retired contract this row used to assert.
     _out=$(cd "$_root" && sh "$_step" --tick 20260101-000000 --root "$_root" --open-proposals "$_open" 2>&1) || true
-    _keys=$(printf '%s' "$_out" | tr ',' '\n' | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | sort | tr '\n' ' ')
-    if [ "$_keys" = "direction-arrived:finished direction-expiring:boundary direction-expiring:soon direction-overdue:gone " ]; then
-        add_row "expiry_question_keys" true "the step asks direction-expiring for both directions inside the window and nothing about the live one" load
+    _gkeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]?.key] | sort | join(" ")' 2>/dev/null || printf '')
+    _skeys=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].directions[]?.key] | sort | unique | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gkeys" = "direction-arrived:finished direction-expiring:boundary+soon direction-overdue:gone" ] \
+        && [ "$_skeys" = "direction-arrived:finished direction-expiring:boundary direction-expiring:soon direction-overdue:gone" ]; then
+        add_row "expiry_question_keys" true "both directions inside the window cost one question keyed on both slugs, nothing is asked about the live one, and each subject is still composable" load
     else
-        add_row "expiry_question_keys" false "unexpected question keys: '${_keys}'" load
+        add_row "expiry_question_keys" false "unexpected question keys: groups '${_gkeys}' over subjects '${_skeys}'" load
+    fi
+
+    # AND THE ONE MESSAGE NAMES BOTH DIRECTIONS. A group is one reply about several subjects; a
+    # group that named one of them would silence the other while reporting itself asked.
+    _gsubj=$(printf '%s' "$_out" | jq -r '[.needs_agent[0].groups[]? | select(.reading == "expiring") | (.slugs | join("+")) + "/" + ((.subjects | length) | tostring)] | join(" ")' 2>/dev/null || printf '')
+    if [ "$_gsubj" = "boundary+soon/2" ]; then
+        add_row "expiry_group_names_every_subject" true "the expiring group carries both subjects, so one message names every direction it stands for" load
+    else
+        add_row "expiry_group_names_every_subject" false "the expiring group did not carry its subjects: '${_gsubj}'" load
     fi
 
     # A WARNING THAT DOES NOT SAY HOW LONG SOMEBODY HAS IS NOT A WARNING. The heading names the
@@ -5952,8 +6010,10 @@ STUB
 #                                      every other unanswerable reason is a fact about us
 #   2. the walk's two outcomes         a red tip attributed to a mid-walk merge with its pull
 #                                      request and author, and the `unattributable` tail
-#   3. the asked-once gate             two ticks over one red commit, one question, keyed
-#                                      `base-red:<commit>`; a degraded read asks nothing
+#   3. the report, not a question     a red base reaches the check-in as a `🔴 Blocked` report
+#                                      addressed to nobody, carrying the attributed merge and no
+#                                      question key, signed by the failing checks with no sha in
+#                                      it; a degraded read still reports nothing at all
 #   4. the reading gates NOTHING       the survey the terminal token is derived from is
 #                                      byte-identical over a red base and a green one, and no
 #                                      script in the driving chain reaches either reader
@@ -5966,9 +6026,11 @@ cmd_verify_base_health() {
     _reader="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/read-base-checks.sh"
     _walk="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/attribute-base-red.sh"
     _step="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-base-health.sh"
-    _ask="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/ask-question.sh"
     _plan="${REPO_ROOT}/plugins/workaholic/skills/drive/scripts/plan-units.sh"
-    for _f in "$_reader" "$_walk" "$_step" "$_ask" "$_plan"; do
+    # `ask-question.sh` is deliberately NOT a precondition here: the `base-red:<commit>` question
+    # is retired and this drill exercises the report path instead, so requiring the asking seam
+    # would be a precondition on a script this step no longer reaches.
+    for _f in "$_reader" "$_walk" "$_step" "$_plan"; do
         [ -f "$_f" ] || emit_err "base_health_seam_unreadable" 4 "${_f} is not present in this checkout"
     done
 
@@ -6118,31 +6180,50 @@ cmd_verify_base_health() {
         add_row "base_health_unattributable_tail" false "an exhausted walk did not answer unattributable: $(one_line "$_wb")" load
     fi
 
-    # 3. THE STEP, AND THE ASKED-ONCE GATE.
+    # 3. THE STEP: A RED BASE IS REPORTED, NOT ASKED ABOUT (2026-09-03, mission
+    # `make-a-red-base-impossible-for-the-loop-to-miss`). This row used to prove the opposite --
+    # a `base-red:<commit>` question and the asked-once gate behind it -- and that question is
+    # RETIRED. `ask-question.sh` holds a question under `quiet_hours` because a question
+    # addresses a named person; a red base asks the operator to decide nothing, so the reason
+    # the window exists does not apply to it, and the loop used to build on a broken base all
+    # night while its own announcement waited for morning. What the step must now hand the
+    # check-in is a `🔴 Blocked` REPORT addressed to nobody, carrying the attribution the walk
+    # made -- and no question key at all, because two announcements of one fact is what this
+    # repository retires roots for.
     _s=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-000000 --root "$_read" ) 2>&1 || true )
-    _key=$(printf '%s' "$_s" | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | head -1)
-    if [ "$_key" = "base-red:${_c3}" ] && printf '%s' "$_s" | grep -q '"status": "ok"'; then
-        add_row "base_health_step_asks_once_per_commit" true "the step keys its question on the attributed commit, not on the tick or the day" load
+    _action=$(_field "$_s" action)
+    _shape=$(_field "$_s" shape)
+    if [ "$_action" = "report_the_red_base_as_a_blocked_alert" ] \
+        && [ "$_shape" = "🔴 Blocked" ] \
+        && printf '%s' "$_s" | grep -q '"status": "ok"' \
+        && printf '%s' "$_s" | grep -q "\"commit\": *\"${_c3}\"" \
+        && printf '%s' "$_s" | grep -q '"pull_request": *"https://example.invalid/pull/42"' \
+        && ! printf '%s' "$_s" | grep -q 'base-red:'; then
+        add_row "base_health_step_reports_the_red_base" true "the step hands the check-in a 🔴 Blocked report carrying the attributed merge, and opens no question" load
     else
-        add_row "base_health_step_asks_once_per_commit" false "the step's question key is wrong: $(one_line "$_s")" load
+        add_row "base_health_step_reports_the_red_base" false "the step did not report the red base as a blocked alert: $(one_line "$_s")" load
     fi
 
-    _qroot=$(mktemp -d); mkdir -p "${_qroot}/.workaholic/moderations"
-    _a1=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-000000 --key "$_key" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
-    _logstep=$(printf '%s' "$_a1" | sed -n 's/.*"log_step": *"\([^"]*\)".*/\1/p')
-    if printf '%s' "$_a1" | grep -q '"ask": true'; then
-        sh "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh" --root "$_qroot" \
-           --tick 20260101-000000 --step "$_logstep" --status ok --summary "asked" >/dev/null 2>&1 || true
-        _a2=$(cd "$REPO_ROOT" && sh "$_ask" --tick 20260101-010000 --key "$_key" --root "$_qroot" --to "$_me" --hour 10 --weekday 1 2>&1) || true
-        if printf '%s' "$_a2" | grep -q '"ask": false'; then
-            add_row "base_health_asked_once" true "a second tick over the same red commit is refused: $(printf '%s' "$_a2" | sed -n 's/.*"reason": *"\([a-z_]*\)".*/\1/p')" load
-        else
-            add_row "base_health_asked_once" false "the asked-once gate did not hold: $(one_line "$_a2")" load
-        fi
+    # AND THE SIGNATURE IS THE FAILING CHECKS, WITH NO SHA IN IT. That is the cool-down's own
+    # rule and it is what makes the report affordable: a key that changed every commit would
+    # suppress nothing, and this loop merges onto its own base every half hour. Proved by moving
+    # the red boundary one commit back -- a DIFFERENT attributed merge, the same failing suite --
+    # and requiring the two signatures to be byte-identical while both ticks still report. A step
+    # that went silent on the second would be the retired asked-once gate leaking back in, where
+    # the dedup now belongs to `workaholic:notify`'s cool-down and to nothing here.
+    _set "$_c2" "$_RED"
+    _s2=$( ( cd "$_read" && PATH="${_bin}:$PATH" sh "$_step" --tick 20260101-010000 --root "$_read" ) 2>&1 || true )
+    _set "$_c2" "$_GREEN"
+    _sig=$(_field "$_s" signature)
+    _sig2=$(_field "$_s2" signature)
+    if [ -n "$_sig" ] && [ "$_sig" = "$_sig2" ] \
+        && printf '%s' "$_s2" | grep -q "\"commit\": *\"${_c2}\"" \
+        && printf '%s' "$_s2" | grep -q '"action": *"report_the_red_base_as_a_blocked_alert"' \
+        && ! printf '%s' "$_sig" | grep -qi '[0-9a-f]\{7,\}'; then
+        add_row "base_health_signature_is_the_failing_checks" true "two red commits failing the same suite carry one signature and no sha, and the later tick still reports: ${_sig}" load
     else
-        add_row "base_health_asked_once" false "the first ask was refused: $(one_line "$_a1")" load
+        add_row "base_health_signature_is_the_failing_checks" false "the report's signature is not the failing checks: '${_sig}' then '${_sig2}' — $(one_line "$_s2")" load
     fi
-    rm -rf "$_qroot"
 
     # A DEGRADED READ ASKS NOTHING. Our own blindness is not a finding about the repository.
     for _sha in "$_tip" "$_c4" "$_c3" "$_c2" "$_c1"; do _clear "$_sha"; done
@@ -8787,6 +8868,64 @@ cmd_verify_stage() {
     emit_verdict "stage" 0 "pass" 0
 }
 
+# ------------------------------------------------------------- verify-codex-clock
+
+# The supported CLI clock must launch from the installed full plugin, with no supervisor copied
+# into the consuming repository. The breaker removes that packaged launcher and proves the
+# compatibility entrypoint names the clock layer rather than misdiagnosing the intact skill.
+cmd_verify_codex_clock() {
+    _launcher_src="${REPO_ROOT}/plugins/workaholic/skills/work/scripts/codex-loop.sh"
+    _shim_src="${REPO_ROOT}/scripts/codex-loop.sh"
+    [ -f "$_launcher_src" ] || emit_err "codex_clock_unreadable" 4 "$_launcher_src is not present"
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _repo="${_tmp}/consumer"
+    _plugin="${_tmp}/installed/workaholic"
+    _bin="${_tmp}/bin"
+    mkdir -p "$_repo" "$(dirname "$_plugin")" "$_bin"
+    git -C "$_repo" -c init.defaultBranch=main init -q
+    git -C "$_repo" config user.email drill@example.com
+    git -C "$_repo" config user.name 'Loop Drill'
+    printf 'empty consumer\n' > "${_repo}/README.md"
+    git -C "$_repo" add README.md
+    git -C "$_repo" commit -q -m initial
+    cp -R "${REPO_ROOT}/plugins/workaholic" "$_plugin"
+    printf '#!/bin/sh\nexit 0\n' > "${_bin}/codex"
+    chmod +x "${_bin}/codex"
+
+    _launcher="${_plugin}/skills/work/scripts/codex-loop.sh"
+    _out=$(cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --dry-run --once 2>&1 || true)
+    case "$_out" in
+        *"codex exec -C ${_repo}"*)
+            add_row "installed_codex_clock_launches" true "the full plugin launches one dry-run tick from an otherwise empty consuming repository" load ;;
+        *) add_row "installed_codex_clock_launches" false "the installed launcher did not produce the tick command: $(one_line "$_out")" load ;;
+    esac
+
+    mkdir -p "${_repo}/scripts"
+    cp "$_shim_src" "${_repo}/scripts/codex-loop.sh"
+    rm "$_launcher"
+    _broken=$(cd "$_repo" && PATH="${_bin}:$PATH" sh scripts/codex-loop.sh --dry-run --once 2>&1 || true)
+    case "$_broken" in
+        *clock_wrapper_missing:*plugin_skill_missing:*)
+            add_row "codex_clock_breaker" false "the missing launcher was also misdiagnosed as a missing skill: $(one_line "$_broken")" breaker ;;
+        *clock_wrapper_missing:*)
+            add_row "codex_clock_breaker" true "removing the packaged launcher produces clock_wrapper_missing and no plugin-skill diagnosis (this drill can fail)" breaker ;;
+        *) add_row "codex_clock_breaker" false "removing the packaged launcher did not produce clock_wrapper_missing: $(one_line "$_broken")" breaker ;;
+    esac
+
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "codex_clock_writes_nothing_outside_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "codex_clock_writes_nothing_outside_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then emit_verdict "codex-clock" 0 "fail" 1; fi
+    emit_verdict "codex-clock" 0 "pass" 0
+}
+
 # ------------------------------------------------------------------ verify-all
 #
 # THE AGGREGATE VERB (2026-08-29, mission `run-the-loop-s-own-proofs-on-every-turn`).
@@ -9342,6 +9481,208 @@ cmd_verify_cadence_lapse() {
     emit_verdict "cadence-lapse" 0 "pass" 0
 }
 
+# ------------------------------------------------------- verify-announced-asks
+# THE FINISHED ASK WHOSE THREAD NEVER HEARD (2026-09-03, mission
+# `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`).
+#
+# `🟢 Implemented` is a PER-UNIT post of `/implement`'s route step, so an ask whose work landed
+# through a session working it directly reaches no route step at all and its thread ends at the
+# `📥 受理` receipt. Measured 2026-09-02: three merged pull requests, the issue closed, and the
+# operator found out by asking a session.
+#
+# WHAT IS DRILLABLE AND WHAT IS NOT. The POST is an agent act through the connector, and this
+# repository already says of the Japanese rule that what a run actually emits is checkable by
+# nothing — so the drill covers the two halves that ARE mechanical: the reader that decides
+# which items to look at, and the byte-identity of the shape across its two copies. The
+# announce-once behaviour is the thread read, which by design leaves no trace in the
+# repository; asserting it here would be asserting a fixture, not the mechanism.
+#
+# HERMETIC. The fixture is a throwaway git repository this function builds and a `gh` stub on
+# `PATH` that answers from files. No network, no real `gh`, no Slack, no `origin`, no credential.
+#
+# THE BREAKER IS WRITTEN AGAINST THE BEHAVIOUR, not the return shape: wire the reader so a
+# refused listing answers `ok: true` with an empty candidate list instead of `ok: false` with
+# its reason, and a blind hour must then be indistinguishable from a quiet one. That is the
+# only way this reading can do harm — the tick would report `no_candidates` over an hour it
+# could not see, and this repository has twice measured a reader rendering its own blindness as
+# *nothing found*. Without the breaker, rows 4 and 5 could pass against a reader that never had
+# the distinction.
+cmd_verify_announced_asks() {
+    _reader="${REPO_ROOT}/plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"
+    _catalog="${REPO_ROOT}/plugins/workaholic/skills/notify/reference/notifications.md"
+    _ceiling="${REPO_ROOT}/plugins/workaholic/commands/infinite-development.md"
+    for _f in "$_reader" "$_catalog" "$_ceiling"; do
+        [ -f "$_f" ] || emit_err "announced_asks_unreadable" 4 "$_f is not present in this checkout"
+    done
+
+    _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    _tmp=$(mktemp -d)
+    _fx="${_tmp}/fx"
+    _bin="${_tmp}/bin"
+    _fix="${_tmp}/fix"
+    mkdir -p "${_fx}/.workaholic/feedbacks" "$_bin" "$_fix"
+
+    (
+        cd "$_fx" \
+            && git init -q . >/dev/null 2>&1 \
+            && git remote add origin git@github.com:acme-org/source-repo.git
+    ) || emit_err "announced_asks_fixture" 4 "could not build the throwaway repository"
+
+    printf -- '---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/917\n' \
+        > "${_fx}/.workaholic/feedbacks/20260903052643-an-ask-that-landed.md"
+
+    printf '[]' > "${_fix}/empty-array.json"
+    printf '{}' > "${_fix}/empty-object.json"
+    # One closed ask, and one ordinary closed issue that is not an ask at all.
+    printf '%s' '[{"number":917,"closed_at":"2026-09-02T20:32:35Z","html_url":"https://github.com/acme-org/source-repo/issues/917","title":"[FB] an ask that landed","body":"kind: instruction\n"},{"number":700,"closed_at":"2026-09-02T10:00:00Z","html_url":"https://github.com/acme-org/source-repo/issues/700","title":"ordinary","body":"nothing\n"}]' \
+        > "${_fix}/issues.json"
+    printf '%s' '[{"event":"cross-referenced","source":{"issue":{"number":922,"title":"[Proposal] an ask that landed","html_url":"https://github.com/acme-org/source-repo/pull/922","pull_request":{"merged_at":"2026-09-02T20:32:34Z"}}}},{"event":"closed"}]' \
+        > "${_fix}/timeline-917.json"
+    printf '%s' '{"merged_by":{"login":"a-merger"}}' > "${_fix}/pull-922.json"
+
+    # The stub dispatches on the endpoint and applies the `--jq` program the script passed,
+    # because `gh api` applies it before any caller sees bytes. A stub printing raw JSON would
+    # exercise a shape the real transport never produces.
+    cat > "${_bin}/gh" <<STUB
+#!/bin/sh
+prog=""; url=""
+while [ \$# -gt 0 ]; do
+  case "\$1" in
+    --jq) prog="\$2"; shift 2 ;;
+    repos/*) url="\$1"; shift ;;
+    *) shift ;;
+  esac
+done
+FIX=${_fix}
+f=""
+case "\$url" in
+  *"/timeline"*) n=\$(printf "%s" "\$url" | sed -e "s#.*/issues/##" -e "s#/timeline.*##")
+    f="\$FIX/timeline-\$n.json"; [ -f "\$f" ] || f="\$FIX/empty-array.json" ;;
+  *"/pulls/"*) n=\$(printf "%s" "\$url" | sed -e "s#.*/pulls/##" -e "s#[?].*##")
+    f="\$FIX/pull-\$n.json"; [ -f "\$f" ] || f="\$FIX/empty-object.json" ;;
+  *"/issues?"*) f="\$FIX/issues.json" ;;
+esac
+[ -n "\$f" ] && [ -f "\$f" ] || { echo "no fixture for \$url" >&2; exit 1; }
+jq -r "\$prog" < "\$f"
+STUB
+    chmod +x "${_bin}/gh"
+    cp "${_bin}/gh" "${_bin}/gh-real"
+
+    _read() { ( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_reader" --root "$_fx" 2>&1 ) || true; }
+
+    # 1. THE ITEM GRAIN. `reconcile-candidates.sh` enumerates `work-*` pull requests and can
+    #    never see this item; the reader names it and resolves its `fb:<stem>` thread key, and
+    #    a closed issue matching neither keep term is not its subject at all.
+    _r=$(_read)
+    if printf '%s' "$_r" | jq -e '.ok == true and (.candidates | length == 1) and .candidates[0].number == 917 and .candidates[0].stem == "20260903052643-an-ask-that-landed"' >/dev/null 2>&1; then
+        add_row "announced_reader_names_the_item" true "the closed ask is one candidate with its feedback stem resolved, and the ordinary closed issue is not" load
+    else
+        add_row "announced_reader_names_the_item" false "the reader did not name the item: $(one_line "$_r")" load
+    fi
+
+    # 2. WHAT LANDED. A finish line must say what merged and by whom; an item nothing merged is
+    #    a DIFFERENT sentence and must not read alike.
+    if printf '%s' "$_r" | jq -e '.candidates[0].landed | length == 1 and .[0].number == 922 and .[0].merged_by == "a-merger"' >/dev/null 2>&1 \
+        && printf '%s' "$_r" | jq -e '.candidates[0].closed_unmerged == false and .candidates[0].landed_read == "ok"' >/dev/null 2>&1; then
+        add_row "announced_candidate_carries_what_landed" true "the candidate carries the merged pull request, its merger and its merge time" load
+    else
+        add_row "announced_candidate_carries_what_landed" false "the candidate did not carry what landed: $(one_line "$_r")" load
+    fi
+
+    _hand=$(printf '%s' '[{"event":"closed"}]')
+    printf '%s' "$_hand" > "${_fix}/timeline-917.json"
+    _r2=$(_read)
+    if printf '%s' "$_r2" | jq -e '.candidates[0].closed_unmerged == true and (.candidates[0].landed | length == 0) and .candidates[0].landed_read == "ok"' >/dev/null 2>&1; then
+        add_row "announced_hand_closed_is_its_own_sentence" true "an issue closed with nothing merged reads closed_unmerged, positively" load
+    else
+        add_row "announced_hand_closed_is_its_own_sentence" false "a hand-closed item did not say so: $(one_line "$_r2")" load
+    fi
+
+    # 4. AN UNREADABLE LISTING IS NEVER AN EMPTY ONE. `ok: false` with a named reason and
+    #    EXIT 0, and no candidate list at all for a caller to misread as *nothing to announce*.
+    #    The tick holds silent on this and reports the reader's own reason verbatim.
+    cat > "${_bin}/gh" <<'BLIND'
+#!/bin/sh
+echo "boom" >&2
+exit 1
+BLIND
+    chmod +x "${_bin}/gh"
+    _blind=$( ( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_reader" --root "$_fx" 2>&1; printf ' exit=%s' "$?" ) || true)
+    case "$_blind" in
+        *'"ok": false'*'"reason": "list_failed"'*' exit=0')
+            case "$_blind" in
+                *candidates*) add_row "announced_blind_is_not_empty" false "a refused listing emitted a candidate list: $(one_line "$_blind")" load ;;
+                *) add_row "announced_blind_is_not_empty" true "a refused listing answers ok false with its reason, exit 0, and no candidate list" load ;;
+            esac ;;
+        *) add_row "announced_blind_is_not_empty" false "expected ok false / list_failed / exit 0, got: $(one_line "$_blind")" load ;;
+    esac
+
+    # 5. AN UNREADABLE TIMELINE HOLDS THE CANDIDATE. *Nobody merged anything* and *I could not
+    #    see what merged* are different sentences, and only the first may be announced.
+    cat > "${_bin}/gh" <<STUB2
+#!/bin/sh
+case "\$*" in
+  *timeline*) echo "boom" >&2; exit 1 ;;
+esac
+exec ${_bin}/gh-real "\$@"
+STUB2
+    chmod +x "${_bin}/gh"
+    _r3=$(_read)
+    if printf '%s' "$_r3" | jq -e '.candidates[0].landed_read == "timeline_unreadable" and .candidates[0].closed_unmerged == false and (.candidates[0].landed | length == 0)' >/dev/null 2>&1; then
+        add_row "announced_unreadable_landing_is_held" true "an unreadable timeline is named, never rendered as an item a person closed" load
+    else
+        add_row "announced_unreadable_landing_is_held" false "an unreadable timeline was not distinguished from a hand-closed item: $(one_line "$_r3")" load
+    fi
+
+    # 6. THE BREAKER. Wire a refused listing to answer with an empty candidate list, and the
+    #    blind hour becomes indistinguishable from the quiet one.
+    _broken="${_tmp}/broken-reader.sh"
+    sed -e 's/^    printf .{"ok": false, "reason": "%s", "detail": "%s"}.n. "\$1" "\$detail"$/    printf '"'"'{"ok": true, "slug": "x", "limit": 10, "read": 0, "truncated": false, "candidates": [], "unresolved": []}\\n'"'"'/' \
+        "$_reader" > "$_broken"
+    cat > "${_bin}/gh" <<'BLIND2'
+#!/bin/sh
+echo "boom" >&2
+exit 1
+BLIND2
+    chmod +x "${_bin}/gh"
+    _bk=$( ( cd "$_fx" && PATH="${_bin}:$PATH" sh "$_broken" --root "$_fx" 2>&1 ) || true)
+    if printf '%s' "$_bk" | jq -e '.ok == true and (.candidates | length == 0)' >/dev/null 2>&1; then
+        add_row "announced_breaker" true "with the refusal wired to an empty list, a blind hour reads exactly like a quiet one (this drill can fail)" breaker
+    else
+        add_row "announced_breaker" false "the breaker did not break: the wired-out reader still distinguished blindness ($(one_line "$_bk")), so rows 4 and 5 prove nothing" breaker
+    fi
+
+    # 3. THE SHAPE LIVES IN TWO FILES AND THE TWO MUST NOT DRIFT. The catalog decides it; the
+    #    command is the ceiling a routine-fired session actually reads.
+    _seg() {
+        awk '/^```$/ { if (grab) { print; grab=0; next } }
+             /🟢 Implemented \[<ask title>\]\(<issue url>\)/ { grab=1; print prev; print; next }
+             { if (grab) print; prev=$0 }
+             ' "$1" 2>/dev/null | head -40
+    }
+    _a=$(_seg "$_catalog")
+    _b=$(_seg "$_ceiling")
+    if [ -n "$_a" ] && [ "$_a" = "$_b" ]; then
+        add_row "announced_shape_is_one_wording" true "the finish-line shape is byte-identical in the catalog and the command ceiling" load
+    else
+        add_row "announced_shape_is_one_wording" false "the two copies of the shape differ, or neither carries it" load
+    fi
+
+    # 4. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
+    if [ "$_before" = "$_after" ]; then
+        add_row "announced_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
+    else
+        add_row "announced_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
+    fi
+
+    rm -rf "$_tmp"
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "announced-asks" 0 "fail" 1
+    fi
+    emit_verdict "announced-asks" 0 "pass" 0
+}
+
 # ---------------------------------------------------------- verify-plan-adjust
 # THE LOOP ADJUSTS ITS OWN PLAN (2026-09-01, mission `adjust-the-plan-hourly-not-only-report-it`).
 #
@@ -9435,8 +9776,15 @@ cmd_verify_plan_adjust() {
     _open="${_tmp}/open.json"
     printf '{"ok": true, "identity": "drill@example.invalid", "proposals": []}\n' > "$_open"
     # Four active missions carry queued work, so the repository's work in flight is 4.
+    # THE FIXTURE ESTABLISHES THE CONDITION IT ASSERTS, INCLUDING THE ABSENCE OF ONE. Row 3 reads
+    # the UNDECLARED shape, and the sanctioned home for the declaration is the repository's own
+    # `.claude/settings.json` `env` block — so on a repository that has declared a limit the value
+    # reached this fixture and row 3 read `{declared: true, limit: 3}`: green in CI, where no such
+    # environment exists, and red on the operator's own machine. A drill that depends on what the
+    # operator happens to have declared is not hermetic, which is the one property this file has.
+    # `env -u` removes it first; the drill's own value, when it has one, is applied after.
     _run_survey() {
-        ( cd "$_fx" && env ${1:+WORKAHOLIC_WIP_LIMIT="$1"} sh "$_survey" --open-proposals "$_open" "1 days ago" 2>&1 ) || true
+        ( cd "$_fx" && env -u WORKAHOLIC_WIP_LIMIT ${1:+WORKAHOLIC_WIP_LIMIT="$1"} sh "$_survey" --open-proposals "$_open" "1 days ago" 2>&1 ) || true
     }
 
     # 1. ABOVE THE LIMIT: the direction is HELD, by name, with the count and the limit said.
@@ -10689,7 +11037,7 @@ cmd_verify_retirement_candidates() {
     emit_verdict "retirement-candidates" 0 "pass" 0
 }
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-codex-clock [--json]|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-announced-asks [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -10719,6 +11067,7 @@ case "$CMD" in
     reset) cmd_reset "$@" ;;
     verify-specificate) cmd_verify_specificate "$@" ;;
     verify-implement) cmd_verify_implement "$@" ;;
+    verify-codex-clock) cmd_verify_codex_clock "$@" ;;
     verify-plan) cmd_verify_plan "$@" ;;
     verify-status) cmd_verify_status "$@" ;;
     verify-cadence) cmd_verify_cadence "$@" ;;
@@ -10755,6 +11104,7 @@ case "$CMD" in
     verify-plan-adjust) cmd_verify_plan_adjust "$@" ;;
     verify-cadence-lapse) cmd_verify_cadence_lapse "$@" ;;
     verify-blocked-tick) cmd_verify_blocked_tick "$@" ;;
+    verify-announced-asks) cmd_verify_announced_asks "$@" ;;
     verify-stranded-publication) cmd_verify_stranded_publication "$@" ;;
     verify-stranded-claim-branch) cmd_verify_stranded_claim_branch "$@" ;;
     verify-directed-notification) cmd_verify_directed_notification "$@" ;;

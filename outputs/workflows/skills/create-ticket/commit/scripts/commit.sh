@@ -11,6 +11,7 @@ usage() {
     echo "  --allow-empty         Record a commit that changes no file (coordination markers only)"
     echo "  --trailer <Key: Val>  Emit an extra git trailer (repeatable); for machine-read metadata"
     echo "  --category <value>    Emit a 'Category: <Added|Changed|Removed>' git trailer for /story grouping"
+    echo "  --housekeeping <kind> Emit a 'Workaholic-Housekeeping: <heartbeat|claim|index|hours>' trailer"
     echo ""
     echo "Parameters:"
     echo "  title     - Commit title (present-tense verb, 50 chars max)"
@@ -28,6 +29,7 @@ usage() {
 SKIP_STAGING=false
 ALLOW_EMPTY=false
 CATEGORY=""
+HOUSEKEEPING=""
 EXTRA_TRAILERS=""
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -73,6 +75,23 @@ while [ $# -gt 0 ]; do
             CATEGORY="$2"
             shift 2
             ;;
+        # THE RUN'S OWN BOOKKEEPING, MARKED AS SUCH (2026-09-03, mission
+        # `compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk`). A heartbeat,
+        # a claim stamp, an index refresh and an hours record are the loop's memory, not a
+        # change to the development target, and `merge-commit-body.sh` drops them from the
+        # squash body it composes. It drops them by THIS MARKER and never by a title, because
+        # `Refresh heartbeat` is one wording of one writer and the next housekeeping commit
+        # will carry another.
+        --housekeeping)
+            if [ $# -lt 2 ]; then
+                echo "Error: --housekeeping requires a value"
+                echo ""
+                usage
+                exit 1
+            fi
+            HOUSEKEEPING="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 1
@@ -96,6 +115,21 @@ if [ -n "$CATEGORY" ]; then
         Added|Changed|Removed) : ;;
         *)
             echo "Error: --category must be one of: Added, Changed, Removed (got: $CATEGORY)"
+            exit 1
+            ;;
+    esac
+fi
+
+# THE HOUSEKEEPING KIND IS A CLOSED SET, and an unlisted one is refused by name with
+# NOTHING COMMITTED. The marker's whole value is that a reader -- `merge-commit-body.sh`
+# today, whatever reads it next -- can test one string and be right; a kind invented at a
+# call site would be dropped silently by every reader that had not heard of it, which is the
+# failure mode a free-form trailer already has and this flag exists to avoid.
+if [ -n "$HOUSEKEEPING" ]; then
+    case "$HOUSEKEEPING" in
+        heartbeat|claim|index|hours) : ;;
+        *)
+            echo "Error: bad_housekeeping_kind: --housekeeping must be one of: heartbeat, claim, index, hours (got: $HOUSEKEEPING)"
             exit 1
             ;;
     esac
@@ -410,6 +444,10 @@ ${TRAILERS}"
 fi
 if [ -n "$CATEGORY" ]; then
     TRAILERS="Category: ${CATEGORY}
+${TRAILERS}"
+fi
+if [ -n "$HOUSEKEEPING" ]; then
+    TRAILERS="Workaholic-Housekeeping: ${HOUSEKEEPING}
 ${TRAILERS}"
 fi
 if [ -n "$EXTRA_TRAILERS" ]; then

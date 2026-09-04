@@ -156,7 +156,7 @@ if [ "$count" -eq 0 ]; then
 fi
 
 numbers=$(printf '%s' "$conflicted" | sed 's/.*"number": //; s/,.*//' | tr '\n' ' ' | sed 's/ $//')
-printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s) — the next [Implement] tick attempts each one and merges what it settles; only what the merge itself cannot settle waits on a person", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
+printf '{"step": "merge-conflicts", "status": "blocked", "reason": "conflict", "summary": "%s of %s open pull request(s) conflicted (#%s) — resolving them belongs to an [Implement] run rather than to this tick, which reads and does not merge; what the merge itself cannot settle waits on a person", "needs_agent": [], "conflicted": [%s], "uncomputed": %s, "event": "%s of %s open pull request(s) cannot merge: conflicted (#%s)"}\n' \
     "$count" "$total" "$(printf '%s' "$numbers" | sed 's/ /, #/g')" \
     "$(printf '%s' "$numbers" | tr ' ' '\n' | awk 'NF { printf "%s%s", (n++ ? ", " : ""), $0 }')" \
     "$uncomputed" \

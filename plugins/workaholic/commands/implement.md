@@ -13,6 +13,44 @@ skills:
 
 Run the preloaded `workaholic:drive` skill's **Unified Run** section end to end. This is the **unattended** entry point — the one the `[Implement]` routine and every caller-side loop invoke: **no `AskUserQuestion` anywhere, at any step**; a decision the run cannot make is deferred and recorded in the final report, never asked. It **never overrides a gate** (a `secret` hard-stops; a `size`/`leak` block or a missing confirmation method demotes to the PR path, reported with the gate that caused it) and never calls `land-unit.sh`. `$ARGUMENTS`, when present, names one unit (a mission slug or a ticket path) — a scope, not a mode. End with the reconciliation line and the terminal token derived from the skill's §7 table — the `/goal /implement ok` caller contract, never self-graded.
 
+## One PR-unit, then end
+
+**An `/implement` run claims ONE PR-unit, drives it to its routed end, reports, and ends** (2026-09-03,
+mission `stop-a-finished-subagent-and-take-the-loop-s-clock-off-it`). It does not survey again for a
+second unit. If the offer still holds work, that is the **next tick's** run, on a fresh context.
+
+**Why, measured**: one `implement` agent lived one hour thirty minutes, landed a mission of eight
+tickets, then claimed and began a **second, unrelated** mission and planned it inside a context still
+carrying the whole of the first. The concurrency rule permits one runner and nothing bounded what
+that runner did inside its own context — this is the case the fresh-context intention exists to
+prevent and the only one the other rules cannot reach.
+
+**What it costs, stated**: the loop lands one unit per tick rather than as many as one context can
+hold, so a full queue drains over more ticks. That is the trade the operator asked for — a plan made
+inside a context carrying an unrelated mission is worse than a plan made an hour later on a clean
+one.
+
+**The terminal token does not move.** A run that drove its one unit cleanly and leaves a claimable
+offer behind still reports `pending` by §7's survey row, exactly as it always did: the queue is not
+empty, and the token says so. `ok` still means *nothing claimable remains*.
+
+**Everything before the claim is unchanged** — the freshen, the survey, the once-per-run readings and
+every act on another unit's claim (a catch-up, a delivery retry, a stranded publication) still run,
+because none of them claims a unit or drives a ticket. The bound is on **claiming a second unit**,
+not on the run's other work.
+
+## What this run reports about the base
+
+**The base's health is read once per run, and a suite that never ran is named beside the colour** (2026-09-03, mission `make-a-red-base-impossible-for-the-loop-to-miss`). `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/read-base-checks.sh <tip> --declared` answers `green` / `red` / `unanswerable` **and** `unverified[]`, the declared workflows with no run on that commit. Report both: a degraded read is reported as degraded and **never as green**, a degraded declared-read (`unverified_readable: false`) is named by its reason and **never as *every declared suite ran***, and an unverified suite **moves no token** — it is a fact about the repository rather than about the unit this run drove.
+
+## What this run's own merges carry
+
+**The squash title and body are read, never spelled** (2026-09-03, mission `compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk`). Two merges in this run are made by the agent rather than by a script — the `review` route's REST merge and the one `mcp__github__merge_pull_request` retry that a `session_type_cannot_merge` refusal licenses — and a squash merge whose call carries no `commit_message` gets the forge's own default: the concatenation of every commit message on the branch, so the claim stamp, legacy heartbeats and index refreshes land on the trunk inside the squash body. New heartbeats use a separate ref, but old branches remain readable. Measured on this repository: 48 commits on `main` whose body carries `Refresh heartbeat`, every one a squash body, the longest 11,515 lines.
+
+**The branch's own checks are read before either merge, and the reading is the gate.** Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/branch-checks.sh <pull-request-number>` and merge only when it answers `gate: pass`. A `gate: refuse` — `checks_red` or `checks_pending` — **does not merge and is not an error**: leave the pull request open, leave the claim standing, report the unit's merge outcome as `merge_refused: <that reason>`, and the next tick's delivery retry lands it once the checks conclude. Every other degradation answers `pass` with an `unreadable:<reason>` the run reports, because a repository whose checks this session cannot read must stay exactly as deliverable as it was. Measured 2026-09-03: three units merged before their own `Loop Drills` run had finished, one of them red, and `main` then carried a red drill suite for four hours with six further merges landing on it.
+
+Before either merge, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/merge-commit-body.sh <pull-request-number>` and pass its `title` and `body` through as `-f commit_title=` and `-f commit_message=` (REST) or as the connector's commit title and message. The values are **never composed here** — that derivation is the script's, exactly as `gather/scripts/merge-method.sh` owns the method. A composer answering `unreadable:<reason>` still yields a body (the story description when one was read, the fallback line otherwise), so the **merge is never held on it**; report the `source` (`story` / `fallback` / `unreadable:<reason>`) beside the unit's merge outcome, as evidence that moves no token.
+
 ## What this run posts
 
 The notification surface is **this command's**, not the routine's — a routine prompt names the command and nothing else, so a shape that changes here reaches every account's routine on the next run with no routine edit (`workaholic:notify`, *The command is the ceiling*). Post shapes are byte-identical to `workaholic:notify`'s catalog; a diff between the two is a drift to fix, never a second wording.
@@ -63,6 +101,12 @@ One sentence, max 30 words, what the feedback asks for.
 ```
 
 If the run stops before claiming anything, post `workaholic:notify`'s precondition-stop shape instead. An attended `/drive` run posts none of this.
+
+**A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
+
+**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+
+**A line this run could not send is carried on the unit's own story, and a later tick sends it once.** Where the finish line does not post, record it before the run ends — `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/record-unposted-line.sh <story-file> "<shape>" "<reason>" "<the line>"` from inside the worktree, then commit and push, exactly as a refused merge outcome is recorded. At the head of a later run, read `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-unposted-lines.sh`, send each candidate **once** through the transport this section already selects, and on a send that landed run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/clear-unposted-line.sh <unit-id>`. A send refused again leaves the record standing and is reported in the same vocabulary the first attempt used; a candidate named with no outcome reported is non-conformant on its face. **A unit that merged has no branch left to carry the record**, so its refused line is reported by the run that lost it and carried by nobody.
 
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or guess retired namespaces.

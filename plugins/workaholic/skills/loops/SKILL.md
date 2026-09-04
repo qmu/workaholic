@@ -18,6 +18,60 @@ Each tick reads the inbound Slack channel and answers on it, spawns `propose` an
 as background subagents, and ends. The tick is short by construction, so a person's message is
 answered within five minutes whatever the work is doing.
 
+**The clock is a recorded finish, not a live agent** (2026-09-03, mission
+`stop-a-finished-subagent-and-take-the-loop-s-clock-off-it`). `ListAgents` answers **is this loop
+still running** and nothing else; every `idle` subagent is stopped at the **head** of the tick,
+unconditionally, because an idle agent is a **resumable session holding its whole transcript** and
+stopping it is the only act that returns the context window. The tick that first observes a run idle
+records `loop-finish-<name>` on the tick log and every cadence is read from that. **An `/implement`
+run takes one PR-unit and ends**, so no context spans two missions.
+
+**The tick's own measurements, rejected alternatives and history live in
+[reference/tick-record.md](reference/tick-record.md)**, not in the command body (2026-09-03,
+mission `pay-only-the-operative-cost-on-every-tick`). The command runs in one session that never
+resets, so every byte of it is re-paid on every five-minute tick — a run applying a rule needs the
+rule, and a person deciding whether to *change* a rule needs the record. **No operative instruction
+moved and nothing was replaced by a summary**: `workaholic:notify` states that *the command is the
+ceiling*, and a rule the run must read to act stays inlined there byte-identical while a provenance
+citation stays a citation.
+
+## The same loop on Codex
+
+`/work` and `/infinite-development` are **not reachable from Codex** — both `.codex-plugin`
+manifests expose `"skills"` and nothing else, so `commands/` reaches Codex as files in the tree
+and never as commands — and Codex has no **detached** subagent whose parent ends first.
+
+**In the ChatGPT desktop app, the clock is a Scheduled task inside the current chat.** It runs
+one tick per invocation in the local project and returns the report to that chat; the durable
+prompt and the local-project requirement live in `workaholic:work`. Scheduled tasks are an app
+surface. They do not make `/work` a CLI command and do not change the sequential tick below.
+
+**In Codex CLI or the IDE, the clock remains external.** Those surfaces have no Scheduled
+management interface; diagnosed 2026-09-03 with `codex-cli 0.149.1` and retained as the CLI
+fallback:
+
+```sh
+sh <work-skill-directory>/scripts/codex-loop.sh         # one `codex exec` per interval
+sh <work-skill-directory>/scripts/codex-loop.sh --once  # one tick for cron or systemd
+```
+
+The supervisor ships beside the installed `workaholic:work` skill, so no repository-local
+wrapper is required. The supervisor is the clock and **`workaholic:work` is the contract both agents read** — the
+operator's own shape: Claude Code calls the loop as a command, every other agent calls it as a
+skill, and `build.mjs` publishes it. The work runs **inline and in sequence** off Claude Code,
+because there is nothing to detach it to.
+Ticks cannot overlap by construction; `flock` refuses a second supervisor; the cadences are read
+from the same tick log, which never depended on an agent listing. `.claude/settings.json`'s `env`
+block is read and exported by the supervisor, so there is one declaration for both agents.
+
+**What the sequential port loses is stated rather than discovered**: the five-minute answer to a person
+(here the Slack turn is the tick's first act, so the worst case is one tick's work duration) and
+the Claude-Code tool-level hooks (the script-level gates still hold; install the git-native
+`commit-msg` hook for the rest). **Codex CLI has no Scheduled management surface**; the desktop
+app does, and a chat-bound task restores the missing report path without changing the tick. The
+measurements, the rejected two-loop split and the full substitution table:
+`workaholic:work`'s `reference/other-agents.md`.
+
 ## Why the tick does not wait
 
 The loop's job is two things at different speeds: **advancing the work**, which takes minutes to
@@ -88,6 +142,21 @@ home in the tick that calls it. `0` means every tick.
 missions, standing rulings, findings — are hourly by nature, and the log is a reader that
 already exists. An unreadable log spawns it.
 
+## The allocation is decided from what the tick just read
+
+Read independently claimable work with `loops/scripts/claimable-units.sh` and machine CPU facts
+with `loops/scripts/read-machine-load.sh`. Both return null counts with a named degradation when
+they cannot read; a missing reading never becomes a plausible zero. `implement` fans out to
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound − running)`, with an absent bound meaning
+one and an invalid bound reported as `bad_fanout`. Each runner surveys and claims for itself, so
+the claim arbiter remains the only allocator and a losing race holds nothing.
+
+The event-driven ingest half runs when this tick captured an ask, independently of the cadenced
+strategy judgement. A prior strategy result may defer only its own reported `work_waiting`, is
+lifted when implementation lands, and is capped by `WORKAHOLIC_PROPOSE_DEFER_MAX` (default 3).
+Every allocation, deferral, and unreadable input is named in the tick report; watching is a
+decision, not silence.
+
 Beneath all of that, nothing else needed arbitrating: `/implement` drives every unit in its own
 claim worktree and the claim protocol arbitrates the remote (`workaholic:drive`, *Claims*);
 `/specificate` writes through a publish tree at `<root>/.publish`. Two subagents of one session
@@ -117,80 +186,23 @@ sweep's **scripts** (`list-swept-slack-refs.sh`, `file-inbound-ask.sh`) — movi
 churn for nothing — and `commands/infinite-development.md` is the one place their use is
 specified.
 
-## The allocation is decided from what the tick just read
+**And the tick announces what finished, in the same turn** (2026-09-03, mission
+`announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). `🟢 Implemented` is a
+**per-unit** post of `/implement`'s route step, so an ask whose work landed through a session
+working it directly reaches no route step and its thread ends at the `📥 受理` receipt — from the
+channel, an ask that shipped hours ago and one nobody started are byte-identical. Measured
+2026-09-02: three merged pull requests, the issue closed, and the operator found out by asking a
+session.
 
-**The tick's allocation was a constant and the loop's state was not** (2026-09-03, mission
-`decide-each-tick-s-allocation-from-what-the-tick-just-read`), so the bottleneck never got
-capacity and a runner with nothing to do was walked anyway. Measured over two hours: 54 tickets
-across 8 active missions, **one** `implement` runner by construction — the concurrency rule
-forbade a second — about seven hours of serial queue; and `propose`'s strategy half produced no
-proposal on any run, each time re-deriving a gate only `implement` could clear.
-
-**The concurrency rule is narrowed, not dropped.** `propose`, `ingest` and `moderate` stay one
-agent per name. `implement` fans out to `min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound
-− running)`, each runner under its own name, and only `running` runners count against the bound
-so a fan-out does not compound across ticks. **Absent means 1** — the present single runner — so
-a repository that declares nothing is byte-identical to one before this existed.
-
-**No runner is handed a unit.** Each surveys and claims for itself, and the claim arbiter settles
-a race (`claim.sh` §3b wins one ref per claimed artifact before it creates anything, so the loser
-refuses `claim_race_lost` holding no branch, worktree or commit). Assigning units at the tick
-would put a second allocator beside `plan-units.sh`'s order. The stated cost is that a losing race
-spends an agent run that produces nothing, bounded by the declared number.
-
-**Two readers, and both answer `null` rather than a plausible number when they cannot read:**
-
-| Reader | Answers | Degradation |
-| ------ | ------- | ----------- |
-| `loops/scripts/claimable-units.sh` | how many PR-units are independently claimable — `claimable`, `missions`, `backlog_units`, `resumable` | `readable: false` with `not_current` / `shallow` / `backlog_error` / `owner_unresolved` / `placeholder_identity` / `survey_unreadable`, and **null** counts |
-| `loops/scripts/read-machine-load.sh` | the machine it is about to start runners on — `cores`, `load1`, `load_per_core` | `readable: false` with `no_loadavg` / `no_core_count` / `unparseable`, and **null** counts |
-
-`claimable-units.sh` **composes `plan-units.sh`** and derives nothing of its own — counting
-`todo/` files would ignore missions, claims, ownership and every exclusion the survey already
-makes, and would hand the tick a number the executor would then refuse. It counts all loose
-backlog as **one** unit, because the batch partition is a judgement made at §2 of the Unified Run:
-under-counting spawns fewer runners than the queue could carry, over-counting spawns runners that
-find nothing. **Cost, measured and stated rather than worked around**: 68–73 seconds on this
-machine, three consecutive warm runs — roughly a quarter of a five-minute tick.
-
-`read-machine-load.sh` exists because the tick decided how many runners to start and read nothing
-about the machine it started them on. Measured mid-fan-out here: three concurrent runners on a
-**four-core** machine at loadavg `7.99 / 6.42 / 5.60`, the fifteen-minute figure saying it had
-been over capacity for a while rather than spiking. Memory was half free and the SoC was not
-throttling, so **CPU was the binding resource** — the reader answers about CPU alone and says so
-rather than claiming a verdict about the machine's health. It answers **`null`, never `0`**: a
-zero load reads as *an idle machine*, the one answer that would make a consumer fan out hardest at
-exactly the moment it must not.
-
-**`readable` is absent on a completed read** on both — the `merge_policy` / `status:` convention
-this repository already holds — so a consumer tests `readable == false` and never `readable //
-true`.
-
-**The ingest half runs on the tick's own capture.** `propose` bundled an event-driven half with a
-state-gated one behind a single number, so a captured ask waited up to fifteen minutes for a
-clock. They are split at the spawn: the strategy judgement keeps
-`WORKAHOLIC_PROPOSE_CADENCE_MINUTES`, and the ingest is spawned whenever §1 filed an issue this
-tick — keyed on the tick's own act and on nothing else, with no queue reading, inbox poll or
-change detector. The ingest still runs on the cadence too, because an ask filed directly on GitHub
-is one §1 never sees; and when both run in one tick the strategy judgement is spawned first, so
-the issue it opens is in the inbox the ingest reads.
-
-**A runner whose last answer cannot have moved is skipped.** The strategy half's deferral reads
-the *previous* strategy run's reported refusal from the tick log — the gate's last answer, never a
-recomputation of it — and fires **only** on `work_waiting`, the one refusal `implement` can clear.
-It is lifted the moment an `implement` run lands a unit, capped at `WORKAHOLIC_PROPOSE_DEFER_MAX`
-skipped cadences (default 3) after which the strategy half runs regardless, and an unreadable log
-defers nothing. A brake with no ceiling is how the one routine that originates work stops silently,
-which this repository has measured twice.
-
-**Every allocation is reported, and a tick that chose to watch says so.** The tick's §3 report
-names how many runners were spawned out of how many claimable units against what bound;
-`watching` with its reason where it spawned none; the deferral with the refusal it read and how
-many cadences it has held; and every unreadable input by its own word (`fanout_unreadable`,
-`bad_fanout`, `cadence_unreadable`). A tick that did nothing still reports **one line** — an
-allocation of zero is one line, not five. Nothing here reaches Slack: this is the tick's own run
-report, which the operator reads in the session, and the loop posts no status line about its own
-capacity, for the reason the two retired status roots record.
+The tick is the one place positioned to close that: it already reads the channel and already
+resolves threads, so the step costs it no read it was not making. `list-unannounced-closed-asks.sh`
+names the candidates from the repository and the issues alone — **never a channel scan** — and the
+tick replies once into each item's own thread, resolved by the `fb:<stem>` exact string. **The
+dedup is the thread itself**: the thread is read before anything is posted, and one already
+carrying a finish line for this item is skipped. No ledger, no cursor and no field on any
+artifact — a store would have to survive a fresh container, which is the property this loop has
+repeatedly failed to keep. The shape and its bounds are `workaholic:notify`'s, carried
+byte-identical into `commands/infinite-development.md`, which is the ceiling the run reads.
 
 ## Permission prompts are off in this session
 

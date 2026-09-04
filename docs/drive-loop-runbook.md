@@ -1,17 +1,16 @@
 # Drive Loop Runbook
 
-How the execution loop runs `/implement` headlessly, so merged missions and queued
-tickets are claimed, implemented, reported, and — per the artifacts' recorded merge
-policy — shipped or merged at a PR (`docs/loop-engineering-workflow.md` G4).
+How the development loop runs one `/work` tick, including its unattended `/implement`
+executor, so inbound direction is captured and merged missions and queued tickets are
+claimed, implemented, reported, and routed (`docs/loop-engineering-workflow.md` G4).
 
-**The primary trigger is the `[Implement]` Claude Code Web routine**, which fires on
-a fixed hourly schedule (`30 * * * *`) from the shipped template
-`plugins/workaholic/skills/workaholify/routines/implement.md`. It is the execution
-sibling of the `[Specificate]` routine, which fires hourly at `15 * * * *`
-(`docs/proposal-loop-runbook.md`), and deliberately mirrors its shape. §3's server
-cron is the **machine-local fallback shape** for a runner outside the routines
-account; standing it up remains a developer's act (decision C1 — server cron first,
-Claude Code Web later — describes the order the two arrived in, not today's default).
+**The primary trigger is `/work` in one long-lived session.** One tick handles the inbound
+channel first, then runs `/implement`, `/propose` followed by `/specificate` when due, and
+`/moderate` when due. Claude Code supplies the clock with `/loop`; the ChatGPT desktop app
+can supply it with a Scheduled task in the current chat. A CLI or IDE uses the launcher
+beside `plugins/workaholic/skills/work/SKILL.md`; this repository keeps
+`scripts/codex-loop.sh` as a compatibility shim. The older account routines remain fallback
+entry points, not a second loop to run beside `/work`.
 
 **Precondition (decision I9):** the repository must be **private** wherever the
 feedback stream may carry customer material (H4). Do not wire this loop on a public
@@ -23,6 +22,13 @@ without origin surveys, refuses to claim, and exits `pending` — by design (see
 *Failure modes*).
 
 ## 1. What the routine actually does
+
+One `/work` tick is an orchestration boundary, not an implementation unit. It reads the
+checkout and channel before starting work, runs due command bodies, records their finish times,
+and reports the previous progress reading. On Claude Code the work runs in background agents;
+on an agent without background subagents it runs inline in the fixed order `/implement`, then
+`/propose` + `/specificate`, then `/moderate`. One invocation always ends after one tick; the
+clock, not the tick, repeats it.
 
 Each tick is one full `/implement` run — survey, partition, claim, drive, report,
 route (`plugins/workaholic/skills/drive/SKILL.md`, *Unified Run*). **The command
@@ -93,19 +99,25 @@ heartbeat has lapsed. Keep the heartbeat window well under the tick interval you
 care about recovering within: at the default 30 minutes an hourly routine reclaims
 its own dropped unit on the next tick. See *Failure modes*.
 
-## 3. The machine-local fallback: a server cron entry
+## 3. The machine-local clock
 
-This section is the **fallback shape** for a runner outside the routines account —
-the primary trigger is the hourly `[Implement]` routine (§1). The interval below is
-a working example, not a contract; the routines API's own minimum is one hour.
+This section is the fallback for Codex CLI, IDEs, and other agents with no
+schedule-management surface. The plugin-owned launcher supplies the clock and invokes a
+fresh worker for one tick at a time. It uses `flock`, refuses a second supervisor,
+classifies the first tick before reporting ready, and atomically writes
+`.codex-loop/status.json` after every completion.
 
 The run works **in the repository checkout**, claiming into `.worktrees/<unit-id>/`
-worktrees of that checkout. A working shape (adjust the claude invocation to the
-installed CLI):
+worktrees of that checkout. Start the plugin-owned launcher and inspect it without
+starting another process:
 
-```cron
-*/5 * * * * . "$HOME/.workaholic-drive.env" && claude -p "/implement" --cwd /path/to/repo >> "$HOME/.workaholic-drive.log" 2>&1
+```sh
+sh plugins/workaholic/skills/work/scripts/codex-loop.sh
+sh plugins/workaholic/skills/work/scripts/codex-loop.sh --status
 ```
+
+The legacy direct-executor clock used `claude -p "/implement"`; keep that spelling only when
+diagnosing an existing installation, and do not run it beside `/work`.
 
 - Keep the token in a `0600` env file (`~/.workaholic-drive.env` with the exports
   above), never in the crontab line itself.
@@ -116,8 +128,8 @@ installed CLI):
   which is the protocol working, not an error. This supersedes the proposal loop's
   one-runner-per-repo rule, which exists only because *that* loop's cursor is
   runner-local state.
-- A tick that overruns the 5-minute interval is fine: the next tick surveys, sees
-  the in-flight claim, and works on something else or exits with nothing to do.
+- Ticks are sequential. The next due time is measured after the prior tick completes,
+  so two workers from one supervisor never overlap.
 - Do not install the crontab from an agent session — applying a standing
   outward-facing process is the developer's act; this page is the instruction.
   The rule generalized beyond cron on 2026-08-03: an agent may not bring a
@@ -191,6 +203,17 @@ not of surveying: a runner without one still reads the whole queue, reports
 (see *Failure modes*).
 
 ## 5. Observability
+
+- **Loop status** for the CLI clock is `.codex-loop/status.json`, read through
+  `scripts/codex-loop.sh --status`. `relay_pending` means a connector-less worker emitted
+  Slack intents and is waiting for its connector-owning parent; it never means that Slack
+  received them. `no_slack_transport`, `channel_unreadable`, and `cadence_unreadable` name
+  different failures and are not collapsed into an idle tick.
+- **Allocation is explicit.** Claude Code skips a loop whose background agent is still
+  running. Agents without background subagents run the due loops inline and sequentially;
+  they do not infer extra capacity from CPU count or load average. The progress reader reports
+  the previous tick's queue total and per-mission acceptance/queued counts, with its reading
+  time, so `pending` is never rendered as zero.
 
 - **Claims** are the live picture of what is in flight, readable from any clone:
 
@@ -346,6 +369,20 @@ deleted on 2026-09-03 and the log branch is retired** — the tick log is git-ig
 nowhere; see `moderate/scripts/persist-log.sh`'s header.
 
 ## 6. Failure modes
+
+Permission handling belongs to the surface that observed it. An unattended command never waits
+on a prompt: a repository-declared refusal is recorded as `blocked` with the refused action and
+reason while the remaining maintenance steps continue. Outside Claude Code, tool-level hooks do
+not fire; script-level gates still apply, and `sh plugins/workaholic/hooks/install-git-hooks.sh`
+repairs the checkout hooks. This is a capability difference, not permission to bypass a gate.
+
+Conflict and publication recovery stay with the executor. `list-catchable-claims.sh` offers this
+identity's reported claims whose branch can be tested against the moved base;
+`catch-up-claim.sh` makes one bounded merge attempt and reports `caught_up`, `already_current`,
+or `catch_up_refused: <word>`. A `queue_drained` claim caught up successfully is delivered in the
+same turn; `report_undelivered` continues through `retry-undelivered.sh`. Stranded publication
+pull requests use `settle-stranded-publication.sh`. Content conflicts, reviewed pull requests,
+unreadable state, and scan-held changes are refused by name and never guessed through.
 
 | Symptom | Cause | Fix |
 | ------- | ----- | --- |

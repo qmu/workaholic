@@ -4,7 +4,10 @@
 # Output: {"merged": true, "pr_number": N, "commit_hash": "...",
 #          "commit_hash_source": "pr_merge_commit"|"base_tip"|"branch_head",
 #          "on_base": true|false, "branch_head": "...",
-#          "checked_out": true|false, "checkout_reason": "", "base": "main"}
+#          "checked_out": true|false, "checkout_reason": "", "base": "main", "checks": "green|unreadable:<reason>|gate_disabled"}
+#
+# `checks` names what the pre-merge gate read (`drive/scripts/branch-checks.sh`); a merge that
+# the gate refused never reaches this line and reports `checks_red` / `checks_pending` instead.
 #
 # `commit_hash` IS THE COMMIT THAT LANDED ON THE BASE, not the head of the work branch.
 # It used to be `git rev-parse HEAD` — which is the branch head whenever the post-merge
@@ -84,13 +87,38 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
 MERGE_METHOD=$(sh "${GATHER_SCRIPTS}/merge-method.sh")
 
+# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# is the one derivation of `commit_title` / `commit_message`; without them the forge
+# concatenates every commit on the branch into the trunk's record. A composer that could not
+# read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
+BODY_JSON=$(sh "${GATHER_SCRIPTS}/merge-commit-body.sh" "${pr_number}" 2>/dev/null || printf '')
+MERGE_TITLE=$(printf '%s' "$BODY_JSON" | jq -r '.title // ""' 2>/dev/null || printf '')
+MERGE_BODY=$(printf '%s' "$BODY_JSON" | jq -r '.body // ""' 2>/dev/null || printf '')
+MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
+
+# THE BRANCH'S OWN CHECKS ARE READ BEFORE THE MERGE (2026-09-03). `drive/scripts/branch-checks.sh`
+# is the one derivation of the gate and its header carries why, what it refuses on, and what it
+# deliberately does not: it refuses on `checks_red` and `checks_pending` and PASSES on every
+# other degradation, so a repository whose checks cannot be read here is exactly as ungated as
+# before. A refusal leaves the pull request open and the claim standing; the next tick's
+# `retry-undelivered.sh` delivers it once the checks conclude.
+CHECK_GATE=$(sh "${SCRIPT_DIR}/../../drive/scripts//branch-checks.sh" "${pr_number}" 2>/dev/null || printf '')
+CHECK_GATE_DECISION=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')
+CHECK_GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // ""' 2>/dev/null || printf '')
+if [ "$CHECK_GATE_DECISION" = "refuse" ]; then
+  CHECK_GATE_FAILING=$(printf '%s' "$CHECK_GATE" | jq -c '.failing // []' 2>/dev/null || printf '[]')
+  echo '{"merged": false, "reason": "'"$CHECK_GATE_REASON"'", "pr_number": '"$pr_number"', "failing": '"$CHECK_GATE_FAILING"', "detail": "the branch'"'"'s own checks did not pass; nothing was merged and the pull request is left open for the next delivery retry"}' >&2
+  exit 1
+fi
+
 slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1) || {
   echo '{"merged": false, "reason": "no_remote", "detail": "'"$(printf '%s' "$slug" | tr -d '"\\' | tr '\n' ' ')"'"}' >&2
   exit 1
 }
 
 if ! merge_out=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=${MERGE_METHOD}" 2>&1); then
+    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=${MERGE_METHOD}" \
+    -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
   # The underlying message rides the error rather than being swallowed: a 405 (GitHub
   # refusing the merge) and a 403 (the transport being restricted) need different
   # actions from whoever reads this.
@@ -159,5 +187,5 @@ if git merge-base --is-ancestor "$commit_hash" "origin/${base}" >/dev/null 2>&1;
 fi
 
 cat <<EOF
-{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "commit_hash_source": "$commit_hash_source", "on_base": $on_base, "branch_head": "$branch_head", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base"}
+{"merged": true, "pr_number": $pr_number, "commit_hash": "$commit_hash", "commit_hash_source": "$commit_hash_source", "on_base": $on_base, "branch_head": "$branch_head", "checked_out": $checked_out, "checkout_reason": "$checkout_reason", "base": "$base", "body_source": "$MERGE_BODY_SOURCE", "checks": "${CHECK_GATE_REASON:-green}"}
 EOF

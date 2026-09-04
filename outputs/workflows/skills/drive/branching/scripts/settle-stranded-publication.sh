@@ -142,10 +142,11 @@ teardown_worktree() {
 
 report() {
     teardown_worktree "$1"
-    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "age_hours": %s, "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s"}\n' \
+    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "age_hours": %s, "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s"}\n' \
         "$1" "$NUMBER" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" "$(json_str "$CLASS")" \
         "$AGE" "$CONFLICTED" "$(json_str "$WORKTREE")" \
-        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")"
+        "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")" \
+        "$(json_str "${MERGE_BODY_SOURCE:-}")"
     exit 0
 }
 refuse() { report settle_refused "$1"; }
@@ -325,10 +326,33 @@ sh "${GATHER}/gh-rest.sh" available >/dev/null 2>&1 || report settled gh_unavail
 slug="$(sh "${GATHER}/gh-rest.sh" slug 2>/dev/null || printf '')"
 [ -n "$slug" ] || report settled slug_unresolved
 
+# THE PUBLICATION'S OWN CHECKS ARE READ BEFORE THE MERGE (2026-09-03).
+# `drive/scripts/branch-checks.sh` is the one derivation of the gate: it refuses on
+# `checks_red` and `checks_pending` and passes on every other degradation. A refusal is a
+# `merge_refused:` DELIVERY, never a refusal of the settlement -- the branch is caught up and
+# pushed, the publication stays open, and the next tick lists it again (as `clean` by then,
+# needing no push) and delivers it once the checks have concluded.
+check_gate="$(sh "${SCRIPT_DIR}/../../drive/scripts//branch-checks.sh" "${NUMBER}" 2>/dev/null || printf '')"
+case "$(printf '%s' "$check_gate" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')" in
+    refuse)
+        DELIVERY="merge_refused: $(printf '%s' "$check_gate" | jq -r '.reason // "checks_red"' 2>/dev/null || printf 'checks_red')"
+        report settled ""
+        ;;
+esac
+
 method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
+# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# is the one derivation of `commit_title` / `commit_message`; without them the forge
+# concatenates every commit on the branch into the trunk's record. A composer that could not
+# read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
+body_json="$(sh "${GATHER}/merge-commit-body.sh" "${NUMBER}" 2>/dev/null || printf '')"
+merge_title="$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')"
+merge_body="$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')"
+MERGE_BODY_SOURCE="$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')"
 set +e
 merge_resp="$(sh "${GATHER}/gh-rest.sh" api "repos/${slug}/pulls/${NUMBER}/merge" \
-    --method PUT -f "merge_method=${method}" 2>&1)"
+    --method PUT -f "merge_method=${method}" \
+    -f "commit_title=${merge_title}" -f "commit_message=${merge_body}" 2>&1)"
 merge_status=$?
 set -e
 

@@ -14,6 +14,8 @@ The single home of the granularity discipline — every other place links here r
 
 ### The ticket floor
 
+**What a mission IS, and the scale it is sized by, are stated once in `plugins/workaholic/rules/workaholic.md`, *What a Mission Must Be Able to Hold*** (2026-09-03) — a mission is the mid-term container between a strategy and a ticket, rule 1 is the mechanical floor below and rule 2 is a stated judgement. Cited here, never restated.
+
 **A mission is created with two or more tickets, or it is not a mission** — a ticketless one is a feedback record on the roadmap, a one-ticket one is a ticket with a progress bar. What counts: tickets naming the mission in `mission:`, present in the same publication commit as `mission.md` — checked at the **publish seam** (every creation seam calls `check-floor.sh <slug>`, whose count is `queue-size.sh`'s `meets_floor`), never at the write of `mission.md`, where the tickets do not yet exist. One ticket is refused, not warned, and **a refusal names the alternative**: a bare direction is a feedback record, a single unit of work is a plain ticket. A carry must name an existing mission (`--successor <slug>`); `--successor-title` is refused, because a minted successor arrives with zero tickets. Rejected alternatives and the accepted cost: [`reference/schema.md`](reference/schema.md), *The ticket floor*. (`create.sh` and `close.sh` deliberately do not call the check, each recording why in its header; one archived one-ticket mission predates the rule and is history, not an open violation.)
 
 ## Lifecycle
@@ -101,6 +103,17 @@ Write the tickets in one pass, not N serial `create-ticket` runs — each with i
 
 - **Stamp the links**: `link-acceptance.sh <slug> <item-selector> <ticket-filename>` once per item — the pairing is named by the caller, never inferred; an item no emitted ticket satisfies stays unlinked and is reported to the developer, never linked to the nearest ticket.
 - **Check the floor before the publish commit** (`check-floor.sh <slug>`; non-zero exit = not published, tell the author its `alternative`) — and say the floor out loud during decomposition, not at the publish.
+
+**The seams that can put a mission into `missions/active/` with its ticket set are enumerated, and every one of them reads `check-floor.sh`** (2026-09-03, ticket `20260903053712-floor-a-mission-at-two-tickets-at-every-seam.md`). The enumeration is the deliverable, not the first two entries:
+
+| Seam | Where the call is | Note |
+| ---- | ----------------- | ---- |
+| `/specificate`'s publish seam | `specificate` step 9, `reference/workflow.md` | the original caller |
+| `/mission`'s Creation Interrogation | this section, `reference/command-flows.md` *Create flow* | publishes mission + whole ticket set |
+| `/mission`'s **replan** | `reference/command-flows.md` *Replan flow* step 5 | a `carried` successor or a thin hand-authored mission is fleshed out here, so it is the seam a below-floor mission actually reaches |
+| `/propose`'s proposal body floor | `open-proposal.sh` (`under_planned`) | floors a **proposal**, mirroring the wording; not a mission writer |
+
+**Two seams deliberately do not call it, and each records why in its own header**: `create.sh` mints the scaffold before any ticket exists, and `close.sh` refuses `--successor-title` categorically rather than by count. **`validate-mission.sh` is not a seam either** — a write-time hook fires when `mission.md` is written, which is *before* its tickets exist, so a count there would refuse every legitimate mission; its header says so. **No seam spells the number**: `check-floor.sh` is the one derivation, and a second spelling of `2` is the drift this enumeration exists to prevent.
 - **Stamp the duration as a report line, never a question**: `predict-duration.sh <item-count>`; on `basis: 0` leave `predicted_hours` empty and record a changelog note rather than dressing a guess as data.
 
 ## Replan

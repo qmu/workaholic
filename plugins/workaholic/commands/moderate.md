@@ -49,7 +49,21 @@ The root's shape — no mention token of any kind:
 <session URL>
 ```
 
-Then post each question the check-in step cleared as a reply into that root, addressed to the resolved person:
+**An impairment is stated once, on the root, and never again in the digest** (2026-09-03, mission `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). Measured: the same three `⚠️` lines appeared on the root and again, verbatim, at the bottom of the `📣` digest thirty-eight minutes later — and the one line worth breaking silence for, `base-health` unable to read the base's checks, arrived as the fourth bullet of a digest in the same weight as a commit count. **The root is where a reader acts on it**, because it is the message the impairment itself can open; the digest reports where the work stands and carries no `⚠️` line at all. On a morning tick the digest is rendered **above** the impairment lines in the same root, so the reader meets it once, in the place that can be acted on.
+
+**Nothing the tick knows about itself reaches a rendered post** (2026-09-03, mission `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). `render-tick-post.sh` prints none of it — its own header records that the dedup token is derived and never rendered — so the internals enter **here**, at the composing surface, where this command turns a step's payload into a message. Measured on one morning's root: a printed `tick-day:20260903`, and a sentence explaining which internal step would have handled a thing the tick decided not to say.
+
+So a rendered post carries **none** of the following, on the root, on a question, on a confirmation or on a reconciliation reply alike:
+
+- **a dedup key or a search token** — `tick-day:<YYYYMMDD>`, `fb:<stem>`, a question id or a step id. They are strings a machine searches for; a reader has no use for one, and the root's own link already carries what a machine needs.
+- **a step id or a step name** — `base-health`, `direction-health`, `human-checkin`. A reader of the channel has no model of *steps*, which are this loop's own machinery.
+- **a counter about the tick** — how many candidates it held, how many it delivered, how many it will leave, what its counters would read afterwards. What happened in the repository is news; what the tick's bookkeeping now holds is not.
+- **a sentence about a step's own reasoning** — which internal step would have handled something, why one was skipped, what the tick decided not to say. Say the thing or do not; explaining the omission is the machinery talking about itself.
+- **a promise no step must keep** — *the loop will follow up*, *this will be re-checked next hour*, *the next `[Implement]` tick will try this*. No step is bound by it, so it is a commitment nobody made. **Measured**: the tick said twice in one morning that the next `[Implement]` tick would resolve each conflict itself, across many ticks while nothing tried — those units were excluded from claiming, and the tick could not have known, because the executor's order is `plan-units.sh`'s and no step here may reach it. **Say what will happen only when the tick can derive it, and otherwise say what is true**: name whose act it is (*resolving this belongs to an `[Implement]` run rather than to this tick, which reads and does not merge*), never when it will happen.
+
+What a post carries instead is the repository's own facts and the act being asked for. The step payloads are already composed to that rule — `heading`, `body`, `event`, `summary` — so the composition here is a rendering, never a re-invention: adding a fact of your own at this surface is exactly how the internals got out.
+
+Then post each question the check-in step cleared as a reply into that root, addressed to the resolved person. **A step that hands back `groups` asks one question per group, naming every subject it holds** — three arrived directions cost one reply, not three near-identical ones (the same mission; `lib/question-id.sh` keys on the group's own key, so the asked-once gate is unchanged):
 
 ```
 🙋 <@U…> - <what this tick could not decide>
@@ -93,6 +107,12 @@ If the rendered post says not to post, post nothing at all — no root, no quest
 **A root the tick could not deliver is filed, not lost** (2026-09-01, issue #806). When the rendered post says to post and **no transport reaches the channel** — the connector answers `channel_not_found` or resolves no matching channel, and `notify-slack.sh` answers `no_token` — file the rendered root as **one** `[FB]` issue through `file-inbound-ask.sh`, the same filer every other finding uses, carrying the root text verbatim, the counts it names and the reason each transport was out. Measured: a tick rendered `post: true` with 7 change lines and 2 impairment lines, held 18 questions including a stranded claim and three blocked retirements, and every one of them existed only in a tick log inside a container that was then discarded.
 
 **One issue for the hour, not one per line**, and **the ledger is untouched**: a question that reached nobody is never recorded as asked, so every held question stays held and is offered again the moment a transport returns. Restoring the transport is **provisioning, not code** — re-authorize the connector against the workspace holding the channel, or set `SLACK_BOT_TOKEN` and `WORKAHOLIC_SLACK_CHANNEL` on the cloud environment the routines select — so the issue names it and asks for it rather than pretending the tick can fix it.
+
+**A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
+
+**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+
+Adding that clause changes the question's **text** and nothing else: `already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text, so no question is re-asked by it.
 
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or guess retired namespaces.

@@ -48,10 +48,12 @@ on another machine coordinates through exactly the same artifact.
   claim whose **heartbeat** lapsed, both computed in the one shared scan and carried on every row
   (`resumable`, `resume_reason`) — a writer free to decide independently could take over a unit
   the reader still calls active.
-  - **Liveness is the branch tip**, refreshed by `heartbeat.sh` and by every ordinary work
-    commit. The window is `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30) — minutes, not
-    the 24-hour `stale`, because a routine that recovers its own dropped unit only after a day is
-    not a recovery path.
+  - **Liveness is `refs/workaholic/claim-liveness/<work-branch>`**, a remote ref pointing at a
+    versioned payload with the unit, branch, holder and UTC timestamp. `heartbeat.sh` advances it
+    with compare-and-push, so no beat enters the review branch. A fetched carrier wins outright;
+    a legacy claim with no carrier continues to use its branch tip. If a claim declares a carrier
+    but its namespace cannot be read, the verdict stays conservatively active — unreadable never
+    means expired. The window is `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` (default 30).
   - **Something left to drive.** At least one of the unit's tickets must still be undriven on
     that branch (for a mission unit: at least one tip-side todo ticket naming it). Without this
     the verdict cannot tell a run that died from a unit that finished: a `review` unit's branch
@@ -369,10 +371,14 @@ vocabulary, and the answer is the same: read-straight-off is not the test.
 | `green` | judgement | Every completed check on the commit succeeded (or was neutral/skipped) and none is pending. A re-run, a re-triggered workflow or a newly required check can turn it `red`, so it proves nothing durable. **Report it.** It licenses no merge, no release and no skipped gate — the `release/*` QA window still owns quality. |
 | `red` | judgement | A completed check on the commit concluded in failure. It says *look at this*, not *this commit is bad*: a re-run can turn it green, and the failure may be in infrastructure rather than in the change. A consumer may **report** it and **ask about** it — `/moderate`'s `base-health` step asks the attributed author. Nothing may revert, re-run, block, gate, hold or merge on it. |
 | `unattributable` | judgement | The base is red and the walk could not name the merge that broke it — its bound was exhausted, it reached the start of history, or a commit inside the walk was unreadable. **Never the tip by default**: blaming the head because the walk ran out of room is the failure this word exists to prevent. Report it, ask about it, name the reason. |
+| `unverified` | judgement | A **declared** suite -- a workflow under `.github/workflows/` whose `on:` names `push` -- has **no run at all** on the commit, so it left no verdict for any of the words above to be taken over (2026-09-03). It rides **beside** the state and is never folded into it: a tip can carry a green verdict and an unverified suite at once, and collapsing them loses exactly the fact that went unseen for an hour while the loop merged into a broken base. Like `unanswerable` it is the absence of a reading, so nothing may act on it -- **report it**; it moves no token. A **path-filtered** workflow is declared and reads `unverified` where it did not run, which is the measured defect rather than an exemption; a workflow that structurally cannot run on a base commit (schedule-only, dispatch-only, `pull_request` only) is not declared at all. A degraded declared-read answers `unverified_readable: false` with its reason and a **null** set, never an empty one -- empty means *every declared suite ran*. |
 | `unanswerable` | judgement | The **absence** of a reading — no `gh`, a refused transport, a rate limit, an unparseable response, a commit with no checks at all, checks still running. Acting on an absence is the failure the three-valued shape exists to avoid, and the direction of failure is chosen: it must never be reported as `green`, because a base nobody looked at would then be indistinguishable from a base that passed. |
 
 **Its consumers report and ask, and nothing else.** `/moderate`'s `base-health` step hands a red
-base to the check-in as one question and writes nothing but its own tick-log line; the driving
+base to the check-in as one **`🔴 Blocked` report** -- addressed to nobody, held by no quiet window,
+deduped by the failure signature under `notify`'s existing cool-down (2026-09-03; the
+`base-red:<commit>` question it replaced is retired, because two announcements of one fact is the
+noise this repository has twice retired roots for) -- and writes nothing but its own tick-log line; the driving
 run names the reading at the top of its report and **gates nothing** — no stop, no skip, no hold,
 and the terminal token is byte-identical on a red base and a green one (`drive` §1 and
 §7). `scripts/test-workflow-scripts.mjs` pins this table the way it pins the one above: it fails
@@ -810,8 +816,11 @@ all, which is the same reason the proof-gated consumers are enumerated rather th
 
 | Acting consumer | The judgement it reads | How each clause is met |
 | --------------- | ---------------------- | ---------------------- |
-| `catch-up-claim.sh` | `mergeability ∈ {mechanical, content}` (`claim-mergeability.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word. **`content` joined the licence on 2026-09-02** and the clauses are met identically, because the licence is *the writer settles it without a judgement* rather than *the reader predicted mechanical*: the reader computes without the repository's `.gitattributes` and the writer merges with them, so its `content` is a pessimistic guess that the act now tests instead of trusting. The absence-word `unanswerable` is still refused, exactly as a licensing act must refuse an absence |
+| `catch-up-claim.sh` | `mergeability ∈ {mechanical, content}` (`claim-mergeability.sh`), and `gate == refuse` on `checks_red` alone (`branch-checks.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word. **`content` joined the licence on 2026-09-02** and the clauses are met identically, because the licence is *the writer settles it without a judgement* rather than *the reader predicted mechanical*: the reader computes without the repository's `.gitattributes` and the writer merges with them, so its `content` is a pessimistic guess that the act now tests instead of trusting. The absence-word `unanswerable` is still refused, exactly as a licensing act must refuse an absence. **The check gate here reads `checks_red` and nothing else** (2026-09-03): this act merges immediately after its own push, so the head commit's checks are normally `checks_pending`, and refusing on that would hold a unit this script reports `already_current` for on its next run — nothing would ever deliver it. The limit is stated rather than hidden |
 | `archive.sh` | `holder == mine` (`claim-holder.sh`) | Re-derives by calling `claim-holder.sh` itself immediately before the ticket moves — ahead of the todo-layout migration, so nothing has been staged yet; the archive it gates is idempotent in the shape this seam already guarantees (a re-run of a refused call finds the tree byte-identical, and the mission mutators below it no-op on a repeat); its write is a **commit on the claim branch**, revertible and never a rewrite; refuses `claim_taken_over` and `ambiguous_claim` by their own words, moving nothing, staging nothing and committing nothing |
+| `merge-pr.sh` | `gate == refuse` on the branch's own checks (`branch-checks.sh` over `read-base-checks.sh`) | Re-derives by calling `branch-checks.sh` itself immediately before the merge, never from a survey or a handed-in reading; the merge it gates is idempotent in the shape the forge already guarantees (a second attempt on a merged pull request answers `merge_refused` over a landed merge and writes nothing); it makes no write of its own — what it gates is a **merge commit**, revertible and never a rewrite; refuses `checks_red` and `checks_pending` by their own words with nothing attempted. It is the rule's **GATING** shape, so it **proceeds** on every absence — no transport, no `gh`, a rate limit, a commit nothing has checked — naming the reading it could not make as `unreadable:<reason>`; refusing there would strand finished work in every repository whose checks this session cannot read |
+| `retry-undelivered.sh` | the same reading, at the retry | Re-derives by calling `branch-checks.sh` itself immediately before the merge, never from a survey or a handed-in reading; the merge it gates is idempotent in the shape the forge already guarantees (a second attempt on a merged pull request answers `merge_refused` over a landed merge and writes nothing); it makes no write of its own — what it gates is a **merge commit**, revertible and never a rewrite; refuses `checks_red` and `checks_pending` by their own words with nothing attempted. It is the rule's **GATING** shape, so it **proceeds** on every absence — no transport, no `gh`, a rate limit, a commit nothing has checked — naming the reading it could not make as `unreadable:<reason>`; refusing there would strand finished work in every repository whose checks this session cannot read. A refusal is recorded in the ordinary merge vocabulary, which leaves the unit `report_undelivered` for the next tick — the retry this script exists to be |
+| `settle-stranded-publication.sh` | the same reading, at the delivery | Re-derives by calling `branch-checks.sh` itself immediately before the merge, never from a survey or a handed-in reading; the merge it gates is idempotent in the shape the forge already guarantees (a second attempt on a merged pull request answers `merge_refused` over a landed merge and writes nothing); it makes no write of its own — what it gates is a **merge commit**, revertible and never a rewrite; refuses `checks_red` and `checks_pending` by their own words with nothing attempted. It is the rule's **GATING** shape, so it **proceeds** on every absence — no transport, no `gh`, a rate limit, a commit nothing has checked — naming the reading it could not make as `unreadable:<reason>`; refusing there would strand finished work in every repository whose checks this session cannot read. A refusal is a `merge_refused:` delivery and never a refusal of the settlement: the branch is caught up and pushed, and the next tick lists the publication again as `clean` and delivers it |
 
 **The table is prose, so it can lie**, and `scripts/test-workflow-scripts.mjs` pins it **in both
 directions**: a script that both reads a judgement-emitting reader and carries an acting call
@@ -1519,15 +1528,15 @@ refusal is untouched. It is passed **only** immediately after this run's own `ca
 
 ## Heartbeat mechanics
 
-`heartbeat.sh` pushes an empty commit through `commit.sh --allow-empty`, so coordination markers
-get the subject gate and trailers. There, **`--allow-empty` means empty**: the commit is built
-against a scratch index seeded from `HEAD`, so its tree equals `HEAD`'s by construction and the
-caller's index is left byte-identical (git's own flag merely permits a changeless commit and
-otherwise commits whatever is staged — a beat fired over a staged `git rm` once swept real
-deletions into a `Refresh heartbeat` commit). Beating over a dirty index is deliberately allowed:
-mid-ticket is exactly when the index is dirty and exactly when a missed beat makes a working unit
-look abandoned. The beat changes no file, so it never reaches the PR diff, and the merge or
-release that cleans up the claim cleans it up too.
+`heartbeat.sh` writes a small blob and compare-and-pushes the dedicated liveness ref. The payload
+is operational state, not a `.workaholic/` artifact: it carries `version`, `unit`, `branch`,
+`author`, `at`, `epoch`, the observed branch `tip`, and a uniqueness nonce. While the
+branch tip matches, the carrier timestamp supplies liveness; a later ordinary work commit is
+itself progress evidence and its commit timestamp wins until the next beat. The expected old object id closes concurrent
+update and compare-and-delete races. Beating over a dirty index is deliberately allowed because no
+worktree byte is read or staged. Merge cleanup and deliberate release compare-and-delete the
+carrier; a refusal is named and leaves the work branch recoverable. Legacy heartbeat commits remain
+history and are never rewritten.
 
 ## Publication branches are not claims
 

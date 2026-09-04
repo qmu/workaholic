@@ -271,8 +271,11 @@ if [ "$kind" = "resume" ]; then
     # commit, because the takeover is a fact about who is driving rather than a change
     # to any file, and it must not show up in the PR diff. Its push is also the race's
     # arbiter, which is why it happens before a single line of work.
+    r_liveness_ref=$(claims_liveness_ref "$r_branch")
     ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" --allow-empty \
         --trailer "Unit: ${unit}" \
+        --trailer "Liveness-Ref: ${r_liveness_ref}" \
+        --housekeeping claim \
         "Resume a PR-unit" \
         "An earlier run claimed this unit and stopped before delivering it -- mid-drive, or with its queue drained and no pull request opened; its branch tip fell outside the heartbeat window, so the unit was offered as resumable and this runner took it over" \
         "None -- coordination only; the takeover changes no file and never reaches the PR diff" \
@@ -287,6 +290,8 @@ if [ "$kind" = "resume" ]; then
         # taken -- retry on the next tick, when the scan reports the unit active again.
         abort_resume "resume_race_lost" ', "unit": "'"${unit}"'", "branch": "'"${branch}"'", "detail": "another runner published its takeover of this unit first; nothing was resumed -- retry"'
     fi
+    r_liveness_reason=$(cd "$worktree_path" && claims_liveness_write "$unit" "$branch")
+    [ -z "$r_liveness_reason" ] || abort_resume "$r_liveness_reason" ', "unit": "'"${unit}"'", "branch": "'"${branch}"'"'
 
     r_notify="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../specificate/scripts/notify-slack.sh}"
     r_out=$(sh "$r_notify" "Resumed ${unit} on ${branch} — an earlier run left it unfinished; driving it now" 2>/dev/null) || r_out=''
@@ -560,7 +565,8 @@ done
 # longer than 44 characters permanently unclaimable -- four of five active missions, each
 # refused as an unexplained `commit_failed`. The subject is now fixed and short; the id
 # goes where length does not matter and a script can read it back exactly.
-set -- --trailer "Unit: ${unit}" "Claim a PR-unit" \
+liveness_ref=$(claims_liveness_ref "$branch")
+set -- --trailer "Unit: ${unit}" --trailer "Liveness-Ref: ${liveness_ref}" --housekeeping claim "Claim a PR-unit" \
     "The runner takes PR-unit ${unit} before driving it; the claim is published so every other runner's reader sees the unit in flight and never double-picks it" \
     "None -- coordination only; the stamp is branch-local and never reaches main" \
     "None" "None" \
@@ -615,6 +621,11 @@ else
         abort_claim "branch_collision" ', "branch": "'"${branch}"'", "detail": "another runner minted this work-* branch name in the same second; nothing was claimed -- retry"'
     fi
     abort_claim "push_failed" ', "branch": "'"${branch}"'", "detail": "the claim was not published; nothing was claimed"'
+fi
+
+liveness_reason=$(cd "$worktree_path" && claims_liveness_write "$unit" "$branch")
+if [ -n "$liveness_reason" ]; then
+    abort_claim "$liveness_reason" ', "branch": "'"${branch}"'", "detail": "the claim branch was published but its liveness carrier could not be initialized"'
 fi
 
 # --- 7. Announce the claim -- AFTER the push, and NEVER load-bearing -------

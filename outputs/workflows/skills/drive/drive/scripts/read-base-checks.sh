@@ -45,31 +45,141 @@
 # so a reader in `lib/` would ship to every non-Claude agent with its transport missing. The
 # convention bends to the build, and the build's rule is the one with a failure mode.
 #
-# NOTHING MAY ACT ON WHAT THIS ANSWERS. All three words are JUDGEMENTS, not proofs — a
-# re-run can turn a red check green and a green one red, which is precisely the property a
-# proof must not have (`drive/reference/claims.md`, *Proofs and judgements*). Report it, ask
-# about it; never revert, re-run, gate, hold or merge on it.
+# NOTHING MAY ACT ON WHAT THIS ANSWERS, WITH ONE ENUMERATED EXCEPTION. All three words are
+# JUDGEMENTS, not proofs — a re-run can turn a red check green and a green one red, which is
+# precisely the property a proof must not have (`drive/reference/claims.md`, *Proofs and
+# judgements*). Report it, ask about it; never revert, re-run or hold work on it.
 #
-# Usage: read-base-checks.sh <commit-sha>
+# THE EXCEPTION IS THE PRE-MERGE GATE (2026-09-03), and it is the rule's own bounded shape
+# rather than a hole in it: `branch-checks.sh` composes this reader on a pull request's HEAD
+# commit, re-derives it at the moment of the merge, refuses `checks_red` and `checks_pending`
+# by their own words with nothing attempted, and PROCEEDS on every absence — which is what a
+# GATING act must do (`claims.md`, *When a bounded act may read a judgement*, and *Two shapes,
+# one rule*). Its consumers are enumerated there and the suite pins the table in both
+# directions. Nothing else may gate, and this reader still gates nothing itself.
+#
+# WHY THE EXCEPTION EXISTS. Without it the loop merged its own branches without ever reading
+# their checks: MEASURED 2026-09-03, PR #957 merged three and a half minutes BEFORE its own
+# `Loop Drills` run completed, and it was red; `main` then carried a red drill suite for four
+# hours with six further merges landing on it.
+#
+# A SUITE THAT NEVER RAN IS NOT A SUITE THAT PASSED (2026-09-03, mission
+# `make-a-red-base-impossible-for-the-loop-to-miss`). Everything above answers from the
+# verdicts the commit CARRIES, so a declared workflow that did not fire leaves no verdict and
+# the reading is taken over whatever else is there. MEASURED: a path-filtered workflow did not
+# run on a commit that broke the suite it guards, the newest verdict on that commit was a
+# different, green one, and the base read `green` for about an hour while the loop merged into
+# it.
+#
+# So `--declared` adds `unverified[]`: the declared suites with NO run on this commit. It rides
+# BESIDE the state and is never folded into it -- a tip can carry a green verdict and an
+# unverified suite at once, and collapsing them loses exactly the fact that was missed. `green`,
+# `red` and every `unanswerable` reason are byte-identical with and without the flag.
+#
+# WHAT COUNTS AS DECLARED, and this is the judgement the ticket asked to be made out loud: a
+# workflow under `.github/workflows/` whose `on:` declares `push`. A PATH-FILTERED workflow IS
+# declared -- its filter is the reason it did not run, and *it did not run here* is precisely
+# the fact worth reporting; exempting it would exempt the measured defect. What is exempt is a
+# workflow that structurally CANNOT run on a base commit (schedule-only, `workflow_dispatch`
+# only, `pull_request` only), which would otherwise read unverified forever.
+#
+# IT IS OPT-IN because it costs a second REST call. `attribute-base-red.sh` walks commit after
+# commit and passes no flag, so the attribution walk's cost does not move; the tip's own reading
+# passes it once.
+#
+# A DEGRADED DECLARED-READ SAYS SO. `unverified_readable: false` with a named reason and a
+# **null** `unverified`, never an empty array -- an empty array means *every declared suite ran*,
+# which is the opposite of *we could not tell*.
+#
+# Usage: read-base-checks.sh <commit-sha> [--declared]
 # Output: one JSON line
 #   {"ok": bool, "commit", "state": "green|red|unanswerable", "reason",
-#    "failing": [{"name", "conclusion"}]}
+#    "failing": [{"name", "conclusion"}],
+#    "unverified": [<workflow name>] | null, "unverified_readable": bool, "unverified_reason"}
 #
 #   ok       false exactly when `state` is `unanswerable`; a reading we could not make.
 #   failing  non-empty only on `red`, naming every completed check that failed.
+#   unverified  present only with `--declared`; null when the declared read was degraded.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
 
-COMMIT="${1:-}"
+COMMIT=""
+DECLARED=false
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --declared) DECLARED=true; shift ;;
+        --) shift ;;
+        *) [ -n "$COMMIT" ] || COMMIT="$1"; shift ;;
+    esac
+done
+
+# The declared-suite reading is computed lazily, at the one emit, so every early `unanswerable`
+# exit above costs nothing extra and stays byte-identical.
+UNVERIFIED_JSON="null"
+UNVERIFIED_READABLE="true"
+UNVERIFIED_REASON=""
+# Declared here because an early `unanswerable` emit runs before the slug is resolved, and the
+# lazy reader must be able to say it had no transport rather than fail under `set -u`.
+slug=""
+
+read_declared() {
+    [ "$DECLARED" = "true" ] || { UNVERIFIED_READABLE="false"; UNVERIFIED_REASON="not_requested"; return 0; }
+
+    _root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+    _dir="${_root:-.}/.github/workflows"
+    [ -d "$_dir" ] || { UNVERIFIED_READABLE="false"; UNVERIFIED_REASON="no_workflows_dir"; return 0; }
+
+    # DECLARED = an `on:` block containing `push`. Read with awk over the `on:` block alone, so a
+    # `push` appearing in a job's prose or a step's name is never mistaken for a trigger.
+    _declared=""
+    for _wf in "$_dir"/*.yml "$_dir"/*.yaml; do
+        [ -f "$_wf" ] || continue
+        _has_push=$(awk '
+            /^on:/ { inon=1; next }
+            inon && /^[A-Za-z_]+:/ { inon=0 }
+            inon && /^[[:space:]]+push:/ { print "yes"; exit }
+        ' "$_wf" 2>/dev/null || true)
+        [ "$_has_push" = "yes" ] || continue
+        _name=$(sed -n 's/^name:[[:space:]]*//p' "$_wf" | head -1)
+        [ -n "$_name" ] || _name=$(basename "$_wf")
+        _declared="${_declared}${_name}
+"
+    done
+    [ -n "$_declared" ] || { UNVERIFIED_JSON="[]"; return 0; }
+
+    case "$slug" in
+        */*) ;;
+        *) UNVERIFIED_READABLE="false"; UNVERIFIED_REASON="slug_unresolved"; return 0 ;;
+    esac
+    [ -n "$COMMIT" ] || { UNVERIFIED_READABLE="false"; UNVERIFIED_REASON="no_commit"; return 0; }
+
+    if ! _runs_body=$(sh "$GH_REST" api \
+            "repos/${slug}/actions/runs?head_sha=${COMMIT}&per_page=100" 2>&1); then
+        UNVERIFIED_READABLE="false"; UNVERIFIED_REASON="runs_unreadable"; return 0
+    fi
+    printf '%s' "$_runs_body" | jq -e '.workflow_runs | type == "array"' >/dev/null 2>&1 \
+        || { UNVERIFIED_READABLE="false"; UNVERIFIED_REASON="unparseable_runs"; return 0; }
+    _ran=$(printf '%s' "$_runs_body" | jq -r '.workflow_runs[].name // empty' 2>/dev/null || true)
+
+    UNVERIFIED_JSON=$(printf '%s' "$_declared" | RAN="$_ran" python3 -c '
+import json, os, sys
+ran = set(l.strip() for l in os.environ.get("RAN", "").splitlines() if l.strip())
+out = [l.strip() for l in sys.stdin.read().splitlines() if l.strip() and l.strip() not in ran]
+print(json.dumps(sorted(set(out))))
+' 2>/dev/null || printf '')
+    [ -n "$UNVERIFIED_JSON" ] || { UNVERIFIED_JSON="null"; UNVERIFIED_READABLE="false"; UNVERIFIED_REASON="compare_failed"; }
+}
 
 # $1 state, $2 reason, $3 failing (JSON array). `ok` is derived from the state rather than
 # passed, so no call site can report a degradation as a successful read by forgetting a flag.
 emit() {
     _ok=true
     if [ "$1" = "unanswerable" ]; then _ok=false; fi
-    printf '{"ok": %s, "commit": "%s", "state": "%s", "reason": "%s", "failing": %s}\n' \
-        "$_ok" "$COMMIT" "$1" "${2:-}" "${3:-[]}"
+    read_declared
+    printf '{"ok": %s, "commit": "%s", "state": "%s", "reason": "%s", "failing": %s, "unverified": %s, "unverified_readable": %s, "unverified_reason": "%s"}\n' \
+        "$_ok" "$COMMIT" "$1" "${2:-}" "${3:-[]}" \
+        "$UNVERIFIED_JSON" "$UNVERIFIED_READABLE" "$UNVERIFIED_REASON"
     exit 0
 }
 

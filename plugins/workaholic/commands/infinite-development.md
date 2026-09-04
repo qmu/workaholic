@@ -42,16 +42,17 @@ notice this, and why it is the tick's to say.
 
 It **blocks nothing and commits nothing**. The tree belongs to a person, half-finished work is
 the normal state of one, and a loop that commits what it finds lying around is a worse failure
-than the one it would cure. Measured 2026-09-03: an entire change — this command's own first
-version, the retirement it performed, and the environment declaration beside it — sat
-uncommitted in the loop's checkout across every tick of its first hour, driving the loop's
-behaviour the whole time, and no step anywhere was looking at it.
+than the one it would cure. What was measured: `workaholic:loops`, *The record behind the tick*.
 
 ## 1. The Slack turn — the steering surface
 
 Read `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default the repository's own name) through the **Slack
 connector** over the last `WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES` (default 10, so consecutive
-five-minute ticks overlap and nothing falls between them). This is the one place the loop reads
+five-minute ticks overlap and nothing falls between them), **in the concise format**: the tick
+uses the author, the timestamp and the text, and the detailed format adds reactions and thread
+metadata for every message on every tick that nothing here reads. Naming the format changes no
+behaviour the tick depends on — the thread it must read before replying is fetched per message,
+by the reply step that needs it, not by this listing. This is the one place the loop reads
 a person, and it runs **before** anything is spawned — a redirection must not wait behind a
 build.
 
@@ -118,122 +119,145 @@ open before either is attempted. Degradations are named: `no_slack_transport`,
 `channel_unreadable` (naming the channel it resolved — Slack answers *not found* for a channel
 the token cannot see, so absent and invisible are one response), `sweep_dedup_unreadable`.
 
+**And an ask whose work landed outside an `/implement` unit gets its finish line here** — the one step positioned to post it, because this tick already reads the channel and already resolves threads. Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-unannounced-closed-asks.sh`, and for each candidate resolve its thread by the `fb:<stem>` exact string, **read that thread first**, and reply once:
+
+```
+🟢 Implemented [<ask title>](<issue url>)
+<one sentence, max 30 words, what landed and by whom.>
+```
+
+**It reuses `🟢 Implemented` and is marked by its sentence, never by a fifth colour** — the precedent `thread-reconcile` set for a merged item announced late. A channel reader's finish vocabulary stays at the colours it already has; a new colour for the same event, differing only in which reader noticed it, is a distinction only the loop cares about.
+
+**The bounds, each of them a refusal rather than a preference:**
+
+- **No mention token.** It is addressed to the thread, not to a person — the standing rule of this catalog, unchanged.
+- **A reply, never a root.** The thread is resolved by the `fb:<stem>` **exact string** (SKILL, *One thread per feedback item*, case 2), and an item whose thread cannot be resolved — no match, or more than one — is **left alone** rather than announced somewhere else. Case 4's keyed root is deliberately **not** available here: a root would be a top-level post about an item whose own thread the run could not find, which is the wrong-thread outcome one step removed.
+- **Once ever per item.** The dedup is **structural and read from the thread**: the thread is read before anything is posted, and a thread already carrying a finish line of ours for this item is skipped. No ledger, no cursor, no field on any artifact — a store would have to survive a fresh container, which is the property this loop has repeatedly failed to keep.
+- **The connector carries it, and nothing else does.** It is the only transport that can **search**, so it is the only one that can resolve the thread at all; the tokened fallback posts nothing here, because a caller with no connector never resolved a thread to reply into.
+- **What landed, or nothing about it.** The sentence is composed from the reader's `landed[]` — what merged and by whom — and an unresolvable field is **stated as unresolved**, never filled with a plausible name or time.
+
+**The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins. The command is the ceiling a routine-fired session actually reads; the catalog is where the shape is decided. A diff between them is a drift to fix, never a second wording.
+
+
+**Report one outcome per candidate, and naming a candidate without one is non-conformant on its face** — the enforcement every act in this repository carries, and for its reason: no mechanical check tells a real attempt from a claimed one.
+
+| Outcome | What it means |
+| ------- | ------------- |
+| `announced` | the reply landed in that item's own thread |
+| `already_announced` | the thread already carried a finish line of ours for this item — the whole dedup, read from the thread and stored nowhere |
+| `thread_unresolved: <reason>` | the `fb:<stem>` search matched nothing, or matched more than one thread; the tie goes to silence and nothing is posted |
+| `post_failed: <reason>` | the reply was attempted and refused; never load-bearing and never retried inside the turn |
+| `held: <reason>` | the item is real but the sentence could not be made true — its `landed[]` was unreadable and the reply would have had to invent what merged |
+
+**A tick that cannot see says so, and posts nothing.** Each of these is a behaviour with its own reported word, not a preference:
+
+- **An idle tick** — no candidate — reports `no_candidates`, opens no root and says nothing in the channel about having nothing to say.
+- **An unreadable candidate read** (`ok: false`) reports the reader's own reason **verbatim** and is **never** rendered as `no_candidates`. *Nothing finished* and *I could not see what finished* send a reader to different places, and this repository has twice measured a reader rendering its own blindness as *nothing found*.
+- **An unresolved or ambiguous thread** — the `fb:<stem>` search matched nothing, or matched more than one — posts nothing and reports `thread_unresolved: <reason>`. **The tie goes to silence**: a wrong thread is worse than none (`workaholic:notify`, *Fuzzy matching is prohibited*), and case 4's keyed root is refused here by name.
+- **A candidate whose `landed[]` could not be read** is announced only if the sentence stays true without the unresolved field; otherwise it is `held: <reason>` and left for a later tick. Never an invented name or time.
+
+Report every held candidate with its own word, so a quiet tick and a blind one are distinguishable in the run report. The step costs the tick nothing that waits on work: it runs on the reads the turn has already made, before any subagent is spawned, and a failure anywhere in it blocks neither the sweep nor the spawns.
+
 ## 2. Spawn the work, and do not wait for it
 
-Call `ListAgents` once. It is the whole record — no cursor, no lock file, no stored state — and
-it answers every question below, because a finished subagent stays listed as **idle** carrying
-the age it started at.
+Call `ListAgents` once. It answers **exactly one question**: is this loop still running.
 
-**A loop whose subagent is still `running` is not spawned again** — for `propose`, `ingest` and
-`moderate`. **`implement` is the exception**: it fans out to a declared bound, and only its
-`running` runners count against that bound (below).
+**A loop whose subagent is still `running` is not spawned again.** That is the concurrency rule
+and it has not moved.
 
-**An `idle` one is a finished run, and it is reaped before anything is spawned** — `TaskStop`
-with that loop's own name. Nothing is discarded: the run is over and its result already arrived
-as a task notification. A tick that skips this leaves one corpse per tick in the very listing
-the concurrency rule has to read, and the next spawn cannot even take its own name (measured
-2026-09-03: three ticks, three idle `propose` agents, the third spawned as `propose-3`).
+**Every `idle` subagent is stopped at the HEAD of this tick, unconditionally** — `TaskStop` with
+that loop's own name, before the cadence is read, before anything is spawned, and **whatever any
+cadence says**. An idle agent is **not a corpse**: it is a resumable session holding its whole
+transcript, and a send resumes it inside that context — measured twice in one session. Stopping it
+is the only act that actually returns the context window, which is the operator's intent: a
+finished run holds none. **Record each stop first** (below), then stop it; the listing that the
+concurrency rule reads then carries **running runs only**.
 
-**An idle one is also this loop's own clock**, which is why it is reaped at the spawn and not at
-the finish. `started N ago` is when that run began, so a loop with a cadence needs no timestamp
-of its own: an idle agent **younger** than the cadence is left standing and the loop reports
-`not_due`; an **older** one is reaped and respawned. Stated cost: the age is measured from the
-start of the previous run rather than its finish, so a run that took four minutes is respawned
-four minutes sooner than the cadence reads. Absent listing — a session just restarted — means
-every loop is due.
+**Record the finish before stopping it**, one line per loop, through the writer the tick log
+already has:
 
-| Name | How many, how often | Preloads | Runs |
-| ---- | ------------------- | -------- | ---- |
-| `implement-<n>` | every tick, **up to the fan-out** | `workaholic:drive` | the **Unified Run**, unattended, with no prompt at any step |
-| `propose` | `WORKAHOLIC_PROPOSE_CADENCE_MINUTES`, default **15**, plus the deferral below | `workaholic:propose` | the strategy judgement |
-| `ingest` | whenever §1 filed an issue this tick; otherwise the same cadence | `workaholic:specificate` | ingest whatever is in the inbox |
+```
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-append.sh --tick <this tick's id>   --step loop-finish-<name> --status ok --summary "<name> finished"
+```
+
+It is written by the tick that **first observes the run idle** — the same tick that is about to
+stop it — so there is no second walk and no new store. `log-append.sh` is idempotent per
+`(tick, step)`, so observing the same idle agent twice in one tick writes one line.
+
+**The cadence is read from that recorded finish, never from a live agent's `started` age**, which
+is what used to make the idle agent load-bearing and force the reaping to wait for the next spawn:
+
+```
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-<name> --latest-tick
+```
+
+The tick id it answers **is** the finish time. A loop whose recorded finish is older than its
+cadence is **due**; one younger is `not_due`. **No recorded finish means due** — a fresh session,
+a first run, or a log this tick could not read, all of which must start the loop rather than
+silence it. `started N ago` is read by nothing now, which also retires its stated cost: the
+cadence measured the previous run's start **plus its whole duration**, so the fifteen-minute
+`propose` loop respawned at ages of 21, 31 and 45 minutes.
+
+| Name | Cadence | Preloads | Runs |
+| ---- | ------- | -------- | ---- |
+| `implement` | every tick | `workaholic:drive` | the **Unified Run**, unattended, with no prompt at any step |
+| `propose` | `WORKAHOLIC_PROPOSE_CADENCE_MINUTES`, default **15** | `workaholic:propose`, `workaholic:specificate` | the strategy judgement, then ingest whatever is in the inbox |
 | `moderate` | **30 minutes**, off its own tick log | `workaholic:moderate` | the maintenance tick |
 
-### The fan-out
+`implement` carries no cadence because there is always more of its work to do and the claim
+protocol already refuses what is taken. **`propose` carries one because its answer is a function
+of what is queued**, and the queue moves only when `implement` lands something or a person
+writes an ask — neither of which happens inside five minutes. `0` means every tick. What was
+measured, and why a change-detector was refused: `workaholic:loops`, *The record behind the tick*.
 
-**One agent per name capped `implement` at one whatever the queue held.** Measured over two hours:
-54 tickets across 8 active missions, one runner by construction, about seven hours of serial
-queue — adding capacity was not merely un-attempted, the concurrency rule forbade it.
+Read claimable units with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/claimable-units.sh` and
+CPU facts with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-machine-load.sh`. Spawn
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − running)` implement runners; absent means one,
+and `bad_fanout` or an unreadable claimable result falls back to one and is reported. Do not hand
+a unit to a runner: each surveys and claims, and the claim arbiter settles any race.
 
-Read how much independently claimable work there is:
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/claimable-units.sh`. It composes
-`plan-units.sh` — the executor's own survey, which partitions into PR-units, resolves ownership
-and subtracts everything a claim holds — and derives nothing of its own. **Cost, measured and
-stated rather than worked around**: 68–73 seconds on this machine, roughly a quarter of a
-five-minute tick. A lighter count that the executor would then refuse is not a saving.
-
-Spawn `min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − running)` runners, each under its own
-name (`implement-1`, `implement-2`, …). **Absent means 1** — the present single runner — so a
-repository declaring nothing is byte-identical to one before this existed. A non-numeric or
-non-positive value is `bad_fanout`: it holds nothing, falls back to 1, and is reported.
-
-**No runner is handed a unit.** Each runs its own survey and claims what it can, and the claim
-arbiter settles a race — since 2026-09-02 `claim.sh` wins one ref per claimed artifact before it
-creates anything, so two runners that survey together cannot both take one unit and the loser
-refuses `claim_race_lost` holding nothing. Assigning units at the tick would put a second
-allocator beside `plan-units.sh`'s order, and a tick that names a unit is naming an identifier it
-cannot see the state of. **Stated cost**: a losing race spends an agent run that produces nothing,
-and that is the price of not assigning, bounded by the declared number.
-
-**Only `running` runners count against the bound**, so a fan-out does not compound across ticks.
-A degraded claimable reading — the survey was not `current`, was `shallow`, or read
-`owner_unresolved` / `placeholder_identity` — yields **no fan-out**: one runner is spawned exactly
-as before, and the reading is reported as `fanout_unreadable: <the reader's own word>`. A gate
-that cannot be read is not a gate, and an allocation decided on a blind survey is worse than the
-fixed one it replaces.
-
-### The ingest half runs on the tick's own capture
-
-`propose` bundled an event-driven half with a state-gated half behind one number, so a captured
-ask waited up to fifteen minutes for a clock. They are split at the spawn: the **strategy
-judgement** keeps the cadence, and the **ingest** is spawned whenever §1 filed at least one issue
-this tick. It is keyed on the tick's own act — the count of issues §1 filed — and on nothing else:
-no queue reading, no inbox poll, no change detector.
-
-The ingest also keeps running on the cadence, because an ask a person files directly on GitHub is
-one §1 never sees. The capture is an **additional** trigger, never a replacement. **When both run
-in one tick the strategy judgement is spawned first**, so the issue it opens is in the inbox the
-ingest reads — the ordering the merged routine bought, preserved.
-
-### A runner whose last answer cannot have moved is skipped
-
-The strategy half produced zero proposals on every run of a two-hour session, each time
-re-deriving a gate whose inputs could not have moved: `work_waiting` clears only when `implement`
-drains the queue.
-
-Read the **previous strategy run's own reported refusal** from the tick log
-(`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh`) — the gate's last answer, never
-a recomputation of it. When every direction was refused `work_waiting`, defer the strategy half.
-Four bounds, each a refusal in its own right:
-
-- **Lift it on the one event that can clear that refusal** — an `implement` run landed a unit
-  since, which the tick learns from its own task notifications and from no queue reading.
-- **Cap it.** After `WORKAHOLIC_PROPOSE_DEFER_MAX` skipped cadences (default **3**) the strategy
-  half runs regardless. A brake with no ceiling is how the one routine that originates work stops
-  silently, which this repository has measured twice.
-- **Defer only on `work_waiting`.** `arrived`, `observing`, `past_target_date` and `not_active`
-  each clear through a person's act that leaves no trace the tick reads, so a direction refused
-  for one of those keeps walking on its cadence.
-- **An unreadable log defers nothing** and is reported `cadence_unreadable`.
-
-`survey-strategies.sh` is untouched and no gate is duplicated: what is read here is a previous
-run's reported answer, not the ladder.
+Run ingest when this tick captured an ask even when the strategy cadence is closed. Defer the
+strategy half only when its previous reported answer was `work_waiting`; lift that deferral after
+an implementation lands and cap it at `WORKAHOLIC_PROPOSE_DEFER_MAX` (default 3).
 
 Spawn each **due** one as `subagent_type: "general-purpose"`, in the **background**, under that
-loop's own name. Give each the command body it answers to — `commands/propose.md`,
-`commands/specificate.md` and `commands/implement.md` are the ceilings for what those runs may
-post, and a subagent reads them with the Read tool.
+loop's own name. Give each the command body it answers to — `commands/propose.md` and
+`commands/implement.md` are the ceilings for what those runs may post, and a subagent reads them
+with the Read tool.
 
 **`moderate`'s gate is read from its own tick log rather than from the listing**, because its
 acts are hourly by nature and the log is a reader that already exists: run
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh` and spawn it only when the
-newest tick there is **older than 30 minutes**. An unreadable log spawns it — over-reporting
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --latest-tick` — which answers
+that one timestamp and **carries no entries** — and spawn it only when the newest tick there is
+**older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just now*. An unreadable log spawns it — over-reporting
 beats a maintenance tick that silently stopped.
 
 Then **end the turn**. Do not poll, do not await, do not summarise their work: their results
-arrive as task notifications, and the next tick reports what landed. A subagent tears down with
+arrive as task notifications, and the next tick reports what landed. **A run's result reaches the
+parent once**: the idle notification always arrives, so a subagent must not also be asked for a
+summary message. The notification is the one that cannot be turned off, so it is the one that
+stays. What was measured: `workaholic:loops`, *The record behind the tick*. A subagent tears down with
 its own run; `/ship` and `/mission-close` already reap the claim worktrees they opened
 (`cleanup-mission-worktree.sh`).
+
+## 2b. The progress reading — start it, never wait for it
+
+The tick says which loops it spawned; on its own that never says whether the work is
+**moving**. `skills/loops/scripts/tick-progress.sh` answers that from readers this
+repository already owns — per active mission the acceptance `checked/total`, the tickets
+still queued against it, and whether anything has landed there at all; then the queue's own
+total, how many missions carry queued work, and what the origination gate would therefore
+answer next.
+
+**Start it in the background and render the reading the PREVIOUS tick started.** It walks
+every queued ticket through `read-relation.sh` and measured ~60s here — a tick that waits for
+it is a tick that cannot answer a person for a minute, which is the one thing the cadence
+exists to prevent. The cost is stated rather than hidden: the numbers a tick prints are up to
+one tick old, and the render names when they were read.
+
+It holds no cursor and no store, so a **trend** is the caller's to see: this tick's reading
+beside the last one is what says *draining* or *stuck*. `draining` on a row is only the fact
+that this mission's archive is non-empty.
 
 ## 3. Report, in one short block
 
@@ -243,19 +267,32 @@ its own run; `/ship` and `/mission-close` already reap the claim worktrees they 
 - **Per message**: `replied` / `reacted` / `swept` (with the issue URL, the receipt's reply and
   reaction each, and `direction:<slug>`) / `already_answered` / `skipped_own_post`, or the named
   degradation.
-- **Per loop**: `spawned` / `still_running` / `not_due` (naming the age it read), each with
-  `reaped` when an idle agent was stopped first.
-- **The allocation, as one decision**: how many `implement` runners were spawned, out of how many
-  claimable units, against what bound. A tick that spawned none because every runner was busy and
-  nothing was captured reports **`watching`** with that reason — a decision the tick made, never
-  silence, and never the residue of three gates all answering no.
-- **The deferral by name** when the strategy half was skipped: the refusal it read and how many
-  cadences it has been deferred.
-- **Every reading that could not be made**, by its own word: `fanout_unreadable` (carrying the
-  claimable reader's own reason), `bad_fanout`, `cadence_unreadable`. A degraded reading is never
-  rendered as a healthy one.
-- Nothing else. A tick that read a quiet channel and spawned nothing says exactly that — in **one
-  line**. An allocation of zero is one line, not five.
+- **Per announced ask**: the issue and one of `announced` / `already_announced` /
+  `thread_unresolved: <reason>` / `post_failed: <reason>` / `held: <reason>`. A tick with no
+  candidate says `no_candidates`; a candidate read that failed says the reader's own reason and
+  is never rendered as `no_candidates`.
+- **Per loop, only when something happened**: `spawned`, or `reaped` when an idle agent was
+  stopped. A loop that was `still_running` or `not_due` gets **no line** — the gate working is not
+  news, and the majority of ticks are that. Where **every** loop was quiet, say so in one line
+  (`loops: none due`) rather than three.
+- **The allocation**: implement runners spawned, claimable units, declared bound, and `watching`
+  when no runner was needed. Name `fanout_unreadable`, `bad_fanout`, and strategy deferral rather
+  than rendering degraded inputs as a healthy zero.
+- **Every reaping is named** — `reaped: <name>` — even on a tick that spawns nothing, because
+  stopping a session is an act the tick took and the listing afterwards is the only other evidence.
+- **The cadence's own source is named where a loop was skipped**: `not_due: <name> (finish
+  recorded <age>)`, or `not_due: <name> (finish unrecorded — treated as due)` — which cannot occur,
+  and saying so is how a later reader learns the absence means *due*. A log this tick **could not
+  read** is named as unreadable (`cadence_unreadable: <reason>`) and the loop is spawned: a
+  degraded read is never rendered as a healthy `not_due`, which is this loop's standing rule.
+- **Progress**, from the reading that has landed: the queue total, then one line per active
+  mission carrying queued work — acceptance `checked/total` and tickets left — and the
+  origination gate's next answer with what has to clear for it to open. Name when the reading
+  was taken. A reading that has not landed yet is named as pending, never rendered as zero.
+- **Nothing else, and a tick that did nothing says one line.** A quiet channel, no candidate, no
+  loop due and a clean checkout is `idle` and nothing further — the principle this plugin already
+  holds one surface over (`/moderate`'s post gate makes an idle hour silent), applied to the tick's
+  own report. What was measured: `workaholic:loops`, *The record behind the tick*.
 
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or
 guess retired namespaces.

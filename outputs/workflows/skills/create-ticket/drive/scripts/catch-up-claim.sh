@@ -130,11 +130,11 @@ report() {
     # other exit path -- a field, not a second vocabulary. It is written only when a check went
     # red, so a caller that finds it non-empty has the bytes; a caller that finds it empty is
     # not being told the checks passed, only that none of them left a log to read.
-    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "check_log": "%s"}\n' \
+    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s", "check_log": "%s"}\n' \
         "$1" "$(json_str "$unit")" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" \
         "$(json_str "$CLASS")" "$CONFLICTED" "$(json_str "$WORKTREE")" \
         "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")" \
-        "$(json_str "${CHECK_LOG:-}")"
+        "$(json_str "${MERGE_BODY_SOURCE:-}")" "$(json_str "${CHECK_LOG:-}")"
     exit 0
 }
 refuse() { report catch_up_refused "$1"; }
@@ -472,10 +472,34 @@ PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf ''
 
 # The method is READ, never spelled — `gather/scripts/merge-method.sh` is the one derivation
 # and the suite fails on a literal at a call site (`CLAUDE.md`, *Enforcement gates*).
+# THE BRANCH'S OWN CHECKS ARE READ BEFORE THE MERGE, AND ONLY `checks_red` REFUSES HERE
+# (2026-09-03). `drive/scripts/branch-checks.sh` is the one derivation of the gate. This act
+# merges immediately after ITS OWN push, so the head commit's checks are normally `no_checks`
+# or `checks_pending` and the gate passes -- THE LIMIT IS STATED RATHER THAN HIDDEN: what it
+# catches here is a branch that was already red before the catch-up ran, and nothing more.
+# Refusing on `checks_pending` too was rejected by name: this script reports `already_current`
+# and returns before the delivery half on its next run, so a unit held on pending here would
+# never be delivered by anything.
+check_gate="$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" 2>/dev/null || printf '')"
+case "$(printf '%s' "$check_gate" | jq -r '.reason // ""' 2>/dev/null || printf '')" in
+    checks_red) DELIVERY="not_attempted: checks_red"; report caught_up "" ;;
+esac
+
 method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
+# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# is the one derivation of `commit_title` / `commit_message`; without them the forge
+# concatenates every commit on the branch into the trunk's record. A composer that could not
+# read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
+# THE COMPOSER READS THE PUSHED TIP. This runs after the catch-up's own push, so the
+# branch story and the commit range it reads are the ones the merge will actually squash.
+body_json="$(sh "${GATHER}/merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')"
+merge_title="$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')"
+merge_body="$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')"
+MERGE_BODY_SOURCE="$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')"
 set +e
 merge_resp="$(sh "$GH_REST" api "repos/${slug}/pulls/${PR}/merge" \
-    --method PUT -f "merge_method=${method}" 2>&1)"
+    --method PUT -f "merge_method=${method}" \
+    -f "commit_title=${merge_title}" -f "commit_message=${merge_body}" 2>&1)"
 merge_status=$?
 set -e
 

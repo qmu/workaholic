@@ -56,6 +56,7 @@ for (const k of Object.keys(process.env)) {
 process.env.WORKAHOLIC_BOOTSTRAP_ACCOUNT = "";
 
 const SCRIPTS = {
+  codexLoop: join(REPO_ROOT, "scripts/codex-loop.sh"),
   branchCheck: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/check.sh"),
   branchCreate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create.sh"),
   createMissionWorktree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/create-mission-worktree.sh"),
@@ -83,6 +84,7 @@ const SCRIPTS = {
   stepUndrivableUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undrivable-units.sh"),
   stepUndeliveredUnits: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-undelivered-units.sh"),
   reconcileCandidates: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/reconcile-candidates.sh"),
+  listUnannouncedClosedAsks: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"),
   stepThreadReconcile: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-thread-reconcile.sh"),
   listTodo: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"),
   proposeRun: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/run.sh"),
@@ -133,6 +135,7 @@ const SCRIPTS = {
   settleStrandedPublication: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh"),
   stepStrandedPublications: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-stranded-publications.sh"),
   catchUpClaim: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"),
+  branchChecks: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/branch-checks.sh"),
   catchupMain: join(REPO_ROOT, "plugins/workaholic/skills/ship/scripts/catchup-main.sh"),
   retryUndelivered: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/retry-undelivered.sh"),
   stepMergeConflicts: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-merge-conflicts.sh"),
@@ -211,6 +214,7 @@ const SCRIPTS = {
   convergeLayout: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/converge-layout.sh"),
   missionQueueSize: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/queue-size.sh"),
   missionCheckFloor: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/check-floor.sh"),
+  missionSizeDistribution: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/size-distribution.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
@@ -228,6 +232,9 @@ const SCRIPTS = {
   resolveRepoUrl: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/resolve-repo-url.sh"),
   checkBootstrap: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-bootstrap.sh"),
   mergeMethod: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-method.sh"),
+  mergeCommitBody: join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-commit-body.sh"),
+  runVerificationProbe: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/run-verification-probe.sh"),
+  verificationHandoff: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/verification-handoff.sh"),
   checkRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh"),
   applyRepoSettings: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-repo-settings.sh"),
   applyClaudeMdReference: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-claude-md-reference.sh"),
@@ -969,10 +976,18 @@ function testDirectionHealthLeaving() {
     assertTrue("the overdue direction is asked about", !!gone, JSON.stringify(subjectsOf(j)));
     assertTrue("its heading names what it never reached",
       /never reached: 1 mission\(s\), 2 ticket\(s\) still queued/.test(gone.heading), gone.heading);
-    assertTrue("and what no direction claimed, by slug",
-      /not attributed to any direction: orphan \(0 queued\)/.test(gone.heading), gone.heading);
-    assertTrue("its body carries the size and the operator's act",
-      /^It would leave 3 unreached and 1 unclaimed\. Re-date it, announce/.test(gone.body), gone.body);
+    // THE REPOSITORY-WIDE RESIDUE IS NOT ON THIS QUESTION (2026-09-03, mission
+    // `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). It was pasted onto every
+    // direction heading because the composer had it in hand; it is a fact about the REPOSITORY, not
+    // about this direction, and it now rides only `arrived` and its `cutover` refinement, where
+    // whether the loop could see everything IS the question (the 2026-08-28 mission that added it).
+    assertTrue("and NOT what no direction claimed — that is not a fact about this direction",
+      !/not attributed to any direction/.test(gone.heading), gone.heading);
+    // AND THE TICK'S OWN COUNTERS ARE NOT IN THE BODY. `It would leave N unreached and M unclaimed.`
+    // was the tick saying what its counters would hold afterwards, in a sentence addressed to a
+    // person. The sizes still ride the heading, which the assertion above this one checks.
+    assertTrue("its body opens with the operator's act and no counter of ours",
+      /^Re-date it, announce/.test(gone.body), gone.body);
     assertEq("and it is addressed to the direction's assignee", gone.assignees, "test@example.com");
 
     // THE LEAVING IS CARRIED, not composed twice: what the step renders is what
@@ -2375,15 +2390,15 @@ function testExpiringQuestion() {
     // somebody has is not a warning.
     assertTrue("the heading names the days left and the date",
       /reaches its target date in 3 day\(s\) \(\d{4}-\d{2}-\d{2}\)/.test(soon.heading), soon.heading);
-    assertTrue("and what it never reached, beside what no direction claimed",
+    assertTrue("and what it never reached — but NOT the repository-wide residue (2026-09-03)",
       /never reached: 1 mission\(s\), 1 ticket\(s\) still queued/.test(soon.heading)
-      && /not attributed to any direction: orphan \(0 queued\)/.test(soon.heading), soon.heading);
-    assertTrue("its body carries the size and one sentence naming the operator's act",
-      /^It would leave 2 unreached and 1 unclaimed\. Re-date it, announce a successor when you end it, or say it still stands/.test(soon.body),
+      && !/not attributed to any direction/.test(soon.heading), soon.heading);
+    assertTrue("its body is one sentence naming the operator's act, with no counter of ours",
+      /^Re-date it, announce a successor when you end it, or say it still stands/.test(soon.body),
       soon.body);
-    // The act sentence is what `workaholic:notify` bounds; the leaving clause is a prefix the
-    // other readings carry the same way.
-    const act = soon.body.split(". ").slice(1).join(". ");
+    // The act sentence is what `workaholic:notify` bounds. The tick's own leaving counters used to
+    // sit in front of it and are retired, so the whole body is now the act.
+    const act = soon.body;
     assertTrue(`the act is one sentence inside the 25-word bound (${act.split(/\s+/).length})`,
       act.split(/\s+/).length <= 25, act);
 
@@ -2934,7 +2949,11 @@ function testBaseHealthStep() {
     JSON.parse(run(dir, `${POSIX_SH} ${STEP} --tick ${tick} --root ${dir}`, { env }).stdout);
 
   try {
-    // ---- A RED BASE IS ONE QUESTION, KEYED ON THE COMMIT AND ADDRESSED TO ITS AUTHOR ----
+    // ---- A RED BASE IS ONE `🔴 Blocked` REPORT, ADDRESSED TO NOBODY (2026-09-03) ----
+    // It was a `base-red:<commit>` question until this mission, and `ask-question.sh` holds a
+    // question under `quiet_hours` -- rightly, because a question addresses a named person. A red
+    // base asks the operator to decide NOTHING, so the reason the window exists does not apply and
+    // the loop built on a broken base all night while its announcement waited for morning.
     mkdirSync(join(dir, ".claude"), { recursive: true });
     writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
     set({ [tip]: RED, [c2]: GREEN, [c1]: GREEN });
@@ -2942,8 +2961,13 @@ function testBaseHealthStep() {
     assertEq("a red base reports ok and hands back exactly one question",
       [j.step, j.status, j.reason, j.needs_agent.length], ["base-health", "ok", "", 1]);
     const base = j.needs_agent[0].base;
-    assertEq("keyed on the attributed commit, not on the tick and not on the day",
-      base.key, `base-red:${tip}`);
+    assertEq("it is a report rather than a question, so it carries no question key",
+      base.key, "");
+    assertEq("and names the Blocked shape with a signature that carries no SHA",
+      [j.needs_agent[0].action, j.needs_agent[0].shape, j.needs_agent[0].signature],
+      ["report_the_red_base_as_a_blocked_alert", "🔴 Blocked", "base red: Validate Plugins"]);
+    assertTrue("and its bound says the quiet window does not hold it",
+      /not\s+held by .quiet_hours./i.test(j.needs_agent[0].bound), j.needs_agent[0].bound);
     assertEq("naming the merge, its pull request, its author and the failing checks",
       [base.attribution, base.commit, base.pull_request, base.owner, base.failing],
       ["attributed", tip, "https://x/7", "someone@example.com", "Validate Plugins"]);
@@ -2954,12 +2978,12 @@ function testBaseHealthStep() {
       step().needs_agent[0].base.owner, "unknown");
     writeFileSync(join(dir, ".claude/git-identities"), "someone-else=someone@example.com\n");
 
-    // ---- `unattributable` STILL ASKS, KEYED ON THE TIP ----
+    // ---- `unattributable` STILL REPORTS ----
     set({ [tip]: RED, [c2]: RED, [c1]: RED });
     j = step();
-    assertEq("a walk that could not attribute still asks, keyed on the tip",
+    assertEq("a walk that could not attribute still reports, carrying no question key",
       [j.status, j.needs_agent.length, j.needs_agent[0].base.key],
-      ["ok", 1, `base-red:${tip}`]);
+      ["ok", 1, ""]);
     assertTrue("and says so rather than naming a merge it did not identify",
       /^unattributable: /.test(j.needs_agent[0].base.attribution), j.needs_agent[0].base.attribution);
 
@@ -10579,6 +10603,40 @@ function testDraftDeployPlan() {
     assertTrue("draft-deploy-plan did not create the missing note",
       !existsSync(join(noNote.dir, ".workaholic/release-notes/absent.md")), "the note was created");
   } finally { cleanup(noNote.dir); }
+
+  // A NON-ASCII TITLE REACHES THE HEADING AS TEXT (2026-09-03, ticket
+  // `20260903053345`). The plan is written to be read by people, and the title
+  // travels from the record through `read-deployments.sh`'s JSON and a `sed`
+  // extraction that never JSON-decodes — so an ASCII-escaping serialiser put
+  // `\u30ea\u30dd...` in the heading and a human decoded it by hand. Both halves
+  // are asserted together on purpose: raw UTF-8 in the heading is only the right
+  // repair if the JSON on stdout is still parseable for every other consumer.
+  const nonAscii = makeRepo("main");
+  try {
+    const title = "リポジトリ文書サイト";
+    mkdirSync(join(nonAscii, ".workaholic/deployments"), { recursive: true });
+    writeFileSync(join(nonAscii, ".workaholic/deployments/jp.md"),
+      `---\ntitle: ${title}\nenvironment: production\nconfirmation_method: api-probe\ndeploy_model: deploy-on-merge\n---\n\n` +
+      "## Procedure\n\n1. deploy\n\n## Confirmation\n\n1. probe\n");
+    mkdirSync(join(nonAscii, ".workaholic/release-notes"), { recursive: true });
+    const jpNote = ".workaholic/release-notes/work-20260903-000000.md";
+    writeFileSync(join(nonAscii, jpNote),
+      "---\ntype: Release Note\nbranch: work-20260903-000000\n---\n\n# Sample\n\n## Summary\n\nA sample note.\n");
+    execSync(`git add -A && git commit -q -m "Add a non-ASCII target"`, { cwd: nonAscii });
+    execSync(`git checkout -q -b work-20260903-000000`, { cwd: nonAscii });
+
+    const read = JSON.parse(run(nonAscii, `${POSIX_SH} ${SCRIPTS.readDeployments}`).stdout);
+    assertEq("read-deployments keeps a non-ASCII title as text in valid JSON",
+      read.deployments[0].title, title);
+
+    const r = JSON.parse(run(nonAscii, `${POSIX_SH} ${SCRIPTS.draftDeployPlan} ${jpNote}`).stdout);
+    assertEq("draft-deploy-plan drafts the non-ASCII target", { ok: r.ok, t: r.targets }, { ok: true, t: 1 });
+    const jpBody = readFileSync(join(nonAscii, jpNote), "utf8");
+    assertTrue("draft-deploy-plan renders a non-ASCII title as characters",
+      jpBody.includes(`### ${title} (\`jp\`)`), jpBody);
+    assertTrue("draft-deploy-plan leaves no escape sequence in the heading",
+      !/\\u[0-9a-fA-F]{4}/.test(jpBody), jpBody);
+  } finally { cleanup(nonAscii); }
 }
 
 // ---------- ship/record-evidence.sh (pre-merge deployment evidence capture) ----------
@@ -16486,6 +16544,8 @@ function testClaimProtocol() {
     assertTrue("release-claim removes the worktree", !existsSync(join(B, ".worktrees", batch.unit)));
     assertEq("the released branch is gone from origin",
       run(origin, `git rev-parse --verify --quiet refs/heads/${batch.branch}`).status, 1);
+    assertEq("the released claim's liveness carrier is gone from origin",
+      run(origin, `git rev-parse --verify --quiet refs/workaholic/claim-liveness/${batch.branch}`).status, 1);
     assertEq("the reader is empty once every claim is merged or released",
       JSON.parse(run(A, LIST).stdout).claims.length, 0);
 
@@ -16624,6 +16684,8 @@ function testLandUnit() {
       { w: true, present: false });
     assertEq("land deletes the remote claim branch",
       run(origin, `git rev-parse --verify --quiet refs/heads/${claimed.branch}`).status, 1);
+    assertEq("land deletes the claim's liveness carrier",
+      run(origin, `git rev-parse --verify --quiet refs/workaholic/claim-liveness/${claimed.branch}`).status, 1);
     assertEq("the reader sees no claim once the unit has landed",
       JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout).claims.length, 0);
 
@@ -16663,6 +16725,12 @@ function testClaimOfflineAsymmetry() {
     assertEq("the offline reader still reports the last-known claim",
       { n: r.claims.length, u: r.claims[0]?.unit, b: r.claims[0]?.branch },
       { n: 1, u: "m1", b: claimed.branch });
+    const unreadable = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, {
+      env: { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" },
+    }).stdout);
+    assertEq("an unreadable declared carrier is never interpreted as expired",
+      { why: unreadable.claims[0]?.resume_reason, at: unreadable.claims[0]?.last_commit_at },
+      { why: "claim_active", at: "liveness_unreadable" });
 
     const w = run(B, `${POSIX_SH} ${SCRIPTS.claim} mission m1`);
     assertTrue("the offline writer exits non-zero", w.status !== 0, `status ${w.status}`);
@@ -19705,14 +19773,15 @@ function testHeartbeatRefusesMidMerge() {
     assertEq("the merge is still there for the run to resolve",
       run(wt, `git rev-parse --verify --quiet MERGE_HEAD`).status, 0);
 
-    // Once resolved, the beat is exactly what it was before this change.
+    // Once resolved, the separate carrier can advance without touching the merge commit.
     writeFileSync(join(wt, "c.txt"), "resolved\n");
     execSync(`git add c.txt && git commit -q --no-edit`, { cwd: wt });
+    const resolvedTip = execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim();
     const after = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
     assertEq("with the merge resolved the beat succeeds again",
       { b: after.beat, r: after.reason }, { b: true, r: "" });
-    assertEq("and that beat changed no file",
-      execSync(`git show --stat --format= HEAD`, { cwd: wt, encoding: "utf8" }).trim(), "");
+    assertEq("and that beat leaves the resolved branch tip untouched",
+      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim(), resolvedTip);
   } finally {
     for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
   }
@@ -19732,14 +19801,16 @@ function testHeartbeat() {
     const before = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
 
     const beat = JSON.parse(run(A, `${HEARTBEAT} m1`).stdout);
-    assertEq("the beat reports success and the branch it advanced",
+    assertEq("the beat reports success and the branch whose carrier it advanced",
       { b: beat.beat, br: beat.branch }, { b: true, br: claimed.branch });
     const after = execSync(`git rev-parse HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim();
-    assertTrue("the beat advanced the claim branch tip", after !== before, `${before} -> ${after}`);
-    assertEq("the beat changed no file — it can never reach the PR diff",
-      execSync(`git show --stat --format= HEAD`, { cwd: join(A, ".worktrees/m1"), encoding: "utf8" }).trim(), "");
-    assertTrue("the beat is pushed, so other runners can see it",
-      execSync(`git rev-parse refs/heads/${claimed.branch}`, { cwd: origin, encoding: "utf8" }).trim() === after);
+    assertEq("the beat leaves the claim branch tip untouched", after, before);
+    const carrier = `refs/workaholic/claim-liveness/${claimed.branch}`;
+    assertTrue("the separate carrier is pushed, so other runners can see it",
+      run(origin, `git cat-file -e ${carrier}^{blob}`).status === 0, carrier);
+    assertTrue("the branch history carries no heartbeat commit",
+      !execSync(`git log --format=%s refs/heads/${claimed.branch}`,
+        { cwd: origin, encoding: "utf8" }).includes("Refresh heartbeat"));
     // A beaten claim reads as ACTIVE within a real window.
     const r = JSON.parse(run(B, `${POSIX_SH} ${SCRIPTS.listClaims}`, { env: oneMinute }).stdout);
     assertEq("a just-beaten claim is active, not resumable",
@@ -19768,8 +19839,8 @@ function testHeartbeat() {
       { b: inside.beat, br: inside.branch }, { b: true, br: claimed.branch });
     assertEq("and reports the same branch it reports from the main checkout",
       inside.branch, beat.branch);
-    assertTrue("the beat from inside the worktree advanced the tip",
-      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim() !== fromMain);
+    assertEq("the beat from inside the worktree still leaves the tip untouched",
+      execSync(`git rev-parse HEAD`, { cwd: wt, encoding: "utf8" }).trim(), fromMain);
 
     // The refusal words are untouched from either directory.
     const missingInside = run(wt, `${HEARTBEAT} no-such-unit`);
@@ -21520,6 +21591,23 @@ function testTickRendersARootAndADeltaReply() {
     /reply_text/.test(cmd) && /tick-day:/.test(cmd), "commands/moderate.md");
   assertTrue("and that no thread found means the root",
     /root_text/.test(cmd), "commands/moderate.md");
+
+  // 5. AND THE TICK'S OWN INTERNALS ARE REFUSED AT THAT SAME SURFACE (2026-09-03, mission
+  //    `make-the-maintenance-tick-s-channel-presence-help-the-work-along`). `render-tick-post.sh`
+  //    prints none of them, so a printed `tick-day:20260903` and a sentence explaining which
+  //    internal step would have handled something entered where the AGENT composes the post. The
+  //    rule therefore lives in the ceiling and is pinned here.
+  //
+  //    WHAT THIS CANNOT SEE, named rather than implied: what a session actually emits at run time.
+  //    All that is checkable is that the rule is present where the composition happens — the same
+  //    bound every other ceiling assertion in this suite carries.
+  assertTrue("the ceiling refuses the tick's own internals in a rendered post",
+    /Nothing the tick knows about itself reaches a rendered post/.test(cmd), "commands/moderate.md");
+  for (const item of ["dedup key", "step id", "counter about the tick", "promise no step must keep"]) {
+    assertTrue(`and names ${item} as one of them`, cmd.includes(item), "commands/moderate.md");
+  }
+  assertTrue("and it asks one question per group rather than one per subject",
+    /one question per group/.test(cmd) && /groups/.test(cmd), "commands/moderate.md");
 }
 
 // ---------- the tick log is committed nowhere, and the log branch stays retired (2026-09-03) --
@@ -21658,6 +21746,409 @@ function testMergeMethodIsSingleSourced() {
   assertTrue("and no commit claims to be logging the tick",
     !/Log the moderation tick/.test(persistCode) && !/Log the propose tick/.test(persistCode),
     "a log-committing subject is back; the log branch is retired");
+}
+
+// ---------- a finished subagent is stopped and the clock is off it (2026-09-03) ----------------
+// The operator's intent is that a subagent is discarded when its work finishes, so every run starts
+// on a fresh context window. The tick specified the OPPOSITE: an idle agent was the loop's clock, so
+// it was kept alive until the next spawn. MEASURED twice in one session -- a send woke an idle agent
+// inside its prior context; an idle agent is a resumable session, not a corpse. And nothing bounded
+// a run: one `implement` agent lived 90 minutes, landed an eight-ticket mission, then claimed a
+// SECOND unrelated one and planned it inside a context still carrying the whole of the first.
+//
+// WHAT IS PINNED is prose in three ceilings, and the assertions say so: none of this is a script, so
+// what is checkable is that each rule is present where the run reads it.
+T("a finished subagent is stopped and the clock is off it", testSubagentReaping);
+function testSubagentReaping() {
+  const tick = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+
+  // THE REAPING IS UNCONDITIONAL AND AT THE HEAD -- not "before the spawn", which is what made the
+  // idle agent load-bearing.
+  assertTrue("every idle subagent is stopped at the head of the tick",
+    /stopped at the HEAD of this tick, unconditionally/.test(tick), "the reaping still waits");
+  assertTrue("and the reason is that it is a resumable session, not a corpse",
+    /resumable session holding its whole\s+transcript/.test(tick), "the reason is unstated");
+
+  // THE CLOCK IS A RECORDED FINISH. Both halves must be present: the write and the read.
+  assertTrue("the finish is recorded through the existing log writer",
+    /log-append\.sh/.test(tick) && /loop-finish-/.test(tick), "no finish is recorded");
+  assertTrue("and the cadence is read from it",
+    /--step-prefix loop-finish-.*--latest-tick/.test(tick), "the cadence reads no finish");
+  assertTrue("an absent finish means DUE, never silence",
+    /No recorded finish means due/.test(tick), "an absent finish is unspecified");
+  assertTrue("and `started` is no longer the clock",
+    /`started N ago` is read by nothing now/.test(tick), "the agent is still the clock");
+
+  // THE REPORT NAMES THE SOURCE AND EVERY REAPING -- three invisible rules need one surface.
+  assertTrue("every reaping is named", /Every reaping is named/.test(tick), "reapings are silent");
+  assertTrue("and the cadence's source is named where a loop was skipped",
+    /finish\s+recorded/.test(tick), "the source is unnamed");
+  assertTrue("and an unreadable log is never rendered as a healthy not_due",
+    /cadence_unreadable/.test(tick), "a degraded read reads healthy");
+
+  // ONE PR-UNIT PER RUN, in the ceiling the unattended run reads and in the skill it preloads.
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
+  assertTrue("the /implement ceiling bounds a run to one PR-unit",
+    /claims ONE PR-unit/.test(impl), "the run is unbounded");
+  assertTrue("and says what that costs", /drains over more ticks/.test(impl), "the cost is hidden");
+  assertTrue("and that the terminal token does not move",
+    /token does not move/.test(impl), "the token rule is unstated");
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the drive skill carries the same bound",
+    /one unit is also the whole run/.test(drive), "the skill still says keep going");
+  // AN ATTENDED RUN IS UNCHANGED -- a person is present and chose what to take.
+  assertTrue("and exempts the attended entry point by name",
+    /attended `\/drive` is unchanged/.test(drive), "the attended run was bound too");
+}
+
+// ---------- a tick pays only its operative cost (2026-09-03) -----------------------------------
+// The loop runs in ONE session that never resets, so the tick's fixed per-tick cost is the number
+// that matters and it was larger than the work most ticks do. MEASURED over two hours: ~23 ticks,
+// 4 capturing an ask, the rest quiet; `log-read.sh` returning 50,087 bytes to answer one timestamp;
+// an 11,291-byte command body re-paid every five minutes.
+//
+// WHAT IS PINNED: the cadence gate has a one-line answer that carries no entries, the record page
+// exists and the command cites it, and — the hard bound the split had to hold — no OPERATIVE
+// instruction left the command. That last one is checked by naming the instructions that must
+// remain, because "nothing operative moved" is otherwise unfalsifiable.
+T("a tick pays only its operative cost", testTickOperativeCost);
+function testTickOperativeCost() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-tick-cost-"));
+  try {
+    mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/moderations/2026-09-03.md"),
+      "## 20260903-100000\n\n- `open-log`: ok — opened\n- `base-health`: ok — green\n\n" +
+      "## 20260903-110000\n\n- `open-log`: ok — opened\n");
+    const logRead = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-read.sh");
+    const full = run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir}`).stdout;
+    const one = run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir} --latest-tick`).stdout;
+    const parsed = JSON.parse(one);
+    assertEq("the cadence gate gets the newest tick and no entries",
+      [parsed.latest_tick, parsed.entries.length, parsed.count],
+      ["20260903-110000", 0, 0]);
+    assertTrue("and it is smaller than the day it replaced", one.length < full.length,
+      `${one.length} vs ${full.length}`);
+    // EVERY FILTER STILL APPLIES, so the flag answers *when did a step last run* too.
+    const filtered = JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir} --step base-health --latest-tick`).stdout);
+    assertEq("a filtered latest-tick answers that filter's newest",
+      filtered.latest_tick, "20260903-100000");
+    // NOTHING MATCHED IS THE EMPTY STRING, which a caller must read as *no such tick* and never
+    // as *just now* -- the direction of failure this repository chooses everywhere else.
+    const none = JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${dir} --step nope --latest-tick`).stdout);
+    assertEq("no match answers the empty string, never a time", none.latest_tick, "");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+  const record = join(REPO_ROOT, "plugins/workaholic/skills/loops/reference/tick-record.md");
+  assertTrue("the record page exists", existsSync(record), record);
+  assertTrue("and the command cites it rather than carrying it",
+    /The record behind the tick/.test(cmd), "the command cites no record");
+  assertTrue("the cadence gate asks for one line", /--latest-tick/.test(cmd), "the gate reads the day");
+  assertTrue("the channel is read in the concise format", /concise format/.test(cmd), "format unnamed");
+  assertTrue("a run's result reaches the parent once", /reaches the\s+parent once/.test(cmd), "unstated");
+
+  // THE HARD BOUND: no operative instruction left the command. Naming them is what makes
+  // "nothing operative moved" falsifiable rather than a claim.
+  for (const [what, re] of [
+    ["the Slack window", /WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES/],
+    ["the dedup ledger", /list-swept-slack-refs\.sh/],
+    ["the capture", /file-inbound-ask\.sh/],
+    ["the propose cadence", /WORKAHOLIC_PROPOSE_CADENCE_MINUTES/],
+    ["the moderate gate", /log-read\.sh/],
+    ["the checkout read", /git status --porcelain/],
+    ["the reply shape", /💬/],
+    ["the receipt shape", /📥 受理/],
+  ]) {
+    assertTrue(`${what} stayed in the command`, re.test(cmd), `${what} left the ceiling`);
+  }
+}
+
+// ---------- a verification handoff may be a PROBE, re-measured at claim time (2026-09-03) ------
+// A prose declaration cannot be falsified, so a blocker true the day it was written stays true
+// forever and the work behind it stops being attempted. MEASURED on a consuming repository: four
+// parked pull requests, THREE of whose declarations were false when somebody finally probed them.
+//
+// THE SHAPE IS ADDITIVE, and that was a measurement rather than a preference: before it was fixed,
+// ZERO of this repository's 32 queued tickets declared anything at all and all six declarations
+// anywhere in the tree were prose sentences, none of them a command. A format that REPLACED prose
+// would have invalidated every declaration that exists.
+//
+// WHAT IS PINNED: the reader parses the probe and never runs it, every pre-existing verdict is
+// byte-identical, prose reads `unmeasured`, and the runner answers in its own four words with an
+// absence never rendered as `clean`.
+T("a verification handoff may be a probe, re-measured at claim time", testVerificationProbe);
+function testVerificationProbe() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-probe-"));
+  try {
+    const ticket = (name, value) => {
+      const p = join(dir, `${name}.md`);
+      writeFileSync(p, `---\nmission:\nverification_handoff: ${value}\n---\n\n# ${name}\n`);
+      return p;
+    };
+    const read = (p) =>
+      JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.verificationHandoff} tickets ${p}`).stdout);
+
+    // A PROBE IS PARSED, NOT RUN. The command below would create a file if anything executed it;
+    // the assertion that it does not exist is what proves the reader stays a reader.
+    const canary = join(dir, "canary");
+    const probed = read(ticket("probed", `probe: touch ${canary}`));
+    assertEq("a probe declaration is read as measurable",
+      [probed.handoff, probed.probe, probed.measurable, probed.unmeasured],
+      [true, `touch ${canary}`, true, false]);
+    assertTrue("and the reader never runs it", !existsSync(canary), "the reader executed the probe");
+
+    // PROSE IS UNMEASURED -- not false, not true. Its verdict is byte-identical to before.
+    const prose = read(ticket("prose", "A Slack bot token nobody here holds"));
+    assertEq("prose is a handoff and reads unmeasured",
+      [prose.handoff, prose.probe, prose.measurable, prose.unmeasured],
+      [true, "", false, true]);
+
+    // ABSENT IS UNCHANGED, and is neither measurable nor unmeasured.
+    const none = read(ticket("none", ""));
+    assertEq("an absent declaration is no handoff and no class",
+      [none.handoff, none.measurable, none.unmeasured], [false, false, false]);
+
+    // THE RUNNER'S FOUR WORDS.
+    const probe = (cmd, env = {}) => JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.runVerificationProbe} --probe '${cmd}'`,
+        { env: { ...process.env, ...env } }).stdout);
+    const clean = probe("true");
+    assertEq("an exit-0 probe is clean, which is NOT a handoff",
+      [clean.ok, clean.outcome, clean.exit_status], [true, "clean", 0]);
+
+    const blocking = probe("echo 302-somewhere; exit 7");
+    assertEq("a non-zero probe is blocking", [blocking.outcome, blocking.exit_status], ["blocking", 7]);
+    assertTrue("and carries its OWN output as the reason, not a sentence",
+      /302-somewhere/.test(blocking.output), blocking.output);
+
+    // AN ABSENCE OF A READING IS NEVER A CLEAN PROBE -- the direction of failure is chosen, as it
+    // is for the base-checks reader: a timeout leaves the declaration standing.
+    const timedOut = probe("sleep 5", { WORKAHOLIC_PROBE_TIMEOUT_SECONDS: "1" });
+    assertEq("a timed-out probe is unreadable, never clean",
+      [timedOut.ok, timedOut.outcome], [false, "unreadable"]);
+    assertTrue("and names the timeout", /timed_out/.test(timedOut.reason), timedOut.reason);
+
+    // THE OUTPUT IS BOUNDED and says when it was cut.
+    const big = probe("seq 1 2000; exit 1", { WORKAHOLIC_PROBE_OUTPUT_MAX: "100" });
+    assertTrue("a large output is truncated and says so", big.truncated === true, JSON.stringify(big).slice(0, 200));
+
+    // A NON-ASCII PROBE OUTPUT SURVIVES AS CHARACTERS (2026-09-03, ticket `20260903064753`).
+    // This output reaches a person twice -- quoted into `## Handoff` and into the `🟡 Handoff`
+    // Slack post -- so an ASCII-escaping serialiser handed its reader `\uXXXX` to decode by hand.
+    // Both halves are asserted together, as the deployment-plan repair asserts them: raw UTF-8 is
+    // only the right answer if the stdout is still parseable JSON for every other consumer, and
+    // `probe()` parses it to get here at all.
+    const jp = probe('printf "本番の鍵がありません\\t1\\r\\n"; exit 4');
+    assertEq("a non-ASCII probe output keeps its characters",
+      jp.output, "本番の鍵がありません\t1\r");
+    assertTrue("and leaves no escape sequence for a reader to decode",
+      !/\\u[0-9a-fA-F]{4}/.test(jp.output), jp.output);
+
+    // AND THE TWO PATHS OF ONE ESCAPER AGREE. The defect this repaired was not the escaping alone
+    // but the DISAGREEMENT: the `python3` path ASCII-escaped and the `sed` fallback did not, so
+    // which answer a caller got depended on which interpreter was installed. Forcing the first
+    // rung to fail must produce the same bytes rather than a second answer.
+    const shim = join(dir, "shim");
+    mkdirSync(shim, { recursive: true });
+    writeFileSync(join(shim, "python3"), "#!/bin/sh\nexit 127\n", { mode: 0o755 });
+    const jpFallback = probe('printf "本番の鍵がありません\\t1\\r\\n"; exit 4',
+      { PATH: `${shim}:${process.env.PATH}` });
+    assertEq("the escaper's fallback rung returns the same bytes as its first",
+      jpFallback.output, jp.output);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  // THE BOUND, WRITTEN DOWN. A handoff is derived per unit through the one reader and never
+  // inherited from prose -- one file read once became a session-wide premise that stopped six
+  // tickets, three of which declared nothing at all.
+  const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the skill states that a clean probe is not a handoff",
+    /clean probe is not a handoff|`clean`/.test(skill) && /run-verification-probe\.sh/.test(skill),
+    "the route does not name the probe");
+  assertTrue("and that a handoff is never inherited across units",
+    /never inherits? one it did not derive|never inherited/.test(skill), "the contagion bound is unstated");
+}
+
+// ---------- the squash BODY is one derivation too, and no call site spells it (2026-09-03) ----
+// `merge-method.sh` settled that every merge is a squash. A squash whose API call carries no
+// `commit_message` gets the forge's default -- the concatenation of every commit message on the
+// branch -- so the very bookkeeping the squash exists to keep off `main` lands there inside the
+// squash body. MEASURED on this repository: 48 commits on `main` whose body carries `Refresh
+// heartbeat`, every one a squash body rather than a heartbeat commit, the longest 11,515 lines.
+//
+// TWO ROWS, because the method needed only one. A literal-text check cannot see an OMISSION,
+// and omission is exactly the defect here: a call site that simply passes neither field is
+// invisible to the `merge_method=`-shaped assertion. So the second row ENUMERATES the merge
+// call sites from the tree and fails when one reads no composer.
+//
+// WHAT THIS ROW CANNOT SEE, named rather than implied: the two AGENT-level merges (the `review`
+// route's REST call and the `mcp__github__merge_pull_request` retry) are composed at run time by
+// a session and appear in no file. All that is checkable is that the instruction is PRESENT in
+// the ceiling that performs them, which is what the third assertion does.
+T("the squash body is one derivation, and no call site spells it", testMergeBodyIsSingleSourced);
+function testMergeBodyIsSingleSourced() {
+  const dir = makeRepo("main");
+  try {
+    const composer = `${POSIX_SH} ${SCRIPTS.mergeCommitBody}`;
+
+    // `story` -- a branch whose story resolves. The description line is the body.
+    run(dir, `git checkout -q -b work-20260903-000001`);
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-20260903-000001.md"),
+      "---\ntype: Story\nbranch: work-20260903-000001\ndescription: The composer read this line\n---\n\n## 1. Overview\n");
+    run(dir, `git add -A && git commit -q -m "Add a story"`);
+    const storied = JSON.parse(run(dir, `${composer} --branch work-20260903-000001 --number 7`).stdout);
+    assertEq("a branch with a story reads source story", storied.source, "story");
+    assertTrue("and its body is the story's own description",
+      /The composer read this line/.test(storied.body), storied.body);
+    assertTrue("and its title carries the pull request number", /\(#7\)$/.test(storied.title), storied.title);
+
+    // HOUSEKEEPING IS DROPPED BY THE MARKER, NEVER BY A TITLE. Two commits with the SAME
+    // subject, one marked and one not: a title-keyed filter cannot tell them apart, and this
+    // asserts the marked one is gone while the unmarked one survives.
+    run(dir, `git commit -q --allow-empty -m "Refresh heartbeat" -m "Workaholic-Housekeeping: heartbeat"`);
+    run(dir, `git commit -q --allow-empty -m "Refresh heartbeat"`);
+    run(dir, `git commit -q --allow-empty -m "Implement the thing"`);
+    const filtered = JSON.parse(run(dir, `${composer} --branch work-20260903-000001 --number 7`).stdout);
+    assertTrue("an ordinary work commit reaches the body",
+      /Implement the thing/.test(filtered.body), filtered.body);
+    assertTrue("and an UNMARKED lookalike does too -- history is not rewritten by title",
+      /Refresh heartbeat/.test(filtered.body), filtered.body);
+
+    // `fallback` -- a branch with no story at all. This is a PUBLICATION's ordinary answer,
+    // not a failure, so the body is a real sentence rather than an empty string.
+    run(dir, `git checkout -q -b work-20260903-000002 main`);
+    run(dir, `git commit -q --allow-empty -m "Publish a proposal"`);
+    const fb = JSON.parse(run(dir, `${composer} --branch work-20260903-000002 --number 8`).stdout);
+    assertEq("a branch with no story reads source fallback", fb.source, "fallback");
+    assertTrue("and still yields a non-empty body", fb.body.length > 0, JSON.stringify(fb));
+
+    // `unreadable:<reason>` -- and it STILL yields a body. A composer that fails must never
+    // hand the forge its default back by omission.
+    const un = JSON.parse(run(dir, `${composer} --branch no-such-branch-at-all`).stdout);
+    assertTrue("an unreadable read names its reason", /^unreadable:/.test(un.source), un.source);
+    assertTrue("and still yields a non-empty body", un.body.length > 0, JSON.stringify(un));
+
+    // A NON-ASCII TITLE AND DESCRIPTION SURVIVE AS CHARACTERS (2026-09-03, ticket
+    // `20260903064753`). What this composes becomes the squash `commit_title` and
+    // `commit_message` of every merge the loop makes, so an ASCII-escaping serialiser wrote
+    // `リポ...` onto the trunk's PERMANENT record -- the same hand-decoding the
+    // deployment-plan repair removed, one artifact over. Both halves are asserted together:
+    // raw UTF-8 is only the right answer if the stdout is still parseable, and `JSON.parse`
+    // getting this far is that half.
+    run(dir, `git checkout -q -b work-20260903-000003 main`);
+    mkdirSync(join(dir, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/stories/work-20260903-000003.md"),
+      "---\ntype: Story\nbranch: work-20260903-000003\ndescription: 見出しを日本語のまま渡す\n---\n\n## 1. Overview\n");
+    run(dir, `git add -A && git commit -q -m "Add a non-ASCII story"`);
+    const jp = JSON.parse(run(dir,
+      `${composer} --branch work-20260903-000003 --number 9 --title 'ドキュメントサイトの見出しを直す'`).stdout);
+    assertEq("a non-ASCII title reaches the squash title as characters",
+      jp.title, "ドキュメントサイトの見出しを直す (#9)");
+    assertTrue("and the description reaches the body as characters",
+      jp.body.startsWith("見出しを日本語のまま渡す"), jp.body);
+    assertTrue("and neither carries an escape sequence for the trunk to keep",
+      !/\\u[0-9a-fA-F]{4}/.test(jp.title + jp.body), jp.title + jp.body);
+
+    // AND THE TWO PATHS OF ONE ESCAPER AGREE. The disagreement was the defect, not the escaping
+    // alone: which answer a caller got depended on whether `python3` was installed. Forcing the
+    // first rung to fail must produce the same bytes rather than a second answer.
+    const shim = join(dir, "shim");
+    mkdirSync(shim, { recursive: true });
+    writeFileSync(join(shim, "python3"), "#!/bin/sh\nexit 127\n", { mode: 0o755 });
+    const jpFallback = JSON.parse(run(dir,
+      `${composer} --branch work-20260903-000003 --number 9 --title 'ドキュメントサイトの見出しを直す'`,
+      { env: { ...process.env, PATH: `${shim}:${process.env.PATH}` } }).stdout);
+    assertEq("the escaper's fallback rung returns the same title as its first",
+      jpFallback.title, jp.title);
+    assertEq("and the same escaped description",
+      jpFallback.body.split("\n")[0], jp.body.split("\n")[0]);
+    // AND THE SUBJECT LIST SURVIVES THE MISSING INTERPRETER (2026-09-03, ticket
+    // `20260903162400`). The housekeeping filter carried its own `python3` program under
+    // `2>/dev/null || true` with no fallback rung, so with that interpreter gone the list was
+    // dropped ENTIRELY and `source` still read `story` -- measured, the same call returned the
+    // description and the commit list with it present and the description alone without it. The
+    // repair removed the interpreter rather than giving it rungs, so this compares the WHOLE
+    // body: there is one path now, and one path cannot disagree with itself.
+    assertEq("the whole body is byte-identical with python3 gone",
+      jpFallback.body, jp.body);
+    assertTrue("and it still carries the commit list",
+      /\n\* Add a non-ASCII story/.test(jpFallback.body), jpFallback.body);
+    assertEq("and the source is still the complete read's own word",
+      jpFallback.source, jp.source);
+    rmSync(shim, { recursive: true, force: true });
+
+    // A DROPPED COMMIT LIST IS NAMED, EVEN OVER A STORY THAT WAS READ (the same ticket). The
+    // description was tested first, so a run that could not walk the range reported `story` --
+    // the word that means everything the composer needed was there. The story here resolves from
+    // the working tree while the branch names no ref at all, which is the reachable shape of that
+    // state: a body is still yielded, and the merge is still never held on it.
+    const orphanDir = makeRepo("main");
+    try {
+      mkdirSync(join(orphanDir, ".workaholic/stories"), { recursive: true });
+      writeFileSync(join(orphanDir, ".workaholic/stories/work-20260903-000009.md"),
+        "---\ntype: Story\nbranch: work-20260903-000009\ndescription: A story with no range\n---\n");
+      const dropped = JSON.parse(run(orphanDir,
+        `${POSIX_SH} ${SCRIPTS.mergeCommitBody} --branch work-20260903-000009 --number 11`).stdout);
+      assertEq("a story whose commit range could not be read never reads source story",
+        dropped.source, "unreadable:no_commit_range");
+      assertTrue("and the story's own description is still the body",
+        dropped.body.startsWith("A story with no range"), dropped.body);
+    } finally { rmSync(orphanDir, { recursive: true, force: true }); }
+
+    // It writes NOTHING: no file, no ref, no commit.
+    assertEq("the composer leaves the tree untouched",
+      run(dir, `git status --porcelain`).stdout.trim(), "");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  // NO CALL SITE SPELLS A BODY, and every merge call site READS the composer. The enumeration
+  // is derived from the tree -- a `pulls/<n>/merge` REST call under `plugins/` -- never a
+  // hand-kept list, so a sixth call site added tomorrow is covered the day it lands. Comments
+  // are stripped first, exactly as the merge-method row does: every one of these files explains
+  // the choice in prose, and a whole-document match would read the explanation as the violation.
+  const mergeSites = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { walk(full); continue; }
+      if (!e.name.endsWith(".sh")) continue;
+      const code = readFileSync(full, "utf8")
+        .split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+      if (/pulls\/\$\{[A-Za-z_]+\}\/merge/.test(code)) mergeSites.push([full, code]);
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic/skills"));
+  assertTrue("the enumeration found the merge call sites", mergeSites.length >= 5,
+    `found ${mergeSites.length}`);
+  for (const [full, code] of mergeSites) {
+    const rel = full.slice(REPO_ROOT.length + 1);
+    assertTrue(`${rel} spells no literal body`,
+      !/commit_(title|message)=(?!\$)[A-Za-z"']/.test(code), rel);
+    assertTrue(`${rel} reads the composer instead`, /merge-commit-body\.sh/.test(code), rel);
+  }
+
+  // THE AGENT-LEVEL MERGES. Their call is composed at run time and appears in no file, so what
+  // is checkable is only that the instruction is where the session will read it.
+  const driveSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  assertTrue("the review route reads the composer rather than naming a body",
+    /merge-commit-body\.sh/.test(driveSkill), "the review route composes no body");
+  const implementCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
+  assertTrue("the /implement ceiling carries the instruction",
+    /merge-commit-body\.sh/.test(implementCmd), "the ceiling names no composer");
+  // ABSENT WHERE NO MERGE IS PERFORMED: `/specificate` opens its publication through
+  // `publish-tree-pr.sh`, which merges from the SCRIPT, so its ceiling composes no body. A
+  // later contributor adding one is making a decision, and this asserts the current answer.
+  const specificateCmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/specificate.md"), "utf8");
+  assertTrue("and the /specificate ceiling does not, because it merges nothing itself",
+    !/merge-commit-body\.sh/.test(specificateCmd), "the proposal ceiling grew a merge body");
+
+  // THE HOUSEKEEPING MARKER HAS ONE WRITER and a CLOSED kind set.
+  const commitSh = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh"), "utf8");
+  assertTrue("commit.sh is the one writer of the housekeeping trailer",
+    /Workaholic-Housekeeping: \$\{HOUSEKEEPING\}/.test(commitSh), "the trailer moved");
+  assertTrue("and an unlisted kind is refused by name",
+    /bad_housekeeping_kind/.test(commitSh), "the kind set is open");
 }
 
 // ---------- workaholify: the remote setting the claim oracle reads (2026-09-01) ----------
@@ -21897,6 +22388,48 @@ function testOneSessionLoop() {
   const receipt = (t) => { const m = t.match(/```\n(📥 受理 [^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
   assertTrue("the tick carries the receipt with a reply line", receipt(tick) !== "", "missing from infinite-development.md");
   assertEq("and the catalog carries it byte-identically", receipt(catalog), receipt(tick));
+
+  // THE FINISH LINE FOR AN ASK THAT LANDED OUTSIDE A UNIT (2026-09-03, mission
+  // `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). The shape and every
+  // bound stated with it live in two files, and the two must not drift by one byte: the catalog
+  // decides the shape, the command is the ceiling a routine-fired session actually reads.
+  const finish = (t) => {
+    const i = t.indexOf("```\n🟢 Implemented [<ask title>](<issue url>)");
+    if (i < 0) return "";
+    const j = t.indexOf("never a second wording.\n", i);
+    return j < 0 ? "" : t.slice(i, j + "never a second wording.\n".length);
+  };
+  assertTrue("the tick carries the outside-a-unit finish line", finish(tick) !== "",
+    "missing from infinite-development.md");
+  assertEq("and the catalog carries it byte-identically", finish(catalog), finish(tick));
+
+  // NO FIFTH FINISH COLOUR. The shape reuses 🟢 Implemented and is marked by its sentence —
+  // the precedent `thread-reconcile` set — so a channel reader's vocabulary does not grow.
+  assertTrue("the shape reuses the green circle rather than minting a colour",
+    /reuses `🟢 Implemented`/u.test(finish(tick)), finish(tick).slice(0, 200));
+
+  // THE BOUNDS ARE STATED WITH THE SHAPE, not left to a reader to infer. Each is a refusal.
+  for (const [what, re] of [
+    ["no mention token", /No mention token/],
+    ["a reply and never a root", /A reply, never a root/],
+    ["once ever per item", /Once ever per item/],
+    ["the connector as the only transport", /The connector carries it, and nothing else does/],
+    ["an unresolvable field stated as unresolved", /stated as unresolved/],
+  ]) assertTrue(`the shape states ${what}`, re.test(finish(tick)), what);
+
+  // THE READER EMITS NO UNCLASSIFIED OUTCOME WORD, the pattern the claim vocabularies use:
+  // every word the tick may report for a candidate is named in the ceiling, and the ceiling
+  // names no word the run has no way to produce.
+  const OUTCOMES = ["announced", "already_announced", "thread_unresolved", "post_failed", "held",
+    "no_candidates"];
+  for (const w of OUTCOMES)
+    assertTrue(`the ceiling names the outcome ${w}`, tick.includes(w), w);
+  const reader = readFileSync(
+    P("plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"), "utf8");
+  for (const w of ["stems_unresolvable", "timeline_unreadable", "gh_unavailable",
+    "slug_unresolved", "list_failed"])
+    assertTrue(`the reader's own word ${w} is documented in its header`,
+      reader.split("set -eu")[0].includes(w), w);
 }
 
 
@@ -24315,6 +24848,59 @@ function testStatelessThreadLookup() {
     /🙋 <@U…>/u.test(catalog), "the check-in question lost the token that makes it reach anyone");
   assertTrue("the notify skill states the no-self-mention rule",
     /Never mention the identity you are posting as/i.test(notifySkill));
+
+  // ---- a refused call is not an absent surface, and a token-less directed post says so ----
+  // (2026-09-03, mission `deliver-a-post-the-transport-refused-or-say-it-reached-nobody`.)
+  // Measured 2026-09-02: with SLACK_BOT_TOKEN unset, one run had every connector call refused
+  // and reported the model's THIRD branch -- written for a session that never had a surface --
+  // losing three lines, while a run minutes later in the same session posted three of the same
+  // shape. And the three that did land were `🟡 Handoff` lines carrying no token, so six
+  // directed lines reached nobody and nothing said so.
+  //
+  // Both wordings live in FOUR places -- the model, the catalog, and the two command ceilings a
+  // routine-fired session actually reads -- and a paraphrase in any one of them is a third
+  // version of the rule. Byte for byte, exactly as the wire formats above are pinned.
+  const REFUSAL_WORDING =
+    "**A refused call and an absent surface are different outcomes.** `post_refused` is one " +
+    "call a transport that exists declined — the surface answered no, so the line is still " +
+    "sendable and the run carries it. `no_slack_transport` is this session holding no surface " +
+    "at all, which nothing inside the run can change. A refusal is per call; an absence is per " +
+    "session, and reporting the first as the second is what made a run whose every call was " +
+    "denied say the post did not exist.";
+  const PAGED_NOBODY_WORDING =
+    "**A directed post carrying no mention token says so in its own line** — " +
+    "`(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token " +
+    "was omitted reached the channel and paged nobody, and an unanswered thread must never be " +
+    "read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's " +
+    "two-transport model is one transport**: every post is made as the operator's own account, " +
+    "so a directed shape whose addressee *is* that account loses its token by *Never mention " +
+    "the identity you are posting as* and provably reaches nobody.";
+  const notifySurfaces = [
+    ["the notify model", notifySkill],
+    ["the shape catalog", catalog],
+    ["the /implement ceiling", implementTemplate],
+    ["the /moderate ceiling", moderateTemplate],
+  ];
+  for (const [name, body] of notifySurfaces) {
+    assertTrue(`${name} carries the refused-call wording byte-identically`,
+      body.includes(REFUSAL_WORDING), name);
+    assertTrue(`${name} carries the paged-nobody wording byte-identically`,
+      body.includes(PAGED_NOBODY_WORDING), name);
+  }
+  // The word is distinct from the absent-surface word, and BOTH are in the report contract --
+  // a vocabulary that names only one of them cannot tell the two apart where it matters.
+  assertTrue("the drive run report names post_refused beside no_slack_transport",
+    /post_refused/u.test(driveSkill) && /no_slack_transport/u.test(driveSkill));
+  // The carry is what makes the distinction worth anything: naming the refusal and dropping the
+  // line leaves the measured failure exactly where it was.
+  assertTrue("the /implement ceiling names the carry, the re-send and the clear",
+    /record-unposted-line\.sh/u.test(implementTemplate)
+    && /list-unposted-lines\.sh/u.test(implementTemplate)
+    && /clear-unposted-line\.sh/u.test(implementTemplate),
+    "the ceiling names a word with no act behind it");
+  assertTrue("and states the limit rather than implying the carry is total",
+    /unit that merged has no branch left to carry the record/u.test(implementTemplate),
+    "a merged unit's lost line reads as carried");
 }
 
 // ---------- the authorship disclosure (issue #454) ----------
@@ -32727,7 +33313,11 @@ function testProofJudgementSplit() {
   // — the act proceeds unless the judgement is positive evidence against it. Registering the
   // reader here is what makes DIRECTION ONE sweep `archive.sh` in, so a later edit that drops
   // the re-derivation turns a row red instead of passing quietly.
-  const JUDGEMENT_READERS = ["claim-mergeability.sh", "claim-holder.sh"];
+  // `branch-checks.sh` joined on 2026-09-03: the merge seams read the branch's OWN checks
+  // before merging, which is the rule's GATING shape again — the act proceeds unless the
+  // judgement is positive evidence against it. Registering the reader here is what makes
+  // DIRECTION ONE sweep the four merge seams in.
+  const JUDGEMENT_READERS = ["claim-mergeability.sh", "claim-holder.sh", "branch-checks.sh"];
   // Regexes, not substrings: `git -C "$WORKTREE" push` is the same act as `git push`, and a
   // literal match would miss precisely the consumer this rule was written for.
   const ACT_SITES = [/\bgit\b[^\n]*\bpush\b/, /--method PUT/, /--method PATCH/,
@@ -32919,9 +33509,15 @@ function testProofJudgementSplit() {
     for (const m of src.matchAll(/\bemit (green|red|unattributable|unanswerable)\b/g)) {
       baseEmitted.add(m[1]);
     }
+    // `unverified` is emitted as a FIELD rather than as a state (2026-09-03): it rides BESIDE the
+    // colour, because a tip can carry a green verdict and an unverified suite at once. It is still
+    // a word of this vocabulary with a rule of its own, so it is parsed out of the reader's own
+    // output shape rather than added to a list -- the same "the scripts say what they emit"
+    // property the state words have.
+    if (/"unverified":/.test(src)) baseEmitted.add("unverified");
   }
   assertEq("the base reading's vocabulary parses out of the two scripts",
-    [...baseEmitted].sort().join(","), "green,red,unanswerable,unattributable");
+    [...baseEmitted].sort().join(","), "green,red,unanswerable,unattributable,unverified");
 
   const baseClassified = new Map();
   for (const m of baseTable.matchAll(/^\|\s*`([a-z_]+)`\s*\|\s*(?:\*\*)?(proof|judgement)(?:\*\*)?\s*\|/gm)) {
@@ -32969,9 +33565,9 @@ function testProofJudgementSplit() {
     "the moves-no-token statement is gone from drive/SKILL.md");
   const moderateSkill = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/moderate/SKILL.md"), "utf8");
-  assertTrue("workaholic:moderate states that its step asks and acts on nothing",
-    /base-health[\s\S]{0,1200}?asks and nothing else/.test(moderateSkill),
-    "the asks-and-nothing-else statement is gone from moderate/SKILL.md");
+  assertTrue("workaholic:moderate states that its step reports and acts on nothing",
+    /base-health[\s\S]{0,1600}?reports and nothing else/.test(moderateSkill),
+    "the reports-and-nothing-else statement is gone from moderate/SKILL.md");
 }
 
 // ---------- the gap between a tick finding and the work queue (2026-08-29) ----------
@@ -33683,6 +34279,282 @@ function testReconcileCandidates() {
     const src = readFileSync(SCRIPTS.reconcileCandidates, "utf8");
     assertTrue("the reader reaches GitHub only through gh-rest.sh",
       !/\bgh (issue|pr|repo|api)\b/.test(src.replace(/^#.*$/gm, "")), "a direct gh call");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// ---------------------------------------------------------------------------
+// THE ITEM GRAIN (2026-09-03, mission
+// `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). The reader above
+// answers *which PULL REQUEST*; this one answers *which ITEM*, which is the only grain that
+// can see an ask whose work landed without a `work-*` branch ever existing.
+//
+// The load-bearing assertions are the negative ones: a closed issue that is not an ask is not
+// a candidate, a `-` prefix number never borrows another issue's record, and an unreadable
+// listing is never rendered as *nothing to announce*.
+T("propose/list-unannounced-closed-asks.sh: the finished asks whose thread never heard", testListUnannouncedClosedAsks);
+function testListUnannouncedClosedAsks() {
+  const tmp = mkdtempSync(join(tmpdir(), "wh-unannounced-"));
+  const bin = join(tmp, "bin");
+  const repo = join(tmp, "repo");
+  mkdirSync(bin, { recursive: true });
+  mkdirSync(join(repo, ".workaholic/feedbacks"), { recursive: true });
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const stub = (body) => {
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(bin, "gh"), 0o755);
+  };
+  const read = (args = "") => JSON.parse(execSync(
+    `sh ${SCRIPTS.listUnannouncedClosedAsks} --root ${repo} ${args}`,
+    { cwd: repo, env, encoding: "utf8" }));
+
+  try {
+    execSync("git init -q . && git remote add origin git@github.com:acme-org/source-repo.git",
+      { cwd: repo });
+
+    // Two records on the base. #917's ask landed outside `/implement` — the measured case —
+    // and #91 exists ONLY so the prefix trap has something to be caught on.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260903052643-an-ask-that-landed.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/917\n");
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260901010101-an-older-ask.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/91\n");
+    // The generated index names every record and must never be mistaken for one.
+    writeFileSync(join(repo, ".workaholic/feedbacks/index.md"),
+      "# Feedbacks\n\n- issues/917\n- issues/91\n");
+
+    const issue = (number, extra = {}) => ({
+      number,
+      closed_at: "2026-09-02T20:32:35Z",
+      html_url: `https://github.com/acme-org/source-repo/issues/${number}`,
+      title: `[FB] ask ${number}`,
+      body: "kind: instruction / source: slack / subject: person:YO\n",
+      ...extra,
+    });
+    // `gh api` APPLIES ITS `--jq` PROGRAM TO THE RESPONSE, so the stub must too. A stub that
+    // printed the raw JSON would exercise a shape the real transport never produces, and the
+    // reader's own extraction — the `slack-ref:` scan, the `-` sentinel every field carries,
+    // and the timeline's merged-only filter — would go untested. The program is read off the
+    // argv the script actually passed, and the fixture is chosen by the endpoint, because the
+    // reader now makes three kinds of call and one canned body cannot answer all three.
+    //
+    // AN ABSENT FIXTURE IS AN EMPTY ANSWER, NOT A REFUSED READ: a timeline nobody staged means
+    // *no cross-reference*, which is exactly the `closed_unmerged` case. A refused read is
+    // staged deliberately, by installing a failing `gh` instead.
+    const FIX = join(tmp, "fix");
+    mkdirSync(FIX, { recursive: true });
+    writeFileSync(join(FIX, "empty-array.json"), "[]");
+    writeFileSync(join(FIX, "empty-object.json"), "{}");
+    const fixture = (name, value) =>
+      writeFileSync(join(FIX, `${name}.json`), JSON.stringify(value));
+    const GH_STUB = [
+      'prog=""; url=""',
+      'while [ $# -gt 0 ]; do',
+      '  case "$1" in',
+      '    --jq) prog="$2"; shift 2 ;;',
+      '    repos/*) url="$1"; shift ;;',
+      '    *) shift ;;',
+      '  esac',
+      'done',
+      `FIX=${FIX}`,
+      'f=""',
+      'case "$url" in',
+      '  *"/timeline"*) n=$(printf "%s" "$url" | sed -e "s#.*/issues/##" -e "s#/timeline.*##");',
+      '    f="$FIX/timeline-$n.json"; [ -f "$f" ] || f="$FIX/empty-array.json" ;;',
+      '  *"/pulls/"*) n=$(printf "%s" "$url" | sed -e "s#.*/pulls/##" -e "s#[?].*##");',
+      '    f="$FIX/pull-$n.json"; [ -f "$f" ] || f="$FIX/empty-object.json" ;;',
+      '  *"/issues?"*) f="$FIX/issues.json" ;;',
+      'esac',
+      '[ -n "$f" ] && [ -f "$f" ] || { echo "no fixture for $url" >&2; exit 1; }',
+      'jq -r "$prog" < "$f"',
+    ].join("\n");
+    // The dispatcher lives in its own file so a test that wants ONE endpoint to fail can chain
+    // to it. Inlining it into a `sh -c "..."` would let the outer shell expand `$1` and `$prog`
+    // before the inner one ever saw them.
+    const GH_REAL = join(tmp, "gh-real.sh");
+    writeFileSync(GH_REAL, `#!/bin/sh\n${GH_STUB}\n`);
+    chmodSync(GH_REAL, 0o755);
+    const serve = (issues) => { fixture("issues", issues); stub(`exec ${GH_REAL} "$@"`); };
+    // A merged cross-reference, in the shape the timeline endpoint returns it.
+    const crossRef = (number, title, mergedAt) => ({
+      event: "cross-referenced",
+      source: {
+        issue: {
+          number,
+          title,
+          html_url: `https://github.com/acme-org/source-repo/pull/${number}`,
+          pull_request: { merged_at: mergedAt },
+        },
+      },
+    });
+
+    // 1. THE MEASURED CASE. A closed ask whose record is on the base resolves to its stem.
+    serve([issue(917)]);
+    let r = read();
+    assertEq("a closed ask resolves through the record on the base",
+      [r.ok, r.candidates.length, r.candidates[0].number, r.candidates[0].stem],
+      [true, 1, 917, "20260903052643-an-ask-that-landed"]);
+    assertEq("...carrying its URL, title and close time",
+      [r.candidates[0].url, r.candidates[0].title, r.candidates[0].closed_at],
+      ["https://github.com/acme-org/source-repo/issues/917", "[FB] ask 917", "2026-09-02T20:32:35Z"]);
+
+    // 2. THE SWEEP'S OWN MARKER IS THE OTHER TERM, and it qualifies on its own.
+    serve([issue(500, { body: "kind: ask / source: slack\nslack-ref: C123ABC:1756880000.123456\n" })]);
+    r = read();
+    assertEq("a sweep-captured ask with no record on the base is named, never dropped",
+      [r.candidates.length, r.unresolved.length, r.unresolved[0].number, r.unresolved[0].reason],
+      [0, 1, 500, "stems_unresolvable"]);
+    assertTrue("...and its marker was what qualified it",
+      /slack-ref/.test(readFileSync(SCRIPTS.listUnannouncedClosedAsks, "utf8")), "the marker term is gone");
+
+    // 3. A CLOSED ISSUE THAT IS NOT AN ASK IS NOT THIS READER'S SUBJECT. It is not a
+    //    candidate, not an `unresolved` row, and not counted — matching neither term.
+    serve([issue(700, { body: "just an ordinary closed issue\n" })]);
+    r = read();
+    assertEq("a closed issue matching neither term is not a candidate at all",
+      [r.candidates.length, r.unresolved.length, r.read], [0, 0, 0]);
+
+    // 4. THE PREFIX TRAP. `issues/91` is a prefix of `issues/917`, and a substring match would
+    //    hand #91's thread key to #917 — a wrong thread, which `workaholic:notify` calls worse
+    //    than none. The right-hand bound is what this asserts.
+    serve([issue(917), issue(91)]);
+    r = read();
+    const byNumber = Object.fromEntries(r.candidates.map((c) => [c.number, c.stem]));
+    assertEq("a shorter issue number never borrows a longer one's record",
+      [byNumber[917], byNumber[91]],
+      ["20260903052643-an-ask-that-landed", "20260901010101-an-older-ask"]);
+
+    // 5. A PULL REQUEST SHARES THE ENDPOINT AND IS NOT AN ISSUE.
+    serve([issue(917), issue(918, { pull_request: { url: "x" } })]);
+    r = read();
+    assertEq("a pull request on the issues endpoint is dropped",
+      [r.candidates.length, r.candidates[0].number], [1, 917]);
+
+    // 6. THE BOUND IS REPORTED, NEVER SILENT.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260903052644-second.md"),
+      "---\ntype: Feedback\n---\n\nSource: https://github.com/acme-org/source-repo/issues/918\n");
+    serve([issue(917), issue(918)]);
+    r = read("--limit 1");
+    assertEq("a listing past the limit reports truncated rather than cutting silently",
+      [r.read, r.truncated, r.candidates.length], [1, true, 1]);
+    r = read("--limit 5");
+    assertEq("...and within the limit it is not truncated",
+      [r.read, r.truncated], [2, false]);
+
+    // 7. AN UNREADABLE READ IS NEVER AN EMPTY ONE. This is the collapse the reader exists to
+    //    refuse: `ok: false` with a reason, exit 0, and NO candidate list to be misread.
+    for (const [body, reason] of [
+      [`echo "boom" >&2; exit 1`, "list_failed"],
+      [`echo "gh is not on PATH" >&2; exit 127`, "list_failed"],
+    ]) {
+      stub(body);
+      const deg = read();
+      assertEq(`a refused listing degrades by name (${reason})`, [deg.ok, deg.reason], [false, reason]);
+      assertTrue("and emits no candidate list at all", deg.candidates === undefined, JSON.stringify(deg));
+    }
+
+    // 8. WHAT LANDED (2026-09-03, ticket
+    //    `20260903052915-carry-what-landed-onto-each-unannounced-closed-ask`). The keep terms
+    //    name the ITEM; these name what CLOSED it, which is the half a finish line says out
+    //    loud. The timeline carries every field but `merged_by`, which lives only on the
+    //    single-pull GET.
+    fixture("timeline-917", [
+      { event: "assigned" },
+      crossRef(922, "[Proposal] an ask that landed", "2026-09-02T20:32:34Z"),
+      { event: "closed" },
+    ]);
+    fixture("pull-922", { merged_by: { login: "a-merger" } });
+    serve([issue(917)]);
+    r = read();
+    assertEq("a candidate carries the merged pull request that closed it",
+      [r.candidates[0].landed.length, r.candidates[0].landed[0].number,
+       r.candidates[0].landed[0].merged_at, r.candidates[0].landed[0].merged_by],
+      [1, 922, "2026-09-02T20:32:34Z", "a-merger"]);
+    assertEq("...with its title and URL, so the sentence needs no second read",
+      [r.candidates[0].landed[0].title, r.candidates[0].landed[0].url],
+      ["[Proposal] an ask that landed", "https://github.com/acme-org/source-repo/pull/922"]);
+    assertEq("...and a landed item is not closed_unmerged",
+      [r.candidates[0].closed_unmerged, r.candidates[0].landed_read], [false, "ok"]);
+
+    // AN UNMERGED CROSS-REFERENCE IS NOT A LANDING. A pull request that mentioned the issue
+    // and was closed did not close it, and announcing it as what landed would be a lie about
+    // a real pull request number.
+    fixture("timeline-917", [
+      crossRef(922, "[Proposal] an ask that landed", null),
+      { event: "closed" },
+    ]);
+    serve([issue(917)]);
+    r = read();
+    assertEq("an unmerged cross-reference is filtered, and the item reads hand-closed",
+      [r.candidates[0].landed.length, r.candidates[0].closed_unmerged], [0, true]);
+
+    // A PERSON CLOSED IT. No cross-reference at all is a different sentence from a merge, and
+    // the reader must be able to say which.
+    fixture("timeline-917", [{ event: "closed" }]);
+    serve([issue(917)]);
+    r = read();
+    assertEq("an issue closed with nothing merged says so positively",
+      [r.candidates[0].landed.length, r.candidates[0].closed_unmerged,
+       r.candidates[0].landed_read], [0, true, "ok"]);
+
+    // ONE PULL REQUEST CROSS-REFERENCING TWICE IS ONE LANDING.
+    fixture("timeline-917", [
+      crossRef(922, "[Proposal] an ask that landed", "2026-09-02T20:32:34Z"),
+      crossRef(922, "[Proposal] an ask that landed", "2026-09-02T20:32:34Z"),
+    ]);
+    fixture("pull-922", { merged_by: { login: "a-merger" } });
+    serve([issue(917)]);
+    r = read();
+    assertEq("a repeated cross-reference is counted once", r.candidates[0].landed.length, 1);
+
+    // AN UNRESOLVABLE `merged_by` IS EMPTY, NEVER SUBSTITUTED — the other four fields, which
+    // the timeline carried, survive it intact.
+    fixture("pull-922", {});
+    serve([issue(917)]);
+    r = read();
+    assertEq("an unreadable merger is empty, and the rest of the landing survives",
+      [r.candidates[0].landed[0].merged_by, r.candidates[0].landed[0].number,
+       r.candidates[0].landed[0].merged_at],
+      ["", 922, "2026-09-02T20:32:34Z"]);
+
+    // THE PER-CANDIDATE READ IS BOUNDED, AND THE BOUND IS REPORTED.
+    fixture("timeline-917", [
+      crossRef(801, "one", "2026-09-02T01:00:00Z"),
+      crossRef(802, "two", "2026-09-02T02:00:00Z"),
+      crossRef(803, "three", "2026-09-02T03:00:00Z"),
+    ]);
+    serve([issue(917)]);
+    r = JSON.parse(execSync(
+      `sh ${SCRIPTS.listUnannouncedClosedAsks} --root ${repo}`,
+      { cwd: repo, env: { ...env, WORKAHOLIC_ANNOUNCE_LANDED_MAX: "2" }, encoding: "utf8" }));
+    assertEq("the landed read is capped and says it was capped",
+      [r.candidates[0].landed.length, r.candidates[0].landed_truncated], [2, true]);
+    r = read();
+    assertEq("...and within the cap it is not truncated",
+      [r.candidates[0].landed.length, r.candidates[0].landed_truncated], [3, false]);
+
+    // 9. AN UNREADABLE TIMELINE IS NOT AN UNMERGED ONE. This is the same collapse the reader
+    //    refuses at the listing grain, one field down: *nobody merged anything* and *I could
+    //    not see what merged* send a caller to different places, and only the first may be
+    //    announced.
+    stub([
+      'case "$*" in',
+      '  *timeline*) echo "boom" >&2; exit 1 ;;',
+      `  *) exec ${GH_REAL} "$@" ;;`,
+      'esac',
+    ].join("\n"));
+    r = read();
+    assertEq("an unreadable timeline is named, never rendered as hand-closed",
+      [r.candidates[0].landed.length, r.candidates[0].closed_unmerged,
+       r.candidates[0].landed_read], [0, false, "timeline_unreadable"]);
+
+    // 10. THE BOUNDS THE READER IS WRITTEN AGAINST, read off its own source.
+    const src = readFileSync(SCRIPTS.listUnannouncedClosedAsks, "utf8");
+    const code = src.replace(/^#.*$/gm, "");
+    assertTrue("the reader reaches GitHub only through gh-rest.sh",
+      !/\bgh (issue|pr|repo|api)\b/.test(code) && code.includes("gh-rest.sh"), code.slice(0, 300));
+    assertTrue("...and never through search, which a bound session refuses outright",
+      !/["' ]search\//.test(code), code.slice(0, 300));
+    assertTrue("...and makes no channel read of any kind",
+      !/slack_read|conversations\.|slack_search|notify-slack/.test(code), "a channel read appeared");
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
@@ -36685,7 +37557,461 @@ T("the hourly root carries the plan's delta", testPlanDeltaOnTheRoot);
 // passes, zero failures, and no output — a test that silently does not run, which is
 // strictly worse than one that fails. (Measured 2026-08-05, on the first async test.)
 // Top-level await is available here because this is an ES module.
+// A single-row filter, so a contributor proving one assertion goes red against a deliberately
+// reverted file does not pay for 6400 unrelated rows. It narrows only which rows RUN -- every
+// row's own assertions, the failure accounting and the exit status are untouched, and CI passes
+// no argument, so an unfiltered run is byte-for-byte what it always was.
+
+
+
+// ---------- the mission grain: what the container must be able to hold ----------
+// (2026-09-03, mission `emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold`.)
+//
+// Measured over 94 missions: one at a single ticket -- which rule 1 says cannot exist -- 21% at
+// four or fewer, and 52% at exactly seven or eight, which is the old wording `roughly 7-8
+// tickets, the ruled scale` printed straight into the distribution. Two mechanisms made it: one
+// mission per inbound ask, and a scale written as a count to hit.
+//
+// What is pinned here is the SHAPE of the answer, never its prose: the rule has one home, no
+// surface states a count as the criterion, the floor's number lives in one script, and the
+// corpus reader answers what the audit and the daily report both read.
+T("the mission grain is stated once and no surface makes a ticket count the criterion",
+  testMissionGrainStatedOnce);
+function testMissionGrainStatedOnce() {
+  const rules = readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/workaholic.md"), "utf8");
+  assertTrue("rules/workaholic.md is the rule's home",
+    /What a Mission Must Be Able to Hold/.test(rules), "the rule has no home");
+  assertTrue("and it states the container, not a size",
+    /mid-term container between a strategy and a ticket/.test(rules));
+  assertTrue("rule 2 is a position, and the document says it is a judgement",
+    /never become a second threshold/.test(rules), "rule 2 could be read as a gate");
+  assertTrue("and the measurement is recorded where the rule is stated",
+    /52%/.test(rules) && /94 missions/.test(rules), "the evidence is not arguable");
+  assertTrue("the ingest path's cap is refused by name rather than by omission",
+    /deliberately not added/.test(rules) && /WORKAHOLIC_WIP_LIMIT/.test(rules));
+
+  // THE COUNT IS NOT THE CRITERION, on every surface that describes the unit. The old wording
+  // is the exact string the distribution came out of, so its absence is the check.
+  for (const rel of [
+    "CLAUDE.md",
+    "README.md",
+    "plugins/workaholic/commands/propose.md",
+    "plugins/workaholic/skills/propose/SKILL.md",
+    "plugins/workaholic/skills/specificate/SKILL.md",
+    "plugins/workaholic/skills/propose/scripts/open-proposal.sh",
+  ]) {
+    const body = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${rel} no longer states the ruled 7-8 scale as the criterion`,
+      !/ruled 7[-–]8 scale|ruled scale, roughly|roughly \*\*7[-–]8 tickets\*\*|~7[-–]8 tickets|roughly 7[-–]8 tickets/.test(body), rel);
+  }
+
+  // Row 1 gained its second term, and the judgement is reported rather than silent.
+  const spec = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/SKILL.md"), "utf8");
+  assertTrue("row 1 requires a mid-term plan beside decomposition",
+    /and there is a mid-term plan to hold/.test(spec), "row 1 still reads on decomposition alone");
+  assertTrue("and an ask with no such plan takes the next row it fits",
+    /takes the next row it fits/.test(spec));
+  assertTrue("the judgement is reported, so a reader can disagree with it",
+    /a reader can disagree with it/.test(spec));
+  assertTrue("and no cap is placed on the ingest path",
+    /No cap is placed on the ingest path/.test(spec));
+
+  // The floor is enumerated at every seam, and the hook says why it is not one of them.
+  const missionSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
+  for (const seam of ["specificate", "Creation Interrogation", "replan"]) {
+    assertTrue(`the seam enumeration names ${seam}`,
+      new RegExp(seam, "i").test(missionSkill), seam);
+  }
+  assertTrue("and no seam spells the floor's number",
+    /No seam spells the number/i.test(missionSkill));
+  const flows = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/reference/command-flows.md"), "utf8");
+  assertTrue("the replan flow checks the floor before its publish commit",
+    /check-floor\.sh <slug>/.test(flows) && /Check the floor, record the history/.test(flows),
+    "replan can still publish a below-floor mission");
+  const hook = readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/validate-mission.sh"), "utf8");
+  assertTrue("the write-time hook records why the count is not in it",
+    /before any of its tickets exist/.test(hook), "the next reader will try to put it there");
+}
+
+// ---------- mission/size-distribution.sh (the corpus, in one pass) ----------
+// Rule 2 is a position about the corpus and nothing could see the corpus. The reader is pinned
+// on three things: it matches a hand count on a fixture, it reads the floor rather than
+// spelling it, and a walk it could not make says so instead of returning an empty distribution.
+T("mission: the size distribution matches a hand count and names a degraded read",
+  testMissionSizeDistribution);
+function testMissionSizeDistribution() {
+  const dir = makeRepo("main");
+  try {
+    const mk = (area, slug) => {
+      const d = join(dir, `.workaholic/missions/${area}/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nIt does the thing.\n\n## Acceptance\n\n- [ ] a criterion\n\n## Changelog\n`);
+    };
+    // A hand count: zero / one / three / seven tickets, across both areas.
+    mk("active", "zero-t");
+    mk("active", "one-t");
+    mk("active", "three-t");
+    mk("archive", "seven-t");
+    let n = 0;
+    const seed = (slug, count) => {
+      for (let i = 0; i < count; i++) seedMissionTicket(dir, slug, `2026090300${String(++n).padStart(4, "0")}`);
+    };
+    seed("one-t", 1);
+    seed("three-t", 3);
+    seed("seven-t", 7);
+
+    const out = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSizeDistribution} ${dir}/.workaholic`).stdout);
+    assertEq("the walk completed", out.ok, true);
+    assertEq("and says so", out.readable, true);
+    assertEq("four missions across both areas", out.missions, 4);
+    // THE FLOOR IS READ, NOT SPELLED -- the value comes from queue-size.sh's own derivation.
+    const qs = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionQueueSize} zero-t ${dir}/.workaholic`).stdout);
+    assertEq("the distribution's floor is queue-size.sh's own", out.floor, qs.floor);
+
+    const bucket = (name) => (out.buckets.find((b) => b.bucket === name) || {}).count;
+    assertEq("the zero-ticket mission buckets at 0", bucket("0"), 1);
+    assertEq("the one-ticket mission buckets at 1", bucket("1"), 1);
+    assertEq("the three-ticket mission buckets at 2-3", bucket("2-3"), 1);
+    assertEq("the seven-ticket mission buckets at 7-8", bucket("7-8"), 1);
+    assertEq("and nothing lands where nothing belongs", bucket("9+"), 0);
+
+    // BELOW-FLOOR NAMES SLUGS, and only for the audit: two here, in both areas.
+    const below = out.below_floor.map((r) => r.slug).sort();
+    assertEq("both sub-floor missions are named", below.join(","), "one-t,zero-t");
+    assertTrue("and the archived seven-ticket one is not",
+      !below.includes("seven-t"), "a conforming mission was named");
+
+    // A DEGRADED READ IS NAMED, never rendered as an empty distribution -- the collapse this
+    // repository refuses everywhere else.
+    const empty = mkdtempSync(join(tmpdir(), "workaholic-nomissions-"));
+    const bad = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.missionSizeDistribution} ${empty}`).stdout);
+    assertEq("a tree with no missions area is not a distribution of zero", bad.ok, false);
+    assertEq("and it says it could not read", bad.readable, false);
+    assertEq("with its own reason", bad.reason, "no_missions_area");
+    assertEq("and null counts rather than an honest-looking zero", bad.missions, null);
+  } finally { cleanup(dir); }
+}
+
+// ---------- layout-doctor: the mission the forward-only floor left behind ----------
+// An advisory, never a finding: a finding sets `conforming: false` and fails the merge gate over
+// history that harms nothing until somebody tries to act on it -- the shape refused once already
+// for the duplicate-slug pair.
+T("layout-doctor names a below-floor mission as an advisory and leaves conforming alone",
+  testLayoutDoctorBelowFloorAdvisory);
+function testLayoutDoctorBelowFloorAdvisory() {
+  const dir = makeRepo("main");
+  try {
+    const mk = (slug) => {
+      const d = join(dir, `.workaholic/missions/active/${slug}`);
+      mkdirSync(d, { recursive: true });
+      writeFileSync(join(d, "mission.md"),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: active\nassignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nIt does the thing.\n\n## Acceptance\n\n- [ ] a criterion\n\n## Changelog\n`);
+    };
+    mk("under-floored");
+    mk("conforming-one");
+    seedMissionTicket(dir, "under-floored", "20260903100001");
+    seedMissionTicket(dir, "conforming-one", "20260903100002");
+    seedMissionTicket(dir, "conforming-one", "20260903100003");
+
+    const doc = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.layoutDoctor} ${dir}`).stdout);
+    const below = doc.advisories.filter((a) => /below the ticket floor/.test(a.reason));
+    assertEq("exactly the sub-floor mission is named", below.length, 1);
+    assertTrue("by its own path",
+      below[0].path === ".workaholic/missions/active/under-floored", below[0].path);
+    assertEq("the audit stays conforming -- an advisory never fails the merge gate",
+      doc.conforming, true);
+    assertTrue("and it names no finding of its own",
+      !doc.findings.some((f) => /floor/.test(f.reason || "")), "the advisory became a finding");
+  } finally { cleanup(dir); }
+}
+
+// ---- THE PRE-MERGE CHECK GATE (2026-09-03) ----
+//
+// The dangerous direction is a WRONG REFUSAL: this gate sits in front of every merge the loop
+// makes, so a refusal it cannot justify parks finished work in every repository whose checks
+// this session cannot read. The rule is that it refuses on two words and PROCEEDS on every
+// absence, and that is what these rows pin -- never the network path, which is not hermetic.
+//
+// Proved able to fail: making the `no_pull_request` arm refuse turns
+// `an unreadable input never refuses` red; deleting the env arm turns `the gate can be
+// declared off` red; adding `checks_red` to the merge seams' composition without the reader
+// turns the claims.md table's own bidirectional pin red (above).
+T("the pre-merge check gate proceeds on every absence and refuses only on its own two words",
+  testBranchChecksGate);
+function testBranchChecksGate() {
+  const dir = makeRepo("main");
+  try {
+    const call = (args, env = "") =>
+      JSON.parse(run(dir, `${env} ${POSIX_SH} ${SCRIPTS.branchChecks} ${args}`).stdout);
+
+    const off = call("123", "WORKAHOLIC_MERGE_CHECK_GATE=0");
+    assertEq("the gate can be declared off", off.gate, "pass");
+    assertEq("and says so by name", off.reason, "gate_disabled");
+
+    for (const bad of ["", "not-a-number"]) {
+      const r = call(bad);
+      assertEq(`an unreadable input never refuses (${bad || "empty"})`, r.gate, "pass");
+      assertTrue("and names the reading it could not make",
+        /^unreadable:/.test(r.reason), r.reason);
+    }
+
+    // No remote, so the slug cannot resolve: the deepest absence this script can reach without
+    // a network, and it must still pass.
+    const noRemote = call("1");
+    assertEq("a repository whose checks cannot be read stays exactly as deliverable", noRemote.gate, "pass");
+    assertTrue("with the absence named rather than treated as green",
+      /^unreadable:/.test(noRemote.reason), noRemote.reason);
+    assertEq("and never claims to have read a state", noRemote.state, "unread");
+
+    // Absent means ON: the same call with no declaration must not answer `gate_disabled`.
+    assertTrue("absent means the gate is on", call("1").reason !== "gate_disabled",
+      "an undeclared repository is ungated");
+  } finally { cleanup(dir); }
+}
+
+// ---- THE CODEX CLOCK IS SURFACE-SPECIFIC (2026-09-04) ----
+// Codex CLI having no Scheduled management command does not imply the ChatGPT desktop app has
+// no clock. The broad claim produced a supervisor whose reports could never return to the chat.
+T("the Codex clock distinguishes desktop Scheduled tasks from the CLI fallback",
+  testCodexClockSurfaces);
+function testCodexClockSurfaces() {
+  const work = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8");
+  const loops = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/loops/SKILL.md"), "utf8");
+  const ref = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/work/reference/other-agents.md"), "utf8");
+  const supervisor = readFileSync(join(REPO_ROOT, "scripts/codex-loop.sh"), "utf8");
+
+  for (const [name, body] of [["work", work], ["loops", loops], ["reference", ref]]) {
+    assertTrue(`${name} names the desktop Scheduled clock`,
+      /Scheduled task/.test(body) && /current chat/.test(body), body.slice(0, 500));
+    assertTrue(`${name} preserves the CLI fallback`,
+      /Codex CLI/.test(body) && /scripts\/codex-loop\.sh/.test(body), body.slice(0, 500));
+  }
+  assertTrue("the scheduled prompt forbids a second clock",
+    /Do not start `scripts\/codex-loop\.sh`/.test(work), "the durable prompt lost its refusal");
+  assertTrue("the old claim about every Codex surface stays retired",
+    !work.includes("Codex has no interval, loop, schedule or cron feature") &&
+    !loops.includes("Codex has no interval feature at all"), "a CLI measurement became a product claim");
+  assertTrue("the shell supervisor calls itself the CLI fallback",
+    /Compatibility entrypoint/.test(supervisor), supervisor.slice(0, 500));
+  assertTrue("the full plugin owns the maintained clock wrapper",
+    existsSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh")),
+    "plugin launcher missing");
+}
+
+T("the installed Workaholic plugin launches one Codex dry-run tick and diagnoses each layer",
+  testInstalledCodexClock);
+function testInstalledCodexClock() {
+  const dir = makeRepo("main");
+  try {
+    const plugin = join(dir, "installed/workaholic");
+    const workDir = join(plugin, "skills/work");
+    const commandDir = join(plugin, "commands");
+    const binDir = join(dir, "bin");
+    mkdirSync(dirname(plugin), { recursive: true });
+    cpSync(join(REPO_ROOT, "plugins/workaholic"), plugin, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, "codex"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(binDir, "codex"), 0o755);
+
+    const launcher = join(workDir, "scripts/codex-loop.sh");
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH || ""}` };
+    const positive = run(dir, `${POSIX_SH} ${launcher} --dry-run --once`, { env });
+    assertEq("the installed launcher exits cleanly", positive.status, 0);
+    assertTrue("and launches exactly one dry-run tick from the consuming repository",
+      positive.stdout.includes(`codex exec -C ${dir}`), positive.stdout + positive.stderr);
+    assertTrue("and resolves the skill from the installed launcher rather than a source-tree fallback",
+      readFileSync(launcher, "utf8").includes('TICK_PROMPT="${PLUGIN_ROOT}/skills/work/SKILL.md"'),
+      readFileSync(launcher, "utf8").slice(0, 500));
+
+    rmSync(join(commandDir, "infinite-development.md"));
+    const commandMissing = run(dir, `${POSIX_SH} ${launcher} --dry-run --once`, { env });
+    assertTrue("a missing command body names the plugin command layer",
+      commandMissing.status === 2 && commandMissing.stderr.includes("plugin_command_missing"),
+      commandMissing.stderr);
+    writeFileSync(join(commandDir, "infinite-development.md"), "# installed tick body\n");
+    rmSync(join(workDir, "SKILL.md"));
+    const skillMissing = run(dir, `${POSIX_SH} ${launcher} --dry-run --once`, { env });
+    assertTrue("a missing work skill names the plugin skill layer",
+      skillMissing.status === 2 && skillMissing.stderr.includes("plugin_skill_missing"),
+      skillMissing.stderr);
+
+    mkdirSync(join(dir, "scripts"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "scripts/codex-loop.sh"), join(dir, "scripts/codex-loop.sh"));
+    const wrapperMissing = run(dir, `${POSIX_SH} scripts/codex-loop.sh --dry-run --once`, { env });
+    assertTrue("a missing repository compatibility target names only the clock wrapper",
+      wrapperMissing.status === 2 && wrapperMissing.stderr.includes("clock_wrapper_missing") &&
+        !wrapperMissing.stderr.includes("plugin_skill_missing"), wrapperMissing.stderr);
+  } finally { cleanup(dir); }
+}
+
+// ---- THE CODEX CLOCK PROVES ITS FIRST TICK (2026-09-04) ----
+// A living supervisor is not evidence that its agent ran or that its report can reach anyone.
+// These fixtures put each result at the exact shell boundary the supervisor owns: process exit,
+// final-message file and report text. No Codex process or network is involved.
+T("the Codex CLI loop gates readiness on a classified first tick and records status atomically",
+  testCodexLoopReadiness);
+function testCodexLoopReadiness() {
+  const makeFixture = () => {
+    const dir = makeRepo("main");
+    mkdirSync(join(dir, "scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/commands"), { recursive: true });
+    mkdirSync(join(dir, "bin"), { recursive: true });
+    copyFileSync(SCRIPTS.codexLoop, join(dir, "scripts/codex-loop.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/codex-loop.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
+    writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    writeFileSync(join(dir, "plugins/workaholic/commands/infinite-development.md"), "# Tick\n");
+    const stub = join(dir, "bin/codex");
+    writeFileSync(stub, `#!/bin/sh
+out=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then out=$2; shift 2; else shift; fi
+done
+printf 'stub transcript\\n'
+if [ "\${STUB_WRITES_REPORT:-1}" = 1 ]; then printf '%s\\n' "\${STUB_REPORT:-idle}" >"$out"; fi
+exit "\${STUB_EXIT:-0}"
+`);
+    chmodSync(stub, 0o755);
+    return dir;
+  };
+  const invoke = (dir, env = {}) => run(dir,
+    `sh scripts/codex-loop.sh --once --interval 60`, {
+      env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env.PATH}`, ...env }
+    });
+
+  const readyDir = makeFixture();
+  try {
+    const r = invoke(readyDir, { STUB_REPORT: "no_candidates\\nloops: none due" });
+    assertEq("a successful reported first tick starts the clock", r.status, 0);
+    assertTrue("the completed first-tick verdict is printed before readiness can succeed",
+      r.stdout.includes("outcome=ready"), r.stdout + r.stderr);
+    const statusPath = join(readyDir, ".codex-loop/status.json");
+    const status = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("the ready status is sleeping", status.state, "sleeping");
+    assertEq("the outcome is closed vocabulary", status.outcome, "ready");
+    assertEq("the transport was observed", status.transport_verdict, "available");
+    assertTrue("the next due time and immutable transcript are retained",
+      Boolean(status.next_due) && existsSync(status.transcript_path) && existsSync(status.report_path));
+    assertTrue("the atomic writer leaves no partial status beside the current one",
+      !readdirSync(join(readyDir, ".codex-loop")).some((name) => name.startsWith("status.json.tmp.")));
+
+    const before = readFileSync(statusPath, "utf8");
+    const statusRead = run(readyDir, `PATH=/usr/bin:/bin sh scripts/codex-loop.sh --status`);
+    assertEq("status is read-only and does not require Codex", statusRead.status, 0);
+    assertTrue("status names the sleeping result", /state=sleeping outcome=ready/.test(statusRead.stdout), statusRead.stdout);
+    assertEq("status mode changes no durable byte", readFileSync(statusPath, "utf8"), before);
+  } finally { cleanup(readyDir); }
+
+  const relayDir = makeFixture();
+  try {
+    const envelope = JSON.stringify({
+      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay", outcome: "ok",
+      slack_intents: [{ key: "finish:1", operation: "post_reply", channel: "dev-workaholic",
+        thread_ts: "123.456", text: "🟢 Implemented" }],
+    });
+    const relayRun = run(relayDir, `sh scripts/codex-loop.sh --relay --once --interval 60`, {
+      env: { ...process.env, PATH: `${join(relayDir, "bin")}:${process.env.PATH}`, STUB_REPORT: envelope }
+    });
+    assertEq("an emitted intent refuses readiness until its parent acknowledges it", relayRun.status, 6);
+    const statusPath = join(relayDir, ".codex-loop/status.json");
+    const pending = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("the durable outcome names the waiting parent", pending.outcome, "relay_pending");
+    assertEq("intent emission is not reported as transport delivery", pending.transport_verdict, "pending_parent");
+    const ackPath = join(relayDir, "ack.json");
+    writeFileSync(ackPath, `${JSON.stringify({
+      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay",
+      results: [{ key: "finish:1", outcome: "delivered" }],
+    })}\n`);
+    const acknowledged = run(relayDir, `PATH=/usr/bin:/bin sh scripts/codex-loop.sh --ack ${ackPath}`);
+    assertEq("acknowledgement needs no worker or Codex process", acknowledged.status, 0);
+    const delivered = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("the parent acknowledgement is the delivery proof", delivered.relay_state, "delivered");
+    assertEq("a completely acknowledged tick becomes ready", delivered.outcome, "ready");
+  } finally { cleanup(relayDir); }
+
+  for (const row of [
+    { name: "tick failure", env: { STUB_EXIT: "9" }, outcome: "tick_failure", reason: "codex_exit_9" },
+    { name: "missing report", env: { STUB_WRITES_REPORT: "0" }, outcome: "report_missing", reason: "no_tick_report" },
+    { name: "absent transport", env: { STUB_REPORT: "no_slack_transport" }, outcome: "transport_absent", reason: "no_slack_transport" },
+    { name: "blocked work", env: { STUB_REPORT: "slack_turn_failed: channel_unreadable" }, outcome: "work_blocked", reason: "slack_turn_failed" },
+  ]) {
+    const dir = makeFixture();
+    try {
+      const r = invoke(dir, row.env);
+      assertEq(`${row.name} refuses first-tick readiness`, r.status, 6);
+      const status = JSON.parse(readFileSync(join(dir, ".codex-loop/status.json"), "utf8"));
+      assertEq(`${row.name} has its own verdict`, status.outcome, row.outcome);
+      assertTrue(`${row.name} carries the evidence`, status.blocked_reason.includes(row.reason), status.blocked_reason);
+      assertEq(`${row.name} is visibly blocked`, status.state, "blocked");
+    } finally { cleanup(dir); }
+  }
+}
+
+T("the Codex parent relay validates intent, waits for acknowledgement, and never invents delivery",
+  testCodexParentRelay);
+function testCodexParentRelay() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-relay-"));
+  const contract = join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh");
+  try {
+    const envelope = join(dir, "envelope.json");
+    const ack = join(dir, "ack.json");
+    const partial = join(dir, "partial.json");
+    const bad = join(dir, "bad.json");
+    const body = {
+      protocol: "workaholic.codex-slack-relay/v1",
+      tick_id: "tick-1",
+      outcome: "ok",
+      slack_intents: [
+        { key: "lookup:fb", operation: "search_exact", channel: "dev-workaholic",
+          query: "record.md", private_inclusive: true },
+        { key: "finish:fb", operation: "post_reply", channel: "dev-workaholic",
+          thread_ts: "123.456", text: "🟢 Implemented" },
+      ],
+    };
+    writeFileSync(envelope, `${JSON.stringify(body)}\n`);
+    writeFileSync(ack, `${JSON.stringify({
+      protocol: body.protocol, tick_id: body.tick_id,
+      results: body.slack_intents.map(({ key }) => ({ key, outcome: "delivered" })),
+    })}\n`);
+    writeFileSync(partial, `${JSON.stringify({
+      protocol: body.protocol, tick_id: body.tick_id,
+      results: [
+        { key: "lookup:fb", outcome: "delivered" },
+        { key: "finish:fb", outcome: "post_refused" },
+      ],
+    })}\n`);
+    writeFileSync(bad, `${JSON.stringify({ ...body,
+      slack_intents: [{ key: "x", operation: "post_reply", channel: "dev-workaholic",
+        thread_ts: "123.456", text: "x", notified: true }],
+    })}\n`);
+
+    assertEq("the closed v1 envelope validates", run(dir, `sh ${contract} envelope ${envelope}`).status, 0);
+    assertEq("a delivery claim inside an intent is refused", run(dir, `sh ${contract} envelope ${bad}`).status, 1);
+    assertEq("a complete acknowledgement validates",
+      run(dir, `sh ${contract} acknowledgement ${envelope} ${ack}`).status, 0);
+    assertEq("without acknowledgement every intent stays pending",
+      JSON.parse(run(dir, `sh ${contract} reconcile ${envelope}`).stdout).relay, "pending");
+    assertEq("a partial refusal stays incomplete",
+      JSON.parse(run(dir, `sh ${contract} reconcile ${envelope} ${partial}`).stdout).relay, "incomplete");
+    assertEq("only complete parent acknowledgement is delivery",
+      JSON.parse(run(dir, `sh ${contract} reconcile ${envelope} ${ack}`).stdout).relay, "delivered");
+  } finally { cleanup(dir); }
+}
+
+// ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).
+// `T()` only REGISTERS; the loop below runs what is registered by the time it is reached.
+// Four tests had been appended BELOW it and therefore never ran once -- no pass, no failure,
+// no output -- which is exactly the silent non-run the comment above warns about, and it
+// went unnoticed because the total kept rising from the rows that did run. Nothing may be
+// added after this block.
+const ONLY = process.argv[2] || "";
 for (const [label, fn] of tests) {
+  if (ONLY && !label.includes(ONLY)) continue;
   console.log(`\n# ${label}`);
   try { await fn(); }
   catch (e) { fail(label, e.stack || String(e)); }

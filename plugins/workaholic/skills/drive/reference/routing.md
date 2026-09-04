@@ -85,9 +85,15 @@ not write a second story generator.
   2026-08-11, superseding the earlier stop-at-the-PR route): once `/story` has opened the unit's
   pull request, read the scan through `release-scan`'s `gate-decision.sh` — never the raw
   `verdict` — and merge it when that reader says `decision: pass` or `override_only: true` (REST
-  `PUT repos/{owner}/{repo}/pulls/{n}/merge` with `merge_method: merge`, through
-  `gather/scripts/gh-rest.sh` — never the GraphQL-backed `gh pr merge`, which a web session
-  may 403) with
+  `PUT repos/{owner}/{repo}/pulls/{n}/merge` through `gather/scripts/gh-rest.sh` — never the
+  GraphQL-backed `gh pr merge`, which a web session may 403 — carrying **three read, never
+  spelled** fields: `merge_method` from `gather/scripts/merge-method.sh` (it answers `squash`),
+  and `commit_title` / `commit_message` from `gather/scripts/merge-commit-body.sh`. Without the
+  last two the forge concatenates every commit on the branch into the trunk's record, which is
+  how the claim stamp and the heartbeats reached `main` — measured, 48 such squash bodies here,
+  the longest 11,515 lines. A composer answering `unreadable:<reason>` still yields a fallback
+  body, so the merge is **never held on it**; its `source` is reported beside the merge outcome
+  and moves no token) with
   no human confirmation and tear the claim down exactly as `auto` does below — quality is gated
   downstream at the `release/*` QA window, not at merge time. A `hard` (`secret`) or `confirm`
   (`leak`) finding is what leaves the PR open instead (there is no human here to override — the
@@ -506,10 +512,18 @@ moments.
   surface, and the branch story already holds the durable answer.
 - **Notification outcome per unit** (`/implement` only — an attended `/drive` posts nothing, so it
   reports nothing): for the one thread the unit posted into, the surface used and the result —
-  `posted` with the thread it landed in, or the failure named (`no_surface` when the session has
+  `posted` with the thread it landed in, or the failure named (`post_refused` when a surface that
+  exists declined the call, `no_slack_transport` / `no_surface` when the session has
   neither connector nor token, `no_token` / `no_channel` / `http_<code>` / `slack_<error>` as the
   fallback script reports them, `posted_as_root` when no thread was found and a keyed root was
-  started instead). The shape follows `/specificate`'s `notified` flag, which already reports this way.
+  started instead). **A refusal is per call and an absence is per session** (2026-09-03, mission
+  `deliver-a-post-the-transport-refused-or-say-it-reached-nobody`): the first leaves a line that is
+  still sendable, so the run carries it on the unit's own story through
+  `story/scripts/record-unposted-line.sh` and a later tick sends it once
+  (`drive/scripts/list-unposted-lines.sh` → the transport → `clear-unposted-line.sh` on a landed
+  send); the second cannot be repaired inside the run at all. Reporting the first as the second is
+  what made a run whose every call was denied say the post did not exist.
+  The shape follows `/specificate`'s `notified` flag, which already reports this way.
   **A post that did not happen is stated, never omitted**: silence in this list read as success is
   the whole defect (measured 2026-08-12, issue #406 — the 18:48 UTC `[Implement]` run got
   `{"notified": false, "reason": "no_token"}` and nothing downstream said so).

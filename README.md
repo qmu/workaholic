@@ -1,6 +1,6 @@
 # Workaholic
 
-The development workflows we use at [qmu](https://github.com/qmu), written down so our coding agents can run them the way we do. **AI agents are the primary users**: the plugin is installed for the agents that consume it — the local loop `/loop 5m /infinite-development` turns (one session that answers on Slack every five minutes and spawns the propose and implement runs as background subagents), the Claude Code Web routines that are its fallback, and sessions, attended or unattended, running the workflow skills. The **developer is the operator**: approving the pull requests those agents open, configuring the routines, and stepping in when a run defers a decision — and every command also runs by hand, the supported secondary path. The workflows are tuned to how we work, so they may not fit everyone, and they'll keep changing as we do. We keep this public so the people we work with can share the same base.
+The development workflows we use at [qmu](https://github.com/qmu), written down so our coding agents can run them the way we do. **AI agents are the primary users**: the plugin is installed for the agents that consume it — the local loop (`/loop 5m /infinite-development` in Claude Code, or a chat-bound Scheduled task in the ChatGPT desktop app), the Claude Code Web routines that are its fallback, and sessions, attended or unattended, running the workflow skills. The **developer is the operator**: approving the pull requests those agents open, configuring routines and schedules, and stepping in when a run defers a decision — and every command also runs by hand, the supported secondary path. The workflows are tuned to how we work, so they may not fit everyone, and they'll keep changing as we do. We keep this public so the people we work with can share the same base.
 
 **Concretely**, it's a cross-agent distribution of structured development workflows and engineering-standard skills: ticket-driven development, AI-collaborative exploration, and the engineering-policy index (the `planning` / `design` / `implementation` / `operation` skills, mirrored from qmu.co.jp). It's richest on **Claude Code** (a plugin marketplace: slash commands, hooks, an always-on policy lens); the same skills install on **Codex**, **OpenCode**, and 40+ other agents via the [Agent Skills standard](https://skills.sh). Authored once under `plugins/`, generated into portable artifacts under `outputs/`.
 
@@ -64,9 +64,10 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 | `/mission-close` | End a mission — **achieved**, **abandoned**, or **carried** (done as framed, with the unmet criteria appended to an existing successor mission) — and move it into the archive area. The archive move only: a mission's worktree belongs to the claim that made it and is torn down at ship or by an explicit claim release. It is its own command rather than `/mission close` because a behaviour selected by the first word of an argument is a second command wearing one name; `close.sh` stays the only sanctioned writer of an end state. When a mission's **direction changes** mid-flight, **reorganize-and-carry** is the encouraged move — replan to drop the now-moot criteria, then close it `carried --successor <slug>` onto an existing successor — over grinding to `achieved` or `abandoned` |
 | `/catch`   | Read-only catch-up report over a recent window (commits, tickets, stories, each active mission's derived progress and unmerged in-flight work) plus an orchestration-throughput block, then follow-up Q&A |
 | `/explain` | Answer a question about the repository and export a printer-ready PDF report, rendered from HTML by a real browser |
-| `/infinite-development` | **One tick of the loop.** Read the inbound Slack channel and answer on it — a person's question replied to in its own thread, every ask filed as an `[FB]` issue with its receipt, everything else reacted to — then spawn `propose` and `implement` (and `moderate` on a 30-minute gate) as background subagents and end. **It never waits for them**: steering a running loop must take seconds, not the length of a build. Run it under `/loop 5m /infinite-development`, in one session. It reads **its own checkout** first and names a dirty one — a subagent reads the plugin out of that tree, so uncommitted lines there are behaviour the loop is already running on no base — while blocking nothing and committing nothing. The `ListAgents` listing is the whole record: a subagent still **running** is not spawned again, and an **idle** one — a run that finished — is reaped immediately before the spawn rather than left standing, which is also what lets it double as each loop's clock. `implement` runs every tick; `propose` runs on a cadence (default 15 minutes) because its answer is a function of a queue that does not move in five |
+| `/work` | Start the shared development loop contract. Claude Code uses `/loop 5m /infinite-development`; Codex in the ChatGPT desktop app uses a Scheduled task inside the current chat, running one tick in the local project and returning its report to that chat; Codex CLI/IDE run the launcher beside the installed work skill, which proves its first tick before reporting ready and exposes the durable reading through `--status`. This repository's `scripts/codex-loop.sh` is a compatibility shim. Never run two clocks against one repository. |
+| `/infinite-development` | **One tick of the loop.** Read the inbound Slack channel and answer on it — a person's question replied to in its own thread, every ask filed as an `[FB]` issue with its receipt, everything else reacted to — then spawn `propose` and `implement` (and `moderate` on a 30-minute gate) as background subagents and end. **It never waits for them on Claude Code**: steering a running loop must take seconds, not the length of a build. Off Claude Code the same tick runs sequentially; a desktop Scheduled task returns the report to its current chat, while the CLI fallback writes a transcript. It reads **its own checkout** first and names a dirty one — a subagent reads the plugin out of that tree, so uncommitted lines there are behaviour the loop is already running on no base — while blocking nothing and committing nothing. The `ListAgents` listing is the whole record on Claude Code: a subagent still **running** is not spawned again, and an **idle** one — a run that finished — is reaped immediately before the spawn. `implement` runs every tick; `propose` runs on a cadence (default 15 minutes) because its answer is a function of a queue that does not move in five. The same turn also **announces what finished**: an ask whose work landed through a session working it directly reaches no `/implement` route step, so its thread would otherwise end at the receipt and a finished ask would look exactly like an unstarted one — the tick names those items from the repository and the issues alone, never a channel scan, and replies one finish line into each item's own thread, once ever, with the dedup read from the thread rather than stored anywhere. Where it cannot see it says nothing: a blind read is reported by its own reason and never as *nothing to announce* |
 | `/workaholify` | Prepare the current repo for the standards: **apply** the `CLAUDE.md` gateway reference, the web-bootstrap hook and the remote's `delete_branch_on_merge` setting (one confirmation each), converge the `.workaholic/` layout and the account's routines, and confirm the working-directory hook is active. The branch setting is not cosmetic: the claim protocol's only oracle is *unmerged remote branches*, so a repository that never deletes a merged one hands every later scan a growing population it cannot tell from live claims. Turning it on is forward-only — the branches already standing are reported with a ready-to-run deletion command and never deleted for you |
-| `/propose` | **The loop's own ask.** Read your own active strategies, judge the single **evolutionary move** that brings the nearest one closer to its aim before its `target_date`, and open that judgment as a GitHub issue assigned to you — the surface `/specificate`'s hourly tick already reads, so the next tick ingests it and `/implement` drives it. It runs as the `propose` subagent of an `/infinite-development` tick, followed by `/specificate` in the same subagent. **A pure read of the repository**: no file, no commit, no branch, no pull request, no merge, no deployment, and nothing posted to Slack; the only write is the issue. **It is not housekeeping** — a drifted document or a missing test is `/moderate`'s work. **The unit is a mission, not a change**: the issue names a mission title, the experience it demands and an ordered ticket set at the ruled 7–8 scale, and a proposal naming fewer than two tickets is refused. `/propose` plans; `/specificate` writes. Every proposal declares one move (`depth`, `breadth` or `contraction`) and must name what it is chosen against — now the rival *mission* — and a tick that cannot name a move opens nothing and says so. It is the first unattended routine here to drop the standing *when unsure, record only* bar, and what replaces the bar is mechanical: one **mission** per strategy in flight at a time, nothing for a strategy that is closed, not yours, past its date, or that cites no feedback record for its work to be traced back through — every refusal reported by name, and a tick that cannot read its own open proposals proposing nothing at all |
+| `/propose` | **The loop's own ask.** Read your own active strategies, judge the single **evolutionary move** that brings the nearest one closer to its aim before its `target_date`, and open that judgment as a GitHub issue assigned to you — the surface `/specificate`'s hourly tick already reads, so the next tick ingests it and `/implement` drives it. It runs as the `propose` subagent of an `/infinite-development` tick, followed by `/specificate` in the same subagent. **A pure read of the repository**: no file, no commit, no branch, no pull request, no merge, no deployment, and nothing posted to Slack; the only write is the issue. **It is not housekeeping** — a drifted document or a missing test is `/moderate`'s work. **The unit is a mission, not a change**: the issue names a mission title, the experience it demands and an ordered ticket set sized by what the container must be able to hold (`plugins/workaholic/rules/workaholic.md`, *What a Mission Must Be Able to Hold* — a count is an observation about typical size, never the criterion), and a proposal naming fewer than two tickets is refused. `/propose` plans; `/specificate` writes. Every proposal declares one move (`depth`, `breadth` or `contraction`) and must name what it is chosen against — now the rival *mission* — and a tick that cannot name a move opens nothing and says so. It is the first unattended routine here to drop the standing *when unsure, record only* bar, and what replaces the bar is mechanical: one **mission** per strategy in flight at a time, nothing for a strategy that is closed, not yours, past its date, or that cites no feedback record for its work to be traced back through — every refusal reported by name, and a tick that cannot read its own open proposals proposing nothing at all |
 | `/prepare-release` | Report what is **waiting to deploy** on the base right now, per deployment target, and what about it needs a human — commits waiting since the last release boundary, a target that declares no confirmation method, a target no release note has ever joined. **A pure read**: it writes no file, commits nothing, opens no pull request, merges nothing and deploys nothing. It posts one Slack line only when something is waiting *and* that exact answer has not been posted before; both gates fail and it says nothing at all. This is what the repository-scoped `[Prepare Release]` routine runs hourly |
 | `/standup` | Report the day's development activity **per strategy** — what moved since yesterday, what is waiting, and how close each dated direction is to its `target_date`. **A pure read**: it writes no file, commits nothing, opens no pull request, merges nothing and deploys nothing. A quiet strategy says "no activity" rather than vanishing from the digest, work belonging to no strategy is reported as a count so the summary never reads as exhaustive, and a morning that is not news — no active strategy, or nothing moved with no date approaching — posts nothing at all. This is what the repository-scoped `[Standup]` routine runs each morning |
 | `/moderate` | **The maintenance tick.** `/specificate` turns asks into work and `/implement` drives it; nothing keeps the space *around* them tidy, or says how the repository's development is actually going. One hourly, unattended run walks **twenty** steps — open the tick log, sweep the inbound surfaces, read the workload logs it has credentials for, report merge-conflict state, triage stale issues and GitHub↔`.workaholic/` drift, name what failed to auto-merge, report documentation drift, report what is **waiting to deploy** per target, report each target's draft-note cadence, report which directions will not arrive at their pace, report a direction that has run **out of date** or that nothing is answering, report **what is claimed and how long it has not moved**, ask about **queued work nothing can drive** because its owner is an address the identity mapping does not name, report the missions that are finished and still open, render the per-strategy digest on the morning tick, ask about a **message on the channel nobody has answered** (mention or no mention), re-attempt the merge of a unit an earlier run finished and could not deliver, retire a claim proved to hold nothing, say whether **the base survived what the loop merged** — asking the author of the merge that broke it, once per broken commit — and ask the humans up to five questions. Findings go through the seams that already exist: a finding is a feedback record, work is a ticket or a mission. **It speaks only to ask somebody something** — its one Slack shape is `🙋 Question <@U…>`, a reply in the thread of the item it concerns, with a mention token and the two options where there are two. A finding it cannot turn into a question with a name on it stays in the tick log. It never prompts, never merges a pull request, and never pushes into a branch the claim protocol owns. What it reads about the base is a **reading, not a verdict**: a re-run can turn a red check green, so nothing here re-runs a check, reverts a commit, blocks a merge or gates anything — quality stays gated at the `release/*` QA window. |
@@ -102,6 +103,20 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 ```
 
 ## How It Works
+
+### The development loop
+
+`/work` starts the orchestration surface; it is not another executor. One tick first handles the
+inbound channel, then runs `/implement`, runs `/propose` followed by `/specificate` when that
+cadence is due, and runs `/moderate` when its own cadence is due. `/drive` and `/implement` remain
+the single executor, with attended and unattended entry points respectively.
+
+Claude Code supplies repetition with `/loop 5m /infinite-development`. In the ChatGPT desktop app,
+a Scheduled task invokes one `workaholic:work` tick in the current chat. A CLI or IDE has no
+schedule-management surface, so the launcher beside the installed work skill supplies the clock;
+this repository's `scripts/codex-loop.sh` is its compatibility entry point. The launcher invokes
+one tick at a time and `--status` only reads its durable status. Detailed capability and cadence
+rules remain in [`plugins/workaholic/skills/work/SKILL.md`](plugins/workaholic/skills/work/SKILL.md).
 
 ### Ticket-Driven Development
 
@@ -302,7 +317,12 @@ flowchart LR
 <details>
 <summary><strong>The full map</strong> — every command and every artifact in one graph</summary>
 
-Every command communicates with the others **only through the documents it writes to `.workaholic/`** — no command calls another directly. The single flowchart below covers all fourteen commands at once (`/drive` and `/implement` share one node — one executor, two entry points; rounded **blue** = command, rectangular **grey** = artifact, dashed grey border = an artifact that lands *outside* `.workaholic/`). It is dense on purpose — the per-use-case maps above are the readable slices.
+Development commands communicate through the documents they write to `.workaholic/`; the `/work`
+orchestrator is the explicit exception, sequencing the loop's command bodies without becoming an
+artifact writer or a second executor. The graph covers all 22 command entry files (`/report` is the
+deprecated `/story` alias; `/drive` and `/implement` share one executor node; the two routine setup
+commands share one node). Rounded **blue** = command, rectangular **grey** = artifact, dashed grey
+border = an artifact that lands *outside* `.workaholic/`.
 
 ```mermaid
 flowchart LR
@@ -323,6 +343,9 @@ flowchart LR
   releasestatus(["/prepare-release"])
   standup(["/standup"])
   moderate(["/moderate"])
+  work(["/work"])
+  tick(["/infinite-development"])
+  propose(["/propose"])
 
   %% ---------- artifacts under .workaholic/ (grey) ----------
   TODO["tickets/todo/"]
@@ -349,6 +372,8 @@ flowchart LR
   ticket --> ICE
   feedback --> EXT
   feedback --> OWN
+  tick --> OWN
+  propose --> OWN
   mission --> MIS
   mission --> TODO
   missionclose --> MIS
@@ -395,6 +420,13 @@ flowchart LR
   standup -.-> MIS
   standup -.-> STORY
 
+  %% ========== orchestration: the explicit command-to-command exception ==========
+  work -. one tick .-> tick
+  tick -. every tick .-> drive
+  tick -. cadence .-> propose
+  tick -. after propose .-> specificate
+  tick -. cadence .-> moderate
+
   %% ========== mission rolls: dashed, labelled ==========
   drive -. rolls .-> MIS
   report -. rolls .-> MIS
@@ -407,7 +439,7 @@ flowchart LR
   classDef cmd fill:#dbeafe,stroke:#1e40af,stroke-width:1.5px,color:#1e3a8a;
   classDef art fill:#f3f4f6,stroke:#6b7280,color:#111827;
   classDef ext fill:#f3f4f6,stroke:#9aa0aa,stroke-dasharray:4 3,color:#374151;
-  class ticket,mission,missionclose,specificate,feedback,drive,report,ship,releasestatus,standup,moderate,catch,commit,explain,workaholify,setuproutines cmd;
+  class ticket,mission,missionclose,specificate,feedback,drive,report,ship,releasestatus,standup,moderate,catch,commit,explain,workaholify,setuproutines,work,tick,propose cmd;
   class TODO,ICE,ARCH,ABD,MIS,STORY,FBK,REL,DEP,HK art;
   class EXT,OWN,PDF,WT,CFG,ROUT ext;
 ```
@@ -415,6 +447,7 @@ flowchart LR
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
+- **Orchestration arrows** are the only command-to-command edges: `/work` enters one tick; the tick sequences the existing source, executor, ingestion and maintenance commands. They do not make `/work` an executor.
 - **Node style tells the kind apart.** Rounded **blue** = the commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — the `[FB] ` issue every `/fb` files, here or across the boundary, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-dev-routines` and `/setup-repo-routines` read and converge in the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/specificate` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/specificate` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.

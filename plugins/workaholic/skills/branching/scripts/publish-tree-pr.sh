@@ -379,8 +379,16 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
       # merge_failed: 405 is GitHub refusing the merge itself (conflict, or a required
       # check not satisfied), 409 is the head moving under us, and those are different
       # next actions for whoever reads the line.
+      # A PUBLICATION HAS NO BRANCH STORY by construction, so the composer's `fallback` is
+      # its ordinary answer rather than a failure: one line naming what was published, in
+      # place of the tree's staging and index-refresh commits.
+      body_json=$( cd "$publish_path" && sh "${GATHER_SCRIPTS}/merge-commit-body.sh" "${pr_number}" 2>/dev/null || printf '' )
+      merge_title=$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')
+      merge_body=$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')
+      merge_body_source=$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
       if merge_resp=$( cd "$publish_path" && sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-          "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=$(sh "${GATHER_SCRIPTS}/merge-method.sh")" 2>&1 ); then
+          "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=$(sh "${GATHER_SCRIPTS}/merge-method.sh")" \
+          -f "commit_title=${merge_title}" -f "commit_message=${merge_body}" 2>&1 ); then
         merged=true
         merge_reason="merged"
       else
@@ -398,5 +406,5 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
   esac
 fi
 
-printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s", "merged": %s, "merge_reason": "%s"}\n' \
-  "$after_sha" "$work_branch" "$pr_url" "$base" "$merged" "$merge_reason"
+printf '{"ok": true, "sha": "%s", "branch": "%s", "pr_url": "%s", "base": "%s", "merged": %s, "merge_reason": "%s", "body_source": "%s"}\n' \
+  "$after_sha" "$work_branch" "$pr_url" "$base" "$merged" "$merge_reason" "${merge_body_source:-}"

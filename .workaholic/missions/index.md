@@ -2,13 +2,9 @@
 
 ## active
 
-* [announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread](active/announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread/mission.md) - Announce an ask that landed outside a unit route in its own thread
 * [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](active/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
-* [pay-only-the-operative-cost-on-every-tick](active/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
-* [stop-a-finished-subagent-and-take-the-loop-s-clock-off-it](active/stop-a-finished-subagent-and-take-the-loop-s-clock-off-it/mission.md) - Stop a finished subagent and take the loop's clock off it
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 
 ## archive
@@ -17,19 +13,23 @@
 * [add-the-standup-daily-per-strategy-summary](archive/add-the-standup-daily-per-strategy-summary/mission.md) - Add the standup daily per-strategy summary
 * [adjust-the-plan-hourly-not-only-report-it](archive/adjust-the-plan-hourly-not-only-report-it/mission.md) - Adjust the plan hourly, not only report it
 * [adopt-a-git-flow-branching-model-with-durable-ship-records](archive/adopt-a-git-flow-branching-model-with-durable-ship-records/mission.md) - Adopt a release-branch staging tier with durable ship records
+* [announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread](archive/announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread/mission.md) - Announce an ask that landed outside a unit route in its own thread
 * [announce-one-event-once-and-give-its-root-a-shape](archive/announce-one-event-once-and-give-its-root-a-shape/mission.md) - Announce one event once, and give its root a shape
 * [answer-what-is-waiting-and-stamp-what-was-accepted](archive/answer-what-is-waiting-and-stamp-what-was-accepted/mission.md) - Answer what is waiting, and stamp what was accepted
 * [ask-for-the-one-act-a-declared-handoff-is-waiting-on](archive/ask-for-the-one-act-a-declared-handoff-is-waiting-on/mission.md) - Ask for the one act a declared handoff is waiting on
 * [attribute-an-inbound-ask-to-the-direction-it-answers](archive/attribute-an-inbound-ask-to-the-direction-it-answers/mission.md) - Attribute an inbound ask to the direction it answers
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
+* [carry-claim-liveness-off-the-review-branch](archive/carry-claim-liveness-off-the-review-branch/mission.md) - Carry claim liveness off the review branch
 * [catch-a-reported-claim-up-before-its-conflict-hardens](archive/catch-a-reported-claim-up-before-its-conflict-hardens/mission.md) - Catch a reported claim up before its conflict hardens
 * [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [close-the-units-the-loop-already-finished](archive/close-the-units-the-loop-already-finished/mission.md) - Close the units the loop already finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
 * [compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it](archive/compose-an-unattended-run-s-shell-so-an-allowlist-can-name-it/mission.md) - Compose an unattended run's shell so an allowlist can name it
+* [compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk](archive/compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk/mission.md) - Compose the squash body so a unit's housekeeping stays off the trunk
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [correct-the-release-note-automation-to-its-intended-design](archive/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
+* [deliver-a-post-the-transport-refused-or-say-it-reached-nobody](archive/deliver-a-post-the-transport-refused-or-say-it-reached-nobody/mission.md) - Deliver a post the transport refused, or say it reached nobody
 * [deliver-a-stranded-publication-that-needs-nothing-but-a-merge](archive/deliver-a-stranded-publication-that-needs-nothing-but-a-merge/mission.md) - Deliver a stranded publication that needs nothing but a merge
 * [deliver-and-retire-what-the-loop-already-proved-finished](archive/deliver-and-retire-what-the-loop-already-proved-finished/mission.md) - Deliver and retire what the loop already proved finished
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](archive/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
@@ -39,6 +39,7 @@
 * [drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread](archive/drive-on-a-merged-proposal-and-report-it-in-that-proposal-s-thread/mission.md) - Drive on a merged proposal, and report it in that proposal's thread
 * [drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is](archive/drive-the-work-the-loop-wrote-one-resolution-of-who-a-person-is/mission.md) - Drive the work the loop wrote: one resolution of who a person is
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
+* [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](archive/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
 * [finish-a-proved-retirement-where-the-write-is-permitted](archive/finish-a-proved-retirement-where-the-write-is-permitted/mission.md) - Finish a proved retirement where the write is permitted
 * [finish-the-retirement-the-loop-cannot-complete](archive/finish-the-retirement-the-loop-cannot-complete/mission.md) - Finish the retirement the loop cannot complete
 * [follow-the-pull-requests-the-loop-opens-for-a-person](archive/follow-the-pull-requests-the-loop-opens-for-a-person/mission.md) - Follow the pull requests the loop opens for a person
@@ -58,15 +59,19 @@
 * [make-a-direction-s-end-a-turn-of-the-loop-not-its-stop](archive/make-a-direction-s-end-a-turn-of-the-loop-not-its-stop/mission.md) - Make a direction's end a turn of the loop, not its stop
 * [make-a-direction-s-lifecycle-a-declared-stage](archive/make-a-direction-s-lifecycle-a-declared-stage/mission.md) - Make a direction's lifecycle a declared stage
 * [make-a-mission-impossible-to-create-without-its-ticket-set](archive/make-a-mission-impossible-to-create-without-its-ticket-set/mission.md) - Make a mission impossible to create without its ticket set
+* [make-a-red-base-impossible-for-the-loop-to-miss](archive/make-a-red-base-impossible-for-the-loop-to-miss/mission.md) - Make a red base impossible for the loop to miss
 * [make-a-rename-a-registry-entry-not-a-sweep](archive/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep
+* [make-a-verification-handoff-a-probe-re-run-at-claim-time](archive/make-a-verification-handoff-a-probe-re-run-at-claim-time/mission.md) - Make a verification handoff a probe re-run at claim time
 * [make-acceptance-ticking-measure-satisfaction-not-marker-shape](archive/make-acceptance-ticking-measure-satisfaction-not-marker-shape/mission.md) - Make acceptance ticking measure satisfaction, not marker shape
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](archive/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-routine-notifications-one-semantic-story](archive/make-routine-notifications-one-semantic-story/mission.md) - Make routine notifications one semantic story
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](archive/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
 * [make-the-branch-story-concise-by-default](archive/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
+* [make-the-codex-work-entrypoint-self-contained](archive/make-the-codex-work-entrypoint-self-contained/mission.md) - Make the Codex work entrypoint self-contained
 * [make-the-draft-release-note-an-agent-s-release-plan](archive/make-the-draft-release-note-an-agent-s-release-plan/mission.md) - Make the draft release note an agent's release plan
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
+* [make-the-maintenance-tick-s-channel-presence-help-the-work-along](archive/make-the-maintenance-tick-s-channel-presence-help-the-work-along/mission.md) - Make the maintenance tick's channel presence help the work along
 * [make-the-per-commit-changed-lines-ceiling-a-rule-that-holds](archive/make-the-per-commit-changed-lines-ceiling-a-rule-that-holds/mission.md) - Make the per-commit changed-lines ceiling a rule that holds
 * [make-the-propose-implement-loop-drillable-on-demand](archive/make-the-propose-implement-loop-drillable-on-demand/mission.md) - Make the propose–implement loop drillable on demand
 * [make-the-routine-create-body-documented-and-buildable](archive/make-the-routine-create-body-documented-and-buildable/mission.md) - Make the routine create body documented and buildable
@@ -81,9 +86,11 @@
 * [name-the-steps-a-tick-could-not-read](archive/name-the-steps-a-tick-could-not-read/mission.md) - Name the steps a tick could not read
 * [notice-a-periodic-artifact-that-stopped-being-produced](archive/notice-a-periodic-artifact-that-stopped-being-produced/mission.md) - Notice a periodic artifact that stopped being produced
 * [notify-the-person-a-directed-question-addresses](archive/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
+* [pay-only-the-operative-cost-on-every-tick](archive/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick
 * [point-the-inbound-readers-at-the-channel-that-exists](archive/point-the-inbound-readers-at-the-channel-that-exists/mission.md) - Point the inbound readers at the channel that exists
 * [propose-at-the-capture-seam](archive/propose-at-the-capture-seam/mission.md) - Propose at the capture seam
 * [prove-a-claim-branch-is-empty-before-deleting-it](archive/prove-a-claim-branch-is-empty-before-deleting-it/mission.md) - Prove a claim branch is empty before deleting it
+* [prove-codex-loop-progress](archive/prove-codex-loop-progress/mission.md) - Prove Codex loop progress
 * [prove-the-loop-s-closing-link](archive/prove-the-loop-s-closing-link/mission.md) - Prove the loop's closing link
 * [put-the-loop-s-standing-rulings-on-one-pull-request](archive/put-the-loop-s-standing-rulings-on-one-pull-request/mission.md) - Put the loop's standing rulings on one pull request
 * [read-a-strategy-s-pace-against-its-date](archive/read-a-strategy-s-pace-against-its-date/mission.md) - Read a strategy's pace against its date
@@ -117,6 +124,7 @@
 * [settle-a-mergeability-reading-before-it-becomes-a-question](archive/settle-a-mergeability-reading-before-it-becomes-a-question/mission.md) - Settle a mergeability reading before it becomes a question
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes
+* [stop-a-finished-subagent-and-take-the-loop-s-clock-off-it](archive/stop-a-finished-subagent-and-take-the-loop-s-clock-off-it/mission.md) - Stop a finished subagent and take the loop's clock off it
 * [stop-a-routine-finish-line-from-vanishing-on-the-script-path](archive/stop-a-routine-finish-line-from-vanishing-on-the-script-path/mission.md) - Stop a routine finish line from vanishing on the script path
 * [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit

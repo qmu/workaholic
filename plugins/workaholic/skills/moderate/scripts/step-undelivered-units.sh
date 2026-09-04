@@ -146,7 +146,7 @@ raced=$(printf '%s' "$out" \
 n=$(printf '%s' "$candidates" | jq 'length')
 
 summary="${total} claimed unit(s); ${n} finished and undelivered"
-[ "$blocked" -eq 0 ] || summary="${summary}; ${blocked} no longer merging (the next [Implement] tick attempts each)"
+[ "$blocked" -eq 0 ] || summary="${summary}; ${blocked} no longer merging (delivering them belongs to an [Implement] run, not to this tick)"
 [ "$raced" -eq 0 ] || summary="${summary}; ${raced} held by two live claims (asked by raced-units)"
 
 if [ "$n" -eq 0 ]; then

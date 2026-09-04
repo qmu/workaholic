@@ -2,7 +2,7 @@
 type: Mission
 title: Prove Codex loop progress
 slug: prove-codex-loop-progress
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-04T14:23:28+09:00
 author: a@qmu.jp
@@ -50,3 +50,5 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 - 2026-09-04 — ticket archived — 20260904143152-define-the-codex-parent-relay-contract.md
 - 2026-09-04 — ticket archived — 20260904143152-return-slack-intents-from-codex-worker-ticks.md
 - 2026-09-04 — ticket archived — 20260904143152-execute-relayed-slack-operations-in-the-owning-chat.md
+- 2026-09-04 — ticket archived — 20260904143152-report-an-unavailable-codex-relay-without-pretending-delivery.md
+- 2026-09-04 — mission achieved — mission.md

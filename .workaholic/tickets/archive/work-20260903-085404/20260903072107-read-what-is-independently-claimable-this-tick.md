@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:21:07+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -72,3 +73,37 @@ The survey is the executor's and the tick has never reached it. That is a real w
 the tick reads, and the reason it is admissible is that the reading is used to decide **how many
 runners to start** and for nothing else — it never picks a unit, never orders one, and never
 claims. `plan-units.sh`'s order stays the executor's.
+
+## Final Report
+
+Development completed as planned. `loops/scripts/claimable-units.sh` composes `plan-units.sh` —
+the executor's own survey — and derives nothing of its own: no second walker, no count of `todo/`
+files, no network read. It emits `claimable` / `missions` / `backlog_units` / `resumable`.
+
+All loose backlog counts as **one** unit, because the batch partition is a judgement made at §2 of
+the Unified Run and this reader must not pre-empt it. Under-counting spawns fewer runners than the
+queue could carry; over-counting spawns runners that find nothing and spend a whole agent run
+losing a claim race. Only `heartbeat_lapsed` and `report_incomplete` count among resumables — the
+two the token table calls `pending` when left untaken; `parked_with_pr`, `awaiting_verification`
+and `superseded` each wait on a person or hold nothing.
+
+Each of the survey's five `ok`-forbidding facts answers `readable: false` with that word and
+**null** counts.
+
+### The cost, measured and stated
+
+`plan-units.sh` takes **68–73 seconds** on this machine (4 cores), three consecutive warm runs:
+73.31s, 69.88s, 68.47s. That is roughly a quarter of a five-minute tick, and it is reported here
+as a finding rather than routed around with a lighter count — a cheaper number the executor would
+then refuse is not a saving. `--survey <path|->` lets a caller that has already made the survey
+pay for it once; the tick has not, so the cost is real for it.
+
+### Discovered Insights
+
+- **Insight**: Run from inside a claim worktree the reader answers `not_current` — correctly, since
+  the worktree sits on a claim branch behind the base. The tick runs in the **main** checkout,
+  which `sync-main.sh` keeps current, so the reading is only meaningful there. A future caller
+  reaching it from a worktree will get a degraded answer that is right about the checkout and
+  useless about the queue.
+  **Context**: The same is true of every reader composing `plan-units.sh`.
+

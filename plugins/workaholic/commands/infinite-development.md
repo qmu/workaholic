@@ -210,6 +210,16 @@ of what is queued**, and the queue moves only when `implement` lands something o
 writes an ask — neither of which happens inside five minutes. `0` means every tick. What was
 measured, and why a change-detector was refused: `workaholic:loops`, *The record behind the tick*.
 
+Read claimable units with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/claimable-units.sh` and
+CPU facts with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-machine-load.sh`. Spawn
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − running)` implement runners; absent means one,
+and `bad_fanout` or an unreadable claimable result falls back to one and is reported. Do not hand
+a unit to a runner: each surveys and claims, and the claim arbiter settles any race.
+
+Run ingest when this tick captured an ask even when the strategy cadence is closed. Defer the
+strategy half only when its previous reported answer was `work_waiting`; lift that deferral after
+an implementation lands and cap it at `WORKAHOLIC_PROPOSE_DEFER_MAX` (default 3).
+
 Spawn each **due** one as `subagent_type: "general-purpose"`, in the **background**, under that
 loop's own name. Give each the command body it answers to — `commands/propose.md` and
 `commands/implement.md` are the ceilings for what those runs may post, and a subagent reads them
@@ -265,6 +275,9 @@ that this mission's archive is non-empty.
   stopped. A loop that was `still_running` or `not_due` gets **no line** — the gate working is not
   news, and the majority of ticks are that. Where **every** loop was quiet, say so in one line
   (`loops: none due`) rather than three.
+- **The allocation**: implement runners spawned, claimable units, declared bound, and `watching`
+  when no runner was needed. Name `fanout_unreadable`, `bad_fanout`, and strategy deferral rather
+  than rendering degraded inputs as a healthy zero.
 - **Every reaping is named** — `reaped: <name>` — even on a tick that spawns nothing, because
   stopping a session is an act the tick took and the listing afterwards is the only other evidence.
 - **The cadence's own source is named where a loop was skipped**: `not_due: <name> (finish

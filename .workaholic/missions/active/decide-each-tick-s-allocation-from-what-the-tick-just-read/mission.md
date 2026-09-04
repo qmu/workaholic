@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.7
 feedback: [20260903071947-the-tick-walks-three-names-in-order-instead-of-allocating-capacity-to-where-the-work-is.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260903-085404
 ---
 
 # Decide each tick's allocation from what the tick just read
@@ -37,11 +38,18 @@ chose.
 
 ## Acceptance
 
-- [ ] A tick fans out one `implement` runner per independently claimable unit, up to a bound the
+- [x] A tick fans out one `implement` runner per independently claimable unit, up to a bound the
       repository declares; absent means the present single runner. (#20260903072108-fan-out-one-implement-runner-per-claimable-unit.md)
-- [ ] The ingest half runs on the tick's own capture, and the strategy half keeps its cadence. (#20260903072108-run-the-ingest-half-on-the-tick-s-own-capture.md)
-- [ ] The tick reports the allocation it chose and why, including a tick that chose to watch. (#20260903072108-report-the-allocation-the-tick-chose-and-why.md)
+- [x] The ingest half runs on the tick's own capture, and the strategy half keeps its cadence. (#20260903072108-run-the-ingest-half-on-the-tick-s-own-capture.md)
+- [x] The tick reports the allocation it chose and why, including a tick that chose to watch. (#20260903072108-report-the-allocation-the-tick-chose-and-why.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-03 — ticket archived — 20260903072107-read-what-is-independently-claimable-this-tick.md
+- 2026-09-03 — ticket archived — 20260903082012-read-the-machine-s-cores-and-load-average.md
+- 2026-09-03 — ticket archived — 20260903072108-fan-out-one-implement-runner-per-claimable-unit.md
+- 2026-09-03 — ticket archived — 20260903072108-run-the-ingest-half-on-the-tick-s-own-capture.md
+- 2026-09-03 — ticket archived — 20260903072108-skip-a-runner-whose-last-answer-cannot-have-moved.md
+- 2026-09-03 — ticket archived — 20260903072108-report-the-allocation-the-tick-chose-and-why.md
+- 2026-09-03 — run recorded (+0.7h) — implement-20260903-093600

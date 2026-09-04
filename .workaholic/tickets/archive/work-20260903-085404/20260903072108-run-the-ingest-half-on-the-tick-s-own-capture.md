@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:21:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -69,3 +70,28 @@ earlier, so no derivation, no detector and no second reader is involved.
 Splitting the loop into two names means two entries in the listing and two entries in whatever
 records finishes. That is the cost of the split and it is small; the alternative — one name with
 two trigger conditions — makes the concurrency rule unable to say which half is running.
+
+## Final Report
+
+Development completed as planned. The two halves are split at the spawn and named separately in
+the listing, so the concurrency rule can tell them apart: `propose` keeps
+`WORKAHOLIC_PROPOSE_CADENCE_MINUTES` for the strategy judgement, and `ingest` is spawned whenever
+§1 filed at least one issue this tick.
+
+It is keyed on **the tick's own act** — the count of issues §1 filed — and on nothing else. No
+queue reading, no inbox poll, no change detector: the standing objection in the command body is
+about the strategy half and is left standing word for word.
+
+The ingest also keeps running on the cadence, because an ask a person files directly on GitHub is
+one §1 never sees; the capture is an **additional** trigger, never a replacement. When both run in
+one tick the strategy judgement is spawned first, so the issue it opens is in the inbox the ingest
+reads — the ordering guarantee the merged routine bought, preserved rather than re-argued.
+
+### Discovered Insights
+
+- **Insight**: The trigger needs no detector because the tick is the thing that captured the ask —
+  §1 files the issue itself, moments earlier, so the event is already in hand. The bundling was
+  what made a detector look necessary: an event-driven half behind a state-gated half's number has
+  no way to learn about its own event except by re-reading the world.
+  **Context**: The same shape is worth looking for wherever two triggers share one cadence.
+

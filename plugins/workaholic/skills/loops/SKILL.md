@@ -142,6 +142,21 @@ home in the tick that calls it. `0` means every tick.
 missions, standing rulings, findings — are hourly by nature, and the log is a reader that
 already exists. An unreadable log spawns it.
 
+## The allocation is decided from what the tick just read
+
+Read independently claimable work with `loops/scripts/claimable-units.sh` and machine CPU facts
+with `loops/scripts/read-machine-load.sh`. Both return null counts with a named degradation when
+they cannot read; a missing reading never becomes a plausible zero. `implement` fans out to
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound − running)`, with an absent bound meaning
+one and an invalid bound reported as `bad_fanout`. Each runner surveys and claims for itself, so
+the claim arbiter remains the only allocator and a losing race holds nothing.
+
+The event-driven ingest half runs when this tick captured an ask, independently of the cadenced
+strategy judgement. A prior strategy result may defer only its own reported `work_waiting`, is
+lifted when implementation lands, and is capped by `WORKAHOLIC_PROPOSE_DEFER_MAX` (default 3).
+Every allocation, deferral, and unreadable input is named in the tick report; watching is a
+decision, not silence.
+
 Beneath all of that, nothing else needed arbitrating: `/implement` drives every unit in its own
 claim worktree and the claim protocol arbitrates the remote (`workaholic:drive`, *Claims*);
 `/specificate` writes through a publish tree at `<root>/.publish`. Two subagents of one session

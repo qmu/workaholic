@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T08:20:12+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -83,3 +84,37 @@ supports. Adding them later is a separate ask against a working reader.
 The reading is Linux-shaped. A machine with no `/proc/loadavg` is answered `readable: false`
 rather than approximated — the consumer's rule is that a gate which cannot be read is not a
 gate, so an honest absence costs nothing.
+
+## Final Report
+
+Development completed as planned. `loops/scripts/read-machine-load.sh` is a POSIX `sh` pure read:
+`nproc` with `getconf _NPROCESSORS_ONLN` as fallback, the first field of `/proc/loadavg`, and
+nothing else. It runs no other command, opens no network connection, writes nothing, and exits 0
+in every case.
+
+It answers `{"cores", "load1", "load_per_core"}` with **no `readable` key** on a completed read —
+the `merge_policy` / `status:` convention — and `readable: false` with `no_loadavg` /
+`no_core_count` / `unparseable` and **null** counts otherwise. Never `0`: a zero load reads as an
+idle machine, which is the one answer that would make a consumer fan out hardest at exactly the
+moment it must not.
+
+**No consumer reads it.** This ticket changes no decision anywhere, so it can land and be wrong
+about nothing. The bound that will read it is declared in `.claude/settings.json` by the operator
+who measured `7.99` on four cores; this file picks no number for any machine.
+
+Verified live on the machine the loop runs on: `{"cores": 4, "load1": 1.47, "load_per_core":
+0.37}` against `nproc` = 4 and `/proc/loadavg` = `1.47 1.57 1.39` read by hand.
+
+### Discovered Insights
+
+- **Insight**: The failure path needed a seam to be exercisable at all — `/proc/loadavg` cannot be
+  removed on a running machine. `WORKAHOLIC_LOADAVG_PATH` exists for that and for nothing else,
+  and it is what lets the hermetic suite assert the `null`-never-`0` rule rather than only argue
+  it in a comment.
+  **Context**: A degradation nothing can reach is a degradation nothing has tested.
+- **Insight**: The measurement that motivated this named three resources and found two innocent —
+  memory half free, no thermal throttling, CPU saturated. The reader answers about CPU alone and
+  says so in its header, rather than presenting itself as a verdict on the machine's health.
+  **Context**: A reader whose name implies more than it measures is how a bound gets trusted for
+  something it never looked at.
+

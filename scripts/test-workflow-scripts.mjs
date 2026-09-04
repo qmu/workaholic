@@ -22227,6 +22227,123 @@ function testWorkaholifyRepoSettings() {
 // still get wrong: the retired surface is GONE (not merely undocumented), the tick owns the
 // Slack turn (not `/propose`), the reply shape is byte-identical between the command and the
 // catalog, and the tick states the concurrency rule it needs no store for.
+// ---------------------------------------------------------------------------
+// THE TICK'S ALLOCATION (2026-09-03, mission
+// `decide-each-tick-s-allocation-from-what-the-tick-just-read`). Two readers feed one decision,
+// and the load-bearing assertions are the NEGATIVE ones: neither may ever answer a plausible
+// number for a reading it could not make. A zero claimable count spawns nothing; a zero load
+// reads as an idle machine and would make the consumer fan out hardest at exactly the moment it
+// must not. Both must answer `null` and name why.
+T("loops/claimable-units.sh: how much work is independently claimable this tick", testClaimableUnits);
+function testClaimableUnits() {
+  const reader = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts/claimable-units.sh");
+  const read = (obj) => JSON.parse(execSync(`sh ${reader} --survey -`,
+    { input: JSON.stringify(obj), encoding: "utf8" }));
+  const healthy = {
+    current: true, shallow: false, backlog_error: "", owner_unresolved: false,
+    placeholder_identity: false, missions: [], backlog: [], resumable: [],
+  };
+
+  // 1. THE COUNT. A mission is one unit; ALL loose backlog is one, because the batch partition
+  //    is a judgement made at §2 of the Unified Run and this reader must not pre-empt it.
+  let r = read({ ...healthy, missions: [{}, {}, {}], backlog: [{}, {}] });
+  assertEq("three missions and any loose backlog are four units",
+    [r.claimable, r.missions, r.backlog_units], [4, 3, 1]);
+  r = read({ ...healthy, backlog: [{}, {}, {}, {}] });
+  assertEq("four loose tickets are still one unit — under-count, never over-count",
+    [r.claimable, r.backlog_units], [1, 1]);
+  r = read(healthy);
+  assertEq("an empty queue is zero and readable", [r.claimable, r.readable], [0, undefined]);
+
+  // 2. ONLY A MANDATORY TAKEOVER IS CLAIMABLE WORK. `parked_with_pr` and
+  //    `awaiting_verification` each wait on a person, and spawning a runner for one would spend
+  //    an agent run on a unit nothing unattended can move.
+  r = read({ ...healthy, resumable: [
+    { resume_reason: "heartbeat_lapsed" }, { resume_reason: "report_incomplete" },
+    { resume_reason: "parked_with_pr" }, { resume_reason: "awaiting_verification" },
+    { resume_reason: "superseded" }] });
+  assertEq("the two mandatory resume reasons count and the other three do not",
+    [r.claimable, r.resumable], [2, 2]);
+
+  // 3. EVERY `ok`-FORBIDDING FACT YIELDS NO READING, BY ITS OWN NAME AND WITH NULL COUNTS.
+  //    A blind survey that answered `0` would read as an empty queue, which is the one
+  //    collapse this reader exists to refuse.
+  for (const [field, value, word] of [
+    ["current", false, "not_current"],
+    ["shallow", true, "shallow"],
+    ["backlog_error", "boom", "backlog_error"],
+    ["owner_unresolved", true, "owner_unresolved"],
+    ["placeholder_identity", true, "placeholder_identity"],
+  ]) {
+    const deg = read({ ...healthy, [field]: value });
+    assertEq(`a survey with ${field} yields no reading, named ${word}`,
+      [deg.readable, deg.reason, deg.claimable], [false, word, null]);
+  }
+
+  // 4. AN UNPARSEABLE SURVEY IS NOT AN EMPTY ONE either, and the reader exits 0 regardless.
+  const bad = execSync(`sh ${reader} --survey -; echo "exit=$?"`,
+    { input: "boom", encoding: "utf8" });
+  assertTrue("a survey that is not JSON is named and exits 0",
+    bad.includes('"reason": "survey_unreadable"') && bad.includes("exit=0"), bad);
+
+  // 5. IT COMPOSES THE SURVEY AND DERIVES NOTHING OF ITS OWN — no second walker, and no count
+  //    of `todo/` files, which would ignore missions, claims, ownership and every exclusion.
+  const src = readFileSync(reader, "utf8");
+  const code = src.replace(/^#.*$/gm, "");
+  assertTrue("it composes plan-units.sh", code.includes("plan-units.sh"), code.slice(0, 200));
+  assertTrue("...and walks no queue of its own",
+    !/tickets\/todo/.test(code), "a second walker appeared");
+  assertTrue("...and reaches no network of its own",
+    !/\bgh \b|curl|git fetch/.test(code), "a network read appeared");
+}
+
+// ---------------------------------------------------------------------------
+T("loops/read-machine-load.sh: the machine the tick is about to start runners on", testReadMachineLoad);
+function testReadMachineLoad() {
+  const reader = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts/read-machine-load.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-machine-"));
+  const run = (env = {}) => JSON.parse(execSync(`sh ${reader}`,
+    { env: { ...process.env, ...env }, encoding: "utf8" }));
+  try {
+    // 1. A HEALTHY MACHINE answers three numbers and carries NO `readable` key — the
+    //    `merge_policy` / `status:` convention: absent means the read completed.
+    const r = run();
+    const cores = Number(execSync("nproc", { encoding: "utf8" }).trim());
+    assertEq("the core count matches nproc", r.cores, cores);
+    assertTrue("load1 is a number", typeof r.load1 === "number", JSON.stringify(r));
+    assertEq("load_per_core is load1 over cores",
+      r.load_per_core, Number((r.load1 / cores).toFixed(2)));
+    assertTrue("a completed read carries no readable key", r.readable === undefined,
+      JSON.stringify(r));
+
+    // 2. AN UNREADABLE READ ANSWERS `null`, NEVER `0`. This is the whole point: a zero load
+    //    reads as an idle machine, which is the one answer that would make a consumer fan out
+    //    hardest at exactly the moment it must not.
+    const gone = run({ WORKAHOLIC_LOADAVG_PATH: join(tmp, "absent") });
+    assertEq("an absent loadavg is named and null",
+      [gone.readable, gone.reason, gone.load1, gone.load_per_core, gone.cores],
+      [false, "no_loadavg", null, null, null]);
+
+    const badPath = join(tmp, "bad");
+    writeFileSync(badPath, "not-a-load 1 2\n");
+    const bad = run({ WORKAHOLIC_LOADAVG_PATH: badPath });
+    assertEq("an unparseable loadavg is named and null, never guessed at",
+      [bad.readable, bad.reason, bad.load1], [false, "unparseable", null]);
+
+    // 3. IT EXITS 0 IN EVERY CASE — a reading is never fatal to the tick that makes it.
+    const code = execSync(`sh ${reader} >/dev/null 2>&1; echo $?`,
+      { env: { ...process.env, WORKAHOLIC_LOADAVG_PATH: join(tmp, "absent") }, encoding: "utf8" });
+    assertEq("an unreadable machine still exits 0", code.trim(), "0");
+
+    // 4. PURE READ: no network, no write, and nothing outside the two commands it names.
+    const src = readFileSync(reader, "utf8").replace(/^#.*$/gm, "");
+    assertTrue("it opens no network connection",
+      !/curl|wget|\bgh \b|git /.test(src), "a network read appeared");
+    assertTrue("...and writes nothing",
+      !/>\s*"\$|mkdir|touch |tee /.test(src), "a write appeared");
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
 T("loops: one session, one tick, and the retired premise is gone", testOneSessionLoop);
 function testOneSessionLoop() {
   const P = (...r) => join(REPO_ROOT, ...r);

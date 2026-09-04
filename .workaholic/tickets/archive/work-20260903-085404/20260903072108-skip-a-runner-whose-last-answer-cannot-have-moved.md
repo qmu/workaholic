@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T07:21:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -77,3 +78,32 @@ recomputing it, but it is adjacent, and the ceiling in step 3 is what bounds the
 distinction turns out to be thinner than it looks. If the driving session judges the distinction
 does not hold, the honest outcome is to implement the ceiling alone — the strategy half on a
 longer cadence — and report that, rather than adding a detector the objection forbids.
+
+## Final Report
+
+Development completed as planned. The deferral reads the **previous strategy run's own reported
+refusal** from the tick log through `log-read.sh` — the gate's last answer, never a recomputation
+of it — and `survey-strategies.sh` is byte-identical.
+
+Four bounds, each a refusal in its own right: it is **lifted** the moment an `implement` run lands
+a unit, which the tick learns from its own task notifications and from no queue reading; it is
+**capped** at `WORKAHOLIC_PROPOSE_DEFER_MAX` skipped cadences (default 3), after which the
+strategy half runs regardless; it fires **only** on `work_waiting`, since `arrived`, `observing`,
+`past_target_date` and `not_active` each clear through a person's act that leaves no trace the
+tick reads; and an **unreadable log defers nothing** and is reported `cadence_unreadable`.
+
+### Discovered Insights
+
+- **Insight**: Reading a previous run's *reported answer* is categorically different from
+  re-deriving its gate, and that distinction is what keeps this from being the change-detector the
+  command body refuses by name. The ladder stays `/propose`'s; what the tick reads is a fact about
+  what already happened, which is the same thing `blocked-tick` and the `/moderate` change diff
+  read the log for.
+  **Context**: Any future brake on a cadence should reach for the same seam rather than a second
+  derivation of the gate it is braking.
+- **Insight**: The cap is the load-bearing half. A brake on the one routine that *originates* work
+  is the shape that has twice stopped this loop silently, and a ceiling after which it runs anyway
+  is what makes the brake safe to add at all.
+  **Context**: Stated here because a later reader tuning the default will be tuning the safety
+  margin, not a performance knob.
+

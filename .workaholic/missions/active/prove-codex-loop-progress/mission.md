@@ -42,3 +42,4 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 ## Changelog
 
 - 2026-09-04: Proposed from issue #974 after reproducing the supervisor/process-versus-progress gap.
+- 2026-09-04 — ticket archived — 20260904142404-reproduce-and-classify-codex-loop-readiness-failures.md

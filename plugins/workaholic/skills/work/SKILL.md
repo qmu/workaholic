@@ -40,6 +40,13 @@ For a CLI-only environment, `scripts/codex-loop.sh` supplies the clock: one `cod
 interval, sequential, `flock`ed against a second supervisor, exporting `.claude/settings.json`'s
 `env` block so both agents read one declaration.
 
+The supervisor completes and classifies the first tick before reporting ready. Every completion
+atomically replaces `.codex-loop/status.json` with the outcome, blocked reason, report path,
+transport verdict and next due time; `sh scripts/codex-loop.sh --status` reads that state without
+starting another process. A failed first tick, missing report or absent report transport refuses
+startup by name. Later failures update status and the sequential supervisor proceeds to its next
+due time.
+
 ## The tick
 
 **On Claude Code**, run `plugins/workaholic/commands/infinite-development.md` — that command is

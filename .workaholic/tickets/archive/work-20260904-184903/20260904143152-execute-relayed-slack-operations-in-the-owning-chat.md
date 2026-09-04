@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:31:52+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260904143152-define-the-codex-parent-relay-contract.md, 20260904143152-return-slack-intents-from-codex-worker-ticks.md]
@@ -70,3 +71,12 @@ thread, then returns per-operation acknowledgements to the tick status.
 
 Parent ownership is capability ownership, not permission to broaden scope: the relay may perform
 only operations the tick already earned under `workaholic:notify`.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Parent execution needs no second Slack implementation; the relay transports exact inputs to the existing notification rules.
+  **Context**: Stable keys, ordered intents, exact/private-inclusive lookup, and read-before-replay make partial retries idempotent without storing credentials or widening post shapes.

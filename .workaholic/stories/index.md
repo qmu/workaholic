@@ -3,7 +3,6 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
-* [work-20260903-085404](work-20260903-085404.md) - The tick reads how much work is claimable and what the machine can carry, fans out implement runners to a declared bound, splits the ingest half onto its own capture, and reports the allocation it chose
 * [Document the shared development loop](work-20260904-192506.md) - Bring the public and operator documentation into line with the shared work loop.
 * [Relay Codex Slack through its owning chat](work-20260904-184903.md) - Relay Codex Slack operations through the connector-owning parent with explicit acknowledgements and failure states.
 * [work-20260904-173127](work-20260904-173127.md) - Codex can start the development clock from the installed plugin, distinguish each missing runtime layer, and prove that path in an isolated drill.
@@ -20,6 +19,7 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260903-113842](work-20260903-113842.md) - Every merge the loop makes now composes its squash body from the branch story instead of letting the forge concatenate the claim stamps and heartbeats onto the trunk
 * [work-20260903-104341](work-20260903-104341.md) - A mission is stated once as the mid-term container it must be able to hold, the two-ticket floor now runs at every seam including replan, and the corpus can see its own size distribution for the first time
 * [work-20260903-101727](work-20260903-101727.md) - A refused Slack post is named as refused rather than as absent, carried on the unit's own story for a later tick to send once, and a directed line that paged nobody says so
+* [work-20260903-085404](work-20260903-085404.md) - The tick reads how much work is claimable and what the machine can carry, fans out implement runners to a declared bound, splits the ingest half onto its own capture, and reports the allocation it chose
 * [work-20260903-054004](work-20260903-054004.md) - The tick now announces an ask whose work landed outside an /implement unit, replying one finish line into that ask's own thread, once, and saying nothing where it cannot see
 * [work-20260902-234711](work-20260902-234711.md) - Removed the suite's hand-maintained test array so a test is registered where it is declared, ending the collision every concurrently-driven unit hit by construction
 * [work-20260902-225923](work-20260902-225923.md) - Ask whether the version a branch bumped to is still free — five merges had carried two numbers between them, every branch having bumped correctly against its own base

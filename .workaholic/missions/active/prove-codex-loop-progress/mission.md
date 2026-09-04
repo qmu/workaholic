@@ -47,3 +47,4 @@ report path fails visibly while the existing FB-thread-to-Implemented Slack jour
 - 2026-09-04 — ticket archived — 20260904142404-gate-codex-loop-startup-on-the-first-tick.md
 - 2026-09-04 — ticket archived — 20260904142405-record-each-codex-tick-outcome-and-next-due-time.md
 - 2026-09-04 — ticket archived — 20260904142405-expose-codex-loop-status-to-the-invoking-session.md
+- 2026-09-04 — ticket archived — 20260904143152-define-the-codex-parent-relay-contract.md

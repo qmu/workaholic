@@ -5,6 +5,8 @@ INTERVAL=300
 ONCE=false
 DRY_RUN=false
 STATUS_ONLY=false
+RELAY=false
+ACK_FILE=""
 LOG_DIR=""
 
 while [ "$#" -gt 0 ]; do
@@ -13,14 +15,18 @@ while [ "$#" -gt 0 ]; do
         --once) ONCE=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
         --status) STATUS_ONLY=true; shift ;;
+        --relay) RELAY=true; shift ;;
+        --ack) ACK_FILE="${2:-}"; shift 2 ;;
         --log) LOG_DIR="${2:-}"; shift 2 ;;
         -h|--help)
             printf '%s\n' \
-                'Usage: sh <installed-launcher> [--interval <seconds>] [--once] [--dry-run] [--status] [--log <dir>]' \
+                'Usage: sh <installed-launcher> [--interval <seconds>] [--once] [--dry-run] [--status] [--relay] [--ack <file>] [--log <dir>]' \
                 '  --interval  seconds between completed ticks (default 300)' \
                 '  --once      execute one tick and exit' \
                 '  --dry-run   print the command without executing it' \
                 '  --status    read current state without starting a tick' \
+                '  --relay     return credential-free Slack intents for an owning chat' \
+                '  --ack       validate a parent acknowledgement against the current envelope' \
                 '  --log       transcript directory (default <repository>/.codex-loop)'
             exit 0 ;;
         *) printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
@@ -33,6 +39,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PLUGIN_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/../../.." && pwd)
 TICK_PROMPT="${PLUGIN_ROOT}/skills/work/SKILL.md"
 COMMAND_BODY="${PLUGIN_ROOT}/commands/infinite-development.md"
+RELAY_CONTRACT="${PLUGIN_ROOT}/skills/work/scripts/relay-contract.sh"
 
 if [ ! -f "$TICK_PROMPT" ]; then
     printf 'plugin_skill_missing: %s\n' "$TICK_PROMPT" >&2
@@ -49,6 +56,9 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$REPO_ROOT" ] || { printf 'repository_missing: run the launcher inside a git repository\n' >&2; exit 2; }
 [ -z "$LOG_DIR" ] && LOG_DIR="${REPO_ROOT}/.codex-loop"
 STATUS_FILE="${LOG_DIR}/status.json"
+RELAY_STATE="none"
+RELAY_ENVELOPE=""
+RELAY_ACK=""
 
 show_status() {
     if [ ! -f "$STATUS_FILE" ]; then
@@ -59,12 +69,34 @@ show_status() {
         jq -r '"codex loop status: state=\(.state) outcome=\(.outcome)" +
           (if .blocked_reason == "" then "" else " blocked_reason=\(.blocked_reason)" end) +
           (if .next_due == "" then "" else " next_due=\(.next_due)" end) +
+          (if (.relay_state // "none") == "none" then "" else " relay=\(.relay_state)" end) +
           (if .report_path == "" then "" else " report=\(.report_path)" end)' "$STATUS_FILE"
         return 0
     fi
     printf 'codex loop status: unreadable (%s)\n' "$STATUS_FILE"
     return 5
 }
+
+if [ -n "$ACK_FILE" ]; then
+    [ -s "$STATUS_FILE" ] || { printf 'relay_status_missing: %s\n' "$STATUS_FILE" >&2; exit 4; }
+    RELAY_ENVELOPE=$(jq -r '.relay_envelope_path // ""' "$STATUS_FILE" 2>/dev/null || true)
+    [ -n "$RELAY_ENVELOPE" ] || { printf 'relay_envelope_missing\n' >&2; exit 5; }
+    sh "$RELAY_CONTRACT" acknowledgement "$RELAY_ENVELOPE" "$ACK_FILE" >/dev/null
+    _relay=$(sh "$RELAY_CONTRACT" reconcile "$RELAY_ENVELOPE" "$ACK_FILE" | jq -r '.relay')
+    _tmp="${STATUS_FILE}.tmp.$$"
+    jq --arg relay "$_relay" --arg ack "$ACK_FILE" '
+      .relay_state=$relay | .relay_ack_path=$ack |
+      if $relay == "delivered" then
+        .state="sleeping" | .outcome="ready" | .blocked_reason="" |
+        .transport_verdict="parent_connector"
+      else
+        .state="blocked" | .outcome="relay_incomplete" |
+        .blocked_reason="undelivered_relay_intents"
+      end' "$STATUS_FILE" >"$_tmp"
+    mv "$_tmp" "$STATUS_FILE"
+    show_status
+    exit 0
+fi
 
 if [ "$STATUS_ONLY" = true ]; then
     show_status
@@ -116,6 +148,9 @@ write_status() {
         printf '  "report_path": %s,\n' "$(json_quote "$_report")"
         printf '  "transcript_path": %s,\n' "$(json_quote "$_transcript")"
         printf '  "transport_verdict": %s,\n' "$(json_quote "$_transport")"
+        printf '  "relay_state": %s,\n' "$(json_quote "$RELAY_STATE")"
+        printf '  "relay_envelope_path": %s,\n' "$(json_quote "$RELAY_ENVELOPE")"
+        printf '  "relay_ack_path": %s,\n' "$(json_quote "$RELAY_ACK")"
         printf '  "next_due": %s\n' "$(json_quote "$_next_due")"
         printf '}\n'
     } >"$_tmp"
@@ -131,9 +166,37 @@ classify_report() {
     TICK_OUTCOME=ready
     BLOCKED_REASON=""
     TRANSPORT_VERDICT=available
+    RELAY_STATE=none
+    RELAY_ENVELOPE=""
+    RELAY_ACK=""
     if [ "$_exit" -ne 0 ]; then
         TICK_OUTCOME=tick_failure
         BLOCKED_REASON="codex_exit_${_exit}"
+    elif [ "$RELAY" = true ]; then
+        if ! sh "$RELAY_CONTRACT" envelope "$_report_file" >/dev/null 2>&1; then
+            TICK_OUTCOME=relay_malformed
+            BLOCKED_REASON=invalid_relay_envelope
+            TRANSPORT_VERDICT=unknown
+            RELAY_STATE=malformed
+        else
+            RELAY_ENVELOPE="$_report_file"
+            _intent_count=$(jq '.slack_intents | length' "$_report_file")
+            _worker_outcome=$(jq -r '.outcome' "$_report_file")
+            if [ "$_worker_outcome" = blocked ]; then
+                TICK_OUTCOME=work_blocked
+                BLOCKED_REASON=worker_reported_blocked
+                TRANSPORT_VERDICT=pending_parent
+                RELAY_STATE=pending
+            elif [ "$_intent_count" -gt 0 ]; then
+                TICK_OUTCOME=relay_pending
+                BLOCKED_REASON=awaiting_parent_ack
+                TRANSPORT_VERDICT=pending_parent
+                RELAY_STATE=pending
+            else
+                TRANSPORT_VERDICT=parent_not_needed
+                RELAY_STATE=delivered
+            fi
+        fi
     elif [ ! -s "$_report_file" ]; then
         TICK_OUTCOME=report_missing
         BLOCKED_REASON=no_tick_report
@@ -168,6 +231,9 @@ run_tick() {
     _started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     CURRENT_TICK=$_stamp CURRENT_STARTED=$_started CURRENT_REPORT=$_out CURRENT_TRANSCRIPT=$_transcript
     _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature and no background subagents. Do not loop; end after one tick. Report the tick's own report block as your final message."
+    if [ "$RELAY" = true ]; then
+        _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
+    fi
     if [ "$DRY_RUN" = true ]; then
         printf 'codex exec -C %s --dangerously-bypass-approvals-and-sandbox --output-last-message %s <prompt>\n' "$REPO_ROOT" "$_out"
         return 0

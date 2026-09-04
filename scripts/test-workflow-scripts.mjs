@@ -37745,6 +37745,8 @@ function testCodexLoopReadiness() {
     copyFileSync(SCRIPTS.codexLoop, join(dir, "scripts/codex-loop.sh"));
     copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
       join(dir, "plugins/workaholic/skills/work/scripts/codex-loop.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
     writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
     writeFileSync(join(dir, "plugins/workaholic/commands/infinite-development.md"), "# Tick\n");
     const stub = join(dir, "bin/codex");
@@ -37788,6 +37790,33 @@ exit "\${STUB_EXIT:-0}"
     assertEq("status mode changes no durable byte", readFileSync(statusPath, "utf8"), before);
   } finally { cleanup(readyDir); }
 
+  const relayDir = makeFixture();
+  try {
+    const envelope = JSON.stringify({
+      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay", outcome: "ok",
+      slack_intents: [{ key: "finish:1", operation: "post_reply", channel: "dev-workaholic",
+        thread_ts: "123.456", text: "🟢 Implemented" }],
+    });
+    const relayRun = run(relayDir, `sh scripts/codex-loop.sh --relay --once --interval 60`, {
+      env: { ...process.env, PATH: `${join(relayDir, "bin")}:${process.env.PATH}`, STUB_REPORT: envelope }
+    });
+    assertEq("an emitted intent refuses readiness until its parent acknowledges it", relayRun.status, 6);
+    const statusPath = join(relayDir, ".codex-loop/status.json");
+    const pending = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("the durable outcome names the waiting parent", pending.outcome, "relay_pending");
+    assertEq("intent emission is not reported as transport delivery", pending.transport_verdict, "pending_parent");
+    const ackPath = join(relayDir, "ack.json");
+    writeFileSync(ackPath, `${JSON.stringify({
+      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay",
+      results: [{ key: "finish:1", outcome: "delivered" }],
+    })}\n`);
+    const acknowledged = run(relayDir, `PATH=/usr/bin:/bin sh scripts/codex-loop.sh --ack ${ackPath}`);
+    assertEq("acknowledgement needs no worker or Codex process", acknowledged.status, 0);
+    const delivered = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("the parent acknowledgement is the delivery proof", delivered.relay_state, "delivered");
+    assertEq("a completely acknowledged tick becomes ready", delivered.outcome, "ready");
+  } finally { cleanup(relayDir); }
+
   for (const row of [
     { name: "tick failure", env: { STUB_EXIT: "9" }, outcome: "tick_failure", reason: "codex_exit_9" },
     { name: "missing report", env: { STUB_WRITES_REPORT: "0" }, outcome: "report_missing", reason: "no_tick_report" },
@@ -37804,6 +37833,57 @@ exit "\${STUB_EXIT:-0}"
       assertEq(`${row.name} is visibly blocked`, status.state, "blocked");
     } finally { cleanup(dir); }
   }
+}
+
+T("the Codex parent relay validates intent, waits for acknowledgement, and never invents delivery",
+  testCodexParentRelay);
+function testCodexParentRelay() {
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-relay-"));
+  const contract = join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh");
+  try {
+    const envelope = join(dir, "envelope.json");
+    const ack = join(dir, "ack.json");
+    const partial = join(dir, "partial.json");
+    const bad = join(dir, "bad.json");
+    const body = {
+      protocol: "workaholic.codex-slack-relay/v1",
+      tick_id: "tick-1",
+      outcome: "ok",
+      slack_intents: [
+        { key: "lookup:fb", operation: "search_exact", channel: "dev-workaholic",
+          query: "record.md", private_inclusive: true },
+        { key: "finish:fb", operation: "post_reply", channel: "dev-workaholic",
+          thread_ts: "123.456", text: "🟢 Implemented" },
+      ],
+    };
+    writeFileSync(envelope, `${JSON.stringify(body)}\n`);
+    writeFileSync(ack, `${JSON.stringify({
+      protocol: body.protocol, tick_id: body.tick_id,
+      results: body.slack_intents.map(({ key }) => ({ key, outcome: "delivered" })),
+    })}\n`);
+    writeFileSync(partial, `${JSON.stringify({
+      protocol: body.protocol, tick_id: body.tick_id,
+      results: [
+        { key: "lookup:fb", outcome: "delivered" },
+        { key: "finish:fb", outcome: "post_refused" },
+      ],
+    })}\n`);
+    writeFileSync(bad, `${JSON.stringify({ ...body,
+      slack_intents: [{ key: "x", operation: "post_reply", channel: "dev-workaholic",
+        thread_ts: "123.456", text: "x", notified: true }],
+    })}\n`);
+
+    assertEq("the closed v1 envelope validates", run(dir, `sh ${contract} envelope ${envelope}`).status, 0);
+    assertEq("a delivery claim inside an intent is refused", run(dir, `sh ${contract} envelope ${bad}`).status, 1);
+    assertEq("a complete acknowledgement validates",
+      run(dir, `sh ${contract} acknowledgement ${envelope} ${ack}`).status, 0);
+    assertEq("without acknowledgement every intent stays pending",
+      JSON.parse(run(dir, `sh ${contract} reconcile ${envelope}`).stdout).relay, "pending");
+    assertEq("a partial refusal stays incomplete",
+      JSON.parse(run(dir, `sh ${contract} reconcile ${envelope} ${partial}`).stdout).relay, "incomplete");
+    assertEq("only complete parent acknowledgement is delivery",
+      JSON.parse(run(dir, `sh ${contract} reconcile ${envelope} ${ack}`).stdout).relay, "delivered");
+  } finally { cleanup(dir); }
 }
 
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).

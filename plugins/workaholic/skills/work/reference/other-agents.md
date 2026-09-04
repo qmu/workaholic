@@ -84,6 +84,13 @@ publication writes in its own worktrees, while its git-ignored cadence log must 
 runs. Keep the computer and desktop app running when the task needs those local files. Do not run
 this schedule and the external supervisor against the same repository at once.
 
+If this connector-owning chat deliberately delegates a tick to a nested CLI worker, it remains in
+the turn and runs the installed launcher with `--relay --once`. The worker returns the v1 envelope
+from [codex-slack-relay.md](codex-slack-relay.md); this chat validates it, performs its ordered
+Slack operations with the connector, and returns a complete acknowledgement with `--ack`. The
+worker receives neither the connector nor OAuth material. A detached or continuously sleeping CLI
+process has no owning chat to call back into and therefore cannot use this path.
+
 ## Running it from Codex CLI or the IDE
 
 The launcher ships beside this skill, so it works when the plugin is installed into an otherwise
@@ -95,6 +102,8 @@ sh <work-skill-directory>/scripts/codex-loop.sh --interval 600  # every 10
 sh <work-skill-directory>/scripts/codex-loop.sh --once          # one tick for cron/systemd
 sh <work-skill-directory>/scripts/codex-loop.sh --dry-run --once
 sh <work-skill-directory>/scripts/codex-loop.sh --status        # read state; start nothing
+sh <work-skill-directory>/scripts/codex-loop.sh --relay --once  # parent waits for JSON intents
+sh <work-skill-directory>/scripts/codex-loop.sh --ack <file>    # validate parent outcomes
 ```
 
 In this source repository, `sh scripts/codex-loop.sh` is a compatibility shim onto that same
@@ -108,6 +117,11 @@ transport. The current atomic reading is `.codex-loop/status.json`: it distingui
 report/transcript paths plus the next due time. Later tick failures remain non-destructive to the
 supervisor and replace that same reading; they never leave an earlier green verdict under a new
 timestamp. Transcripts land in the git-ignored `.codex-loop/`.
+
+Relay mode adds `relay_pending`, `relay_malformed`, and `relay_incomplete`. Status retains the
+envelope and acknowledgement paths, while every intent stays undelivered until the parent returns
+a matching acknowledgement. Normal CLI mode remains explicit `no_slack_transport`; it never
+assumes that the process which launched it is a connector-owning chat.
 
 `--dangerously-bypass-approvals-and-sandbox`
 is passed for the reason the Claude loop passes `--dangerously-skip-permissions`: an unattended

@@ -100,4 +100,5 @@
 * [Prove Codex loop readiness and expose durable status](work-20260904-165310.md)
 * [Ship the Codex clock inside the installed plugin](work-20260904-173127.md)
 * [Relay Codex Slack through its owning chat](work-20260904-184903.md)
+* [Document the shared development loop](work-20260904-192506.md)
 <!-- okf:generated:end -->

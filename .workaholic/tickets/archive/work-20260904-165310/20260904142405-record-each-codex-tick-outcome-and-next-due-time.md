@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-04T14:24:05+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260904142404-reproduce-and-classify-codex-loop-readiness-failures.md]

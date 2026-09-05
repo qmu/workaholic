@@ -2,7 +2,9 @@
   "env": {
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "WORKAHOLIC_INBOUND_SLACK_CHANNEL": "dev-workaholic",
-    "WORKAHOLIC_WIP_LIMIT": "3"
+    "WORKAHOLIC_WIP_LIMIT": "3",
+    "WORKAHOLIC_IMPLEMENT_FANOUT": "2",
+    "WORKAHOLIC_MAX_LOAD_PER_CORE": "2.0"
   },
   "permissions": {
     "allow": [

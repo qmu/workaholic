@@ -29,9 +29,6 @@
       "Read(//home/**)"
     ]
   },
-  "enabledPlugins": {
-    "workaholic@workaholic": true
-  },
   "extraKnownMarketplaces": {
     "workaholic": {
       "source": {

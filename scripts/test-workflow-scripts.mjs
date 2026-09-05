@@ -27037,7 +27037,6 @@ function testWorkaholifyBootstrap() {
     writeFileSync(join(dir, ".claude/settings.json"), JSON.stringify(obj, null, 2));
   };
   const wired = {
-    enabledPlugins: { "workaholic@workaholic": true },
     extraKnownMarketplaces: { workaholic: { source: { source: "github", repo: "qmu/workaholic" } } },
     hooks: { SessionStart: [{ matcher: "startup", hooks: [
       { type: "command", command: '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh', timeout: 120 },
@@ -27052,7 +27051,7 @@ function testWorkaholifyBootstrap() {
     settings({});
     let r = JSON.parse(run(dir, `${CHECK} ${dir}`).stdout);
     assertEq("an unbootstrapped repository is not ok", r.ok, false);
-    for (const key of ["hook_missing", "not_registered", "enabled_plugin", "marketplace"]) {
+    for (const key of ["hook_missing", "not_registered", "marketplace"]) {
       assertTrue(`${key} is named as its own problem`,
         r.problems.some((p) => p.startsWith(key)), JSON.stringify(r.problems));
     }
@@ -27206,11 +27205,15 @@ function testWorkaholifyApplies() {
       // From nothing: every named problem repaired, and the check that named them passes.
       let r = JSON.parse(run(dir, APPLY).stdout);
       assertEq("an unbootstrapped repository converges", { ch: r.changed, ok: r.ok }, { ch: true, ok: true });
-      for (const key of ["hook_missing", "not_registered", "enabled_plugin", "marketplace"]) {
+      for (const key of ["hook_missing", "not_registered", "marketplace"]) {
         assertTrue(`${key} is repaired and reported by its own id`,
           r.applied.includes(key), JSON.stringify(r.applied));
       }
       assertEq("the check agrees nothing is left", JSON.parse(run(dir, CHECK).stdout).problems, []);
+      // `enabledPlugins` is NOT written (2026-09-05): the hook installs the plugin on the web, and
+      // locally the key registers a second, project-scoped install beside the user-scoped one.
+      assertEq("the repair writes no enabledPlugins key",
+        JSON.parse(readFileSync(join(dir, ".claude/settings.json"), "utf8")).enabledPlugins, undefined);
       assertEq("the installed hook is the plugin's canonical copy",
         readFileSync(join(dir, ".claude/hooks/session-start.sh"), "utf8"), canonical);
 

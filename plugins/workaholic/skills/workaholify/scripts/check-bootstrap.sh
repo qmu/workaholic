@@ -5,7 +5,7 @@
 #
 # Output (one JSON line):
 #   {"hook":{"present","path","matches_canonical"},
-#    "settings":{"registered","matcher","timeout","enabled_plugin","marketplace"},
+#    "settings":{"registered","matcher","timeout","marketplace"},
 #    "identity_map":{"present","path","addresses","covered","uncovered":[{address,artifacts,line}]},
 #    "ok": true|false, "problems": [...], "advisories": [...]}
 #
@@ -115,7 +115,7 @@ hook_present = hook_present == "true"
 matches = matches == "true"
 
 registered, matcher, timeout = False, "", 0
-enabled_plugin, marketplace = False, False
+marketplace = False
 
 data = {}
 if os.path.isfile(settings_path):
@@ -132,7 +132,6 @@ for group in (data.get("hooks") or {}).get("SessionStart") or []:
             matcher = group.get("matcher") or ""
             timeout = h.get("timeout") or 0
 
-enabled_plugin = bool((data.get("enabledPlugins") or {}).get("workaholic@workaholic"))
 marketplace = "workaholic" in (data.get("extraKnownMarketplaces") or {})
 
 problems = []
@@ -153,8 +152,12 @@ else:
             f"timeout ({timeout or 'unset'} < 120s; a marketplace clone plus install can "
             "exceed the default)"
         )
-if not enabled_plugin:
-    problems.append("enabled_plugin (workaholic@workaholic is not in enabledPlugins)")
+# `enabledPlugins` is NOT required and NOT written (2026-09-05). On the web the hook
+# installs the plugin explicitly, so the key buys nothing there; locally it makes Claude Code
+# register a second, project-scoped install beside the user-scoped one -- measured on the
+# operator's server as 14 registrations of one plugin, 29 cached versions, the
+# project-scoped copies frozen at whatever version the repository was last opened on. A
+# repository that still carries the key is not a problem either: the key is inert here.
 if not marketplace:
     problems.append("marketplace (workaholic is not in extraKnownMarketplaces)")
 
@@ -219,7 +222,7 @@ print(json.dumps({
     "hook": {"present": hook_present, "path": hook_rel, "matches_canonical": matches},
     "settings": {
         "registered": registered, "matcher": matcher, "timeout": timeout,
-        "enabled_plugin": enabled_plugin, "marketplace": marketplace,
+        "marketplace": marketplace,
     },
     "identity_map": {
         "present": (identity.get("map") or {}).get("present"),

@@ -24,7 +24,6 @@
 #                              fires on resume/clear/compact).
 #   timeout                    raise the timeout to 120 (a marketplace clone plus
 #                              install can exceed the default).
-#   enabled_plugin             add workaholic@workaholic to enabledPlugins.
 #   marketplace                add workaholic to extraKnownMarketplaces.
 #   identity_map_missing       scaffold .claude/git-identities — the comment header and
 #                              NO entries. The file's absence makes the hook's identity
@@ -153,7 +152,7 @@ fi
 
 # --- the settings entries -----------------------------------------------------
 if has_problem not_registered || has_problem matcher || has_problem timeout \
-  || has_problem enabled_plugin || has_problem marketplace; then
+  || has_problem marketplace; then
   mkdir -p "${ROOT}/.claude"
   python3 - "$SETTINGS" <<'PY'
 import json, os, sys
@@ -192,7 +191,6 @@ else:
         entry["timeout"] = 120
     entry.setdefault("type", "command")
 
-data.setdefault("enabledPlugins", {})["workaholic@workaholic"] = True
 data.setdefault("extraKnownMarketplaces", {}).setdefault(
     "workaholic", {"source": {"source": "github", "repo": "qmu/workaholic"}}
 )
@@ -201,7 +199,7 @@ with open(path, "w") as fh:
     json.dump(data, fh, indent=2)
     fh.write("\n")
 PY
-  for p in not_registered matcher timeout enabled_plugin marketplace; do
+  for p in not_registered matcher timeout marketplace; do
     if has_problem "$p"; then add_applied "$p"; fi
   done
 fi

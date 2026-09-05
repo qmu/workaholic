@@ -55,3 +55,4 @@ for a supervisor delivering somewhere else.
 - 2026-09-06 — ticket archived — 20260906022855-reserve-the-final-response-for-a-stop-or-a-refusal.md
 - 2026-09-06 — ticket archived — 20260906022855-carry-the-loop-state-across-context-compaction.md
 - 2026-09-06 — ticket archived — 20260906022855-retire-only-the-supervisor-the-native-mode-replaces.md
+- 2026-09-06 — story — work-20260906-023953.md

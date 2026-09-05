@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T08:20:13+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -95,3 +96,47 @@ small SBC and a large workstation receive the same instruction.
 
 A ratio above the core count is not an error — an operator who wants queueing gets it, and the
 bound simply never fires.
+
+## Final Report
+
+Development completed as planned.
+
+`WORKAHOLIC_MAX_LOAD_PER_CORE` is now the second bound on the same fan-out, documented in the three
+places this mission keeps in step — the command body's §2 (`plugins/workaholic/commands/infinite-development.md`),
+`workaholic:loops`, and `CLAUDE.md`'s *Loops*. The fan-out reads `min(declared bound, claimable
+units, what the machine can carry)`, and the refusal before each spawn **beyond the first** is named
+`load_saturated: <load1>/<cores>` — the reading and the core count, never a silent hold.
+
+The four bounds ride with it in every copy, each written as a refusal rather than a preference:
+**absent means no machine bound** (such a repository is byte-identical to one before this existed,
+and no number is picked for any machine); **the reading gates adding, never stopping** (no running
+unit is killed, paused or reaped for load); **the first runner is never refused**; and **a gate that
+cannot be read is not a gate** — `readable: false` holds nothing and is named by the reader's own
+reason (`no_loadavg`, `no_core_count`, `unparseable`), while a non-numeric or non-positive
+declaration is `bad_load_ratio`. The ratio is per core so one declaration means the same thing on a
+single-board computer and on a workstation.
+
+**Gate checks.** *No code path kills, stops or reaps a running agent on a load reading*: the only
+`TaskStop` in either surface is the tick's existing unconditional reap of **idle** subagents, which
+reads the agent listing and no load figure at all; the machine reading is consulted only at the
+spawn decision. *No default ratio is hard-coded*: searching the tree for the name returns prose
+only, in the three documents.
+
+**No value was written into this repository's own `.claude/settings.json`**, for the reason step 2
+gives in its own words — the operator who measured `7.99` on four cores is the one who knows what
+their machine can carry. The five acceptance criteria are all about behaviour under a declaration
+that is absent, present, bad or unreadable; none asks for one to be present here.
+
+### Discovered Insights
+
+- **Insight**: `read-machine-load.sh` already existed and was deliberately consumer-less — its own
+  header says *this ticket adds the reading and nothing else … the bound that will read it is
+  declared separately*.
+  **Context**: the reader and its bound were split across two tickets on purpose, so the reading
+  could land and be wrong about nothing. A later reader tracing why a reading existed with no
+  consumer for one commit will find the answer in that header rather than in a gap.
+- **Insight**: the reader answers about **CPU alone** and says so, because in the measurement that
+  produced it memory was half free and the SoC was not throttling.
+  **Context**: the bound therefore claims no general verdict about the machine's health. A future
+  ask about memory or thermal pressure needs its own reading and its own declared bound; widening
+  this one would make a CPU figure stand for something it never measured.

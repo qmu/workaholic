@@ -54,3 +54,4 @@ chose.
 - 2026-09-03 — ticket archived — 20260903072108-report-the-allocation-the-tick-chose-and-why.md
 - 2026-09-03 — run recorded (+0.7h) — implement-20260903-093600
 - 2026-09-06 — ticket archived — 20260903072108-declare-the-fan-out-bound-for-implement-runners.md
+- 2026-09-06 — ticket archived — 20260903082013-refuse-a-fan-out-the-machine-cannot-carry.md

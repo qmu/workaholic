@@ -437,8 +437,14 @@ if [ -f "$ARBITER" ]; then
     # from a run that died inside it. Sweeping only on a lost take keeps the ordinary claim at
     # zero extra reads, and re-trying once is what stops a leak making an artifact claimable
     # exactly once, forever.
+    arb_unreapable=""
     if [ "$arb_state" = "lost" ]; then
-        sh "$ARBITER" reap >/dev/null 2>&1 || true
+        # THE SWEEP'S ANSWER IS READ, NOT DISCARDED. `>/dev/null 2>&1 || true` threw away the
+        # one reading that says whether the retry below has any chance: a sweep that met the
+        # blocking lock and could not delete it will lose the retry for the same reason, and
+        # the run must say so rather than report a plain race it lost.
+        reap_out=$(sh "$ARBITER" reap 2>/dev/null || printf '')
+        arb_unreapable=$(printf '%s' "$reap_out" | sed -n 's/.*"unreapable": \[\(.*\)\].*/\1/p')
         arb_out=$(sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
         arb_state=$(printf '%s' "$arb_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
     fi
@@ -456,6 +462,15 @@ if [ -f "$ARBITER" ]; then
             # `raced-units` names both branches once both exist.
             _arb_held=$(printf '%s' "$arb_out" | sed -n 's/.*"held_by_ref": "\([^"]*\)".*/\1/p')
             _arb_stale=$(printf '%s' "$arb_out" | sed -n 's/.*"stale_lock": \([a-z]*\).*/\1/p')
+            # A LOST RACE AND AN UNSWEEPABLE LOCK ARE DIFFERENT FACTS AND GET DIFFERENT WORDS.
+            # `claim_race_lost` says *another runner has this* -- survey again and something
+            # else gets driven. `claim_lock_unreapable` says *nobody has this and the lock
+            # cannot be removed*, which no amount of surveying repairs: the unit is parked
+            # until the lock goes. Reporting the second as the first is what made three days
+            # of hourly refusals look like ordinary contention.
+            if [ -n "${arb_unreapable:-}" ]; then
+                fail "claim_lock_unreapable" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "unreapable": ['"${arb_unreapable}"'], "detail": "no live claim holds this unit and its arbiter lock could not be swept; surveying again will not repair it"'
+            fi
             fail "claim_race_lost" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "detail": "another runner won this unit'"'"'s arbitration at the remote; nothing was written here -- survey again"'
             ;;
         *)

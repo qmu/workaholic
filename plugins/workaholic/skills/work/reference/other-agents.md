@@ -137,7 +137,10 @@ ten minutes and this prompt:
 The local-project choice is load-bearing: the tick already isolates implementation and
 publication writes in its own worktrees, while its git-ignored cadence log must persist between
 runs. Keep the computer and desktop app running when the task needs those local files. Do not run
-this schedule and the external supervisor against the same repository at once.
+this schedule and the external supervisor against the same repository at once, and do not run the
+native-parent branch beside either — **two coordinators against one repository is the state this
+rule exists to prevent, whichever pair they are** (the cutover: `SKILL.md`, *Cutting over from the
+external supervisor*).
 
 If this connector-owning chat deliberately delegates a tick to a nested CLI worker, it remains in
 the turn and runs the installed launcher with `--relay --once`. The worker returns the v1 envelope
@@ -147,6 +150,15 @@ worker receives neither the connector nor OAuth material. A detached or continuo
 process has no owning chat to call back into and therefore cannot use this path.
 
 ## Running it from Codex CLI or the IDE
+
+**This mode is kept, deliberately, and it is not what the native-parent branch replaces
+everywhere.** A cron entry, a systemd timer or any environment with **no conversation at all** is
+exactly what it is for, so deleting it was refused. What its own row states on its face is the
+non-promise: **its output is not claimed to reach the invoking conversation** — `codex exec` has
+no parent to call back into, and a report in `.codex-loop/` is not a report the person who started
+the loop will see. **No continuation after an app closure, a cancellation or a hard harness limit
+is promised anywhere without a tested mechanism named beside it**; an untested resumption is named
+as untested.
 
 The launcher ships beside this skill, so it works when the plugin is installed into an otherwise
 empty repository. Resolve the directory containing this `SKILL.md`, then run:

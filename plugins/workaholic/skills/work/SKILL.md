@@ -218,6 +218,29 @@ same tick log, on both. The claim protocol remains the only allocator of reposit
 map bounds **dispatch**, never claims, and a duplicate dispatch would be refused by the claim
 arbiter anyway.
 
+### Cutting over from the external supervisor
+
+**Never run two coordinators against one repository** — the rule this skill already holds for the
+desktop schedule and the CLI supervisor, holding for this pair for its reason. Starting branch 1
+beside a supervisor that is still running is exactly that state.
+
+1. **Identify the one coordinator being replaced, through the supervisor's own reading** —
+   `sh <work-skill-directory>/scripts/codex-loop.sh --status`, which reads state and starts
+   nothing — and **account for the workers it started**. Retire **that** coordinator: never a
+   broader sweep of processes, and never a silent start beside one still running.
+2. **A worker still running at cutover is named in the startup report and left to finish**, and
+   **its role is not dispatched natively until it has**, so no unit is driven twice.
+3. **The external supervisor is not deleted.** It stays as an explicitly different mode, and its
+   row in the selection table says on its face that its output is **not** claimed to reach the
+   invoking conversation — a cron or systemd environment with no conversation at all is exactly
+   what it is for.
+4. **No continuation is promised** after an app closure, a cancellation or a hard harness limit
+   unless a resumption mechanism has been **tested**; an untested resumption is named as
+   untested, never assumed.
+
+`codex-loop.sh`'s own behaviour is unchanged by any of this: the cutover reads it and retires a
+process, and rewrites nothing.
+
 ### What survives a compaction, and what is rediscovered
 
 A long conversation is compacted, and the native-parent branch holds its state in the parent's own

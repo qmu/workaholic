@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T02:28:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -82,3 +83,33 @@ limitation written on its face.
 
 - The supervisor's per-role locks are visible across runs that cannot see each other's agents,
   which is precisely why they are the instrument for finding what to retire.
+
+## Final Report
+
+Development completed as planned.
+
+`work/SKILL.md` gains *Cutting over from the external supervisor*: identify the one coordinator
+being replaced through `codex-loop.sh --status` (which reads state and starts nothing), account
+for its workers, retire that one and nothing else; a worker still running is named in the startup
+report, left to finish, and its role is not dispatched natively until it has. `other-agents.md`'s
+*Running it from Codex CLI or the IDE* now opens with why the supervisor is kept and what it does
+not promise, and the never-both sentence already in that file was **extended in place** to cover
+this pair rather than becoming a second convention.
+
+**The gate held**: `git diff` over `plugins/workaholic/skills/work/scripts/codex-loop.sh` and
+`scripts/codex-loop.sh` is empty. The cutover reads the supervisor and rewrites nothing.
+`sh scripts/codex-loop.sh --status` was run and reported `absent` with three idle workers,
+starting nothing.
+
+### Discovered Insights
+
+- **Insight**: the per-role locks are the instrument for finding what to retire precisely because
+  they are visible to a run that cannot see the previous run's agents.
+  **Context**: it is the same property that made them the substitution for `ListAgents`, used for
+  a second purpose — so the cutover needs no new mechanism, and a reader tempted to add a process
+  scan should know a narrower reading already exists.
+- **Insight**: refusing to delete the supervisor is a statement about environments, not about
+  compatibility.
+  **Context**: the native-parent branch needs a conversation to report into, and a cron entry has
+  none — so the supervisor is not a legacy path being tolerated, it is the correct mode for a case
+  the new one structurally cannot serve.

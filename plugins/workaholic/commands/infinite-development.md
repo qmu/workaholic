@@ -216,6 +216,35 @@ CPU facts with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-machine-loa
 and `bad_fanout` or an unreadable claimable result falls back to one and is reported. Do not hand
 a unit to a runner: each surveys and claims, and the claim arbiter settles any race.
 
+**Both bounds are declared in `.claude/settings.json`'s `env` block**, beside `WORKAHOLIC_WIP_LIMIT`
+and for its reason: a routine selects an account-level environment, so a per-repository number
+lives in the repository rather than in a prompt. **`WORKAHOLIC_IMPLEMENT_FANOUT` absent means 1** —
+the single runner — so a repository that declares nothing behaves exactly as it did before this
+existed. A **non-numeric or non-positive** value is `bad_fanout`: it holds nothing, falls back to
+1, and is reported by name, because a gate that cannot be read is not a gate. No default above 1
+is picked here for any machine.
+
+**`WORKAHOLIC_MAX_LOAD_PER_CORE` is the second bound on the same fan-out, and it is the machine's.**
+Before each implement spawn **beyond the first**, when `read-machine-load.sh`'s `load_per_core`
+already exceeds the declared ratio, **do not spawn another runner** and report the refusal by name:
+`load_saturated: <load1>/<cores>` — the reading and the core count, the way every other refusal in
+this loop is named rather than silent. The fan-out is therefore `min(declared bound, claimable
+units, what the machine can carry)`.
+
+- **Absent means no machine bound.** A repository that declares nothing is byte-identical to one
+  before this existed, and no number is picked for any other machine: the operator who measured
+  their own load average is the one who knows what it can carry. The ratio is **per core** so the
+  same declaration means the same thing on a single-board computer and on a workstation.
+- **The reading gates adding, never stopping.** No running unit is killed, paused or reaped for
+  load — that throws away work in progress, the same mistake a too-eager staleness threshold makes.
+- **The first runner is never refused.** A machine over its ratio with nothing running would
+  otherwise stop the loop entirely, and a loop that will not start work because it is busy with no
+  work is worse than the failure this cures.
+- **A gate that cannot be read is not a gate.** `readable: false` holds nothing, the fan-out
+  proceeds exactly as it would without this, and the reading is reported by its own reason
+  (`no_loadavg`, `no_core_count`, `unparseable`). A non-numeric or non-positive declaration is
+  `bad_load_ratio`, holding nothing and saying so.
+
 Run ingest when this tick captured an ask even when the strategy cadence is closed. Defer the
 strategy half only when its previous reported answer was `work_waiting`; lift that deferral after
 an implementation lands and cap it at `WORKAHOLIC_PROPOSE_DEFER_MAX` (default 3).
@@ -278,6 +307,18 @@ that this mission's archive is non-empty.
 - **The allocation**: implement runners spawned, claimable units, declared bound, and `watching`
   when no runner was needed. Name `fanout_unreadable`, `bad_fanout`, and strategy deferral rather
   than rendering degraded inputs as a healthy zero.
+- **The machine, beside the allocation and only when it has something to say**: a tick the machine
+  held names the refusal, the load and the core count — `load_saturated: 7.99/4` — and a degraded
+  reading is named by its reason and **never as headroom**: `the machine could not be read this
+  tick (no_loadavg); the fan-out was not bounded by it`. **An unheld, readable machine adds no
+  line**, because an unchanged answer restated every tick is what `📦 Release Preparation` was
+  retired for, and a bound that fires silently is the failure this reading exists to end — a
+  quieter loop must not be indistinguishable from a stopped one. The line carries **no identifier
+  and no mention token** (it is a fact about the machine, addressed to nobody, and naming a unit
+  would put a task on a line addressed to nobody), it says **what the machine was and whether it
+  held the fan-out** and never what the tick would otherwise have spawned, and it **reaches Slack
+  through nothing**: this is the tick's own run report, and the loop posts no status line about its
+  own capacity.
 - **Every reaping is named** — `reaped: <name>` — even on a tick that spawns nothing, because
   stopping a session is an act the tick took and the listing afterwards is the only other evidence.
 - **The cadence's own source is named where a loop was skipped**: `not_due: <name> (finish

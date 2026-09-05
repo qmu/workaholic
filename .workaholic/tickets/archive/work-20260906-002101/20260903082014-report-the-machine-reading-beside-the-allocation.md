@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-03T08:20:14+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -71,3 +72,42 @@ the repository's `wip_limit`, applied here to the machine's.
 The line says *what the machine was and whether it held the fan-out*, and deliberately not *what
 the tick would have spawned* — a counterfactual count is a second derivation of the allocation
 the tick already owns, and this repository keeps one rule in one place.
+
+## Final Report
+
+Development completed as planned.
+
+§3 of the command body now carries one machine line **beside** the per-loop and allocation lines and
+never in place of them, and `workaholic:loops` documents the line and its silence rule in the same
+change. The line's whole contract is written as four refusals:
+
+- **It says it only when it has something to say.** A tick the machine held names the refusal, the
+  load and the core count (`load_saturated: 7.99/4`); an unheld, readable machine adds **no** line,
+  because an unchanged answer restated every tick is what `📦 Release Preparation` was retired for.
+- **A degraded reading is named by its reason and never rendered as headroom** — `the machine could
+  not be read this tick (no_loadavg); the fan-out was not bounded by it`.
+- **It carries no identifier and no mention token**: a fact about the machine, addressed to nobody,
+  and naming a unit would put a task on a line addressed to nobody.
+- **It reaches Slack through nothing.** This is the tick's own run report, and the loop posts no
+  status line about its own capacity, for the reason the two retired status roots record. Gate
+  checked: the change adds no Slack post, reaction or thread lookup anywhere — it touches
+  `commands/infinite-development.md`, `skills/loops/SKILL.md` and `CLAUDE.md`, and no notify shape,
+  transport or lookup moved.
+
+It also says **what the machine was and whether it held the fan-out**, and deliberately not what the
+tick would otherwise have spawned: a counterfactual count is a second derivation of the allocation
+the tick already owns.
+
+### Discovered Insights
+
+- **Insight**: the silence rule here is the same one `/moderate`'s `📋` clause already holds for the
+  repository's `wip_limit` — say it when it moved, stay silent when it did not, and never let a
+  quieter loop be indistinguishable from a stopped one.
+  **Context**: the rule is now stated in two places for two different surfaces (the hourly root and
+  the tick's run report). A third surface that wants a status line should read either of them rather
+  than re-deriving the trade-off, which is what produced the two retired status roots.
+- **Insight**: the three tickets of this mission are one documentation change across three files, so
+  the first archive commit carries the whole edit and the later two carry only their Final Reports.
+  **Context**: per-ticket commit granularity is a property of when the edits were made, not of the
+  archive seam. The branch story and `archive/<branch>/` hold the per-ticket record; a reader looking
+  for the code behind ticket 2 or 3 should read the branch, not the individual archive commit.

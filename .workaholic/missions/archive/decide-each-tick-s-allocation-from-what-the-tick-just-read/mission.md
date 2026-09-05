@@ -2,21 +2,21 @@
 type: Mission
 title: Decide each tick's allocation from what the tick just read
 slug: decide-each-tick-s-allocation-from-what-the-tick-just-read
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-03T07:20:35+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.7
+actual_hours: 1.05
 feedback: [20260903071947-the-tick-walks-three-names-in-order-instead-of-allocating-capacity-to-where-the-work-is.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260903-085404
+claim: work-20260906-002101
 ---
 
 # Decide each tick's allocation from what the tick just read
@@ -53,3 +53,8 @@ chose.
 - 2026-09-03 — ticket archived — 20260903072108-skip-a-runner-whose-last-answer-cannot-have-moved.md
 - 2026-09-03 — ticket archived — 20260903072108-report-the-allocation-the-tick-chose-and-why.md
 - 2026-09-03 — run recorded (+0.7h) — implement-20260903-093600
+- 2026-09-06 — ticket archived — 20260903072108-declare-the-fan-out-bound-for-implement-runners.md
+- 2026-09-06 — ticket archived — 20260903082013-refuse-a-fan-out-the-machine-cannot-carry.md
+- 2026-09-06 — ticket archived — 20260903082014-report-the-machine-reading-beside-the-allocation.md
+- 2026-09-06 — mission achieved — mission.md
+- 2026-09-06 — run recorded (+0.35h) — implement-20260906-002101

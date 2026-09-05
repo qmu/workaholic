@@ -2,7 +2,6 @@
 
 ## active
 
-* [decide-each-tick-s-allocation-from-what-the-tick-just-read](active/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](active/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
@@ -29,6 +28,7 @@
 * [configure-routines-automatically-via-remotetrigger](archive/configure-routines-automatically-via-remotetrigger/mission.md) - Configure routines automatically via RemoteTrigger
 * [correct-the-release-note-automation-to-its-intended-design](archive/correct-the-release-note-automation-to-its-intended-design/mission.md) - Correct the release note automation to its intended design
 * [cross-the-repo-boundary-as-an-issue](archive/cross-the-repo-boundary-as-an-issue/mission.md) - Cross the repo boundary as an issue
+* [decide-each-tick-s-allocation-from-what-the-tick-just-read](archive/decide-each-tick-s-allocation-from-what-the-tick-just-read/mission.md) - Decide each tick's allocation from what the tick just read
 * [deliver-a-post-the-transport-refused-or-say-it-reached-nobody](archive/deliver-a-post-the-transport-refused-or-say-it-reached-nobody/mission.md) - Deliver a post the transport refused, or say it reached nobody
 * [deliver-a-stranded-publication-that-needs-nothing-but-a-merge](archive/deliver-a-stranded-publication-that-needs-nothing-but-a-merge/mission.md) - Deliver a stranded publication that needs nothing but a merge
 * [deliver-and-retire-what-the-loop-already-proved-finished](archive/deliver-and-retire-what-the-loop-already-proved-finished/mission.md) - Deliver and retire what the loop already proved finished

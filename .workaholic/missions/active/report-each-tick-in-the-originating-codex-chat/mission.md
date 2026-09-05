@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260906-023953
 ---
 
 # Report each tick in the originating Codex chat

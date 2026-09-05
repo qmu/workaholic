@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T02:28:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -80,3 +81,31 @@ slots — read at dispatch time rather than assumed unlimited.
 
 - The claim protocol remains the only allocator of repository work; the role map bounds
   *dispatch*, never claims.
+
+## Final Report
+
+Development completed as planned.
+
+`work/SKILL.md` gains *The workers: bounded children the coordinator never awaits* — the role map,
+the bounded child's contract, the read (never assumed) concurrency bound, the non-blocking
+collection with once-only reporting, and the unchanged `loop-finish-<role>` cadence. The
+closing paragraph states that the native-child branch and the detached-process branch answer *is
+this role running* and *when did it last finish* by different mechanisms and that neither is a
+second clock. `commands/infinite-development.md` §2 says the same at the point where the tick
+decides which roles are due, so a session reading only the ceiling reaches it.
+
+**No second liveness authority was introduced**: the tick log remains the only answer to *when
+did it last finish*, on every branch, and the role map answers only *is this role running* — the
+question `ListAgents` and the per-role lock already answered by their own mechanisms.
+
+### Discovered Insights
+
+- **Insight**: the harness's concurrency bound and the machine's load bound are two different
+  gates on one fan-out, and collapsing them would lose a case each way.
+  **Context**: `WORKAHOLIC_MAX_LOAD_PER_CORE` measures CPU on the box; the harness's capacity is
+  a slot count the agent runtime enforces. A four-slot harness on an idle machine and a
+  two-core machine with unlimited slots are both real, and each needs its own refusal word.
+- **Insight**: *never loops* is the whole difference between a worker and a coordinator here.
+  **Context**: the retired three-loop premise was three children that each held a clock; the role
+  map bounds dispatch and would not have prevented it, so the bound that matters is written into
+  the child's own contract rather than into the parent's bookkeeping.

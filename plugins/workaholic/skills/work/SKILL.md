@@ -194,6 +194,30 @@ the conversation the loop was started in.
 What this branch restores that the external supervisor cannot, and what is not yet claimed for it:
 [reference/other-agents.md](reference/other-agents.md), *What the native-parent branch restores*.
 
+### The workers: bounded children the coordinator never awaits
+
+1. **A role-to-child map lives in the coordinator** — role → child identifier → dispatched-at.
+   **A role with a live entry is not dispatched again**, and the refusal is named in the tick
+   report.
+2. **Each due role is dispatched as a bounded child**: it performs that role's work **once** and
+   returns. It reads no channel, decides no cadence, starts no other worker, and **never loops**.
+   A child that looped would be a second coordinator, which is the shape this repository retired.
+3. **The concurrency bound is the harness's own capacity, read before dispatching beyond the
+   first role** — never assumed unlimited. A dispatch that would exceed it is **held**, and the
+   hold is named with the capacity. **A capacity that cannot be read holds nothing** and is named
+   as unread: a gate that cannot be read is not a gate.
+4. **Collect newly available child outcomes at each wake, without blocking**, and report each
+   completion or blocker **once** — a role reported once is not reported again.
+5. **The cadence does not move.** Each child records `loop-finish-<role>` into the same tick log
+   the coordinator already reads, so there is **no new store, cursor or field**.
+
+**The native-child branch and the detached-process branch answer the same two questions by
+different mechanisms, and neither is a second clock.** *Is this role running* — the role map here,
+the per-role lock there. *When did it last finish* — the same `loop-finish-<role>` line in the
+same tick log, on both. The claim protocol remains the only allocator of repository work: the role
+map bounds **dispatch**, never claims, and a duplicate dispatch would be refused by the claim
+arbiter anyway.
+
 Two further limits off Claude Code: **an absent channel transport is reported by name**
 (`no_slack_transport`) and never worked around, and the **tool-level hooks do not fire** — the
 script-level gates still hold, and `sh plugins/workaholic/hooks/install-git-hooks.sh` is the

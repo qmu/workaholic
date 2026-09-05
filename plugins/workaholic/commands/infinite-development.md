@@ -160,10 +160,26 @@ Report every held candidate with its own word, so a quiet tick and a blind one a
 
 ## 2. Spawn the work, and do not wait for it
 
+**Which mechanism answers *is this role running* is the mode's, and the question is the same on
+all three** (`workaholic:work`, *Starting it*). Under a harness with a live agent listing — Claude
+Code — that is `ListAgents`, below. Under the **native-parent** branch it is the coordinator's own
+**role-to-child map** (role → child identifier → dispatched-at), which the coordinator rediscovers
+through the harness's listing after a compaction. Under the **external supervisor** it is the
+per-role lock, which refuses `already_running`. **No mechanism is a second clock**: *when did it
+last finish* is the same `loop-finish-<role>` line in the same tick log on every branch.
+
 Call `ListAgents` once. It answers **exactly one question**: is this loop still running.
 
 **A loop whose subagent is still `running` is not spawned again.** That is the concurrency rule
 and it has not moved.
+
+**A dispatched role is bounded**: it performs that role's work **once** and returns. It reads no
+channel, decides no cadence, starts no other worker, and **never loops** — a child that looped
+would be a second coordinator, the shape this repository retired. **Read the harness's own
+concurrent capacity before dispatching beyond the first role**, hold a dispatch that would exceed
+it and name the hold with the capacity, and never assume the pool is unlimited; a capacity that
+**cannot be read holds nothing** and is named as unread. This is the **harness's** bound and sits
+beside the machine's own (`WORKAHOLIC_MAX_LOAD_PER_CORE`, below) rather than replacing it.
 
 **Every `idle` subagent is stopped at the HEAD of this tick, unconditionally** — `TaskStop` with
 that loop's own name, before the cadence is read, before anything is spawned, and **whatever any

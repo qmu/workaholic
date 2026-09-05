@@ -51,3 +51,4 @@ for a supervisor delivering somewhere else.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-06 — ticket archived — 20260906022855-select-the-loop-mode-from-measured-capabilities.md
 - 2026-09-06 — ticket archived — 20260906022855-run-the-tick-as-a-native-parent-that-keeps-its-turn.md
+- 2026-09-06 — ticket archived — 20260906022855-delegate-each-due-role-as-a-bounded-native-child.md

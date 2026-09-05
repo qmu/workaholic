@@ -156,6 +156,54 @@ they cannot read; a missing reading never becomes a plausible zero. `implement` 
 one and an invalid bound reported as `bad_fanout`. Each runner surveys and claims for itself, so
 the claim arbiter remains the only allocator and a losing race holds nothing.
 
+**Both bounds are declared in `.claude/settings.json`'s `env` block**, beside `WORKAHOLIC_WIP_LIMIT`
+and for its reason: a routine declares no environment variables of its own — it *selects* an
+account-level environment — so a per-repository number has to live in the repository
+(`workaholic:workaholify`, *Where a routine's environment variables live*). **A fan-out needs a
+number, and the rule for a number nobody can defend is to make the operator declare it**, which is
+why this skill picks none for any machine.
+
+| Declaration | Absent means | Invalid means |
+| ----------- | ------------ | ------------- |
+| `WORKAHOLIC_IMPLEMENT_FANOUT` | **1** — the single runner, so such a repository is byte-identical to one before this existed | `bad_fanout` on a non-numeric or non-positive value: it holds nothing, falls back to 1, and is reported by name |
+| `WORKAHOLIC_MAX_LOAD_PER_CORE` | **no machine bound** — the fan-out is exactly what it would be without this | `bad_load_ratio` on a non-numeric or non-positive value: it holds nothing and says so |
+
+**The machine bound is the second bound on the same fan-out**, making it `min(declared bound,
+claimable units, what the machine can carry)`. Past the core count each added runner makes every
+other runner slower — throughput per runner falls, wall-clock per unit rises, and the loop observes
+only that units are still landing, which is the quiet kind of failure this repository takes most
+seriously elsewhere. Measured mid-fan-out on the machine the loop runs on: three concurrent
+`implement` runners on a **four-core** machine at loadavg `7.99 / 6.42 / 5.60`, with memory half
+free and the SoC not throttling — CPU was the binding resource, which is why the reader answers
+about CPU alone. **On exactly the same evidence it used to add the third runner it would have added
+a fourth and a fifth.**
+
+Before each implement spawn **beyond the first**, a `load_per_core` already over the declared ratio
+refuses that spawn by name: `load_saturated: <load1>/<cores>`. Four bounds ride with it, each a
+refusal rather than a preference. **The reading gates adding, never stopping** — no running unit is
+killed, paused or reaped for load, because that throws away work in progress, the mistake a
+too-eager staleness threshold makes (measured the same day: a unit that looked stalled for twenty
+minutes was reading documents and landed shortly after). **The first runner is never refused**, or
+a machine over its ratio with nothing running would stop the loop entirely. **A gate that cannot be
+read is not a gate** — `readable: false` holds nothing and is reported by the reader's own reason.
+And **the ratio is per core**, so one declaration means the same thing on a single-board computer
+and on a workstation; the loop is meant to run forever on whatever machine its developer has. A
+ratio above the core count is not an error — an operator who wants queueing gets it and the bound
+simply never fires.
+
+**A bound that fires silently is the failure this section exists to end**, so the tick's §3 report
+carries one line about the machine **beside** the per-loop lines and never in place of them — and
+**only when it has something to say**. A tick the machine held names the refusal, the load and the
+core count; a degraded reading is named by its reason and never rendered as headroom (`the machine
+could not be read this tick (no_loadavg); the fan-out was not bounded by it`); an unheld, readable
+machine adds **no** line, because an unchanged answer restated every tick is what `📦 Release
+Preparation` was retired for. It carries **no identifier and no mention token** — a fact about the
+machine, addressed to nobody — and it says what the machine *was* and whether it *held* the
+fan-out, deliberately not what the tick would otherwise have spawned, which would be a second
+derivation of the allocation the tick already owns. **It reaches Slack through nothing**: this is
+the tick's own run report, and the loop posts no status line about its own capacity, for the reason
+the two retired status roots record.
+
 The event-driven ingest half runs when this tick captured an ask, independently of the cadenced
 strategy judgement. A prior strategy result may defer only its own reported `work_waiting`, is
 lifted when implementation lands, and is capped by `WORKAHOLIC_PROPOSE_DEFER_MAX` (default 3).

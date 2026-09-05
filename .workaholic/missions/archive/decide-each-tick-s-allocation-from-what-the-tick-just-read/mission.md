@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.7
+actual_hours: 1.05
 feedback: [20260903071947-the-tick-walks-three-names-in-order-instead-of-allocating-capacity-to-where-the-work-is.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -57,3 +57,4 @@ chose.
 - 2026-09-06 — ticket archived — 20260903082013-refuse-a-fan-out-the-machine-cannot-carry.md
 - 2026-09-06 — ticket archived — 20260903082014-report-the-machine-reading-beside-the-allocation.md
 - 2026-09-06 — mission achieved — mission.md
+- 2026-09-06 — run recorded (+0.35h) — implement-20260906-002101

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.5
 feedback: [20260906022552-report-each-tick-in-the-originating-codex-chat-and-prove-it-end-to-end.md]
 tickets: []
 stories: []
@@ -56,3 +56,4 @@ for a supervisor delivering somewhere else.
 - 2026-09-06 — ticket archived — 20260906022855-carry-the-loop-state-across-context-compaction.md
 - 2026-09-06 — ticket archived — 20260906022855-retire-only-the-supervisor-the-native-mode-replaces.md
 - 2026-09-06 — story — work-20260906-023953.md
+- 2026-09-06 — run recorded (+1.5h) — work-20260906-023953

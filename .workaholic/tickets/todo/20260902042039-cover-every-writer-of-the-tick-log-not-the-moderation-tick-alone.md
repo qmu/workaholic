@@ -6,6 +6,7 @@ depends_on:
 mission: take-the-moderation-tick-s-log-off-main
 merge_policy:
 verification_handoff: 
+claim: work-20260906-025904
 ---
 
 # Cover every writer of the tick log, not the moderation tick alone

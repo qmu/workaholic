@@ -41,7 +41,7 @@ for a supervisor delivering somewhere else.
 
 - [x] The mode is selected from capabilities the session exposes; an absent delivery path is
       named at startup, not substituted. (#20260906022855-select-the-loop-mode-from-measured-capabilities.md)
-- [ ] While a delegated task outruns the interval, successive tick reports and its completion
+- [x] While a delegated task outruns the interval, successive tick reports and its completion
       arrive in the originating chat unprompted. (#20260906022855-run-the-tick-as-a-native-parent-that-keeps-its-turn.md)
 - [ ] The behaviour is demonstrated end to end in the operator's own chat, with timestamps,
       environment and version. (#20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat.md)
@@ -50,3 +50,4 @@ for a supervisor delivering somewhere else.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-06 — ticket archived — 20260906022855-select-the-loop-mode-from-measured-capabilities.md
+- 2026-09-06 — ticket archived — 20260906022855-run-the-tick-as-a-native-parent-that-keeps-its-turn.md

@@ -101,6 +101,28 @@ returns and its child survives, where a parent that must collect its subagents' 
 first. That is a statement about collection, not about a product: where a session's own children
 outlive the call, branch 1 gets the same lifetime without a process.
 
+## What the native-parent branch restores
+
+The external supervisor's clock was repaired on 2026-09-05 and its workers detached, and **the one
+thing that repair could not reach is the return path**: `codex exec` has no parent to call back
+into, so its report lands in `.codex-loop/` and the person who typed *start work* is told nothing.
+That is why the supervisor's row in the selection table names it as a non-promise rather than
+leaving it to be discovered.
+
+The native-parent branch reaches it by keeping the coordinator's own turn. The clock terms do not
+change — startup-anchored boundaries, dispatched-never-awaited work, a running role refused by
+name — and neither does the tick body. What changes is where the report goes: **commentary in the
+conversation the loop was started in**, on every boundary, while the work runs beneath it.
+
+**Not yet claimed, and deliberately so.** No end-to-end run of this branch in an operator's own
+chat has been recorded — no timestamps, no environment, no version. The acceptance run is the
+mission's own ticket
+(`20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat`), which declares
+`verification_handoff:` because it needs that chat, that account and that application. Until it
+lands here as a dated measurement, the reachability evidence is the tool set reported in issue
+#989 — an **implementation lead**, never a substitute for the run, and explicitly not the short
+15- and 20-second waits already observed there.
+
 ## Running it in the ChatGPT desktop app
 
 Create a Scheduled task **inside the current chat**, choose this repository's **local project**

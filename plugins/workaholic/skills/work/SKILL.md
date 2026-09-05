@@ -165,6 +165,35 @@ of which could see the whole loop. Here there is **one** coordinator, **one** cl
 tick log: the workers hold no clock, decide no cadence and report their finishes into the log the
 coordinator reads. That is the Claude Code shape, reached with processes instead of subagents.
 
+### The native-parent branch: the coordinator holds its own turn
+
+Branch 1 of the selection table. **The three terms above are the clock and are composed here, not
+restated**: the cadence is measured from startup, the work is dispatched and never awaited, and a
+role already running is refused by name. What this branch adds is the one thing no repair to an
+external supervisor can reach — **the coordinator keeps its turn**, so each tick's report lands in
+the conversation the loop was started in.
+
+1. **Derive the startup anchor once**, at the loop's start, and never re-derive it. Every later
+   deadline comes from it, so an early wake, a slow tick and a question answered mid-loop all
+   leave the phase exactly where it was.
+2. **Run a short first tick and emit its report immediately**, so the operator sees the loop
+   working before the first full interval has elapsed.
+3. **Emit every tick report as commentary, not a final response** — what the tick did, what was
+   dispatched, and what came back.
+4. **Wait interruptibly between boundaries, in waits of at most 60 seconds** and shorter when the
+   next deadline is nearer. **A five-minute blocking wait in the coordinator is refused by name**:
+   it makes a person's question unanswerable for the length of the wait, which is the one thing
+   the cadence exists to prevent.
+5. **An early wake is not a tick boundary.** Recompute the remaining time, process what the wake
+   brought — the operator's steering, a child outcome now available — report it, and return to
+   waiting for the **same** deadline.
+6. **At each boundary run the channel turn and the dispatch decisions whether or not any worker
+   has finished**, then emit the tick report and return to waiting. **Never synchronously await a
+   worker across the next boundary.**
+
+What this branch restores that the external supervisor cannot, and what is not yet claimed for it:
+[reference/other-agents.md](reference/other-agents.md), *What the native-parent branch restores*.
+
 Two further limits off Claude Code: **an absent channel transport is reported by name**
 (`no_slack_transport`) and never worked around, and the **tool-level hooks do not fire** — the
 script-level gates still hold, and `sh plugins/workaholic/hooks/install-git-hooks.sh` is the

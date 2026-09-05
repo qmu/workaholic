@@ -64,3 +64,4 @@ puts a tick log back on `main` fails a drill.
 - 2026-09-06 — ticket archived — 20260902042038-refuse-the-base-as-a-destination-in-the-tick-log-writer.md
 - 2026-09-06 — ticket archived — 20260902042039-cover-every-writer-of-the-tick-log-not-the-moderation-tick-alone.md
 - 2026-09-06 — ticket archived — 20260902042038-complete-the-log-move-from-the-tick-not-from-a-human-workaholify.md
+- 2026-09-06 — story — work-20260906-025904.md

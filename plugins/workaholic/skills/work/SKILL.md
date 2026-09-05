@@ -86,8 +86,8 @@ loop reaches every agent through the plugin the marketplace already installs.
 | -------------------------- | --------------- |
 | `/loop 5m` keeps calling this | the Scheduled task or external clock does; **execute one tick and end** |
 | `/implement`, `/propose`, `/specificate`, `/moderate` | read `plugins/workaholic/commands/<name>.md` and execute it |
-| spawn the runs as **background** subagents and do not wait | run them **inline, in sequence** — `implement` first, because it moves the queue every other reading is a function of |
-| `ListAgents` answers *is this loop still running*; `TaskStop` reaps the idle ones | **nothing**. Sequential ticks cannot overlap, and there is no agent to stop |
+| spawn the runs as **background** subagents and do not wait | dispatch each due one with `sh <this skill>/scripts/codex-loop.sh --dispatch <implement\|propose\|moderate>`, which starts a **detached** worker and returns at once. Never run the work inline, and never wait for a worker |
+| `ListAgents` answers *is this loop still running*; `TaskStop` reaps the idle ones | `--dispatch` answers it by **refusing**: a role already running reports `already_running` and is not started twice. `--status` names each role's state. Nothing is reaped — a worker is a process that ends, not a session holding a transcript |
 | a `${CLAUDE_PLUGIN_ROOT}`-rooted script path | the plugin directory: already rewritten to a relative path in this skill's published copy, and `plugins/workaholic` in this repository's own tree. Write the path out in full when composing a call |
 
 Everything else in that body is unchanged, including the cadences, which are read from the tick
@@ -109,14 +109,30 @@ never *just now*; `read: false` is a log this tick could not read and is **also*
 over-firing beats a loop that silently stopped. Record each finish with `log-append.sh` under
 the same tick id, including for a run that failed — the cadence measures *when we last tried*.
 
-## What the sequential form costs, stated rather than discovered
+## The coordinator owns the clock, and the work never holds it
 
-Under Claude Code a person's message is answered within five minutes **whatever the work is
-doing**, because the work is detached. Run inline, the answer comes at the **top** of each tick
-(the channel turn is the tick's first act), so the worst case is one tick's own work duration.
-Do not buy the responsiveness back by skipping work, and **do not split it into two concurrent
-loops** — that is the three-process premise this repository retired on 2026-09-03 after
-measuring it: each loop was correct in isolation and none could see the whole loop.
+**The channel turn happens on the interval, whatever the work is doing** — the property the
+Claude tick has, and the one the inline form did not (2026-09-05, issues #984 and #985). Three
+terms, and each is load-bearing:
+
+1. **The cadence is measured from startup**, not from the previous tick's finish. Sleeping a
+   whole interval after a completed tick makes the real period *tick duration + interval*:
+   measured, a tick still running six minutes into a five-minute loop pushed the next channel
+   turn past the eleventh minute. A boundary is the first `startup + k×interval` strictly after
+   now, so a slow tick **costs the boundaries it overran** and never shifts the phase. Every lost
+   boundary is named on stderr rather than silently absorbed.
+2. **The work is dispatched, never awaited.** `--dispatch <role>` starts a detached worker and
+   returns; the coordinator's tick is the channel turn, the dispatch and the report, so its
+   duration is a function of the channel and nothing else.
+3. **A role already running is refused by name.** `--dispatch` answers `already_running` and
+   starts nothing — the same guarantee `ListAgents` gives the Claude tick, made by a lock rather
+   than by a listing, so it holds across `codex exec` runs that cannot see each other's agents.
+
+**This is not the retired three-loop premise, and the difference is the point.** What this
+repository retired on 2026-09-03 was three *clocks*, three *views* and three places to look, none
+of which could see the whole loop. Here there is **one** coordinator, **one** clock and **one**
+tick log: the workers hold no clock, decide no cadence and report their finishes into the log the
+coordinator reads. That is the Claude Code shape, reached with processes instead of subagents.
 
 Two further limits off Claude Code: **an absent channel transport is reported by name**
 (`no_slack_transport`) and never worked around, and the **tool-level hooks do not fire** — the

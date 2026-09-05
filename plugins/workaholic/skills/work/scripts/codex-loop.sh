@@ -8,6 +8,9 @@ STATUS_ONLY=false
 RELAY=false
 ACK_FILE=""
 LOG_DIR=""
+DISPATCH_ROLE=""
+WORKER_ROLE=""
+ROLES="implement propose moderate"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -16,6 +19,8 @@ while [ "$#" -gt 0 ]; do
         --dry-run) DRY_RUN=true; shift ;;
         --status) STATUS_ONLY=true; shift ;;
         --relay) RELAY=true; shift ;;
+        --dispatch) DISPATCH_ROLE="${2:-}"; shift 2 ;;
+        --worker) WORKER_ROLE="${2:-}"; shift 2 ;;
         --ack) ACK_FILE="${2:-}"; shift 2 ;;
         --log) LOG_DIR="${2:-}"; shift 2 ;;
         -h|--help)
@@ -26,6 +31,8 @@ while [ "$#" -gt 0 ]; do
                 '  --dry-run   print the command without executing it' \
                 '  --status    read current state without starting a tick' \
                 '  --relay     return credential-free Slack intents for an owning chat' \
+                '  --dispatch  start one background worker (implement|propose|moderate) and return' \
+                '  --worker    run one worker in this process; refuses a role already running' \
                 '  --ack       validate a parent acknowledgement against the current envelope' \
                 '  --log       transcript directory (default <repository>/.codex-loop)'
             exit 0 ;;
@@ -57,6 +64,34 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -z "$LOG_DIR" ] && LOG_DIR="${REPO_ROOT}/.codex-loop"
 STATUS_FILE="${LOG_DIR}/status.json"
 RELAY_STATE="none"
+
+# THE COORDINATOR NEVER WAITS FOR THE WORK (2026-09-05, issues #984 and #985). A role is
+# dispatched as a detached process holding its own lock, so a run lasting longer than the
+# interval cannot delay the next channel turn, and a role already running is refused by name
+# rather than started twice.
+role_known() {
+    for _r in $ROLES; do [ "$_r" = "$1" ] && return 0; done
+    return 1
+}
+role_lock() { printf '%s/worker-%s.lock' "$LOG_DIR" "$1"; }
+role_pidfile() { printf '%s/worker-%s.pid' "$LOG_DIR" "$1"; }
+
+# `running` / `idle`. flock is the authority where it exists; a pid file is the fallback, and
+# a pid file naming a dead process is idle rather than an unreadable state.
+role_state() {
+    _lock=$(role_lock "$1")
+    if command -v flock >/dev/null 2>&1; then
+        if [ -e "$_lock" ] && ! ( exec 8>"$_lock"; flock -n 8 ) 2>/dev/null; then
+            printf 'running'; return 0
+        fi
+        printf 'idle'; return 0
+    fi
+    _pf=$(role_pidfile "$1")
+    if [ -s "$_pf" ] && kill -0 "$(cat "$_pf" 2>/dev/null)" 2>/dev/null; then
+        printf 'running'; return 0
+    fi
+    printf 'idle'
+}
 RELAY_ENVELOPE=""
 RELAY_ACK=""
 
@@ -75,6 +110,10 @@ show_status() {
     fi
     printf 'codex loop status: unreadable (%s)\n' "$STATUS_FILE"
     return 5
+}
+
+show_workers() {
+    for _r in $ROLES; do printf 'codex worker %s: %s\n' "$_r" "$(role_state "$_r")"; done
 }
 
 if [ -n "$ACK_FILE" ]; then
@@ -100,7 +139,20 @@ fi
 
 if [ "$STATUS_ONLY" = true ]; then
     show_status
-    exit $?
+    _status_exit=$?
+    show_workers
+    exit "$_status_exit"
+fi
+
+if [ -n "$DISPATCH_ROLE" ] || [ -n "$WORKER_ROLE" ]; then
+    _role="${DISPATCH_ROLE}${WORKER_ROLE}"
+    role_known "$_role" || { printf 'bad_role: %s (known: %s)\n' "$_role" "$ROLES" >&2; exit 2; }
+    ROLE_BODY="${PLUGIN_ROOT}/commands/${_role}.md"
+    [ -f "$ROLE_BODY" ] || {
+        printf 'plugin_command_missing: %s\n' "$ROLE_BODY" >&2
+        printf 'Update or reinstall the Workaholic plugin; its %s command body is incomplete.\n' "$_role" >&2
+        exit 2; }
+    mkdir -p "$LOG_DIR"
 fi
 
 command -v codex >/dev/null 2>&1 || { printf 'codex_cli_missing: the codex CLI is not on PATH\n' >&2; exit 2; }
@@ -155,6 +207,18 @@ write_status() {
         printf '}\n'
     } >"$_tmp"
     mv "$_tmp" "$STATUS_FILE"
+}
+
+# THE CADENCE IS MEASURED FROM STARTUP, NOT FROM THE PREVIOUS TICK'S FINISH (2026-09-05,
+# issue #984). Sleeping a whole interval after a completed tick makes the real period
+# `tick duration + interval`: a tick still running six minutes in pushed the next channel turn
+# past the eleventh minute. The boundary is the first `anchor + k*interval` strictly after the
+# given moment, so a slow tick costs the boundaries it overran and never shifts the phase.
+next_boundary() {
+    _from=$1
+    [ "$INTERVAL" -gt 0 ] || { printf '%s' "$_from"; return 0; }
+    _k=$(( (_from - LOOP_ANCHOR) / INTERVAL + 1 ))
+    printf '%s' "$(( LOOP_ANCHOR + _k * INTERVAL ))"
 }
 
 iso_from_epoch() {
@@ -230,12 +294,12 @@ run_tick() {
     _transcript="${LOG_DIR}/${_stamp}.log"
     _started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     CURRENT_TICK=$_stamp CURRENT_STARTED=$_started CURRENT_REPORT=$_out CURRENT_TRANSCRIPT=$_transcript
-    _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature and no background subagents. Do not loop; end after one tick. Report the tick's own report block as your final message."
+    _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. Report the tick's own report block as your final message."
     if [ "$RELAY" = true ]; then
         _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
     fi
     if [ "$DRY_RUN" = true ]; then
-        printf 'codex exec -C %s --dangerously-bypass-approvals-and-sandbox --output-last-message %s <prompt>\n' "$REPO_ROOT" "$_out"
+        printf 'codex exec -C %s --dangerously-bypass-approvals-and-sandbox --output-last-message %s %s\n' "$REPO_ROOT" "$_out" "$_prompt"
         return 0
     fi
     write_status running running "" "$_stamp" "$_started" "" "$_out" "$_transcript" unknown ""
@@ -248,7 +312,7 @@ run_tick() {
     fi
     _finished_epoch=$(date -u +%s)
     _finished=$(iso_from_epoch "$_finished_epoch")
-    _next_due=$(iso_from_epoch "$((_finished_epoch + INTERVAL))")
+    _next_due=$(iso_from_epoch "$(next_boundary "$_finished_epoch")")
     classify_report "$_out" "$_exit"
     case "$TICK_OUTCOME" in ready) _state=sleeping ;; *) _state=blocked ;; esac
     write_status "$_state" "$TICK_OUTCOME" "$BLOCKED_REASON" "$_stamp" "$_started" \
@@ -261,6 +325,73 @@ run_tick() {
     [ "$TICK_OUTCOME" = ready ]
 }
 
+record_worker_finish() {
+    # The cadence readers are the tick log's, unchanged: a finish is recorded even for a run
+    # that failed, because the cadence measures WHEN WE LAST TRIED.
+    _tick_id_sh="${SCRIPT_DIR}/../../moderate/scripts/tick-id.sh"
+    _log_append_sh="${SCRIPT_DIR}/../../moderate/scripts/log-append.sh"
+    [ -f "$_tick_id_sh" ] && [ -f "$_log_append_sh" ] || return 0
+    _tick=$(sh "$_tick_id_sh" 2>/dev/null || true)
+    [ -n "$_tick" ] || return 0
+    sh "$_log_append_sh" --tick "$_tick" --step "loop-finish-$1" \
+        --status ok --summary "$1 finished (exit $2)" >/dev/null 2>&1 || true
+}
+
+run_worker() {
+    _role=$1
+    _wstamp=$(date -u +%Y%m%dT%H%M%SZ)
+    _wout="${LOG_DIR}/${_wstamp}-${_role}.md"
+    _wlog="${LOG_DIR}/${_wstamp}-${_role}.log"
+    _wprompt="Read ${ROLE_BODY} in full and execute it exactly once in this repository, applying the substitutions in ${PLUGIN_ROOT}/skills/work/SKILL.md for an agent with no background subagents. Do not loop, do not start another worker, and do not read or answer the inbound channel — the coordinator owns that. Report the run's own report block as your final message."
+    if [ "$DRY_RUN" = true ]; then
+        printf 'codex exec -C %s --dangerously-bypass-approvals-and-sandbox --output-last-message %s %s\n' \
+            "$REPO_ROOT" "$_wout" "$_wprompt"
+        return 0
+    fi
+    if codex exec -C "$REPO_ROOT" --dangerously-bypass-approvals-and-sandbox \
+        -c shell_environment_policy.inherit=all --output-last-message "$_wout" "$_wprompt" \
+        >"$_wlog" 2>&1; then _wexit=0; else _wexit=$?; fi
+    record_worker_finish "$_role" "$_wexit"
+    printf 'codex worker %s: exit=%s report=%s\n' "$_role" "$_wexit" "$_wout"
+    return 0
+}
+
+if [ -n "$WORKER_ROLE" ]; then
+    if command -v flock >/dev/null 2>&1; then
+        exec 8>"$(role_lock "$WORKER_ROLE")"
+        flock -n 8 || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+    else
+        [ "$(role_state "$WORKER_ROLE")" = idle ] || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+        WORKER_PIDFILE=$(role_pidfile "$WORKER_ROLE")
+        printf '%s\n' "$$" >"$WORKER_PIDFILE"
+        trap 'rm -f "$WORKER_PIDFILE"' EXIT
+    fi
+    run_worker "$WORKER_ROLE"
+    exit 0
+fi
+
+if [ -n "$DISPATCH_ROLE" ]; then
+    # THE ONE REFUSAL THAT REPLACES `ListAgents`: a role already running is never started twice.
+    if [ "$(role_state "$DISPATCH_ROLE")" = running ]; then
+        printf 'codex dispatch %s: already_running\n' "$DISPATCH_ROLE"
+        exit 0
+    fi
+    if [ "$DRY_RUN" = true ]; then
+        printf 'codex dispatch %s: would start a detached worker\n' "$DISPATCH_ROLE"
+        exit 0
+    fi
+    _dlog="${LOG_DIR}/dispatch-${DISPATCH_ROLE}.log"
+    if command -v setsid >/dev/null 2>&1; then
+        setsid sh "${SCRIPT_DIR}/codex-loop.sh" --worker "$DISPATCH_ROLE" --log "$LOG_DIR" \
+            >"$_dlog" 2>&1 &
+    else
+        nohup sh "${SCRIPT_DIR}/codex-loop.sh" --worker "$DISPATCH_ROLE" --log "$LOG_DIR" \
+            >"$_dlog" 2>&1 &
+    fi
+    printf 'codex dispatch %s: started pid=%s log=%s\n' "$DISPATCH_ROLE" "$!" "$_dlog"
+    exit 0
+fi
+
 LOCK="${LOG_DIR}/.supervisor.lock"
 if command -v flock >/dev/null 2>&1; then
     exec 9>"$LOCK"
@@ -269,6 +400,10 @@ else
     printf 'flock is not installed: a second supervisor would not be refused\n' >&2
 fi
 
+# The anchor is the moment the supervisor started. Every boundary is measured from it, so the
+# loop keeps its phase however long an individual tick takes.
+LOOP_ANCHOR=$(date -u +%s)
+_expected=$LOOP_ANCHOR
 _first=true
 while :; do
     if run_tick; then
@@ -286,5 +421,13 @@ while :; do
             "$INTERVAL" "$ONCE" "$ENV_SOURCE" "$LOG_DIR" >&2
     fi
     [ "$ONCE" = true ] && break
-    sleep "$INTERVAL"
+    _now=$(date -u +%s)
+    _due=$(next_boundary "$_now")
+    _skipped=$(( (_due - _expected) / INTERVAL - 1 ))
+    if [ "$_skipped" -gt 0 ]; then
+        printf 'codex loop: the tick overran %s boundary(ies); next turn at %s\n' \
+            "$_skipped" "$(iso_from_epoch "$_due")" >&2
+    fi
+    _expected=$_due
+    sleep "$((_due - _now))"
 done

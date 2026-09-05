@@ -218,6 +218,34 @@ same tick log, on both. The claim protocol remains the only allocator of reposit
 map bounds **dispatch**, never claims, and a duplicate dispatch would be refused by the claim
 arbiter anyway.
 
+### What survives a compaction, and what is rediscovered
+
+A long conversation is compacted, and the native-parent branch holds its state in the parent's own
+turn. **Three things survive, and nothing else** — this is not a new store for the loop's whole
+state, and **no file, field or store is introduced to hold them**:
+
+1. the **startup anchor**;
+2. the **running child identifiers**, with their roles;
+3. the **outcomes already reported**.
+
+**Compaction stops nothing: a running child keeps running.** Inferring otherwise is forbidden by
+name here, because each of the three has a distinct failure if it is lost — a re-derived anchor
+moves the phase, a lost map re-dispatches work that is still running, and a lost outcome set
+re-reports what the operator has already read.
+
+- **On resuming, rediscover the actually running work through the harness's own listing before
+  dispatching anything**, and reconcile it with the carried map.
+- **A child the rediscovery cannot find is reported unresolved and asked about.** It is **not**
+  assumed finished, and its role is **not** re-dispatched on that assumption alone.
+- **The anchor after a resume is the anchor before it** — the original, never a fresh derivation
+  from the resume time, so the phase does not move.
+- **An outcome already reported is not reported again**; the carried set is what makes *report
+  each completion once* hold across a compaction.
+
+A duplicate dispatch would be bounded by the claim protocol, which refuses a taken unit — but the
+wasted run and the duplicated report are real costs, which is why rediscovery **precedes**
+dispatch rather than relying on that refusal.
+
 ### What *end* means, and the two events that earn a final response
 
 `commands/infinite-development.md` tells the tick to **end**. What that renders to is the

@@ -185,6 +185,14 @@ Call `ListAgents` once. It answers **exactly one question**: is this loop still 
 **A loop whose subagent is still `running` is not spawned again.** That is the concurrency rule
 and it has not moved.
 
+**After a context compaction, rediscover before dispatching.** The role map is held in the
+coordinator's own turn, so a resumed tick reads the harness's listing first and reconciles it with
+what it carried; **compaction stops nothing**, and a child the rediscovery cannot find is
+**reported unresolved**, never assumed finished and never grounds on its own for re-dispatching
+its role. The carried state is three things and no more — the startup anchor, the running child
+identifiers with their roles, and the outcomes already reported — and it introduces **no file, no
+field and no store** (`workaholic:work`, *What survives a compaction*).
+
 **A dispatched role is bounded**: it performs that role's work **once** and returns. It reads no
 channel, decides no cadence, starts no other worker, and **never loops** — a child that looped
 would be a second coordinator, the shape this repository retired. **Read the harness's own

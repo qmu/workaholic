@@ -53,3 +53,4 @@ for a supervisor delivering somewhere else.
 - 2026-09-06 — ticket archived — 20260906022855-run-the-tick-as-a-native-parent-that-keeps-its-turn.md
 - 2026-09-06 — ticket archived — 20260906022855-delegate-each-due-role-as-a-bounded-native-child.md
 - 2026-09-06 — ticket archived — 20260906022855-reserve-the-final-response-for-a-stop-or-a-refusal.md
+- 2026-09-06 — ticket archived — 20260906022855-carry-the-loop-state-across-context-compaction.md

@@ -668,4 +668,5 @@
 * [Make /work prove transport and progress instead of silently looping](20260904142216-make-work-prove-transport-and-progress-instead-of-silently-looping.md)
 * [Relay Codex loop Slack notifications through the connector-owning main thread](20260904142833-relay-codex-loop-slack-notifications-through-the-connector-owning-main-thread.md)
 * [Make the Codex work entrypoint self-contained and diagnostic](20260904171517-make-the-codex-work-entrypoint-self-contained-and-diagnostic.md)
+* [Report each tick in the originating Codex chat, and prove it end to end](20260906022552-report-each-tick-in-the-originating-codex-chat-and-prove-it-end-to-end.md)
 <!-- okf:generated:end -->

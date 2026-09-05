@@ -101,3 +101,48 @@ days of accumulation is the defect; the leftover files are only its residue.
 - The finding half must not become an hourly restatement addressed to nobody — that is the
   shape this repository has twice retired status roots for. Route it through the existing
   question machinery, which is asked once per subject.
+
+## Final Report
+
+Development completed, with one deliberate resolution of the ticket's own stated fork recorded
+here and in the code.
+
+**The premise moved.** The ticket composes `migrate-moderations-off-main.sh` and reads
+`step-open-log.sh`'s hydrate — both **deleted on 2026-09-03**, three days after the ticket was
+written, when the log branch was retired and `.workaholic/moderations/` became git-ignored.
+Steps 1-3 as literally written are therefore unimplementable: there is no mover to compose, and
+`workaholic:workaholify` now states that no migration at the converge seam may reach the network.
+
+**What is still true, and is what shipped.** A `.gitignore` added after the fact never untracks
+what is already tracked, so a repository whose earlier ticks wrote day files to the base still
+carries them — the residue the ticket calls its own second half — and nothing anywhere read it.
+`step-open-log.sh` now reads it (`git ls-files`, local, no network) and raises
+`log_tracked_on_base`, a `degraded` finding with an `event`, classified `repairable` so
+`file-findings` files it once through `[FB]` → `/specificate` → `/implement` rather than
+restating it hourly at nobody (the ticket's own Considerations asked for exactly that bound).
+
+**Step 5's decision, made and stated.** The step **reports and moves nothing**, and that is the
+design rather than the fallback: writing a second mover is what the composition rule forbids, and
+an unattended tick deleting tracked files from the base on its own reading is wider than what the
+retirement left the tick. The acceptance is disjunctive — *land the move **or** raise a finding,
+never both silent* — and this satisfies it. The reasoning is written into the script, the step's
+spec and the findings-classification table, not just here.
+
+The reading is three-valued: tracked files are a finding; a root that is not a git repository has
+no base to be on (a drill's throwaway root) and is **not** a degradation; only a git that failed
+*inside* a repository is `log_tracking_unreadable`, because a reading we could not take must never
+render as clean.
+
+### Discovered Insights
+
+- **Insight**: `open-log`'s row in the findings-classification table read
+  `needs_ruling — Bookkeeping; it produces no finding to file`, which became false the moment the
+  step produced one. The table's own rule (an unclassified step id reads `needs_ruling`) would
+  have silently swallowed the new finding rather than filing it.
+  **Context**: a step that grows its first finding must be re-classified in the same change, or
+  the finding is raised and filed by nobody — a failure that looks exactly like a working tick.
+- **Insight**: the drill's throwaway root is not a git repository, so any reading a step takes
+  from git must treat "no repository" as not-applicable rather than as a degradation, or every
+  drill goes red on a healthy tree.
+  **Context**: `verify-moderate` runs `run.sh` against `mktemp -d`; several steps here already
+  key on that shape, and `persist-log.sh` names it `not_a_repo` for the same reason.

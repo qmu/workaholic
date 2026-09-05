@@ -32,14 +32,31 @@ skills into the closure and still left five unresolved references (`lib/raced-un
 that copier follows a skill's `scripts/` and not its siblings. The loop needs the whole
 apparatus, and the whole apparatus is the full plugin — which Codex already installs.
 
-## The four mechanisms, and what Codex has
+## Why the mode is read off the session
 
-| Claude mechanism | Codex, measured | Substitution |
+**Corrected 2026-09-06 (issue #989).** Everything in the next table was measured against **one
+surface at one version** — `codex-cli 0.149.1`, 2026-09-03 — and the tree then read those
+readings as facts about *every non-Claude agent*. They are not, and the cost was measured: a
+session whose own harness exposed an interruptible wait that returns early on user input,
+spawnable child agents with listing, messaging and interrupt, four concurrent slots, and the
+ability to emit commentary without ending its turn — read the identity-keyed table, selected
+`scripts/codex-loop.sh`, ended its turn, and told the operator that the chat the loop had been
+started in would receive nothing.
+
+So the **selection is capability-keyed** (`SKILL.md`, *Starting it*): four questions about tools
+this session holds, an ordered table over the answers, and a named refusal when no branch's terms
+hold. **The measurements below survive with their date and their scope** — they are evidence for
+how a session on that surface will usually answer, never a decider — and no row of this document
+states or implies that a non-Claude agent lacks native background agents.
+
+## The four mechanisms, and what `codex-cli 0.149.1` had (measured 2026-09-03)
+
+| Claude mechanism | That surface, measured | Substitution where the session answers the same way |
 | ---------------- | --------------- | ------------ |
-| `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **CLI/IDE:** no Scheduled management interface | a Scheduled task in the current chat for desktop; the installed work skill's `scripts/codex-loop.sh` for CLI/IDE |
+| `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **That CLI:** no Scheduled management interface | a Scheduled task in the current chat for desktop; the installed work skill's `scripts/codex-loop.sh` where neither a parent turn nor a scheduler is held |
 | slash-command dispatch of `commands/*.md` | **None** (manifests expose skills only) | the loop is a **skill** (`workaholic:work`); the tick reads the other command bodies as files and executes them |
-| a **detached** background subagent whose parent ends first | Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their results** — there is no parent-ends-children-continue lifetime | a **detached process**: `codex-loop.sh --dispatch <role>` starts one and returns. A process outlives the run that started it where a subagent does not |
-| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | a per-role **lock**: `--dispatch` refuses `already_running`, and `--status` names each role's state. A lock is visible to a run that cannot see the previous run's agents. Nothing is reaped — a worker is a process that ends |
+| a **detached** background subagent whose parent ends first | that CLI's concurrent subagents (`multi_agent`, `/agent`) are **collected by the parent**, so its parent cannot end first. **This is a reading of that surface and of nothing else**: a session whose own tool set exposes children it need not collect answers **C3 yes** and takes the native-parent branch | a **detached process**: `codex-loop.sh --dispatch <role>` starts one and returns. A process outlives the run that started it where a *collected* subagent does not |
+| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across that CLI's `exec` runs — a fresh run cannot see the previous run's agents. A session that **does** hold a listing uses it, and the native-parent branch's role map is that | a per-role **lock**: `--dispatch` refuses `already_running`, and `--status` names each role's state. A lock is visible to a run that cannot see the previous run's agents. Nothing is reaped — a worker is a process that ends |
 | `${CLAUDE_PLUGIN_ROOT}` | not defined | the tick names `plugins/workaholic` and writes paths out in full |
 | `.claude/settings.json` `env` | not read | `codex-loop.sh` reads that same block and exports it, so there is **one** declaration |
 | the plugin's `hooks/hooks.json` | not carried by either Codex manifest; Codex hooks are its own configuration | **the gates are absent on Codex** — see *What is lost* |
@@ -79,8 +96,10 @@ finish into the **same tick log** the coordinator reads to decide what is due. T
 place that sees the whole loop. That is the Claude Code shape — a main agent with detached
 subagents — reached with processes, because processes are what Codex has.
 
-The one thing a process gives that a Codex subagent does not is the lifetime: `--dispatch`
-returns and its child survives, where a parent collecting subagent results cannot end first.
+The one thing a process gives that a **collected** subagent does not is the lifetime: `--dispatch`
+returns and its child survives, where a parent that must collect its subagents' results cannot end
+first. That is a statement about collection, not about a product: where a session's own children
+outlive the call, branch 1 gets the same lifetime without a process.
 
 ## Running it in the ChatGPT desktop app
 

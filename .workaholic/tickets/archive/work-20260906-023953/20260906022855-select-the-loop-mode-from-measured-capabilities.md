@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T02:28:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -103,3 +104,59 @@ that is the ticket after it.
 - The reporting session's tool list (`clock.sleep`, `collaboration.*`, `clock.curr_time`) is an
   **implementation lead** and evidence that the branch is reachable — never a claim that every
   Codex installation exposes it, and never a substitute for the end-to-end run.
+
+## Final Report
+
+Development completed as planned.
+
+### Step 1 — the diagnosis, recorded before the selection rule was touched
+
+Every place the mode is decided today, by file and line as of `41a71b73e`, with what each said
+and whether it is keyed on **(a) the agent's identity** or **(b) a capability**:
+
+1. `plugins/workaholic/skills/work/SKILL.md:17-21` — the clock table, **(a) identity**. Its
+   header is `| Agent | The clock |` and its three rows are named `**Claude Code**`,
+   `**Codex in the ChatGPT desktop app**`, and
+   `**Codex CLI, IDE, and any agent with no Scheduled management surface**`. The third row's
+   trailing phrase is the only capability-shaped clause anywhere in the decision, and it names
+   one mechanism — a scheduler — never the coordinator's own turn-keeping. The row is reached in
+   practice by the two product names that open it.
+2. `plugins/workaholic/skills/work/SKILL.md:53-57` — **a version string**:
+   *"**The CLI itself still has no Scheduled management interface.** That boundary was measured
+   2026-09-03 against `codex-cli 0.149.1` and is also the current documented product boundary.
+   For a CLI-only environment, this skill's own `scripts/codex-loop.sh` supplies the clock"*.
+3. `plugins/workaholic/skills/work/SKILL.md:85-91` — the substitution table, **(a) identity**:
+   its whole right-hand column is headed `| Off Claude Code |`, and it is what renders `/loop`,
+   the spawn, `ListAgents`/`TaskStop` and *end* for every non-Claude session at once.
+4. `plugins/workaholic/skills/work/reference/other-agents.md:35-46` — *"The four mechanisms, and
+   what Codex has"*, **(a) identity**, the table the substitution table answers to.
+5. `plugins/workaholic/skills/work/reference/other-agents.md:41` — the generalising sentence:
+   *"Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their
+   results** — there is no parent-ends-children-continue lifetime"*, with
+   `other-agents.md:82-83` restating it (*"The one thing a process gives that a Codex subagent
+   does not is the lifetime"*).
+
+**Which of the two the CLI-supervisor fallback is reached by: (a), the agent's identity.** Rows 1
+and 3 above are the deciders and both are keyed on a product name; row 5 is the premise they rest
+on, and it was written from one measurement of one surface. The walk was made before assuming
+`other-agents.md`'s table was the only decider, and it was not — `work/SKILL.md`'s own two tables
+decide first and `other-agents.md` supplies their justification.
+
+**What this cost, measured (issue #989)**: a session whose harness exposed an interruptible wait
+that returns early on user input, spawnable agents with listing/messaging/interrupt, four
+concurrent slots, and the ability to emit commentary without ending its turn — read the identity
+table, selected `scripts/codex-loop.sh`, ended its turn, and told the operator that the chat it
+was started in would receive nothing.
+
+### Discovered Insights
+
+- **Insight**: the two capability-shaped phrases already in the tree (*"any agent with no
+  Scheduled management surface"*, *"no Scheduled management interface"*) both ask about a
+  **scheduler**, and a scheduler is the one mechanism the native-parent branch does not need.
+  **Context**: the gap was not that nothing was keyed on capability — it was that the single
+  capability anybody had thought to ask about was the wrong one, so a session with every
+  mechanism except a scheduler fell through to the last row.
+- **Insight**: the selection is re-derived at every startup and cached nowhere, because the
+  answers are properties of the **session** rather than of the installation.
+  **Context**: the same product answers differently in its CLI, its IDE extension and its desktop
+  app, and a cached answer would carry one surface's reading into another's session.

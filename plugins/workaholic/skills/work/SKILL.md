@@ -9,16 +9,43 @@ description: Run the development loop — one tick every few minutes that answer
 ends; the clock starts the next one. If this session is already looping, say so and start
 nothing — a second loop would drive the same claim protocol twice.
 
-## Starting it: the clock is the agent's, the tick is this skill's
+## Starting it: the mode is selected from what THIS SESSION can do
 
-The tick below is the same on every agent. **Only the clock differs**, and it differs because
-it is a harness feature rather than anything this repository can ship:
+The tick below is the same everywhere. **Only the mode differs** — and the mode is a property of
+**the session's own tool set**, never of the agent's name or its version string. It is re-derived
+at every startup and cached nowhere: one product answers differently in its CLI, its IDE
+extension and its desktop app, so a cached answer carries one surface's reading into another's
+session.
 
-| Agent | The clock |
-| ----- | --------- |
-| **Claude Code** | the harness's own `loop` skill — `/loop 5m /infinite-development`, which `/work` invokes for you |
-| **Codex in the ChatGPT desktop app** | a Scheduled task **inside the current chat**, at the requested minute interval, running in the local project |
-| **Codex CLI, IDE, and any agent with no Scheduled management surface** | an external one: run the `scripts/codex-loop.sh` beside this skill (or a cron entry / systemd timer running it `--once`) |
+**Four capability questions, and no others.** Each asks about a tool this session holds:
+
+| # | Question |
+| - | -------- |
+| **C1** | Can this session **wait and be woken early** — a sleep that returns on user input? |
+| **C2** | Can it **emit intermediate output without ending its turn**? |
+| **C3** | Can it **start child work it does not have to collect** before returning — a child agent whose lifetime outlives the call, or a detached process? |
+| **C4** | Is a **same-chat scheduler** callable — one that re-invokes this conversation on an interval? |
+
+**The ordered selection table. Take the first branch whose terms hold:**
+
+| Branch | Terms | The clock | What it does NOT promise |
+| ------ | ----- | --------- | ------------------------ |
+| **1. Native parent** | C1 **and** C2 **and** C3 | the coordinator's own turn (*The native-parent branch*). **Where the harness supplies an in-process recurring timer over this same session, that timer IS this branch** — on Claude Code it is the `loop` skill, `/loop 5m /infinite-development`, which `/work` invokes for you | continuation after an explicit stop, an app closure, a cancellation or a hard harness limit, unless a resumption mechanism has been **tested** and named beside it |
+| **2. Same-chat schedule** | C4, and branch 1's terms do not hold | a Scheduled task **inside the current chat**, at the requested minute interval, running in the local project | anything while the app or the computer is closed |
+| **3. External supervisor** | a shell and a CLI that can run one tick | an external one: the `scripts/codex-loop.sh` beside this skill, or a cron entry / systemd timer running it `--once` | **that its output reaches the invoking conversation.** The supervisor has no parent to call back into; a report that lands in `.codex-loop/` is not a report the person who started the loop will see |
+
+**The resolved mode is reported at startup**, with the capability answers it was chosen on, so a
+wrong selection is visible in the transcript rather than inferred from behaviour hours later.
+
+**When no branch's terms hold, name the specific missing mechanism at startup and stop.** Say
+which capability question went unanswered — *this session can start no child it does not have to
+collect, and no scheduler and no shell are reachable* — and select **no substitute**: a
+requirement reported unresolved is one somebody can supply, while a mode that delivers somewhere
+else is a requirement reported met. **A capability that could not be read is named as unread,
+never as absent** — a gate that cannot be read is not a gate.
+
+What this rule exists for, measured: `reference/other-agents.md`, *Why the mode is read off the
+session*.
 
 **Scheduled tasks are an app surface, not a Codex CLI subcommand.** The ChatGPT desktop app can
 return to an existing chat on a minute interval, use its existing context, and run against the
@@ -50,11 +77,14 @@ CLI supervisor has no parent and must report `relay_pending`/`parent_absent`; em
 never delivery. The closed envelope, acknowledgement outcomes, retry rule, and rejection cases are
 defined in [reference/codex-slack-relay.md](reference/codex-slack-relay.md).
 
-**The CLI itself still has no Scheduled management interface.** That boundary was measured
-2026-09-03 against `codex-cli 0.149.1` and is also the current documented product boundary.
-For a CLI-only environment, this skill's own `scripts/codex-loop.sh` supplies the clock: one `codex exec` per
-interval, sequential, `flock`ed against a second supervisor, exporting `.claude/settings.json`'s
-`env` block so both agents read one declaration.
+**One measurement, dated and scoped, and it decides nothing on its own**: `codex-cli 0.149.1`,
+2026-09-03, exposed no Scheduled management interface — a reading about **that surface at that
+version**, never about a product or about non-Claude agents in general. It is evidence for how a
+session lacking C4 will usually answer, and the answer is still the session's own.
+
+Where branch 3 is selected, this skill's own `scripts/codex-loop.sh` supplies the clock: one
+`codex exec` per interval, sequential, `flock`ed against a second supervisor, exporting
+`.claude/settings.json`'s `env` block so both agents read one declaration.
 
 The launcher is part of the full Workaholic plugin. From an installed skill, run
 `sh <directory-containing-this-SKILL.md>/scripts/codex-loop.sh`; the repository-local
@@ -71,23 +101,24 @@ due time.
 
 ## The tick
 
-**On Claude Code**, run `plugins/workaholic/commands/infinite-development.md` — that command is
-the ceiling for what a tick may post, and it carries the Slack shapes byte-identical.
+**Where a slash-command surface dispatches `commands/*.md`** — Claude Code — run
+`plugins/workaholic/commands/infinite-development.md`. That command is the ceiling for what a
+tick may post, and it carries the Slack shapes byte-identical.
 
-**On every other agent**, execute the same command body as a **file**: read
-`plugins/workaholic/commands/infinite-development.md` and do what it says, with the
-substitutions below. `commands/` is not a command surface off Claude Code — both
-`.codex-plugin/plugin.json` manifests expose `"skills"` and nothing else — so the file is read
-rather than dispatched. That is why this skill exists: a skill is published where a command is not
-(`.codex-plugin/plugin.json` declares `"skills": "./skills/"` over the whole plugin), so the
-loop reaches every agent through the plugin the marketplace already installs.
+**Where none does**, execute the same command body as a **file**: read
+`plugins/workaholic/commands/infinite-development.md` and do what it says, with the substitutions
+below. Both `.codex-plugin/plugin.json` manifests expose `"skills"` and nothing else, so
+`commands/` reaches such an agent as files that exist rather than as commands. That is why this
+skill exists: a skill is published where a command is not (`.codex-plugin/plugin.json` declares
+`"skills": "./skills/"` over the whole plugin), so the loop reaches every agent through the
+plugin the marketplace already installs.
 
-| What the command body says | Off Claude Code |
-| -------------------------- | --------------- |
-| `/loop 5m` keeps calling this | the Scheduled task or external clock does; **execute one tick and end** |
+| What the command body says | Where no command surface dispatches it |
+| -------------------------- | -------------------------------------- |
+| `/loop 5m` keeps calling this | the branch's own clock does — *What "end" means* below renders this per branch, because it is the one row that differs between them |
 | `/implement`, `/propose`, `/specificate`, `/moderate` | read `plugins/workaholic/commands/<name>.md` and execute it |
-| spawn the runs as **background** subagents and do not wait | dispatch each due one with `sh <this skill>/scripts/codex-loop.sh --dispatch <implement\|propose\|moderate>`, which starts a **detached** worker and returns at once. Never run the work inline, and never wait for a worker |
-| `ListAgents` answers *is this loop still running*; `TaskStop` reaps the idle ones | `--dispatch` answers it by **refusing**: a role already running reports `already_running` and is not started twice. `--status` names each role's state. Nothing is reaped — a worker is a process that ends, not a session holding a transcript |
+| spawn the runs as **background** subagents and do not wait | **branch 1**: dispatch each due role as a **bounded native child** (*The workers*). **Branches 2 and 3**: `sh <this skill>/scripts/codex-loop.sh --dispatch <implement\|propose\|moderate>`, which starts a **detached** worker and returns at once. Never run the work inline, and never wait for a worker |
+| `ListAgents` answers *is this loop still running*; `TaskStop` reaps the idle ones | **branch 1**: the coordinator's own **role-to-child map** answers it, and its listing rediscovers after a compaction. **Branches 2 and 3**: `--dispatch` answers it by **refusing** — a role already running reports `already_running` and is not started twice — and `--status` names each role's state. Nothing is reaped there: a worker is a process that ends, not a session holding a transcript |
 | a `${CLAUDE_PLUGIN_ROOT}`-rooted script path | the plugin directory: already rewritten to a relative path in this skill's published copy, and `plugins/workaholic` in this repository's own tree. Write the path out in full when composing a call |
 
 Everything else in that body is unchanged, including the cadences, which are read from the tick

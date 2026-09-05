@@ -38081,6 +38081,166 @@ function testCodexParentRelay() {
   } finally { cleanup(dir); }
 }
 
+
+// ---------- the tick log's writers are enumerated from the tree (2026-09-06) ----------
+// Ticket `20260902042039`. The accumulation that took the tick log off the base carried TWO
+// commit vocabularies, `Log the moderation tick` and `Log the propose tick`, both riding the same
+// `.workaholic/moderations/` day files — so a guard phrased against "the moderation tick" would
+// leave the other writer free to put the log back. The property worth pinning is therefore not a
+// tick's name but the SET of code paths that touch the log, proved from the tree rather than
+// listed in prose, so a writer added later fails this build instead of escaping the guard.
+//
+// THE LIMIT IS NAMED RATHER THAN IMPLIED, exactly as the jq row names its own: a path reached
+// only through an interpolated variable (`"$AREA/$day.md"` with `AREA` assembled elsewhere)
+// cannot be found by a literal search and is NOT covered here. What this proves is that every
+// path spelled literally in the tree is accounted for.
+T("the tick log's writers are what the tree holds (literal paths only)", testTickLogWriterSet);
+function testTickLogWriterSet() {
+  // path -> role. `writer` appends log lines; `opener` only ensures the directory; `reader`
+  // never writes. A role is a claim about the file, and a file that changes role has to change
+  // this table, which is the point.
+  const DECLARED = {
+    "plugins/workaholic/skills/moderate/scripts/log-append.sh": "writer",
+    "plugins/workaholic/skills/moderate/scripts/step-open-log.sh": "opener",
+    "plugins/workaholic/skills/moderate/scripts/log-read.sh": "reader",
+    "plugins/workaholic/skills/moderate/scripts/condition-age.sh": "reader",
+    "plugins/workaholic/skills/moderate/scripts/step-blocked-tick.sh": "reader",
+    "plugins/workaholic/skills/moderate/scripts/step-strategy-digest.sh": "reader",
+    "plugins/workaholic/skills/moderate/scripts/run.sh": "reader",
+    "plugins/workaholic/skills/moderate/scripts/persist-log.sh": "refuser",
+    "scripts/e2e/loop-drill.sh": "reader",
+  };
+
+  const roots = ["plugins/workaholic", "scripts", "hooks"];
+  const found = [];
+  const walk = (dir) => {
+    let entries = [];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { walk(full); continue; }
+      if (!e.name.endsWith(".sh")) continue;
+      let text = "";
+      try { text = readFileSync(full, "utf8"); } catch { continue; }
+      // Code lines only: a comment that discusses the log is prose, not a writer, and the
+      // retirement record in `persist-log.sh` is several paragraphs of exactly that.
+      const code = text.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+      if (code.includes(".workaholic/moderations")) {
+        found.push(full.slice(REPO_ROOT.length + 1));
+      }
+    }
+  };
+  for (const r of roots) walk(join(REPO_ROOT, r));
+
+  const declared = Object.keys(DECLARED).sort();
+  const actual = found.sort();
+  assertEq(
+    "every script naming the tick log is declared with a role",
+    JSON.stringify(actual),
+    JSON.stringify(declared),
+  );
+
+  // ONE WRITER. The role table would still pass if a second file started writing lines, so the
+  // count is pinned too — and the roles are then proved BY BEHAVIOUR rather than by grepping for
+  // a redirect, because which variable a script redirects into is a shape, not the property.
+  assertEq(
+    "exactly one path is declared a writer",
+    JSON.stringify(declared.filter((k) => DECLARED[k] === "writer")),
+    JSON.stringify(["plugins/workaholic/skills/moderate/scripts/log-append.sh"]),
+  );
+
+  // The writer writes a line; the opener creates the area and writes nothing into it. Proved by
+  // running both against one throwaway root, which is what the drill's own log assertions rest on.
+  const dir = mkdtempSync(join(tmpdir(), "wk-log-roles-"));
+  try {
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    const opener = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-open-log.sh");
+    run(dir, `sh ${opener} --tick 20260906-030000 --root ${dir}`);
+    assertEq(
+      "the opener leaves the day file unwritten",
+      existsSync(join(dir, ".workaholic/moderations/2026-09-06.md")),
+      false,
+    );
+
+    const writer = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-append.sh");
+    run(dir, `sh ${writer} --tick 20260906-030000 --root ${dir} --step probe --status ok --summary "a line"`);
+    assertTrue(
+      "the writer writes the day file",
+      existsSync(join(dir, ".workaholic/moderations/2026-09-06.md")),
+      "log-append.sh wrote no day file",
+    );
+  } finally { cleanup(dir); }
+}
+
+// ---------- the base is refused as a destination for the tick log (2026-09-06) ----------
+// Ticket `20260902042038`. The log branch is retired and the log travels nowhere, but the one
+// road out of `persist-log.sh` still leads to the base and takes whatever path a caller names —
+// so a `--record` under `.workaholic/moderations/` would put the log on `main` through the
+// publication seam. Keyed on the DESTINATION, never on whether a repository has converged: a
+// migration-state test reproduces the defect on every repository whose migration is incomplete.
+T("persist-log refuses the tick log as a record destination", testPersistLogRefusesTheLog);
+function testPersistLogRefusesTheLog() {
+  const dir = mkdtempSync(join(tmpdir(), "wk-persist-log-"));
+  try {
+    run(dir, "git init -q && git commit -q --allow-empty -m init", { env: { ...process.env } });
+    mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/moderations/2026-09-06.md"), "# log\n");
+    const before = run(dir, "git rev-list --count HEAD").stdout.trim();
+
+    const script = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/persist-log.sh");
+    const out = run(dir, `sh ${script} --tick 20260906-030000 --root ${dir} --record .workaholic/moderations/2026-09-06.md`);
+    const json = JSON.parse(out.stdout.trim().split("\n").pop());
+
+    assertEq("the refusal is named", json.reason, "log_destination_is_base");
+    assertEq("nothing was persisted", json.persisted, false);
+    assertEq("the tick is told the step could not run", json.status, "degraded");
+    assertEq("the refusal exits 0 so the tick continues", out.status, 0);
+    assertEq("nothing was committed", run(dir, "git rev-list --count HEAD").stdout.trim(), before);
+  } finally { cleanup(dir); }
+}
+
+// ---------- the tick reads whether its own log is tracked on the base (2026-09-06) ----------
+// Ticket `20260902042038`. A `.gitignore` added after the fact never untracks what is already
+// tracked, so a repository whose earlier ticks wrote day files to the base still carries them and
+// every reader reported healthy over them — measured on a consuming repository as twelve days of
+// silent hourly accumulation. The step raises a finding and moves nothing; the mover it was
+// written against was deleted with the log branch on 2026-09-03.
+T("open-log names a tick log tracked on the base", testOpenLogNamesTrackedLog);
+function testOpenLogNamesTrackedLog() {
+  const script = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-open-log.sh");
+  const readStep = (root) =>
+    JSON.parse(run(root, `sh ${script} --tick 20260906-030000 --root ${root}`).stdout.trim().split("\n").pop());
+
+  // Tracked on the base: a finding, with an event so `file-findings` can carry it.
+  const tracked = mkdtempSync(join(tmpdir(), "wk-open-log-tracked-"));
+  try {
+    run(tracked, "git init -q");
+    mkdirSync(join(tracked, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(tracked, ".workaholic/moderations/2026-08-20.md"), "# log\n");
+    run(tracked, "git add -A -f && git -c user.email=t@e -c user.name=t commit -q -m init");
+    const json = readStep(tracked);
+    assertEq("a tracked log is a named finding", json.reason, "log_tracked_on_base");
+    assertEq("it is reported as a degradation", json.status, "degraded");
+    assertTrue("it supplies an event so the finding can be filed", !!json.event, JSON.stringify(json));
+  } finally { cleanup(tracked); }
+
+  // Clean repository: byte-identical to before this reading existed.
+  const clean = mkdtempSync(join(tmpdir(), "wk-open-log-clean-"));
+  try {
+    run(clean, "git init -q && git commit -q --allow-empty -m init");
+    mkdirSync(join(clean, ".workaholic"), { recursive: true });
+    assertEq("a clean repository still reports ok", readStep(clean).status, "ok");
+  } finally { cleanup(clean); }
+
+  // Not a repository at all — a drill's throwaway root. No base to be on, so NOT a degradation.
+  const bare = mkdtempSync(join(tmpdir(), "wk-open-log-bare-"));
+  try {
+    mkdirSync(join(bare, ".workaholic"), { recursive: true });
+    assertEq("a non-repository root is not a degradation", readStep(bare).status, "ok");
+  } finally { cleanup(bare); }
+}
+
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).
 // `T()` only REGISTERS; the loop below runs what is registered by the time it is reached.
 // Four tests had been appended BELOW it and therefore never ran once -- no pass, no failure,

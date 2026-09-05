@@ -8,6 +8,7 @@ The development knowledge this project's workaholic workflows generate and maint
 organized as an Open Knowledge Format bundle. Enter any area through its index.
 
 * [tickets/](tickets/) - implementation tickets (two states: todo / archive; the outcome is the status: field)
+* moderations/ - the /moderate tick log, one file per UTC day (an operational log, not knowledge: no type:, no index, and git-ignored - it stays in the checkout and is committed nowhere)
 * [stories](stories/index.md) - branch development narratives (PR descriptions and historical record)
 * [missions](missions/index.md) - optional epic-equivalent batches of tickets, with acceptance progress and an append-only changelog
 * [feedbacks](feedbacks/index.md) - the inbound feedback stream: immutable records of insights, instructions, concerns, and customer material

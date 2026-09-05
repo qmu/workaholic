@@ -61,3 +61,7 @@ puts a tick log back on `main` fails a drill.
 - 2026-09-02 — ticket archived — 20260831182058-rule-on-the-moderations-history-left-on-main.md
 - 2026-09-02 — mission achieved — mission.md
 - 2026-09-02 — run recorded (+0.5h) — run-20260902-212324
+- 2026-09-06 — ticket archived — 20260902042038-refuse-the-base-as-a-destination-in-the-tick-log-writer.md
+- 2026-09-06 — ticket archived — 20260902042039-cover-every-writer-of-the-tick-log-not-the-moderation-tick-alone.md
+- 2026-09-06 — ticket archived — 20260902042038-complete-the-log-move-from-the-tick-not-from-a-human-workaholify.md
+- 2026-09-06 — story — work-20260906-025904.md

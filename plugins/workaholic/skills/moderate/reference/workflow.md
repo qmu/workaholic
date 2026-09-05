@@ -79,12 +79,25 @@ which is a repository fact. Whether a change *line* may name an identifier is a 
 
 ## 1. `open-log` — open the tick's log
 
-- **Reads**: the layout allowlist; `.workaholic/moderations/`.
+- **Reads**: the layout allowlist; `.workaholic/moderations/`; and whether any path under it is
+  **tracked on the base** (`git ls-files`, local, no network).
 - **Writes**: nothing. The log line `run.sh` writes for it *is* the open.
 - **Aborts**: `no_workaholic_dir` (nothing here to keep), `area_unregistered` (this checkout's
   plugin predates the area — the tick still runs, its log does not), `unwritable`.
-- **Never**: creates the area behind the layout gate's back. A step that made its own directory
-  would be routing around the gate rather than reporting it.
+- **Finds**: **`log_tracked_on_base`** (2026-09-06, ticket `20260902042038`) — day files tracked
+  in git, which a `.gitignore` added later never untracks. `degraded` with an `event`, classified
+  `repairable`, so it is filed once through `file-findings` rather than restated hourly.
+- **Names an unreadable reading**: `log_tracking_unreadable` when git failed **inside** a
+  repository. A root that is not a repository has no base to be on (a drill's throwaway root, a
+  hermetic fixture) and is not a degradation — but a reading we could not take is never rendered
+  as clean.
+- **Never**: creates the area behind the layout gate's back — a step that made its own directory
+  would be routing around the gate rather than reporting it — and **never moves or untracks the
+  files it finds**. The mover this was written against (`migrate-moderations-off-main.sh`) was
+  deleted with the log branch, `/workaholify`'s converge seam takes no migration that reaches the
+  network, and an unattended tick deleting tracked files on its own reading is wider than what the
+  retirement left it. The acceptance is disjunctive — land the move **or** raise a finding — and
+  this is the finding.
 
 ## The route a record takes to the base
 
@@ -2584,7 +2597,7 @@ decide something before any change is the right one*.
 
 | Step id | Classification | Why |
 | ------- | -------------- | --- |
-| `open-log` | `needs_ruling` | Bookkeeping; it produces no finding to file. |
+| `open-log` | **`repairable`** | It produced no finding until 2026-09-06, when it began reading whether the tick log is **tracked on the base** (`log_tracked_on_base`). Untracking a git-ignored operational log is a change to this repository and nobody owes a decision first — the design already ruled that the log is committed nowhere. The step itself moves nothing: the repair goes the long way round through the filing seam, which is what keeps an unattended tick from deleting tracked files on its own reading. |
 | `inbound-sweep` | **`repairable`** | A diverged channel default or a broken transport config is a change to this repository. |
 | `workload-logs` | `needs_ruling` | An unreachable environment is somebody's credentials, not our code. |
 | `merge-conflicts` | **`repairable`** | A pull request conflicting with the base names a seam that keeps colliding; the filing yields a **plan**, never a push onto a claimed branch. |

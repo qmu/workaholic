@@ -10,7 +10,8 @@
 #    "summary": "<one line>", "records": [{"path": "<rel>", "state": "<state>"}]}
 #
 # Record states: carried | already_on_base | missing | unreadable | unlanded.
-# Stable reasons: persisted | no_records | not_a_repo | root_not_repo_root | bad_tick.
+# Stable reasons: persisted | no_records | not_a_repo | root_not_repo_root | bad_tick |
+#                 log_destination_is_base.
 #
 # ==========================================================================================
 # THE LOG BRANCH IS RETIRED AND MUST NOT BE REINTRODUCED (2026-09-03, the developer's
@@ -102,6 +103,44 @@ fi
 if [ "$root_abs" != "$repo_root" ]; then
     report false skipped root_not_repo_root "the root is not the repository root (${root_abs} vs ${repo_root})"
 fi
+
+# THE BASE IS AN OUTRIGHT REFUSAL FOR THE LOG, NOT A DEFAULT (ticket `20260902042038`). The log
+# branch is retired above and the log now travels nowhere at all -- but the ONE road out of this
+# script still leads to the base, and it takes whatever path a caller names. A `--record` naming a
+# `.workaholic/moderations/` day file would therefore put the tick log on `main` through the
+# publication seam, which is exactly the accumulation the retirement removed: measured on a
+# consuming repository, 2026-08-20 to 2026-08-31, hundreds of `Log the * tick` commits, 12 day
+# files, roughly 7,000 lines.
+#
+# KEYED ON THE DESTINATION, NEVER ON MIGRATION STATE. A check that asked whether a repository had
+# converged would reproduce the defect on every repository whose migration is incomplete -- which
+# is every repository, since there is no migration any more. The path is the whole test.
+#
+# IT REFUSES THE CALL, WRITES NOTHING, AND EXITS 0. The tick continues and `run.sh` reports the
+# refusal by name, because a persist that could not run must read as a named degradation rather
+# than as a quiet success.
+#
+# IT DOES NOT TOUCH `--record`'s ORDINARY BASE WRITE, AND MUST NOT BE WIDENED INTO IT. A feedback
+# record is knowledge and belongs on the base by design; only the log is refused here.
+# The loop is a `for` over a newline-split list rather than a `read` pipeline on purpose: a
+# pipeline's body runs in a subshell, where `report`'s own `exit` would end that subshell and let
+# the refused call carry on into the publication.
+_oldifs="$IFS"
+IFS='
+'
+for _r in $RECORDS; do
+    IFS="$_oldifs"
+    [ -n "$_r" ] || continue
+    case "$_r" in
+        .workaholic/moderations/*|*/.workaholic/moderations/*|.workaholic/moderations)
+            report false degraded log_destination_is_base \
+                "a record named the tick log (${_r}); the log is git-ignored and goes nowhere, so nothing was written"
+            ;;
+    esac
+    IFS='
+'
+done
+IFS="$_oldifs"
 
 # Scratch for the record list. Outside the repository and the publish tree, so a run that dies
 # mid-way leaves neither carrying a stray file.

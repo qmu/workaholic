@@ -37955,6 +37955,81 @@ exit "\${STUB_EXIT:-0}"
   }
 }
 
+// ---- THE COORDINATOR OWNS THE CLOCK AND THE WORK NEVER HOLDS IT (2026-09-05, #984/#985) ----
+// Two terms cost the loop its cadence and both are asserted here at the shell boundary: the
+// supervisor slept a whole interval AFTER a completed tick (so the real period was tick
+// duration + interval), and the work ran inline inside that tick. No Codex process is involved.
+T("the Codex clock stays anchored to startup and dispatches work it never waits for",
+  testCodexCoordinatorCadence);
+function testCodexCoordinatorCadence() {
+  const makeFixture = (sleepSeconds) => {
+    const dir = makeRepo("main");
+    mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/commands"), { recursive: true });
+    mkdirSync(join(dir, "bin"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/codex-loop.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
+    writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    for (const name of ["infinite-development", "implement", "propose", "moderate"]) {
+      writeFileSync(join(dir, `plugins/workaholic/commands/${name}.md`), `# ${name}\n`);
+    }
+    const stub = join(dir, "bin/codex");
+    writeFileSync(stub, `#!/bin/sh
+out=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then out=$2; shift 2; else shift; fi
+done
+sleep ${sleepSeconds}
+printf 'stub\\n'
+printf 'idle\\n' >"$out"
+exit 0
+`);
+    chmodSync(stub, 0o755);
+    return dir;
+  };
+  const LAUNCHER = "plugins/workaholic/skills/work/scripts/codex-loop.sh";
+
+  // A tick that OVERRUNS its interval loses the boundary it overran and keeps the phase. Under
+  // the retired form next_due was always exactly finished_at + interval.
+  const slow = makeFixture(4);
+  try {
+    const env = { ...process.env, PATH: `${join(slow, "bin")}:${process.env.PATH}` };
+    const r = run(slow, `sh ${LAUNCHER} --once --interval 3`, { env });
+    assertEq("the overrunning tick still starts the clock", r.status, 0);
+    const status = JSON.parse(readFileSync(join(slow, ".codex-loop/status.json"), "utf8"));
+    const secs = (a, b) => (Date.parse(a) - Date.parse(b)) / 1000;
+    assertTrue("the tick really did outlast its interval", secs(status.finished_at, status.started_at) >= 3,
+      `${status.started_at} -> ${status.finished_at}`);
+    assertTrue("the next turn is the next startup-anchored boundary, not finish plus an interval",
+      secs(status.next_due, status.finished_at) > 0 && secs(status.next_due, status.finished_at) < 3,
+      `finished ${status.finished_at} next_due ${status.next_due}`);
+  } finally { cleanup(slow); }
+
+  const dir = makeFixture(6);
+  try {
+    const env = { ...process.env, PATH: `${join(dir, "bin")}:${process.env.PATH}` };
+    // The coordinator's own prompt must carry the substitution, not the work.
+    const dry = run(dir, `sh ${LAUNCHER} --dry-run --once`, { env });
+    assertTrue("the coordinator is told to dispatch the work rather than run it inline",
+      /--dispatch/.test(dry.stdout) && /never wait for a dispatched worker/i.test(dry.stdout),
+      dry.stdout.slice(0, 400));
+
+    assertEq("an unknown role starts nothing", run(dir, `sh ${LAUNCHER} --dispatch nope`, { env }).status, 2);
+    const first = run(dir, `sh ${LAUNCHER} --dispatch implement`, { env });
+    assertTrue("dispatching returns at once with the worker started",
+      first.status === 0 && /started pid=/.test(first.stdout), first.stdout + first.stderr);
+    const second = run(dir, `sh ${LAUNCHER} --dispatch implement`, { env });
+    assertTrue("a role already running is refused rather than started twice",
+      /already_running/.test(second.stdout), second.stdout + second.stderr);
+    const status = run(dir, `sh ${LAUNCHER} --status`, { env });
+    assertTrue("status names the running worker and the idle ones",
+      /codex worker implement: running/.test(status.stdout) &&
+      /codex worker propose: idle/.test(status.stdout), status.stdout);
+  } finally { cleanup(dir); }
+}
+
 T("the Codex parent relay validates intent, waits for acknowledgement, and never invents delivery",
   testCodexParentRelay);
 function testCodexParentRelay() {

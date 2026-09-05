@@ -39,12 +39,13 @@ citation stays a citation.
 
 `/work` and `/infinite-development` are **not reachable from Codex** — both `.codex-plugin`
 manifests expose `"skills"` and nothing else, so `commands/` reaches Codex as files in the tree
-and never as commands — and Codex has no **detached** subagent whose parent ends first.
+and never as commands — and Codex has no **detached** subagent whose parent ends first. It has
+detached **processes**, which is what the port uses instead.
 
 **In the ChatGPT desktop app, the clock is a Scheduled task inside the current chat.** It runs
 one tick per invocation in the local project and returns the report to that chat; the durable
 prompt and the local-project requirement live in `workaholic:work`. Scheduled tasks are an app
-surface. They do not make `/work` a CLI command and do not change the sequential tick below.
+surface. They do not make `/work` a CLI command and do not change the tick below.
 
 **In Codex CLI or the IDE, the clock remains external.** Those surfaces have no Scheduled
 management interface; diagnosed 2026-09-03 with `codex-cli 0.149.1` and retained as the CLI
@@ -58,16 +59,20 @@ sh <work-skill-directory>/scripts/codex-loop.sh --once  # one tick for cron or s
 The supervisor ships beside the installed `workaholic:work` skill, so no repository-local
 wrapper is required. The supervisor is the clock and **`workaholic:work` is the contract both agents read** — the
 operator's own shape: Claude Code calls the loop as a command, every other agent calls it as a
-skill, and `build.mjs` publishes it. The work runs **inline and in sequence** off Claude Code,
-because there is nothing to detach it to.
-Ticks cannot overlap by construction; `flock` refuses a second supervisor; the cadences are read
+skill, and `build.mjs` publishes it. **The coordinator's tick is the channel turn and the
+dispatch, never the work** (2026-09-05, issues #984 and #985): each due run starts as a detached
+worker through `codex-loop.sh --dispatch <role>` and the tick never waits for one, while the
+clock is anchored to **startup** rather than to the previous tick's finish, so a run lasting
+longer than the interval costs the boundaries it overran and never delays the next channel turn.
+A role already running is refused `already_running`, which is what `ListAgents` answers for the
+Claude tick. `flock` refuses a second supervisor; the cadences are read
 from the same tick log, which never depended on an agent listing. `.claude/settings.json`'s `env`
 block is read and exported by the supervisor, so there is one declaration for both agents.
 
-**What the sequential port loses is stated rather than discovered**: the five-minute answer to a person
-(here the Slack turn is the tick's first act, so the worst case is one tick's work duration) and
-the Claude-Code tool-level hooks (the script-level gates still hold; install the git-native
-`commit-msg` hook for the rest). **Codex CLI has no Scheduled management surface**; the desktop
+**What the port loses is stated rather than discovered**: the Claude-Code tool-level hooks, and
+nothing else since 2026-09-05 (the script-level gates still hold; install the git-native
+`commit-msg` hook for the rest). The five-minute answer to a person is **no longer** on that
+list — it was, while the work ran inline, and both terms that cost it were repaired. **Codex CLI has no Scheduled management surface**; the desktop
 app does, and a chat-bound task restores the missing report path without changing the tick. The
 measurements, the rejected two-loop split and the full substitution table:
 `workaholic:work`'s `reference/other-agents.md`.

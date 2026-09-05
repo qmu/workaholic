@@ -38,8 +38,8 @@ apparatus, and the whole apparatus is the full plugin — which Codex already in
 | ---------------- | --------------- | ------------ |
 | `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **CLI/IDE:** no Scheduled management interface | a Scheduled task in the current chat for desktop; the installed work skill's `scripts/codex-loop.sh` for CLI/IDE |
 | slash-command dispatch of `commands/*.md` | **None** (manifests expose skills only) | the loop is a **skill** (`workaholic:work`); the tick reads the other command bodies as files and executes them |
-| a **detached** background subagent whose parent ends first | Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their results** — there is no parent-ends-children-continue lifetime | the work runs **inline, in sequence** |
-| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | ticks cannot overlap by construction; `flock` refuses a second **supervisor** |
+| a **detached** background subagent whose parent ends first | Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their results** — there is no parent-ends-children-continue lifetime | a **detached process**: `codex-loop.sh --dispatch <role>` starts one and returns. A process outlives the run that started it where a subagent does not |
+| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | a per-role **lock**: `--dispatch` refuses `already_running`, and `--status` names each role's state. A lock is visible to a run that cannot see the previous run's agents. Nothing is reaped — a worker is a process that ends |
 | `${CLAUDE_PLUGIN_ROOT}` | not defined | the tick names `plugins/workaholic` and writes paths out in full |
 | `.claude/settings.json` `env` | not read | `codex-loop.sh` reads that same block and exports it, so there is **one** declaration |
 | the plugin's `hooks/hooks.json` | not carried by either Codex manifest; Codex hooks are its own configuration | **the gates are absent on Codex** — see *What is lost* |
@@ -47,10 +47,14 @@ apparatus, and the whole apparatus is the full plugin — which Codex already in
 
 ## What is lost, stated rather than discovered later
 
-1. **The responsiveness property inside a tick.** The Claude tick answers a person within five minutes
-   *whatever the work is doing*, because the work is detached. A sequential tick answers at its
-   own **top**, so the worst case is one tick's work duration. A chat-bound Scheduled task does
-   restore one thing the external CLI supervisor cannot: its final report returns to the chat.
+1. **Nothing about responsiveness, since 2026-09-05.** The sequential form did lose it, and that
+   is what issues #984 and #985 measured: `codex exec` ran the whole tick inline and the
+   supervisor then slept a further interval, so the real period was *tick duration + interval*
+   and a tick still running six minutes into a five-minute loop pushed the next channel turn past
+   the eleventh minute. Both terms were repaired rather than one — the clock is anchored to
+   startup and the work is dispatched as detached workers — so the channel turn now happens on
+   the interval whatever the work is doing. A chat-bound Scheduled task still restores the one
+   thing the external CLI supervisor cannot: its final report returns to the chat.
 2. **The hooks.** `guard-git-branch.sh`, `guard-git-commit.sh`, `validate-ticket.sh` and the
    rest are Claude Code `PreToolUse`/`PostToolUse` hooks. On Codex the **script-level** gates
    still hold — `check-subject.sh` runs inside `commit.sh` and `archive.sh`, and the opt-in
@@ -59,14 +63,24 @@ apparatus, and the whole apparatus is the full plugin — which Codex already in
 3. **Nothing else.** Every other reader the loop depends on is a POSIX shell script over git and
    REST, which is why the port needed no second store, cursor, field or vocabulary.
 
-## Why one sequential loop rather than two concurrent ones
+## One coordinator with workers, and why that is not the retired three-loop premise
 
-Splitting the Slack turn from the work would restore responsiveness and was **refused by name**:
-this repository retired exactly that shape on 2026-09-03 (`workaholic:loops`) after measuring it
-— the propose loop reported `work_waiting` every five minutes for hours while the implement loop
-reported nothing claimable, each correct in isolation and neither able to see that five pull
-requests had sat conflicted since the previous day. Three places to look and no place that held
-the whole loop. One slower loop that can see itself beats two fast ones that cannot.
+Splitting the Slack turn from the work was **refused here until 2026-09-05**, on the strength of
+the shape this repository retired on 2026-09-03 (`workaholic:loops`): the propose loop reported
+`work_waiting` every five minutes for hours while the implement loop reported nothing claimable,
+each correct in isolation and neither able to see that five pull requests had sat conflicted
+since the previous day. That refusal was **too wide**, and the operator's #984/#985 named the
+cost it was paying.
+
+What was retired was three **clocks**, three **views** and three places to look. What ships now
+is one coordinator holding the only clock and the only view, dispatching workers that hold
+neither: a worker decides no cadence, reads no channel, starts no other worker, and records its
+finish into the **same tick log** the coordinator reads to decide what is due. There is still one
+place that sees the whole loop. That is the Claude Code shape — a main agent with detached
+subagents — reached with processes, because processes are what Codex has.
+
+The one thing a process gives that a Codex subagent does not is the lifetime: `--dispatch`
+returns and its child survives, where a parent collecting subagent results cannot end first.
 
 ## Running it in the ChatGPT desktop app
 
@@ -104,7 +118,17 @@ sh <work-skill-directory>/scripts/codex-loop.sh --dry-run --once
 sh <work-skill-directory>/scripts/codex-loop.sh --status        # read state; start nothing
 sh <work-skill-directory>/scripts/codex-loop.sh --relay --once  # parent waits for JSON intents
 sh <work-skill-directory>/scripts/codex-loop.sh --ack <file>    # validate parent outcomes
+sh <work-skill-directory>/scripts/codex-loop.sh --dispatch implement   # start one worker, return
+sh <work-skill-directory>/scripts/codex-loop.sh --worker implement     # run one in this process
 ```
+
+`--dispatch <role>` is what the coordinator's tick calls for each **due** role. It starts a
+detached worker and returns immediately; a role already running reports `already_running` and is
+not started twice, which is the guarantee `ListAgents` gives the Claude tick. `--worker <role>`
+is what that detached process runs — it holds the role's lock, executes `commands/<role>.md`
+once, and records `loop-finish-<role>` into the tick log so the cadence readers see it. An
+unknown role is `bad_role` and a missing body is `plugin_command_missing`; neither starts
+anything. `--status` names each role's state beside the supervisor's own.
 
 In this source repository, `sh scripts/codex-loop.sh` is a compatibility shim onto that same
 implementation. Startup reports `clock_wrapper_missing`, `plugin_skill_missing`,

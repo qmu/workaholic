@@ -1362,10 +1362,11 @@ cmd_verify_moderate() {
         add_row "moderate_log" false "the tick wrote no log at ${_log}" load
     fi
 
-    # THE DRILL MUST NOT PUBLISH. The tick's closing act puts the log on the base, and
-    # the drill runs against a throwaway root from inside the operator's own checkout —
-    # so the one thing worth pinning here is that a root outside a repository is skipped
-    # BY NAME rather than committed into whatever repository the cwd happens to be.
+    # THE DRILL MUST NOT PUBLISH. The tick's closing act carries its FEEDBACK RECORDS to the
+    # base (the log itself goes nowhere — it is git-ignored and stays in the checkout), and the
+    # drill runs against a throwaway root from inside the operator's own checkout — so the one
+    # thing worth pinning here is that a root outside a repository is skipped BY NAME rather
+    # than committed into whatever repository the cwd happens to be.
     if printf '%s' "$_out" | grep -q '"reason": "not_a_repo"'; then
         add_row "moderate_persist" true "the drill's throwaway root is skipped by name, never published" load
     else
@@ -1388,6 +1389,113 @@ cmd_verify_moderate() {
         emit_verdict "moderate" 0 "fail" 1
     fi
     emit_verdict "moderate" 0 "pass" 0
+}
+
+# ----------------------------------------------------------------- verify-log-off-base
+# Does the tick log stay OFF the base, for every writer rather than for one tick's name?
+# (2026-09-06, tickets `20260902042038` / `20260902042039`.) The accumulation that took the log
+# off `main` carried two commit vocabularies — `Log the moderation tick` and `Log the propose
+# tick` — riding the same day files, so a guard phrased against the moderation tick alone leaves
+# the other writer free to put the log back. This drill is therefore parameterised over the
+# writer set DERIVED FROM THE TREE, never over one case per tick name.
+#
+# Hermetic: throwaway repositories, no network, no `gh`, no credential.
+cmd_verify_log_off_base() {
+    _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _persist="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/persist-log.sh"
+    _open="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/step-open-log.sh"
+    for _f in "$_append" "$_persist" "$_open"; do
+        [ -f "$_f" ] || emit_err "log_scripts_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    # 1. THE WRITER SET, FROM THE TREE. Every shell script whose CODE names the log — comments are
+    # prose, and `persist-log.sh`'s retirement record is paragraphs of exactly that. None of them
+    # may stage or commit a log path: that is the one act the retirement forbids, and it is
+    # checkable for every member of the set whether or not the member can be run standalone.
+    _writers=$(cd "$REPO_ROOT" && grep -rl '\.workaholic/moderations' plugins/workaholic scripts hooks 2>/dev/null \
+        | grep '\.sh$' | sort)
+    _n_writers=$(printf '%s\n' "$_writers" | grep -c '' || true)
+    _committers=''
+    for _w in $_writers; do
+        if grep -v '^[[:space:]]*#' "${REPO_ROOT}/${_w}" 2>/dev/null \
+            | grep -qE 'git[^|]*(add|commit)[^|]*moderations'; then
+            _committers="${_committers} ${_w}"
+        fi
+    done
+    if [ -z "$_committers" ]; then
+        add_row "log_no_writer_commits" true "none of the ${_n_writers} script(s) naming the tick log stages or commits it" load
+    else
+        add_row "log_no_writer_commits" false "a writer stages or commits the tick log:${_committers}" load
+    fi
+
+    # 2. THE DESTINATION REFUSAL, BEHAVIOURALLY. A `--record` naming a day file is the one road
+    # left from this script to the base.
+    _root=$(mktemp -d)
+    (cd "$_root" && git init -q && git commit -q --allow-empty -m init) >/dev/null 2>&1
+    mkdir -p "${_root}/.workaholic/moderations" "${_root}/.workaholic/feedbacks"
+    printf '# log\n' > "${_root}/.workaholic/moderations/2026-09-06.md"
+    _before=$( (cd "$_root" && git rev-list --count HEAD) 2>/dev/null || printf 0)
+    _out=$(sh "$_persist" --tick 20260906-030000 --root "$_root" \
+        --record .workaholic/moderations/2026-09-06.md 2>&1 || true)
+    _after=$( (cd "$_root" && git rev-list --count HEAD) 2>/dev/null || printf 0)
+    if printf '%s' "$_out" | grep -q '"reason": "log_destination_is_base"' && [ "$_before" = "$_after" ]; then
+        add_row "log_destination_refused" true "a record naming the tick log is refused by name and commits nothing" load
+    else
+        add_row "log_destination_refused" false "the log was not refused as a destination: $(one_line "$_out")" load
+    fi
+
+    # 3. THE BREAKER. A copy of the writer with its destination guard removed must FAIL this
+    # drill — written against the behaviour (does the refusal still happen) rather than against a
+    # return shape, so a guard that stops working cannot pass by printing the same fields.
+    _broken="${_root}/persist-log-broken.sh"
+    sed 's|^            report false degraded log_destination_is_base .*|            : ;|' "$_persist" > "$_broken"
+    _bout=$(sh "$_broken" --tick 20260906-030000 --root "$_root" \
+        --record .workaholic/moderations/2026-09-06.md 2>&1 || true)
+    if printf '%s' "$_bout" | grep -q '"reason": "log_destination_is_base"'; then
+        add_row "log_destination_breaker" false "a copy with the guard removed still refused — this drill proves nothing" breaker
+    else
+        add_row "log_destination_breaker" true "a copy with the guard removed stops refusing, so the guard is what refuses" breaker
+    fi
+    rm -rf "$_root"
+
+    # 4. THE RESIDUE IS SEEN. A `.gitignore` added after the fact never untracks what is already
+    # tracked, so a repository whose earlier ticks wrote to the base still carries the files and
+    # nothing reported it. The tick raises a finding; it moves nothing.
+    _tracked=$(mktemp -d)
+    (cd "$_tracked" && git init -q) >/dev/null 2>&1
+    mkdir -p "${_tracked}/.workaholic/moderations"
+    printf '# log\n' > "${_tracked}/.workaholic/moderations/2026-08-20.md"
+    (cd "$_tracked" && git add -A -f && git -c user.email=t@e -c user.name=t commit -q -m init) >/dev/null 2>&1
+    _tout=$(sh "$_open" --tick 20260906-030000 --root "$_tracked" 2>&1 || true)
+    if printf '%s' "$_tout" | grep -q '"reason": "log_tracked_on_base"'; then
+        add_row "log_residue_seen" true "a tick log tracked on the base is named as a finding" load
+    else
+        add_row "log_residue_seen" false "a tracked tick log was not reported: $(one_line "$_tout")" load
+    fi
+    _still=$( (cd "$_tracked" && git ls-files -- .workaholic/moderations | grep -c '') 2>/dev/null || printf 0)
+    if [ "$_still" = "1" ]; then
+        add_row "log_residue_untouched" true "the step reports the residue and moves none of it" load
+    else
+        add_row "log_residue_untouched" false "the step changed what is tracked (${_still} file(s) left)" load
+    fi
+    rm -rf "$_tracked"
+
+    # 5. A CLEAN REPOSITORY IS UNCHANGED by all of the above.
+    _clean=$(mktemp -d)
+    (cd "$_clean" && git init -q && git commit -q --allow-empty -m init) >/dev/null 2>&1
+    mkdir -p "${_clean}/.workaholic"
+    _cout=$(sh "$_open" --tick 20260906-030000 --root "$_clean" 2>&1 || true)
+    if printf '%s' "$_cout" | grep -q '"status": "ok"'; then
+        add_row "log_clean_unchanged" true "a repository with its log off the base reports ok as before" load
+    else
+        add_row "log_clean_unchanged" false "a clean repository did not report ok: $(one_line "$_cout")" load
+    fi
+    rm -rf "$_clean"
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "log-off-base" 0 "fail" 1
+    fi
+    emit_verdict "log-off-base" 0 "pass" 0
 }
 
 # ----------------------------------------------------------------- verify-propose
@@ -11074,6 +11182,7 @@ case "$CMD" in
     verify-planner) cmd_verify_planner "$@" ;;
     verify-standup) cmd_verify_standup "$@" ;;
     verify-moderate) cmd_verify_moderate "$@" ;;
+    verify-log-off-base) cmd_verify_log_off_base "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-arrival) cmd_verify_arrival "$@" ;;

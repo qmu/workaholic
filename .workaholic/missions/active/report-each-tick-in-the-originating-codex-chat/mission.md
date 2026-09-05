@@ -10,7 +10,7 @@ assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260906022552-report-each-tick-in-the-originating-codex-chat-and-prove-it-end-to-end.md]
+feedback: [20260906022552-report-each-tick-in-the-originating-codex-chat-and-prove-it-end-to-end.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:

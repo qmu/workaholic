@@ -218,6 +218,35 @@ same tick log, on both. The claim protocol remains the only allocator of reposit
 map bounds **dispatch**, never claims, and a duplicate dispatch would be refused by the claim
 arbiter anyway.
 
+### What *end* means, and the two events that earn a final response
+
+`commands/infinite-development.md` tells the tick to **end**. What that renders to is the
+**branch's**, not the agent's — and reading it as *emit a final answer* is what killed the loop
+once: the session ran its tick, ended its turn, and the operator's next status arrived only
+because they asked for it.
+
+| Branch | What *end* means |
+| ------ | ---------------- |
+| **1. Native parent** | **return control to the coordinator's own loop**, emitting nothing final. The clock is this turn, and a final response ends it |
+| **1. Native parent, harness timer** | end the tick; the harness's own in-process timer calls it again in the same session |
+| **2. Same-chat schedule** | end the run; the schedule re-invokes it and returns the report to this chat |
+| **3. External supervisor** | end the process; the supervisor's clock re-invokes it |
+
+**Under branch 1 a final response is reserved for exactly two events, and no others:**
+
+- **an explicit stop from the operator** — which stops further dispatch and **states what remains
+  running**, the roles still in flight and their child identifiers, rather than ending silently;
+- **a named inability to continue** — the missing mechanism the startup report already named.
+
+**An ordinary question or correction during the loop is answered in commentary.** It neither
+cancels the loop nor resets the anchor: the following boundary lands where the original anchor
+puts it. This **adds nothing to the tick's ceiling** — the shapes it may post are unchanged, and
+**commentary in the originating conversation is not a Slack post**.
+
+Where the clock re-invokes the tick — the harness timer, the schedule, the supervisor — the
+existing wording is already correct and is deliberately not rewritten around this: the distinction
+is only meaningful where a final response ends the turn.
+
 Two further limits off Claude Code: **an absent channel transport is reported by name**
 (`no_slack_transport`) and never worked around, and the **tool-level hooks do not fire** — the
 script-level gates still hold, and `sh plugins/workaholic/hooks/install-git-hooks.sh` is the

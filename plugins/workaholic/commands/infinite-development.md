@@ -14,8 +14,10 @@ One tick. **Watch the channel, answer on it, start the work, end.** The tick nev
 the work it started: the loop's responsiveness to a person is the point, and a five-minute
 cadence is only a cadence if the tick itself is short.
 
-Run it under `/loop 5m /infinite-development`, in **one** session. The premise, the subagent
-contract and what was retired for it: `workaholic:loops`.
+Run it under `/loop 5m /infinite-development`, in **one** session — that timer being the harness's
+form of the native-parent branch. **Which mode calls this body is selected from what the session
+can do**, never from the agent's name (`workaholic:work`, *Starting it*). The premise, the
+subagent contract and what was retired for it: `workaholic:loops`.
 
 **Every skill section, reference file or command body this run consults is read with the Read
 tool**, never with `sed`, `grep`, `cat` or `head` (2026-09-02, issue #865): a shell read under
@@ -106,6 +108,16 @@ that turns one person's reply into a proposal nobody asked for, and the question
 forever because nothing recorded the answer. Reacting to it is fine; filing it is not.
 
 **Anything else a person wrote** gets the reaction `:eyes:` and no reply.
+
+**A question or correction arriving mid-loop neither cancels the loop nor resets the anchor.** It
+is answered where it was asked and the coordinator returns to the **same** deadline; the two paths
+are stated here rather than left to be inferred, because obeying *end* literally on a harness
+where a final response ends the turn is what stopped the loop once. **An explicit stop from the
+operator is the other path**: it stops further dispatch and **names what remains running** — the
+roles still in flight and their child identifiers — rather than ending silently. Which of these
+emits a final response, and on which branch, is `workaholic:work`, *What "end" means*. **Neither
+adds a shape to this ceiling**, and commentary in the conversation the loop was started in is not
+a Slack post.
 
 **Which direction an ask answers** rides the filed issue through
 `feedback/scripts/ask-feedback-line.sh` — an explicit strategy slug first, else a judgement
@@ -277,7 +289,9 @@ that one timestamp and **carries no entries** — and spawn it only when the new
 **older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just now*. An unreadable log spawns it — over-reporting
 beats a maintenance tick that silently stopped.
 
-Then **end the turn**. Do not poll, do not await, do not summarise their work: their results
+Then **end** — which is the **branch's** word, not a final answer (`workaholic:work`, *What "end"
+means*): under the native-parent branch it returns control to the coordinator's own loop and emits
+nothing final, and everywhere else the clock re-invokes this body. Do not poll, do not await, do not summarise their work: their results
 arrive as task notifications, and the next tick reports what landed. **A run's result reaches the
 parent once**: the idle notification always arrives, so a subagent must not also be asked for a
 summary message. The notification is the one that cannot be turned off, so it is the one that

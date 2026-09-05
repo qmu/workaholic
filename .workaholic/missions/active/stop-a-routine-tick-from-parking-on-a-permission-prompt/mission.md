@@ -16,7 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260903-014343
+claim: work-20260906-081744
 ---
 
 # Stop a routine tick from parking on a permission prompt

@@ -2,7 +2,7 @@
 type: Mission
 title: Stop a routine tick from parking on a permission prompt
 slug: stop-a-routine-tick-from-parking-on-a-permission-prompt
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-02T04:30:50+00:00
 author: a@qmu.jp
@@ -59,3 +59,4 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - 2026-09-06 — ticket archived — 20260902043117-remove-the-prompt-raising-read-at-its-source-in-the-propose-path.md
 - 2026-09-06 — story written — restructure ruled over an allow entry; bash keeps <src>, a Read takes the checkout's path — work-20260906-081744.md
 - 2026-09-06 — run recorded (+1.1h) — implement-20260906-0817
+- --root — mission achieved — mission.md

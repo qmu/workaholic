@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260907-064247](work-20260907-064247.md) - Scope the tick log's one reader by owner so the coordinator's finish lines stop shadowing moderation, repairing two silently broken consumers without touching either.
 * [work-20260907-045136](work-20260907-045136.md) - The tick's moderate cadence now reads its own recorded finish instead of the newest line in a log every loop writes to, so a busy loop can no longer silence the maintenance tick indefinitely.
 * [work-20260907-024858](work-20260907-024858.md) - A verification handoff holds the members that declare it rather than the whole unit, so a partly-declared claim is offered and its non-declaring members are driven.
 * [work-20260906-214424](work-20260906-214424.md) - The dispatch claims its role before it forks, so two dispatches of one role start one worker instead of racing the detached child that used to take the lock

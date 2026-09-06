@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260907-024858
 ---
 
 # Hand off the members that declare, and drive the rest

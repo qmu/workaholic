@@ -10,6 +10,10 @@
 # Output: one JSON line, exit 0 in EVERY case including every refusal:
 #   {"arbitrated": true|false, "state": "won"|"lost"|"unavailable"|"released",
 #    "reason": "", "refs": [...], "held_by_ref": "", "stale_lock": false}
+# `reap` alone carries one further field, `unreapable: [{ref, reason, detail}]` -- the locks
+# it MET and could not sweep (`undatable`, `push_refused`). An empty `refs` with a non-empty
+# `unreapable` is the sweep failing; an empty `refs` with an empty `unreapable` is the sweep
+# finding nothing to do. Reading those two as one answer is what let a lock stand for days.
 #
 # ═══ WHY THIS EXISTS ═════════════════════════════════════════════════════════════════
 # MEASURED 2026-08-30: `work-20260830-055314` and `work-20260830-055318` were both claimed
@@ -128,19 +132,47 @@ if [ "$cmd" = "reap" ]; then
     for h in $held; do held_refs="${held_refs}$(_refname "$h")
 "; done
     reaped=""
+    unreapable=""
     for line in $(git ls-remote origin 'refs/claims/artifact/*' 2>/dev/null | awk '{print $2 "|" $1}' || printf ''); do
         r="${line%%|*}"; sha="${line#*|}"
         printf '%s\n' "$held_refs" | grep -qx "$r" && continue
         # A LOCK WE CANNOT DATE IS LEFT ALONE. The object may not be local, and fetching it to
-        # judge an age would make a sweep the most expensive read in the protocol.
+        # judge an age would make a sweep the most expensive read in the protocol. It is NAMED
+        # rather than skipped in silence: a lock nothing can date is a lock nothing will ever
+        # reap, which is the eternal lock this sweep exists to make impossible.
         ct=$(git log -1 --format=%ct "$sha" 2>/dev/null || printf '')
-        [ -n "$ct" ] || continue
+        if [ -z "$ct" ]; then
+            unreapable="${unreapable}${r}|undatable|
+"
+            continue
+        fi
         [ $(( (now - ct) / 60 )) -ge "$stale_minutes" ] || continue
-        git push origin ":${r}" >/dev/null 2>&1 || continue
+        # A REFUSED DELETE IS THE SWEEP'S OWN FAILURE, NOT AN EMPTY SWEEP. MEASURED
+        # 2026-09-06: a lock 78 hours old, with no live claim behind it and a perfectly
+        # datable object -- every term of this sweep satisfied -- stood for three days while
+        # `reap` answered `{"state": "released", "refs": []}` on every run, because the delete
+        # was refused and `|| continue` threw the refusal away. That answer is byte-identical
+        # to a healthy no-op, so nothing anywhere could tell "there was nothing to sweep" from
+        # "I could not sweep the one thing there was", and the mission behind the lock was
+        # refused `claim_race_lost` once an hour, forever. Reporting the refusal is what makes
+        # the sweep's own failure legible; it is still never a hard stop.
+        if ! push_err=$(git push origin ":${r}" 2>&1); then
+            unreapable="${unreapable}${r}|push_refused|$(
+                printf '%s' "$push_err" | tr '\n\t' '  ' \
+                    | sed 's/[^A-Za-z0-9 ._:/-]/ /g; s/  */ /g' | cut -c1-120
+            )
+"
+            continue
+        fi
         reaped="${reaped}${r}
 "
     done
-    _emit released reaped "$reaped" "" false
+    # `reap` is the ONE command that carries `unreapable`; every other command's line is
+    # byte-identical to what it always was.
+    printf '{"arbitrated": false, "state": "released", "reason": "reaped", "refs": [%s], "held_by_ref": "", "stale_lock": false, "unreapable": [%s]}\n' \
+        "$(_json_refs "$reaped")" \
+        "$(printf '%s' "$unreapable" | grep . 2>/dev/null | sed 's/^\([^|]*\)|\([^|]*\)|\(.*\)$/{"ref": "\1", "reason": "\2", "detail": "\3"}/' | paste -sd, - 2>/dev/null || printf '')"
+    exit 0
 fi
 
 [ $# -gt 0 ] || _emit unavailable no_artifacts "" "" false

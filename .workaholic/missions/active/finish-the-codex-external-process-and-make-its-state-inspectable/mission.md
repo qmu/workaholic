@@ -39,7 +39,7 @@ failed are four distinct readings. A degraded read says so and never reads as he
 
 ## Acceptance
 
-- [ ] The empty-directory reading is reproduced and localized, and "never started" is
+- [x] The empty-directory reading is reproduced and localized, and "never started" is
       distinguishable from "started and stopped" in the directory itself. (#20260906102220-reproduce-and-localize-the-empty-codex-state-directory.md)
 - [ ] Each dispatched worker's state and last outcome are readable as data in the state
       directory, not only as a live lock probe. (#20260906102221-record-each-codex-worker-s-state-and-last-outcome-as-data.md)
@@ -48,3 +48,4 @@ failed are four distinct readings. A degraded read says so and never reads as he
 
 ## Changelog
 
+- 2026-09-06 — ticket archived — 20260906102220-reproduce-and-localize-the-empty-codex-state-directory.md

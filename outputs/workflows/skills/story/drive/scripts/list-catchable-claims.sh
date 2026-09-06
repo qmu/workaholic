@@ -6,7 +6,7 @@
 # Output: {"ok": bool, "reason": "", "fetched": bool, "shallow": bool,
 #          "count": <n>|null,
 #          "candidates": [{"unit": "...", "branch": "work-...",
-#                          "resume_reason": "report_undelivered"|"queue_drained",
+#                          "resume_reason": "report_undelivered"|"queue_drained"|"awaiting_verification",
 #                          "mergeability": "mechanical"|"content"}]}
 #         Always exit 0 — a degraded read is an answer, and its caller reports it rather than
 #         failing the run on it.
@@ -39,15 +39,35 @@
 # WHY `clean` IS DELIBERATELY NOT A CANDIDATE. There is nothing to catch up, and
 # `catch-up-claim.sh` would answer `already_current` after attaching a worktree. Filtering here
 # keeps the steady state — every reported claim current with the base — costing the run nothing
-# at all rather than a worktree per claim per tick. `content` is not a candidate either: it is a
-# person's, refused by the writer and asked about by `/moderate`. `unanswerable` is the ABSENCE
+# at all rather than a worktree per claim per tick. (`content` WAS excluded on the same footing
+# until 2026-09-02, on the ground that it was a person's; it is a candidate now, for the reason
+# recorded at the `units=` assignment below.) `unanswerable` is the ABSENCE
 # of a reading and is never actable (`../reference/claims.md`, *When a bounded act may read a
 # judgement*).
 #
-# THE OPEN-PULL-REQUEST TERM IS READ OFF THE ROW, AND COSTS NO LOOKUP. Both admitted verdicts
+# `awaiting_verification` JOINED THEM ON 2026-09-07 (ticket
+# `20260907070931-offer-an-awaiting-verification-claim-to-the-catch-up`). It is the one class of
+# branch GUARANTEED to sit open for a long time — the handoff route opens the pull request and
+# leaves it open by design, waiting on a person — and it was the one class the catch-up never
+# touched, so its work decayed for exactly as long as the person took. The handoff route says the
+# pull request stays open; it does not say the branch should rot while it waits. MEASURED on this
+# repository 2026-09-07: mission `report-each-tick-in-the-originating-codex-chat`, claim
+# `work-20260906-023953`, PR #993, open ~25 hours, six of seven tickets driven and archived on the
+# branch, `mergeability: content` against a `main` that had taken many merges since
+# 2026-09-06T04:13+09:00 — and `list-catchable-claims.sh` offered nothing at all.
+#
+# THE WIDENING IS THE CANDIDATE SET AND NOTHING ELSE. `catch-up-claim.sh` gains no verdict, keeps
+# every refusal, and DELIVERS ONLY `queue_drained` — a handoff pull request is open because a
+# PERSON is the next actor, so an `awaiting_verification` candidate is caught up, pushed, and
+# reported `delivery: not_attempted: awaiting_verification`. No handoff declaration is read,
+# weakened or re-derived here, and no handoff pull request is merged by anything.
+#
+# THE OPEN-PULL-REQUEST TERM IS READ OFF THE ROW, AND COSTS NO LOOKUP. All three admitted verdicts
 # already MEAN "at an open pull request" in the oracle's own definitions — `report_undelivered`
-# is "finished, pushed, at an open pull request" and `queue_drained` is "reported, pushed, at an
-# open pull request, with no recorded merge refusal". Adding a REST call per candidate here would
+# is "finished, pushed, at an open pull request", `queue_drained` is "reported, pushed, at an
+# open pull request, with no recorded merge refusal", and `awaiting_verification` is reachable
+# only under the oracle's own `reported` term, so it carries that meaning too. Adding a REST call
+# per candidate here would
 # derive a second time what the verdict already carries, would duplicate the lookup
 # `catch-up-claim.sh` makes for its own review bound, and would make this reader — a pure,
 # offline read — need a credential. Measured against the alternative and recorded rather than
@@ -117,7 +137,9 @@ rows=$(printf '%s' "$out" \
 # name, and offering a candidate the act must refuse spends a worktree to learn nothing.
 units=$(printf '%s' "$out" \
     | jq -r '[.claims[]?
-              | select((.resume_reason == "report_undelivered" or .resume_reason == "queue_drained")
+              | select((.resume_reason == "report_undelivered"
+                        or .resume_reason == "queue_drained"
+                        or .resume_reason == "awaiting_verification")
                        and (.mergeability == "mechanical" or .mergeability == "content"))
               | .unit] | unique | .[]' 2>/dev/null || true)
 
@@ -139,7 +161,7 @@ for unit in $units; do
     verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
     [ -n "$branch" ] || continue
     case "$verdict" in
-        report_undelivered | queue_drained ) ;;
+        report_undelivered | queue_drained | awaiting_verification ) ;;
         * ) continue ;;
     esac
     class=$(printf '%s' "$out" | jq -r --arg b "$branch" \

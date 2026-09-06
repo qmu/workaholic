@@ -236,9 +236,11 @@ are **once-per-run** acts, so a single pass walks every entry, and counting them
 spawn N runners to do one runner's work and race each other on the same pull requests. The
 per-term counts (`undelivered`, `catchable`, `stranded`) ride beside `recovery_units` so the
 tick's report can name **which** term earned the runner. A unit appearing in two of the sets is
-counted once. `parked_with_pr`, `awaiting_verification` and `superseded` are still not counted —
-the first is reached through the catchable term where it is actionable at all, the second waits
-on a declared verification this reader may not probe, and the third holds nothing to drive.
+counted once. `parked_with_pr`, `awaiting_verification` and `superseded` are still not counted as
+units to **claim** — the first two are reached through the catchable term where they are
+actionable at all (`awaiting_verification` since 2026-09-07, ticket `20260907070931`: a handoff
+branch that has fallen behind is work an `/implement` pass would act on, so the `catchable` count
+rises, and the catch-up still delivers nothing for it), and the third holds nothing to drive.
 
 **A recovery component that could not be read answers `readable: false` with its own reason**
 (`catchable_unreadable`, `stranded_unreadable`), never a zero: the caller's stated behaviour on

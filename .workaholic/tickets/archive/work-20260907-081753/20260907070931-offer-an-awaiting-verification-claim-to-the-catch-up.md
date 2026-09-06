@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-07T07:09:31+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260907070904-keep-a-handoff-branch-mergeable-while-it-waits-for-the-person.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260907-081753
 ---
 
 # Offer an awaiting_verification claim to the catch-up

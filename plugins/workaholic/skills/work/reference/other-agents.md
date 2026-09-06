@@ -233,6 +233,47 @@ boot id, the start time, the interval, the anchor and the log directory.
 alone: a reading that cannot rule out a recycled number says so instead of claiming liveness. An
 absence of a reading is never a healthy one — the rule every other three-valued reader here holds.
 
+### Each worker's state and last outcome
+
+**`.codex-loop/worker-<role>.json` carries what the worker reported, beside the lock rather than
+instead of it** (2026-09-06, the same mission). A role's state existed only as a live `flock`
+probe and its outcome only as an unindexed transcript, so *idle because it finished cleanly* and
+*idle because it failed forty minutes ago* were one word; `last_outcome` came from the moderate
+tick log — `.workaholic/moderations/`, a different tree on a different path, written by whichever
+loop last ran — so a machine running the Claude loop reported the Claude loop's workers under
+`codex worker <role>`.
+
+The record is written when the worker starts (`running`) and again when it finishes
+(`finished`), carrying the role, the tick stamp, the start and finish times, the **process exit
+status** and the **reported outcome** as separate fields, and the report and transcript paths.
+The outcome is `worker_outcome`'s own word, derived from the worker's schema-constrained report —
+never from the exit status alone and never from words grepped out of prose.
+
+| Reading | What it means |
+| ------- | ------------- |
+| `never_dispatched` | no record — this role has never run here |
+| `finished:<outcome>` | it finished, carrying what it **reported**: `ok`, `blocked:<reason>`, `failed:<reason>`, `not_executed:<reason>`, or `unreadable:<reason>` when the report could not be read |
+| `running` | the recorded pid is alive under the recorded boot id |
+| `died_unrecorded` / `died_unrecorded:reboot` | it left a `running` record and its process is gone — never a finish |
+| `unreadable:<reason>` | `malformed`, `unknown_state`, `jq_missing`, `boot_unverifiable` |
+
+`liveness_reading` is the **one** derivation of *is the process that wrote this record still the
+one running*, shared by the supervisor record and every per-role record.
+
+**The lock remains the only concurrency authority.** `--dispatch` still refuses `already_running`
+on `role_state`, which reads the lock; nothing refuses, starts or reaps a worker by reading these
+records, and the suite asserts that structurally. `record_worker_finish`'s tick-log write is
+untouched — this is a second surface, not a replacement, and the cadence readers still read the
+log.
+
+**A run that writes nothing creates nothing.** The state directory used to be created inside the
+dispatch branch *before* the `codex` presence check, so `--dispatch <role> --dry-run` (which
+starts nothing) and a dispatch on a machine with no `codex` CLI (which cannot start anything)
+each left an empty `.codex-loop/` — indistinguishable from a supervisor that never started, and
+the exact state measured on the operator's machine. Neither creates the directory now. The
+supervisor's own `--dry-run` still creates it and takes `.supervisor.lock`; that residue is a
+separate, recorded finding.
+
 Startup is ready only after its first tick returns a readable report through an available report
 transport. The current atomic reading is `.codex-loop/status.json`: it distinguishes `ready`,
 `tick_failure`, `report_missing`, `transport_absent`, and `work_blocked`, and carries the immutable

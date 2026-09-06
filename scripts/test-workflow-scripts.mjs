@@ -38200,6 +38200,135 @@ exit "\${STUB_EXIT:-0}"
   } finally { cleanup(bad); }
 }
 
+// ---- A WORKER'S STATE AND LAST OUTCOME ARE DATA IN THE DIRECTORY (2026-09-06, mission ----
+// `finish-the-codex-external-process-and-make-its-state-inspectable`). `role_state` answers only
+// whether a lock is held at this instant, so *idle because it finished cleanly* and *idle because
+// it failed forty minutes ago* were one word; and `last_outcome` came from the moderate tick log,
+// a different tree on a different path. The lock stays the only concurrency authority — these
+// fixtures assert that too, structurally.
+T("the Codex per-role record tells a clean finish from a failed one",
+  testCodexWorkerRecord);
+function testCodexWorkerRecord() {
+  const LAUNCHER = "plugins/workaholic/skills/work/scripts/codex-loop.sh";
+  const makeFixture = () => {
+    const dir = makeRepo("main");
+    mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/commands"), { recursive: true });
+    mkdirSync(join(dir, "bin"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
+      join(dir, LAUNCHER));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"),
+      join(dir, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"));
+    writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    for (const name of ["infinite-development", "implement", "propose", "moderate"]) {
+      writeFileSync(join(dir, `plugins/workaholic/commands/${name}.md`), `# ${name}\n`);
+    }
+    const stub = join(dir, "bin/codex");
+    writeFileSync(stub, `#!/bin/sh
+out=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then out=$2; shift 2; else shift; fi
+done
+printf 'stub\\n'
+if [ "\${STUB_WRITES_REPORT:-1}" = 1 ]; then printf '%s\\n' "\${STUB_REPORT:-idle}" >"$out"; fi
+exit "\${STUB_EXIT:-0}"
+`);
+    chmodSync(stub, 0o755);
+    return dir;
+  };
+  const status = (dir) => run(dir, `PATH=/usr/bin:/bin sh ${LAUNCHER} --status`);
+  const workRole = (dir, env = {}) => run(dir, `sh ${LAUNCHER} --worker implement`,
+    { env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env.PATH}`, ...env } });
+  const recordPath = (dir) => join(dir, ".codex-loop/worker-implement.json");
+
+  // ABSENT MEANS NEVER DISPATCHED, and a role that has never run is not rendered as a finish.
+  const never = makeFixture();
+  try {
+    assertTrue("a role with no record reads never_dispatched",
+      /codex worker implement: idle record=never_dispatched/.test(status(never).stdout),
+      status(never).stdout);
+  } finally { cleanup(never); }
+
+  // THE OUTCOME IS THE REPORT'S, NOT THE EXIT STATUS'S — and both are kept.
+  for (const row of [
+    { name: "a clean run", reading: "finished:ok", exit: "0",
+      env: { STUB_REPORT: JSON.stringify({ executed: true, outcome: "ok", reason: "", report: "idle" }) } },
+    { name: "a run that reported blocked", reading: "finished:blocked:no_credential", exit: "0",
+      env: { STUB_REPORT: JSON.stringify({ executed: true, outcome: "blocked",
+        reason: "no_credential", report: "" }) } },
+    { name: "a run that exited zero without executing",
+      reading: "finished:not_executed:plugin_command_missing", exit: "0",
+      env: { STUB_REPORT: JSON.stringify({ executed: false, outcome: "failed",
+        reason: "plugin_command_missing", report: "" }) } },
+    { name: "a process that died", reading: "finished:failed:codex_exit_9", exit: "9",
+      env: { STUB_EXIT: "9" } },
+    { name: "a report that cannot be read", reading: "finished:unreadable:unparseable_report",
+      exit: "0", env: { STUB_REPORT: "just prose" } },
+    { name: "a report that never arrived", reading: "finished:unreadable:no_report", exit: "0",
+      env: { STUB_WRITES_REPORT: "0" } },
+  ]) {
+    const dir = makeFixture();
+    try {
+      workRole(dir, row.env);
+      const rec = JSON.parse(readFileSync(recordPath(dir), "utf8"));
+      assertEq(`${row.name} is recorded finished`, rec.state, "finished");
+      assertEq(`${row.name} keeps the process exit status separately`, rec.exit_status, row.exit);
+      assertTrue(`${row.name} carries its tick, times and paths`,
+        Boolean(rec.tick) && Boolean(rec.started_at) && Boolean(rec.finished_at)
+        && Boolean(rec.report_path) && Boolean(rec.transcript_path), JSON.stringify(rec));
+      assertTrue(`${row.name} reads ${row.reading} from the directory alone`,
+        status(dir).stdout.includes(`record=${row.reading}`), status(dir).stdout);
+    } finally { cleanup(dir); }
+  }
+
+  // A WORKER THAT DIED MID-RUN IS NOT A FINISH. The `running` record it left behind is resolved
+  // through the same liveness rule the supervisor record uses — never rendered as healthy.
+  const died = makeFixture();
+  try {
+    mkdirSync(join(died, ".codex-loop"), { recursive: true });
+    writeFileSync(recordPath(died), JSON.stringify({
+      role: "implement", state: "running", tick: "t", started_at: "2026-09-06T00:00:00Z",
+      finished_at: "", exit_status: "", outcome: "", report_path: "r", transcript_path: "l",
+      pid: "4194303", boot_id: "b",
+    }));
+    assertTrue("a running record whose process is gone reads died_unrecorded",
+      /record=died_unrecorded( |$)/m.test(status(died).stdout), status(died).stdout);
+    writeFileSync(recordPath(died), "not json\n");
+    assertTrue("a malformed record is named, never rendered as a finish",
+      /record=unreadable:malformed/.test(status(died).stdout), status(died).stdout);
+  } finally { cleanup(died); }
+
+  // A RUN THAT WRITES NOTHING CREATES NOTHING — the diagnosis's rows 3 and 4, which produced the
+  // empty `.codex-loop/` measured on the operator's machine.
+  const dry = makeFixture();
+  try {
+    const r = run(dry, `sh ${LAUNCHER} --dispatch implement --dry-run`,
+      { env: { ...process.env, PATH: `${join(dry, "bin")}:${process.env.PATH}` } });
+    assertEq("a dry-run dispatch still returns cleanly", r.status, 0);
+    assertTrue("a dry-run dispatch creates no state directory",
+      !existsSync(join(dry, ".codex-loop")), r.stdout);
+    const noCli = run(dry, `PATH=/usr/bin:/bin sh ${LAUNCHER} --dispatch implement`);
+    assertTrue("a dispatch with no Codex CLI says so", /codex_cli_missing/.test(noCli.stderr), noCli.stderr);
+    assertTrue("and creates no state directory either",
+      !existsSync(join(dry, ".codex-loop")), noCli.stdout);
+  } finally { cleanup(dry); }
+
+  // THE LOCK REMAINS THE ONLY CONCURRENCY AUTHORITY — asserted structurally, because the record
+  // is evidence and nothing may refuse, start or reap a worker by reading it.
+  const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"), "utf8");
+  assertTrue("the dispatch refusal still reads the lock, not the record",
+    /if \[ "\$\(role_state "\$DISPATCH_ROLE"\)" = running \]/.test(src), "the lock refusal moved");
+  const gate = src.slice(src.indexOf('if [ -n "$WORKER_ROLE" ]; then'));
+  assertTrue("no dispatch, refusal or start path reads the per-role record",
+    gate.length > 0 && !gate.includes("worker_reading"), gate.slice(0, 400));
+  assertTrue("the tick-log write the cadence readers depend on is untouched",
+    src.includes('--step "loop-attempt-${_rw_role}"')
+    && src.includes('--step "loop-finish-${_rw_role}"')
+    && src.includes('record_worker_finish "$_role" "$_woutcome"'), "record_worker_finish moved");
+}
+
 // ---- THE COORDINATOR OWNS THE CLOCK AND THE WORK NEVER HOLDS IT (2026-09-05, #984/#985) ----
 // Two terms cost the loop its cadence and both are asserted here at the shell boundary: the
 // supervisor slept a whole interval AFTER a completed tick (so the real period was tick

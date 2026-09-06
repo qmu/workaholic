@@ -41,7 +41,7 @@ failed are four distinct readings. A degraded read says so and never reads as he
 
 - [x] The empty-directory reading is reproduced and localized, and "never started" is
       distinguishable from "started and stopped" in the directory itself. (#20260906102220-reproduce-and-localize-the-empty-codex-state-directory.md)
-- [ ] Each dispatched worker's state and last outcome are readable as data in the state
+- [x] Each dispatched worker's state and last outcome are readable as data in the state
       directory, not only as a live lock probe. (#20260906102221-record-each-codex-worker-s-state-and-last-outcome-as-data.md)
 - [ ] `--status` answers the whole question — supervisor and every worker — from the directory
       alone, naming an unreadable part rather than omitting it. (#20260906102221-answer-the-whole-codex-loop-status-from-the-directory-alone.md)
@@ -50,3 +50,4 @@ failed are four distinct readings. A degraded read says so and never reads as he
 
 - 2026-09-06 — ticket archived — 20260906102220-reproduce-and-localize-the-empty-codex-state-directory.md
 - 2026-09-06 — ticket archived — 20260906102220-record-the-supervisor-s-own-liveness-in-the-state-directory.md
+- 2026-09-06 — ticket archived — 20260906102221-record-each-codex-worker-s-state-and-last-outcome-as-data.md

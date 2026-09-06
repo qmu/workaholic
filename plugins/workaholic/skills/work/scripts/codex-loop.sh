@@ -5,6 +5,7 @@ INTERVAL=300
 ONCE=false
 DRY_RUN=false
 STATUS_ONLY=false
+STATUS_JSON=false
 RELAY=false
 ACK_FILE=""
 LOG_DIR=""
@@ -18,6 +19,7 @@ while [ "$#" -gt 0 ]; do
         --once) ONCE=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
         --status) STATUS_ONLY=true; shift ;;
+        --json) STATUS_JSON=true; shift ;;
         --relay) RELAY=true; shift ;;
         --dispatch) DISPATCH_ROLE="${2:-}"; shift 2 ;;
         --worker) WORKER_ROLE="${2:-}"; shift 2 ;;
@@ -30,6 +32,7 @@ while [ "$#" -gt 0 ]; do
                 '  --once      execute one tick and exit' \
                 '  --dry-run   print the command without executing it' \
                 '  --status    read current state without starting a tick' \
+                '  --json      with --status, render the composed reading as JSON' \
                 '  --relay     return credential-free Slack intents for an owning chat' \
                 '  --dispatch  start one background worker (implement|propose|moderate) and return' \
                 '  --worker    run one worker in this process; refuses a role already running' \
@@ -120,6 +123,14 @@ RELAY_ACK=""
 # either side cannot be told from a recycled one, and that reads `unreadable:boot_unverifiable`
 # — never `running`. This is the same rule every other three-valued reader here holds: an
 # absence of a reading is never a healthy one.
+json_quote() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -Rn --arg value "$1" '$value'
+    else
+        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$/"/'
+    fi
+}
+
 boot_id() {
     [ -r /proc/sys/kernel/random/boot_id ] || { printf ''; return 0; }
     tr -d '\n' </proc/sys/kernel/random/boot_id 2>/dev/null || printf ''
@@ -223,12 +234,23 @@ show_supervisor() {
     esac
 }
 
+# The last tick's own three-valued reading, derived ONCE and read by the human renderer and the
+# composed one alike. `absent` and `unreadable:<reason>` are different facts and neither is a
+# healthy tick.
+tick_reading() {
+    [ -f "$STATUS_FILE" ] || { printf 'absent'; return 0; }
+    command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
+    jq -e . "$STATUS_FILE" >/dev/null 2>&1 || { printf 'unreadable:malformed'; return 0; }
+    printf 'readable'
+}
+
 show_status() {
-    if [ ! -f "$STATUS_FILE" ]; then
+    _ss_read=$(tick_reading)
+    if [ "$_ss_read" = absent ]; then
         printf 'codex loop status: absent (%s)\n' "$STATUS_FILE"
         return 4
     fi
-    if command -v jq >/dev/null 2>&1 && jq -e . "$STATUS_FILE" >/dev/null 2>&1; then
+    if [ "$_ss_read" = readable ]; then
         jq -r '"codex loop status: state=\(.state) outcome=\(.outcome)" +
           (if .blocked_reason == "" then "" else " blocked_reason=\(.blocked_reason)" end) +
           (if .next_due == "" then "" else " next_due=\(.next_due)" end) +
@@ -279,6 +301,73 @@ show_workers() {
     printf 'codex loop reports: dir=%s chat_return=none\n' "$LOG_DIR"
 }
 
+# ONE QUESTION, ONE ANSWER, FROM THE DIRECTORY ALONE (2026-09-06, mission
+# `finish-the-codex-external-process-and-make-its-state-inspectable`). `--status` gave two half
+# answers from two sources — `show_status` read `status.json` and `show_workers` probed each
+# role's lock live — so the supervisor's state and the workers' were neither composed nor
+# readable by anything that was not this script. A later tick, `/moderate`, or a person with a
+# shell and no `codex` CLI could not ask *is the Codex loop turning, and what is it doing* and
+# get one answer.
+#
+# COMPOSED, NEVER RE-DERIVED. Every reading here belongs to a function above:
+# `supervisor_reading`, `worker_reading`, `role_state`, `last_worker_outcome`, `tick_reading`.
+# This adds no state and no second derivation of anything.
+#
+# EVERY PART NAMES ITS OWN DEGRADATION IN PLACE. A missing supervisor record, an unreadable role
+# record and a malformed `status.json` are three distinct readings; none renders as healthy and
+# none is silently omitted — an unreadable part carries its reason and **null** details, never a
+# default that looks like a healthy value.
+status_json_field() {
+    # One field out of the tick's status file, or the empty string when it is not readable.
+    [ "$1" = readable ] || { printf ''; return 0; }
+    jq -r --arg k "$2" '.[$k] // ""' "$STATUS_FILE" 2>/dev/null || printf ''
+}
+
+json_or_null() {
+    [ -n "$1" ] || { printf 'null'; return 0; }
+    json_quote "$1"
+}
+
+show_status_json() {
+    _sj_tick=$(tick_reading)
+    _sj_sup=$(supervisor_reading)
+    printf '{\n'
+    printf '  "log_dir": %s,\n' "$(json_quote "$LOG_DIR")"
+    printf '  "supervisor": {\n'
+    printf '    "reading": %s,\n' "$(json_quote "$_sj_sup")"
+    if [ -f "$SUPERVISOR_FILE" ] && command -v jq >/dev/null 2>&1; then
+        printf '    "pid": %s,\n' "$(json_or_null "$(jq -r '.pid // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')")"
+        printf '    "started_at": %s,\n' "$(json_or_null "$(jq -r '.started_at // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')")"
+        printf '    "interval": %s\n' "$(json_or_null "$(jq -r '.interval // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')")"
+    else
+        printf '    "pid": null,\n    "started_at": null,\n    "interval": null\n'
+    fi
+    printf '  },\n'
+    printf '  "tick": {\n'
+    printf '    "reading": %s,\n' "$(json_quote "$_sj_tick")"
+    printf '    "tick_id": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" tick_id)")"
+    printf '    "state": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" state)")"
+    printf '    "outcome": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" outcome)")"
+    printf '    "blocked_reason": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" blocked_reason)")"
+    printf '    "finished_at": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" finished_at)")"
+    printf '    "next_due": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" next_due)")"
+    printf '    "report_path": %s\n' "$(json_or_null "$(status_json_field "$_sj_tick" report_path)")"
+    printf '  },\n'
+    printf '  "workers": [\n'
+    _sj_first=true
+    for _sj_r in $ROLES; do
+        [ "$_sj_first" = true ] || printf ',\n'
+        _sj_first=false
+        printf '    {"role": %s, "lock": %s, "record": %s, "last_outcome": %s}' \
+            "$(json_quote "$_sj_r")" "$(json_quote "$(role_state "$_sj_r")")" \
+            "$(json_quote "$(worker_reading "$_sj_r")")" \
+            "$(json_quote "$(last_worker_outcome "$_sj_r")")"
+    done
+    printf '\n  ],\n'
+    printf '  "reports": {"dir": %s, "chat_return": "none"}\n' "$(json_quote "$LOG_DIR")"
+    printf '}\n'
+}
+
 if [ -n "$ACK_FILE" ]; then
     [ -s "$STATUS_FILE" ] || { printf 'relay_status_missing: %s\n' "$STATUS_FILE" >&2; exit 4; }
     RELAY_ENVELOPE=$(jq -r '.relay_envelope_path // ""' "$STATUS_FILE" 2>/dev/null || true)
@@ -301,6 +390,18 @@ if [ -n "$ACK_FILE" ]; then
 fi
 
 if [ "$STATUS_ONLY" = true ]; then
+    # ONE INVOCATION, ONE ANSWER. `--json` renders the composed reading for a machine; without it
+    # the human lines are unchanged. Either way this branch starts nothing, writes nothing, takes
+    # no lock and requires no `codex` CLI — it returns before the presence check and before the
+    # `mkdir`, and the exit status is the tick's own (0 / 4 / 5) on both surfaces.
+    if [ "$STATUS_JSON" = true ]; then
+        show_status_json
+        case "$(tick_reading)" in
+            absent) exit 4 ;;
+            readable) exit 0 ;;
+            *) exit 5 ;;
+        esac
+    fi
     show_supervisor
     show_status
     _status_exit=$?
@@ -350,14 +451,6 @@ fi
 if [ "$DRY_RUN" != true ] || [ -z "${DISPATCH_ROLE}${WORKER_ROLE}" ]; then
     mkdir -p "$LOG_DIR"
 fi
-
-json_quote() {
-    if command -v jq >/dev/null 2>&1; then
-        jq -Rn --arg value "$1" '$value'
-    else
-        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$/"/'
-    fi
-}
 
 write_status() {
     _state=$1 _outcome=$2 _reason=$3 _tick=$4 _started=$5 _finished=$6

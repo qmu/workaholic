@@ -184,6 +184,7 @@ sh <work-skill-directory>/scripts/codex-loop.sh --interval 600  # every 10
 sh <work-skill-directory>/scripts/codex-loop.sh --once          # one tick for cron/systemd
 sh <work-skill-directory>/scripts/codex-loop.sh --dry-run --once
 sh <work-skill-directory>/scripts/codex-loop.sh --status        # read state; start nothing
+sh <work-skill-directory>/scripts/codex-loop.sh --status --json # the same reading, for a machine
 sh <work-skill-directory>/scripts/codex-loop.sh --relay --once  # parent waits for JSON intents
 sh <work-skill-directory>/scripts/codex-loop.sh --ack <file>    # validate parent outcomes
 sh <work-skill-directory>/scripts/codex-loop.sh --dispatch implement   # start one worker, return
@@ -202,6 +203,37 @@ In this source repository, `sh scripts/codex-loop.sh` is a compatibility shim on
 implementation. Startup reports `clock_wrapper_missing`, `plugin_skill_missing`,
 `plugin_command_missing`, `repository_missing`, or `codex_cli_missing` for the precise missing
 layer. Only missing plugin-owned files recommend updating or reinstalling the plugin.
+
+### One question, one answer
+
+**`--status` answers the whole loop from the state directory alone** (2026-09-06, the same
+mission). It used to give two half answers from two sources — `status.json` for the coordinator
+and a live lock probe for the workers — neither composed, and neither readable by anything that
+was not this script. A later tick, `/moderate`, or a person with a shell and no `codex` CLI could
+not ask *is the Codex loop turning, and what is it doing* and get one answer.
+
+`--status` keeps its human lines. `--status --json` renders the same reading for a machine:
+
+| Key | Reading |
+| --- | ------- |
+| `supervisor.reading` | the supervisor table below, with `pid` / `started_at` / `interval` beside it |
+| `tick.reading` | `readable`, `absent`, or `unreadable:<reason>` — with `tick_id`, `state`, `outcome`, `blocked_reason`, `finished_at`, `next_due` and `report_path` |
+| `workers[]` | one entry per role, always all three: `lock` (the live authority), `record` (the per-role table below) and `last_outcome` (the moderate tick log) |
+| `reports` | where a report lands, and that no chat return exists |
+
+**Composed, never re-derived**: every value belongs to a reader documented below —
+`supervisor_reading`, `worker_reading`, `role_state`, `last_worker_outcome`, `tick_reading`. The
+JSON form adds no state and no second derivation.
+
+**Every part names its own degradation in place.** A missing supervisor record, an unreadable
+role record and a malformed `status.json` are three distinct readings; an unreadable part carries
+its reason and **null** details rather than a default that looks healthy, and no part is ever
+silently omitted. The exit status is the tick's own on both surfaces — `0` readable, `4` absent,
+`5` unreadable.
+
+**The surface starts nothing, writes nothing, takes no lock and needs no `codex` CLI.** It
+returns before the presence check and before the `mkdir`, so reading the state of a repository
+that has never run the Codex path does not create the directory it is reporting on.
 
 ### The supervisor's own liveness
 

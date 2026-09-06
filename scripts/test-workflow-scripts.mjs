@@ -38329,6 +38329,117 @@ exit "\${STUB_EXIT:-0}"
     && src.includes('record_worker_finish "$_role" "$_woutcome"'), "record_worker_finish moved");
 }
 
+// ---- ONE QUESTION, ONE ANSWER, FROM THE DIRECTORY ALONE (2026-09-06, mission ----
+// `finish-the-codex-external-process-and-make-its-state-inspectable`). `--status` gave two half
+// answers from two sources, neither composed nor readable by anything that was not this script.
+// These fixtures assert the composed reading, its degradations named in place, and that the
+// surface stays free of the Codex CLI, of side effects and of any lock.
+T("the composed Codex status answers supervisor, workers and tick from the directory",
+  testCodexComposedStatus);
+function testCodexComposedStatus() {
+  const LAUNCHER = "plugins/workaholic/skills/work/scripts/codex-loop.sh";
+  const makeFixture = () => {
+    const dir = makeRepo("main");
+    mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/commands"), { recursive: true });
+    mkdirSync(join(dir, "bin"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
+      join(dir, LAUNCHER));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"),
+      join(dir, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"));
+    writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    for (const name of ["infinite-development", "implement", "propose", "moderate"]) {
+      writeFileSync(join(dir, `plugins/workaholic/commands/${name}.md`), `# ${name}\n`);
+    }
+    const stub = join(dir, "bin/codex");
+    writeFileSync(stub, `#!/bin/sh
+out=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then out=$2; shift 2; else shift; fi
+done
+printf 'stub\\n'
+printf '{"executed":true,"outcome":"ok","reason":"","report":"idle"}\\n' >"$out"
+exit 0
+`);
+    chmodSync(stub, 0o755);
+    return dir;
+  };
+  // NO CODEX CLI ON THE PATH ANYWHERE IN THIS TEST — the surface must not need one.
+  const composed = (dir) => {
+    const r = run(dir, `PATH=/usr/bin:/bin sh ${LAUNCHER} --status --json`);
+    return { ...r, json: JSON.parse(r.stdout) };
+  };
+
+  // A DIRECTORY NOTHING HAS EVER RUN IN answers every part, and each part says so itself.
+  const never = makeFixture();
+  try {
+    const r = composed(never);
+    assertEq("a never-started loop still answers", r.status, 4);
+    assertEq("the supervisor names itself never_started", r.json.supervisor.reading, "never_started");
+    assertEq("the tick names itself absent", r.json.tick.reading, "absent");
+    assertTrue("an unread tick carries nulls, never healthy-looking defaults",
+      r.json.tick.state === null && r.json.tick.outcome === null && r.json.tick.next_due === null,
+      JSON.stringify(r.json.tick));
+    assertEq("every role is present, none omitted", r.json.workers.length, 3);
+    assertTrue("and each names itself never_dispatched",
+      r.json.workers.every((w) => w.record === "never_dispatched"), JSON.stringify(r.json.workers));
+    assertTrue("reading it creates no state directory", !existsSync(join(never, ".codex-loop")));
+  } finally { cleanup(never); }
+
+  // A COMPLETED RUN is answered whole: supervisor, tick and workers together.
+  const ran = makeFixture();
+  try {
+    run(ran, `sh ${LAUNCHER} --once --interval 60`,
+      { env: { ...process.env, PATH: `${join(ran, "bin")}:${process.env.PATH}` } });
+    const before = readdirSync(join(ran, ".codex-loop")).sort().join(",");
+    const r = composed(ran);
+    assertEq("a completed tick reads through", r.status, 0);
+    assertEq("the supervisor is stopped, not absent", r.json.supervisor.reading, "stopped:completed_once");
+    assertTrue("and carries its pid, start and interval",
+      Boolean(r.json.supervisor.pid) && Boolean(r.json.supervisor.started_at)
+      && r.json.supervisor.interval === "60", JSON.stringify(r.json.supervisor));
+    assertEq("the tick is readable", r.json.tick.reading, "readable");
+    assertEq("carrying the last tick's own state", r.json.tick.state, "sleeping");
+    assertEq("and its outcome", r.json.tick.outcome, "ready");
+    assertTrue("and its identity and next boundary",
+      Boolean(r.json.tick.tick_id) && Boolean(r.json.tick.next_due), JSON.stringify(r.json.tick));
+    // SIDE-EFFECT FREE: it starts nothing, writes nothing and takes no lock.
+    assertEq("reading changes no durable byte", readdirSync(join(ran, ".codex-loop")).sort().join(","), before);
+  } finally { cleanup(ran); }
+
+  // THREE DEGRADATIONS AT ONCE, each named in place and none rendering as healthy.
+  const degraded = makeFixture();
+  try {
+    mkdirSync(join(degraded, ".codex-loop"), { recursive: true });
+    writeFileSync(join(degraded, ".codex-loop/status.json"), "garbage not json\n");
+    writeFileSync(join(degraded, ".codex-loop/supervisor.json"), JSON.stringify({
+      state: "running", stopped_reason: "", pid: "4194303", boot_id: "b",
+      started_at: "2026-09-06T00:00:00Z", interval: "300", anchor: "1",
+    }));
+    writeFileSync(join(degraded, ".codex-loop/worker-implement.json"), JSON.stringify({
+      role: "implement", state: "finished", tick: "t1", started_at: "2026-09-06T04:00:00Z",
+      finished_at: "2026-09-06T04:03:00Z", exit_status: "9", outcome: "failed:codex_exit_9",
+      report_path: "r", transcript_path: "l", pid: "1", boot_id: "b",
+    }));
+    writeFileSync(join(degraded, ".codex-loop/worker-propose.json"), "not json\n");
+    const r = composed(degraded);
+    assertEq("a malformed status file is its own exit status", r.status, 5);
+    assertEq("the tick is named unreadable, not absent", r.json.tick.reading, "unreadable:malformed");
+    assertTrue("and renders no state at all rather than a healthy-looking one",
+      r.json.tick.state === null && r.json.tick.outcome === null, JSON.stringify(r.json.tick));
+    assertEq("a supervisor whose process is gone is not running",
+      r.json.supervisor.reading, "stopped_unclean");
+    const byRole = Object.fromEntries(r.json.workers.map((w) => [w.role, w.record]));
+    assertEq("a failed worker keeps its reported outcome", byRole.implement, "finished:failed:codex_exit_9");
+    assertEq("an unreadable role record is named", byRole.propose, "unreadable:malformed");
+    assertEq("a role that never ran is still distinct", byRole.moderate, "never_dispatched");
+    assertTrue("no part is silently omitted", r.json.workers.length === 3
+      && "reading" in r.json.supervisor && "reading" in r.json.tick, JSON.stringify(r.json));
+  } finally { cleanup(degraded); }
+}
+
 // ---- THE COORDINATOR OWNS THE CLOCK AND THE WORK NEVER HOLDS IT (2026-09-05, #984/#985) ----
 // Two terms cost the loop its cadence and both are asserted here at the shell boundary: the
 // supervisor slept a whole interval AFTER a completed tick (so the real period was tick

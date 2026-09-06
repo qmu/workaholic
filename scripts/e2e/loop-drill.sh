@@ -9010,6 +9010,45 @@ cmd_verify_codex_clock() {
         *) add_row "installed_codex_clock_launches" false "the installed launcher did not produce the tick command: $(one_line "$_out")" load ;;
     esac
 
+    # THE DISPATCH CLAIMS THE ROLE BEFORE IT RETURNS (2026-09-06, ticket `20260906210556`).
+    # `--dispatch` returns at once by design, and the lock used to be taken by the detached
+    # child — so the claim did not exist yet when the run that made it returned, and a second
+    # dispatch in that window read `idle` and started a second worker. The pair below is issued
+    # CONCURRENTLY, which is the shape that exposes the window; a sequential pair is hidden by
+    # the first dispatch's own return latency on an unloaded machine.
+    _slowbin="${_tmp}/slowbin"
+    mkdir -p "$_slowbin"
+    printf '#!/bin/sh\nsleep 3\nexit 0\n' > "${_slowbin}/codex"
+    chmod +x "${_slowbin}/codex"
+    _pair=$(cd "$_repo" && PATH="${_slowbin}:$PATH" sh -c \
+        "{ sh '$_launcher' --dispatch implement 2>&1 & sh '$_launcher' --dispatch implement 2>&1 & wait; }" \
+        2>&1 || true)
+    _started=$(printf '%s\n' "$_pair" | grep -c 'started pid=' || true)
+    _refused=$(printf '%s\n' "$_pair" | grep -c 'already_running' || true)
+    if [ "$_started" = 1 ] && [ "$_refused" = 1 ]; then
+        add_row "dispatch_claims_before_it_returns" true "two concurrent dispatches of one role start one worker and refuse the other" load
+    else
+        add_row "dispatch_claims_before_it_returns" false "concurrent dispatches started ${_started} worker(s) and refused ${_refused}: $(one_line "$_pair")" load
+    fi
+
+    # THE SECOND BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Not a return shape: make the parent's
+    # own claim a no-op and nothing holds the role at all — the worker is told `--claimed` and so
+    # takes nothing either — and then even a SEQUENTIAL second dispatch starts a second worker.
+    # Beside the real launcher, so `SCRIPT_DIR`/`PLUGIN_ROOT` still resolve to the installed
+    # plugin; the worker it spawns is the unmodified launcher, which is the point — with the
+    # parent claiming nothing and the child told `--claimed`, nothing holds the role.
+    _noclaim="${_plugin}/skills/work/scripts/noclaim-codex-loop.sh"
+    sed 's/^dispatch_claim_role() {$/dispatch_claim_role() { return 0/' "$_launcher" > "$_noclaim"
+    rm -rf "${_repo}/.codex-loop"
+    _b1=$(cd "$_repo" && PATH="${_slowbin}:$PATH" sh "$_noclaim" --dispatch implement 2>&1 || true)
+    _b2=$(cd "$_repo" && PATH="${_slowbin}:$PATH" sh "$_noclaim" --dispatch implement 2>&1 || true)
+    case "$_b1$_b2" in
+        *already_running*) add_row "dispatch_claim_breaker" false "removing the dispatch's own claim still refused the second dispatch: $(one_line "$_b2")" breaker ;;
+        *"started pid="*"started pid="*) add_row "dispatch_claim_breaker" true "removing the dispatch's own claim starts a second worker for one role (this drill can fail)" breaker ;;
+        *) add_row "dispatch_claim_breaker" false "the neutered launcher did not dispatch at all: $(one_line "$_b1$_b2")" breaker ;;
+    esac
+    rm -rf "${_repo}/.codex-loop"
+
     mkdir -p "${_repo}/scripts"
     cp "$_shim_src" "${_repo}/scripts/codex-loop.sh"
     rm "$_launcher"

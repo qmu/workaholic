@@ -39,7 +39,7 @@ apparatus, and the whole apparatus is the full plugin — which Codex already in
 | `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **CLI/IDE:** no Scheduled management interface | a Scheduled task in the current chat for desktop; the installed work skill's `scripts/codex-loop.sh` for CLI/IDE |
 | slash-command dispatch of `commands/*.md` | **None** (manifests expose skills only) | the loop is a **skill** (`workaholic:work`); the tick reads the other command bodies as files and executes them |
 | a **detached** background subagent whose parent ends first | Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their results** — there is no parent-ends-children-continue lifetime | a **detached process**: `codex-loop.sh --dispatch <role>` starts one and returns. A process outlives the run that started it where a subagent does not |
-| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | a per-role **lock**: `--dispatch` refuses `already_running`, and `--status` names each role's state. A lock is visible to a run that cannot see the previous run's agents. Nothing is reaped — a worker is a process that ends |
+| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | a per-role **lock**, taken by `--dispatch` before it forks and inherited by the worker: `--dispatch` refuses `already_running`, and `--status` names each role's state. A lock is visible to a run that cannot see the previous run's agents. Nothing is reaped — a worker is a process that ends |
 | `${CLAUDE_PLUGIN_ROOT}` | not defined | the tick names `plugins/workaholic` and writes paths out in full |
 | `.claude/settings.json` `env` | not read | `codex-loop.sh` reads that same block and exports it, so there is **one** declaration |
 | the plugin's `hooks/hooks.json` | not carried by either Codex manifest; Codex hooks are its own configuration | **the gates are absent on Codex** — see *What is lost* |
@@ -194,10 +194,37 @@ sh <work-skill-directory>/scripts/codex-loop.sh --worker implement     # run one
 `--dispatch <role>` is what the coordinator's tick calls for each **due** role. It starts a
 detached worker and returns immediately; a role already running reports `already_running` and is
 not started twice, which is the guarantee `ListAgents` gives the Claude tick. `--worker <role>`
-is what that detached process runs — it holds the role's lock, executes `commands/<role>.md`
-once, and records `loop-finish-<role>` into the tick log so the cadence readers see it. An
-unknown role is `bad_role` and a missing body is `plugin_command_missing`; neither starts
-anything. `--status` names each role's state beside the supervisor's own.
+is what that detached process runs — it executes `commands/<role>.md` once and records
+`loop-finish-<role>` into the tick log so the cadence readers see it. An unknown role is
+`bad_role` and a missing body is `plugin_command_missing`; neither starts anything. `--status`
+names each role's state beside the supervisor's own.
+
+**The dispatch takes the claim, not the worker** (2026-09-06, ticket `20260906210556`). The lock
+used to be taken by the detached child, and `--dispatch` returns *at once* by design — so the
+claim did not exist yet when the run that made it returned, and a second dispatch inside that
+window read `idle` and legitimately started a second worker. **Measured** on the suite's own
+fixture: in **5 of 6** rounds the lock file did not even exist at the moment the parent returned,
+and two concurrent dispatches of one role started two workers. The window was on the parent's
+side, so the claim moved there. `dispatch_claim_role` is the one seam that takes it:
+
+- **With `flock`** the parent opens fd 8 and locks it *before* it forks. The child inherits the
+  open file description across the fork, so the lock is held **continuously** from before the
+  parent returns until the worker exits. The parent passes `--claimed`, which tells the worker
+  not to retake it: a second open file description on the same file is a conflicting holder under
+  `flock(2)`, and the worker would otherwise refuse itself.
+- **Without `flock`** the pid file is the claim, and it is taken with an atomic `set -C` (`O_EXCL`)
+  create rather than a read-then-write — measured on a `PATH` with `flock` removed, **4 of 4**
+  concurrent pairs started two workers under the old read-then-write. A file naming a **dead** pid
+  is a crashed worker's residue: it is cleared once and the create retried once, never a loop and
+  never a sleep. The parent claims under its own pid, then hands the file to the pid it forked, so
+  the role never reads `idle` in between.
+
+A lost race is `already_running` on exit 0, exactly as the cheap `role_state` answer above it is:
+the loser started nothing, and that is the mechanism working rather than a failure. `--status` is
+untouched by this — it starts nothing, writes nothing, creates no state directory and takes no
+lock. `scripts/e2e/loop-drill.sh verify-codex-clock` issues the pair **concurrently**, which is
+the shape that exposes the window, and its breaker makes `dispatch_claim_role` a no-op and
+requires the drill to notice.
 
 In this source repository, `sh scripts/codex-loop.sh` is a compatibility shim onto that same
 implementation. Startup reports `clock_wrapper_missing`, `plugin_skill_missing`,
@@ -293,8 +320,9 @@ never from the exit status alone and never from words grepped out of prose.
 one running*, shared by the supervisor record and every per-role record.
 
 **The lock remains the only concurrency authority.** `--dispatch` still refuses `already_running`
-on `role_state`, which reads the lock; nothing refuses, starts or reaps a worker by reading these
-records, and the suite asserts that structurally. `record_worker_finish`'s tick-log write is
+on `role_state`, which reads the lock, and then takes that lock itself through
+`dispatch_claim_role` before it forks (*Substituted mechanisms*, above); nothing refuses, starts
+or reaps a worker by reading these records, and the suite asserts that structurally. `record_worker_finish`'s tick-log write is
 untouched — this is a second surface, not a replacement, and the cadence readers still read the
 log.
 

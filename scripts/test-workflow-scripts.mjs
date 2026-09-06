@@ -38758,6 +38758,31 @@ exit 0
       /codex worker implement: running/.test(status.stdout) &&
       /codex worker propose: idle/.test(status.stdout), status.stdout);
   } finally { cleanup(dir); }
+
+  // THE DISPATCH IS WHAT CLAIMS THE ROLE, AND IT CLAIMS BEFORE IT RETURNS (2026-09-06, ticket
+  // `20260906210556`). The pair above is issued SEQUENTIALLY, so the first dispatch's own return
+  // latency usually hid the window — and on a loaded machine it did not: the lock was taken by
+  // the DETACHED CHILD, so the parent returned before any claim existed and a second dispatch in
+  // that window legitimately started a second worker. MEASURED on this fixture before the
+  // repair: in 5 of 6 rounds the lock file did not exist at the moment the parent returned, and
+  // concurrent pairs started two workers. The rounds below issue the pair CONCURRENTLY, which is
+  // the shape that exposes the window, and assert the exclusion itself — no sleep and no retry
+  // stands in for it, because a drill that passes for having waited long enough proves nothing.
+  const raced = makeFixture(2);
+  try {
+    const env = { ...process.env, PATH: `${join(raced, "bin")}:${process.env.PATH}` };
+    const pair = () => run(raced,
+      `{ sh ${LAUNCHER} --dispatch implement 2>&1 & sh ${LAUNCHER} --dispatch implement 2>&1 & wait; }`,
+      { env });
+    for (let round = 1; round <= 5; round += 1) {
+      rmSync(join(raced, ".codex-loop"), { recursive: true, force: true });
+      const out = pair().stdout;
+      assertEq(`round ${round}: two concurrent dispatches start exactly one worker`,
+        (out.match(/started pid=/g) || []).length, 1);
+      assertEq(`round ${round}: the losing dispatch is refused by name`,
+        (out.match(/already_running/g) || []).length, 1);
+    }
+  } finally { cleanup(raced); }
 }
 
 T("the Codex parent relay validates intent, waits for acknowledgement, and never invents delivery",

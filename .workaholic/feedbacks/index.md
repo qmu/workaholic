@@ -674,4 +674,5 @@
 * [The tick's own log writes suppress the moderate spawn forever](20260906110057-the-tick-s-own-log-writes-suppress-the-moderate-spawn-forever.md)
 * [close-publish-tree.sh refuses unpublished_commits after a squash merge](20260906110529-close-publish-tree-sh-refuses-unpublished-commits-after-a-squash-merge.md)
 * [The loop can stall at claimable 0 with no alarm](20260906110631-the-loop-can-stall-at-claimable-0-with-no-alarm.md)
+* [tick-progress.sh reads a working tree the loop never freshens](20260906110736-tick-progress-sh-reads-a-working-tree-the-loop-never-freshens.md)
 <!-- okf:generated:end -->

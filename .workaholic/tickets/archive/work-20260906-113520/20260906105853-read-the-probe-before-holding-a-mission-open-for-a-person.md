@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T10:58:53+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 mission: finish-the-backlog-without-handing-it-back-to-the-operator
@@ -83,3 +84,63 @@ The close gate was not part of that change and still reads presence.
   surrounding gate already treats a missing number.
 - Do not widen `verification-handoff.sh`. Two readers of one field eventually disagree; the
   change belongs in the consumer.
+
+## Final Report
+
+**Outcome**: implemented.
+
+**Step 1 — the reproduction, verbatim.** Against this mission on the claim worktree, before
+the change:
+
+```
+$ sh plugins/workaholic/skills/mission/scripts/acceptance-handoffs.sh \
+    .workaholic/missions/active/finish-the-backlog-without-handing-it-back-to-the-operator/mission.md
+{"handoff": true, "tickets": ["20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md"], "unresolved": []}
+```
+
+That ticket's declaration is `probe: command -v codex`, and in the same worktree, in the same
+minute, `run-verification-probe.sh` answered:
+
+```
+{"ok": true, "outcome": "clean", "reason": "", "probe": "command -v codex",
+ "exit_status": 0, "output": "/home/tamurayoshiya/.local/bin/codex", "truncated": false}
+```
+
+So the gate was holding the mission open for a person to repeat a verification the run had
+already performed. After the change, the same command on the same tree:
+
+```
+{"handoff": false, "tickets": [], "measurable_tickets": ["20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md"], "unresolved": []}
+```
+
+**Step 2 — where the reading belongs.** In the **consumer**. `verification-handoff.sh` is the
+one reader of the field and keeps answering on presence, because `/drive` §6 decides a unit's
+route from exactly that answer. `acceptance-handoffs.sh` distinguishes measurable from prose
+for its own reason — the precedent `claims_declared_handoff` set one layer down on the same
+field with the same reader.
+
+**Step 3 — the split, and its cost.** `tickets[]` now names only the declarations that HELD
+(prose); a `probe:` one comes back under the new `measurable_tickets[]` and holds nothing. An
+**unreadable** reading carries no `"measurable": true` and therefore still holds — an absence
+is never a clean probe. The cost is stated in the script's own header and in `CLAUDE.md`: a
+probe that would read `blocking` no longer refuses this gate either, bounded by the fact that
+§6 has already taken such a unit down the handoff route with its pull request open and its
+claim standing.
+
+**Step 4 — may the gate run the probe? No, and the reasoning is recorded in the header.** The
+offline-scan hazard genuinely does not transfer (this runs in a worktree at commit time), so it
+was refused on three other grounds: §6 is the one execution site and a second is a second
+derivation of one question; this walk reaches acceptance items' tickets belonging to units this
+run never claimed; and an arithmetic close must not turn on a reading built to become false
+when re-run — which `archive.sh` already refuses by name for the drill verdict beside it.
+
+**Step 5 — the suite.** Four assertions added beside the existing close-gate rows: a probe
+declaration does not hold and is named under its own key, prose is unchanged, and a mission
+carrying both refuses on the prose one alone with the probe one named beside it.
+
+**Also changed**: `archive.sh`'s refusal now reads `a PROSE verification handoff (…)` and
+appends the probe declarations it found, so the run's own output tells the two forms apart.
+
+**Verification run**: `node scripts/test-workflow-scripts.mjs` exit 0; `build.mjs` +
+`verify.mjs` + `validate-metadata.mjs` clean; `layout-doctor.sh` `conforming: true`;
+`sh scripts/e2e/loop-drill.sh verify-all` — see the branch story for the verdict.

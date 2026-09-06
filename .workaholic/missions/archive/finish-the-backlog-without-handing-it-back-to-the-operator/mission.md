@@ -2,7 +2,7 @@
 type: Mission
 title: Finish the backlog without handing it back to the operator
 slug: finish-the-backlog-without-handing-it-back-to-the-operator
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-06T08:18:43+09:00
 author: a@qmu.jp
@@ -56,3 +56,5 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — ticket archived — 20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md
 - 2026-09-06 — story reported — work-20260906-092226.md
 - 2026-09-06 — run recorded (+2.0h) — implement-20260906T0222Z
+- 2026-09-06 — ticket archived — 20260906105853-read-the-probe-before-holding-a-mission-open-for-a-person.md
+- 2026-09-06 — mission achieved — mission.md

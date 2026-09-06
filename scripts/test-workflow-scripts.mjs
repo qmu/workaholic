@@ -22396,6 +22396,105 @@ function testClaimableUnits() {
 }
 
 // ---------------------------------------------------------------------------
+// THE TICK'S PROGRESS READING (2026-09-06, ticket `20260906193731`). The load-bearing
+// assertions are again the NEGATIVE ones, and this reader failed in the one shape a positive
+// test cannot see: it resolved its sibling readers against the tree being READ rather than
+// against itself, so on a repository that does not vendor the plugin both calls failed, the
+// `|| echo '{}'` guards swallowed it and the `// null` defaults rendered "I could not run the
+// reader" as data — `draining: false` against a full archive, `gating_missions` pinned at 0 and
+// `propose_gate: open` against a queue carrying work. The hermetic tree below therefore has NO
+// `plugins/` directory, and the reading is taken from a cwd that is not the tree, because
+// repairing the resolution alone turns the visible nulls into plausible ZEROS: `queue-size.sh`
+// resolves its root from the process cwd when it is not handed one.
+T("loops/tick-progress.sh: the reading sees a consumer tree, and names what it cannot", testTickProgress);
+function testTickProgress() {
+  const reader = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts/tick-progress.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-tick-progress-"));
+
+  // A consumer repository: a `.workaholic/` tree and NO vendored plugin. It is deliberately not
+  // a git repository either — with the root passed in, nothing here may need one.
+  const consumer = join(tmp, "consumer");
+  const wh = join(consumer, ".workaholic");
+  mkdirSync(join(wh, "missions/active/demo-mission"), { recursive: true });
+  mkdirSync(join(wh, "tickets/todo"), { recursive: true });
+  mkdirSync(join(wh, "tickets/archive/work-20260101-000000"), { recursive: true });
+  writeFileSync(join(wh, "missions/active/demo-mission/mission.md"),
+    "---\ntype: Mission\nslug: demo-mission\nstatus: active\nassignees:\n---\n\n# Demo Mission\n\n"
+    + "## Experience\n\nA demo.\n\n## Acceptance\n\n"
+    + "- [x] First lands ([#t1.md](#t1.md))\n- [ ] Second lands ([#t2.md](#t2.md))\n"
+    + "- [ ] Third lands ([#t3.md](#t3.md))\n");
+  for (const n of [1, 2]) {
+    writeFileSync(join(wh, `tickets/todo/t-todo-${n}.md`), `---\nmission: demo-mission\n---\n# Todo ${n}\n`);
+  }
+  for (const n of [1, 2, 3]) {
+    writeFileSync(join(wh, `tickets/archive/work-20260101-000000/t-arch-${n}.md`),
+      `---\nmission: demo-mission\n---\n# Arch ${n}\n`);
+  }
+  assertTrue("the consumer tree vendors no plugin",
+    !existsSync(join(consumer, "plugins")), "the fixture is not a consumer repository");
+
+  // THE READING IS TAKEN FROM SOMEWHERE ELSE. `cwd` is the plugin checkout, which is exactly the
+  // divergence the `[repo-root]` argument exists for and the one the old code got wrong twice.
+  const readFrom = (root, cwd) => JSON.parse(
+    execSync(`sh ${reader} ${root}`, { encoding: "utf8", cwd }));
+
+  const away = readFrom(consumer, REPO_ROOT);
+  assertEq("every per-mission count is the real one, read from a foreign cwd",
+    [away.missions[0].checked, away.missions[0].total, away.missions[0].todo, away.missions[0].archived],
+    [1, 3, 2, 3]);
+  assertEq("...and draining, gating and the gate follow from them",
+    [away.missions[0].draining, away.gating_missions, away.propose_gate],
+    [true, 1, "work_waiting"]);
+  assertEq("...and readable is ABSENT on a row that was read", away.missions[0].readable, undefined);
+  assertEq("queue_total keeps its meaning — it is the control", away.queue_total, 2);
+
+  // THE OBJECT IS IDENTICAL WHATEVER THE CWD. This is the assertion that fails if the root stops
+  // being handed to `queue-size.sh`: the counts would go to plausible zeros here and nowhere else.
+  const at = readFrom(consumer, consumer);
+  assertEq("the object is identical whether cwd is the tree or elsewhere",
+    JSON.stringify(away), JSON.stringify(at));
+
+  // A RELATIVE ROOT RESOLVES TO THE SAME TREE — `ROOT` is absolutized once where it is assigned.
+  const rel = JSON.parse(execSync(`sh ${reader} ./consumer`, { encoding: "utf8", cwd: tmp }));
+  assertEq("a relative root reads the same object", JSON.stringify(rel), JSON.stringify(away));
+
+  // THE DEGRADATION SHAPE. A row whose reader could not run must never be able to look healthy:
+  // null counts, a named reason, and `draining: null` rather than the `false` that used to read
+  // as *nothing has ever landed here*.
+  const broken = join(tmp, "broken");
+  mkdirSync(join(broken, ".workaholic/missions/active/no-mission-file"), { recursive: true });
+  mkdirSync(join(broken, ".workaholic/tickets/todo"), { recursive: true });
+  const deg = readFrom(broken, REPO_ROOT);
+  assertEq("an unreadable row carries null counts and a named reason",
+    [deg.missions[0].checked, deg.missions[0].todo, deg.missions[0].archived,
+     deg.missions[0].draining, deg.missions[0].readable, deg.missions[0].reason],
+    [null, null, null, null, false, "progress_unreadable"]);
+  assertEq("...it is counted rather than silently skipped, and the gate refuses to say `open`",
+    [deg.gating_missions, deg.unreadable_missions, deg.propose_gate], [0, 1, "unreadable"]);
+
+  // AND THE PRECEDENCE IS NOT SYMMETRIC. A readable row carrying queued work is a positive fact
+  // an unreadable row cannot overturn, so it still answers `work_waiting`.
+  mkdirSync(join(consumer, ".workaholic/missions/active/no-mission-file"), { recursive: true });
+  const mixed = readFrom(consumer, REPO_ROOT);
+  assertEq("a readable gating row outranks an unreadable one",
+    [mixed.gating_missions, mixed.unreadable_missions, mixed.propose_gate], [1, 1, "work_waiting"]);
+
+  // THE RESOLUTION ITSELF, pinned so a later edit cannot quietly reintroduce either half.
+  const code = readFileSync(reader, "utf8").replace(/^#.*$/gm, "");
+  assertTrue("the siblings resolve against this script, not the tree being read",
+    code.includes("SCRIPT_DIR"), "SCRIPT_DIR resolution is gone");
+  assertTrue("...and never against the consuming repository",
+    !/\$ROOT\/plugins/.test(code) && !/\$\{ROOT\}\/plugins/.test(code),
+    "an executable path is composed from ROOT again");
+  assertTrue("...and queue-size.sh is handed the root it accepts",
+    /queue-size\.sh"?\s+"\$slug"\s+"\$WORKAHOLIC"/.test(code)
+      || /\$QUEUE_SIZE"\s+"\$slug"\s+"\$WORKAHOLIC"/.test(code),
+    "queue-size.sh is called without an explicit root — its root would come from the cwd");
+
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+// ---------------------------------------------------------------------------
 T("loops/read-machine-load.sh: the machine the tick is about to start runners on", testReadMachineLoad);
 function testReadMachineLoad() {
   const reader = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts/read-machine-load.sh");

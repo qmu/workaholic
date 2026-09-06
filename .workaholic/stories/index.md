@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260906-195243](work-20260906-195243.md) - The tick's progress reading resolves its readers against itself, is handed the root queue-size.sh accepts, and names a row it could not read instead of rendering it as data
 * [work-20260906-125643](work-20260906-125643.md) - Diagnose the empty .codex-loop/ directory and make the Codex external process answer its whole state — supervisor, workers and last tick — from that directory alone.
 * [work-20260906-113520](work-20260906-113520.md) - The mission close gate reads a verification handoff's form, so a re-testable probe declaration no longer holds a finished mission open for a person.
 * [work-20260906-092226](work-20260906-092226.md) - Stop the loop handing routine engineering work back to a person — recovery work counts as claimable, a worker's finish comes from its own reported outcome, and a probe declaration no longer parks a claim.

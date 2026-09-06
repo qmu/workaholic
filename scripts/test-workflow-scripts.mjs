@@ -20312,7 +20312,15 @@ function archiveOnBase(clone, basenames, underBranch) {
 // AT BOTH GRAINS, because a claim stamps different things. A batch claims its ticket files, so
 // its queued work is whichever are still under todo/ at the tip. A mission claims only
 // `mission.md`, so its queued work is the tickets at the tip that name it — and the mission's
-// own declaration counts too, since any member declaring it carries the whole unit.
+// own declaration counts too, since a declaration on the container carries the whole unit.
+//
+// AND THE QUESTION IS *EVERY* REMAINING MEMBER, NOT ANY ONE OF THEM (2026-09-07, mission
+// `hand-off-the-members-that-declare-and-drive-the-rest`). A row read `true` from ONE declaring
+// member, so `awaiting_verification` took a partly-declared unit out of every offer and the six
+// tickets behind it were driven by nothing — measured on
+// `report-each-tick-in-the-originating-codex-chat`, 7 queued, 1 declaring, 0 offered. These rows
+// pin the mixed case in BOTH directions: mixed reads `false` and is offered, all-declaring reads
+// `true` exactly as it always did, and `declared_members` names which members hold it on either.
 //
 // KEYED ON THE DECLARATION, NOT THE FIXTURE'S SHAPE: each grain is asserted twice, once with a
 // value and once with the field emptied, over a branch that is otherwise byte-identical.
@@ -20341,10 +20349,35 @@ function testClaimScanReadsTheDeclaredHandoff() {
     setVerificationHandoff(bwt, t2, "a paid third-party account this container has no key for");
     execSync(`git add -A && git commit -q -m "Declare the handoff" && git push -q origin ${batch.branch}`, { cwd: bwt });
     let row = rowFor(B, batch.unit);
-    assertEq("with the declaration on a queued ticket it reads true", row.declared_handoff, true);
+    assertEq("ONE declaring member out of two is a MIXED unit and reads false — it is offered",
+      row.declared_handoff, false);
+    assertEq("and the row still names WHICH member holds it, so nothing re-derives the partition",
+      row.declared_members, [t2]);
     assertEq("and NO verdict moved in this change",
       { res: row.resumable, why: row.resume_reason }, { res: true, why: "heartbeat_lapsed" });
 
+    setVerificationHandoff(bwt, t1, "the operator's own device, which is not attached here");
+    execSync(`git add -A && git commit -q -m "Declare on the other one" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    row = rowFor(B, batch.unit);
+    assertEq("with EVERY remaining member declaring it reads true, exactly as it always did",
+      row.declared_handoff, true);
+    assertEq("and names both", row.declared_members.slice().sort(), [t1, t2].sort());
+
+    setVerificationHandoff(bwt, t1, "");
+    execSync(`git add -A && git commit -q -m "Empty one declaration" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    assertEq("emptying one of the two makes it mixed again — the reading is not sticky",
+      rowFor(B, batch.unit).declared_handoff, false);
+
+    setVerificationHandoff(bwt, t1, "probe: true");
+    setVerificationHandoff(bwt, t2, "probe: true");
+    execSync(`git add -A && git commit -q -m "Declare probes on both" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    row = rowFor(B, batch.unit);
+    assertEq("a probe declaration parks nothing here even when EVERY member carries one",
+      row.declared_handoff, false);
+    assertEq("and holds no member either — it is re-run at claim time, not honoured here",
+      row.declared_members, []);
+
+    setVerificationHandoff(bwt, t1, "");
     setVerificationHandoff(bwt, t2, "");
     execSync(`git add -A && git commit -q -m "Empty the declaration" && git push -q origin ${batch.branch}`, { cwd: bwt });
     assertEq("an EMPTY value is no declaration — the same rule the one reader already applies",
@@ -20362,11 +20395,13 @@ function testClaimScanReadsTheDeclaredHandoff() {
     execSync(`git add -A && git commit -q -m "Declare on the queued step" && git push -q origin ${mission.branch}`, { cwd: mwt });
     assertEq("a queued ticket NAMING the mission is what the mission grain reads",
       rowFor(B, "m1").declared_handoff, true);
+    assertEq("and the mission's own file is NOT counted as remaining work — only its tickets are",
+      rowFor(B, "m1").declared_members, [step]);
 
     setVerificationHandoff(mwt, step, "");
     setVerificationHandoff(mwt, ".workaholic/missions/active/m1/mission.md", "the device is not attached here");
     execSync(`git add -A && git commit -q -m "Declare on the mission itself" && git push -q origin ${mission.branch}`, { cwd: mwt });
-    assertEq("and the mission's OWN declaration carries the unit — any member does",
+    assertEq("and the mission's OWN declaration carries the unit, its tickets declaring or not",
       rowFor(B, "m1").declared_handoff, true);
 
     setVerificationHandoff(mwt, ".workaholic/missions/active/m1/mission.md", "");
@@ -20377,13 +20412,21 @@ function testClaimScanReadsTheDeclaredHandoff() {
     assertEq("and the mission claim's verdict is untouched by any of it",
       { res: row.resumable, why: row.resume_reason }, { res: true, why: "heartbeat_lapsed" });
 
-    // ---- The reading is self-releasing: drive the declared ticket and it answers false. ----
+    // ---- Driving the NON-declaring member is what turns a mixed unit into a parked one. ----
+    // This is the mission's whole shape in one pair of rows: the mixed unit is offered, its
+    // drivable member is driven, and only then does the claim park on what genuinely needs a
+    // person — with nothing stored anywhere, because the reading is off the remaining work.
     setVerificationHandoff(bwt, t2, "a paid third-party account this container has no key for");
     execSync(`git add -A && git commit -q -m "Redeclare the handoff" && git push -q origin ${batch.branch}`, { cwd: bwt });
-    assertEq("the batch reads true again", rowFor(B, batch.unit).declared_handoff, true);
+    assertEq("the batch is mixed again, so it is offered rather than parked",
+      rowFor(B, batch.unit).declared_handoff, false);
+    run(bwt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    execSync(`git push -q origin ${batch.branch}`, { cwd: bwt });
+    assertEq("with the non-declaring member driven, what remains all declares and it parks",
+      rowFor(B, batch.unit).declared_handoff, true);
     run(bwt, `${POSIX_SH} ${SCRIPTS.archive} ${t2} "Drive t2" https://example.test/repo why changes None None verify`);
     execSync(`git push -q origin ${batch.branch}`, { cwd: bwt });
-    assertEq("once the declared ticket is DRIVEN the same reader answers false, storing nothing",
+    assertEq("once the declared ticket is DRIVEN too the same reader answers false, storing nothing",
       rowFor(B, batch.unit).declared_handoff, false);
 
     // ---- Offline: no network, no merged lookup, byte-identical answer. ----

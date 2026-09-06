@@ -642,16 +642,138 @@ claims_tickets_for_mission() {
 # now re-offered each tick and re-routed to handoff each time, where before it was parked once. That
 # is a re-derivation the probe form was built to be cheap, against a unit parked forever on a
 # declaration that had already gone false.
+#
+# AND THE QUESTION IS *EVERY* REMAINING MEMBER, NOT *ANY* (2026-09-07, mission
+# `hand-off-the-members-that-declare-and-drive-the-rest`). `awaiting_verification` takes a unit out
+# of every offer until a person acts, and it was reached from ONE declaring member: the reader's
+# unit-level `handoff` is `any`, on the same *the unit is one merge* ground `effective-policy.sh`
+# stands on -- which is right for the ROUTE and wrong for the OFFER. MEASURED 2026-09-06 on
+# `report-each-tick-in-the-originating-codex-chat`: 7 queued tickets, ONE declaring a prose handoff
+# only the operator's own Codex chat can discharge, six declaring nothing; the row read
+# `awaiting_verification`, `plan-units.sh` excluded the unit `claimed_awaiting_verification`, and
+# the repository drove nothing for hours. The route step that would drive the six was never entered
+# because the unit reached no offer at all.
+#
+# So the scan asks whether EVERY remaining member is held. A unit with at least one non-declaring
+# remaining member keeps its ordinary verdict and is offered; §6 is where the split between driving
+# and handing off is then made, from the partition this row carries. An ALL-declaring unit reads
+# `awaiting_verification` exactly as it always did, and a `probe:` member still holds nothing here.
+#
+# THE PARTITION IS DERIVED FROM THE ONE READING, NEVER A SECOND PARSER. `verification-handoff.sh`
+# already emits `members[]` with a per-member `unmeasured`, which is precisely *non-empty
+# declaration carrying no probe* -- the exact test this verdict wants, per member, with no new
+# field, no second call and no re-reading of frontmatter anywhere.
 claims_declared_handoff() {
-    _cdh_reading=$(claims_declared_reading "$@")
-    case "$_cdh_reading" in
-        *'"handoff": true'*) : ;;
-        *) printf 'false'; return 0 ;;
+    _cdh_split=$(claims_declared_split "$@")
+    printf '%s' "${_cdh_split%%	*}"
+}
+
+# WHICH MEMBERS HOLD IT, comma-joined, or `-` when none. Same arguments. The row carries this
+# beside the boolean so the survey can say which members a person must act on and §6 can partition
+# without re-deriving; `-` rather than the empty string because the row's no-empty-middle-field
+# rule (see the printf below) forbids one.
+claims_declared_members() {
+    _cdm_split=$(claims_declared_split "$@")
+    _cdm_v=${_cdm_split#*	}
+    [ -n "$_cdm_v" ] || _cdm_v='-'
+    printf '%s' "$_cdm_v"
+}
+
+# THE PARTITION ITSELF: `<every-remaining-member-holds>\t<held members, comma-joined>`.
+#
+# A member HOLDS when the reader answered `"unmeasured": true` for it -- a non-empty declaration
+# carrying no probe. `false` there covers both members that declare nothing and members whose
+# declaration is a `probe:` (re-run at §6's claim time, so it parks nothing here), which is the
+# 2026-09-06 rule applied per member instead of only to the reader's deciding one.
+#
+# A READING THAT COULD NOT BE MADE ANSWERS `false` WITH NO MEMBERS, unchanged: an absent reader, an
+# unreadable blob or an empty artifact list is not a declaration, and neither is a member set the
+# reader returned empty.
+#
+# THE MISSION'S OWN FILE STILL CARRIES THE WHOLE UNIT, and that is deliberately not narrowed. The
+# member set is the mission's `mission.md` plus the still-QUEUED tickets, and only the second kind
+# is drivable work -- so *every remaining member* is asked of the tickets, while a declaration on
+# the mission itself says the container is unverifiable here and holds all of them, exactly as it
+# did before this existed. A batch unit has no such member, so its answer is the ticket count
+# alone. The measured defect was one declaring TICKET out of seven; a mission-level declaration was
+# never part of it and its behaviour is byte-identical.
+claims_declared_split() {
+    _cds_out=$(claims_declared_reading "$@")
+    _cds_json=${_cds_out%%
+*}
+    case "$_cds_out" in
+        *'
+'*) _cds_order=${_cds_out#*'
+'} ;;
+        *) _cds_order="" ;;
     esac
-    case "$_cdh_reading" in
-        *'"measurable": true'*) printf 'false' ;;
-        *) printf 'true' ;;
+
+    case "$_cds_json" in
+        *'"members": ['*) : ;;
+        *) printf 'false\t'; return 0 ;;
     esac
+    _cds_arr=${_cds_json#*'"members": ['}
+    _cds_arr=${_cds_arr%%']'*}
+    [ -n "$_cds_arr" ] || { printf 'false\t'; return 0; }
+
+    # Walk the member objects and the path list in lockstep: the reader lists members in the
+    # order it received the files, and `claims_declared_reading` echoes that same order below
+    # its JSON, so the nth object is the nth path. The objects are split on `}, {`, which the
+    # reader's own printf is the only producer of.
+    _cds_rest="$_cds_arr"
+    _cds_total=0
+    _cds_held=0
+    _cds_own_held=false
+    _cds_members=""
+    _cds_sep=""
+    _cds_old_ifs="$IFS"
+    IFS='
+'
+    # shellcheck disable=SC2086 -- the order list is newline-separated paths.
+    set -- $_cds_order
+    IFS="$_cds_old_ifs"
+    while [ -n "$_cds_rest" ]; do
+        case "$_cds_rest" in
+            *'}, {'*)
+                _cds_one=${_cds_rest%%'}, {'*}
+                _cds_rest=${_cds_rest#*'}, {'}
+                ;;
+            *)
+                _cds_one="$_cds_rest"
+                _cds_rest=""
+                ;;
+        esac
+        _cds_path="${1:-}"
+        [ "$#" -eq 0 ] || shift
+
+        _cds_own=false
+        case "$_cds_path" in
+            */missions/*/mission.md) _cds_own=true ;;
+        esac
+        [ "$_cds_own" = "true" ] || _cds_total=$((_cds_total + 1))
+
+        case "$_cds_one" in
+            *'"unmeasured": true'*)
+                if [ "$_cds_own" = "true" ]; then
+                    _cds_own_held=true
+                else
+                    _cds_held=$((_cds_held + 1))
+                fi
+                if [ -n "$_cds_path" ]; then
+                    _cds_members="${_cds_members}${_cds_sep}${_cds_path}"
+                    _cds_sep=","
+                fi
+                ;;
+        esac
+    done
+
+    if [ "$_cds_own_held" = "true" ]; then
+        printf 'true\t%s' "$_cds_members"
+    elif [ "$_cds_total" -gt 0 ] && [ "$_cds_held" -eq "$_cds_total" ]; then
+        printf 'true\t%s' "$_cds_members"
+    else
+        printf 'false\t%s' "$_cds_members"
+    fi
 }
 
 # THE DECLARED REASON, VERBATIM ("" when nothing is declared, or when the read could not be
@@ -663,7 +785,9 @@ claims_declared_handoff() {
 # that this whole shape exists to forbid. The value is JSON-escaped on the way out of the reader,
 # so the two escapes it can carry are undone on the way back in.
 claims_declared_reason() {
-    _cdr_line=$(claims_declared_reading "$@")
+    _cdr_out=$(claims_declared_reading "$@")
+    _cdr_line=${_cdr_out%%
+*}
     case "$_cdr_line" in
         *'"reason": "'*) ;;
         *) return 0 ;;
@@ -676,6 +800,16 @@ claims_declared_reason() {
 # The shared derivation: materialise the still-queued work (plus the mission's own `mission.md`)
 # from the branch tip and hand it to the ONE reader of `verification_handoff:`. Echoes that
 # reader's JSON line, or nothing at all when the read could not be made.
+#
+# AND, BELOW THAT LINE, ONE LINE PER MEMBER PATH IN THE ORDER THE READER RECEIVED THEM
+# (2026-09-07, mission `hand-off-the-members-that-declare-and-drive-the-rest`). The reader is
+# handed materialised temp files, so its `members[].id` names a path in `mktemp -d`'s directory
+# and not the artifact -- which is fine for a boolean and useless for a partition that must name
+# which members a person acts on. The mapping exists only here, at the moment the temp file is
+# written, so it is echoed here rather than reconstructed by a second walk that could disagree
+# with this one. Only files `git show` actually produced are listed, exactly as only those are
+# handed to the reader, so the nth line is the nth member. Every existing caller takes the first
+# line and is byte-identical.
 claims_declared_reading() {
     _cdh_ref="$1"
     _cdh_arts="${2:-}"
@@ -710,10 +844,13 @@ claims_declared_reading() {
 
     _cdh_n=0
     _cdh_files=""
+    _cdh_order=""
     for _cdh_f in $_cdh_paths; do
         _cdh_n=$((_cdh_n + 1))
         if git show "${_cdh_ref}:${_cdh_f}" > "${_cdh_dir}/${_cdh_n}.md" 2>/dev/null; then
             _cdh_files="${_cdh_files} ${_cdh_dir}/${_cdh_n}.md"
+            _cdh_order="${_cdh_order}${_cdh_f}
+"
         fi
     done
 
@@ -723,7 +860,8 @@ claims_declared_reading() {
         _cdh_out=$(sh "$_cdh_reader" tickets $_cdh_files 2>/dev/null || true)
     fi
     rm -rf "$_cdh_dir" 2>/dev/null || true
-    printf '%s' "$_cdh_out"
+    [ -n "$_cdh_out" ] || return 0
+    printf '%s\n%s' "$_cdh_out" "$_cdh_order"
 }
 
 # Did this unit already REPORT -- i.e. reach the story+PR seam? $1 = branch ref,
@@ -1431,7 +1569,13 @@ claims_scan() {
         claims_landed_verdict() { printf '%s' "$_cs_landed_verdict"; }
 
         _cs_remaining=$(claims_remaining_tickets "$_cs_ref" "$_cs_artifacts_tip")
-        _cs_declared_handoff=$(claims_declared_handoff "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")
+        # ONE SPLIT, BOTH COLUMNS (2026-09-07). The boolean and the member list are two reads of
+        # one partition, so it is derived once here and cut apart rather than asked twice --
+        # each call costs the materialisation and the reader.
+        _cs_declared_split=$(claims_declared_split "$_cs_ref" "$_cs_artifacts_tip" "$_cs_remaining")
+        _cs_declared_handoff=${_cs_declared_split%%	*}
+        _cs_declared_members=${_cs_declared_split#*	}
+        [ -n "$_cs_declared_members" ] || _cs_declared_members='-'
 
         # The resumability verdict (see the header). Identity first: a foreign claim is
         # untouchable at any age, so its liveness never even needs measuring. The queue
@@ -1558,15 +1702,16 @@ claims_scan() {
             _cs_reason=heartbeat_lapsed
         fi
 
-        # `reported` and `declared_handoff` sit BEFORE the artifact list, never after it: the
-        # artifact list is last because a trailing empty field is the one case `read` handles
-        # correctly (see the note above), so a new column appended after it would land inside
-        # it. Both are always `true` or `false`, so neither can be the empty middle field that
-        # rule exists to forbid.
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        # `reported`, `declared_handoff` and `declared_members` sit BEFORE the artifact list,
+        # never after it: the artifact list is last because a trailing empty field is the one
+        # case `read` handles correctly (see the note above), so a new column appended after it
+        # would land inside it. The first two are always `true` or `false`, and the third is
+        # `-` when nothing holds, so none can be the empty middle field that rule exists to
+        # forbid.
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
             "$_cs_unit" "$_cs_branch" "$_cs_at" "$_cs_stale" \
             "$_cs_author" "$_cs_resumable" "$_cs_reason" "$_cs_reported" \
-            "$_cs_declared_handoff" "$_cs_artifacts"
+            "$_cs_declared_handoff" "$_cs_declared_members" "$_cs_artifacts"
     done
 }
 

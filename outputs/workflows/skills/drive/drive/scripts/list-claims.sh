@@ -16,7 +16,7 @@
 #            {"unit": "...", "branch": "work-...", "artifacts": ["..."],
 #             "last_commit_at": "2026-...", "stale": false, "author": "...",
 #             "resumable": false, "resume_reason": "claim_active",
-#             "reported": false, "declared_handoff": false,
+#             "reported": false, "declared_handoff": false, "declared_members": [],
 #             "mergeability": "clean"|"mechanical"|"content"|"unanswerable",
 #             "mergeability_reason": "",
 #             "stranded_files": [...], "stranded_file_count": N}, ...]}
@@ -33,11 +33,18 @@
 # call this scan has not already made), and every one of its four values is a JUDGEMENT: a base
 # that moves is exactly a reading that becomes false by looking again.
 #
-# `declared_handoff: true` means the work this claim still has QUEUED was declared
-# unverifiable in an unattended environment at creation (`verification_handoff:`, read through
-# the one reader that owns that field). It is reported on every row rather than only where a
-# verdict forks, so a consumer never has to derive it a second time -- and it is read from the
-# REMAINING work, so it answers `false` again on its own once that ticket is driven.
+# `declared_handoff: true` means EVERY member of the work this claim still has QUEUED was
+# declared unverifiable in an unattended environment at creation (`verification_handoff:`, read
+# through the one reader that owns that field), or the mission itself was. It is reported on
+# every row rather than only where a verdict forks, so a consumer never has to derive it a
+# second time -- and it is read from the REMAINING work, so it answers `false` again on its own
+# once those tickets are driven.
+#
+# `declared_members` names WHICH members hold it, and is meaningful on a `false` row too: since
+# 2026-09-07 a unit whose members only PARTLY declare keeps its ordinary verdict and is offered,
+# so the partition is what tells §6 which members to hand off and which to drive. Empty when
+# nothing declares; a `probe:` member is never in it, because a probe is re-run at claim time
+# and holds nothing here.
 # `resume_reason` is never empty: `heartbeat_lapsed`, `parked_with_pr` or
 # `report_incomplete` (all resumable), `claim_active`, `foreign_identity`,
 # `identity_unresolved`, `shallow_history`, or `queue_drained`.
@@ -129,7 +136,7 @@ rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
     # Read the TSV the shared scan produced. `read -r` with a tab IFS keeps the
     # artifact list intact in the last field.
-    while IFS='	' read -r unit branch last_at stale author resumable resume_reason reported declared_handoff artifacts; do
+    while IFS='	' read -r unit branch last_at stale author resumable resume_reason reported declared_handoff declared_members artifacts; do
         [ -n "$unit" ] || continue
         arts=""
         asep=""
@@ -141,6 +148,23 @@ if [ -n "$rows" ]; then
             asep=", "
         done
         IFS="$old_ifs"
+        # WHICH MEMBERS HOLD THE DECLARATION (2026-09-07, mission
+        # `hand-off-the-members-that-declare-and-drive-the-rest`). `declared_handoff` is now
+        # *every remaining member declares*, so a `false` row can still carry members a person
+        # must act on -- and a consumer told only the boolean would have to re-derive the
+        # partition to name them, which is the second parser this whole shape forbids. `-` is
+        # the scan's no-empty-middle-field placeholder and renders as the empty list.
+        dmembers=""
+        dsep=""
+        if [ "$declared_members" != "-" ]; then
+            old_ifs="$IFS"
+            IFS=','
+            for dm in $declared_members; do
+                dmembers="${dmembers}${dsep}\"${dm}\""
+                dsep=", "
+            done
+            IFS="$old_ifs"
+        fi
         # WHY THE MERGE OUTCOME IS READ HERE AND NOT CARRIED IN THE TSV (2026-08-27, mission
         # `close-the-units-the-loop-already-finished`). The scan's row has a load-bearing field
         # count -- the library's longest warning is about exactly what happens when a column is
@@ -200,7 +224,7 @@ if [ -n "$rows" ]; then
                     | jq -R 'select(length > 0)' | jq -sc '.' 2>/dev/null || printf '[]')
             fi
         fi
-        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"declared_handoff\": ${declared_handoff}, \"merge_outcome\": \"${merge_outcome}\", \"mergeability\": \"${mergeability}\", \"mergeability_reason\": \"${mergeability_reason}\", \"mergeability_content_files\": ${mergeability_content_files}, \"stranded_files\": ${stranded_files}, \"stranded_file_count\": ${stranded_file_count}}"
+        claims="${claims}${sep}{\"unit\": \"${unit}\", \"branch\": \"${branch}\", \"artifacts\": [${arts}], \"last_commit_at\": \"${last_at}\", \"stale\": ${stale}, \"author\": \"${author}\", \"resumable\": ${resumable}, \"resume_reason\": \"${resume_reason}\", \"reported\": ${reported}, \"declared_handoff\": ${declared_handoff}, \"declared_members\": [${dmembers}], \"merge_outcome\": \"${merge_outcome}\", \"mergeability\": \"${mergeability}\", \"mergeability_reason\": \"${mergeability_reason}\", \"mergeability_content_files\": ${mergeability_content_files}, \"stranded_files\": ${stranded_files}, \"stranded_file_count\": ${stranded_file_count}}"
         sep=", "
     done <<EOF
 $rows

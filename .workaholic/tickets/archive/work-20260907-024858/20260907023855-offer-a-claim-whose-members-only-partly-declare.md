@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-07T02:38:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -121,3 +122,41 @@ Measured 2026-09-06 on `report-each-tick-in-the-originating-codex-chat`: 7 queue
   whole — no worse than today, and the next ticket is what makes it move. Order matters.
 - Do **not** move the reading into `verification-handoff.sh`'s verdict: the reader answers
   what the artifacts declare, and which members are *remaining* is the scan's question.
+
+## Final Report
+
+Development completed as planned.
+
+The scan's reading moved from *does any remaining member declare* to *does every remaining
+member declare*, and the partition it derives on the way now rides the claim row.
+
+### Discovered Insights
+
+- **Insight**: `claims_declared_reading` hands the one reader MATERIALISED TEMP FILES, so the
+  reader's `members[].id` names a path under `mktemp -d` and not the artifact.
+  **Context**: that is invisible while the caller wants only a boolean, and fatal the moment it
+  wants to name which members a person must act on. The temp-to-artifact mapping exists only at
+  the instant the blob is written, so the reading now echoes the ordered artifact paths below
+  its JSON line rather than letting a consumer reconstruct them with a second walk that could
+  disagree. Every existing caller takes the first line and is byte-identical.
+
+- **Insight**: the reader's per-member `unmeasured` is exactly the test this verdict wants —
+  *a non-empty declaration carrying no probe* — so the per-member probe rule came free.
+  **Context**: the old `claims_declared_handoff` read the unit-level `measurable`, which is set
+  from the FIRST declaring member only; a unit whose first declaration was prose and whose
+  second was a probe would have parked on both. Reading `unmeasured` per member is both simpler
+  and strictly more correct, and it introduced no new field anywhere.
+
+- **Insight**: the claim row is positional TSV and three separate scripts read it by position
+  (`list-claims.sh` by name, `plan-units.sh` and `claim.sh` by `read`, plus one `cut -f`).
+  **Context**: adding a column silently shifted the artifact list into a boolean for two of
+  them, and the resulting failure was 31 unrelated-looking assertions about claims leaving the
+  backlog. The `cut -f10` site carries a comment naming its own index precisely because this
+  has happened before; the two `while IFS= read` sites did not.
+
+- **Insight**: `report-each-tick-in-the-originating-codex-chat`'s claim branch has already
+  archived six of its seven tickets, so its remaining work is the one declaring ticket alone.
+  **Context**: that claim therefore reads `awaiting_verification` under the new rule too, and
+  correctly — the base still shows seven queued because the branch never merged. The measured
+  defect is real and this ticket closes it; that particular unit is simply further along than
+  the base makes it look.

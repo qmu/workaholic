@@ -199,15 +199,38 @@ on another machine coordinates through exactly the same artifact.
     that meets it already has the probe's **own output and exit status** as the reason, in the
     `## Handoff` and the `🟡` it writes — which is strictly more than a question naming a stale
     sentence could carry. Nothing is asked of a person for a state the loop re-derives every tick.
+    **And the verdict is reached from EVERY remaining member, never from any one of them**
+    (2026-09-07, mission `hand-off-the-members-that-declare-and-drive-the-rest`). The reader's
+    unit-level `handoff` is `any` — *the unit is one merge*, the same ground `effective-policy.sh`
+    stands on — which is right for the **route** and wrong for the **offer**: it took a unit whose
+    members only *partly* declare out of every offer, so the members that declared nothing were
+    driven by nothing. **Measured 2026-09-06** on `report-each-tick-in-the-originating-codex-chat`:
+    7 queued tickets, **one** declaring a prose handoff only the operator's own Codex chat can
+    discharge, six declaring nothing; the row read `awaiting_verification`, `plan-units.sh`
+    excluded the unit `claimed_awaiting_verification`, and the route step that would have driven
+    the six was never entered because the unit reached no offer at all. `claims_declared_split` is
+    now the one derivation: a member **holds** when the reader answered `"unmeasured": true` for it
+    (a non-empty declaration carrying no probe), and the verdict is `true` only when every
+    remaining **queued ticket** member holds — or when the mission's own `mission.md` does, which
+    still carries the whole unit and is byte-identical to what it always was. A partly-declared
+    unit keeps its ordinary verdict and is offered; §6 partitions it from the row rather than
+    re-deriving it. **The partition rides the row** as `declared_members`, meaningful on a `false`
+    row too, so a consumer that must name which members a person acts on never grows the second
+    parser of `verification_handoff:` this whole shape forbids. **The cost, stated**: a
+    partly-declared unit is re-offered every tick until its non-declaring members are driven, where
+    before it was parked once — which is the intended behaviour, since those tickets are work, and
+    it is bounded by the claim protocol, which refuses what is already taken.
     **A sibling word, not a narrowed `parked_with_pr`**, on the `report_undelivered` precedent:
     the two states call for different next actions — take it over versus satisfy the declared
     verification — and one word answering both is what made this invisible. `claim.sh resume`
     refuses it under its own name; refusing under `queue_drained` would send the reader to wait
     for a merge that is not what is owed.
     **Nothing new is derived, and no artifact gained a field.** `verification-handoff.sh` already
-    reads the declaration and stays its only reader: `claims_declared_handoff` materialises the
-    tip-side blobs of the unit's still-queued work — plus the mission's own `mission.md`, since
-    any member declaring it carries the whole unit — and hands them to that script. The set comes
+    reads the declaration and stays its only reader: `claims_declared_reading` materialises the
+    tip-side blobs of the unit's still-queued work — plus the mission's own `mission.md`, since a
+    declaration on the container carries the whole unit — and hands them to that script. The
+    partition above is read out of that same reading's `members[]`, so there is still one
+    materialisation, one call and no second parser. The set comes
     from `claims_remaining_tickets`, the walk `claims_has_work` already made, lifted out so the
     two readings cannot answer from two different ticket sets.
     **It releases itself.** The declaration is read from the work still *queued*, never the
@@ -304,9 +327,11 @@ branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, repo
 `resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
 or `claim_active` / `superseded` / `awaiting_verification` / `queue_drained` /
 `report_undelivered` / `foreign_identity` / `identity_unresolved` / `shallow_history`. Each row
-also carries `declared_handoff`, whether the work this claim still has **queued** was declared
-unverifiable here — read through the one script that owns `verification_handoff:`, from the
-branch tip, with no network call.
+also carries `declared_handoff`, whether **every** member of the work this claim still has
+**queued** was declared unverifiable here — read through the one script that owns
+`verification_handoff:`, from the branch tip, with no network call — and `declared_members`, the
+paths of the members that hold it, which is meaningful on a `false` row too because a unit whose
+members only partly declare keeps its ordinary verdict and is offered.
 
 `merged_lookup_unanswered` is `[{branch, reason}]` — every claim the **merged-pull-request
 lookup** could not answer for (2026-08-26). That lookup, `claim-merged.sh`, is the claim

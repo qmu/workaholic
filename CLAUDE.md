@@ -211,7 +211,7 @@ The repository is the coordination medium. The model is stated once in `skills/d
 | `queue_drained` | drained, story at the tip, PR open — waiting on a person | no | `claimed_reported` |
 | `report_incomplete` | drained, **no story** — a dead run's remains | **yes** (re-enters the Unified Run at §5) | `claimed_resumable` |
 | `report_undelivered` | the run recorded the transport's refusal into its own branch story | no — the next act is a **merge retry** | `claimed_undelivered` |
-| `awaiting_verification` | remaining queued work declares a **prose** `verification_handoff:` (a `probe:` declaration never reaches this verdict — 2026-09-06) | no | `claimed_awaiting_verification` |
+| `awaiting_verification` | **every** remaining queued member declares a **prose** `verification_handoff:`, or the mission itself does (a `probe:` declaration never reaches this verdict — 2026-09-06; *every* rather than *any* since 2026-09-07) | no | `claimed_awaiting_verification` |
 | `parked_with_pr` | reported with follow-up work on the branch | yes | — |
 | `heartbeat_lapsed` / `foreign_identity` / `identity_unresolved` / `shallow_history` / `ambiguous_claim` | as named | no | — |
 

@@ -65,7 +65,14 @@ update only for a missing plugin-owned layer.
 The supervisor completes and classifies the first tick before reporting ready. Every completion
 atomically replaces `.codex-loop/status.json` with the outcome, blocked reason, report path,
 transport verdict and next due time; `sh scripts/codex-loop.sh --status` reads that state without
-starting another process. A failed first tick, missing report or absent report transport refuses
+starting another process. **It answers the whole loop, not only the tick** (2026-09-06): the
+supervisor's own liveness (`.codex-loop/supervisor.json` — absent means never started), every
+worker's state and last **reported** outcome (`.codex-loop/worker-<role>.json`, evidence beside
+the lock, which stays the only concurrency authority), and the last tick, composed from the
+directory alone with `--status --json` rendering the same reading for a machine. Each unreadable
+part is named by its own reason rather than omitted or rendered as healthy. Readings and their
+vocabularies: `reference/other-agents.md`, *One question, one answer*. A failed first tick,
+missing report or absent report transport refuses
 startup by name. Later failures update status and the sequential supervisor proceeds to its next
 due time.
 

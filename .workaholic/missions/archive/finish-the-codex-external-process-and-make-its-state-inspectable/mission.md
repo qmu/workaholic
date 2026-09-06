@@ -2,7 +2,7 @@
 type: Mission
 title: Finish the Codex external process and make its state inspectable
 slug: finish-the-codex-external-process-and-make-its-state-inspectable
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-06T10:20:47+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260906-125643
 ---
 
 # Finish the Codex external process and make its state inspectable
@@ -38,12 +39,18 @@ failed are four distinct readings. A degraded read says so and never reads as he
 
 ## Acceptance
 
-- [ ] The empty-directory reading is reproduced and localized, and "never started" is
+- [x] The empty-directory reading is reproduced and localized, and "never started" is
       distinguishable from "started and stopped" in the directory itself. (#20260906102220-reproduce-and-localize-the-empty-codex-state-directory.md)
-- [ ] Each dispatched worker's state and last outcome are readable as data in the state
+- [x] Each dispatched worker's state and last outcome are readable as data in the state
       directory, not only as a live lock probe. (#20260906102221-record-each-codex-worker-s-state-and-last-outcome-as-data.md)
-- [ ] `--status` answers the whole question — supervisor and every worker — from the directory
+- [x] `--status` answers the whole question — supervisor and every worker — from the directory
       alone, naming an unreadable part rather than omitting it. (#20260906102221-answer-the-whole-codex-loop-status-from-the-directory-alone.md)
 
 ## Changelog
 
+- 2026-09-06 — ticket archived — 20260906102220-reproduce-and-localize-the-empty-codex-state-directory.md
+- 2026-09-06 — ticket archived — 20260906102220-record-the-supervisor-s-own-liveness-in-the-state-directory.md
+- 2026-09-06 — ticket archived — 20260906102221-record-each-codex-worker-s-state-and-last-outcome-as-data.md
+- 2026-09-06 — ticket archived — 20260906102221-answer-the-whole-codex-loop-status-from-the-directory-alone.md
+- 2026-09-06 — mission achieved — mission.md
+- 2026-09-06 — story written — work-20260906-125643.md

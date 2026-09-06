@@ -184,6 +184,7 @@ sh <work-skill-directory>/scripts/codex-loop.sh --interval 600  # every 10
 sh <work-skill-directory>/scripts/codex-loop.sh --once          # one tick for cron/systemd
 sh <work-skill-directory>/scripts/codex-loop.sh --dry-run --once
 sh <work-skill-directory>/scripts/codex-loop.sh --status        # read state; start nothing
+sh <work-skill-directory>/scripts/codex-loop.sh --status --json # the same reading, for a machine
 sh <work-skill-directory>/scripts/codex-loop.sh --relay --once  # parent waits for JSON intents
 sh <work-skill-directory>/scripts/codex-loop.sh --ack <file>    # validate parent outcomes
 sh <work-skill-directory>/scripts/codex-loop.sh --dispatch implement   # start one worker, return
@@ -202,6 +203,108 @@ In this source repository, `sh scripts/codex-loop.sh` is a compatibility shim on
 implementation. Startup reports `clock_wrapper_missing`, `plugin_skill_missing`,
 `plugin_command_missing`, `repository_missing`, or `codex_cli_missing` for the precise missing
 layer. Only missing plugin-owned files recommend updating or reinstalling the plugin.
+
+### One question, one answer
+
+**`--status` answers the whole loop from the state directory alone** (2026-09-06, the same
+mission). It used to give two half answers from two sources — `status.json` for the coordinator
+and a live lock probe for the workers — neither composed, and neither readable by anything that
+was not this script. A later tick, `/moderate`, or a person with a shell and no `codex` CLI could
+not ask *is the Codex loop turning, and what is it doing* and get one answer.
+
+`--status` keeps its human lines. `--status --json` renders the same reading for a machine:
+
+| Key | Reading |
+| --- | ------- |
+| `supervisor.reading` | the supervisor table below, with `pid` / `started_at` / `interval` beside it |
+| `tick.reading` | `readable`, `absent`, or `unreadable:<reason>` — with `tick_id`, `state`, `outcome`, `blocked_reason`, `finished_at`, `next_due` and `report_path` |
+| `workers[]` | one entry per role, always all three: `lock` (the live authority), `record` (the per-role table below) and `last_outcome` (the moderate tick log) |
+| `reports` | where a report lands, and that no chat return exists |
+
+**Composed, never re-derived**: every value belongs to a reader documented below —
+`supervisor_reading`, `worker_reading`, `role_state`, `last_worker_outcome`, `tick_reading`. The
+JSON form adds no state and no second derivation.
+
+**Every part names its own degradation in place.** A missing supervisor record, an unreadable
+role record and a malformed `status.json` are three distinct readings; an unreadable part carries
+its reason and **null** details rather than a default that looks healthy, and no part is ever
+silently omitted. The exit status is the tick's own on both surfaces — `0` readable, `4` absent,
+`5` unreadable.
+
+**The surface starts nothing, writes nothing, takes no lock and needs no `codex` CLI.** It
+returns before the presence check and before the `mkdir`, so reading the state of a repository
+that has never run the Codex path does not create the directory it is reporting on.
+
+### The supervisor's own liveness
+
+**`.codex-loop/supervisor.json` says whether a supervisor ever started here** (2026-09-06, mission
+`finish-the-codex-external-process-and-make-its-state-inspectable`). `write_status` runs first
+inside `run_tick`, so a supervisor killed during startup — or one whose `codex exec` never
+returned — left the directory exactly as empty as one that was never launched, and `--status`
+printed `absent` for both. **Measured** on the operator's machine: `.codex-loop/` created at
+09:31:48 with `mtime == Birth`, so nothing was ever written into it, while a supervisor was
+believed to be turning — it was in fact driving a different repository entirely, and the
+directory could not say so.
+
+The record is written **after the lock is taken and before the first tick**, and closed at every
+exit the script controls: the `--once` return (`completed_once`), the interrupt trap
+(`interrupted` — written *before* the tick guard, so an interrupt taken outside a tick is a stop
+the directory can see) and the readiness refusal (`readiness_refused`). It carries the pid, the
+boot id, the start time, the interval, the anchor and the log directory.
+
+| Reading | What it means |
+| ------- | ------------- |
+| `never_started` | no record — **absent means never started**, and a repository that never runs this path is byte-identical to one before the record existed |
+| `stopped:<reason>` | the supervisor returned through an exit it controls, naming which |
+| `running` | the recorded pid is alive under the recorded boot id |
+| `stopped_unclean` | the recorded pid is gone — an exit the script did not control |
+| `stopped_unclean:reboot` | the pid is alive but the boot id has changed, so the number was recycled and the process is gone |
+| `unreadable:<reason>` | `malformed`, `unknown_state`, `jq_missing`, or **`boot_unverifiable`** — the pid is alive and no boot id is readable on either side, so a live process cannot be told from a recycled number |
+
+**A pid is not a proof across a reboot**, which is why the boot id is recorded rather than the pid
+alone: a reading that cannot rule out a recycled number says so instead of claiming liveness. An
+absence of a reading is never a healthy one — the rule every other three-valued reader here holds.
+
+### Each worker's state and last outcome
+
+**`.codex-loop/worker-<role>.json` carries what the worker reported, beside the lock rather than
+instead of it** (2026-09-06, the same mission). A role's state existed only as a live `flock`
+probe and its outcome only as an unindexed transcript, so *idle because it finished cleanly* and
+*idle because it failed forty minutes ago* were one word; `last_outcome` came from the moderate
+tick log — `.workaholic/moderations/`, a different tree on a different path, written by whichever
+loop last ran — so a machine running the Claude loop reported the Claude loop's workers under
+`codex worker <role>`.
+
+The record is written when the worker starts (`running`) and again when it finishes
+(`finished`), carrying the role, the tick stamp, the start and finish times, the **process exit
+status** and the **reported outcome** as separate fields, and the report and transcript paths.
+The outcome is `worker_outcome`'s own word, derived from the worker's schema-constrained report —
+never from the exit status alone and never from words grepped out of prose.
+
+| Reading | What it means |
+| ------- | ------------- |
+| `never_dispatched` | no record — this role has never run here |
+| `finished:<outcome>` | it finished, carrying what it **reported**: `ok`, `blocked:<reason>`, `failed:<reason>`, `not_executed:<reason>`, or `unreadable:<reason>` when the report could not be read |
+| `running` | the recorded pid is alive under the recorded boot id |
+| `died_unrecorded` / `died_unrecorded:reboot` | it left a `running` record and its process is gone — never a finish |
+| `unreadable:<reason>` | `malformed`, `unknown_state`, `jq_missing`, `boot_unverifiable` |
+
+`liveness_reading` is the **one** derivation of *is the process that wrote this record still the
+one running*, shared by the supervisor record and every per-role record.
+
+**The lock remains the only concurrency authority.** `--dispatch` still refuses `already_running`
+on `role_state`, which reads the lock; nothing refuses, starts or reaps a worker by reading these
+records, and the suite asserts that structurally. `record_worker_finish`'s tick-log write is
+untouched — this is a second surface, not a replacement, and the cadence readers still read the
+log.
+
+**A run that writes nothing creates nothing.** The state directory used to be created inside the
+dispatch branch *before* the `codex` presence check, so `--dispatch <role> --dry-run` (which
+starts nothing) and a dispatch on a machine with no `codex` CLI (which cannot start anything)
+each left an empty `.codex-loop/` — indistinguishable from a supervisor that never started, and
+the exact state measured on the operator's machine. Neither creates the directory now. The
+supervisor's own `--dry-run` still creates it and takes `.supervisor.lock`; that residue is a
+separate, recorded finding.
 
 Startup is ready only after its first tick returns a readable report through an available report
 transport. The current atomic reading is `.codex-loop/status.json`: it distinguishes `ready`,

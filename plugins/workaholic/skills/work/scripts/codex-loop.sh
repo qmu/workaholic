@@ -5,6 +5,7 @@ INTERVAL=300
 ONCE=false
 DRY_RUN=false
 STATUS_ONLY=false
+STATUS_JSON=false
 RELAY=false
 ACK_FILE=""
 LOG_DIR=""
@@ -18,6 +19,7 @@ while [ "$#" -gt 0 ]; do
         --once) ONCE=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
         --status) STATUS_ONLY=true; shift ;;
+        --json) STATUS_JSON=true; shift ;;
         --relay) RELAY=true; shift ;;
         --dispatch) DISPATCH_ROLE="${2:-}"; shift 2 ;;
         --worker) WORKER_ROLE="${2:-}"; shift 2 ;;
@@ -30,6 +32,7 @@ while [ "$#" -gt 0 ]; do
                 '  --once      execute one tick and exit' \
                 '  --dry-run   print the command without executing it' \
                 '  --status    read current state without starting a tick' \
+                '  --json      with --status, render the composed reading as JSON' \
                 '  --relay     return credential-free Slack intents for an owning chat' \
                 '  --dispatch  start one background worker (implement|propose|moderate) and return' \
                 '  --worker    run one worker in this process; refuses a role already running' \
@@ -68,6 +71,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$REPO_ROOT" ] || { printf 'repository_missing: run the launcher inside a git repository\n' >&2; exit 2; }
 [ -z "$LOG_DIR" ] && LOG_DIR="${REPO_ROOT}/.codex-loop"
 STATUS_FILE="${LOG_DIR}/status.json"
+SUPERVISOR_FILE="${LOG_DIR}/supervisor.json"
 RELAY_STATE="none"
 
 # THE COORDINATOR NEVER WAITS FOR THE WORK (2026-09-05, issues #984 and #985). A role is
@@ -100,12 +104,153 @@ role_state() {
 RELAY_ENVELOPE=""
 RELAY_ACK=""
 
+# THE SUPERVISOR SAYS WHETHER IT EVER STARTED, FROM THE DIRECTORY ALONE (2026-09-06, mission
+# `finish-the-codex-external-process-and-make-its-state-inspectable`). `write_status` runs first
+# inside `run_tick`, so a supervisor killed during startup — or one whose `codex exec` never
+# returned — left the directory exactly as empty as one that was never launched, and
+# `show_status` printed `absent` for both. MEASURED on the operator's machine: `.codex-loop/`
+# created at 09:31:48 with `mtime == Birth`, so nothing was ever written into it, while a
+# supervisor was believed to be turning; it was in fact driving a different repository entirely.
+#
+# ABSENT MEANS NEVER STARTED, and that stays true: a directory with no supervisor record is
+# byte-identical to one before this existed, so a repository that never runs the Codex path is
+# unaffected.
+#
+# A PID IS NOT A PROOF ACROSS A REBOOT, so the record carries the boot id and the reading says
+# what it cannot establish rather than claiming liveness. A pid that is gone proves the process
+# is gone whatever the boot id says; a pid that is alive under a *different* boot id is a
+# recycled number and the process is gone; a pid that is alive with no boot id readable on
+# either side cannot be told from a recycled one, and that reads `unreadable:boot_unverifiable`
+# — never `running`. This is the same rule every other three-valued reader here holds: an
+# absence of a reading is never a healthy one.
+json_quote() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -Rn --arg value "$1" '$value'
+    else
+        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$/"/'
+    fi
+}
+
+boot_id() {
+    [ -r /proc/sys/kernel/random/boot_id ] || { printf ''; return 0; }
+    tr -d '\n' </proc/sys/kernel/random/boot_id 2>/dev/null || printf ''
+}
+
+pid_alive() {
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    if [ -d /proc ]; then [ -d "/proc/$1" ]; return $?; fi
+    kill -0 "$1" 2>/dev/null
+}
+
+# ONE DERIVATION OF *IS THE PROCESS THAT WROTE THIS RECORD STILL THE ONE RUNNING*, read by the
+# supervisor record and by every per-role record. A second copy is how the two would come to
+# disagree about what a live pid proves. The rungs are ordered so the sound one is taken first:
+# a pid that is GONE proves the process is gone whatever the boot id says, while a pid that is
+# ALIVE proves nothing without one — which is why a platform exposing no boot id degrades only
+# in the ambiguous case rather than in every case.
+#   alive | gone | reboot | unverifiable
+liveness_reading() {
+    _lv_pid=$1 _lv_boot=$2
+    pid_alive "$_lv_pid" || { printf 'gone'; return 0; }
+    _lv_now=$(boot_id)
+    if [ -n "$_lv_boot" ] && [ -n "$_lv_now" ]; then
+        [ "$_lv_boot" = "$_lv_now" ] && { printf 'alive'; return 0; }
+        printf 'reboot'; return 0
+    fi
+    printf 'unverifiable'
+}
+
+# One word, derived from the file alone — no lock, no live probe of anything but the pid.
+supervisor_reading() {
+    [ -f "$SUPERVISOR_FILE" ] || { printf 'never_started'; return 0; }
+    command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
+    jq -e 'type == "object" and (.state | type == "string") and (.pid | type == "string")' \
+        "$SUPERVISOR_FILE" >/dev/null 2>&1 || { printf 'unreadable:malformed'; return 0; }
+    _sv_state=$(jq -r '.state' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+    if [ "$_sv_state" = stopped ]; then
+        _sv_reason=$(jq -r '.stopped_reason // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+        [ -n "$_sv_reason" ] || _sv_reason=unstated
+        printf 'stopped:%s' "$_sv_reason"; return 0
+    fi
+    [ "$_sv_state" = running ] || { printf 'unreadable:unknown_state'; return 0; }
+    _sv_pid=$(jq -r '.pid' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+    _sv_boot=$(jq -r '.boot_id // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+    case "$(liveness_reading "$_sv_pid" "$_sv_boot")" in
+        alive)  printf 'running' ;;
+        gone)   printf 'stopped_unclean' ;;
+        reboot) printf 'stopped_unclean:reboot' ;;
+        *)      printf 'unreadable:boot_unverifiable' ;;
+    esac
+}
+
+# THE WORKER'S STATE AND LAST OUTCOME ARE DATA IN THE DIRECTORY, NOT A LIVE LOCK PROBE
+# (2026-09-06, mission `finish-the-codex-external-process-and-make-its-state-inspectable`).
+# `role_state` answers only whether a lock is held **at this instant**, so *idle because it
+# finished cleanly* and *idle because it failed forty minutes ago* were one word; and the outcome
+# was read from the moderate tick log — `.workaholic/moderations/`, a different tree on a
+# different path, written by whichever loop last ran — so a machine running the Claude loop
+# reported the Claude loop's workers under `codex worker <role>`.
+#
+# THE LOCK REMAINS THE ONLY CONCURRENCY AUTHORITY. This record is evidence beside it: nothing
+# refuses, starts or reaps a worker by reading it, and the dispatch refusal still reads
+# `role_state` alone.
+role_record() { printf '%s/worker-%s.json' "$LOG_DIR" "$1"; }
+
+worker_reading() {
+    _wr_file=$(role_record "$1")
+    [ -f "$_wr_file" ] || { printf 'never_dispatched'; return 0; }
+    command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
+    jq -e 'type == "object" and (.state | type == "string") and (.pid | type == "string")' \
+        "$_wr_file" >/dev/null 2>&1 || { printf 'unreadable:malformed'; return 0; }
+    _wr_state=$(jq -r '.state' "$_wr_file" 2>/dev/null || printf '')
+    if [ "$_wr_state" = finished ]; then
+        _wr_out=$(jq -r '.outcome // ""' "$_wr_file" 2>/dev/null || printf '')
+        [ -n "$_wr_out" ] || _wr_out=unreadable:unrecorded_outcome
+        printf 'finished:%s' "$_wr_out"; return 0
+    fi
+    [ "$_wr_state" = running ] || { printf 'unreadable:unknown_state'; return 0; }
+    _wr_pid=$(jq -r '.pid' "$_wr_file" 2>/dev/null || printf '')
+    _wr_boot=$(jq -r '.boot_id // ""' "$_wr_file" 2>/dev/null || printf '')
+    case "$(liveness_reading "$_wr_pid" "$_wr_boot")" in
+        alive)  printf 'running' ;;
+        gone)   printf 'died_unrecorded' ;;
+        reboot) printf 'died_unrecorded:reboot' ;;
+        *)      printf 'unreadable:boot_unverifiable' ;;
+    esac
+}
+
+show_supervisor() {
+    _sv_read=$(supervisor_reading)
+    case "$_sv_read" in
+        never_started)
+            printf 'codex supervisor: never_started (%s)\n' "$SUPERVISOR_FILE" ;;
+        *)
+            _sv_detail=""
+            if [ -f "$SUPERVISOR_FILE" ] && command -v jq >/dev/null 2>&1; then
+                _sv_detail=$(jq -r '" pid=\(.pid // "") started_at=\(.started_at // "") interval=\(.interval // "")"' \
+                    "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+            fi
+            printf 'codex supervisor: %s%s\n' "$_sv_read" "$_sv_detail" ;;
+    esac
+}
+
+# The last tick's own three-valued reading, derived ONCE and read by the human renderer and the
+# composed one alike. `absent` and `unreadable:<reason>` are different facts and neither is a
+# healthy tick.
+tick_reading() {
+    [ -f "$STATUS_FILE" ] || { printf 'absent'; return 0; }
+    command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
+    jq -e . "$STATUS_FILE" >/dev/null 2>&1 || { printf 'unreadable:malformed'; return 0; }
+    printf 'readable'
+}
+
 show_status() {
-    if [ ! -f "$STATUS_FILE" ]; then
+    _ss_read=$(tick_reading)
+    if [ "$_ss_read" = absent ]; then
         printf 'codex loop status: absent (%s)\n' "$STATUS_FILE"
         return 4
     fi
-    if command -v jq >/dev/null 2>&1 && jq -e . "$STATUS_FILE" >/dev/null 2>&1; then
+    if [ "$_ss_read" = readable ]; then
         jq -r '"codex loop status: state=\(.state) outcome=\(.outcome)" +
           (if .blocked_reason == "" then "" else " blocked_reason=\(.blocked_reason)" end) +
           (if .next_due == "" then "" else " next_due=\(.next_due)" end) +
@@ -142,14 +287,85 @@ last_worker_outcome() {
     printf '%s' "$_lw_out"
 }
 
+# THREE SOURCES, KEPT VISIBLY APART. `lock` is the live concurrency authority, `record` is this
+# role's own state and last outcome from the directory, and `last_outcome` is the moderate tick
+# log the cadence readers use. They answer different questions and one word for all three is what
+# made a failed run indistinguishable from a clean one.
 show_workers() {
     for _r in $ROLES; do
-        printf 'codex worker %s: %s last_outcome=%s\n' \
-            "$_r" "$(role_state "$_r")" "$(last_worker_outcome "$_r")"
+        printf 'codex worker %s: %s record=%s last_outcome=%s\n' \
+            "$_r" "$(role_state "$_r")" "$(worker_reading "$_r")" "$(last_worker_outcome "$_r")"
     done
     # WHERE A REPORT ARRIVES AND WHERE IT DOES NOT, named rather than left to be discovered. An
     # absent delivery path is never substituted for one that delivers somewhere else.
     printf 'codex loop reports: dir=%s chat_return=none\n' "$LOG_DIR"
+}
+
+# ONE QUESTION, ONE ANSWER, FROM THE DIRECTORY ALONE (2026-09-06, mission
+# `finish-the-codex-external-process-and-make-its-state-inspectable`). `--status` gave two half
+# answers from two sources — `show_status` read `status.json` and `show_workers` probed each
+# role's lock live — so the supervisor's state and the workers' were neither composed nor
+# readable by anything that was not this script. A later tick, `/moderate`, or a person with a
+# shell and no `codex` CLI could not ask *is the Codex loop turning, and what is it doing* and
+# get one answer.
+#
+# COMPOSED, NEVER RE-DERIVED. Every reading here belongs to a function above:
+# `supervisor_reading`, `worker_reading`, `role_state`, `last_worker_outcome`, `tick_reading`.
+# This adds no state and no second derivation of anything.
+#
+# EVERY PART NAMES ITS OWN DEGRADATION IN PLACE. A missing supervisor record, an unreadable role
+# record and a malformed `status.json` are three distinct readings; none renders as healthy and
+# none is silently omitted — an unreadable part carries its reason and **null** details, never a
+# default that looks like a healthy value.
+status_json_field() {
+    # One field out of the tick's status file, or the empty string when it is not readable.
+    [ "$1" = readable ] || { printf ''; return 0; }
+    jq -r --arg k "$2" '.[$k] // ""' "$STATUS_FILE" 2>/dev/null || printf ''
+}
+
+json_or_null() {
+    [ -n "$1" ] || { printf 'null'; return 0; }
+    json_quote "$1"
+}
+
+show_status_json() {
+    _sj_tick=$(tick_reading)
+    _sj_sup=$(supervisor_reading)
+    printf '{\n'
+    printf '  "log_dir": %s,\n' "$(json_quote "$LOG_DIR")"
+    printf '  "supervisor": {\n'
+    printf '    "reading": %s,\n' "$(json_quote "$_sj_sup")"
+    if [ -f "$SUPERVISOR_FILE" ] && command -v jq >/dev/null 2>&1; then
+        printf '    "pid": %s,\n' "$(json_or_null "$(jq -r '.pid // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')")"
+        printf '    "started_at": %s,\n' "$(json_or_null "$(jq -r '.started_at // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')")"
+        printf '    "interval": %s\n' "$(json_or_null "$(jq -r '.interval // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')")"
+    else
+        printf '    "pid": null,\n    "started_at": null,\n    "interval": null\n'
+    fi
+    printf '  },\n'
+    printf '  "tick": {\n'
+    printf '    "reading": %s,\n' "$(json_quote "$_sj_tick")"
+    printf '    "tick_id": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" tick_id)")"
+    printf '    "state": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" state)")"
+    printf '    "outcome": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" outcome)")"
+    printf '    "blocked_reason": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" blocked_reason)")"
+    printf '    "finished_at": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" finished_at)")"
+    printf '    "next_due": %s,\n' "$(json_or_null "$(status_json_field "$_sj_tick" next_due)")"
+    printf '    "report_path": %s\n' "$(json_or_null "$(status_json_field "$_sj_tick" report_path)")"
+    printf '  },\n'
+    printf '  "workers": [\n'
+    _sj_first=true
+    for _sj_r in $ROLES; do
+        [ "$_sj_first" = true ] || printf ',\n'
+        _sj_first=false
+        printf '    {"role": %s, "lock": %s, "record": %s, "last_outcome": %s}' \
+            "$(json_quote "$_sj_r")" "$(json_quote "$(role_state "$_sj_r")")" \
+            "$(json_quote "$(worker_reading "$_sj_r")")" \
+            "$(json_quote "$(last_worker_outcome "$_sj_r")")"
+    done
+    printf '\n  ],\n'
+    printf '  "reports": {"dir": %s, "chat_return": "none"}\n' "$(json_quote "$LOG_DIR")"
+    printf '}\n'
 }
 
 if [ -n "$ACK_FILE" ]; then
@@ -174,6 +390,19 @@ if [ -n "$ACK_FILE" ]; then
 fi
 
 if [ "$STATUS_ONLY" = true ]; then
+    # ONE INVOCATION, ONE ANSWER. `--json` renders the composed reading for a machine; without it
+    # the human lines are unchanged. Either way this branch starts nothing, writes nothing, takes
+    # no lock and requires no `codex` CLI — it returns before the presence check and before the
+    # `mkdir`, and the exit status is the tick's own (0 / 4 / 5) on both surfaces.
+    if [ "$STATUS_JSON" = true ]; then
+        show_status_json
+        case "$(tick_reading)" in
+            absent) exit 4 ;;
+            readable) exit 0 ;;
+            *) exit 5 ;;
+        esac
+    fi
+    show_supervisor
     show_status
     _status_exit=$?
     show_workers
@@ -188,7 +417,6 @@ if [ -n "$DISPATCH_ROLE" ] || [ -n "$WORKER_ROLE" ]; then
         printf 'plugin_command_missing: %s\n' "$ROLE_BODY" >&2
         printf 'Update or reinstall the Workaholic plugin; its %s command body is incomplete.\n' "$_role" >&2
         exit 2; }
-    mkdir -p "$LOG_DIR"
 fi
 
 command -v codex >/dev/null 2>&1 || { printf 'codex_cli_missing: the codex CLI is not on PATH\n' >&2; exit 2; }
@@ -211,15 +439,18 @@ if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
     fi
 fi
 
-mkdir -p "$LOG_DIR"
-
-json_quote() {
-    if command -v jq >/dev/null 2>&1; then
-        jq -Rn --arg value "$1" '$value'
-    else
-        printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/^/"/; s/$/"/'
-    fi
-}
+# A RUN THAT WRITES NOTHING CREATES NOTHING (2026-09-06, the diagnosis's rows 3 and 4). The
+# state directory used to be created twice: once inside the dispatch/worker branch **before** the
+# `codex` presence check, and once here. So `--dispatch <role> --dry-run` — which starts nothing —
+# and a dispatch on a machine with no `codex` CLI — which cannot start anything — each left an
+# EMPTY `.codex-loop/`, indistinguishable from a supervisor that never started. MEASURED: that is
+# the exact state on the operator's machine, reproduced byte-for-byte by the first of the two.
+# The earlier `mkdir` is gone, and a dry-run dispatch takes none at all. The supervisor's own
+# `--dry-run` still creates the directory and takes the lock; that residue is recorded as a
+# separate finding and is not repaired here.
+if [ "$DRY_RUN" != true ] || [ -z "${DISPATCH_ROLE}${WORKER_ROLE}" ]; then
+    mkdir -p "$LOG_DIR"
+fi
 
 write_status() {
     _state=$1 _outcome=$2 _reason=$3 _tick=$4 _started=$5 _finished=$6
@@ -243,6 +474,58 @@ write_status() {
         printf '}\n'
     } >"$_tmp"
     mv "$_tmp" "$STATUS_FILE"
+}
+
+# The same atomic tmp-then-mv shape `write_status` uses, on the supervisor's own record. `pid` is
+# written as a string so `supervisor_reading`'s schema check is one type test.
+SUPERVISOR_STARTED=""
+SUPERVISOR_BOOT=""
+write_supervisor() {
+    _sv_w_state=$1 _sv_w_reason=$2
+    _sv_w_tmp="${SUPERVISOR_FILE}.tmp.$$"
+    {
+        printf '{\n'
+        printf '  "state": %s,\n' "$(json_quote "$_sv_w_state")"
+        printf '  "stopped_reason": %s,\n' "$(json_quote "$_sv_w_reason")"
+        printf '  "pid": %s,\n' "$(json_quote "$$")"
+        printf '  "boot_id": %s,\n' "$(json_quote "$SUPERVISOR_BOOT")"
+        printf '  "started_at": %s,\n' "$(json_quote "$SUPERVISOR_STARTED")"
+        printf '  "interval": %s,\n' "$(json_quote "$INTERVAL")"
+        printf '  "anchor": %s,\n' "$(json_quote "${LOOP_ANCHOR:-}")"
+        printf '  "once": %s,\n' "$(json_quote "$ONCE")"
+        printf '  "log_dir": %s\n' "$(json_quote "$LOG_DIR")"
+        printf '}\n'
+    } >"$_sv_w_tmp"
+    mv "$_sv_w_tmp" "$SUPERVISOR_FILE"
+}
+
+# The same atomic shape again, per role. `exit_status` and `outcome` are recorded SEPARATELY and
+# both are kept: a process that terminated and a role that did the work are two facts, and the
+# exit status standing in for both is the defect this closes. `outcome` is `worker_outcome`'s own
+# word, derived from the worker's report through the schema — never from the exit status alone
+# and never from words grepped out of prose — so a report that cannot be read records
+# `unreadable:<reason>` rather than inferring success.
+write_worker_record() {
+    _ww_role=$1 _ww_state=$2 _ww_tick=$3 _ww_started=$4 _ww_finished=$5
+    _ww_exit=$6 _ww_outcome=$7 _ww_report=$8 _ww_transcript=$9
+    _ww_file=$(role_record "$_ww_role")
+    _ww_tmp="${_ww_file}.tmp.$$"
+    {
+        printf '{\n'
+        printf '  "role": %s,\n' "$(json_quote "$_ww_role")"
+        printf '  "state": %s,\n' "$(json_quote "$_ww_state")"
+        printf '  "tick": %s,\n' "$(json_quote "$_ww_tick")"
+        printf '  "started_at": %s,\n' "$(json_quote "$_ww_started")"
+        printf '  "finished_at": %s,\n' "$(json_quote "$_ww_finished")"
+        printf '  "exit_status": %s,\n' "$(json_quote "$_ww_exit")"
+        printf '  "outcome": %s,\n' "$(json_quote "$_ww_outcome")"
+        printf '  "report_path": %s,\n' "$(json_quote "$_ww_report")"
+        printf '  "transcript_path": %s,\n' "$(json_quote "$_ww_transcript")"
+        printf '  "pid": %s,\n' "$(json_quote "$$")"
+        printf '  "boot_id": %s\n' "$(json_quote "$(boot_id)")"
+        printf '}\n'
+    } >"$_ww_tmp"
+    mv "$_ww_tmp" "$_ww_file"
 }
 
 # THE CADENCE IS MEASURED FROM STARTUP, NOT FROM THE PREVIOUS TICK'S FINISH (2026-09-05,
@@ -335,6 +618,11 @@ CURRENT_STARTED=""
 CURRENT_REPORT=""
 CURRENT_TRANSCRIPT=""
 on_interrupt() {
+    # THE STOP IS RECORDED BEFORE THE TICK GUARD, so an interrupt taken *outside* a tick — the
+    # window between the lock and `run_tick`'s first `write_status`, and the window after a tick
+    # cleared `CURRENT_TICK` — is a stop the directory can see. That window is collapse row 7 of
+    # the diagnosis: it used to `exit 130` writing nothing at all.
+    [ -z "$SUPERVISOR_STARTED" ] || write_supervisor stopped interrupted
     [ -n "$CURRENT_TICK" ] || exit 130
     _finished=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     write_status blocked interrupted signal "$CURRENT_TICK" "$CURRENT_STARTED" "$_finished" \
@@ -534,10 +822,16 @@ run_worker() {
     else
         set --
     fi
+    _wstarted=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    write_worker_record "$_role" running "$_wstamp" "$_wstarted" "" "" "" "$_wout" "$_wlog"
     if codex exec -C "$REPO_ROOT" --dangerously-bypass-approvals-and-sandbox \
         -c shell_environment_policy.inherit=all "$@" --output-last-message "$_wout" "$_wprompt" \
         >"$_wlog" 2>&1; then _wexit=0; else _wexit=$?; fi
     _woutcome=$(worker_outcome "$_wout" "$_wexit")
+    write_worker_record "$_role" finished "$_wstamp" "$_wstarted" \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$_wexit" "$_woutcome" "$_wout" "$_wlog"
+    # UNTOUCHED: the tick-log write the cadence readers depend on. This record is a second
+    # surface beside it, never a replacement.
     record_worker_finish "$_role" "$_woutcome"
     printf 'codex worker %s: exit=%s outcome=%s report=%s\n' "$_role" "$_wexit" "$_woutcome" "$_wout"
     return 0
@@ -600,6 +894,13 @@ fi
 # The anchor is the moment the supervisor started. Every boundary is measured from it, so the
 # loop keeps its phase however long an individual tick takes.
 LOOP_ANCHOR=$(date -u +%s)
+# THE RECORD IS WRITTEN BEFORE THE FIRST TICK, which is the whole point: from here on, an
+# absent record means never started and a present one means this supervisor got as far as
+# owning the lock. `SUPERVISOR_STARTED` is also the flag `on_interrupt` reads to know whether
+# there is a record to close.
+SUPERVISOR_STARTED=$(iso_from_epoch "$LOOP_ANCHOR")
+SUPERVISOR_BOOT=$(boot_id)
+write_supervisor running ""
 _expected=$LOOP_ANCHOR
 _first=true
 while :; do
@@ -611,13 +912,17 @@ while :; do
     if [ "$_first" = true ]; then
         _first=false
         if [ "$_tick_ready" != true ]; then
+            write_supervisor stopped readiness_refused
             printf 'codex loop readiness refused; use --status for the recorded reason\n' >&2
             exit 6
         fi
         printf 'codex loop: ready interval=%ss once=%s env=%s log=%s\n' \
             "$INTERVAL" "$ONCE" "$ENV_SOURCE" "$LOG_DIR" >&2
     fi
-    [ "$ONCE" = true ] && break
+    if [ "$ONCE" = true ]; then
+        write_supervisor stopped completed_once
+        break
+    fi
     _now=$(date -u +%s)
     _due=$(next_boundary "$_now")
     _skipped=$(( (_due - _expected) / INTERVAL - 1 ))

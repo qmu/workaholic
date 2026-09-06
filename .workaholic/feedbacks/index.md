@@ -672,4 +672,5 @@
 * [Make /work own completion on Codex and Claude Code](20260906081415-make-work-own-completion-on-codex-and-claude-code.md)
 * [Finish Codex support as an external process with inspectable state](20260906101722-finish-codex-support-as-an-external-process-with-inspectable-state.md)
 * [The tick's own log writes suppress the moderate spawn forever](20260906110057-the-tick-s-own-log-writes-suppress-the-moderate-spawn-forever.md)
+* [close-publish-tree.sh refuses unpublished_commits after a squash merge](20260906110529-close-publish-tree-sh-refuses-unpublished-commits-after-a-squash-merge.md)
 <!-- okf:generated:end -->

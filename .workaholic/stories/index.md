@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260906-113520](work-20260906-113520.md) - The mission close gate reads a verification handoff's form, so a re-testable probe declaration no longer holds a finished mission open for a person.
 * [work-20260906-092226](work-20260906-092226.md) - Stop the loop handing routine engineering work back to a person — recovery work counts as claimable, a worker's finish comes from its own reported outcome, and a probe declaration no longer parks a claim.
 * [work-20260906-081744](work-20260906-081744.md) - A plugin markdown file is read at the checkout's own path, never at `<src>` — closing the reach that parked the `[Propose]` tick hourly.
 * [work-20260906-025904](work-20260906-025904.md) - Make the base an outright refusal for the tick log, read the residue it already left there, and pin the guard to every writer rather than to one tick's name

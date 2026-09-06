@@ -58,3 +58,4 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — run recorded (+2.0h) — implement-20260906T0222Z
 - 2026-09-06 — ticket archived — 20260906105853-read-the-probe-before-holding-a-mission-open-for-a-person.md
 - 2026-09-06 — mission achieved — mission.md
+- 2026-09-06 — story reported — work-20260906-113520.md

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2
 feedback: [20260906081415-make-work-own-completion-on-codex-and-claude-code.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -55,3 +55,4 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — ticket archived — 20260906082031-deliver-the-progress-and-completion-report-and-prove-it.md
 - 2026-09-06 — ticket archived — 20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md
 - 2026-09-06 — story reported — work-20260906-092226.md
+- 2026-09-06 — run recorded (+2.0h) — implement-20260906T0222Z

@@ -49,3 +49,4 @@ failed are four distinct readings. A degraded read says so and never reads as he
 ## Changelog
 
 - 2026-09-06 — ticket archived — 20260906102220-reproduce-and-localize-the-empty-codex-state-directory.md
+- 2026-09-06 — ticket archived — 20260906102220-record-the-supervisor-s-own-liveness-in-the-state-directory.md

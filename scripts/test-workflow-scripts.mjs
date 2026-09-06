@@ -38085,6 +38085,121 @@ exit "\${STUB_EXIT:-0}"
   }
 }
 
+// ---- THE SUPERVISOR SAYS WHETHER IT EVER STARTED (2026-09-06, mission ----
+// `finish-the-codex-external-process-and-make-its-state-inspectable`). `write_status` runs first
+// inside `run_tick`, so a supervisor killed during startup left `.codex-loop/` exactly as empty
+// as one that was never launched and `show_status` printed `absent` for both. MEASURED on the
+// operator's machine: the directory created at 09:31:48 with `mtime == Birth`, so nothing was
+// ever written into it, while a supervisor was believed to be turning. These fixtures put each
+// reading at the shell boundary the supervisor owns; no Codex process is involved.
+T("the Codex supervisor record tells never-started from started-and-stopped",
+  testCodexSupervisorRecord);
+function testCodexSupervisorRecord() {
+  const LAUNCHER = "plugins/workaholic/skills/work/scripts/codex-loop.sh";
+  const makeFixture = () => {
+    const dir = makeRepo("main");
+    mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
+    mkdirSync(join(dir, "plugins/workaholic/commands"), { recursive: true });
+    mkdirSync(join(dir, "bin"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"),
+      join(dir, LAUNCHER));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
+      join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"),
+      join(dir, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"));
+    writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
+    for (const name of ["infinite-development", "implement", "propose", "moderate"]) {
+      writeFileSync(join(dir, `plugins/workaholic/commands/${name}.md`), `# ${name}\n`);
+    }
+    const stub = join(dir, "bin/codex");
+    writeFileSync(stub, `#!/bin/sh
+out=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then out=$2; shift 2; else shift; fi
+done
+printf 'stub\\n'
+printf '%s\\n' "\${STUB_REPORT:-{\\"executed\\":true,\\"outcome\\":\\"ok\\",\\"reason\\":\\"\\",\\"report\\":\\"idle\\"}}" >"$out"
+exit "\${STUB_EXIT:-0}"
+`);
+    chmodSync(stub, 0o755);
+    return dir;
+  };
+  const status = (dir) => run(dir, `PATH=/usr/bin:/bin sh ${LAUNCHER} --status`);
+  const recordPath = (dir) => join(dir, ".codex-loop/supervisor.json");
+
+  // ABSENT MEANS NEVER STARTED, and a repository that never runs the path is untouched by this.
+  const never = makeFixture();
+  try {
+    const r = status(never);
+    assertTrue("a directory with no record reads never_started",
+      /codex supervisor: never_started/.test(r.stdout), r.stdout + r.stderr);
+    assertTrue("reading the status writes no record", !existsSync(recordPath(never)));
+    assertEq("status still needs no Codex CLI", r.status, 4);
+  } finally { cleanup(never); }
+
+  // A SUPERVISOR THAT RAN AND RETURNED is a different reading from one that never started.
+  const stopped = makeFixture();
+  try {
+    const r = run(stopped, `sh ${LAUNCHER} --once --interval 60`,
+      { env: { ...process.env, PATH: `${join(stopped, "bin")}:${process.env.PATH}` } });
+    assertEq("the once run completes", r.status, 0);
+    const rec = JSON.parse(readFileSync(recordPath(stopped), "utf8"));
+    assertEq("a completed run records itself stopped", rec.state, "stopped");
+    assertEq("and names why it stopped", rec.stopped_reason, "completed_once");
+    assertTrue("the record carries the pid, start, interval and anchor",
+      Boolean(rec.pid) && Boolean(rec.started_at) && rec.interval === "60" && Boolean(rec.anchor));
+    assertTrue("the atomic writer leaves no partial record beside the current one",
+      !readdirSync(join(stopped, ".codex-loop")).some((n) => n.startsWith("supervisor.json.tmp.")));
+    assertTrue("and the reading says started-and-stopped, not absent",
+      /codex supervisor: stopped:completed_once/.test(status(stopped).stdout));
+  } finally { cleanup(stopped); }
+
+  // THE READINESS REFUSAL IS A STOP THE DIRECTORY CAN SEE — before this it exited 6 writing
+  // nothing, which is collapse row 6 of the diagnosis.
+  const refused = makeFixture();
+  try {
+    const r = run(refused, `sh ${LAUNCHER} --once --interval 60`,
+      { env: { ...process.env, PATH: `${join(refused, "bin")}:${process.env.PATH}`, STUB_EXIT: "9" } });
+    assertEq("a refused first tick still refuses", r.status, 6);
+    const rec = JSON.parse(readFileSync(recordPath(refused), "utf8"));
+    assertEq("the refusal is recorded as a stop", rec.state, "stopped");
+    assertEq("naming the refusal", rec.stopped_reason, "readiness_refused");
+  } finally { cleanup(refused); }
+
+  // AN EXIT THE SCRIPT DOES NOT CONTROL READS STALE, NEVER RUNNING. A pid that is gone proves
+  // the process is gone; a live pid under a different boot id is a recycled number, so it is
+  // gone too. Neither may render as a healthy supervisor.
+  for (const row of [
+    { name: "a record whose process is gone", reading: "stopped_unclean",
+      record: { state: "running", stopped_reason: "", pid: "4194303", boot_id: "b",
+        started_at: "2026-09-06T00:00:00Z", interval: "300", anchor: "1" } },
+    { name: "a live pid under a different boot", reading: "stopped_unclean:reboot",
+      record: { state: "running", stopped_reason: "", pid: "1", boot_id: "not-this-boot",
+        started_at: "2026-09-06T00:00:00Z", interval: "300", anchor: "1" } },
+    { name: "an unknown state word", reading: "unreadable:unknown_state",
+      record: { state: "whatever", stopped_reason: "", pid: "1" } },
+  ]) {
+    const dir = makeFixture();
+    try {
+      mkdirSync(join(dir, ".codex-loop"), { recursive: true });
+      writeFileSync(recordPath(dir), JSON.stringify(row.record));
+      // The boundary matters: `stopped_unclean` must not be satisfied by `stopped_unclean:reboot`.
+      assertTrue(`${row.name} reads ${row.reading}`,
+        new RegExp(`codex supervisor: ${row.reading}( |$)`, "m").test(status(dir).stdout),
+        status(dir).stdout);
+    } finally { cleanup(dir); }
+  }
+
+  // A RECORD THAT CANNOT BE PARSED IS NAMED, never rendered as healthy and never as absent.
+  const bad = makeFixture();
+  try {
+    mkdirSync(join(bad, ".codex-loop"), { recursive: true });
+    writeFileSync(recordPath(bad), "not json at all\n");
+    assertTrue("a malformed record is named unreadable",
+      /codex supervisor: unreadable:malformed/.test(status(bad).stdout), status(bad).stdout);
+  } finally { cleanup(bad); }
+}
+
 // ---- THE COORDINATOR OWNS THE CLOCK AND THE WORK NEVER HOLDS IT (2026-09-05, #984/#985) ----
 // Two terms cost the loop its cadence and both are asserted here at the shell boundary: the
 // supervisor slept a whole interval AFTER a completed tick (so the real period was tick

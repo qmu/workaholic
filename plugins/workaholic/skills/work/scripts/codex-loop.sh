@@ -68,6 +68,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$REPO_ROOT" ] || { printf 'repository_missing: run the launcher inside a git repository\n' >&2; exit 2; }
 [ -z "$LOG_DIR" ] && LOG_DIR="${REPO_ROOT}/.codex-loop"
 STATUS_FILE="${LOG_DIR}/status.json"
+SUPERVISOR_FILE="${LOG_DIR}/supervisor.json"
 RELAY_STATE="none"
 
 # THE COORDINATOR NEVER WAITS FOR THE WORK (2026-09-05, issues #984 and #985). A role is
@@ -99,6 +100,75 @@ role_state() {
 }
 RELAY_ENVELOPE=""
 RELAY_ACK=""
+
+# THE SUPERVISOR SAYS WHETHER IT EVER STARTED, FROM THE DIRECTORY ALONE (2026-09-06, mission
+# `finish-the-codex-external-process-and-make-its-state-inspectable`). `write_status` runs first
+# inside `run_tick`, so a supervisor killed during startup — or one whose `codex exec` never
+# returned — left the directory exactly as empty as one that was never launched, and
+# `show_status` printed `absent` for both. MEASURED on the operator's machine: `.codex-loop/`
+# created at 09:31:48 with `mtime == Birth`, so nothing was ever written into it, while a
+# supervisor was believed to be turning; it was in fact driving a different repository entirely.
+#
+# ABSENT MEANS NEVER STARTED, and that stays true: a directory with no supervisor record is
+# byte-identical to one before this existed, so a repository that never runs the Codex path is
+# unaffected.
+#
+# A PID IS NOT A PROOF ACROSS A REBOOT, so the record carries the boot id and the reading says
+# what it cannot establish rather than claiming liveness. A pid that is gone proves the process
+# is gone whatever the boot id says; a pid that is alive under a *different* boot id is a
+# recycled number and the process is gone; a pid that is alive with no boot id readable on
+# either side cannot be told from a recycled one, and that reads `unreadable:boot_unverifiable`
+# — never `running`. This is the same rule every other three-valued reader here holds: an
+# absence of a reading is never a healthy one.
+boot_id() {
+    [ -r /proc/sys/kernel/random/boot_id ] || { printf ''; return 0; }
+    tr -d '\n' </proc/sys/kernel/random/boot_id 2>/dev/null || printf ''
+}
+
+pid_alive() {
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    if [ -d /proc ]; then [ -d "/proc/$1" ]; return $?; fi
+    kill -0 "$1" 2>/dev/null
+}
+
+# One word, derived from the file alone — no lock, no live probe of anything but the pid.
+supervisor_reading() {
+    [ -f "$SUPERVISOR_FILE" ] || { printf 'never_started'; return 0; }
+    command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
+    jq -e 'type == "object" and (.state | type == "string") and (.pid | type == "string")' \
+        "$SUPERVISOR_FILE" >/dev/null 2>&1 || { printf 'unreadable:malformed'; return 0; }
+    _sv_state=$(jq -r '.state' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+    if [ "$_sv_state" = stopped ]; then
+        _sv_reason=$(jq -r '.stopped_reason // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+        [ -n "$_sv_reason" ] || _sv_reason=unstated
+        printf 'stopped:%s' "$_sv_reason"; return 0
+    fi
+    [ "$_sv_state" = running ] || { printf 'unreadable:unknown_state'; return 0; }
+    _sv_pid=$(jq -r '.pid' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+    pid_alive "$_sv_pid" || { printf 'stopped_unclean'; return 0; }
+    _sv_boot=$(jq -r '.boot_id // ""' "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+    _sv_now=$(boot_id)
+    if [ -n "$_sv_boot" ] && [ -n "$_sv_now" ]; then
+        [ "$_sv_boot" = "$_sv_now" ] && { printf 'running'; return 0; }
+        printf 'stopped_unclean:reboot'; return 0
+    fi
+    printf 'unreadable:boot_unverifiable'
+}
+
+show_supervisor() {
+    _sv_read=$(supervisor_reading)
+    case "$_sv_read" in
+        never_started)
+            printf 'codex supervisor: never_started (%s)\n' "$SUPERVISOR_FILE" ;;
+        *)
+            _sv_detail=""
+            if [ -f "$SUPERVISOR_FILE" ] && command -v jq >/dev/null 2>&1; then
+                _sv_detail=$(jq -r '" pid=\(.pid // "") started_at=\(.started_at // "") interval=\(.interval // "")"' \
+                    "$SUPERVISOR_FILE" 2>/dev/null || printf '')
+            fi
+            printf 'codex supervisor: %s%s\n' "$_sv_read" "$_sv_detail" ;;
+    esac
+}
 
 show_status() {
     if [ ! -f "$STATUS_FILE" ]; then
@@ -174,6 +244,7 @@ if [ -n "$ACK_FILE" ]; then
 fi
 
 if [ "$STATUS_ONLY" = true ]; then
+    show_supervisor
     show_status
     _status_exit=$?
     show_workers
@@ -243,6 +314,29 @@ write_status() {
         printf '}\n'
     } >"$_tmp"
     mv "$_tmp" "$STATUS_FILE"
+}
+
+# The same atomic tmp-then-mv shape `write_status` uses, on the supervisor's own record. `pid` is
+# written as a string so `supervisor_reading`'s schema check is one type test.
+SUPERVISOR_STARTED=""
+SUPERVISOR_BOOT=""
+write_supervisor() {
+    _sv_w_state=$1 _sv_w_reason=$2
+    _sv_w_tmp="${SUPERVISOR_FILE}.tmp.$$"
+    {
+        printf '{\n'
+        printf '  "state": %s,\n' "$(json_quote "$_sv_w_state")"
+        printf '  "stopped_reason": %s,\n' "$(json_quote "$_sv_w_reason")"
+        printf '  "pid": %s,\n' "$(json_quote "$$")"
+        printf '  "boot_id": %s,\n' "$(json_quote "$SUPERVISOR_BOOT")"
+        printf '  "started_at": %s,\n' "$(json_quote "$SUPERVISOR_STARTED")"
+        printf '  "interval": %s,\n' "$(json_quote "$INTERVAL")"
+        printf '  "anchor": %s,\n' "$(json_quote "${LOOP_ANCHOR:-}")"
+        printf '  "once": %s,\n' "$(json_quote "$ONCE")"
+        printf '  "log_dir": %s\n' "$(json_quote "$LOG_DIR")"
+        printf '}\n'
+    } >"$_sv_w_tmp"
+    mv "$_sv_w_tmp" "$SUPERVISOR_FILE"
 }
 
 # THE CADENCE IS MEASURED FROM STARTUP, NOT FROM THE PREVIOUS TICK'S FINISH (2026-09-05,
@@ -335,6 +429,11 @@ CURRENT_STARTED=""
 CURRENT_REPORT=""
 CURRENT_TRANSCRIPT=""
 on_interrupt() {
+    # THE STOP IS RECORDED BEFORE THE TICK GUARD, so an interrupt taken *outside* a tick — the
+    # window between the lock and `run_tick`'s first `write_status`, and the window after a tick
+    # cleared `CURRENT_TICK` — is a stop the directory can see. That window is collapse row 7 of
+    # the diagnosis: it used to `exit 130` writing nothing at all.
+    [ -z "$SUPERVISOR_STARTED" ] || write_supervisor stopped interrupted
     [ -n "$CURRENT_TICK" ] || exit 130
     _finished=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     write_status blocked interrupted signal "$CURRENT_TICK" "$CURRENT_STARTED" "$_finished" \
@@ -600,6 +699,13 @@ fi
 # The anchor is the moment the supervisor started. Every boundary is measured from it, so the
 # loop keeps its phase however long an individual tick takes.
 LOOP_ANCHOR=$(date -u +%s)
+# THE RECORD IS WRITTEN BEFORE THE FIRST TICK, which is the whole point: from here on, an
+# absent record means never started and a present one means this supervisor got as far as
+# owning the lock. `SUPERVISOR_STARTED` is also the flag `on_interrupt` reads to know whether
+# there is a record to close.
+SUPERVISOR_STARTED=$(iso_from_epoch "$LOOP_ANCHOR")
+SUPERVISOR_BOOT=$(boot_id)
+write_supervisor running ""
 _expected=$LOOP_ANCHOR
 _first=true
 while :; do
@@ -611,13 +717,17 @@ while :; do
     if [ "$_first" = true ]; then
         _first=false
         if [ "$_tick_ready" != true ]; then
+            write_supervisor stopped readiness_refused
             printf 'codex loop readiness refused; use --status for the recorded reason\n' >&2
             exit 6
         fi
         printf 'codex loop: ready interval=%ss once=%s env=%s log=%s\n' \
             "$INTERVAL" "$ONCE" "$ENV_SOURCE" "$LOG_DIR" >&2
     fi
-    [ "$ONCE" = true ] && break
+    if [ "$ONCE" = true ]; then
+        write_supervisor stopped completed_once
+        break
+    fi
     _now=$(date -u +%s)
     _due=$(next_boundary "$_now")
     _skipped=$(( (_due - _expected) / INTERVAL - 1 ))

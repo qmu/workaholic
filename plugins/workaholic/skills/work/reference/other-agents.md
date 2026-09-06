@@ -203,6 +203,36 @@ implementation. Startup reports `clock_wrapper_missing`, `plugin_skill_missing`,
 `plugin_command_missing`, `repository_missing`, or `codex_cli_missing` for the precise missing
 layer. Only missing plugin-owned files recommend updating or reinstalling the plugin.
 
+### The supervisor's own liveness
+
+**`.codex-loop/supervisor.json` says whether a supervisor ever started here** (2026-09-06, mission
+`finish-the-codex-external-process-and-make-its-state-inspectable`). `write_status` runs first
+inside `run_tick`, so a supervisor killed during startup — or one whose `codex exec` never
+returned — left the directory exactly as empty as one that was never launched, and `--status`
+printed `absent` for both. **Measured** on the operator's machine: `.codex-loop/` created at
+09:31:48 with `mtime == Birth`, so nothing was ever written into it, while a supervisor was
+believed to be turning — it was in fact driving a different repository entirely, and the
+directory could not say so.
+
+The record is written **after the lock is taken and before the first tick**, and closed at every
+exit the script controls: the `--once` return (`completed_once`), the interrupt trap
+(`interrupted` — written *before* the tick guard, so an interrupt taken outside a tick is a stop
+the directory can see) and the readiness refusal (`readiness_refused`). It carries the pid, the
+boot id, the start time, the interval, the anchor and the log directory.
+
+| Reading | What it means |
+| ------- | ------------- |
+| `never_started` | no record — **absent means never started**, and a repository that never runs this path is byte-identical to one before the record existed |
+| `stopped:<reason>` | the supervisor returned through an exit it controls, naming which |
+| `running` | the recorded pid is alive under the recorded boot id |
+| `stopped_unclean` | the recorded pid is gone — an exit the script did not control |
+| `stopped_unclean:reboot` | the pid is alive but the boot id has changed, so the number was recycled and the process is gone |
+| `unreadable:<reason>` | `malformed`, `unknown_state`, `jq_missing`, or **`boot_unverifiable`** — the pid is alive and no boot id is readable on either side, so a live process cannot be told from a recycled number |
+
+**A pid is not a proof across a reboot**, which is why the boot id is recorded rather than the pid
+alone: a reading that cannot rule out a recycled number says so instead of claiming liveness. An
+absence of a reading is never a healthy one — the rule every other three-valued reader here holds.
+
 Startup is ready only after its first tick returns a readable report through an available report
 transport. The current atomic reading is `.codex-loop/status.json`: it distinguishes `ready`,
 `tick_failure`, `report_missing`, `transport_absent`, and `work_blocked`, and carries the immutable

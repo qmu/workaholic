@@ -54,3 +54,4 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — ticket archived — 20260906082031-work-a-recoverable-state-instead-of-handing-it-over.md
 - 2026-09-06 — ticket archived — 20260906082031-deliver-the-progress-and-completion-report-and-prove-it.md
 - 2026-09-06 — ticket archived — 20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md
+- 2026-09-06 — story reported — work-20260906-092226.md

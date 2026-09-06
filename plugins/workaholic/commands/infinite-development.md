@@ -216,6 +216,15 @@ CPU facts with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-machine-loa
 and `bad_fanout` or an unreadable claimable result falls back to one and is reported. Do not hand
 a unit to a runner: each surveys and claims, and the claim arbiter settles any race.
 
+**`claimable` counts the recovery and delivery work a pass would act on, not only fresh units**
+(2026-09-06). An undelivered unit, a catchable claim or a stranded publication each make the
+count non-zero on their own, and **all of them together are one unit** because a single
+`/implement` pass walks every one. When the count is non-zero and `missions` and `backlog_units`
+are both zero, the §3 allocation line **names the recovery term that earned the runner**
+(`undelivered` / `catchable` / `stranded`) — a runner spawned to recover is a different fact from
+one spawned to drive a ticket, and a bare number tells a reader neither. A `readable: false`
+count is named by its own reason and never rendered as an idle repository.
+
 **Both bounds are declared in `.claude/settings.json`'s `env` block**, beside `WORKAHOLIC_WIP_LIMIT`
 and for its reason: a routine selects an account-level environment, so a per-repository number
 lives in the repository rather than in a prompt. **`WORKAHOLIC_IMPLEMENT_FANOUT` absent means 1** —
@@ -330,6 +339,22 @@ that this mission's archive is non-empty.
   mission carrying queued work — acceptance `checked/total` and tickets left — and the
   origination gate's next answer with what has to clear for it to open. Name when the reading
   was taken. A reading that has not landed yet is named as pending, never rendered as zero.
+- **Where this report goes is named once, at startup, per entrypoint** (2026-09-06, mission
+  `finish-the-backlog-without-handing-it-back-to-the-operator`). A report written into a local
+  transcript is not a delivered report, and the failure this closes is a **missing** delivery path
+  being mistaken for a working one. In this session the report reaches the session itself — it is
+  the chat. Under an external clock it reaches a file, and the launcher says so in those words
+  (`chat_return: none`), because **an absent delivery path is named, never substituted for one that
+  delivers somewhere else**. The table per entrypoint is `workaholic:work`,
+  *Where a report goes, per entrypoint*.
+- **Each worker's outcome comes from what the worker reported**, never from this tick's guess:
+  `executed` / `outcome` / `reason` as its run gave them, so *the process terminated*, *the role
+  executed*, *the work completed* and *the notification was delivered* stay four facts. A role with
+  no recorded outcome is named as unrecorded and **never** as a healthy finish.
+- **A completion claim rests on the tree, not on this tick's bookkeeping.** *Everything is done* is
+  a statement about merged work, a drained queue and a reconciled set of open pull requests — the
+  readings `plan-units.sh`, `list-claims.sh` and `list-stranded-publications.sh` already make — and
+  a tick that could not make them says so and claims no completion.
 - **Nothing else, and a tick that did nothing says one line.** A quiet channel, no candidate, no
   loop due and a clean checkout is `idle` and nothing further — the principle this plugin already
   holds one surface over (`/moderate`'s post gate makes an idle hour silent), applied to the tick's

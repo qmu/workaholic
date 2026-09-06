@@ -1811,6 +1811,19 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |
 | `verify-announced-asks` | `hermetic` | yes | `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread` |
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
+| `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
+
+**`verify-work-drain` covers the hermetic half of a drained backlog, and its bound is stated on the
+drill itself.** It seeds each recovery state the ask names and asserts that the loop reads it as
+*work a pass would act on* rather than as an idle repository, that a worker exiting **zero** while
+reporting it did not execute records **no** healthy finish, that a report the loop cannot read is
+`unreadable:<reason>` and never `ok`, that a refused delivery is carried once and cleared on a
+landed send, and that a restart is refused `already_running` rather than starting a second worker.
+Its breaker is written against the behaviour: dropping the recovery term from the counter makes the
+seeded backlog read as idle, and the drill fails. **What it does not cover** — a live `/work` run
+across both entrypoints, an interruption mid-drive, and a plugin-cache replacement — needs a running
+agent and a real Slack surface, which no hermetic drill can supply; a drill that pretended to would
+be the false green this mission exists to end.
 
 ### The evidence behind the classification
 

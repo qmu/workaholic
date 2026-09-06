@@ -51,6 +51,17 @@ not on the run's other work.
 
 Before either merge, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/merge-commit-body.sh <pull-request-number>` and pass its `title` and `body` through as `-f commit_title=` and `-f commit_message=` (REST) or as the connector's commit title and message. The values are **never composed here** — that derivation is the script's, exactly as `gather/scripts/merge-method.sh` owns the method. A composer answering `unreadable:<reason>` still yields a body (the story description when one was read, the fallback line otherwise), so the **merge is never held on it**; report the `source` (`story` / `fallback` / `unreadable:<reason>`) beside the unit's merge outcome, as evidence that moves no token.
 
+## What this run resolves rather than hands over
+
+**A `content_conflict` is this run's own work** (2026-09-06, mission `finish-the-backlog-without-handing-it-back-to-the-operator`; the operator's instruction, in those words: *routine engineering work must never be handed back to a person*). `catch-up-claim.sh` and `settle-stranded-publication.sh` attempt the merge and refuse `content_conflict` on the hunk it could not settle, leaving the branch byte-identical — and that refusal is an engineering judgement the loop **declined to make**, not an external limitation it lacked. No script may resolve a hunk by judgement, so the step is this agent's, on four bounds and no others:
+
+1. **Precondition** `catch_up_refused: content_conflict` or `settle_refused: content_conflict` and **no other word**.
+2. In the unit's own worktree, re-run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/catchup-main.sh --resolve-mechanical`, resolve **only** the paths the act named, regenerate with `node scripts/build-plugins/build.mjs`, and run the repository's fast checks.
+3. Deliver through the seams that already exist — the scan's severity tier, `branch-checks.sh` as the gate, `merge-method.sh` and `merge-commit-body.sh` for the call. **No gate is overridden**: `secret` hard-stops, `leak` holds the pull request open, a reviewed pull request is never pushed over, and a colleague's claim is untouchable.
+4. Report `conflict_resolved` beside the delivery, or `conflict_unresolved: <reason>`. **Naming a `content_conflict` and reporting neither is non-conformant on its face.**
+
+**And a prose `verification_handoff:` is verified before it is honoured.** A declaration reading `unmeasured` carries no probe, so the run reads the limitation the sentence names and establishes whether it is present **here**. Only a limitation it verified takes the handoff route, and the `## Handoff` and the `🟡` name what was checked and what was found; a sentence whose limitation is absent is an obsolete assumption and its unit takes its ordinary route. A `probe:` declaration reading `blocking`, a `secret` finding, a repository protection and a genuinely absent credential all still stop the run, and the run says so with the evidence.
+
 ## What this run posts
 
 The notification surface is **this command's**, not the routine's — a routine prompt names the command and nothing else, so a shape that changes here reaches every account's routine on the next run with no routine edit (`workaholic:notify`, *The command is the ceiling*). Post shapes are byte-identical to `workaholic:notify`'s catalog; a diff between the two is a drift to fix, never a second wording.

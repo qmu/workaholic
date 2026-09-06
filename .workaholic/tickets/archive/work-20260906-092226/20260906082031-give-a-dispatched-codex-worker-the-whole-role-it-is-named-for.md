@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T08:20:31+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: count-recovery-and-delivery-work-as-claimable
@@ -82,3 +83,48 @@ are routed explicitly.
   routing context must not turn that back into a read the worker makes.
 - A per-role prompt is more surface to drift. Deriving each from the command body it names
   keeps one source, as the routine templates already do.
+
+## Final Report
+
+**Reproduced first (step 1), verbatim.** `--dispatch propose --dry-run` printed one line and no
+prompt at all, so the composed prompt was reachable only one layer down through
+`--worker propose --dry-run`. That prompt read, for **every** role:
+
+> Read `<plugin>/commands/<role>.md` in full and execute it exactly once in this repository,
+> applying the substitutions in `<plugin>/skills/work/SKILL.md` for an agent with no background
+> subagents. Do not loop, do not start another worker, and **do not read or answer the inbound
+> channel** — the coordinator owns that. Report the run's own report block as your final message.
+
+Both halves confirmed: `propose` names `commands/propose.md` and nothing else — never the
+propose-**then**-specificate sequence the routine contract names, so a dispatched proposal was
+ingested by nothing — and the channel ban was emitted byte-identically for `implement`, `propose`
+and `moderate` alike.
+
+**Step 2, confirmed from `commands/moderate.md`**: `question-answers` reads one thread per
+outstanding question **at a coordinate it already holds** (line 31, which forbids searching Slack or
+reading channel history), and `thread-reconcile` replies into an item's own thread found by the
+stateless lookup (line 91). Neither is a channel turn; both were disabled by the blanket ban.
+
+**Implemented (steps 3–5).** The prompt is now per role via `role_clause()`, and each clause is
+**derived from the command body it names** rather than paraphrasing it, so there is one source and
+not two — the shape the routine templates already use. `propose` carries the propose-then-specificate
+sequence and the statement that `only_the_loop_spoke` is **handed in** (never taken), so routing
+context did not turn the brake back into a read the worker makes. `moderate` and `implement` carry
+their own thread reads. The four acts of the channel **turn** — reading the window, answering a
+message in it, filing an inbound ask, posting a receipt — stay refused for every worker, so there is
+still exactly one inbound owner.
+
+**One composer, not two.** `worker_prompt()` builds the string once and both `run_worker` and the
+dispatch's dry run read it; a second copy is how the two would come to disagree about what a worker
+was told. `--dispatch --dry-run` now prints that composed prompt, which is what makes step 1's own
+reproduction command executable as written; it still starts nothing.
+
+**Step 4** — the boundary is stated in **one** place, `skills/work/reference/other-agents.md`,
+*Who owns the channel*, and the prompts cite it rather than restating it.
+
+**Reproduction re-run, now answering differently**: `--dispatch propose --dry-run` prints the
+prompt, and it carries the specificate half and the handed-in brake; `--worker moderate --dry-run`
+carries the `question-answers` / `thread-reconcile` clause; `--worker implement --dry-run` carries
+the finish-line lookup clause. All three still carry the four refused acts.
+
+**Gate.** `node scripts/test-workflow-scripts.mjs` — 6663 passed, 0 failed.

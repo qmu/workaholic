@@ -2,21 +2,21 @@
 type: Mission
 title: Finish the backlog without handing it back to the operator
 slug: finish-the-backlog-without-handing-it-back-to-the-operator
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-06T08:18:43+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 2
+actual_hours: 3.1
 feedback: [20260906081415-make-work-own-completion-on-codex-and-claude-code.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260906-092226
+claim: work-20260906-113520
 ---
 
 # Finish the backlog without handing it back to the operator
@@ -56,3 +56,7 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — ticket archived — 20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md
 - 2026-09-06 — story reported — work-20260906-092226.md
 - 2026-09-06 — run recorded (+2.0h) — implement-20260906T0222Z
+- 2026-09-06 — ticket archived — 20260906105853-read-the-probe-before-holding-a-mission-open-for-a-person.md
+- 2026-09-06 — mission achieved — mission.md
+- 2026-09-06 — story reported — work-20260906-113520.md
+- 2026-09-06 — run recorded (+1.1h) — work-20260906-113520

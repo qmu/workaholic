@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [finish-the-backlog-without-handing-it-back-to-the-operator](active/finish-the-backlog-without-handing-it-back-to-the-operator/mission.md) - Finish the backlog without handing it back to the operator
 * [finish-the-codex-external-process-and-make-its-state-inspectable](active/finish-the-codex-external-process-and-make-its-state-inspectable/mission.md) - Finish the Codex external process and make its state inspectable
 * [report-each-tick-in-the-originating-codex-chat](active/report-each-tick-in-the-originating-codex-chat/mission.md) - Report each tick in the originating Codex chat
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
@@ -43,6 +42,7 @@
 * [drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main](archive/drop-the-draft-gate-and-make-drive-own-its-worktree-from-refreshed-main/mission.md) - Drop the draft gate and make /drive own its worktree from refreshed main
 * [emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold](archive/emit-a-mission-only-when-there-is-a-mid-term-plan-to-hold/mission.md) - Emit a mission only when there is a mid-term plan to hold
 * [finish-a-proved-retirement-where-the-write-is-permitted](archive/finish-a-proved-retirement-where-the-write-is-permitted/mission.md) - Finish a proved retirement where the write is permitted
+* [finish-the-backlog-without-handing-it-back-to-the-operator](archive/finish-the-backlog-without-handing-it-back-to-the-operator/mission.md) - Finish the backlog without handing it back to the operator
 * [finish-the-retirement-the-loop-cannot-complete](archive/finish-the-retirement-the-loop-cannot-complete/mission.md) - Finish the retirement the loop cannot complete
 * [follow-the-pull-requests-the-loop-opens-for-a-person](archive/follow-the-pull-requests-the-loop-opens-for-a-person/mission.md) - Follow the pull requests the loop opens for a person
 * [give-propose-a-strategy-artifact-form](archive/give-propose-a-strategy-artifact-form/mission.md) - Give /propose a Strategy artifact form

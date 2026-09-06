@@ -9495,6 +9495,25 @@ function testAcceptanceHandoffs() {
     r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${unlinked}`).stdout);
     assertEq("an item with no link is neither a handoff nor unresolved", r.handoff, false);
     assertEq("no ticket resolved from an unlinked item", r.unresolved, []);
+
+    // A `probe:` declaration exists to be re-tested and /drive §6 runs it at claim time, so
+    // it does NOT hold the close — it is handed back under its own key instead, which is what
+    // lets the refusal name which form held it. Measured 2026-09-06 on
+    // `finish-the-backlog-without-handing-it-back-to-the-operator`: the gate refused at 3/3
+    // naming a ticket whose probe had answered `clean` in that same run.
+    ticket("t-probe.md", "probe: true");
+    const probed = mission("m-probe", "- [x] The code is written. (#t-code.md)\n- [x] It drains a seeded backlog. (#t-probe.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${probed}`).stdout);
+    assertEq("a probe declaration does not hold the close", r.handoff, false);
+    assertEq("and is named under its own key, so the refusal can tell the forms apart", r.measurable_tickets, ["t-probe.md"]);
+    assertEq("and is not named among the declarations that held", r.tickets, []);
+
+    // Prose is unchanged, and a mission carrying both refuses on the prose one alone.
+    const both = mission("m-both", "- [x] It drains a seeded backlog. (#t-probe.md)\n- [x] It works on the deployed screen. (#t-deployed.md)");
+    r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.acceptanceHandoffs} ${both}`).stdout);
+    assertEq("a prose declaration still holds the close beside a probe one", r.handoff, true);
+    assertEq("and only the prose one is named as having held", r.tickets, ["t-deployed.md"]);
+    assertEq("with the probe one named beside it", r.measurable_tickets, ["t-probe.md"]);
   } finally { cleanup(dir); }
 }
 

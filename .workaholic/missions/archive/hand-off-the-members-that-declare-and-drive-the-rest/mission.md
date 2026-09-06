@@ -52,3 +52,4 @@ all-declaring unit still hands off whole.
 - 2026-09-07 — ticket archived — 20260907023855-read-the-partial-handoff-at-every-consumer-that-assumed-the-unit.md
 - 2026-09-07 — mission achieved — mission.md
 - 2026-09-07 — run recorded (+1.4h) — run-20260907-024858
+- 2026-09-07 — story written — work-20260907-024858.md

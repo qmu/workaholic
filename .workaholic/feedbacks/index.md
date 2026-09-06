@@ -688,4 +688,5 @@
 * [A handoff-route claim's branch is never caught up, so its conflict grows for the whole wait](20260906154039-a-handoff-route-claim-s-branch-is-never-caught-up-so-its-conflict-grows-for-the-whole-wait.md)
 * [The daily digest reports itself already posted on a day no root was posted](20260906181222-the-daily-digest-reports-itself-already-posted-on-a-day-no-root-was-posted.md)
 * [A frozen subagent reports running forever and holds a fan-out slot](20260906184737-a-frozen-subagent-reports-running-forever-and-holds-a-fan-out-slot.md)
+* [tick-progress.sh resolves its sibling readers against the consuming repo, so every mission row is null and propose_gate answers open](20260906193712-tick-progress-sh-resolves-its-sibling-readers-against-the-consuming-repo-so-every-mission-row-is-null-and-propose-gate-answers-open.md)
 <!-- okf:generated:end -->

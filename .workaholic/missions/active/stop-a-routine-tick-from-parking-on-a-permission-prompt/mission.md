@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 1.3
+actual_hours: 2.4
 feedback: [20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -57,3 +57,5 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - 2026-09-03 — ticket archived — 20260902043747-inline-into-each-routine-command-the-rule-text-it-needs.md
 - 2026-09-03 — run recorded (+0.7h) — implement-20260903-0400
 - 2026-09-06 — ticket archived — 20260902043117-remove-the-prompt-raising-read-at-its-source-in-the-propose-path.md
+- 2026-09-06 — story written — restructure ruled over an allow entry; bash keeps <src>, a Read takes the checkout's path — work-20260906-081744.md
+- 2026-09-06 — run recorded (+1.1h) — implement-20260906-0817

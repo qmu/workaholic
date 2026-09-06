@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260906-081744](work-20260906-081744.md) - A plugin markdown file is read at the checkout's own path, never at `<src>` — closing the reach that parked the `[Propose]` tick hourly.
 * [work-20260906-025904](work-20260906-025904.md) - Make the base an outright refusal for the tick log, read the residue it already left there, and pin the guard to every writer rather than to one tick's name
 * [work-20260906-002101](work-20260906-002101.md) - Declare the tick's two fan-out bounds, refuse a fan-out the machine cannot carry, and report the machine beside the allocation
 * [Document the shared development loop](work-20260904-192506.md) - Bring the public and operator documentation into line with the shared work loop.

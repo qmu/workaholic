@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T19:37:31+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -165,3 +166,126 @@ the visible `null`s into plausible `0`s — deepening the very failure the ask i
   ~60s on this repository. On a consumer where the reading currently fails instantly, fixing it
   makes the call take real time for the first time. That is expected, and §2b's background start
   is what absorbs it — but confirm the background invocation genuinely does.
+
+## Final Report
+
+Development completed as planned. **Both** halves were repaired; the reproduction was built
+and run before anything changed, and the second half was proved to matter by measuring the
+one-line fix on its own.
+
+### 1. The defect, reproduced before any change
+
+A scratch consumer repository — a `.workaholic/` tree with one active mission (acceptance
+1/3), 2 queued and 6 archived tickets, and **no `plugins/` directory**:
+
+```
+$ sh tick-progress.sh <consumer>
+{"queue_total": 2,
+ "missions": [{"slug":"demo-mission","checked":null,"total":null,"todo":null,
+               "archived":null,"draining":false}],
+ "gating_missions": 0, "wip_limit": 3, "propose_gate": "open"}
+
+$ sh mission/scripts/progress.sh   <consumer>/.workaholic/missions/active/demo-mission/mission.md
+{"checked": 1, "total": 3, "unlinked": 0}
+$ sh mission/scripts/queue-size.sh demo-mission <consumer>/.workaholic
+{"slug":"demo-mission","todo":2,"archive":6,"total":8,"floor":2,"meets_floor":true}
+```
+
+The two disagree exactly as the Overview describes: every per-mission field `null`,
+`draining: false` against six archived tickets, `gating_missions: 0` against a mission
+carrying queued work, and `propose_gate: open` where it must read `work_waiting`.
+`queue_total: 2` was correct throughout — the control.
+
+### 2. Both halves localized, independently
+
+**(a)** `$S` named a directory that does not exist on the consumer:
+`<consumer>/plugins/workaholic/skills` — MISSING.
+
+**(b)** measured **separately**, with `$S` untouched — `queue-size.sh` called with only a slug:
+
+```
+$ ( cd <consumer> && queue-size.sh demo-mission )   -> {"todo":2,"archive":6,...}
+$ ( cd <plugin checkout> && queue-size.sh demo-mission ) -> {"todo":0,"archive":0,...}
+```
+
+Its root comes from `git rev-parse --show-toplevel` at the **process cwd**.
+
+### 3. The half fix, measured — why step 4 is not optional
+
+With the siblings resolved correctly and the root **not** passed, read from a foreign cwd:
+
+```
+{"checked":1,"total":3,"todo":0,"archived":0,"draining":false},
+ "gating_missions":0, "propose_gate":"open"
+```
+
+Plausible zeros, no `readable: false`, and the gate still wrongly `open` — a **worse** failure
+than the visible nulls, exactly as the ticket's Considerations predicted. This is the breaker
+the new coverage is written against.
+
+### 4. The repair
+
+- Siblings resolve against the script via `SCRIPT_DIR` — the spelling copied verbatim from
+  `claimable-units.sh` in the same directory, not invented.
+- `queue-size.sh` is handed `"$WORKAHOLIC"`, the root it already accepts.
+- `ROOT` is absolutized **once** where it is assigned, so a relative argument reads the same
+  tree; `ROOT` keeps its meaning and the `.workaholic/` paths built from it are unchanged.
+- `set -eu` is now explicit in the body. The shebang carried `-eu`, which does nothing when the
+  script is invoked as `sh <path>` — which is how every caller invokes it.
+
+### 5. The degradation shape, and the choice step 6 asked for
+
+A row whose reader could not run carries `readable: false`, a named reason and **null** counts,
+with `draining: null` rather than `false`. Four reasons name which half failed —
+`progress_reader_missing` / `queue_reader_missing` (which is what the measured failure would
+have said, pointing straight at the resolution) and `progress_unreadable` / `queue_unreadable`.
+`readable` is **absent** on a row that was read, the repository's existing convention.
+
+**`propose_gate` is three-valued** — `work_waiting` / `open` / **`unreadable`**. Chosen over an
+accompanying `readable` field because folding an unreadable walk into `work_waiting` is
+deriving a degradation into a verdict, which this repository's standing rule forbids;
+`cadence-state.sh` and `direction-state.sh` already answer `unreadable` as its own word, so this
+invents no third convention. The precedence is deliberately **not symmetric**: a readable row
+with queued work still answers `work_waiting` (a positive fact an unreadable row cannot
+overturn); otherwise any unreadable row answers `unreadable`; only a fully-read walk with
+nothing queued answers `open`. An unreadable row can therefore never produce `open`.
+
+**Cost, stated in the header**: a caller switching on two words meets an unfamiliar third — and
+falls through rather than originating, which is the safe direction. `unreadable_missions` rides
+beside `gating_missions` so the skip is visible in the counts rather than silent.
+
+The `|| echo '{}'` guards are **kept** in effect (the walk still completes past one bad row);
+what changed is that a caught failure is no longer rendered as a count.
+
+### 6. Verification
+
+| Check | Result |
+| ----- | ------ |
+| consumer tree, foreign cwd | `checked 1, total 3, todo 2, archived 6, draining true, gating 1, work_waiting` |
+| identical with cwd = tree | byte-identical (`cmp`) |
+| identical with a relative root | byte-identical (`cmp`) |
+| only an unreadable mission | `readable:false`, `progress_unreadable`, null counts, `draining:null`, gate `unreadable` |
+| unreadable **beside** a readable gating row | `work_waiting` (precedence holds) |
+| readable, empty queue | `open` |
+| `queue_total` | unchanged in meaning and value |
+
+`node scripts/test-workflow-scripts.mjs` — **6755 passed, 0 failed**, including 13 new
+assertions under *loops/tick-progress.sh: the reading sees a consumer tree, and names what it
+cannot*. `build.mjs`, `verify.mjs`, `validate-metadata.mjs` all clean; `outputs/` unchanged
+(the `loops` skill is not in the bundle's allowlist). `layout-doctor.sh` → `conforming: true`.
+
+### 7. Step 9 — the grep, re-run and recorded
+
+Across `plugins/workaholic/skills/`, `hooks/` and `scripts/`, **no script composes an
+executable path from the root of a tree it is reading.** The remaining matches for
+`ROOT}/plugins/workaholic` are `scripts/codex-loop.sh` and `scripts/e2e/loop-drill.sh`, which
+use **`REPO_ROOT`** — a different variable naming *this* repository, which for a launcher and a
+drill harness genuinely is the tree the scripts live in. They are correct and are not
+instances of this defect. The one match inside `tick-progress.sh` is its own header comment
+quoting the retired line. Recorded here so a later reader does not re-open the question.
+
+### 8. Call site
+
+`commands/infinite-development.md` §2b now states the degradation shape and the third gate
+word; §3's Progress bullet names a degraded row by its own reason and forbids rendering
+`unreadable` as `open` — consistent with the allocation and machine lines above it.

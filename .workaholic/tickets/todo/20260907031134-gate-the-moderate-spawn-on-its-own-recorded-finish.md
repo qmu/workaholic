@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260907030805-read-moderate-s-cadence-from-its-own-recorded-finish.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260907-045136
 ---
 
 # Gate the moderate spawn on its own recorded finish

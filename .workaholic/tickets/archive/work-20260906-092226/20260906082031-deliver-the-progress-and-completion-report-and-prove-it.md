@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T08:20:31+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: work-a-recoverable-state-instead-of-handing-it-over
@@ -85,3 +86,60 @@ keyed root, which is what the lookup's own not-found branch already exists for.
 - The quiet-hours and cool-down rules exist for a reason and are not swept aside — what
   changes is that the initiating user's own run reports to them, which is not the channel
   waking somebody to say nothing.
+
+## Final Report
+
+**Step 1 — reproduced, and the answer is that two of the three destinations were never named.**
+`--dispatch <role>` printed `started pid=… log=<dir>/dispatch-<role>.log` and returned instantly; the
+detached child then wrote its report to `<dir>/<stamp>-<role>.md` and its stdout to that dispatch
+log. **The initiating chat received nothing at all**, and nothing anywhere said so. The
+coordinator's own tick report reached `<dir>/<stamp>.md` and the supervisor's stdout; under the
+desktop Scheduled task it reaches the chat the task was created in, and under Claude Code's `/loop`
+it reaches the session, which *is* the chat. Separately, `show_workers` printed only `idle` /
+`running` — process liveness — so the periodic report said nothing about whether the last run had
+executed or what became of it.
+
+**Step 2 — the destination is now established per entrypoint and named at startup.** The table is
+`skills/work/reference/other-agents.md`, *Where a report goes, per entrypoint*, and the launcher
+says it in those words: `codex loop reports: dir=<dir> chat_return=none` on `--status`, and
+`codex dispatch <role>: report=<dir> chat_return=none` at the moment a child is detached. **An
+absent delivery path is named, never substituted for one that delivers somewhere else** — and the
+absence is structural rather than a bug: `--dispatch` returns before the work starts and the child
+outlives it, which is the lifetime the port needed, so no result can come back through the process
+that returned. Holding the coordinator open to collect one is the cadence failure #984/#985 named.
+
+**Step 3 — the report is composed from what the workers reported.** `last_worker_outcome()` reads
+each role's newest `loop-attempt-<role>` line — the record ticket 3 made trustworthy, which keeps
+*the process terminated*, *the role executed*, *the work completed* and *the notification was
+delivered* as four facts — and `--status` now carries `last_outcome=<word>` per role. A role with no
+recorded attempt reads **`unrecorded`**; an unreadable log reads `unreadable:<reason>`. Neither is
+ever rendered as a healthy finish.
+
+**Steps 4 and 5 — composed, not re-derived.** The carry-and-retry shape already exists and is cited
+rather than rebuilt: `record-unposted-line.sh` carries a refused line on the unit's own story (one
+`## Unposted Line` section replaced rather than stacked, so it is idempotent),
+`list-unposted-lines.sh` offers it to a later tick, `clear-unposted-line.sh` clears it on a landed
+send, and a still-refused send leaves the record standing and is reported as unposted — one retry,
+no duplicate. An unresolvable thread posts a **new keyed root**, the stateless lookup's own case 4;
+never a similarity match, never recency.
+
+**Step 6 — the completion report's contract is stated.** *Everything is done* rests on merged work,
+a drained queue and a reconciled set of open pull requests — the readings `plan-units.sh`,
+`list-claims.sh` and `list-stranded-publications.sh` already make — and never on the tick's own
+bookkeeping. A tick that cannot make those readings reports them as unreadable and claims no
+completion.
+
+**Reproduction re-run, now answering differently**: `--status` prints
+`codex worker <role>: idle last_outcome=unrecorded` for each role and
+`codex loop reports: dir=… chat_return=none`. The report's destination and the absence of a chat
+return are both stated where a reader meets them.
+
+**What this ticket did NOT do, stated rather than implied.** Proving a *delivered* Slack report
+end to end needs a live channel, and this run was instructed to ignore Slack entirely; the delivery
+proof over a real transport belongs to the end-to-end drill ticket, which is where the acceptance
+"proved delivered rather than assumed" is exercised against a running surface.
+
+**Docs updated in the same change**: `skills/work/reference/other-agents.md` and
+`commands/infinite-development.md`.
+
+**Gate.** `node scripts/test-workflow-scripts.mjs` — 6663 passed, 0 failed.

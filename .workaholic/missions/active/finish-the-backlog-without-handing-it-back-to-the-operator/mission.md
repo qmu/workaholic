@@ -52,3 +52,4 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — ticket archived — 20260906082031-give-a-dispatched-codex-worker-the-whole-role-it-is-named-for.md
 - 2026-09-06 — ticket archived — 20260906082031-record-a-worker-s-finish-from-its-own-reported-outcome.md
 - 2026-09-06 — ticket archived — 20260906082031-work-a-recoverable-state-instead-of-handing-it-over.md
+- 2026-09-06 — ticket archived — 20260906082031-deliver-the-progress-and-completion-report-and-prove-it.md

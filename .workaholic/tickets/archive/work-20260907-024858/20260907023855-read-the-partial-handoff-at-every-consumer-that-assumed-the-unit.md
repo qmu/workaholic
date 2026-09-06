@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-07T02:38:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -112,3 +113,43 @@ enumerated consumers and makes each read the partial form and name the members i
   exist.
 - `/moderate` still asks and nothing else here: it clears no handoff, retries no verification,
   merges nothing and touches no claim.
+
+## Final Report
+
+Development completed as planned.
+
+Every consumer the enumeration names now reads the partial form: the resolver carries the
+declaring member set, the question names the tickets rather than the claim, and the close gate
+was already per member and is pinned as such.
+
+### Discovered Insights
+
+- **Insight**: two of the three consumers named in the ticket needed **no behavioural change** —
+  `acceptance-handoffs.sh` and the archive close gate were already per member, because the gate
+  walks each acceptance item's own ticket and its refusal already prints `${HOFF_TICKETS}`.
+  **Context**: the ticket predicted they would "say something false or vague". They do not, and
+  the honest outcome is to pin that they stay per-ticket rather than to manufacture a change.
+  The enumeration step is what established this — reading the consumers out of the table beat
+  assuming each named consumer needed work.
+
+- **Insight**: the positional-TSV hazard is worse than the earlier `cut -f10` comment suggests.
+  **Context**: adding one column broke **four** readers, in three shapes: two `while IFS= read`
+  destructurings (caught by 31 assertions that looked like unrelated backlog failures), one
+  `cut -f`, and two `awk '{print $10}'` sites — one of which (`delete-retired-claim-branch.sh`)
+  was caught only by `verify-ci-retirement`, and one (`claim-arbitrate.sh`) by **nothing at
+  all**, so a lock would have been reaped against the string `false`. The suite now derives the
+  row's width from the writer's own `printf` and checks every fixed-index reader against it;
+  the guard was proved able to fail by reverting one index.
+
+- **Insight**: `declared-handoff-detail.sh` was calling `claims_declared_handoff`, which is
+  itself a read of `claims_declared_split` — so asking for the boolean and the member list
+  separately would have paid the whole materialisation twice.
+  **Context**: it now calls the split once and cuts both answers out of it. That is not only
+  cheaper: two calls could in principle answer from two readings, which is exactly the
+  divergence the single-materialisation rule exists to forbid.
+
+- **Insight**: a question's **body** may change freely but its **key** may not.
+  **Context**: `already_asked` keys on the step id `lib/question-id.sh` derives from
+  `handoff-unit:<unit>`, so rewriting the composer re-asks nothing, while touching the key would
+  re-ask every standing question at once. Both halves are now asserted, so a later contributor
+  who rewrites the body cannot quietly rename the key with it.

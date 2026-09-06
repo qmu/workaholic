@@ -324,7 +324,10 @@ row=$(claims_unit_row "$ROWS" "$unit")
 [ -n "$row" ] || refuse no_such_claim
 BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
 verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
-artifacts=$(printf '%s' "$row" | awk -F'\t' '{print $10}')
+# FIELD 11, THE ROW'S LAST: three columns sit before the artifact list -- `reported`,
+# `declared_handoff` and, since 2026-09-07, `declared_members` -- and every insertion moves
+# this index. Reading the wrong one hands the act a boolean as the unit's whole artifact list.
+artifacts=$(printf '%s' "$row" | awk -F'\t' '{print $11}')
 # WHERE THIS EXECUTOR HAS NO IDENTITY OF ITS OWN, RE-DERIVE AS THE CLAIM'S OWN AUTHOR — but
 # only when the committed mapping names them (2026-08-29, mission
 # `make-the-two-executors-agree-about-a-proved-empty-claim`). `actions/checkout@v4` configures
@@ -352,7 +355,7 @@ if [ "$verdict" = "identity_unresolved" ] && runner_identity_absent; then
                 row="$_row_as"
                 BRANCH=$(printf '%s' "$row" | awk -F'\t' '{print $2}')
                 verdict=$(printf '%s' "$row" | awk -F'\t' '{print $7}')
-                artifacts=$(printf '%s' "$row" | awk -F'\t' '{print $10}')
+                artifacts=$(printf '%s' "$row" | awk -F'\t' '{print $11}')
             fi
         fi
     fi

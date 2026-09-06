@@ -2,7 +2,7 @@
 type: Mission
 title: Hand off the members that declare, and drive the rest
 slug: hand-off-the-members-that-declare-and-drive-the-rest
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-07T02:37:55+09:00
 author: a@qmu.jp
@@ -42,10 +42,12 @@ all-declaring unit still hands off whole.
 - [x] A claim only partly declared is offered, not parked. (#20260907023855-offer-a-claim-whose-members-only-partly-declare.md)
 - [x] One run drives the non-declaring members to a pull request and hands off only the
       declaring ones. (#20260907023855-drive-the-non-declaring-members-and-hand-off-the-rest.md)
-- [ ] Every consumer that assumed a whole-unit handoff reads the partial form. (#20260907023855-read-the-partial-handoff-at-every-consumer-that-assumed-the-unit.md)
+- [x] Every consumer that assumed a whole-unit handoff reads the partial form. (#20260907023855-read-the-partial-handoff-at-every-consumer-that-assumed-the-unit.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-07 — ticket archived — 20260907023855-offer-a-claim-whose-members-only-partly-declare.md
 - 2026-09-07 — ticket archived — 20260907023855-drive-the-non-declaring-members-and-hand-off-the-rest.md
+- 2026-09-07 — ticket archived — 20260907023855-read-the-partial-handoff-at-every-consumer-that-assumed-the-unit.md
+- 2026-09-07 — mission achieved — mission.md

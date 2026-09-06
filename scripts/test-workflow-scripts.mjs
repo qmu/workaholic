@@ -21901,6 +21901,133 @@ function testSubagentReaping() {
     /attended `\/drive` is unchanged/.test(drive), "the attended run was bound too");
 }
 
+// ---------- the claim row's artifact list is the last field, everywhere (2026-09-07) ----------
+// The row is positional TSV and the artifact list is deliberately LAST, because a trailing empty
+// field is the one case `read` handles correctly. Four call sites read it at a FIXED index, and
+// every column inserted before it moves all four -- measured while adding `declared_members`:
+// two `while read` sites silently bound the boolean as the whole artifact list (31 assertions
+// about claims leaving the backlog went red), and two `awk` sites were caught only by a drill.
+// So the index is DERIVED from the writer's own printf here rather than restated, and every
+// fixed-index reader in the tree is checked against it.
+T("the claim row's artifact field is the last one, at every fixed-index reader", testClaimRowArtifactIndex);
+function testClaimRowArtifactIndex() {
+  const lib = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
+  // The scan's one row printf: count its `%s` conversions to get the artifact list's index.
+  const m = lib.match(/printf '((?:%s\\t)+%s\\n)'[\s\S]{0,40}?\$_cs_unit/);
+  assertTrue("the scan's row printf is findable", !!m, "the row writer's shape moved");
+  const width = (m[1].match(/%s/g) || []).length;
+  assertTrue("the row carries more than one field", width > 1, "the row is degenerate");
+
+  // Named readers: each destructures the row, so its variable count must equal the width.
+  for (const [file, re] of [
+    ["plugins/workaholic/skills/drive/scripts/list-claims.sh", /while IFS='\t' read -r ([^;]+); do/],
+    ["plugins/workaholic/skills/drive/scripts/plan-units.sh", /while IFS='\t' read -r ([^;]+); do/],
+    ["plugins/workaholic/skills/drive/scripts/claim.sh", /while IFS='\t' read -r ([^;]+); do/],
+  ]) {
+    const src = readFileSync(join(REPO_ROOT, file), "utf8");
+    const r = src.match(re);
+    assertTrue(`${file.split("/").pop()} destructures the row`, !!r, "the reader's shape moved");
+    assertEq(`${file.split("/").pop()} names exactly ${width} fields`,
+      r[1].trim().split(/\s+/).length, width);
+  }
+
+  // Fixed-index readers: every `cut -fN` / `awk {print $N}` over a claim row must name the LAST
+  // field, because the artifact list is the only thing any of them reads by a high index.
+  const fixed = [
+    ["plugins/workaholic/skills/drive/scripts/claim.sh", /cut -f(\d+)\)\n/g],
+    ["plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh", /\{print \$(\d+)\}/g],
+    ["plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh", /\{ print \$(\d+) \}/g],
+  ];
+  for (const [file, re] of fixed) {
+    const src = readFileSync(join(REPO_ROOT, file), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const hit of src.matchAll(re)) {
+      const n = Number(hit[1]);
+      if (n < 8) continue; // the low indices are unit/branch/at/author/resumable/reason
+      assertEq(`${file.split("/").pop()} reads the artifact list at the row's last field`,
+        n, width);
+    }
+  }
+}
+
+// ---------- every consumer that assumed the unit reads the partial form (2026-09-07) -----------
+// Once a unit can be PARTLY handed off, a consumer that names only the unit says something vague
+// and a consumer that resolves one reason says something incomplete. The enumeration is taken
+// from `drive/reference/claims.md` -- the table that owns which consumers exist -- and checked
+// against the tree in BOTH directions, so a consumer added with no rule fails here rather than
+// quietly reading the whole-unit form.
+T("the partial handoff is read at every consumer that assumed the unit", testPartialHandoffConsumers);
+function testPartialHandoffConsumers() {
+  const claimsDoc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+  const detail = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/declared-handoff-detail.sh"), "utf8");
+  const step = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-handoff-units.sh"), "utf8");
+  const accept = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/mission/scripts/acceptance-handoffs.sh"), "utf8");
+  const archive = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/archive.sh"), "utf8");
+
+  // 1. THE RESOLVER carries the partition rather than a reason alone.
+  assertTrue("declared-handoff-detail.sh emits the members that hold it",
+    /"members": \[%s\]/.test(detail), "the resolver still answers with a reason alone");
+  assertTrue("and takes them from the one split, never a second reading",
+    /claims_declared_split/.test(detail), "the resolver re-derives the partition");
+  assertTrue("and names an empty member set as a degradation rather than a calm empty list",
+    /degrade members_empty/.test(detail), "a truncated reading renders as nothing to act on");
+
+  // 2. THE ASKING STEP carries them onto the row and names them in the question.
+  assertTrue("handoff-units carries declared_members onto each row",
+    /declared_members: \$m/.test(step), "the question still names only the unit");
+  assertTrue("and the composer names the tickets as what the addressee acts on",
+    /Name the tickets in `declared_members`/.test(step), "the composer names no member");
+  assertTrue("and leads with what happened rather than the identifier",
+    /lead with what happened/i.test(step), "the question opens with an identifier");
+  assertTrue("and the key is untouched, so no standing question is re-asked",
+    /handoff-unit:/.test(step) && /KEY IS UNTOUCHED/.test(step),
+    "the key moved, which re-asks every standing question");
+
+  // 3. THE CLOSE GATE already asks per acceptance item's own ticket, so it is per member by
+  // construction -- what is pinned is that its refusal NAMES that ticket rather than the mission.
+  assertTrue("acceptance-handoffs.sh answers per ticket, not per unit",
+    /verification-handoff\.sh" tickets "\$TICKET"/.test(accept),
+    "the close gate asks about the whole unit");
+  assertTrue("and the archive refusal names which ticket held the mission open",
+    /\$\{HOFF_TICKETS:-unnamed\}/.test(archive), "the refusal names the mission alone");
+
+  // 4. THE ENUMERATION MATCHES THE TREE IN BOTH DIRECTIONS. The table names its reporting
+  // consumer; that file must read the verdict, and every other file that reads the verdict must
+  // be one the table accounts for (the survey's exclusion, the writer's refusal, the renderer,
+  // and the sibling step that filters).
+  assertTrue("claims.md still names step-handoff-units.sh as the reporting consumer",
+    /step-handoff-units\.sh/.test(claimsDoc), "the enumeration lost its consumer");
+  assertTrue("and records that the verdict now means EVERY remaining member",
+    /every remaining member declares/.test(claimsDoc), "the table still describes the any rule");
+  const accounted = new Set(["step-handoff-units.sh", "step-stalled-units.sh", "plan-units.sh",
+    "claim.sh", "list-claims.sh", "lib/claims.sh", "declared-handoff-detail.sh"]);
+  const reads = [];
+  for (const dir of ["plugins/workaholic/skills/drive/scripts",
+    "plugins/workaholic/skills/moderate/scripts"]) {
+    for (const f of readdirSync(join(REPO_ROOT, dir))) {
+      if (!f.endsWith(".sh")) continue;
+      const src = readFileSync(join(REPO_ROOT, dir, f), "utf8")
+        .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+      if (src.includes("awaiting_verification")) reads.push(f);
+    }
+  }
+  const libSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  if (libSrc.includes("awaiting_verification")) reads.push("lib/claims.sh");
+  assertEq("every file reading the verdict is one the enumeration accounts for",
+    reads.filter((f) => !accounted.has(f)), []);
+  assertTrue("and the enumeration names at least the asking and filtering halves",
+    reads.includes("step-handoff-units.sh") && reads.includes("step-stalled-units.sh"),
+    "a half of the ask/filter pair no longer reads the verdict");
+}
+
 // ---------- a declaration holds its own members, not the whole unit (2026-09-07) ---------------
 // The route step is prose the agent executes, so what is checkable is that the rule is present in
 // BOTH surfaces the run reads -- the skill it preloads and the ceiling a routine hands it -- and

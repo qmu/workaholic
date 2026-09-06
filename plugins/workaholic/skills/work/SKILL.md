@@ -102,12 +102,18 @@ log and never depended on an agent listing:
 
 ```
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/tick-id.sh
-sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-<name> --latest-tick
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --owner loop --step-prefix loop-finish-<name> --latest-tick
 ```
 
 (In the **published** copy of this skill that token is already rewritten to a real relative
 path by the build, so an agent reading it there runs the line as written. In this repository's
 own tree it is `plugins/workaholic`.)
+
+**`--owner loop` is not optional** (2026-09-07, ticket `20260907063154`): `log-read.sh` derives
+each entry's owner from the step id and answers **moderation by default**, so a `loop-finish-*`
+line — which the coordinator writes under its own tick id — must be asked for by name. Without the
+flag the cadence reads an empty `latest_tick`, which means *no such tick* and therefore **due**, so
+every loop would respawn every tick.
 
 Derive the tick id **once** at the top and use that one value. `latest_tick` is a
 `YYYYMMDD-HHMMSS` UTC stamp and **is** the finish time: a loop is due when

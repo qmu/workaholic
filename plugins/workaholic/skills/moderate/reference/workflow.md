@@ -3479,6 +3479,19 @@ opening there; this step reads for it. Without both halves neither is worth anyt
 unbounded walk gets more expensive every day). It groups the entries by the tick id that reader
 already returns — no second parser, no cursor, no store, no field on any artifact.
 
+**And it reads TWO owners, one per arm** (2026-09-07, ticket `20260907063154`). `log-read.sh`
+derives each entry's owner from the step id and answers **moderation by default**, so the moderate
+arm below takes the default and the propose arm asks for `--owner propose` **by name**. It was one
+unfiltered read feeding both, which is how a `loop-finish-*` section — written by the coordinator
+under the coordinator's own tick id, every five minutes — became *the tick before last*: such a
+section has `opened == 0`, which reaches the healthy branch, so the step reported **`the tick
+before last opened and closed`** over a moderate tick that had stopped. Measured on the live log,
+verbatim, over a section holding one `loop-finish-implement` line; and the failure is silent, since
+a healthy sentence is what a healthy tick produces. The propose arm is the reason the owner is a
+small named set rather than a boolean — *not moderate* is not one class, and a boolean would have
+broken that arm the same silent way. Both arms are drilled by `verify-blocked-tick`, whose breaker
+defeats the owner filter and requires the stopped tick to go unreported.
+
 **What "closed" means, and why it is not the persist.** The tempting signal is the closing
 persist's own `persist-log` line, and it is **wrong**: `run.sh` writes that line *after* the push,
 so it never reaches the base on the tick that wrote it — it arrives only if the agent persists

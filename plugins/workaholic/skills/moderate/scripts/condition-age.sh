@@ -43,6 +43,18 @@
 # correctly by construction). Never a wall-clock difference: `date -d` is GNU-only and
 # `date -v` is BSD-only, and `log-read.sh`'s own header refuses the arithmetic by name.
 #
+# AND THEY ARE MODERATE TICKS, WHICH IS THE ONLY UNIT THE COUNT EVER MEANT (2026-09-07,
+# ticket `20260907063154`). `first_seen` is read off a `human-checkin-ask` line, which only
+# a `/moderate` tick writes, so `ticks` answers *how many times has a tick seen this and
+# asked about it*. Both reads below take `log-read.sh`'s **default** owner, so the walk now
+# counts moderate sections alone. It used to count every section in the file, and the
+# coordinator writes one every five minutes under its own tick id: MEASURED on
+# `.workaholic/moderations/2026-09-06.md`, 110 distinct sections of which 29 are moderate
+# and 79 the coordinator's, so a condition standing one hour reported roughly FOUR TIMES
+# the number of askings it had actually survived. The reading gates nothing and moves no
+# token — it is evidence a person reads — so the correction changes what the sentence says
+# and nothing about what any consumer may do with it.
+#
 # THE WALK IS BOUNDED, AND A BOUNDED WALK SAYS SO. The tick log is append-only and NEVER
 # pruned by a machine (`log-append.sh`'s own contract — deleting a day file is the
 # operator's act), so an unbounded walk gets more expensive forever.

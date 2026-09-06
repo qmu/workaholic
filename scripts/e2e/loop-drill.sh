@@ -9886,7 +9886,40 @@ cmd_verify_runner_advance() {
         add_row "runner_advance_writes_nothing" false "the reader wrote into the tree it read" load
     fi
 
-    # 7. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Wire the reader so a claim whose
+    # 7. THE SLOT ARITHMETIC, SPENT ON THE READER'S OWN ANSWER (2026-09-06, ticket
+    #    `stop-counting-a-non-advancing-runner-toward-the-fan-out`). Rows 1-6 prove what the
+    #    reader ANSWERS; this proves what the allocation DOES with the answer, which is the
+    #    behaviour the ticket actually buys. The fan-out is `bound − (running − not_advancing)`,
+    #    composed by the agent at run time, so it is computed here from the reader's own output
+    #    rather than asserted as a sentence somewhere.
+    #
+    #    `running` IS THE LISTING'S NUMBER, NOT THE READER'S, and that is the whole safety
+    #    property. On a degraded read this reader answers `running: null` BESIDE
+    #    `frozen_count: null` (measured: `bad_window` returns both), so an implementation that
+    #    took both from it would compute `bound − (null − null)` and hand back EVERY slot on a
+    #    reading nobody made — the exact inversion of "an unreadable reading frees nothing".
+    #    Only `not_advancing` is the reader's, and an absent count spends as zero.
+    _alloc() {  # _alloc <reader-json> <bound> <running-from-the-listing>
+        _af=$(printf '%s' "$1" | jq -r '.frozen_count // 0' 2>/dev/null || printf 0)
+        printf '%s' "$(( $2 - ($3 - _af) ))"
+    }
+    _ok_alloc=true
+    #    Two runners, both frozen, bound 2: every slot comes back. `bound − running` allowed 0.
+    [ "$(_alloc "$_f" 2 2)" = "2" ] || _ok_alloc=false
+    #    The SAME fixture read through a window that is not a number frees NOTHING.
+    [ "$(_alloc "$_w" 2 2)" = "0" ] || _ok_alloc=false
+    #    One frozen and one advancing, the binding refused: nothing may be spent.
+    [ "$(_alloc "$_r" 2 2)" = "0" ] || _ok_alloc=false
+    #    A role holding no claim frees nothing, and neither does a claim read incompletely.
+    [ "$(_alloc "$_p" 2 2)" = "0" ] || _ok_alloc=false
+    [ "$(_alloc "$_b" 2 1)" = "1" ] || _ok_alloc=false
+    if [ "$_ok_alloc" = "true" ]; then
+        add_row "runner_advance_frees_the_slot" true "a wholly frozen fixture gives back every fan-out slot, and each unreadable form -- including the one whose counts are null -- gives back none" load
+    else
+        add_row "runner_advance_frees_the_slot" false "the fan-out arithmetic over the reader's own output did not free a frozen runner's slot, or freed one on a reading nobody made" load
+    fi
+
+    # 8. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Wire the reader so a claim whose
     #    files cannot be read counts as flat rather than unreadable, and the `blind` fixture —
     #    one flat claim beside one that could not be read at all — must then report a runner
     #    `not_advancing` and free its slot, on evidence that was never established. A breaker
@@ -9901,7 +9934,7 @@ cmd_verify_runner_advance() {
         add_row "runner_advance_breaker" false "the breaker did not break: an unreadable claim counted as flat still refused ($(one_line "$_bb")), so row 4 proves nothing" breaker
     fi
 
-    # 8. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    # 9. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then
         add_row "runner_advance_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load

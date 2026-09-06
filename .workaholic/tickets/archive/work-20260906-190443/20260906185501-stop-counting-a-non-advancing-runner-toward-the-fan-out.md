@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T18:55:01+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -95,3 +96,44 @@ ticket only spends its answer.
   previous ticket's obligation, not something to compensate for here.
 - **Adding a line every tick was refused elsewhere**, and the same refusal applies: an unheld,
   readable allocation adds no line, exactly as the machine line does not.
+
+## Final Report
+
+Development completed as planned. **This ticket was resumed, not started**: the runner that
+began it froze mid-edit — the failure this mission exists to end — and the coordinator committed
+its 163 uncommitted insertions as `852037933` rather than lose them, stating in that commit's own
+`Concerns` that the work was unjudged and the ticket not archived. This run re-read the ticket
+against the change rather than assuming it complete.
+
+**Steps 1-5 and the first half of step 6 were found done and were kept, not rewritten.** The
+subtraction is in the fan-out expression and nowhere else, in both places the expression is
+written (`commands/infinite-development.md` §2 and `loops/SKILL.md`); the concurrency rule's other
+half is stated unchanged; `unreadable` frees nothing; no agent is stopped; no store, cursor or
+field was added; and `test-workflow-scripts.mjs` pins the expression, the §3 wording, the
+`runner_not_advancing:` naming and the no-line-when-nothing-freed rule. Verified by running them:
+the suite passes 6763/0 and the four generated-artifact checks are clean.
+
+**Step 6's second half was missing and is what this run added.** `scripts/e2e/loop-drill.sh` was
+untouched by the inherited commit, so nothing demonstrated that a frozen fixture actually *frees a
+slot* — rows 1-6 prove what the reader answers, and the allocation is an agent act composed at run
+time, so the drill had to spend the reader's own output through the expression rather than assert a
+sentence. `runner_advance_frees_the_slot` does that: a wholly frozen fixture gives back both slots
+where `bound − running` gave back none, and every unreadable form gives back none.
+
+### Discovered Insights
+
+- **Insight**: on a degraded read the reader answers `running: null` **beside**
+  `frozen_count: null`, so the allocation must take `running` from the agent listing and only
+  `not_advancing` from the reader.
+  **Context**: measured on the `bad_window` fixture. An implementation that took both numbers from
+  this one reader would compute `bound − (null − null)` and hand back **every** slot on a reading
+  nobody made — the precise inversion of "an unreadable reading frees nothing", and a failure that
+  fires hardest exactly when the reader is least trustworthy. The new drill row asserts the split
+  directly, which is why it is written as arithmetic over the fixtures rather than as a shape check.
+
+- **Insight**: the inherited commit was correct as far as it went, and the thing it was missing was
+  the half that could not be inferred from its own diff.
+  **Context**: three files changed, all coherent, all passing — a resumption that trusted the green
+  suite would have archived a ticket whose step 6 was half done, because the missing half was a
+  drill nobody had written and therefore nothing was red about it. Re-reading the ticket's own
+  steps against the diff is what found it; the suite could not.

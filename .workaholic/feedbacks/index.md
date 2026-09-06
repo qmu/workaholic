@@ -692,4 +692,6 @@
 * [A claim fails hard on a stale same-named worktree, and the loop pauses instead of reaping it](20260906224121-a-claim-fails-hard-on-a-stale-same-named-worktree-and-the-loop-pauses-instead-of-reaping-it.md)
 * [The finish line cannot reach 19 of 20 asks, because the fb:<stem> key is missing from the posts that must carry it](20260906230934-the-finish-line-cannot-reach-19-of-20-asks-because-the-fb-stem-key-is-missing-from-the-posts-that-must-carry-it.md)
 * [A mission whose remaining tickets need a person is re-claimed and re-handed-off indefinitely — three times in four days here](20260906232625-a-mission-whose-remaining-tickets-need-a-person-is-re-claimed-and-re-handed-off-indefinitely-three-times-in-four-days-here.md)
+* [Recover the Codex loop after plugin cache replacement and reject false healthy status](20260907005942-recover-the-codex-loop-after-plugin-cache-replacement-and-reject-false-healthy-status.md)
+* [Drive a unit's non-declaring members instead of parking seven tickets behind one honest handoff](20260907023405-drive-a-unit-s-non-declaring-members-instead-of-parking-seven-tickets-behind-one-honest-handoff.md)
 <!-- okf:generated:end -->

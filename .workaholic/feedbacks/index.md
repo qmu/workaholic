@@ -695,4 +695,5 @@
 * [Recover the Codex loop after plugin cache replacement and reject false healthy status](20260907005942-recover-the-codex-loop-after-plugin-cache-replacement-and-reject-false-healthy-status.md)
 * [Drive a unit's non-declaring members instead of parking seven tickets behind one honest handoff](20260907023405-drive-a-unit-s-non-declaring-members-instead-of-parking-seven-tickets-behind-one-honest-handoff.md)
 * [Read moderate's cadence from its own recorded finish](20260907030805-read-moderate-s-cadence-from-its-own-recorded-finish.md)
+* [Separate the loop's finish records from the moderation log, rather than patching each reader](20260907062639-separate-the-loop-s-finish-records-from-the-moderation-log-rather-than-patching-each-reader.md)
 <!-- okf:generated:end -->

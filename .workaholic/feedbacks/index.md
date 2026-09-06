@@ -686,4 +686,5 @@
 * [Let a direction that finished early read as arrived](20260906141714-let-a-direction-that-finished-early-read-as-arrived.md)
 * [Count a queued ticket by where it sits, not by the status word it declares](20260906144902-count-a-queued-ticket-by-where-it-sits-not-by-the-status-word-it-declares.md)
 * [A handoff-route claim's branch is never caught up, so its conflict grows for the whole wait](20260906154039-a-handoff-route-claim-s-branch-is-never-caught-up-so-its-conflict-grows-for-the-whole-wait.md)
+* [The daily digest reports itself already posted on a day no root was posted](20260906181222-the-daily-digest-reports-itself-already-posted-on-a-day-no-root-was-posted.md)
 <!-- okf:generated:end -->

@@ -678,4 +678,5 @@
 * [tick-progress.sh resolves the skills directory against the consuming repository](20260906110842-tick-progress-sh-resolves-the-skills-directory-against-the-consuming-repository.md)
 * [The loop fast-forwards its own coordinator checkout while subagents run](20260906113730-the-loop-fast-forwards-its-own-coordinator-checkout-while-subagents-run.md)
 * [A run parked on a watcher reads as idle and stops beating its claim](20260906121540-a-run-parked-on-a-watcher-reads-as-idle-and-stops-beating-its-claim.md)
+* [publish-tree-pr.sh declares six body arguments and prints two](20260906121812-publish-tree-pr-sh-declares-six-body-arguments-and-prints-two.md)
 <!-- okf:generated:end -->

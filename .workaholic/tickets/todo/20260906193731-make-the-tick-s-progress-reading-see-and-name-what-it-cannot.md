@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260906193712-tick-progress-sh-resolves-its-sibling-readers-against-the-consuming-repo-so-every-mission-row-is-null-and-propose-gate-answers-open.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260906-195243
 ---
 
 # Make the tick's progress reading see, and name what it cannot

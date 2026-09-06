@@ -682,4 +682,5 @@
 * [blocked-tick picks its subject from every tick id in the day file and reports ok while blind](20260906124803-blocked-tick-picks-its-subject-from-every-tick-id-in-the-day-file-and-reports-ok-while-blind.md)
 * [The source resolver answers ok for a source missing scripts the run needs](20260906132040-the-source-resolver-answers-ok-for-a-source-missing-scripts-the-run-needs.md)
 * [Refuse a tick id the log's own minter did not write](20260906141417-refuse-a-tick-id-the-log-s-own-minter-did-not-write.md)
+* [Say when the thread resolver could not see, not that nothing was there](20260906141610-say-when-the-thread-resolver-could-not-see-not-that-nothing-was-there.md)
 <!-- okf:generated:end -->

@@ -164,6 +164,60 @@ run time — so a mechanical row over this tree would find nothing to fail on. D
 a check. The honest mechanical half is the configuration question `workaholic:workaholify`
 answers (which tool an operator's allowlist should then name), not a grep.
 
+## A scratchpad redirect must not assume `>` truncates
+
+**A redirect a run composes must not assume `>` will overwrite a file that already exists**
+(2026-09-07, ticket `20260907070514`). Under `noclobber` — which this machine's login shell sets,
+and which every command a session composes inherits — `>` onto an **existing** path **may fail and
+write nothing**. The repair is **`>|`, or a filename unique to the run**.
+
+**The consequence is a stale read, not an empty one**, and that is the whole reason it is
+dangerous. A run that redirects, then parses, then acts is holding data that looks fresh and
+belongs to a different run: there is no missing file to trip over and no empty document to notice.
+
+**Measured twice in one session before it was filed**: a `/moderate` tick began parsing a
+**17-hour-old** JSON written by a different tick, and a `/specificate` run carried the stale body
+of a **different issue (#1012)** into a feedback record. The second was caught by the run's own
+vigilance before it published — nothing mechanical caught either.
+
+The reproduction, re-run on this machine (login `zsh` reports `noclobber` set):
+
+```sh
+printf 'STALE\n' >| /tmp/probe.txt
+sh -c "set -C; printf 'FRESH\n' > /tmp/probe.txt; echo exit=\$?"
+cat /tmp/probe.txt
+```
+
+`sh` prints `cannot create /tmp/probe.txt: File exists` on **stderr** and exits **2**; the file
+keeps its old bytes and the `cat` prints `STALE`. The same command with `>|` exits 0 and writes.
+**Prefer *may fail and write nothing* over *fails silently***, which is falsifiable in one command
+and would weaken the rule: the redirect is not silent, it is **unnoticed** — one stderr line among
+a tool result, a non-zero status nobody checks when the redirect sits in a `;`-chain or a heredoc,
+and a following read that succeeds with the wrong content.
+
+**Enforcement is a human reading this**, exactly as the two sibling sections above say of
+themselves and for their reason: the redirect is composed at run time and appears in no file this
+repository could scan. Three repairs were considered and refused, recorded here so a later session
+does not re-derive them:
+
+- **Changing the shell configuration** — `noclobber` is the operator's own profile setting and is
+  not this repository's to change.
+- **A `PreToolUse` deny on the shape** — it converts a silent failure into a mid-run refusal,
+  which is a different failure rather than an obviously better one.
+- **A scheduled clean of the scratchpad** — the residue is not the defect. A run that assumes
+  truncation is wrong whether or not an old file happens to be sitting there.
+
+**A mechanical row is refused for the sibling's own reason**: the precedent that fails on
+`gh issue|pr|repo` keys on a command whose every use is wrong, while `>` is correct in the
+overwhelming majority of its uses in this tree, and a row keying on "a redirect whose target is
+under the scratchpad" cannot tell an agent's composed command from a script's own output — because
+the composition never appears in a file.
+
+**The wider rule this sits beside** is `rules/interaction.md`, *An unattended run never waits for
+a person*, which names the two sections above as cases of its allowlist axis. This one shares
+their **shape** — a rule about what a run composes at run time, holdable by nothing in this tree —
+and not their subject: nothing here waits, and the failure is precisely that the run carries on.
+
 ## Reaching GitHub: REST only, never GraphQL
 
 Every workflow script talks to GitHub through **one transport**,

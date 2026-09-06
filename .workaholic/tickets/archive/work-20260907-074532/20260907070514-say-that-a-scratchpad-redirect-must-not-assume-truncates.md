@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-07T07:05:14+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -139,3 +140,41 @@ appears in this tree. This is the third rule of exactly that shape.
 - **Scope discipline**: this is one section plus one `CLAUDE.md` clause. Resist auditing the
   tree for existing `>` redirects — the rule governs what a run composes next, and a sweep
   of committed scripts is a different change answering a question nobody asked.
+
+## Final Report
+
+Development completed as planned. `plugins/workaholic/rules/shell.md` carries one new section,
+*A scratchpad redirect must not assume `>` truncates*, placed after *Composing the call: the path
+in full, the reader first, no assignment prefix* and before *Reaching GitHub: REST only, never
+GraphQL* — among the run-time-composition rules, not among the POSIX `*.sh` conventions. `CLAUDE.md`
+names it in one clause under *Enforcement gates*, beside the two sibling rules it joins. No hook,
+check, script or shell configuration was added or changed, and the file's `paths: '**/*.sh'`
+frontmatter was left alone.
+
+The behaviour was re-measured before the rule was written rather than inherited from the ticket:
+`sh -c "set -C; printf 'FRESH\n' > <existing>"` printed `cannot create <path>: File exists` on
+stderr, exited **2**, left the old bytes in place, and the following `cat` printed `STALE`; the
+same command with `>|` exited 0 and wrote. That is what the section claims and no more.
+
+### Discovered Insights
+
+- **Insight**: The ticket's Key Files entry asks the section to cite `rules/interaction.md`,
+  *An unattended run never waits for a person*, as "the wider rule this is an instance of". Read in
+  full, that section's axis is *a run with no human present composes only commands an allowlist can
+  name*, and its two named cases are both about a composed command reaching a permission dialog.
+  A `noclobber` redirect raises no dialog — the failure is the opposite of waiting, since the run
+  carries on with another run's data. The section therefore cites it as a **shape** sibling (a rule
+  about what a run composes at run time, holdable by nothing in this tree) and says plainly that it
+  does not share the subject.
+  **Context**: The ticket's own Considerations warn that "a rule that overclaims is falsifiable by
+  the first reader who tries it". Writing the citation as an instance-of would have been exactly
+  that failure inside the rule warning against it. A later reader adding a fourth rule of this shape
+  should check the same thing: the three siblings share a *home* and an *enforcement story*, not a
+  cause.
+
+- **Insight**: `plugins/workaholic/rules/` is outside the generated-bundle closure — an
+  argument-less `node scripts/build-plugins/build.mjs` after this edit produced no diff under
+  `outputs/`, so a rules-only change never needs a regeneration commit.
+  **Context**: The `Outputs Freshness` CI workflow fails on any `outputs/` diff, which makes the
+  build worth running as a check even for a change that cannot plausibly touch it; running it costs
+  seconds and proves the negative.

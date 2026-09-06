@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260906-125643
 ---
 
 # Finish the Codex external process and make its state inspectable

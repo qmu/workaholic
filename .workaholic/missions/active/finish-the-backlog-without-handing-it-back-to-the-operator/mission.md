@@ -40,7 +40,7 @@ completion reach the operator or are named undelivered.
 
 - [x] A tick with no newly claimable ticket still dispatches a pass acting on the open
       recovery and delivery states. (#20260906082031-count-recovery-and-delivery-work-as-claimable.md)
-- [ ] A worker's finish comes from its own reported outcome; one exiting zero without
+- [x] A worker's finish comes from its own reported outcome; one exiting zero without
       executing is not finished. (#20260906082031-record-a-worker-s-finish-from-its-own-reported-outcome.md)
 - [ ] One `/work` run drains a seeded backlog holding a conflicting PR, an undelivered
       one and a parked claim, its reports proved delivered. (#20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md)
@@ -50,3 +50,4 @@ completion reach the operator or are named undelivered.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-06 — ticket archived — 20260906082031-count-recovery-and-delivery-work-as-claimable.md
 - 2026-09-06 — ticket archived — 20260906082031-give-a-dispatched-codex-worker-the-whole-role-it-is-named-for.md
+- 2026-09-06 — ticket archived — 20260906082031-record-a-worker-s-finish-from-its-own-reported-outcome.md

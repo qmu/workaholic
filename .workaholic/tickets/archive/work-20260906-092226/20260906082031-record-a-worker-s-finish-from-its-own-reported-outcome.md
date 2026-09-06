@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T08:20:31+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: give-a-dispatched-codex-worker-the-whole-role-it-is-named-for
@@ -78,3 +79,59 @@ evidence.
 - Recording *attempt* and *outcome* separately risks a role that retries forever. Whatever
   bounds the retry must be stated here, not invented at the call site.
 - The relay path's envelope validation is the shape to extend, not a second mechanism.
+
+## Final Report
+
+**Reproduced first (step 1).** `record_worker_finish "$_role" "$_wexit"` wrote the
+`loop-finish-<role>` line from the **process exit status** alone, with the summary
+`<role> finished (exit 0)`. Shimming a worker that exits `0` while reporting it could not execute
+therefore recorded a healthy finish, and
+`log-read.sh --step-prefix loop-finish-<role> --latest-tick` then read the role as done. Separately,
+`classify_report` defaulted `TICK_OUTCOME=ready` and reached that default for any report matching
+none of its greps — so a report this function could not read was graded a healthy tick.
+
+**Step 2, the four facts and where each came from.** *The process terminated* → the exit status.
+*The role was executed* → **nowhere**. *The work completed* → **nowhere** (inferred from words
+grepped out of prose). *The notification was delivered* → `TRANSPORT_VERDICT`, and only on the relay
+path. The relay path already validated a structured envelope; the non-relay path had no structured
+result at all.
+
+**Step 3, confirmed against the installed CLI rather than assumed** (the Considerations asked for
+this): `codex-cli 0.153.4` lists `--output-schema <FILE>`, `--output-last-message <FILE>` and
+`--json`. So the outcome now comes from a **schema-constrained final message**
+(`scripts/worker-result.schema.json`: `executed`, `outcome`, `reason`, `report`), read by
+`worker_outcome()` — never from the exit status and never from prose. This **extends the relay
+path's envelope validation** rather than adding a second mechanism, which is the shape the ticket
+asked for.
+
+**Step 4, the attempt and the outcome are recorded separately and the line says which it carries.**
+`loop-attempt-<role>` is written for every run and names the outcome; `loop-finish-<role>` — the
+line the cadence reads, whose reader is **untouched** — is written only for a run that actually
+executed. So a worker that did nothing leaves its role **due**.
+
+**The retry bound, stated here rather than invented at the call site** (the Considerations demanded
+it): after `WORKAHOLIC_WORKER_ATTEMPT_MAX` consecutive unhealthy attempts (**default 3**) the finish
+line *is* written, naming the outcome, so the role falls back to its ordinary cadence instead of
+retrying on every tick forever. `0` means no bound; a non-numeric value falls back to 3 and holds
+nothing.
+
+**Step 5**: `log-append.sh` remains the one writer and its `(tick, step)` idempotence is untouched.
+
+**Reproduction re-run, now answering differently** — `worker_outcome` over each shape:
+- exits 0, reports `executed:false` → `not_executed:plugin_command_missing` → **no finish line**, role still due
+- exits 0, reports `executed:true, outcome:ok` → `ok` → finish line written
+- exits 0, reports `executed:true, outcome:pending` → `ok` (a completed run with an honest token)
+- exits 0, free-text report → `unreadable:unparseable_report`, never `ready`
+- exits 0, empty report → `unreadable:no_report`
+- exits 7 → `failed:codex_exit_7`
+
+And at the coordinator: an unparseable report reads `report_unreadable` /
+`unreadable:unparseable_report`, and a report of a run that did not execute reads `work_blocked` /
+`not_executed:plugin_command_missing`. **Neither reads `ready`.** A genuinely successful run is
+unchanged in every field — `state=sleeping outcome=ready transport_verdict=available` — and the
+existing rungs (`tick_failure`, `report_missing`, `transport_absent`, `work_blocked`) fire first and
+are byte-identical.
+
+**Gate.** `node scripts/test-workflow-scripts.mjs` — 6663 passed, 0 failed, with two new rows for
+the load-bearing negatives and both fixtures moved onto the schema-shaped report a real run now
+emits.

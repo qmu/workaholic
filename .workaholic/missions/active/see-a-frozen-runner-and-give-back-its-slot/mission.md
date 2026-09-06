@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260906-190443
 ---
 
 # See a frozen runner and give back its slot

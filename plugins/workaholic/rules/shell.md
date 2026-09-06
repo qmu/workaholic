@@ -102,6 +102,21 @@ rather than dressed as a check — and the honest mechanical half is the configu
 
 **A session that needs a skill section, a reference file or a command body under the plugin reads it with the Read tool — never with `sed`, `grep`, `cat`, `head` or any other shell reader** (2026-09-02, issue #865). A command that says *see `workaholic:notify`, One thread per feedback item* is naming a section; a routine session resolves that name the cheapest way it knows, and the cheapest way is `sed -n '/One thread/,/^## /p' $S/skills/notify/SKILL.md` over the plugin cache under `~/.claude` — which the container classifies as touching Claude's own configuration and parks the run on a permission prompt nobody unattended can answer. **Measured**: the Moderate, Propose and Implement routines all sitting at `requires_action` on exactly that shape, repeatedly, on records recreated fresh the day before. The Read tool is a read the harness already permits; a shell read of the same bytes is a prompt. The four routine-fired commands state this beside the references they make, and the suite pins that they do.
 
+### And it is read at the CHECKOUT's path, never at `<src>`
+
+**The tool was half the answer; the path is the other half** (2026-09-06, ticket `20260902043117`). The sentence above moved the reach off `sed`/`grep`/`cat`/`head` — which `.claude/settings.json` allows by **prefix, with no path term** — and onto the Read tool, which the same file allows only under `Read(//home/**)`. It removed a prompt-raising shape and replaced it with one the allowlist covers **less**, and the `[Propose]` tick went on parking hourly.
+
+**Measured** (the diagnosis ticket's own evidence, in a container running this repository's own routine): `plugin-src.sh` answered `{"src": "/root/.claude/plugins/cache/workaholic/workaholic/1.0.278", "source": "registry", "src_immutable": true}`. The checkout was present and at the **same** version, so the equal-version tie went to the immutable candidate exactly as designed — and `<src>` was then a path that is **outside `/home/**` and inside a `.claude/` directory**. Every routine prompt and all four command ceilings direct the session to Read a file under it.
+
+**So the two reaches are separated by their permission class, which is the class the container actually distinguishes:**
+
+- **`bash` takes `<src>`.** `Bash(bash:*)` is a prefix rule with no path term, so a script runs from the plugin cache with no prompt — measured repeatedly in that same container, for `check.sh`, `sync-main.sh`, `plan-units.sh` and others. The newest-tree resolution keeps its whole purpose: the code that executes is still the newest on the machine.
+- **`Read` takes the checkout** — `plugins/workaholic/…`, a path inside the workspace, which needs no allowlist entry and is not classified sensitive. A plugin markdown file is prose; the same bytes are there.
+
+**The reach is removed, not permitted.** The alternative repair — a `Read(//root/.claude/plugins/cache/**)` allow entry — was rejected and the reason is recorded rather than left to be re-derived: it would name a path **inside** the directory the harness classifies as sensitive, it is a per-account record a fresh container does not carry, and it would permit reading every plugin's cache to fix one file class. It is the weaker repair by the ticket's own Considerations, and it is unnecessary wherever the checkout carries the plugin.
+
+**One residue, stated rather than designed away.** A **consuming** repository that installs the plugin without vendoring it has no `plugins/workaholic/` in its workspace, so `<src>` is the only tree that carries the command body and the Read of it is unavoidable there. That is the case the operator's own allow entry answers, recorded where the prompt policy is recorded (`workaholic:workaholify`, *Where an unattended run's prompt policy is configured*) — not here, where the restructure removes the reach and an entry would permit one that no longer happens. No retry, timeout or fallback is wrapped around the prompt in either case: a run that works around a prompt still spends its fire.
+
 ## Composing the call: the path in full, the reader first, no assignment prefix
 
 **A Bash call naming a plugin path writes that path out in full — one command per call, the

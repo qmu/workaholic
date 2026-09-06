@@ -21255,6 +21255,7 @@ function testPostLanguageRuleShipsWithThePlugin() {
   // THE CEILING SURFACES SAY IT TOO. A rule stated only in `rules/` is loaded but not adjacent
   // to the shapes; each routine-fired command names it right above the blocks it authorizes,
   // which is where a session reads what to emit.
+  const CHECKOUT_PATH_RULE = "**And it is read at the checkout's own path** (`plugins/workaholic/\u2026`), never at `<src>` (2026-09-06, ticket `20260902043117`): `bash` is allowlisted by prefix with no path term, so a script runs from `<src>` without a prompt, while a **Read** of `<src>` lands under the plugin cache whenever the registry tree wins the equal-version tie \u2014 outside the allowlist and inside a `.claude/` directory the harness classifies as sensitive. The reach is removed, not permitted.";
   for (const id of ["implement", "specificate", "propose", "moderate"]) {
     const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
     assertTrue(`/${id} states the language of its free-text slots`,
@@ -21268,6 +21269,18 @@ function testPostLanguageRuleShipsWithThePlugin() {
     // says so beside the references it makes; this pins that it keeps saying so.
     assertTrue(`/${id} sends a session to the Read tool for skill sections, never to sed`,
       /never with `sed`, `grep`, `cat` or `head`/.test(cmd), id);
+    // AND IT NAMES THE PATH, NOT ONLY THE TOOL (2026-09-06, ticket `20260902043117`). The
+    // 2026-09-02 repair moved the reach off `sed`/`grep`/`cat`/`head`, which the repository
+    // allows by PREFIX with no path term, and onto the Read tool, which it allows only under
+    // `Read(//home/**)` -- so the reach was moved onto a rule that covers it LESS and the
+    // `[Propose]` tick went on parking hourly. Measured in the routine's own container:
+    // `src` was `/root/.claude/plugins/cache/workaholic/workaholic/1.0.278` with the checkout
+    // present at an EQUAL version, the immutable candidate winning the tie exactly as
+    // designed. ONE WORDING across the four ceilings, byte-identical, because four divergent
+    // statements of one path rule is the drift this file exists to catch.
+    assertTrue(`/${id} carries the checkout-path half byte-identically`,
+      cmd.includes(CHECKOUT_PATH_RULE),
+      `${id}: the path half is absent or has drifted from the other ceilings`);
     assertTrue(`/${id} cites the rule rather than restating it`,
       /rules\/interaction\.md/.test(cmd), id);
   }
@@ -26996,15 +27009,25 @@ function testWorkaholifyRoutines() {
       assertEq(`the [${id}] prompt authorizes no post shape of its own`,
         [...pr.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
       assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\``).test(pr), pr);
+      // AND THE FALLBACK POINTS THE READ AT THE CHECKOUT, NEVER AT `<src>` (2026-09-06,
+      // ticket `20260902043117`). `<src>` is the plugin cache whenever the registry tree wins
+      // the equal-version tie -- outside `Read(//home/**)` and inside a `.claude/` directory
+      // the harness classifies as sensitive -- so a Read of it parks the tick on a prompt
+      // nobody unattended can answer. Scripts keep `<src>`: `Bash(bash:*)` is a prefix rule
+      // with no path term and was measured not to prompt there.
       assertTrue(`and the load fallback that reads it when the plugin did not bind`,
-        pr.includes(`<src>/commands/${id}.md`), pr);
+        pr.includes(`plugins/workaholic/commands/${id}.md`), pr);
+      assertTrue(`the [${id}] prompt sends no Read to <src>`,
+        !/read `<src>\//.test(pr), pr);
+      assertTrue(`and still runs its scripts from <src>`,
+        pr.includes("script path under `<src>`"), pr);
     }
     // The merged [Propose] prompt runs BOTH commands, in order (2026-09-02).
     {
       const t = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/workaholify/routines/propose.md"), "utf8");
       const pr = t.slice(t.indexOf("## Prompt"));
       assertTrue("the [propose] prompt also names /specificate and its fallback",
-        /run \`\/specificate\`/.test(pr) && pr.includes("<src>/commands/specificate.md"), pr);
+        /run \`\/specificate\`/.test(pr) && pr.includes("plugins/workaholic/commands/specificate.md"), pr);
     }
 
     const fb = JSON.parse(run(dir, `${RENDER} propose ${WH}`).stdout);

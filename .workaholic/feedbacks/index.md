@@ -691,4 +691,5 @@
 * [tick-progress.sh resolves its sibling readers against the consuming repo, so every mission row is null and propose_gate answers open](20260906193712-tick-progress-sh-resolves-its-sibling-readers-against-the-consuming-repo-so-every-mission-row-is-null-and-propose-gate-answers-open.md)
 * [A claim fails hard on a stale same-named worktree, and the loop pauses instead of reaping it](20260906224121-a-claim-fails-hard-on-a-stale-same-named-worktree-and-the-loop-pauses-instead-of-reaping-it.md)
 * [The finish line cannot reach 19 of 20 asks, because the fb:<stem> key is missing from the posts that must carry it](20260906230934-the-finish-line-cannot-reach-19-of-20-asks-because-the-fb-stem-key-is-missing-from-the-posts-that-must-carry-it.md)
+* [A mission whose remaining tickets need a person is re-claimed and re-handed-off indefinitely — three times in four days here](20260906232625-a-mission-whose-remaining-tickets-need-a-person-is-re-claimed-and-re-handed-off-indefinitely-three-times-in-four-days-here.md)
 <!-- okf:generated:end -->

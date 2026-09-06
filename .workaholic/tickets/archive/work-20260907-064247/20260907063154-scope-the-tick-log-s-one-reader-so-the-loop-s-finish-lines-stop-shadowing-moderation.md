@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-07T06:31:54+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -230,3 +231,61 @@ ticket must not duplicate that repair; see Considerations.
 - **Non-goals, from the ask.** Do not stop the tick recording its finishes; the cadence depends on
   them and they are correct where they are. Do not prune existing lines: the log is append-only, and
   a machine deleting lines it dislikes is a worse failure than the one it would cure.
+
+## Final Report
+
+Development completed as planned.
+
+`log-read.sh` gained `--owner <moderate|loop|propose|all>`, defaulting to `moderate`, derived
+per entry from the step id over a closed named table held in one `awk` function. No new field,
+no new file, no stored value, no migration: the step id is already on every line the log has
+ever carried, so the 84 `loop-finish-*` lines already on disk are classified by construction.
+`log-append.sh` is byte-identical and no file under `.workaholic/moderations/` was touched.
+
+### Both reported failures were reproduced before the change and confirmed after
+
+- **The change baseline.** On a hermetic fixture whose previous section holds one
+  `loop-finish-implement` line and nothing else, with run JSON repeating a step's summary
+  unchanged: the mixed log gave `previous_tick: 20260904-135000`, `change_count: 1` — spurious;
+  the same fixture with that section deleted gave `20260904-130000`, `change_count: 0`. After
+  the repair both give `change_count: 0` and name the moderate tick. `render-tick-post.sh`
+  needed no edit to its baseline selection — it composes `log-read.sh` with no owner and
+  inherits the default, which is what the default is for.
+- **`blocked-tick`.** The same fixture made `step-blocked-tick.sh` report *the tick before last
+  opened and closed* over a coordinator-only section — the step whose whole job is to notice a
+  stopped tick returning a false healthy reading. It now takes two reads, one per owner: the
+  moderate arm inherits the default and the propose arm asks for `--owner propose` by name.
+
+### The ask's causal chain did not survive the code, as the ticket predicted
+
+`no_rows` is emitted from this tick's own rows, taken from the run JSON on stdin, at a point
+before the baseline is selected at all. A rowless baseline cannot produce it, and the
+reproduction did not produce it. The `no_rows` recorded at tick `20260906-211606` has a
+different cause and is out of this ticket's scope, as stated.
+
+### Discovered Insights
+
+- **Insight**: the sibling ticket `20260907031134` (landed in #1058) reads
+  `--step-prefix loop-finish-moderate` — a **loop**-owned prefix that the new default would
+  have silently emptied.
+  **Context**: the two tickets were written as compatible and are, but only because this one
+  added `--owner loop` beside that read and updated the suite row pinning the string. Landing
+  the default without touching it would have left the moderate cadence gate reading an empty
+  set forever — the gate would have spawned `moderate` every tick. This is the concrete form
+  of the ticket's own warning that whichever lands second must not revert the other.
+
+- **Insight**: `condition-age.sh` is the one consumer whose answer the default actually
+  changes, and it was inflated roughly 3.8x.
+  **Context**: step 5 asked for each consumer to be stated rather than assumed, and this is
+  the one where *no change* was false. `first_seen` is read off a `human-checkin-ask` line,
+  which only a moderate tick writes, so `ticks` always meant *how many times has a tick seen
+  this and asked about it* — but the walk counted every section in the file. Measured on
+  `.workaholic/moderations/2026-09-06.md`: 110 distinct sections, 29 moderate, 79 the
+  coordinator's. The default corrects it to the unit it always meant. The reading gates
+  nothing and moves no token, so this changes what the sentence says and nothing about what
+  any consumer may do with it.
+
+- **Insight**: a coordinator-only section is the ordinary previous section, not an edge case.
+  **Context**: the coordinator turns every five minutes and `/moderate` every thirty, so the
+  mixing is the steady state rather than a rare interleaving — which is why repairing the one
+  reader was worth more than repairing the two known-broken consumers.

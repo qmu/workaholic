@@ -681,4 +681,5 @@
 * [publish-tree-pr.sh declares six body arguments and prints two](20260906121812-publish-tree-pr-sh-declares-six-body-arguments-and-prints-two.md)
 * [blocked-tick picks its subject from every tick id in the day file and reports ok while blind](20260906124803-blocked-tick-picks-its-subject-from-every-tick-id-in-the-day-file-and-reports-ok-while-blind.md)
 * [The source resolver answers ok for a source missing scripts the run needs](20260906132040-the-source-resolver-answers-ok-for-a-source-missing-scripts-the-run-needs.md)
+* [Refuse a tick id the log's own minter did not write](20260906141417-refuse-a-tick-id-the-log-s-own-minter-did-not-write.md)
 <!-- okf:generated:end -->

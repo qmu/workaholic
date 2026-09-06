@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260907062639-separate-the-loop-s-finish-records-from-the-moderation-log-rather-than-patching-each-reader.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260907-064247
 ---
 
 # Scope the tick log's one reader so the loop's finish lines stop shadowing moderation

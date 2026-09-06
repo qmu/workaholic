@@ -3,7 +3,12 @@
 # verification handoff.
 #
 # Usage: acceptance-handoffs.sh <mission-slug-or-file>
-# Output: JSON {"handoff": true|false, "tickets": ["<basename>", ...], "unresolved": [...]}
+# Output: JSON {"handoff": true|false, "tickets": ["<basename>", ...],
+#               "measurable_tickets": ["<basename>", ...], "unresolved": [...]}
+#
+# `tickets` names the declarations that HELD the close -- prose, and prose only.
+# `measurable_tickets` names the `probe:` declarations that were found and did NOT hold,
+# so the refusal can say which form it is refusing on and a reader can tell the two apart.
 #
 # WHY IT EXISTS. `archive.sh` closes a mission on ARITHMETIC -- every acceptance item
 # ticked, none unlinked, the queue empty -- and that arithmetic cannot see the one fact
@@ -23,6 +28,42 @@
 # What this script owns is the other half -- which tickets an acceptance item names --
 # and it reads that with the same `(#<basename>)` marker `tick-acceptance.sh` matches.
 #
+# A MEASURABLE DECLARATION DOES NOT HOLD THE CLOSE (2026-09-06, ticket `20260906105853`,
+# mission `finish-the-backlog-without-handing-it-back-to-the-operator`). The reader above
+# answers on the PRESENCE of a `verification_handoff:` line -- including the `probe:` form,
+# which exists precisely to be re-tested and which `/drive` §6 runs at claim time. MEASURED
+# on this mission, by the run that archived its last ticket: the queue drained at 3/3 and
+# this gate refused, naming a ticket whose declaration is `probe: command -v codex`, which
+# `run-verification-probe.sh` had answered `clean` in that same run against an installed
+# CLI. The verification was performed and the mission was held open for a person to repeat
+# it -- the unfalsifiable-blocker failure that mission exists to end.
+#
+# IT IS THE CONSUMER THAT DISTINGUISHES, NOT THE READER. `verification-handoff.sh` keeps
+# answering on presence: it is the one reader of the field and §6 depends on that answer to
+# decide which route a unit takes. This is exactly the precedent
+# `drive/scripts/lib/claims.sh`'s `claims_declared_handoff` set one layer down, where a
+# measurable declaration stopped parking a claim `awaiting_verification` -- same field, same
+# reader, the distinction made by each consumer for its own reason.
+#
+# THIS GATE DOES NOT RUN THE PROBE, AND THAT IS A DECISION RATHER THAN AN OMISSION. The
+# hazard that kept the probe out of the offline claim scan does not transfer -- `archive.sh`
+# runs inside a worktree at commit time -- so it was weighed on its own terms and refused for
+# three others. (1) `run-verification-probe.sh` is the one runner and §6 is the one site that
+# runs it; a second execution site is a second derivation of *is this blocking here*, and two
+# derivations of one question eventually disagree. (2) This walk resolves EVERY acceptance
+# item's ticket, including tickets driven by other units in other runs, so running them here
+# would execute artifact-supplied commands for work this run never claimed. (3) The close is
+# ARITHMETIC; making it depend on a command's exit status would make an unattended close turn
+# on a reading designed to become false when re-run, which `archive.sh` already refuses by
+# name for the drill verdict it prints beside the close.
+#
+# THE COST, STATED. A `probe:` declaration that would read `blocking` no longer holds this
+# gate either, so a mission whose acceptance rests on such a ticket now closes `achieved` on
+# the arithmetic the run already proved. That is bounded by where the probe IS read: §6 takes
+# such a unit down the handoff route, its pull request stays open and its claim stays
+# standing, so the work is still visibly unfinished where the loop looks for unfinished work.
+# What is given up is a second, later refusal at the close.
+#
 # AN UNRESOLVED LINK IS NOT A HANDOFF. An item naming a ticket no file can be found for
 # is reported in `unresolved` and does NOT set `handoff`. The close it would otherwise
 # block is already governed by `progress.sh`'s `unlinked` count, and a missing file is a
@@ -33,7 +74,7 @@ DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts/"
 
 ARG="${1:-}"
 if [ -z "$ARG" ]; then
-    echo '{"handoff": false, "tickets": [], "unresolved": [], "reason": "missing_args"}' >&2
+    echo '{"handoff": false, "tickets": [], "measurable_tickets": [], "unresolved": [], "reason": "missing_args"}' >&2
     exit 1
 fi
 
@@ -42,7 +83,7 @@ fi
 MISSION_ROOT=$(missions_root_from_artifact "$ARG")
 MISSION_FILE=$(mission_resolve "$MISSION_ROOT" "$ARG")
 [ -f "$MISSION_FILE" ] || {
-    echo '{"handoff": false, "tickets": [], "unresolved": [], "reason": "no_such_mission"}' >&2
+    echo '{"handoff": false, "tickets": [], "measurable_tickets": [], "unresolved": [], "reason": "no_such_mission"}' >&2
     exit 1
 }
 
@@ -76,6 +117,7 @@ LINKED=$(awk '
 
 HANDOFF=false
 FOUND=""
+MEASURABLE=""
 UNRESOLVED=""
 
 append() {
@@ -101,10 +143,19 @@ for BASENAME in $LINKED; do
     fi
 
     OUT=$(sh "${DRIVE_SCRIPTS}/verification-handoff.sh" tickets "$TICKET" 2>/dev/null || true)
-    if printf '%s' "$OUT" | grep -Eq '"handoff"[[:space:]]*:[[:space:]]*true'; then
-        HANDOFF=true
-        FOUND=$(append "$FOUND" "$BASENAME")
+    printf '%s' "$OUT" | grep -Eq '"handoff"[[:space:]]*:[[:space:]]*true' || continue
+
+    # A declaration the run can re-test is answered where it is already run (§6), not here.
+    # An unreadable reading has no `"measurable": true` and therefore still holds -- an
+    # absence is never a clean probe, the same direction every other reader takes.
+    if printf '%s' "$OUT" | grep -Eq '"measurable"[[:space:]]*:[[:space:]]*true'; then
+        MEASURABLE=$(append "$MEASURABLE" "$BASENAME")
+        continue
     fi
+
+    HANDOFF=true
+    FOUND=$(append "$FOUND" "$BASENAME")
 done
 
-printf '{"handoff": %s, "tickets": [%s], "unresolved": [%s]}\n' "$HANDOFF" "$FOUND" "$UNRESOLVED"
+printf '{"handoff": %s, "tickets": [%s], "measurable_tickets": [%s], "unresolved": [%s]}\n' \
+    "$HANDOFF" "$FOUND" "$MEASURABLE" "$UNRESOLVED"

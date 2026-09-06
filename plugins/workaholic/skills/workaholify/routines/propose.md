@@ -87,4 +87,4 @@ finds and reads them when the plugin did not bind.
 
 Run `/propose`, then run `/specificate`.
 
-If a command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/propose.md` and `<src>/commands/specificate.md` and follow them in that order with every script path under `<src>`.
+If a command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `plugins/workaholic/commands/propose.md` and `plugins/workaholic/commands/specificate.md` from the checkout with the Read tool and follow them in that order with every script path under `<src>`. Scripts take `<src>`; a Read takes the checkout's path.

@@ -117,4 +117,4 @@ log and, where it is work, becomes a ticket.
 
 Run `/moderate`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `<src>/commands/moderate.md` and follow it with every script path under `<src>`.
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `plugins/workaholic/commands/moderate.md` from the checkout with the Read tool and follow it with every script path under `<src>`. Scripts take `<src>`; a Read takes the checkout's path.

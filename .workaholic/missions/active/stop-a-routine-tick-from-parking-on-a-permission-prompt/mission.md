@@ -9,14 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 1.3
+actual_hours: 2.4
 feedback: [20260902043038-the-propose-tick-parks-on-a-permission-prompt-every-hour.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
-claim: work-20260903-014343
+claim: work-20260906-081744
 ---
 
 # Stop a routine tick from parking on a permission prompt
@@ -40,7 +40,7 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 
 ## Acceptance
 
-- [ ] What raises the prompt in the `/propose` path is named from evidence and removed at
+- [x] What raises the prompt in the `/propose` path is named from evidence and removed at
       its source. (#20260902043117-remove-the-prompt-raising-read-at-its-source-in-the-propose-path.md)
 - [x] A tick that parked is visible as parked rather than as scheduled and healthy. (#20260902043117-make-a-parked-routine-tick-visible-as-parked.md)
 - [x] A regression that reintroduces a prompt-raising shape fails a check before it ships. (#20260902043747-pin-that-no-command-sends-a-session-to-read-a-plugin-file-by-reference.md)
@@ -56,3 +56,6 @@ than as healthy, and a regression that reintroduces the raise fails a check.
 - 2026-09-03 — ticket archived — 20260902043747-read-a-skill-section-with-the-read-tool-never-with-sed-or-grep.md
 - 2026-09-03 — ticket archived — 20260902043747-inline-into-each-routine-command-the-rule-text-it-needs.md
 - 2026-09-03 — run recorded (+0.7h) — implement-20260903-0400
+- 2026-09-06 — ticket archived — 20260902043117-remove-the-prompt-raising-read-at-its-source-in-the-propose-path.md
+- 2026-09-06 — story written — restructure ruled over an allow entry; bash keeps <src>, a Read takes the checkout's path — work-20260906-081744.md
+- 2026-09-06 — run recorded (+1.1h) — implement-20260906-0817

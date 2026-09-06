@@ -684,4 +684,5 @@
 * [Refuse a tick id the log's own minter did not write](20260906141417-refuse-a-tick-id-the-log-s-own-minter-did-not-write.md)
 * [Say when the thread resolver could not see, not that nothing was there](20260906141610-say-when-the-thread-resolver-could-not-see-not-that-nothing-was-there.md)
 * [Let a direction that finished early read as arrived](20260906141714-let-a-direction-that-finished-early-read-as-arrived.md)
+* [Count a queued ticket by where it sits, not by the status word it declares](20260906144902-count-a-queued-ticket-by-where-it-sits-not-by-the-status-word-it-declares.md)
 <!-- okf:generated:end -->

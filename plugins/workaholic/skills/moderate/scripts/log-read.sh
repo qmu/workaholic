@@ -16,7 +16,47 @@
 # Usage:
 #   log-read.sh [--since <YYYY-MM-DD>] [--tick <YYYYMMDD-HHMMSS>] [--step <slug>]
 #               [--step-prefix <slug->] [--status <status>] [--contains <needle>]
+#               [--owner <moderate|loop|propose|all>]
 #               [--root <repo-root>] [--latest-tick]
+#
+# `--owner` IS THE SECTION'S OWNER, DERIVED FROM THE STEP ID, AND IT DEFAULTS TO
+# `moderate` (2026-09-07, ticket `20260907063154`). THE DEFAULT IS THE WHOLE POINT:
+# *a caller that names no owner is asking about moderation.*
+#
+# WHY. Three producers write into this one file under their OWN tick ids.
+# `/moderate` writes its steps; `/infinite-development` records each subagent finish as
+# `loop-finish-<name>` under the COORDINATOR's tick id; `/propose` writes `propose-open`
+# and `propose-close`. The coordinator turns every five minutes and `/moderate` every
+# thirty, so a section holding nothing but a `loop-finish-*` line is the ORDINARY previous
+# section, not an edge case — MEASURED on `.workaholic/moderations/2026-09-06.md`: 84
+# `loop-finish-*` lines, 0 `human-checkin-post` lines, and sections `20260906-204212` and
+# `20260906-210558` each holding exactly one `loop-finish-*` line and nothing else.
+#
+# Two readers were already broken by the mixing, both SILENTLY:
+#   * `render-tick-post.sh`'s change baseline fell back to the newest tick before this one
+#     WHATEVER step it carried, landed on a coordinator section, read an empty `prev`, and
+#     counted every eventful step as changed — the diff no longer suppressing an unchanged
+#     answer, which is the one property it exists to guarantee.
+#   * `step-blocked-tick.sh` took a coordinator section as "the tick before last", found
+#     `opened == 0`, and reported `the tick before last opened and closed` — the step whose
+#     whole job is to notice a stopped tick reporting a FALSE HEALTHY reading.
+# Repairing the READER repairs both without touching either, and every future reader
+# inherits the repair instead of the trap.
+#
+# THE TABLE IS CLOSED, NAMED, AND DERIVED FROM THE STEP ID EVERY LINE ALREADY CARRIES —
+# no new field, no new file, no stored value, no migration, and the lines already on disk
+# are classified by construction:
+#   `loop-finish-*`, `loop-attempt-*` -> `loop`     (the coordinator's own finish records)
+#   `propose-*`                       -> `propose`  (`/propose`'s opening and closing lines)
+#   everything else                   -> `moderate` (the existing behaviour)
+# An UNRECOGNISED step id is `moderate`, so nothing already written moves. The
+# classification is PER ENTRY, never per section: a section that ever mixes two owners
+# degrades to the right answer per line rather than to a guess about the section.
+#
+# It composes with every other filter exactly as `--step-prefix` does, `--latest-tick`
+# included, so `--owner loop --step-prefix loop-finish-implement --latest-tick` answers
+# *when did the implement runner last finish*. `--owner all` is the pre-2026-09-07
+# behaviour, for a caller that genuinely wants the whole file.
 #
 # `--latest-tick` ANSWERS ONE VALUE AND CARRIES NO ENTRIES (2026-09-03, mission
 # `pay-only-the-operative-cost-on-every-tick`). The loop's `moderate` cadence gate needs exactly
@@ -58,6 +98,7 @@ STATUS=''
 CONTAINS=''
 ROOT='.'
 LATEST_TICK=false
+OWNER='moderate'
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -67,11 +108,19 @@ while [ $# -gt 0 ]; do
         --step-prefix) STEP_PREFIX="${2:-}"; shift 2 ;;
         --status)   STATUS="${2:-}"; shift 2 ;;
         --contains) CONTAINS="${2:-}"; shift 2 ;;
+        --owner)    OWNER="${2:-}"; shift 2 ;;
         --root)     ROOT="${2:-}"; shift 2 ;;
         --latest-tick) LATEST_TICK=true; shift ;;
         *) echo "{\"read\": false, \"reason\": \"unknown_argument\", \"count\": 0, \"entries\": []}"; exit 1 ;;
     esac
 done
+
+# An owner outside the closed set is the CALLER's defect, not a data problem, so it is
+# refused by name rather than silently widened to `all` or narrowed to `moderate`.
+case "$OWNER" in
+    moderate|loop|propose|all) ;;
+    *) echo "{\"read\": false, \"reason\": \"bad_owner\", \"count\": 0, \"days\": 0, \"entries\": []}"; exit 1 ;;
+esac
 
 DIR="$ROOT/.workaholic/moderations"
 if [ ! -d "$DIR" ]; then
@@ -94,8 +143,18 @@ for file in "$DIR"/*.md; do
     fi
     days=$((days + 1))
     rows=$(awk -v day="$day" -v want_tick="$TICK" -v want_step="$STEP" \
-               -v want_prefix="$STEP_PREFIX" -v want_status="$STATUS" -v needle="$CONTAINS" '
+               -v want_prefix="$STEP_PREFIX" -v want_status="$STATUS" -v needle="$CONTAINS" \
+               -v want_owner="$OWNER" '
         function esc(s) { gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); return s }
+        # THE OWNER TABLE, and the only copy of it. Prefix tests in the order the header
+        # states; an unrecognised step id falls through to `moderate`, which is what every
+        # line meant before this existed.
+        function owner_of(s) {
+            if (substr(s, 1, 12) == "loop-finish-") return "loop"
+            if (substr(s, 1, 13) == "loop-attempt-") return "loop"
+            if (substr(s, 1, 8)  == "propose-") return "propose"
+            return "moderate"
+        }
         substr($0, 1, 3) == "## " { tick = substr($0, 4); sub(/[ \t]+$/, "", tick); next }
         substr($0, 1, 3) != "- `" { next }
         {
@@ -109,6 +168,7 @@ for file in "$DIR"/*.md; do
             status = substr(rest, 1, sep - 1)
             summary = substr(rest, sep + length(" — "))
 
+            if (want_owner != "all" && owner_of(step) != want_owner) next
             if (want_tick != "" && tick != want_tick) next
             if (want_step != "" && step != want_step) next
             if (want_prefix != "" && substr(step, 1, length(want_prefix)) != want_prefix) next

@@ -22083,6 +22083,151 @@ function testPartialDeclaredHandoff() {
 // exists and the command cites it, and — the hard bound the split had to hold — no OPERATIVE
 // instruction left the command. That last one is checked by naming the instructions that must
 // remain, because "nothing operative moved" is otherwise unfalsifiable.
+// THE TICK LOG'S ONE READER ANSWERS MODERATION BY DEFAULT (2026-09-07, ticket `20260907063154`).
+//
+// WHAT WENT WRONG: three producers write into one day file under their OWN tick ids. `/moderate`
+// writes its steps; `/infinite-development` records each subagent finish as `loop-finish-<name>`
+// under the COORDINATOR's tick id, every five minutes; `/propose` writes `propose-open` and
+// `propose-close`. MEASURED on `.workaholic/moderations/2026-09-06.md`: 110 distinct sections, 29
+// moderate and 79 the coordinator's, with sections `20260906-204212` and `20260906-210558` each
+// holding exactly one `loop-finish-*` line and nothing else. A coordinator-only section is the
+// ORDINARY previous section, not an edge case.
+//
+// Two readers broke on it, both SILENTLY, which is why this is pinned by behaviour rather than by
+// return shape: `render-tick-post.sh`'s change baseline landed on such a section, read an empty
+// `prev`, and counted every eventful step as changed -- the diff no longer suppressing an unchanged
+// answer, which is the property it exists to guarantee; and `step-blocked-tick.sh` took one as "the
+// tick before last", found `opened == 0`, and reported `the tick before last opened and closed`
+// over a genuinely stopped moderate tick.
+//
+// The repair is in the READER, so every consumer inherits it without being touched and every future
+// consumer inherits it instead of the trap. These rows pin the reader's two answers, both readers'
+// repaired behaviour, and that the loop's own three cadence reads still name `--owner loop` -- the
+// half that would otherwise break the moment the default landed.
+T("the tick log's reader is scoped by owner", testLogReadOwner);
+function testLogReadOwner() {
+  const logRead = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/log-read.sh");
+  const render = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/render-tick-post.sh");
+  const blocked = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-blocked-tick.sh");
+
+  // The mixed fixture: a moderate tick carrying one eventful step and NO `human-checkin-post`
+  // (the measured state -- 0 posting ticks in the window), then a coordinator-only section.
+  const moderateSection =
+    "## 20260904-130000\n\n- `open-log`: ok — the log area is present\n" +
+    "- `strategy-pace`: ok — 2 direction(s) advancing, 1 held\n\n";
+  const loopSection =
+    "## 20260904-135000\n\n- `loop-finish-implement`: ok — the implement run finished\n\n";
+  const mixed = mkdtempSync(join(tmpdir(), "workaholic-log-owner-mixed-"));
+  const clean = mkdtempSync(join(tmpdir(), "workaholic-log-owner-clean-"));
+  try {
+    for (const [dir, body] of [[mixed, moderateSection + loopSection], [clean, moderateSection]]) {
+      mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+      writeFileSync(join(dir, ".workaholic/moderations/2026-09-04.md"), body);
+    }
+
+    // (a) NO OWNER RETURNS NO `loop-finish-*` ENTRY. The default is the whole repair: a caller
+    // that names no owner is asking about moderation.
+    const dflt = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${mixed}`).stdout);
+    assertEq("the default owner returns moderation entries only",
+      [dflt.count, dflt.entries.some((e) => e.step.startsWith("loop-"))], [2, false]);
+
+    // (b) `--owner loop` RETURNS EXACTLY THOSE, and composes with `--latest-tick`.
+    const loop = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${mixed} --owner loop`).stdout);
+    assertEq("--owner loop returns exactly the coordinator's lines",
+      [loop.count, loop.entries.map((e) => e.step)], [1, ["loop-finish-implement"]]);
+    const loopLatest = JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${mixed} --owner loop --latest-tick`).stdout);
+    const modLatest = JSON.parse(
+      run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${mixed} --latest-tick`).stdout);
+    assertEq("and --latest-tick composes with the owner rather than ignoring it",
+      [loopLatest.latest_tick, modLatest.latest_tick], ["20260904-135000", "20260904-130000"]);
+    // `--owner all` is the pre-repair behaviour, kept for a caller that wants the whole file.
+    assertEq("--owner all is the whole file",
+      JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${mixed} --owner all`).stdout).count, 3);
+    // An owner outside the closed set is the CALLER's defect, refused rather than widened.
+    const bad = run(REPO_ROOT, `${POSIX_SH} ${logRead} --root ${mixed} --owner bogus || true`).stdout;
+    assertEq("an unknown owner is refused by name", JSON.parse(bad).reason, "bad_owner");
+
+    // (c) THE STEP 1 REPRODUCTION, INVERTED. Identical run JSON whose one row repeats the previous
+    // moderate tick's summary VERBATIM. Before the repair the mixed log gave `change_count: 1` and
+    // a coordinator `previous_tick`; the two fixtures must now agree, and on the moderate tick.
+    // The run JSON goes through a FILE rather than the command line: it carries the step's own
+    // summary verbatim, and shell-quoting a summary is exactly the kind of accident that would make
+    // this row pass for the wrong reason.
+    const runJsonPath = join(mixed, "run.json");
+    writeFileSync(runJsonPath, JSON.stringify({ rows: [{
+      step: "strategy-pace", status: "ok", reason: "",
+      summary: "2 direction(s) advancing, 1 held", event: "方針の進み具合が動いた" }] }));
+    const readings = [mixed, clean].map((dir) => JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${render} --tick 20260904-140000 --root ${dir} --hour 10 --weekday 3 < ${runJsonPath}`
+    ).stdout));
+    assertEq("the change baseline skips a coordinator-only section",
+      readings.map((r) => r.previous_tick), ["20260904-130000", "20260904-130000"]);
+    assertEq("so an unchanged summary is 0 changes across a MIXED log, exactly as across a clean one",
+      readings.map((r) => r.change_count), [0, 0]);
+  } finally {
+    rmSync(mixed, { recursive: true, force: true });
+    rmSync(clean, { recursive: true, force: true });
+  }
+
+  // (d) `blocked-tick` DOES NOT DESCRIBE A COORDINATOR-ONLY SECTION AS A MODERATE TICK. The fixture
+  // is the one that makes the failure visible: the moderate tick before last genuinely STOPPED
+  // (opened, never closed), with a coordinator section between it and the newest moderate tick. The
+  // unrepaired reader took the coordinator section, read `opened == 0`, and reported the healthy
+  // sentence over a stopped tick -- a false negative in the step whose whole job is that reading.
+  const bt = mkdtempSync(join(tmpdir(), "workaholic-log-owner-bt-"));
+  try {
+    mkdirSync(join(bt, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(bt, ".workaholic/moderations/2026-09-04.md"),
+      "## 20260904-130000\n\n- `open-log`: ok — the log area is present\n" +
+      "- `stalled-units`: ok — 1 stalled claim\n\n" +
+      loopSection +
+      "## 20260904-140000\n\n- `open-log`: ok — the log area is present\n" +
+      "- `human-checkin`: ok — 0 question(s) asked\n\n" +
+      // The propose pair, so the arm that DELIBERATELY reads another owner is pinned too.
+      "## 20260904-133000\n\n- `propose-open`: ok — opened\n- `propose-close`: ok — closed\n\n");
+    const out = JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${blocked} --tick 20260904-145000 --root ${bt}`).stdout);
+    assertTrue("a coordinator-only section is never read as a moderate tick that opened and closed",
+      !/the tick before last opened and closed/.test(out.summary), out.summary);
+    assertTrue("and the moderate tick that actually stopped is the one reported",
+      /the tick before last opened and never closed/.test(out.summary), out.summary);
+    assertTrue("naming the stopped MODERATE tick, not the coordinator's section",
+      JSON.stringify(out.needs_agent).includes("20260904-130000"), JSON.stringify(out.needs_agent));
+  } finally { rmSync(bt, { recursive: true, force: true }); }
+
+  // (e) THE PROPOSE ARM STILL READS ITS OWN OWNER. `propose-open`/`propose-close` are why the owner
+  // is a small set rather than a boolean: *not moderate* is not one class, and a boolean would have
+  // silently broken this arm -- the exact failure mode the ticket exists to stop repeating.
+  const bs = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-blocked-tick.sh"), "utf8");
+  assertTrue("blocked-tick's propose arm asks for its own owner by name",
+    /--owner propose/.test(bs), "the propose arm inherits the moderation default and sees nothing");
+
+  // (f) THE LOOP'S OWN CADENCE READS NAME `--owner loop`. Without it the default filters out the
+  // very lines the cadence counts, `latest_tick` comes back empty -- which means *no such tick* and
+  // therefore DUE -- and every loop respawns every tick.
+  for (const [what, path] of [
+    ["the tick's own cadence read", "plugins/workaholic/commands/infinite-development.md"],
+    ["the loop skill's copy of it", "plugins/workaholic/skills/work/SKILL.md"],
+    ["the Codex clock's worker readings", "plugins/workaholic/skills/work/scripts/codex-loop.sh"],
+  ]) {
+    // Anchored on the `--step-prefix` ARGUMENT rather than on the reader's spelling: `codex-loop.sh`
+    // reaches the script through a variable, so a pattern keyed on the literal `log-read.sh`
+    // silently matches nothing there -- which is the shape that would let this row pass over a file
+    // it never checked. A `--step-prefix` naming a `loop-` step id is by definition a read of the
+    // coordinator's own lines, however the reader is written.
+    const text = readFileSync(join(REPO_ROOT, path), "utf8");
+    const reads = text.split("\n").filter((l) =>
+      /--step-prefix\s+"?loop-(finish|attempt)-/.test(l) && !/^\s*#/.test(l));
+    assertTrue(`${what} has a loop-finish/attempt read to check`, reads.length > 0, path);
+    for (const r of reads) {
+      assertTrue(`${what} names --owner loop on every one of them`,
+        /--owner loop/.test(r), `${path}: ${r.trim()}`);
+    }
+  }
+}
+
 T("a tick pays only its operative cost", testTickOperativeCost);
 function testTickOperativeCost() {
   const dir = mkdtempSync(join(tmpdir(), "workaholic-tick-cost-"));
@@ -22127,9 +22272,13 @@ function testTickOperativeCost() {
   // the moderate gate's own paragraph, so deleting the filter fails here rather than elsewhere.
   const moderateGate = /moderate.{0,80}gate is read from its own tick log[\s\S]*?older than 30 minutes/.exec(cmd);
   assertTrue("the moderate gate's paragraph is findable", !!moderateGate, "the gate moved or was renamed");
+  // The `--owner loop` between the two arrived 2026-09-07 (ticket `20260907063154`): `log-read.sh`
+  // answers MODERATION by default, so a `loop-finish-*` prefix -- which the coordinator writes --
+  // must name its owner or the filtered read finds nothing at all. The two filters answer different
+  // questions and both are pinned: the owner says whose lines, the prefix says which loop.
   assertTrue("and it reads moderate's OWN recorded finish, never the newest line in the log",
-    /log-read\.sh --step-prefix loop-finish-moderate --latest-tick/.test(moderateGate ? moderateGate[0] : ""),
-    "the moderate gate reads the log unfiltered");
+    /log-read\.sh --owner loop --step-prefix loop-finish-moderate --latest-tick/.test(moderateGate ? moderateGate[0] : ""),
+    "the moderate gate reads the log unfiltered, or lost the owner that lets its prefix match");
   assertTrue("the channel is read in the concise format", /concise format/.test(cmd), "format unnamed");
   assertTrue("a run's result reaches the parent once", /reaches the\s+parent once/.test(cmd), "unstated");
 

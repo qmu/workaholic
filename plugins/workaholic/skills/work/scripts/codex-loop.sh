@@ -311,11 +311,16 @@ show_status() {
 # outcome is read back from the tick log's own `loop-attempt-<role>` line, the record that keeps
 # the four facts apart, and a role with **no** recorded attempt is named `unrecorded` rather than
 # rendered as a healthy finish.
+#
+# `--owner loop` IS LOAD-BEARING (2026-09-07, ticket `20260907063154`). `log-read.sh` derives each
+# entry's owner from the step id and answers moderation by default; `loop-attempt-*` and
+# `loop-finish-*` are the coordinator's, so both reads in this file ask for that owner by name.
+# Without it this reader would answer `unrecorded` for every role, always.
 last_worker_outcome() {
     _lw_read="${SCRIPT_DIR}/../../moderate/scripts/log-read.sh"
     [ -f "$_lw_read" ] || { printf 'unreadable:no_log_reader'; return 0; }
     command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
-    _lw_json=$(sh "$_lw_read" --step-prefix "loop-attempt-$1" --latest-tick 2>/dev/null || true)
+    _lw_json=$(sh "$_lw_read" --owner loop --step-prefix "loop-attempt-$1" --latest-tick 2>/dev/null || true)
     [ -n "$_lw_json" ] || { printf 'unreadable:no_log'; return 0; }
     printf '%s' "$_lw_json" | jq -e '.read == true' >/dev/null 2>&1 \
         || { printf 'unreadable:log_unreadable'; return 0; }
@@ -794,7 +799,7 @@ record_worker_finish() {
     case "$_rw_max" in ''|*[!0-9]*) _rw_max=3 ;; esac
     [ "$_rw_max" -eq 0 ] && return 0
     [ -f "$_log_read_sh" ] || return 0
-    _rw_seen=$(sh "$_log_read_sh" --step-prefix "loop-attempt-${_rw_role}" --status blocked \
+    _rw_seen=$(sh "$_log_read_sh" --owner loop --step-prefix "loop-attempt-${_rw_role}" --status blocked \
         2>/dev/null | grep -c . || true)
     case "$_rw_seen" in ''|*[!0-9]*) _rw_seen=0 ;; esac
     if [ "$_rw_seen" -ge "$_rw_max" ]; then

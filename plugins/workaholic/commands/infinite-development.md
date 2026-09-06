@@ -188,7 +188,7 @@ stop it — so there is no second walk and no new store. `log-append.sh` is idem
 is what used to make the idle agent load-bearing and force the reaping to wait for the next spawn:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-<name> --latest-tick
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --owner loop --step-prefix loop-finish-<name> --latest-tick
 ```
 
 The tick id it answers **is** the finish time. A loop whose recorded finish is older than its
@@ -287,7 +287,7 @@ with the Read tool.
 
 **`moderate`'s gate is read from its own tick log rather than from the listing**, because its
 acts are hourly by nature and the log is a reader that already exists: run
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-moderate --latest-tick`
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --owner loop --step-prefix loop-finish-moderate --latest-tick`
 — which answers that one timestamp and **carries no entries** — and spawn it only when the newest
 tick there is **older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just
 now*. An unreadable log spawns it — over-reporting beats a maintenance tick that silently stopped.
@@ -302,6 +302,15 @@ the real finish was 19 minutes older than the gate believed. **The failure is si
 construction** — the wrong answer is a well-formed tick id, so no `cadence_unreadable` fires and
 nothing reports a maintenance tick that was never spawned. All three cadences are therefore keyed
 on the same filtered shape, which is the one `implement` and `propose` already read.
+
+**And all three name `--owner loop`** (2026-09-07, ticket `20260907063154`). `log-read.sh` derives
+each entry's owner from the step id and answers **moderation by default**, because the loop's
+finish records were shadowing the moderation sections every reader of that file composes — a
+coordinator-only section became `render-tick-post.sh`'s change baseline and `blocked-tick`'s "tick
+before last", both silently. A `loop-finish-*` line is the coordinator's, so these three reads ask
+for it **by name**; without the flag the default would filter out the very lines the cadence is
+counting. The `--step-prefix` filter above is untouched and still does its own job: the owner says
+*whose lines*, the prefix says *which loop*.
 
 Then **end the turn**. Do not poll, do not await, do not summarise their work: their results
 arrive as task notifications, and the next tick reports what landed. **A run's result reaches the

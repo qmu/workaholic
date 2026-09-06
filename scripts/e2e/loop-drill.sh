@@ -9560,6 +9560,62 @@ cmd_verify_blocked_tick() {
         add_row "blocked_tick_healthy_is_silent" false "a healthy tick was not silent: $(one_line "$_h")" load
     fi
 
+    # 2b. A COORDINATOR-ONLY SECTION IS NOT A MODERATE TICK (2026-09-07, ticket `20260907063154`).
+    #     `/infinite-development` records each subagent finish as `loop-finish-<name>` under the
+    #     COORDINATOR's tick id, into this same file, every five minutes — so a section holding
+    #     nothing but such a line is the ordinary previous section. Taken as "the tick before last"
+    #     it has `opened == 0`, which reaches the healthy branch, and the step whose whole job is to
+    #     notice a stopped tick reports `the tick before last opened and closed` over one that
+    #     stopped. MEASURED on the live log, verbatim: `blocked-tick: ok — the tick before last
+    #     opened and closed; 1 step(s) recorded`, over a section holding one `loop-finish-implement`
+    #     line. The fixture is built so the wrong answer is SILENT and the right one speaks.
+    _ox="${_tmp}/owner"
+    mkdir -p "${_ox}/.workaholic"
+    _AO() { sh "$_log" --root "$_ox" --tick "$1" --step "$2" --status ok --summary 'drill' >/dev/null 2>&1 || true; }
+    _AO 20260831-100000 open-log                   # the moderate tick that STOPPED
+    _AO 20260831-105000 loop-finish-implement      # the coordinator's own section, alone
+    _AO 20260831-110000 open-log                   # a healthy moderate tick
+    _AO 20260831-110000 human-checkin
+    _o=$(sh "$_step" --tick 20260831-120000 --root "$_ox" 2>&1 || true)
+    if printf '%s' "$_o" | jq -e '(.needs_agent | length == 1) and (.needs_agent[0].key == "blocked-tick:20260831-100000")' >/dev/null 2>&1; then
+        add_row "blocked_tick_skips_a_coordinator_section" true "a loop-finish-only section is stepped over, and the moderate tick that stopped is the one named" load
+    else
+        add_row "blocked_tick_skips_a_coordinator_section" false "the coordinator's section was read as the tick before last: $(one_line "$_o")" load
+    fi
+
+    #     ...AND ITS BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Give the step a `log-read.sh` whose
+    #     `--owner` is accepted and ignored — which is exactly what the reader did before this
+    #     ticket — and the row above must go silent. A breaker satisfied by keeping the JSON shape,
+    #     or by deleting the reader, would prove nothing about the scoping.
+    _obroken="${_tmp}/owner-broken"
+    mkdir -p "$_obroken"
+    cp -R "${_mod}/." "$_obroken/"
+    sed 's|if (want_owner != "all" \&\& owner_of(step) != want_owner) next|if (want_owner == "never-an-owner") next|' \
+        "${_mod}/log-read.sh" > "${_obroken}/log-read.sh"
+    chmod +x "${_obroken}/log-read.sh"
+    _ob=$(sh "${_obroken}/step-blocked-tick.sh" --tick 20260831-120000 --root "$_ox" 2>&1 || true)
+    if printf '%s' "$_ob" | jq -e '.needs_agent | length == 0' >/dev/null 2>&1; then
+        add_row "blocked_tick_owner_breaker" true "with the owner filter defeated the stopped tick goes unreported (this drill can fail)" breaker
+    else
+        add_row "blocked_tick_owner_breaker" false "the breaker did not break: the stopped tick was still named with the owner filter defeated ($(one_line "$_ob")), so the row above proves nothing" breaker
+    fi
+
+    #     AND THE PROPOSE ARM STILL SEES ITS OWN LINES. It reads another owner DELIBERATELY, which
+    #     is why the owner is a small named set rather than a boolean: *not moderate* is not one
+    #     class, and a boolean would have silently broken this arm — the exact failure this ticket
+    #     exists to stop repeating.
+    #     Two propose sections, because this arm reads the tick BEFORE LAST on its own subject too:
+    #     an older one that stopped, and a newer complete one behind it.
+    _AO 20260831-095000 propose-open
+    _AO 20260831-115000 propose-open
+    _AO 20260831-115000 propose-close
+    _p=$(sh "$_step" --tick 20260831-120000 --root "$_ox" 2>&1 || true)
+    if printf '%s' "$_p" | jq -e '[.needs_agent[] | select(.key == "blocked-tick:propose:20260831-095000")] | length == 1' >/dev/null 2>&1; then
+        add_row "blocked_tick_propose_arm_reads_its_own_owner" true "the propose arm still finds propose-open/propose-close under the moderation default" load
+    else
+        add_row "blocked_tick_propose_arm_reads_its_own_owner" false "the propose arm lost its lines to the moderation default: $(one_line "$_p")" load
+    fi
+
     # 3. ONE QUESTION PER STOPPED HOUR, through the EXISTING gate. `ask-question.sh` gains
     #    nothing: the key the step composes is handed to it unchanged.
     _g1=$(sh "$_ask" --tick 20260831-120000 --key 'blocked-tick:20260831-100000' --root "$_lx" --hour 10 --weekday 3 2>&1 || true)

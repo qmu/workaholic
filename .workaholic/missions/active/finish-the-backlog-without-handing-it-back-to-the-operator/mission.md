@@ -49,3 +49,4 @@ completion reach the operator or are named undelivered.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-06 — ticket archived — 20260906082031-count-recovery-and-delivery-work-as-claimable.md
+- 2026-09-06 — ticket archived — 20260906082031-give-a-dispatched-codex-worker-the-whole-role-it-is-named-for.md

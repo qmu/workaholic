@@ -319,6 +319,16 @@ It holds no cursor and no store, so a **trend** is the caller's to see: this tic
 beside the last one is what says *draining* or *stuck*. `draining` on a row is only the fact
 that this mission's archive is non-empty.
 
+**A row it could not read is named, never counted** (2026-09-06, ticket `20260906193731`). Such
+a row carries `readable: false`, a named reason (`progress_reader_missing` /
+`queue_reader_missing` / `progress_unreadable` / `queue_unreadable`) and **null** counts, with
+`draining: null` rather than `false` — and `propose_gate` is three-valued, so a walk holding an
+unreadable row answers **`unreadable`** rather than `open`. Render each by its own reason: an
+unreadable row is never a mission with nothing queued, and `unreadable` is never *the gate is
+open*. Measured before it: on a repository that does not vendor the plugin every row came back
+`null` and the gate answered `open` against a queue carrying work, for ~50 minutes across eight
+readings.
+
 ## 3. Report, in one short block
 
 - **The checkout**, when it is dirty: `checkout_dirty: <n> file(s)` and the one sentence that
@@ -369,6 +379,11 @@ that this mission's archive is non-empty.
   mission carrying queued work — acceptance `checked/total` and tickets left — and the
   origination gate's next answer with what has to clear for it to open. Name when the reading
   was taken. A reading that has not landed yet is named as pending, never rendered as zero.
+  **A mission row the reading could not make is named by its own reason** —
+  `progress_unreadable: <slug>` — and never rendered as a mission with nothing queued; a
+  `propose_gate` of **`unreadable`** is reported as *the gate could not be read* and never as
+  *open*, the rule the allocation and machine lines above already carry. `unreadable_missions`
+  is the count, so a walk that saw part of the board says so rather than looking complete.
 - **Where this report goes is named once, at startup, per entrypoint** (2026-09-06, mission
   `finish-the-backlog-without-handing-it-back-to-the-operator`). A report written into a local
   transcript is not a delivered report, and the failure this closes is a **missing** delivery path

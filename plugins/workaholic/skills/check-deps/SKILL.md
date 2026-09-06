@@ -100,7 +100,18 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/plugin-src.sh [--clone] [--
 
 Returns the **newest plugin tree present on this machine** and the run executes every script
 from it: `{"ok": true, "src": …, "source": "checkout|registry|clone|bound", "version": …,
-"src_immutable": …, "degraded": …, "bound_version": …, "candidates": [{…, "immutable": …}]}`.
+"src_immutable": …, "degraded": …, "call_src": …, "call_src_source": …, "bound_version": …,
+"candidates": [{…, "immutable": …}]}`.
+
+**`src` is which code runs; `call_src` is which path a composed call spells.** They are the
+same path except where a checkout holds the **same version** as the resolved `src`, and there
+`call_src` is the checkout — identical bytes, inside the workspace. A `bash` call at the
+plugin cache is covered by `Bash(bash:*)` (a prefix rule with no path term) and froze a runner
+regardless, because a `.claude/` path is classified as Claude's own configuration by a
+judgement applied above the allowlist; the reach is removed rather than permitted
+(`rules/shell.md`, *And BOTH reaches take the CHECKOUT's path, never `<src>`*). Where the
+checkout is behind, no identical-version workspace copy exists and `call_src` **is** `src`, so
+the newest-tree guarantee is untouched and a repository that vendors nothing is unaffected.
 The candidates are the **checkout** (`<project>/plugins/workaholic`), the newest **registry**
 `installPath` (already downloaded — no network), a **clone** at `$WORKAHOLIC_SRC_HOME` (created
 only with `--clone`), and the **bound** `${CLAUDE_PLUGIN_ROOT}`. Picking the newest can only move

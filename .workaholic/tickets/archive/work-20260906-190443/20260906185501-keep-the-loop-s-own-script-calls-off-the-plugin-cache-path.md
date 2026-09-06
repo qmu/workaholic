@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T18:55:01+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -95,3 +96,55 @@ happen — so the first job here is to establish which of the two is wrong.
 - **The reporter called this "separately, and smaller", and it is.** It is listed last for that
   reason, not because it is optional: it is the only one of the four repairs that removes the
   trigger rather than observing its effect.
+
+## Final Report
+
+Development completed as planned. Step 1 was the whole hinge and it is answered.
+
+**The prompt did not come from the static allowlist.** `.claude/settings.json` carries
+`Bash(bash:*)` — a prefix rule with **no path term** — so the allowlist covers
+`bash /home/<user>/.claude/plugins/cache/workaholic/workaholic/1.0.288/skills/…` exactly as it
+covers a call at the checkout. **The recorded measurement is therefore confirmed, not corrected**,
+and step 2's fork resolves the other way than the ticket's framing allowed for: the defect is not
+that the measurement was wrong but that the allowlist was never the only gate. A path inside a
+`.claude/` directory is classified as Claude's own configuration, and that judgement is applied
+per session **above** the static rules — which no allow entry can reach, and which is why the two
+refusals already recorded (an allow entry; a `PreToolUse` deny) stay refused and are not reopened.
+
+**The reproduction was taken from the evidence rather than re-staged, deliberately.** Driving this
+session into that prompt is the one experiment that would freeze the run performing it — the exact
+failure the mission exists to end — and the ticket's own Considerations forbid wrapping a retry or
+timeout around a prompt. What could be established without raising one was established: the
+allowlist's contents, read directly, which is what step 1 asks for.
+
+**The repair is step 3.** `plugin-src.sh` now answers **`call_src`** beside `src`: the checkout's
+own path whenever a checkout holds the **same version** as the resolved `src`, and `src` itself
+otherwise. `src`, `source`, `version`, `src_immutable`, `degraded` and `candidates` are
+byte-identical and the two-axis resolution is untouched (step 4) — `call_src` can never point at
+an older tree, because where the checkout is behind there is no identical-version workspace copy.
+The residue is the same fact from the other side (step 5): a repository that vendors nothing has
+no checkout candidate, reads `call_src == src`, and behaves exactly as it did before this existed.
+
+One wording now carries it across the four routine-fired ceilings, and the three routine prompts —
+the surfaces the frozen runner actually read — send scripts to `<call_src>` instead of `<src>`.
+
+### Discovered Insights
+
+- **Insight**: an allowlist entry that covers a call is not evidence that the call will not prompt.
+  **Context**: the previous repair reasoned from `Bash(bash:*)` covering the path to the call being
+  safe, and split the two reaches on that basis. The inference is what failed, not the reading —
+  and it failed silently, because the covering entry is real and checkable while the session-level
+  classification is neither. The general form is worth keeping: a permission *rule* is a lower
+  bound on what is permitted, never an upper bound on what will be asked.
+
+- **Insight**: the fix had to be a new field rather than a change to `src`, because the two
+  questions genuinely differ.
+  **Context**: *which code runs* must stay on the newest-tree axis or this repository cannot
+  develop its own plugin and run the result; *which path a call spells* is free to prefer the
+  workspace whenever the bytes are identical. Collapsing them either way loses something — pointing
+  `src` at the checkout would run stale code, and leaving the call at `src` keeps the trap.
+
+- **Insight**: a comment naming a script by its `skills/<x>/scripts/` path inside a plugin script
+  is read by `verify.mjs` as a cross-skill closure reference and fails the build.
+  **Context**: caught here by the build rather than by review — the prose example had to be reworded
+  to name the script without spelling a path shape the closure detector treats as a dependency.

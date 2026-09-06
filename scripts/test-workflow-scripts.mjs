@@ -15063,7 +15063,7 @@ async function testPluginRootPathVsRead() {
 // reads as terminate `pending`). The run would have been lost to the very failure the newer
 // code prevents, while reporting a version that was not the code it ran. The fix is a second
 // tie-break axis: on an EQUAL version prefer the immutable, version-addressed candidate.
-T("check-deps/plugin-src.sh: an equal version goes to the immutable tree", testPluginSrcTieBreak);
+T("check-deps/plugin-src.sh: an equal version goes to the immutable tree, the call to the checkout", testPluginSrcTieBreak);
 function testPluginSrcTieBreak() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -15122,6 +15122,20 @@ function testPluginSrcTieBreak() {
       r.candidates.map((c) => [c.source, c.immutable]),
       [["checkout", false], ["registry", true]]);
 
+    // GATE 2b — `call_src` ANSWERS THE OTHER QUESTION (2026-09-06, ticket
+    //   `keep-the-loop-s-own-script-calls-off-the-plugin-cache-path`). `src` answers which code
+    //   RUNS and correctly took the immutable cache above. A composed `bash` call at that path is
+    //   covered by `Bash(bash:*)` — a prefix rule with no path term — and froze a runner anyway,
+    //   because a path inside `.claude/` is classified as Claude's own configuration by a judgement
+    //   applied above the allowlist. So the CALL spells the checkout whenever the checkout carries
+    //   the SAME version: identical bytes, inside the workspace, nothing about `src` moved.
+    assertEq("an equal version sends a composed call to the checkout, not the cache",
+      { call_src: r.call_src, from: r.call_src_source }, { call_src: checkout, from: "checkout" });
+    assertTrue("...and `src` itself did not move with it",
+      r.src === cacheRoot && r.call_src !== r.src, `src=${r.src} call_src=${r.call_src}`);
+    assertEq("...and the bytes at call_src are the very version the run resolved",
+      JSON.parse(readFileSync(join(r.call_src, ".claude-plugin/plugin.json"), "utf8")).version, r.version);
+
     // GATE 3 — the point of the whole change: the resolved source survives the freshen.
     const before = readFileSync(join(r.src, "skills/marker.sh"), "utf8");
     execSync(`git checkout -q ${staleSha}`, { cwd: repo });   // what sync-main.sh did to the tick
@@ -15136,12 +15150,23 @@ function testPluginSrcTieBreak() {
     assertEq("a strictly newer checkout still wins over an immutable older cache",
       { source: r.source, version: r.version, immutable: r.src_immutable },
       { source: "checkout", version: "1.0.9", immutable: false });
+    assertEq("...and the call spells that same tree, so nothing diverges when src is the checkout",
+      r.call_src, r.src);
 
     // And the reverse: a newer CACHE beats the checkout on version alone, as it always did.
     setCheckoutVersion("1.0.1");
     r = resolve_();
     assertEq("a newer cache still wins on the version axis",
       { source: r.source, version: r.version }, { source: "registry", version: "1.0.5" });
+
+    // GATE 5 — `call_src` CANNOT RUN OLDER CODE, which is the bound that makes it safe. Here a
+    //   checkout exists and is BEHIND, so there is no identical-version workspace copy and the
+    //   call must fall back to `src` rather than preferring the stale tree sitting in the
+    //   workspace. This is also the stated residue: a repository that vendors nothing has no
+    //   checkout candidate at all and reads exactly this — `call_src` is `src`, byte-identical to
+    //   the behaviour before the field existed.
+    assertEq("a behind checkout never captures the call",
+      { call_src: r.call_src, from: r.call_src_source }, { call_src: r.src, from: r.source });
   } finally { cleanup(dir); }
 }
 
@@ -21274,7 +21299,7 @@ function testPostLanguageRuleShipsWithThePlugin() {
   // THE CEILING SURFACES SAY IT TOO. A rule stated only in `rules/` is loaded but not adjacent
   // to the shapes; each routine-fired command names it right above the blocks it authorizes,
   // which is where a session reads what to emit.
-  const CHECKOUT_PATH_RULE = "**And it is read at the checkout's own path** (`plugins/workaholic/\u2026`), never at `<src>` (2026-09-06, ticket `20260902043117`): `bash` is allowlisted by prefix with no path term, so a script runs from `<src>` without a prompt, while a **Read** of `<src>` lands under the plugin cache whenever the registry tree wins the equal-version tie \u2014 outside the allowlist and inside a `.claude/` directory the harness classifies as sensitive. The reach is removed, not permitted.";
+  const CHECKOUT_PATH_RULE = "**And both reaches take the checkout's own path** (`plugins/workaholic/\u2026`), never `<src>` (2026-09-06, ticket `20260906185501`): a **Read** of `<src>` lands under the plugin cache whenever the registry tree wins the equal-version tie, and a `bash` call at that same path froze a runner even though `Bash(bash:*)` is allowlisted by prefix with no path term \u2014 the allowlist covers that call, and a path inside a `.claude/` directory is classified as Claude's own configuration by a judgement applied above it. So compose every call at `call_src`, which `plugin-src.sh` answers beside `src`: identical bytes, inside the workspace, and equal to `src` wherever no checkout holds that version. The reach is removed, not permitted.";
   for (const id of ["implement", "specificate", "propose", "moderate"]) {
     const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
     assertTrue(`/${id} states the language of its free-text slots`,
@@ -27211,18 +27236,21 @@ function testWorkaholifyRoutines() {
       assertEq(`the [${id}] prompt authorizes no post shape of its own`,
         [...pr.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
       assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\``).test(pr), pr);
-      // AND THE FALLBACK POINTS THE READ AT THE CHECKOUT, NEVER AT `<src>` (2026-09-06,
-      // ticket `20260902043117`). `<src>` is the plugin cache whenever the registry tree wins
-      // the equal-version tie -- outside `Read(//home/**)` and inside a `.claude/` directory
-      // the harness classifies as sensitive -- so a Read of it parks the tick on a prompt
-      // nobody unattended can answer. Scripts keep `<src>`: `Bash(bash:*)` is a prefix rule
-      // with no path term and was measured not to prompt there.
+      // AND THE FALLBACK POINTS BOTH REACHES AT THE WORKSPACE, NEVER AT `<src>` (2026-09-06,
+      // ticket `keep-the-loop-s-own-script-calls-off-the-plugin-cache-path`, superseding the
+      // read-only half of `20260902043117`). `<src>` is the plugin cache whenever the registry
+      // tree wins the equal-version tie. A Read of it is outside `Read(//home/**)`; a `bash`
+      // call at it IS covered by `Bash(bash:*)` -- a prefix rule with no path term -- and froze
+      // a runner regardless, because a path inside `.claude/` is classified as Claude's own
+      // configuration by a judgement applied above the allowlist. So the prompt spells
+      // `<call_src>`, which `plugin-src.sh` answers beside `src`: the checkout at an equal
+      // version, `src` itself otherwise, so the newest-tree guarantee is untouched.
       assertTrue(`and the load fallback that reads it when the plugin did not bind`,
         pr.includes(`plugins/workaholic/commands/${id}.md`), pr);
       assertTrue(`the [${id}] prompt sends no Read to <src>`,
         !/read `<src>\//.test(pr), pr);
-      assertTrue(`and still runs its scripts from <src>`,
-        pr.includes("script path under `<src>`"), pr);
+      assertTrue(`and runs its scripts from <call_src>, not the plugin cache`,
+        pr.includes("script path under `<call_src>`") && !pr.includes("script path under `<src>`"), pr);
     }
     // The merged [Propose] prompt runs BOTH commands, in order (2026-09-02).
     {

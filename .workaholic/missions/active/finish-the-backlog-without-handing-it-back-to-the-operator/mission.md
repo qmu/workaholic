@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260906-092226
 ---
 
 # Finish the backlog without handing it back to the operator

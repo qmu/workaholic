@@ -676,4 +676,5 @@
 * [The loop can stall at claimable 0 with no alarm](20260906110631-the-loop-can-stall-at-claimable-0-with-no-alarm.md)
 * [tick-progress.sh reads a working tree the loop never freshens](20260906110736-tick-progress-sh-reads-a-working-tree-the-loop-never-freshens.md)
 * [tick-progress.sh resolves the skills directory against the consuming repository](20260906110842-tick-progress-sh-resolves-the-skills-directory-against-the-consuming-repository.md)
+* [The loop fast-forwards its own coordinator checkout while subagents run](20260906113730-the-loop-fast-forwards-its-own-coordinator-checkout-while-subagents-run.md)
 <!-- okf:generated:end -->

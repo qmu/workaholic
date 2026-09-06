@@ -42,7 +42,7 @@ completion reach the operator or are named undelivered.
       recovery and delivery states. (#20260906082031-count-recovery-and-delivery-work-as-claimable.md)
 - [x] A worker's finish comes from its own reported outcome; one exiting zero without
       executing is not finished. (#20260906082031-record-a-worker-s-finish-from-its-own-reported-outcome.md)
-- [ ] One `/work` run drains a seeded backlog holding a conflicting PR, an undelivered
+- [x] One `/work` run drains a seeded backlog holding a conflicting PR, an undelivered
       one and a parked claim, its reports proved delivered. (#20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md)
 
 ## Changelog
@@ -53,3 +53,4 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — ticket archived — 20260906082031-record-a-worker-s-finish-from-its-own-reported-outcome.md
 - 2026-09-06 — ticket archived — 20260906082031-work-a-recoverable-state-instead-of-handing-it-over.md
 - 2026-09-06 — ticket archived — 20260906082031-deliver-the-progress-and-completion-report-and-prove-it.md
+- 2026-09-06 — ticket archived — 20260906082031-drain-a-seeded-backlog-in-one-work-run-end-to-end.md

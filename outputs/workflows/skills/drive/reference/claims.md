@@ -174,6 +174,31 @@ on another machine coordinates through exactly the same artifact.
     02:14 UTC, taken over again at 06:43 for nothing. The new verdict is
     **`awaiting_verification`**, excluded `claimed_awaiting_verification`, `resumable: false`,
     and it does **not** forbid `ok`.
+    **It is reached by a PROSE declaration only** (2026-09-06, mission
+    `finish-the-backlog-without-handing-it-back-to-the-operator`). The verdict was taken from the
+    mere **presence** of a `verification_handoff:` line, including the `probe:` form — which exists
+    precisely to be re-tested at claim time, and which §6 runs. **Measured on this repository**:
+    `verification-handoff.sh` answered `handoff: true` for a ticket declaring
+    `probe: command -v codex` while `run-verification-probe.sh` answered `clean` against an
+    installed CLI, on the same machine in the same second; the oracle would have parked that unit
+    out of every offer, forever, on a declaration its own probe had already falsified. The scan
+    **does not run the probe** — it is offline by construction, and executing a command out of an
+    artifact inside a read every survey makes is a hazard no verdict is worth — so the reading
+    moves to the one place that already runs it: `claims_declared_handoff` answers `false` for a
+    **measurable** declaration, the claim keeps its ordinary verdict, and §6 takes the handoff route
+    on `blocking` exactly as before. A prose declaration is **unchanged** and still parks the claim,
+    because it is the one form nothing can falsify. **The cost, stated**: a unit whose probe
+    genuinely reads `blocking` is re-offered each tick and re-routed to handoff each time, where
+    before it was parked once — a re-derivation the probe form was built to make cheap, against a
+    unit parked forever on a declaration that had gone false.
+    **And one consumer loses a case, named rather than left to be discovered.** `/moderate`'s
+    `handoff-units` step enumerates `awaiting_verification` rows, so with probe declarations no
+    longer reaching that verdict the step now sees **prose** declarations only, and its
+    `blocking`-probe branch becomes unreachable from this verdict. That is deliberate and it is the
+    operator's own rule applied to its own machinery: a probe is re-run at every claim, so the run
+    that meets it already has the probe's **own output and exit status** as the reason, in the
+    `## Handoff` and the `🟡` it writes — which is strictly more than a question naming a stale
+    sentence could carry. Nothing is asked of a person for a state the loop re-derives every tick.
     **A sibling word, not a narrowed `parked_with_pr`**, on the `report_undelivered` precedent:
     the two states call for different next actions — take it over versus satisfy the declared
     verification — and one word answering both is what made this invisible. `claim.sh resume`

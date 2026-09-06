@@ -56,8 +56,18 @@
 # ago and has not pushed its branch yet (the very window this closes), or a run died inside
 # that window and leaked the lock. They are indistinguishable at that instant, and taking the
 # lock over on the guess would reopen the race — so the ref is honoured and the answer
-# carries **`stale_lock: true`** when the oracle disagrees, for a person to act on. The
-# common cause is removed instead: `claim.sh` releases what it won on any later failure, and
+# carries **`stale_lock: true`** when the oracle disagrees.
+#
+# A LEAKED LOCK IS THE LOOP'S OWN WORK, NOT A PERSON'S (2026-09-06, mission
+# `finish-the-backlog-without-handing-it-back-to-the-operator`). This header read "for a person
+# to act on" long after `reap` existed and `claim.sh` had begun running it lazily on a lost take
+# — the sentence was stale, not a live policy, and a reader taking it literally would go looking
+# for a person to do what the sweep already does. `reap` releases a lock **no live claim stands
+# behind** that is older than the arbitration window; that is a proof re-derived at the moment of
+# the act, so the discipline is untouched and only the wording moved. A lock inside the window is
+# still honoured, and `unreapable` still names every ref the sweep could not release.
+#
+# The common cause is removed as well: `claim.sh` releases what it won on any later failure, and
 # every path that releases a claim releases the refs (`reference/claims.md`, *What the claim
 # contends for*). THE RESIDUAL COST, STATED: a process killed between winning a ref and
 # pushing its branch leaves a lock somebody must release; that is seconds of exposure against

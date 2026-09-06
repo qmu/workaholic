@@ -619,10 +619,38 @@ claims_tickets_for_mission() {
 # string. `claims_declared_reading` is the one derivation and echoes the reader's own JSON line;
 # `claims_declared_handoff` and `claims_declared_reason` are both thin reads OF IT, so there is
 # still one materialisation, one call to the one reader of the field, and no second parser.
+# A PROBE DECLARATION NEVER PARKS A CLAIM (2026-09-06, mission
+# `finish-the-backlog-without-handing-it-back-to-the-operator`). `awaiting_verification` takes a
+# unit out of every offer until a person acts, and the scan reached that verdict from the mere
+# PRESENCE of a `verification_handoff:` line — including the `probe:` form, which exists precisely
+# to be re-tested at claim time and which §6 has run and answered `clean` for. MEASURED on this
+# mission: `verification-handoff.sh` answered `handoff: true` on a ticket declaring
+# `probe: command -v codex` while `run-verification-probe.sh` answered `clean` against an installed
+# CLI on the same machine, in the same second. The oracle would have parked the unit forever on a
+# declaration its own probe had already falsified — the unfalsifiable-blocker failure this mission
+# exists to end, one layer down from the prose case.
+#
+# THE SCAN DOES NOT RUN THE PROBE, AND MUST NOT. It is offline by construction, and executing a
+# command out of an artifact inside a read every survey makes is a hazard no verdict is worth. The
+# reading MOVES instead: a **measurable** declaration is answered where it is already run — §6's
+# route, which takes the handoff route on `blocking` exactly as before — so the claim keeps its
+# ordinary verdict and is re-offered for that route to reach.
+#
+# A PROSE DECLARATION IS UNCHANGED and still parks the claim: it is the one form nothing can
+# falsify, so `awaiting_verification`, its exclusion and `/moderate`'s `handoff-units` question all
+# behave byte-identically for it. THE COST, STATED: a unit whose probe genuinely reads `blocking` is
+# now re-offered each tick and re-routed to handoff each time, where before it was parked once. That
+# is a re-derivation the probe form was built to be cheap, against a unit parked forever on a
+# declaration that had already gone false.
 claims_declared_handoff() {
-    case "$(claims_declared_reading "$@")" in
-        *'"handoff": true'*) printf 'true' ;;
-        *) printf 'false' ;;
+    _cdh_reading=$(claims_declared_reading "$@")
+    case "$_cdh_reading" in
+        *'"handoff": true'*) : ;;
+        *) printf 'false'; return 0 ;;
+    esac
+    case "$_cdh_reading" in
+        *'"measurable": true'*) printf 'false' ;;
+        *) printf 'true' ;;
     esac
 }
 

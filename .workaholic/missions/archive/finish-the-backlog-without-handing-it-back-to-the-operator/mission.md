@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 2
+actual_hours: 3.1
 feedback: [20260906081415-make-work-own-completion-on-codex-and-claude-code.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -59,3 +59,4 @@ completion reach the operator or are named undelivered.
 - 2026-09-06 — ticket archived — 20260906105853-read-the-probe-before-holding-a-mission-open-for-a-person.md
 - 2026-09-06 — mission achieved — mission.md
 - 2026-09-06 — story reported — work-20260906-113520.md
+- 2026-09-06 — run recorded (+1.1h) — work-20260906-113520

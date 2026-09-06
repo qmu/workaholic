@@ -21901,6 +21901,51 @@ function testSubagentReaping() {
     /attended `\/drive` is unchanged/.test(drive), "the attended run was bound too");
 }
 
+// ---------- a declaration holds its own members, not the whole unit (2026-09-07) ---------------
+// The route step is prose the agent executes, so what is checkable is that the rule is present in
+// BOTH surfaces the run reads -- the skill it preloads and the ceiling a routine hands it -- and
+// that neither of the two unchanged cases was quietly dropped on the way. The partition itself is
+// pinned by behaviour one layer down, in the claim-scan rows.
+T("a partly declared unit drives what it can and hands off the rest", testPartialDeclaredHandoff);
+function testPartialDeclaredHandoff() {
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
+  const routing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
+
+  for (const [id, text] of [["the drive skill", drive], ["the /implement ceiling", impl]]) {
+    assertTrue(`${id} reads the axis per member`,
+      /per (declaring )?member/i.test(text), `${id} still reads one verdict for the unit`);
+    assertTrue(`${id} takes the partition from the one reader, never a fresh judgement`,
+      /members\[\]/.test(text) && /never a judgement about what a ticket probably needs/.test(text),
+      `${id} lets the run judge what a ticket needs`);
+    assertTrue(`${id} runs the probe per declaring member`,
+      /run-verification-probe\.sh tickets <(?:that )?member>/.test(text),
+      `${id} still probes the unit once`);
+    assertTrue(`${id} keeps the ALL-declaring case whole`,
+      /every.{0,40}member.{0,120}(whole|unchanged)/is.test(text),
+      `${id} narrowed the all-declaring unit too`);
+    assertTrue(`${id} leaves each declaring member queued rather than driving it`,
+      /queued in `todo\/`/.test(text), `${id} drives the declaring members too`);
+    assertTrue(`${id} names only the declaring members in the Handoff section`,
+      /(names|naming) \*{0,2}only\*{0,2} the declaring members/.test(text),
+      `${id} still writes a whole-unit Handoff`);
+    assertTrue(`${id} requires BOTH sets in the report`,
+      /Report both sets|report both sets/.test(text), `${id} reports one set`);
+    assertTrue(`${id} states the non-goal — the handoff is not weakened`,
+      /not weakened/.test(text), `${id} does not say what it refuses to change`);
+    assertTrue(`${id} carries the measurement rather than asserting the defect`,
+      /report-each-tick-in-the-originating-codex-chat/.test(text), `${id} states no evidence`);
+  }
+
+  // AND THE ROUTE'S OWN CONTRACT distinguishes the two paths' treatment of `todo/`, which is the
+  // one place the partial form differs from the whole-unit one in what it leaves behind.
+  assertTrue("routing.md separates the whole-unit path from the partly declared one",
+    /whole-unit declared/.test(routing) && /partly declared/.test(routing),
+    "the reference still describes one declared path");
+  assertTrue("and says why a declaring member keeps its ticket",
+    /needs the ticket intact/.test(routing), "the reason is unstated");
+}
+
 // ---------- a tick pays only its operative cost (2026-09-03) -----------------------------------
 // The loop runs in ONE session that never resets, so the tick's fixed per-tick cost is the number
 // that matters and it was larger than the work most ticks do. MEASURED over two hours: ~23 ticks,

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-07T02:38:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -119,3 +120,43 @@ that earned the handoff, rather than every member of the unit that contains them
   `routing.md` rather than leaving a reader to infer it.
 - Do not resolve the reproduction mission's own `content` conflict as part of this — the ask
   names that as a non-goal.
+
+## Final Report
+
+Development completed as planned.
+
+§6 now partitions the unit from the one reader's own `members[]`, drives every non-declaring
+member, and hands off only those that declare — with the empty and all-declaring cases
+byte-identical to what they were.
+
+### Discovered Insights
+
+- **Insight**: `run-verification-probe.sh` already accepts `tickets <file>...`, so the
+  per-declaring-member probe needed **no script change at all** — it is the same script called
+  with one file instead of the unit.
+  **Context**: what the unit-level call cannot do is answer for more than the FIRST declaring
+  member, because `verification-handoff.sh` sets `probe`/`measurable` from the first declaration
+  it meets. A unit whose first declaration is prose and whose second is a probe would have
+  reported `unmeasured` for both. Calling per member is therefore not an optimisation but the
+  only way to get a per-member answer, and it costs nothing new.
+
+- **Insight**: the whole-unit declared path and the partial one differ in exactly one behaviour —
+  what is left in `todo/`.
+  **Context**: the whole-unit path archives every ticket and waits only on the verification
+  (`routing.md`, *Handoff*). The partial path cannot: a declaring member left implemented but
+  unverified gives the person who picks it up nothing to work from, so it stays stamped and
+  queued the way the half-driven path already leaves undriven work. That is the one place a
+  reader would otherwise infer the wrong thing, so both paths are now named separately there.
+
+- **Insight**: `commands/drive.md` was NOT given this rule, deliberately.
+  **Context**: the byte-identical inlining rule is for the four **routine-fired** ceilings, whose
+  sessions must read a rule to act without resolving a name at run time. `/drive` is attended and
+  preloads `workaholic:drive` in a session where a person is present, so inlining there would add
+  a third copy of the wording to keep in step for no run that needs it. The rule lives in the
+  skill both entry points read, and in the `/implement` ceiling.
+
+- **Insight**: the ceiling and the skill drifted on two words within minutes of being written
+  ("**never** a fresh judgement" vs "never a judgement"), and the suite caught it immediately.
+  **Context**: this is why the pins assert the wording rather than the presence of a heading —
+  a rule stated twice in two shapes is two rules, and the emphasis marks are exactly the kind of
+  difference an author does not notice writing the second copy.

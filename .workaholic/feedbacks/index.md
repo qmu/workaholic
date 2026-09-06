@@ -694,4 +694,5 @@
 * [A mission whose remaining tickets need a person is re-claimed and re-handed-off indefinitely — three times in four days here](20260906232625-a-mission-whose-remaining-tickets-need-a-person-is-re-claimed-and-re-handed-off-indefinitely-three-times-in-four-days-here.md)
 * [Recover the Codex loop after plugin cache replacement and reject false healthy status](20260907005942-recover-the-codex-loop-after-plugin-cache-replacement-and-reject-false-healthy-status.md)
 * [Drive a unit's non-declaring members instead of parking seven tickets behind one honest handoff](20260907023405-drive-a-unit-s-non-declaring-members-instead-of-parking-seven-tickets-behind-one-honest-handoff.md)
+* [Read moderate's cadence from its own recorded finish](20260907030805-read-moderate-s-cadence-from-its-own-recorded-finish.md)
 <!-- okf:generated:end -->

@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260907070309-a-scratchpad-redirect-must-not-assume-truncates.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260907-074532
 ---
 
 # Say that a scratchpad redirect must not assume > truncates

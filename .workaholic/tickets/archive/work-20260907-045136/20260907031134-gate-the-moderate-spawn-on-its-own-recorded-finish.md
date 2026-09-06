@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-07T03:11:34+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260907030805-read-moderate-s-cadence-from-its-own-recorded-finish.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260907-045136
 ---
 
 # Gate the moderate spawn on its own recorded finish
@@ -132,3 +134,59 @@ reports a maintenance tick that was never spawned.
 (`20260906110057-the-tick-s-own-log-writes-suppress-the-moderate-spawn-forever.md`) and
 `/specificate` refused it `self_authored`, leaving it for the operator to rule on. Issue #1055 is
 that ruling; the new record supersedes the old one.
+
+## Final Report
+
+Development completed as planned.
+
+Step 1 reproduced the divergence before anything changed. A hermetic tick-log fixture carrying
+`loop-finish-moderate` under `20260906-173626` and `loop-finish-propose` under the newer
+`20260906-174615` was read both ways: `log-read.sh --root <fixture> --latest-tick` answered
+`20260906-174615` and `log-read.sh --root <fixture> --step-prefix loop-finish-moderate
+--latest-tick` answered `20260906-173626`. The two readings differ, so the report is justified
+and the defect is which invocation the caller names.
+
+Step 2 localized it to the caller: the filtered reading is correct, so `log-read.sh` is not the
+fault and is byte-identical in this change.
+
+Step 3 pointed §2's `moderate` gate at `log-read.sh --step-prefix loop-finish-moderate
+--latest-tick`, keeping every surrounding rule verbatim — an empty `latest_tick` is *no such
+tick* and is due, an unreadable log spawns it, a recorded finish older than 30 minutes is due —
+and added the paragraph stating why the filter is what makes it moderate's own gate.
+
+Step 4 re-read both sibling surfaces rather than trusting the ticket's note.
+`skills/work/SKILL.md` line 105 already carried `--step-prefix loop-finish-<name> --latest-tick`
+generically and `skills/work/scripts/codex-loop.sh` reads `--step-prefix loop-attempt-<role>
+--latest-tick`; neither stated the bare form, so neither was changed. `skills/loops/SKILL.md`
+did state the gate without the filter — *read from its own tick log
+(`moderate/scripts/log-read.sh`)* — which is a consistency line rather than a second reader, and
+it was corrected in this change.
+
+Step 5 added the suite row. It anchors on the moderate gate's own paragraph rather than on the
+file as a whole, because the pre-existing row `/--step-prefix loop-finish-.*--latest-tick/`
+passes on the `implement`/`propose` block alone and cannot see this. The assertion was proved to
+bite: deleting the filter from §2 fails it (`FAIL and it reads moderate's OWN recorded finish,
+never the newest line in the log`, 6845 passed / 1 failed), and restoring it passes (6846 / 0).
+
+Step 6 regenerated `outputs/` and the policy index; both were already in sync, so the build
+produced no diff.
+
+### Discovered Insights
+
+- **Insight**: Two correct changes landing the same day into the same file can compose into a
+  defect neither introduced. #960 pointed the gate at the then-new `--latest-tick` when the tick
+  log held only `/moderate`'s own step lines; #961 then began writing `loop-finish-*` lines into
+  that same file under the coordinator's tick id. Each was right about its own subject.
+  **Context**: The tick log is a shared, append-only namespace keyed on the writing tick rather
+  than on the subject, so any unfiltered read of it answers *who wrote last*, not *when did this
+  thing last happen*. Every future reader of `.workaholic/moderations/` needs a step filter to
+  mean what it says, and the busier the loop, the more confidently the unfiltered read is wrong.
+
+- **Insight**: The failure is invisible to the repository's own degradation vocabulary. The gate
+  received a well-formed tick id, so no `cadence_unreadable` fired and the run reported a healthy
+  `not_due`.
+  **Context**: This repository's standing rule is that a degraded read is never rendered as a
+  healthy answer — but that rule only reaches readings that *know* they failed. A read that
+  succeeds against the wrong subset returns a plausible value, and the only defence is a suite
+  row pinned on the invocation itself, which is why step 5's assertion is anchored on the gate's
+  own paragraph rather than on the file.

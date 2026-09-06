@@ -28,6 +28,16 @@
 # `verification_handoff:`. A second opinion about whether a pull request is held by a declaration
 # or by an ordinary park is exactly the disagreement that would reintroduce the silence.
 #
+# AND IT NAMES WHICH MEMBERS HOLD IT (2026-09-07, mission
+# `hand-off-the-members-that-declare-and-drive-the-rest`). `awaiting_verification` used to mean
+# *some member of this unit declared something*, so the unit id was the whole answer; it now means
+# *every remaining member declares*, and what the addressee has to act on is the tickets, not the
+# claim. `declared_members` rides each row straight off `declared-handoff-detail.sh`'s own
+# partition -- no second reading, no new field on any artifact -- and the composer names them.
+# THE KEY IS UNTOUCHED: `already_asked` keys on the step id `lib/question-id.sh` derives from
+# `handoff-unit:<unit>`, so a body that changed re-asks nothing, and changing the key would
+# re-ask every standing question.
+#
 # THE QUESTION NAMES THE DECLARED REASON VERBATIM, which is the whole point of it. "A claimed
 # unit has not moved for a day or more" sends a person to look at a claim; "the deploy needs an
 # API token added as a repository secret" tells them the one act. The string is resolved per
@@ -116,6 +126,7 @@ rsep=""
 unresolved=0
 for branch in $(printf '%s' "$candidates" | jq -r '.[].branch'); do
     reason=""
+    members="[]"
     pr_url=""
     open_hours=null
     if [ -f "$detail" ]; then
@@ -124,6 +135,7 @@ for branch in $(printf '%s' "$candidates" | jq -r '.[].branch'); do
         # shellcheck disable=SC2086 -- artifact paths are repository-relative and carry no spaces.
         look=$( ( cd "$ROOT" && sh "$detail" "$branch" $arts ) 2>/dev/null || true )
         reason=$(printf '%s' "$look" | jq -r '.reason // ""' 2>/dev/null || printf '')
+        members=$(printf '%s' "$look" | jq -c '.members // []' 2>/dev/null || printf '[]')
         pr_url=$(printf '%s' "$look" | jq -r '.pull_request // ""' 2>/dev/null || printf '')
         open_hours=$(printf '%s' "$look" | jq -r '.open_hours // "null"' 2>/dev/null || printf 'null')
         case "$open_hours" in ''|*[!0-9]*) open_hours=null ;; esac
@@ -133,10 +145,11 @@ for branch in $(printf '%s' "$candidates" | jq -r '.[].branch'); do
         continue
     fi
     row=$(printf '%s' "$candidates" | jq -c --arg b "$branch" --arg r "$reason" --arg u "$pr_url" \
-        --argjson h "$open_hours" '
+        --argjson h "$open_hours" --argjson m "$members" '
             .[] | select(.branch == $b)
             | {unit, branch, owner: (.author // "unknown"),
                declared_reason: $r,
+               declared_members: $m,
                pull_request: (if $u == "" then "unknown" else $u end),
                open_hours: $h,
                key: ("handoff-unit:" + .unit)}' 2>/dev/null || printf '')
@@ -159,7 +172,7 @@ fi
 
 needs=$(printf '%s' "$rows" | jq -c '{action: "ask_the_claim_holder_to_run_the_verification_this_unit_was_declared_to_need",
     bound: "one question per unit, addressed to the claim holder, keyed on `key` so it is asked once; the tick asks and never clears a handoff, retries a verification, merges the pull request or touches the claim",
-    compose: "say the unit is finished as far as the loop can take it, quote the declared reason verbatim as the one act it waits on, and link its open pull request",
+    compose: "lead with what happened in words a channel reader understands — the work is finished as far as this environment can take it and one verification is left — then the identifier, then quote the declared reason verbatim as the one act asked of the addressee, and link its open pull request. Name the tickets in `declared_members` as what they must act on: since 2026-09-07 a declaration holds its own members rather than the whole unit, so the unit id alone sends a person to a claim where a ticket path would send them to the sentence they have to satisfy. Never open with the unit id, a claim verdict or a step name.",
     handoffs: .}' 2>/dev/null || echo '{}')
 
 if [ "$asked" -eq 1 ]; then

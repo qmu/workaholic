@@ -20312,7 +20312,15 @@ function archiveOnBase(clone, basenames, underBranch) {
 // AT BOTH GRAINS, because a claim stamps different things. A batch claims its ticket files, so
 // its queued work is whichever are still under todo/ at the tip. A mission claims only
 // `mission.md`, so its queued work is the tickets at the tip that name it — and the mission's
-// own declaration counts too, since any member declaring it carries the whole unit.
+// own declaration counts too, since a declaration on the container carries the whole unit.
+//
+// AND THE QUESTION IS *EVERY* REMAINING MEMBER, NOT ANY ONE OF THEM (2026-09-07, mission
+// `hand-off-the-members-that-declare-and-drive-the-rest`). A row read `true` from ONE declaring
+// member, so `awaiting_verification` took a partly-declared unit out of every offer and the six
+// tickets behind it were driven by nothing — measured on
+// `report-each-tick-in-the-originating-codex-chat`, 7 queued, 1 declaring, 0 offered. These rows
+// pin the mixed case in BOTH directions: mixed reads `false` and is offered, all-declaring reads
+// `true` exactly as it always did, and `declared_members` names which members hold it on either.
 //
 // KEYED ON THE DECLARATION, NOT THE FIXTURE'S SHAPE: each grain is asserted twice, once with a
 // value and once with the field emptied, over a branch that is otherwise byte-identical.
@@ -20341,10 +20349,35 @@ function testClaimScanReadsTheDeclaredHandoff() {
     setVerificationHandoff(bwt, t2, "a paid third-party account this container has no key for");
     execSync(`git add -A && git commit -q -m "Declare the handoff" && git push -q origin ${batch.branch}`, { cwd: bwt });
     let row = rowFor(B, batch.unit);
-    assertEq("with the declaration on a queued ticket it reads true", row.declared_handoff, true);
+    assertEq("ONE declaring member out of two is a MIXED unit and reads false — it is offered",
+      row.declared_handoff, false);
+    assertEq("and the row still names WHICH member holds it, so nothing re-derives the partition",
+      row.declared_members, [t2]);
     assertEq("and NO verdict moved in this change",
       { res: row.resumable, why: row.resume_reason }, { res: true, why: "heartbeat_lapsed" });
 
+    setVerificationHandoff(bwt, t1, "the operator's own device, which is not attached here");
+    execSync(`git add -A && git commit -q -m "Declare on the other one" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    row = rowFor(B, batch.unit);
+    assertEq("with EVERY remaining member declaring it reads true, exactly as it always did",
+      row.declared_handoff, true);
+    assertEq("and names both", row.declared_members.slice().sort(), [t1, t2].sort());
+
+    setVerificationHandoff(bwt, t1, "");
+    execSync(`git add -A && git commit -q -m "Empty one declaration" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    assertEq("emptying one of the two makes it mixed again — the reading is not sticky",
+      rowFor(B, batch.unit).declared_handoff, false);
+
+    setVerificationHandoff(bwt, t1, "probe: true");
+    setVerificationHandoff(bwt, t2, "probe: true");
+    execSync(`git add -A && git commit -q -m "Declare probes on both" && git push -q origin ${batch.branch}`, { cwd: bwt });
+    row = rowFor(B, batch.unit);
+    assertEq("a probe declaration parks nothing here even when EVERY member carries one",
+      row.declared_handoff, false);
+    assertEq("and holds no member either — it is re-run at claim time, not honoured here",
+      row.declared_members, []);
+
+    setVerificationHandoff(bwt, t1, "");
     setVerificationHandoff(bwt, t2, "");
     execSync(`git add -A && git commit -q -m "Empty the declaration" && git push -q origin ${batch.branch}`, { cwd: bwt });
     assertEq("an EMPTY value is no declaration — the same rule the one reader already applies",
@@ -20362,11 +20395,13 @@ function testClaimScanReadsTheDeclaredHandoff() {
     execSync(`git add -A && git commit -q -m "Declare on the queued step" && git push -q origin ${mission.branch}`, { cwd: mwt });
     assertEq("a queued ticket NAMING the mission is what the mission grain reads",
       rowFor(B, "m1").declared_handoff, true);
+    assertEq("and the mission's own file is NOT counted as remaining work — only its tickets are",
+      rowFor(B, "m1").declared_members, [step]);
 
     setVerificationHandoff(mwt, step, "");
     setVerificationHandoff(mwt, ".workaholic/missions/active/m1/mission.md", "the device is not attached here");
     execSync(`git add -A && git commit -q -m "Declare on the mission itself" && git push -q origin ${mission.branch}`, { cwd: mwt });
-    assertEq("and the mission's OWN declaration carries the unit — any member does",
+    assertEq("and the mission's OWN declaration carries the unit, its tickets declaring or not",
       rowFor(B, "m1").declared_handoff, true);
 
     setVerificationHandoff(mwt, ".workaholic/missions/active/m1/mission.md", "");
@@ -20377,13 +20412,21 @@ function testClaimScanReadsTheDeclaredHandoff() {
     assertEq("and the mission claim's verdict is untouched by any of it",
       { res: row.resumable, why: row.resume_reason }, { res: true, why: "heartbeat_lapsed" });
 
-    // ---- The reading is self-releasing: drive the declared ticket and it answers false. ----
+    // ---- Driving the NON-declaring member is what turns a mixed unit into a parked one. ----
+    // This is the mission's whole shape in one pair of rows: the mixed unit is offered, its
+    // drivable member is driven, and only then does the claim park on what genuinely needs a
+    // person — with nothing stored anywhere, because the reading is off the remaining work.
     setVerificationHandoff(bwt, t2, "a paid third-party account this container has no key for");
     execSync(`git add -A && git commit -q -m "Redeclare the handoff" && git push -q origin ${batch.branch}`, { cwd: bwt });
-    assertEq("the batch reads true again", rowFor(B, batch.unit).declared_handoff, true);
+    assertEq("the batch is mixed again, so it is offered rather than parked",
+      rowFor(B, batch.unit).declared_handoff, false);
+    run(bwt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    execSync(`git push -q origin ${batch.branch}`, { cwd: bwt });
+    assertEq("with the non-declaring member driven, what remains all declares and it parks",
+      rowFor(B, batch.unit).declared_handoff, true);
     run(bwt, `${POSIX_SH} ${SCRIPTS.archive} ${t2} "Drive t2" https://example.test/repo why changes None None verify`);
     execSync(`git push -q origin ${batch.branch}`, { cwd: bwt });
-    assertEq("once the declared ticket is DRIVEN the same reader answers false, storing nothing",
+    assertEq("once the declared ticket is DRIVEN too the same reader answers false, storing nothing",
       rowFor(B, batch.unit).declared_handoff, false);
 
     // ---- Offline: no network, no merged lookup, byte-identical answer. ----
@@ -21856,6 +21899,178 @@ function testSubagentReaping() {
   // AN ATTENDED RUN IS UNCHANGED -- a person is present and chose what to take.
   assertTrue("and exempts the attended entry point by name",
     /attended `\/drive` is unchanged/.test(drive), "the attended run was bound too");
+}
+
+// ---------- the claim row's artifact list is the last field, everywhere (2026-09-07) ----------
+// The row is positional TSV and the artifact list is deliberately LAST, because a trailing empty
+// field is the one case `read` handles correctly. Four call sites read it at a FIXED index, and
+// every column inserted before it moves all four -- measured while adding `declared_members`:
+// two `while read` sites silently bound the boolean as the whole artifact list (31 assertions
+// about claims leaving the backlog went red), and two `awk` sites were caught only by a drill.
+// So the index is DERIVED from the writer's own printf here rather than restated, and every
+// fixed-index reader in the tree is checked against it.
+T("the claim row's artifact field is the last one, at every fixed-index reader", testClaimRowArtifactIndex);
+function testClaimRowArtifactIndex() {
+  const lib = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8");
+  // The scan's one row printf: count its `%s` conversions to get the artifact list's index.
+  const m = lib.match(/printf '((?:%s\\t)+%s\\n)'[\s\S]{0,40}?\$_cs_unit/);
+  assertTrue("the scan's row printf is findable", !!m, "the row writer's shape moved");
+  const width = (m[1].match(/%s/g) || []).length;
+  assertTrue("the row carries more than one field", width > 1, "the row is degenerate");
+
+  // Named readers: each destructures the row, so its variable count must equal the width.
+  for (const [file, re] of [
+    ["plugins/workaholic/skills/drive/scripts/list-claims.sh", /while IFS='\t' read -r ([^;]+); do/],
+    ["plugins/workaholic/skills/drive/scripts/plan-units.sh", /while IFS='\t' read -r ([^;]+); do/],
+    ["plugins/workaholic/skills/drive/scripts/claim.sh", /while IFS='\t' read -r ([^;]+); do/],
+  ]) {
+    const src = readFileSync(join(REPO_ROOT, file), "utf8");
+    const r = src.match(re);
+    assertTrue(`${file.split("/").pop()} destructures the row`, !!r, "the reader's shape moved");
+    assertEq(`${file.split("/").pop()} names exactly ${width} fields`,
+      r[1].trim().split(/\s+/).length, width);
+  }
+
+  // Fixed-index readers: every `cut -fN` / `awk {print $N}` over a claim row must name the LAST
+  // field, because the artifact list is the only thing any of them reads by a high index.
+  const fixed = [
+    ["plugins/workaholic/skills/drive/scripts/claim.sh", /cut -f(\d+)\)\n/g],
+    ["plugins/workaholic/skills/drive/scripts/delete-retired-claim-branch.sh", /\{print \$(\d+)\}/g],
+    ["plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh", /\{ print \$(\d+) \}/g],
+  ];
+  for (const [file, re] of fixed) {
+    const src = readFileSync(join(REPO_ROOT, file), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    for (const hit of src.matchAll(re)) {
+      const n = Number(hit[1]);
+      if (n < 8) continue; // the low indices are unit/branch/at/author/resumable/reason
+      assertEq(`${file.split("/").pop()} reads the artifact list at the row's last field`,
+        n, width);
+    }
+  }
+}
+
+// ---------- every consumer that assumed the unit reads the partial form (2026-09-07) -----------
+// Once a unit can be PARTLY handed off, a consumer that names only the unit says something vague
+// and a consumer that resolves one reason says something incomplete. The enumeration is taken
+// from `drive/reference/claims.md` -- the table that owns which consumers exist -- and checked
+// against the tree in BOTH directions, so a consumer added with no rule fails here rather than
+// quietly reading the whole-unit form.
+T("the partial handoff is read at every consumer that assumed the unit", testPartialHandoffConsumers);
+function testPartialHandoffConsumers() {
+  const claimsDoc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/reference/claims.md"), "utf8");
+  const detail = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/declared-handoff-detail.sh"), "utf8");
+  const step = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-handoff-units.sh"), "utf8");
+  const accept = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/mission/scripts/acceptance-handoffs.sh"), "utf8");
+  const archive = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/archive.sh"), "utf8");
+
+  // 1. THE RESOLVER carries the partition rather than a reason alone.
+  assertTrue("declared-handoff-detail.sh emits the members that hold it",
+    /"members": \[%s\]/.test(detail), "the resolver still answers with a reason alone");
+  assertTrue("and takes them from the one split, never a second reading",
+    /claims_declared_split/.test(detail), "the resolver re-derives the partition");
+  assertTrue("and names an empty member set as a degradation rather than a calm empty list",
+    /degrade members_empty/.test(detail), "a truncated reading renders as nothing to act on");
+
+  // 2. THE ASKING STEP carries them onto the row and names them in the question.
+  assertTrue("handoff-units carries declared_members onto each row",
+    /declared_members: \$m/.test(step), "the question still names only the unit");
+  assertTrue("and the composer names the tickets as what the addressee acts on",
+    /Name the tickets in `declared_members`/.test(step), "the composer names no member");
+  assertTrue("and leads with what happened rather than the identifier",
+    /lead with what happened/i.test(step), "the question opens with an identifier");
+  assertTrue("and the key is untouched, so no standing question is re-asked",
+    /handoff-unit:/.test(step) && /KEY IS UNTOUCHED/.test(step),
+    "the key moved, which re-asks every standing question");
+
+  // 3. THE CLOSE GATE already asks per acceptance item's own ticket, so it is per member by
+  // construction -- what is pinned is that its refusal NAMES that ticket rather than the mission.
+  assertTrue("acceptance-handoffs.sh answers per ticket, not per unit",
+    /verification-handoff\.sh" tickets "\$TICKET"/.test(accept),
+    "the close gate asks about the whole unit");
+  assertTrue("and the archive refusal names which ticket held the mission open",
+    /\$\{HOFF_TICKETS:-unnamed\}/.test(archive), "the refusal names the mission alone");
+
+  // 4. THE ENUMERATION MATCHES THE TREE IN BOTH DIRECTIONS. The table names its reporting
+  // consumer; that file must read the verdict, and every other file that reads the verdict must
+  // be one the table accounts for (the survey's exclusion, the writer's refusal, the renderer,
+  // and the sibling step that filters).
+  assertTrue("claims.md still names step-handoff-units.sh as the reporting consumer",
+    /step-handoff-units\.sh/.test(claimsDoc), "the enumeration lost its consumer");
+  assertTrue("and records that the verdict now means EVERY remaining member",
+    /every remaining member declares/.test(claimsDoc), "the table still describes the any rule");
+  const accounted = new Set(["step-handoff-units.sh", "step-stalled-units.sh", "plan-units.sh",
+    "claim.sh", "list-claims.sh", "lib/claims.sh", "declared-handoff-detail.sh"]);
+  const reads = [];
+  for (const dir of ["plugins/workaholic/skills/drive/scripts",
+    "plugins/workaholic/skills/moderate/scripts"]) {
+    for (const f of readdirSync(join(REPO_ROOT, dir))) {
+      if (!f.endsWith(".sh")) continue;
+      const src = readFileSync(join(REPO_ROOT, dir, f), "utf8")
+        .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+      if (src.includes("awaiting_verification")) reads.push(f);
+    }
+  }
+  const libSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/scripts/lib/claims.sh"), "utf8")
+    .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  if (libSrc.includes("awaiting_verification")) reads.push("lib/claims.sh");
+  assertEq("every file reading the verdict is one the enumeration accounts for",
+    reads.filter((f) => !accounted.has(f)), []);
+  assertTrue("and the enumeration names at least the asking and filtering halves",
+    reads.includes("step-handoff-units.sh") && reads.includes("step-stalled-units.sh"),
+    "a half of the ask/filter pair no longer reads the verdict");
+}
+
+// ---------- a declaration holds its own members, not the whole unit (2026-09-07) ---------------
+// The route step is prose the agent executes, so what is checkable is that the rule is present in
+// BOTH surfaces the run reads -- the skill it preloads and the ceiling a routine hands it -- and
+// that neither of the two unchanged cases was quietly dropped on the way. The partition itself is
+// pinned by behaviour one layer down, in the claim-scan rows.
+T("a partly declared unit drives what it can and hands off the rest", testPartialDeclaredHandoff);
+function testPartialDeclaredHandoff() {
+  const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+  const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
+  const routing = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
+
+  for (const [id, text] of [["the drive skill", drive], ["the /implement ceiling", impl]]) {
+    assertTrue(`${id} reads the axis per member`,
+      /per (declaring )?member/i.test(text), `${id} still reads one verdict for the unit`);
+    assertTrue(`${id} takes the partition from the one reader, never a fresh judgement`,
+      /members\[\]/.test(text) && /never a judgement about what a ticket probably needs/.test(text),
+      `${id} lets the run judge what a ticket needs`);
+    assertTrue(`${id} runs the probe per declaring member`,
+      /run-verification-probe\.sh tickets <(?:that )?member>/.test(text),
+      `${id} still probes the unit once`);
+    assertTrue(`${id} keeps the ALL-declaring case whole`,
+      /every.{0,40}member.{0,120}(whole|unchanged)/is.test(text),
+      `${id} narrowed the all-declaring unit too`);
+    assertTrue(`${id} leaves each declaring member queued rather than driving it`,
+      /queued in `todo\/`/.test(text), `${id} drives the declaring members too`);
+    assertTrue(`${id} names only the declaring members in the Handoff section`,
+      /(names|naming) \*{0,2}only\*{0,2} the declaring members/.test(text),
+      `${id} still writes a whole-unit Handoff`);
+    assertTrue(`${id} requires BOTH sets in the report`,
+      /Report both sets|report both sets/.test(text), `${id} reports one set`);
+    assertTrue(`${id} states the non-goal — the handoff is not weakened`,
+      /not weakened/.test(text), `${id} does not say what it refuses to change`);
+    assertTrue(`${id} carries the measurement rather than asserting the defect`,
+      /report-each-tick-in-the-originating-codex-chat/.test(text), `${id} states no evidence`);
+  }
+
+  // AND THE ROUTE'S OWN CONTRACT distinguishes the two paths' treatment of `todo/`, which is the
+  // one place the partial form differs from the whole-unit one in what it leaves behind.
+  assertTrue("routing.md separates the whole-unit path from the partly declared one",
+    /whole-unit declared/.test(routing) && /partly declared/.test(routing),
+    "the reference still describes one declared path");
+  assertTrue("and says why a declaring member keeps its ticket",
+    /needs the ticket intact/.test(routing), "the reason is unstated");
 }
 
 // ---------- a tick pays only its operative cost (2026-09-03) -----------------------------------

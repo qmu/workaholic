@@ -2804,6 +2804,17 @@ the hour each routed.
 | the running identity | `undrivable-units` | never consulted — the claim's own `author` is the addressee, so an hourly repository-scoped question does not answer differently per account |
 | what it may read | `undrivable-units` | `list-claims.sh` is a pure read; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge — the composition `closable-missions` already refused |
 
+**And it names WHICH MEMBERS hold it** (2026-09-07, mission
+`hand-off-the-members-that-declare-and-drive-the-rest`). `awaiting_verification` used to mean
+*some member of this unit declared something*, so the unit id was the whole answer; it now means
+*every remaining member declares*, and what the addressee has to act on is the tickets rather than
+the claim — a unit id sends a person to a claim, a ticket path sends them to the sentence they
+have to satisfy. `declared_members` rides each row straight off `declared-handoff-detail.sh`'s own
+partition, which is the same `claims_declared_split` the claim row carries, so there is no second
+reading and no new field on any artifact. **The key is untouched**: `already_asked` keys on the
+step id `lib/question-id.sh` derives from `handoff-unit:<unit>`, so a changed body re-asks nothing
+and changing the key would re-ask every standing question.
+
 **The question names the declared reason verbatim**, which is the whole point of the step: a
 boolean says a unit is waiting, only the string says what for. It is resolved per candidate by
 `drive/scripts/declared-handoff-detail.sh`, which composes `verification-handoff.sh` — still the
@@ -2871,9 +2882,10 @@ questions in two vocabularies. A degraded read (`no_claim_reader`, `claims_unrea
 `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `handoff-unit:<unit>`,
 unchanged.
 
-- **Heading** — *`<unit>` is finished and waiting on a check this environment cannot run*, then
-  the **declared reason verbatim** (which is the whole point of the step and is never
-  paraphrased) and the open pull request.
+- **Heading** — *the work is finished as far as this environment can take it and one check is
+  outstanding*, **then** `<unit>` and the tickets in `declared_members`, then the **declared
+  reason verbatim** (which is the whole point of the step and is never paraphrased) and the open
+  pull request. Lead with what happened; the identifier comes after it, never before.
 - **Body** — the one act: *run that verification where the credentials are, then merge.*
 - **Never alone**: `awaiting_verification`, `verification_handoff`. Both are this repository's
   field names; the reader's fact is that the work is done and one human check is outstanding.

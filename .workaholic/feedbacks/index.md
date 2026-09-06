@@ -677,4 +677,5 @@
 * [tick-progress.sh reads a working tree the loop never freshens](20260906110736-tick-progress-sh-reads-a-working-tree-the-loop-never-freshens.md)
 * [tick-progress.sh resolves the skills directory against the consuming repository](20260906110842-tick-progress-sh-resolves-the-skills-directory-against-the-consuming-repository.md)
 * [The loop fast-forwards its own coordinator checkout while subagents run](20260906113730-the-loop-fast-forwards-its-own-coordinator-checkout-while-subagents-run.md)
+* [A run parked on a watcher reads as idle and stops beating its claim](20260906121540-a-run-parked-on-a-watcher-reads-as-idle-and-stops-beating-its-claim.md)
 <!-- okf:generated:end -->

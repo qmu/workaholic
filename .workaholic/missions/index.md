@@ -5,7 +5,6 @@
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [report-each-tick-in-the-originating-codex-chat](active/report-each-tick-in-the-originating-codex-chat/mission.md) - Report each tick in the originating Codex chat
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
-* [see-a-frozen-runner-and-give-back-its-slot](active/see-a-frozen-runner-and-give-back-its-slot/mission.md) - See a frozen runner and give back its slot
 
 ## archive
 
@@ -124,6 +123,7 @@
 * [say-when-a-direction-has-arrived](archive/say-when-a-direction-has-arrived/mission.md) - Say when a direction has arrived
 * [say-when-the-check-in-queue-is-stuck-and-bound-the-hold](archive/say-when-the-check-in-queue-is-stuck-and-bound-the-hold/mission.md) - Say when the check-in queue is stuck, and bound the hold
 * [say-when-the-loop-has-run-out-of-direction](archive/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
+* [see-a-frozen-runner-and-give-back-its-slot](archive/see-a-frozen-runner-and-give-back-its-slot/mission.md) - See a frozen runner and give back its slot
 * [settle-a-mergeability-reading-before-it-becomes-a-question](archive/settle-a-mergeability-reading-before-it-becomes-a-question/mission.md) - Settle a mergeability reading before it becomes a question
 * [slim-commands-skills-and-docs-for-ai-agent-use](archive/slim-commands-skills-and-docs-for-ai-agent-use/mission.md) - Slim commands, skills, and docs for AI-agent use
 * [split-routine-setup-into-developer-and-repository-scopes](archive/split-routine-setup-into-developer-and-repository-scopes/mission.md) - Split routine setup into developer and repository scopes

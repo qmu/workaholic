@@ -2,7 +2,7 @@
 type: Mission
 title: See a frozen runner and give back its slot
 slug: see-a-frozen-runner-and-give-back-its-slot
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-06T18:51:16+09:00
 author: a@qmu.jp
@@ -49,3 +49,4 @@ that cannot be made is named by its own reason and holds nothing.
 - 2026-09-06 — ticket archived — 20260906185501-read-whether-a-running-loop-subagent-is-still-advancing.md
 - 2026-09-06 — ticket archived — 20260906185501-stop-counting-a-non-advancing-runner-toward-the-fan-out.md
 - 2026-09-06 — ticket archived — 20260906185501-keep-the-loop-s-own-script-calls-off-the-plugin-cache-path.md
+- 2026-09-06 — mission achieved — mission.md

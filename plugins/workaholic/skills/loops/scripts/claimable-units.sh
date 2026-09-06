@@ -49,14 +49,20 @@
 # A MANDATORY TAKEOVER IS CLAIMABLE WORK. `heartbeat_lapsed` and `report_incomplete` are the two
 # resume reasons the token table calls `pending` when a run leaves them untaken, so they are work
 # a runner can be spawned for. `parked_with_pr`, `awaiting_verification` and `superseded` still are
-# not, and the widening above does not reach them — but the reason is now worth restating per
-# verdict, because one of the three has moved. `superseded` holds nothing to drive and its
-# retirement is CI's, so it earns no runner. `parked_with_pr` waits on a person by the oracle's own
-# word; where its branch has fallen behind it is already counted through the catchable term, which
-# is the actionable half of it. `awaiting_verification` waits on a DECLARED verification — and
-# since 2026-09-03 a declaration may be a probe re-run at claim time, so a stale one is falsified
-# where the unit is claimed rather than here: this reader does not run probes, and counting the
-# verdict on the chance that its probe now reads `clean` would spawn a runner on a guess.
+# not counted AS UNITS TO CLAIM, and the widening above does not reach them — but the reason is
+# worth restating per verdict, because two of the three have moved. `superseded` holds nothing to
+# drive and its retirement is CI's, so it earns no runner. `parked_with_pr` waits on a person by
+# the oracle's own word; where its branch has fallen behind it is already counted through the
+# catchable term, which is the actionable half of it. `awaiting_verification` waits on a DECLARED
+# verification — and since 2026-09-03 a declaration may be a probe re-run at claim time, so a
+# stale one is falsified where the unit is claimed rather than here: this reader does not run
+# probes, and counting the verdict on the chance that its probe now reads `clean` would spawn a
+# runner on a guess. SINCE 2026-09-07 IT TOO IS REACHED THROUGH THE CATCHABLE TERM (ticket
+# `20260907070931-offer-an-awaiting-verification-claim-to-the-catch-up`), on exactly
+# `parked_with_pr`'s footing: `list-catchable-claims.sh` offers such a claim whose branch has
+# fallen behind, so a handoff branch needing a catch-up IS work an `/implement` pass would act on
+# and the count rises. Nothing here filters by verdict — this reader composes that one — and the
+# unit is still not counted as a takeover, because the catch-up delivers nothing for it.
 #
 # A SURVEY THAT COULD NOT BE MADE YIELDS NO READING. The five facts `plan-units.sh` forbids `ok`
 # on — `current: false`, `shallow: true`, a non-empty `backlog_error`, `owner_unresolved`, and

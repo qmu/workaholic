@@ -20205,6 +20205,94 @@ function testDeclaredHandoffGetsItsOwnVerdict() {
   } finally { cleanup(origin); cleanup(A); cleanup(B); }
 }
 
+// ---------- the handoff claim the catch-up may still bring forward (2026-09-07) ----------
+// WHY IT EXISTS (ticket `20260907070931-offer-an-awaiting-verification-claim-to-the-catch-up`).
+// `list-catchable-claims.sh` offered `report_undelivered` and `queue_drained` only, so the one
+// class of branch GUARANTEED by design to sit open for a long time -- the handoff route opens the
+// pull request and leaves it open, waiting on a person -- was the one class the catch-up never
+// touched, and its work decayed for exactly as long as the person took. Measured 2026-09-07:
+// mission `report-each-tick-in-the-originating-codex-chat`, claim `work-20260906-023953`, PR #993,
+// open ~25 hours, six of seven tickets driven and archived on the branch, `mergeability: content`,
+// and the reader offered nothing at all.
+//
+// TWO ROWS, AND THE SECOND MATTERS MORE. Proving only the widening would let a later change merge
+// a handoff pull request and stay green: the delivery half must stay `queue_drained`-only, because
+// a handoff pull request is open precisely so a PERSON can satisfy the declaration.
+//
+// Proved able to fail, each break turning exactly one row red:
+//   the verdict dropped from either gate in the reader -> `the reader offers the handoff claim`
+//   the delivery bound widened to the new verdict      -> `the act still delivers only queue_drained`
+//   the named delivery reason removed                  -> `and names why it did not deliver`
+//
+// Hermetic: a bare origin and two clones, no `gh`, no network (`makeClaimFixture`).
+T("drive claim protocol: an awaiting_verification claim is offered to the catch-up",
+  testAwaitingVerificationIsCatchable);
+function testAwaitingVerificationIsCatchable() {
+  const { origin, A, B } = makeClaimFixture();
+  const CLAIM = `${POSIX_SH} ${SCRIPTS.claim}`;
+  const LIST = `${POSIX_SH} ${SCRIPTS.listClaims}`;
+  const CATCHABLE = `${POSIX_SH} ${SCRIPTS.listCatchableClaims}`;
+  const lapsed = { ...process.env, WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES: "0" };
+  try {
+    const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+    const t2 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000002-t2.md`;
+    const batch = JSON.parse(run(A, `${CLAIM} batch ${t1} ${t2}`).stdout);
+    const wt = join(A, ".worktrees", batch.unit);
+
+    // The shape §6 leaves behind on the handoff route: what could be driven is driven, the story
+    // is committed, the pull request is open, and the declaring ticket is still queued.
+    run(wt, `${POSIX_SH} ${SCRIPTS.update} ${t1} effort 0.1h`);
+    run(wt, `${POSIX_SH} ${SCRIPTS.archive} ${t1} "Drive t1" https://example.test/repo why changes None None verify`);
+    const t2AtTip = `.workaholic/tickets/todo/${basename(t2)}`;
+    setVerificationHandoff(wt, t2AtTip, "the operator's own chat is the only place this runs");
+    mkdirSync(join(wt, ".workaholic/stories"), { recursive: true });
+    writeFileSync(join(wt, `.workaholic/stories/${batch.branch}.md`),
+      `---\ntype: Story\nbranch: ${batch.branch}\ntickets_completed: 1\nmission: []\ntickets: []\n---\n\n## 1. Overview\n\nhanded off\n`);
+    // A hand-written path the base will also touch, so the branch reads `content` rather than
+    // `clean`: a `clean` branch is deliberately not a candidate and would prove nothing here.
+    writeFileSync(join(wt, "collide.md"), "the branch's own sentence\n");
+    execSync(`git add -A && git commit -q -m "Add branch story" && git push -q origin ${batch.branch}`, { cwd: wt });
+
+    assertEq("the fixture is the verdict this row is about",
+      rowOf(run(B, LIST, { env: lapsed }), batch.unit).resume_reason, "awaiting_verification");
+
+    // Before the base moves there is nothing to catch up, and the reader says so by offering
+    // nothing -- the `clean` exclusion, unchanged.
+    let cands = JSON.parse(run(B, CATCHABLE, { env: lapsed }).stdout);
+    assertEq("a handoff branch the base has not moved under is not offered",
+      cands.candidates.filter((c) => c.unit === batch.unit).length, 0);
+
+    // Now move the base over the same path.
+    writeFileSync(join(B, "collide.md"), "the base's own sentence\n");
+    execSync(`git add -A && git commit -q -m "Move the base" && git push -q origin main`, { cwd: B });
+
+    const row = rowOf(run(B, LIST, { env: lapsed }), batch.unit);
+    assertEq("the base moved under the handoff branch",
+      [row.resume_reason, row.mergeability], ["awaiting_verification", "content"]);
+
+    cands = JSON.parse(run(B, CATCHABLE, { env: lapsed }).stdout);
+    const offered = cands.candidates.find((c) => c.unit === batch.unit);
+    assertTrue("the reader offers the handoff claim", offered !== undefined,
+      "list-catchable-claims.sh still excludes awaiting_verification, so the act is never called");
+    assertEq("carrying the verdict and the class through verbatim",
+      [offered.resume_reason, offered.mergeability, offered.branch],
+      ["awaiting_verification", "content", batch.branch]);
+    assertEq("and the count is a real number, not a degraded null", cands.count, 1);
+
+    // THE HALF THAT MATTERS MORE. The act's delivery bound is one line and stays one line: a
+    // handoff pull request is open so a PERSON can satisfy the declaration, and merging it here
+    // would discharge a handoff nobody discharged.
+    const act = readFileSync(join(REPO_ROOT,
+      "plugins/workaholic/skills/drive/scripts/catch-up-claim.sh"), "utf8");
+    assertTrue("the act still delivers only queue_drained",
+      /\[ "\$VERDICT" = "queue_drained" \] \|\| report caught_up/.test(act),
+      "the delivery bound widened, so a handoff pull request can now be merged unattended");
+    assertTrue("and names why it did not deliver",
+      /DELIVERY="not_attempted: awaiting_verification"/.test(act),
+      "the run report gets a bare `not_attempted` for a handoff unit");
+  } finally { cleanup(origin); cleanup(A); cleanup(B); }
+}
+
 // ---------- the verdict, carried to the survey ----------
 // `plan-units.sh` classifies on `resumable` first, so the new verdict already fell out of
 // `resumable[]` the moment it shipped. What is left is to name the exclusion HONESTLY — a reason
@@ -22005,8 +22093,22 @@ function testPartialHandoffConsumers() {
     /step-handoff-units\.sh/.test(claimsDoc), "the enumeration lost its consumer");
   assertTrue("and records that the verdict now means EVERY remaining member",
     /every remaining member declares/.test(claimsDoc), "the table still describes the any rule");
+  // The acting consumer is registered in the SAME row, so a later reader who finds the catch-up
+  // reading this verdict is sent to the bound that governs it rather than to nothing.
+  assertTrue("and claims.md registers the catch-up as its acting consumer",
+    /enumerated \*\*acting\*\* consumer is the catch-up/.test(claimsDoc),
+    "the catch-up reads the verdict with no rule registered for it");
+  assertTrue("...and says the catch-up never delivers such a unit",
+    /never delivers/.test(claimsDoc),
+    "claims.md no longer states that a handoff pull request stays unmerged");
+  // `list-catchable-claims.sh` and `catch-up-claim.sh` joined on 2026-09-07 (ticket
+  // `20260907070931-offer-an-awaiting-verification-claim-to-the-catch-up`) as the verdict's
+  // enumerated ACTING consumer, under *When a bounded act may read a judgement*: the offer and
+  // the act. They are accounted for here and registered in the table's own row, which the
+  // assertion below reads out of the document rather than from this list.
   const accounted = new Set(["step-handoff-units.sh", "step-stalled-units.sh", "plan-units.sh",
-    "claim.sh", "list-claims.sh", "lib/claims.sh", "declared-handoff-detail.sh"]);
+    "claim.sh", "list-claims.sh", "lib/claims.sh", "declared-handoff-detail.sh",
+    "list-catchable-claims.sh", "catch-up-claim.sh"]);
   const reads = [];
   for (const dir of ["plugins/workaholic/skills/drive/scripts",
     "plugins/workaholic/skills/moderate/scripts"]) {

@@ -425,12 +425,24 @@ PUSHED=true
 # pushed it, and left the pull request open for a claim holder who never comes. A parked pull
 # request reads as progress to the loop and as stagnation to its operator.
 #
-# IT DELIVERS ONLY A `queue_drained` CLAIM, AND THE BOUND IS OWNERSHIP OF THE ACT, NOT CAUTION.
-# A `report_undelivered` unit's delivery already belongs to `retry-undelivered.sh`, which
-# `/implement` runs immediately after a `caught_up` (`workaholic:drive` §6). Merging here too
-# would make two attempts at one pull request in one turn, and the second would answer on an
-# already-merged pull request — reported as `merge_refused` and withholding `ok` from a run that
-# had in fact delivered. One act owns one delivery.
+# IT DELIVERS ONLY A `queue_drained` CLAIM. Three verdicts reach this script and exactly one
+# delivers, and THE TWO EXCLUSIONS HAVE DIFFERENT REASONS — a reader who finds only the first
+# will conclude the bound is about avoiding a double attempt and widen it:
+#   * `report_undelivered` — OWNERSHIP OF THE ACT, not caution. That unit's delivery already
+#     belongs to `retry-undelivered.sh`, which `/implement` runs immediately after a `caught_up`
+#     (`workaholic:drive` §6). Merging here too would make two attempts at one pull request in
+#     one turn, and the second would answer on an already-merged pull request — reported as
+#     `merge_refused` and withholding `ok` from a run that had in fact delivered. One act owns
+#     one delivery.
+#   * `awaiting_verification` (a candidate since 2026-09-07, ticket
+#     `20260907070931-offer-an-awaiting-verification-claim-to-the-catch-up`) — A PERSON IS THE
+#     NEXT ACTOR BY CONSTRUCTION. §6 routed that unit to the handoff route because a declared
+#     verification cannot run here; its pull request is open precisely so a person can satisfy
+#     that declaration. Merging it would discharge a handoff nobody discharged. The catch-up is
+#     still worth making — the branch is the one class GUARANTEED to sit open for a long time,
+#     so it is the one whose work decays longest — and the delivery half is reported
+#     `not_attempted: awaiting_verification`, a NAMED reason rather than a bare word, so the
+#     run report says why the merge was not attempted instead of leaving it to be guessed.
 #
 # NO GATE IS OVERRIDDEN AND NO NEW VOCABULARY IS INVENTED. The scan runs BEFORE the merge and is
 # read through `gate-decision.sh`'s severity tier, never the binary verdict: `secret` is a hard
@@ -442,6 +454,11 @@ PUSHED=true
 # IS caught up and pushed; that is a real repair and it is reported as one. So a missing
 # transport, an unresolved slug, an unreadable gate or a held gate all report `caught_up` with
 # the reason on `delivery`, exactly as the publication act does.
+# The one non-delivering verdict whose reason is worth NAMING: a handoff pull request is open
+# because a person is the next actor, and a bare `not_attempted` leaves the run report to be
+# guessed at. Set before the bound rather than inside it, so the bound below stays the single
+# unchanged line every reader and the suite already know.
+[ "$VERDICT" != "awaiting_verification" ] || DELIVERY="not_attempted: awaiting_verification"
 [ "$VERDICT" = "queue_drained" ] || report caught_up ""
 
 if [ -f "$SCAN" ] && [ -f "$GATE" ]; then

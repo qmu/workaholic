@@ -675,4 +675,5 @@
 * [close-publish-tree.sh refuses unpublished_commits after a squash merge](20260906110529-close-publish-tree-sh-refuses-unpublished-commits-after-a-squash-merge.md)
 * [The loop can stall at claimable 0 with no alarm](20260906110631-the-loop-can-stall-at-claimable-0-with-no-alarm.md)
 * [tick-progress.sh reads a working tree the loop never freshens](20260906110736-tick-progress-sh-reads-a-working-tree-the-loop-never-freshens.md)
+* [tick-progress.sh resolves the skills directory against the consuming repository](20260906110842-tick-progress-sh-resolves-the-skills-directory-against-the-consuming-repository.md)
 <!-- okf:generated:end -->

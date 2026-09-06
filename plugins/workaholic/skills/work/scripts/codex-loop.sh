@@ -11,6 +11,7 @@ ACK_FILE=""
 LOG_DIR=""
 DISPATCH_ROLE=""
 WORKER_ROLE=""
+CLAIMED=false
 ROLES="implement propose moderate"
 
 while [ "$#" -gt 0 ]; do
@@ -23,6 +24,7 @@ while [ "$#" -gt 0 ]; do
         --relay) RELAY=true; shift ;;
         --dispatch) DISPATCH_ROLE="${2:-}"; shift 2 ;;
         --worker) WORKER_ROLE="${2:-}"; shift 2 ;;
+        --claimed) CLAIMED=true; shift ;;
         --ack) ACK_FILE="${2:-}"; shift 2 ;;
         --log) LOG_DIR="${2:-}"; shift 2 ;;
         -h|--help)
@@ -36,6 +38,7 @@ while [ "$#" -gt 0 ]; do
                 '  --relay     return credential-free Slack intents for an owning chat' \
                 '  --dispatch  start one background worker (implement|propose|moderate) and return' \
                 '  --worker    run one worker in this process; refuses a role already running' \
+                '  --claimed   internal: the dispatching parent already holds this role, do not retake it' \
                 '  --ack       validate a parent acknowledgement against the current envelope' \
                 '  --log       transcript directory (default <repository>/.codex-loop)'
             exit 0 ;;
@@ -75,9 +78,20 @@ SUPERVISOR_FILE="${LOG_DIR}/supervisor.json"
 RELAY_STATE="none"
 
 # THE COORDINATOR NEVER WAITS FOR THE WORK (2026-09-05, issues #984 and #985). A role is
-# dispatched as a detached process holding its own lock, so a run lasting longer than the
-# interval cannot delay the next channel turn, and a role already running is refused by name
-# rather than started twice.
+# dispatched as a detached process, so a run lasting longer than the interval cannot delay the
+# next channel turn, and a role already running is refused by name rather than started twice.
+#
+# THE DISPATCH TAKES THE LOCK, NOT THE WORKER (2026-09-06, ticket `20260906210556`). The lock
+# used to be taken by the detached child, and `--dispatch` returns *at once* by design — so the
+# claim did not exist yet when the run that made it returned, and a second dispatch in that
+# window read `idle` and legitimately started a second worker. MEASURED here, from the fixture
+# the suite builds: in 5 of 6 rounds the lock file did not even EXIST at the moment the parent
+# returned, and two concurrent dispatches of one role started two workers. The window was on
+# the parent's side, so the claim moved there: `--dispatch` takes the lock before it forks, the
+# child INHERITS the open file description across the fork, and the lock is therefore held
+# continuously from before the parent returns until the worker exits. The child is told with
+# `--claimed` so it does not re-take it — a second open file description on the same file is a
+# conflicting holder under flock(2), and the worker would refuse itself.
 role_known() {
     for _r in $ROLES; do [ "$_r" = "$1" ] && return 0; done
     return 1
@@ -101,6 +115,34 @@ role_state() {
     fi
     printf 'idle'
 }
+
+# THE FALLBACK CLAIM IS ATOMIC TOO, for the same reason (2026-09-06, ticket `20260906210556`).
+# Without flock the claim is the pid file, and a read-then-write is the same window one layer
+# down — MEASURED on a PATH with flock removed, 4 of 4 concurrent dispatch pairs started two
+# workers. The create is `set -C` (O_EXCL), so exactly one of two simultaneous dispatches wins.
+# A file naming a DEAD pid is a crashed worker's residue, cleared once and the create retried
+# once — never a loop and never a sleep, which would hide the window rather than close it.
+#   0 = this caller now holds the role; 1 = somebody else does.
+role_claim_pidfile() {
+    _cp_file=$(role_pidfile "$1")
+    ( set -C; printf '%s\n' "$2" >"$_cp_file" ) 2>/dev/null && return 0
+    pid_alive "$(cat "$_cp_file" 2>/dev/null || printf '')" && return 1
+    rm -f "$_cp_file"
+    ( set -C; printf '%s\n' "$2" >"$_cp_file" ) 2>/dev/null
+}
+
+# THE ONE SEAM THAT CLAIMS A ROLE, called by `--dispatch` before it forks. `exec` inside a
+# function acts on the whole shell, so fd 8 stays open after this returns and is inherited by
+# the worker. 0 = this process now holds the role; 1 = somebody else does.
+dispatch_claim_role() {
+    if command -v flock >/dev/null 2>&1; then
+        exec 8>"$(role_lock "$1")"
+        flock -n 8 || return 1
+        return 0
+    fi
+    role_claim_pidfile "$1" "$$"
+}
+
 RELAY_ENVELOPE=""
 RELAY_ACK=""
 
@@ -839,10 +881,17 @@ run_worker() {
 
 if [ -n "$WORKER_ROLE" ]; then
     if command -v flock >/dev/null 2>&1; then
-        exec 8>"$(role_lock "$WORKER_ROLE")"
-        flock -n 8 || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+        # `--claimed` means fd 8 was opened and locked by the dispatching parent and inherited
+        # across the fork; it stays open for this process's whole life and releases at exit.
+        if [ "$CLAIMED" != true ]; then
+            exec 8>"$(role_lock "$WORKER_ROLE")"
+            flock -n 8 || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+        fi
     else
-        [ "$(role_state "$WORKER_ROLE")" = idle ] || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+        [ "$CLAIMED" = true ] || [ "$(role_state "$WORKER_ROLE")" = idle ] \
+            || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+        # The parent wrote the pid it forked; this overwrites it with the pid that is actually
+        # running the work, and the trap removes the file whichever wrote it.
         WORKER_PIDFILE=$(role_pidfile "$WORKER_ROLE")
         printf '%s\n' "$$" >"$WORKER_PIDFILE"
         trap 'rm -f "$WORKER_PIDFILE"' EXIT
@@ -866,15 +915,26 @@ if [ -n "$DISPATCH_ROLE" ]; then
         printf 'prompt: %s\n' "$(worker_prompt "$DISPATCH_ROLE")"
         exit 0
     fi
+    # TAKE THE CLAIM BEFORE FORKING. `role_state` above is the cheap early answer; this is the
+    # one that excludes, because it is atomic and it is held from here until the worker exits.
+    # A lost race here is `already_running` on exit 0, exactly as the early answer is — the loser
+    # started nothing and that is not a failure.
+    dispatch_claim_role "$DISPATCH_ROLE" \
+        || { printf 'codex dispatch %s: already_running\n' "$DISPATCH_ROLE"; exit 0; }
     _dlog="${LOG_DIR}/dispatch-${DISPATCH_ROLE}.log"
     if command -v setsid >/dev/null 2>&1; then
-        setsid sh "${SCRIPT_DIR}/codex-loop.sh" --worker "$DISPATCH_ROLE" --log "$LOG_DIR" \
+        setsid sh "${SCRIPT_DIR}/codex-loop.sh" --worker "$DISPATCH_ROLE" --claimed --log "$LOG_DIR" \
             >"$_dlog" 2>&1 &
     else
-        nohup sh "${SCRIPT_DIR}/codex-loop.sh" --worker "$DISPATCH_ROLE" --log "$LOG_DIR" \
+        nohup sh "${SCRIPT_DIR}/codex-loop.sh" --worker "$DISPATCH_ROLE" --claimed --log "$LOG_DIR" \
             >"$_dlog" 2>&1 &
     fi
-    printf 'codex dispatch %s: started pid=%s log=%s\n' "$DISPATCH_ROLE" "$!" "$_dlog"
+    _dpid=$!
+    # The claim above named THIS process, which is about to exit; hand it to the pid that will
+    # hold it. The parent is alive for the whole gap, so the role never reads idle in between.
+    command -v flock >/dev/null 2>&1 \
+        || printf '%s\n' "$_dpid" >"$(role_pidfile "$DISPATCH_ROLE")"
+    printf 'codex dispatch %s: started pid=%s log=%s\n' "$DISPATCH_ROLE" "$_dpid" "$_dlog"
     # WHERE THE RESULT WILL AND WILL NOT ARRIVE, said at the moment the child is detached
     # (2026-09-06, mission `finish-the-backlog-without-handing-it-back-to-the-operator`). This
     # returns instantly and the child outlives it — the lifetime the port needed, and the exact

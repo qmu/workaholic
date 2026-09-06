@@ -680,4 +680,5 @@
 * [A run parked on a watcher reads as idle and stops beating its claim](20260906121540-a-run-parked-on-a-watcher-reads-as-idle-and-stops-beating-its-claim.md)
 * [publish-tree-pr.sh declares six body arguments and prints two](20260906121812-publish-tree-pr-sh-declares-six-body-arguments-and-prints-two.md)
 * [blocked-tick picks its subject from every tick id in the day file and reports ok while blind](20260906124803-blocked-tick-picks-its-subject-from-every-tick-id-in-the-day-file-and-reports-ok-while-blind.md)
+* [The source resolver answers ok for a source missing scripts the run needs](20260906132040-the-source-resolver-answers-ok-for-a-source-missing-scripts-the-run-needs.md)
 <!-- okf:generated:end -->

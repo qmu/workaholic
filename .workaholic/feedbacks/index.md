@@ -697,4 +697,5 @@
 * [Read moderate's cadence from its own recorded finish](20260907030805-read-moderate-s-cadence-from-its-own-recorded-finish.md)
 * [Separate the loop's finish records from the moderation log, rather than patching each reader](20260907062639-separate-the-loop-s-finish-records-from-the-moderation-log-rather-than-patching-each-reader.md)
 * [A scratchpad redirect must not assume > truncates](20260907070309-a-scratchpad-redirect-must-not-assume-truncates.md)
+* [Keep a handoff branch mergeable while it waits for the person](20260907070904-keep-a-handoff-branch-mergeable-while-it-waits-for-the-person.md)
 <!-- okf:generated:end -->

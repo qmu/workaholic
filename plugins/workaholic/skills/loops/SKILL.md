@@ -147,6 +147,40 @@ home in the tick that calls it. `0` means every tick.
 missions, standing rulings, findings — are hourly by nature, and the log is a reader that
 already exists. An unreadable log spawns it.
 
+## A `running` runner is not necessarily a working one
+
+`ListAgents` reports `running` for a runner executing a tool and for one blocked forever on a
+permission dialog nobody will answer. **Measured 2026-09-06**: `implement-10` made its last tool
+call at 05:42:49 UTC and was reported `running` by **nine** consecutive calls until the parent
+stopped it by hand at 06:21:18 — 38m29s. The tick's reaping stops only `idle`, so a frozen runner
+is never stopped, never records `loop-finish-<name>`, and stays counted by the fan-out.
+
+`loops/scripts/read-runner-advance.sh` answers it, per running loop name, from the evidence the
+localization proved and no other. **What moves during healthy work and is flat during a freeze is
+the claim worktree's own files** — measured in one reading: a worktree mid-ticket had a newest
+mtime 101 seconds old while three worktrees of stopped runs read 15, 17 and 18 hours. **What is
+flat in both, and is therefore not read**: the claim tip and heartbeat (the beat is step 0 of every
+ticket rather than a cadence, so a run legitimately mid-ticket carries an old tip — record
+`20260906121540`, and `batch-20260831141002` resumed at 33 minutes while working; it is besides
+that on a remote ref, and this reader makes no network call), and `loop-finish-<name>`, which is
+written when a run is first observed **idle** and so says nothing during any run. `started` age
+stays retired and does not come back here.
+
+**Nothing this repository owns is keyed by loop subagent name** — a claim is keyed by unit, a
+worktree by unit, `loop-finish-<name>` by role — so a name cannot in general be bound to the
+worktree its runner writes in. The reader **refuses that binding by name** (`ambiguous_binding`)
+rather than inventing it, and answers exactly where the binding is not needed: every name is
+`advancing` when at least as many worktrees are advancing as there are runners, and every name is
+`not_advancing` when none is and every claim was readable.
+
+**An unreadable reading frees nothing**, in each of its forms — `no_claim_evidence` (no worktree
+exists to have moved, so a runner still surveying is indistinguishable from a frozen one),
+`claim_evidence_incomplete`, `role_holds_no_claim`, `bad_window`. `frozen_count` counts only the
+names actually answered `not_advancing`, so no consumer can spend a reading the reader declined to
+make; `running` and `advancing` ride beside it, leaving the gap visible without being spendable.
+A wrong `not_advancing` sends the loop after a runner that is working, which is the one way this
+reading can do harm. Drilled offline by `verify-runner-advance`.
+
 ## The allocation is decided from what the tick just read
 
 Read independently claimable work with `loops/scripts/claimable-units.sh` and machine CPU facts

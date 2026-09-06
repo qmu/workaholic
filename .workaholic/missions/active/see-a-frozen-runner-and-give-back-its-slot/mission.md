@@ -38,7 +38,7 @@ that cannot be made is named by its own reason and holds nothing.
 
 ## Acceptance
 
-- [ ] A reader answers, per running loop subagent, whether it is still advancing, refusing by
+- [x] A reader answers, per running loop subagent, whether it is still advancing, refusing by
       name rather than guessing. (#20260906185501-read-whether-a-running-loop-subagent-is-still-advancing.md)
 - [ ] A non-advancing runner no longer consumes a fan-out slot, and the tick report says so. (#20260906185501-stop-counting-a-non-advancing-runner-toward-the-fan-out.md)
 - [ ] The loop's own script calls reach the checkout, never the plugin cache path. (#20260906185501-keep-the-loop-s-own-script-calls-off-the-plugin-cache-path.md)
@@ -46,3 +46,4 @@ that cannot be made is named by its own reason and holds nothing.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-06 — ticket archived — 20260906185501-read-whether-a-running-loop-subagent-is-still-advancing.md

@@ -1810,6 +1810,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-retired-claim` | `hermetic` | yes | `retire-a-claim-whose-work-is-finished-or-abandoned` |
 | `verify-tick-thread` | `hermetic` | yes | `let-the-tick-add-to-a-standing-thread-instead-of-restating-itself` |
 | `verify-announced-asks` | `hermetic` | yes | `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread` |
+| `verify-runner-advance` | `hermetic` | yes | `see-a-frozen-runner-and-give-back-its-slot` |
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 | `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
 

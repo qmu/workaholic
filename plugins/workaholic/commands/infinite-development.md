@@ -210,6 +210,15 @@ of what is queued**, and the queue moves only when `implement` lands something o
 writes an ask — neither of which happens inside five minutes. `0` means every tick. What was
 measured, and why a change-detector was refused: `workaholic:loops`, *The record behind the tick*.
 
+**A `running` runner is not necessarily a working one, and the tick reads which** (2026-09-06,
+mission `see-a-frozen-runner-and-give-back-its-slot`). `ListAgents` says `running` for a runner
+executing a tool and for one blocked forever on a permission dialog nobody will answer — measured,
+`implement-10` frozen 38m29s and reported healthy by nine consecutive calls. Read
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-runner-advance.sh --names <the running loop
+names>`: per name `advancing` / `not_advancing` / `unreadable:<reason>`, off the claim worktree's
+own files, offline and local. **This reading changes no allocation and stops no agent** — it is
+evidence in §3, nothing else reads it, and the killing is nobody's.
+
 Read claimable units with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/claimable-units.sh` and
 CPU facts with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-machine-load.sh`. Spawn
 `min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − running)` implement runners; absent means one,
@@ -328,6 +337,12 @@ that this mission's archive is non-empty.
   held the fan-out** and never what the tick would otherwise have spawned, and it **reaches Slack
   through nothing**: this is the tick's own run report, and the loop posts no status line about its
   own capacity.
+- **Whether each running runner is advancing, and only when it has something to say**: a runner the
+  reader answers `not_advancing` for is named with its idle age, and an `unreadable:<reason>` reading
+  is named by that reason — **never as advancing**, and never as a runner that is stuck. A tick whose
+  every running runner is advancing adds no line, the machine line's own rule and for its reason. It
+  carries no mention token, reaches Slack through nothing, and **nothing acts on it**: no agent is
+  stopped and no allocation moves.
 - **Every reaping is named** — `reaped: <name>` — even on a tick that spawns nothing, because
   stopping a session is an act the tick took and the listing afterwards is the only other evidence.
 - **The cadence's own source is named where a loop was skipped**: `not_due: <name> (finish

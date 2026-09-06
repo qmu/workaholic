@@ -6,6 +6,7 @@ depends_on:
 merge_policy:
 verification_handoff: 
 feedback: 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md
+claim: work-20260906-214424
 ---
 
 # Stop the dispatch-lock drill from racing its own worker

@@ -181,12 +181,32 @@ make; `running` and `advancing` ride beside it, leaving the gap visible without 
 A wrong `not_advancing` sends the loop after a runner that is working, which is the one way this
 reading can do harm. Drilled offline by `verify-runner-advance`.
 
+**A `not_advancing` runner stops consuming a fan-out slot**, and that is the whole act. It is
+subtracted from `running` **in the fan-out expression and nowhere else** — the concurrency rule's
+other half is byte-identical, so a loop whose subagent is `running` and **advancing** is still not
+spawned again. Measured with `WORKAHOLIC_IMPLEMENT_FANOUT=3` and one frozen runner: a 2-runner
+loop for 38 minutes, with no tick report saying so.
+
+**The slot is what recovers the work, and the claim protocol already owns the rest**: the frozen
+runner's heartbeat lapses and `claim.sh resume` takes over one's **own** lapsed claim, so a runner
+spawned into the freed slot picks the unit up. No second path to release a claim was added.
+
+**Nothing is stopped or killed on this reading.** The unconditional `TaskStop` stays on `idle`, and
+extending an unconditional stop to a *judgement* about advancement would kill work in progress —
+the mistake the machine-load bound already refuses by name. The frozen session is the operator's to
+end, or the next `idle` observation's. The reading is taken fresh each tick, as `claimable-units.sh`
+and `read-machine-load.sh` are: no store, no cursor, no field on any artifact. The risk it carries
+is a false `not_advancing` on a slow unit, which would spawn a second runner against a working one;
+the claim arbiter settles that race and the loser refuses `claim_race_lost` holding nothing, so the
+cost is bounded — but the reader's precision is the reader's obligation, not something compensated
+for here.
+
 ## The allocation is decided from what the tick just read
 
 Read independently claimable work with `loops/scripts/claimable-units.sh` and machine CPU facts
 with `loops/scripts/read-machine-load.sh`. Both return null counts with a named degradation when
 they cannot read; a missing reading never becomes a plausible zero. `implement` fans out to
-`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound − running)`, with an absent bound meaning
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound − (running − not_advancing))`, with an absent bound meaning
 one and an invalid bound reported as `bad_fanout`. Each runner surveys and claims for itself, so
 the claim arbiter remains the only allocator and a losing race holds nothing.
 

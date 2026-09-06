@@ -468,7 +468,25 @@ if [ -f "$ARBITER" ]; then
             # cannot be removed*, which no amount of surveying repairs: the unit is parked
             # until the lock goes. Reporting the second as the first is what made three days
             # of hourly refusals look like ordinary contention.
-            if [ -n "${arb_unreapable:-}" ]; then
+            # TWO TERMS, AND THE DRILL MEASURED WHY BOTH ARE NEEDED (2026-09-06,
+            # `verify-claim-race`). The first cut of this refused `claim_lock_unreapable`
+            # whenever the sweep reported ANY unreapable lock, and the drill's genuine race --
+            # a winner that has taken its ref and not yet pushed its branch -- was reported as
+            # a permanent park. Two things were wrong. The sweep speaks about EVERY lock it
+            # met, so an unrelated artifact's failure must not change this unit's word; and
+            # `undatable` is the ABSENCE OF A READING, not a proof of orphanhood -- a lock we
+            # cannot date may be a healthy claim seconds old, which is exactly what the drill
+            # holds. Only `push_refused` on THIS unit's own contended ref proves the lock is
+            # both standing for nothing and immovable; everything else stays `claim_race_lost`,
+            # whose recovery -- survey again -- is harmless when the race was real.
+            _arb_stuck=false
+            if [ -n "${_arb_held:-}" ] && [ -n "${arb_unreapable:-}" ]; then
+                printf '%s' "$arb_unreapable" \
+                    | tr '}' '\n' \
+                    | grep -F "\"ref\": \"${_arb_held}\"" 2>/dev/null \
+                    | grep -q '"reason": "push_refused"' 2>/dev/null && _arb_stuck=true
+            fi
+            if [ "$_arb_stuck" = true ]; then
                 fail "claim_lock_unreapable" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "unreapable": ['"${arb_unreapable}"'], "detail": "no live claim holds this unit and its arbiter lock could not be swept; surveying again will not repair it"'
             fi
             fail "claim_race_lost" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "detail": "another runner won this unit'"'"'s arbitration at the remote; nothing was written here -- survey again"'

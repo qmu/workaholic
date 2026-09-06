@@ -22118,6 +22118,18 @@ function testTickOperativeCost() {
   assertTrue("and the command cites it rather than carrying it",
     /The record behind the tick/.test(cmd), "the command cites no record");
   assertTrue("the cadence gate asks for one line", /--latest-tick/.test(cmd), "the gate reads the day");
+  // AND THE MODERATE GATE READS ITS OWN FINISH, not whichever tick wrote last (2026-09-07, ticket
+  // `20260907031134`). Every loop writes `loop-finish-<name>` into one file under the COORDINATOR's
+  // tick id, so an unfiltered `--latest-tick` is pushed forward by a write that has nothing to do
+  // with `moderate` -- measured, the real finish was 19 minutes older than the gate believed, and
+  // the wrong answer is a well-formed tick id, so no degradation word fires. The row above cannot
+  // see this: it passes on the `implement`/`propose` block alone. Anchored on the log-read call in
+  // the moderate gate's own paragraph, so deleting the filter fails here rather than elsewhere.
+  const moderateGate = /moderate.{0,80}gate is read from its own tick log[\s\S]*?older than 30 minutes/.exec(cmd);
+  assertTrue("the moderate gate's paragraph is findable", !!moderateGate, "the gate moved or was renamed");
+  assertTrue("and it reads moderate's OWN recorded finish, never the newest line in the log",
+    /log-read\.sh --step-prefix loop-finish-moderate --latest-tick/.test(moderateGate ? moderateGate[0] : ""),
+    "the moderate gate reads the log unfiltered");
   assertTrue("the channel is read in the concise format", /concise format/.test(cmd), "format unnamed");
   assertTrue("a run's result reaches the parent once", /reaches the\s+parent once/.test(cmd), "unstated");
 

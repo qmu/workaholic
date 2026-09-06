@@ -143,9 +143,13 @@ change-detector was refused by name: *has the queue moved* is a second derivatio
 home in the tick that calls it. `0` means every tick.
 
 `moderate` runs on a **30-minute** gate read from its own tick log
-(`moderate/scripts/log-read.sh`) rather than from the listing: its acts — retirement, closable
-missions, standing rulings, findings — are hourly by nature, and the log is a reader that
-already exists. An unreadable log spawns it.
+(`moderate/scripts/log-read.sh --step-prefix loop-finish-moderate --latest-tick`) rather than from
+the listing: its acts — retirement, closable missions, standing rulings, findings — are hourly by
+nature, and the log is a reader that already exists. An unreadable log spawns it. **The step filter
+is what makes it *its own***: every loop's `loop-finish-<name>` line lands in that one file under
+the coordinator's tick id, so an unfiltered read answers whichever tick wrote last and the gate can
+read *moderate ran just now* indefinitely — silently, because the wrong answer is a well-formed
+tick id (2026-09-07, ticket `20260907031134`).
 
 ## A `running` runner is not necessarily a working one
 

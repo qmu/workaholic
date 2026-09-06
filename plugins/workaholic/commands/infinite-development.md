@@ -287,10 +287,21 @@ with the Read tool.
 
 **`moderate`'s gate is read from its own tick log rather than from the listing**, because its
 acts are hourly by nature and the log is a reader that already exists: run
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --latest-tick` — which answers
-that one timestamp and **carries no entries** — and spawn it only when the newest tick there is
-**older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just now*. An unreadable log spawns it — over-reporting
-beats a maintenance tick that silently stopped.
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-moderate --latest-tick`
+— which answers that one timestamp and **carries no entries** — and spawn it only when the newest
+tick there is **older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just
+now*. An unreadable log spawns it — over-reporting beats a maintenance tick that silently stopped.
+
+**The filter is what makes it `moderate`'s own gate** (2026-09-07, ticket `20260907031134`). Every
+loop writes its `loop-finish-<name>` line into this same file under the **coordinator's** tick id,
+so an unfiltered `--latest-tick` answers whichever tick wrote last — normally this tick itself —
+and the gate reads *moderate ran just now* on a loop busy enough to write every five minutes.
+Measured at coordinator tick `20260906-175547`: the bare read answered `20260906-174615` (that
+session's own `loop-finish-propose` line) while the filtered read answered `20260906-173626`, so
+the real finish was 19 minutes older than the gate believed. **The failure is silent by
+construction** — the wrong answer is a well-formed tick id, so no `cadence_unreadable` fires and
+nothing reports a maintenance tick that was never spawned. All three cadences are therefore keyed
+on the same filtered shape, which is the one `implement` and `propose` already read.
 
 Then **end the turn**. Do not poll, do not await, do not summarise their work: their results
 arrive as task notifications, and the next tick reports what landed. **A run's result reaches the

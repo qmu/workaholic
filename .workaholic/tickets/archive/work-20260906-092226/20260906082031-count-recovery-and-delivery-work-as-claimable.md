@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T08:20:31+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -90,3 +91,57 @@ work even when no ticket is newly claimable.
 - `parked_with_pr` and `awaiting_verification` were excluded for stated reasons. Widening
   must say, per verdict, whether the reason still holds — the `verification_handoff` probe
   form (2026-09-03) already falsifies one of them at claim time.
+
+## Final Report
+
+**Reproduced first (step 1).** Fed `claimable-units.sh` a survey whose only work was one
+`report_undelivered` unit: it answered `{"claimable":0,"missions":0,"backlog_units":0,"resumable":0}`
+— **byte-identical** to the answer for a repository with genuinely nothing to do. The exclusion is
+visible at the header's own words (*`parked_with_pr`, `awaiting_verification` and `superseded` are
+not*, which never named the recovery verdicts at all) and at the `jq` sum, which added only
+`missions + backlog_units + resumable`.
+
+**Implemented.** The count now composes readers that already exist — `plan-units.sh`'s own
+`undelivered[]`, `drive/scripts/list-catchable-claims.sh`, and
+`branching/scripts/list-stranded-publications.sh` (only the `mechanical` / `clean` / `content`
+classes the settle act operates on). No second walker, no new field on any artifact, no verdict
+re-derived.
+
+**The one judgement made here, and its reason: all recovery work is ONE unit.** Those three acts
+are once-per-run readings inside the Unified Run, so a single `/implement` pass walks every entry;
+counting per entry would spawn N runners to do one runner's work and race them on the same pull
+requests. `recovery_units` is therefore 0 or 1, with `undelivered` / `catchable` / `stranded` riding
+beside it so the tick's allocation line can name which term earned the runner. A unit in two sets is
+counted once.
+
+**Per verdict, whether the old exclusion still holds** (the Considerations asked for this):
+`superseded` holds nothing to drive and its retirement is CI's — uncounted. `parked_with_pr` waits
+on a person by the oracle's own word, and its actionable half is already reached through the
+catchable term — uncounted. `awaiting_verification` waits on a declared verification, and this
+reader runs no probes; counting it on the chance a probe now reads `clean` would spawn a runner on
+a guess — uncounted.
+
+**Cost, decided and stated** (the Considerations asked which): the survey is still paid for once
+(`--survey` unchanged), and the two recovery readers add bounded REST listings, once per tick rather
+than once per entry. `--recovery <path|->` is the same escape hatch for a caller that has already
+made those readings; the suite uses it to stay hermetic. Measured live here: 46s for the whole
+reader.
+
+**Reproduction re-run, now answering differently** — each acceptance criterion, in order:
+- only an undelivered unit → `{"claimable":1,...,"recovery_units":1,"undelivered":1}`
+- only a catchable claim → `claimable:1`, `catchable:1`
+- only a stranded publication → `claimable:1`, `stranded:1`
+- nine recovery entries across all three → `claimable:1`, `recovery_units:1` (one unit, not nine)
+- one unit in both sets → `claimable:1` (counted once)
+- two missions plus recovery work → `claimable:3` (it adds, never replaces)
+- genuinely nothing to do → `claimable:0`, `readable` absent
+- an unreadable recovery component → `{"readable":false,"reason":"recovery_unreadable","claimable":null}`
+- a blind survey → still `{"readable":false,"reason":"not_current","claimable":null}`
+
+**Gate.** `node scripts/test-workflow-scripts.mjs` — **6663 passed, 0 failed**. The suite's own
+`claimable-units.sh` row was rewritten to hand both readings in (`--survey <file> --recovery <file>`)
+so it stays hermetic — without that it would reach GitHub — and it now pins the recovery term, the
+one-unit rule, the dedup, the addition, the still-zero case and the unreadable component.
+
+**Docs updated in the same change**: `skills/loops/SKILL.md`, `commands/infinite-development.md`
+(the §3 allocation line now names the recovery term that earned the runner) and `CLAUDE.md`'s *Loops*.

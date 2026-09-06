@@ -156,6 +156,36 @@ they cannot read; a missing reading never becomes a plausible zero. `implement` 
 one and an invalid bound reported as `bad_fanout`. Each runner surveys and claims for itself, so
 the claim arbiter remains the only allocator and a losing race holds nothing.
 
+**The question that count answers is *is there work an `/implement` pass would act on*, which is
+not *is there a new unit to claim*** (2026-09-06, mission
+`finish-the-backlog-without-handing-it-back-to-the-operator`). Those two stopped being the same
+question once the Unified Run grew its recovery and delivery acts, and until this the count read
+only the survey's fresh units: **measured**, a repository whose only work was one
+`report_undelivered` unit answered `claimable: 0`, byte-identical to one with genuinely nothing
+to do, so no runner was spawned at all — while an `/implement` pass would have caught the branch
+up and merged it. The operator's own report of the failure is 28 tickets waiting, zero units and
+four conflicting pull requests with no pass ever run to inspect them. The count therefore
+composes `plan-units.sh`'s own `undelivered[]`, `drive/scripts/list-catchable-claims.sh` and
+`branching/scripts/list-stranded-publications.sh` — readers that already exist, no second walker,
+no new field, no verdict re-derived.
+
+**All of that recovery work is ONE unit**, for the reason all loose backlog is one: those three
+are **once-per-run** acts, so a single pass walks every entry, and counting them per entry would
+spawn N runners to do one runner's work and race each other on the same pull requests. The
+per-term counts (`undelivered`, `catchable`, `stranded`) ride beside `recovery_units` so the
+tick's report can name **which** term earned the runner. A unit appearing in two of the sets is
+counted once. `parked_with_pr`, `awaiting_verification` and `superseded` are still not counted —
+the first is reached through the catchable term where it is actionable at all, the second waits
+on a declared verification this reader may not probe, and the third holds nothing to drive.
+
+**A recovery component that could not be read answers `readable: false` with its own reason**
+(`catchable_unreadable`, `stranded_unreadable`), never a zero: the caller's stated behaviour on
+an unreadable count is to fall back to one runner and report it, so a named degradation still
+spawns the pass that a zero would not. The cost is stated rather than tuned around — the two
+readers add bounded REST reads of this repository's open pull requests, once per tick and never
+once per entry, and `--recovery <path|->` lets a caller that has already made those readings hand
+them in.
+
 **Both bounds are declared in `.claude/settings.json`'s `env` block**, beside `WORKAHOLIC_WIP_LIMIT`
 and for its reason: a routine declares no environment variables of its own — it *selects* an
 account-level environment — so a per-repository number has to live in the repository

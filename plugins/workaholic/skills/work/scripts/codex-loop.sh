@@ -47,6 +47,11 @@ PLUGIN_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/../../.." && pwd)
 TICK_PROMPT="${PLUGIN_ROOT}/skills/work/SKILL.md"
 COMMAND_BODY="${PLUGIN_ROOT}/commands/infinite-development.md"
 RELAY_CONTRACT="${SCRIPT_DIR}/relay-contract.sh"
+WORKER_SCHEMA="${SCRIPT_DIR}/worker-result.schema.json"
+# ONE SENTENCE, SHARED BY THE TICK AND EVERY WORKER, so the four facts are asked for in one
+# wording. `executed` is the fact the exit status used to stand in for, and the run grades itself
+# with the token its own command body derives rather than with a word of its choosing.
+RESULT_CLAUSE="Return your result as a JSON object matching the supplied schema: \`executed\` true only if you actually read that command body and performed it, \`outcome\` the terminal token the command body itself derives, \`reason\` naming what stopped or withheld it (empty when the outcome is ok), and \`report\` carrying the run's own report block verbatim."
 
 if [ ! -f "$TICK_PROMPT" ]; then
     printf 'plugin_skill_missing: %s\n' "$TICK_PROMPT" >&2
@@ -112,8 +117,39 @@ show_status() {
     return 5
 }
 
+# A ROLE'S LINE CARRIES WHAT THE WORKER REPORTED, NOT WHAT THE COORDINATOR GUESSED (2026-09-06,
+# mission `finish-the-backlog-without-handing-it-back-to-the-operator`). `role_state` answers only
+# whether a process is holding the lock right now, which says nothing about whether the last run
+# executed or what became of it — so the periodic report was composed from liveness alone. The
+# outcome is read back from the tick log's own `loop-attempt-<role>` line, the record that keeps
+# the four facts apart, and a role with **no** recorded attempt is named `unrecorded` rather than
+# rendered as a healthy finish.
+last_worker_outcome() {
+    _lw_read="${SCRIPT_DIR}/../../moderate/scripts/log-read.sh"
+    [ -f "$_lw_read" ] || { printf 'unreadable:no_log_reader'; return 0; }
+    command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
+    _lw_json=$(sh "$_lw_read" --step-prefix "loop-attempt-$1" --latest-tick 2>/dev/null || true)
+    [ -n "$_lw_json" ] || { printf 'unreadable:no_log'; return 0; }
+    printf '%s' "$_lw_json" | jq -e '.read == true' >/dev/null 2>&1 \
+        || { printf 'unreadable:log_unreadable'; return 0; }
+    [ "$(printf '%s' "$_lw_json" | jq -r '.entries | length' 2>/dev/null || printf 0)" -gt 0 ] \
+        || { printf 'unrecorded'; return 0; }
+    # The summary is `<role> attempted (<outcome>)`; the outcome is what is inside the brackets.
+    _lw_out=$(printf '%s' "$_lw_json" \
+        | jq -r '[.entries[].summary] | last // ""' 2>/dev/null \
+        | sed -n 's/.*attempted (\([^)]*\)).*/\1/p')
+    [ -n "$_lw_out" ] || _lw_out=unreadable:unparseable_attempt
+    printf '%s' "$_lw_out"
+}
+
 show_workers() {
-    for _r in $ROLES; do printf 'codex worker %s: %s\n' "$_r" "$(role_state "$_r")"; done
+    for _r in $ROLES; do
+        printf 'codex worker %s: %s last_outcome=%s\n' \
+            "$_r" "$(role_state "$_r")" "$(last_worker_outcome "$_r")"
+    done
+    # WHERE A REPORT ARRIVES AND WHERE IT DOES NOT, named rather than left to be discovered. An
+    # absent delivery path is never substituted for one that delivers somewhere else.
+    printf 'codex loop reports: dir=%s chat_return=none\n' "$LOG_DIR"
 }
 
 if [ -n "$ACK_FILE" ]; then
@@ -272,6 +308,25 @@ classify_report() {
     elif grep -Eq '(^|[[:space:]])(blocked|failed|[[:alnum:]_]+_failed|cadence_unreadable):' "$_report_file"; then
         TICK_OUTCOME=work_blocked
         BLOCKED_REASON=$(grep -E '(^|[[:space:]])(blocked|failed|[[:alnum:]_]+_failed|cadence_unreadable):' "$_report_file" | head -n 1 | tr '\n' ' ')
+    else
+        # THE DEFAULT IS A READING, NOT AN ASSUMPTION (2026-09-06, mission
+        # `finish-the-backlog-without-handing-it-back-to-the-operator`). `ready` used to be what a
+        # report got for matching none of the patterns above, so a report that said nothing this
+        # function knows how to read — including one from a run that never executed — was graded a
+        # healthy tick. The rungs above are UNCHANGED and still fire first; only the fall-through
+        # moved, and it now asks the report itself through the same schema-constrained reading the
+        # workers use. An absence of a reading is never a healthy run.
+        _tick_outcome_word=$(worker_outcome "$_report_file" 0)
+        case "$_tick_outcome_word" in
+            ok) : ;;
+            unreadable:*)
+                TICK_OUTCOME=report_unreadable
+                BLOCKED_REASON="$_tick_outcome_word"
+                TRANSPORT_VERDICT=unknown ;;
+            *)
+                TICK_OUTCOME=work_blocked
+                BLOCKED_REASON="$_tick_outcome_word" ;;
+        esac
     fi
 }
 
@@ -294,7 +349,7 @@ run_tick() {
     _transcript="${LOG_DIR}/${_stamp}.log"
     _started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     CURRENT_TICK=$_stamp CURRENT_STARTED=$_started CURRENT_REPORT=$_out CURRENT_TRANSCRIPT=$_transcript
-    _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. Report the tick's own report block as your final message."
+    _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. ${RESULT_CLAUSE}"
     if [ "$RELAY" = true ]; then
         _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
     fi
@@ -303,8 +358,15 @@ run_tick() {
         return 0
     fi
     write_status running running "" "$_stamp" "$_started" "" "$_out" "$_transcript" unknown ""
+    # The tick reports through the same schema its workers do, so `classify_report`'s default is
+    # a reading rather than an assumption. The relay path keeps its own envelope and takes none.
+    if [ "$RELAY" != true ] && [ -f "$WORKER_SCHEMA" ]; then
+        set -- --output-schema "$WORKER_SCHEMA"
+    else
+        set --
+    fi
     if codex exec -C "$REPO_ROOT" --dangerously-bypass-approvals-and-sandbox \
-        -c shell_environment_policy.inherit=all --output-last-message "$_out" "$_prompt" \
+        -c shell_environment_policy.inherit=all "$@" --output-last-message "$_out" "$_prompt" \
         >"$_transcript" 2>&1; then
         _exit=0
     else
@@ -325,16 +387,132 @@ run_tick() {
     [ "$TICK_OUTCOME" = ready ]
 }
 
+# FOUR FACTS, FOUR PIECES OF EVIDENCE (2026-09-06, mission
+# `finish-the-backlog-without-handing-it-back-to-the-operator`). The finish was written from the
+# **process exit status** and nothing else, so a worker that exited zero while reporting it could
+# not execute recorded a healthy finish and the cadence counted the role done — MEASURED by
+# shimming exactly that worker. *The process terminated*, *the role was executed*, *the work
+# completed* and *the notification was delivered* are four different facts, and one of them was
+# standing in for all four.
+#
+# THE OUTCOME COMES FROM WHAT THE WORKER REPORTED, not from its exit status and not from words
+# grepped out of prose. `codex exec --output-schema` constrains the final message to
+# `worker-result.schema.json` — CONFIRMED against the installed CLI rather than assumed:
+# `codex-cli 0.153.4` lists `--output-schema <FILE>`, `--output-last-message <FILE>` and `--json`.
+# This extends the relay path's envelope validation rather than adding a second mechanism: the
+# non-relay path had no structured result at all, and now it has one.
+#
+# AN ABSENCE OF A READING IS NEVER A HEALTHY RUN. A report that is missing, empty, not JSON or
+# missing a required field reads `unreadable:<reason>` — never `ok` — the same rule every other
+# three-valued reader in this repository holds.
+worker_outcome() {
+    _wo_report=$1 _wo_exit=$2
+    [ "$_wo_exit" -eq 0 ] || { printf 'failed:codex_exit_%s' "$_wo_exit"; return 0; }
+    [ -s "$_wo_report" ] || { printf 'unreadable:no_report'; return 0; }
+    command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
+    jq -e 'type == "object" and (.executed | type == "boolean")
+           and (.outcome | type == "string") and (.report | type == "string")' \
+        "$_wo_report" >/dev/null 2>&1 || { printf 'unreadable:unparseable_report'; return 0; }
+    _wo_reason=$(jq -r '.reason // ""' "$_wo_report" 2>/dev/null || printf '')
+    [ -n "$_wo_reason" ] || _wo_reason=unstated
+    if [ "$(jq -r '.executed' "$_wo_report" 2>/dev/null || printf false)" != true ]; then
+        printf 'not_executed:%s' "$_wo_reason"; return 0
+    fi
+    case "$(jq -r '.outcome' "$_wo_report" 2>/dev/null || printf '')" in
+        ok|pending) printf 'ok' ;;
+        blocked)    printf 'blocked:%s' "$_wo_reason" ;;
+        failed)     printf 'failed:%s' "$_wo_reason" ;;
+        *)          printf 'unreadable:unknown_outcome' ;;
+    esac
+}
+
+# THE ATTEMPT AND THE OUTCOME ARE RECORDED SEPARATELY, AND THE LINE SAYS WHICH IT CARRIES.
+# `loop-attempt-<role>` is written for EVERY run and says what became of it; `loop-finish-<role>`
+# — the line the cadence reads, whose reader is untouched — is written only for a run that
+# actually executed, so a worker that did nothing leaves its role DUE rather than counted done.
+#
+# THE RETRY IS BOUNDED HERE RATHER THAN AT THE CALL SITE, because a role left due by every failed
+# attempt would otherwise retry on every tick forever. After `WORKAHOLIC_WORKER_ATTEMPT_MAX`
+# consecutive unhealthy attempts (default **3**) the finish line IS written, naming the outcome,
+# so the role falls back to its ordinary cadence instead of spinning. `0` means no bound — retry
+# on every tick — and a non-numeric or negative value falls back to 3 rather than holding
+# anything, the rule every declared number in this loop already follows.
+#
+# `log-append.sh` REMAINS THE ONE WRITER and its `(tick, step)` idempotence is untouched.
 record_worker_finish() {
-    # The cadence readers are the tick log's, unchanged: a finish is recorded even for a run
-    # that failed, because the cadence measures WHEN WE LAST TRIED.
+    _rw_role=$1 _rw_outcome=$2
     _tick_id_sh="${SCRIPT_DIR}/../../moderate/scripts/tick-id.sh"
     _log_append_sh="${SCRIPT_DIR}/../../moderate/scripts/log-append.sh"
+    _log_read_sh="${SCRIPT_DIR}/../../moderate/scripts/log-read.sh"
     [ -f "$_tick_id_sh" ] && [ -f "$_log_append_sh" ] || return 0
     _tick=$(sh "$_tick_id_sh" 2>/dev/null || true)
     [ -n "$_tick" ] || return 0
-    sh "$_log_append_sh" --tick "$_tick" --step "loop-finish-$1" \
-        --status ok --summary "$1 finished (exit $2)" >/dev/null 2>&1 || true
+
+    _rw_status=ok
+    [ "$_rw_outcome" = ok ] || _rw_status=blocked
+    sh "$_log_append_sh" --tick "$_tick" --step "loop-attempt-${_rw_role}" \
+        --status "$_rw_status" --summary "${_rw_role} attempted (${_rw_outcome})" \
+        >/dev/null 2>&1 || true
+
+    if [ "$_rw_outcome" = ok ]; then
+        sh "$_log_append_sh" --tick "$_tick" --step "loop-finish-${_rw_role}" \
+            --status ok --summary "${_rw_role} finished (${_rw_outcome})" >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    _rw_max=${WORKAHOLIC_WORKER_ATTEMPT_MAX:-3}
+    case "$_rw_max" in ''|*[!0-9]*) _rw_max=3 ;; esac
+    [ "$_rw_max" -eq 0 ] && return 0
+    [ -f "$_log_read_sh" ] || return 0
+    _rw_seen=$(sh "$_log_read_sh" --step-prefix "loop-attempt-${_rw_role}" --status blocked \
+        2>/dev/null | grep -c . || true)
+    case "$_rw_seen" in ''|*[!0-9]*) _rw_seen=0 ;; esac
+    if [ "$_rw_seen" -ge "$_rw_max" ]; then
+        sh "$_log_append_sh" --tick "$_tick" --step "loop-finish-${_rw_role}" \
+            --status blocked \
+            --summary "${_rw_role} not executed ${_rw_seen} times (${_rw_outcome}); held to its ordinary cadence" \
+            >/dev/null 2>&1 || true
+    fi
+}
+
+# THE PROMPT IS PER ROLE, BECAUSE THE ROLES ARE NOT THE SAME JOB (2026-09-06, mission
+# `finish-the-backlog-without-handing-it-back-to-the-operator`). One generic string named
+# `commands/<role>.md` and forbade every worker from touching the channel, and both halves of
+# that were wrong for a role. MEASURED, verbatim, from `--worker propose --dry-run`: the prompt
+# named `commands/propose.md` and nothing else, so a dispatched `propose` opened or refused a
+# proposal and **nothing ingested it** — the routine's own contract is propose **then**
+# specificate. And the blanket ban disabled `/moderate`'s `question-answers` and
+# `thread-reconcile`, which read a thread they already hold a coordinate or a resolved lookup
+# for; that is not a channel turn, and banning it cost the tick two steps for nothing.
+#
+# THE BOUNDARY IS STATED IN ONE PLACE and cited here rather than re-argued:
+# `skills/work/reference/other-agents.md`, *Who owns the channel*. The coordinator owns the
+# channel **turn** — reading the window, answering a message in it, filing an inbound ask,
+# posting a receipt — and no worker does any of those. Reading or replying to a thread a step
+# already identified is a different act and belongs to the step that identified it.
+#
+# EACH CLAUSE IS DERIVED FROM THE COMMAND BODY IT NAMES, so there is one source and not two: a
+# clause points the worker at a command body to read, and never paraphrases what that body says.
+role_clause() {
+    case "$1" in
+        propose)
+            printf 'This role is the propose-then-specificate sequence the routine contract names: when %s is done, read %s/commands/specificate.md in full and execute it once as well, so an ask this run opens is ingested in the same run. The `only_the_loop_spoke` reading is handed in by the coordinator; with none handed in, treat it as `unreadable` and never take it yourself.' \
+                "$ROLE_BODY" "$PLUGIN_ROOT" ;;
+        moderate)
+            printf 'Your `question-answers` and `thread-reconcile` steps read and reply into a thread they already hold a coordinate or a resolved lookup for. That is not the channel turn and it is yours to perform, exactly as %s/commands/moderate.md specifies it.' \
+                "$PLUGIN_ROOT" ;;
+        implement)
+            printf 'Your per-unit finish line resolves its own thread by the stateless lookup carried in %s/commands/implement.md and posts into it. That is not the channel turn and it is yours to perform.' \
+                "$PLUGIN_ROOT" ;;
+        *) printf '' ;;
+    esac
+}
+
+# ONE COMPOSER, read by the worker and by the dispatch's dry run alike. A second copy of this
+# string is how the two would come to disagree about what a worker was told.
+worker_prompt() {
+    printf 'Read %s in full and execute it exactly once in this repository, applying the substitutions in %s/skills/work/SKILL.md for an agent with no background subagents. %s Do not loop and do not start another worker. The coordinator owns the channel turn — do not read the inbound channel window, answer a message in it, file an inbound ask or post a receipt; the boundary is stated in %s/skills/work/reference/other-agents.md. %s' \
+        "$ROLE_BODY" "$PLUGIN_ROOT" "$(role_clause "$1")" "$PLUGIN_ROOT" "$RESULT_CLAUSE"
 }
 
 run_worker() {
@@ -342,17 +520,26 @@ run_worker() {
     _wstamp=$(date -u +%Y%m%dT%H%M%SZ)
     _wout="${LOG_DIR}/${_wstamp}-${_role}.md"
     _wlog="${LOG_DIR}/${_wstamp}-${_role}.log"
-    _wprompt="Read ${ROLE_BODY} in full and execute it exactly once in this repository, applying the substitutions in ${PLUGIN_ROOT}/skills/work/SKILL.md for an agent with no background subagents. Do not loop, do not start another worker, and do not read or answer the inbound channel — the coordinator owns that. Report the run's own report block as your final message."
+    _wprompt=$(worker_prompt "$_role")
     if [ "$DRY_RUN" = true ]; then
         printf 'codex exec -C %s --dangerously-bypass-approvals-and-sandbox --output-last-message %s %s\n' \
             "$REPO_ROOT" "$_wout" "$_wprompt"
         return 0
     fi
+    # The schema is passed when the file is present; without it the run still happens and its
+    # unstructured report reads `unreadable:unparseable_report`, which is the honest word and
+    # never `ok`.
+    if [ -f "$WORKER_SCHEMA" ]; then
+        set -- --output-schema "$WORKER_SCHEMA"
+    else
+        set --
+    fi
     if codex exec -C "$REPO_ROOT" --dangerously-bypass-approvals-and-sandbox \
-        -c shell_environment_policy.inherit=all --output-last-message "$_wout" "$_wprompt" \
+        -c shell_environment_policy.inherit=all "$@" --output-last-message "$_wout" "$_wprompt" \
         >"$_wlog" 2>&1; then _wexit=0; else _wexit=$?; fi
-    record_worker_finish "$_role" "$_wexit"
-    printf 'codex worker %s: exit=%s report=%s\n' "$_role" "$_wexit" "$_wout"
+    _woutcome=$(worker_outcome "$_wout" "$_wexit")
+    record_worker_finish "$_role" "$_woutcome"
+    printf 'codex worker %s: exit=%s outcome=%s report=%s\n' "$_role" "$_wexit" "$_woutcome" "$_wout"
     return 0
 }
 
@@ -377,7 +564,12 @@ if [ -n "$DISPATCH_ROLE" ]; then
         exit 0
     fi
     if [ "$DRY_RUN" = true ]; then
+        # THE DRY RUN SHOWS THE PROMPT IT WOULD DISPATCH. It printed one line naming neither the
+        # role body nor the clause, so the composed prompt — the thing a reader needs to check —
+        # was visible only through `--worker <role> --dry-run`, one layer down and easy to run
+        # for real by mistake. The dispatch starts nothing either way.
         printf 'codex dispatch %s: would start a detached worker\n' "$DISPATCH_ROLE"
+        printf 'prompt: %s\n' "$(worker_prompt "$DISPATCH_ROLE")"
         exit 0
     fi
     _dlog="${LOG_DIR}/dispatch-${DISPATCH_ROLE}.log"
@@ -389,6 +581,11 @@ if [ -n "$DISPATCH_ROLE" ]; then
             >"$_dlog" 2>&1 &
     fi
     printf 'codex dispatch %s: started pid=%s log=%s\n' "$DISPATCH_ROLE" "$!" "$_dlog"
+    # WHERE THE RESULT WILL AND WILL NOT ARRIVE, said at the moment the child is detached
+    # (2026-09-06, mission `finish-the-backlog-without-handing-it-back-to-the-operator`). This
+    # returns instantly and the child outlives it — the lifetime the port needed, and the exact
+    # reason no result can come back through the process that returned.
+    printf 'codex dispatch %s: report=%s chat_return=none\n' "$DISPATCH_ROLE" "$LOG_DIR"
     exit 0
 fi
 

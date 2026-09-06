@@ -38,7 +38,7 @@ completion reach the operator or are named undelivered.
 
 ## Acceptance
 
-- [ ] A tick with no newly claimable ticket still dispatches a pass acting on the open
+- [x] A tick with no newly claimable ticket still dispatches a pass acting on the open
       recovery and delivery states. (#20260906082031-count-recovery-and-delivery-work-as-claimable.md)
 - [ ] A worker's finish comes from its own reported outcome; one exiting zero without
       executing is not finished. (#20260906082031-record-a-worker-s-finish-from-its-own-reported-outcome.md)
@@ -48,3 +48,4 @@ completion reach the operator or are named undelivered.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-06 — ticket archived — 20260906082031-count-recovery-and-delivery-work-as-claimable.md

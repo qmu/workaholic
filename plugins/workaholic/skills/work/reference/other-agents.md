@@ -82,6 +82,74 @@ subagents — reached with processes, because processes are what Codex has.
 The one thing a process gives that a Codex subagent does not is the lifetime: `--dispatch`
 returns and its child survives, where a parent collecting subagent results cannot end first.
 
+## Where a report goes, per entrypoint — and where it does not
+
+**A report written into a local transcript is not a delivered report** (2026-09-06, mission
+`finish-the-backlog-without-handing-it-back-to-the-operator`). Each entrypoint's reporting
+destination is fixed here and **named at startup by the launcher itself**, because the failure this
+closes is not a broken transport but a **missing** one being mistaken for a working one.
+
+| Entrypoint | The tick's report reaches | A dispatched worker's report reaches | The initiating chat receives |
+| ---------- | ------------------------- | ------------------------------------ | ---------------------------- |
+| Claude Code `/loop 5m /infinite-development` | the session that is running the loop | the parent session, as the subagent's result | the session itself — it *is* the chat |
+| Codex desktop Scheduled task | the chat the task was created in | `.codex-loop/<stamp>-<role>.md` | the tick's report only |
+| `scripts/codex-loop.sh` (CLI / IDE) | `.codex-loop/<stamp>.md` and the supervisor's own stdout | `.codex-loop/<stamp>-<role>.md`, with `.codex-loop/dispatch-<role>.log` holding the child's stdout | **nothing** |
+
+**The last cell is the honest one and is stated rather than worked around.** `--dispatch` returns
+`started pid=…` the instant the child is detached, and the child outlives the run that started it —
+which is exactly the lifetime the port needed and exactly why no result can come back through the
+process that returned. **A shell launcher cannot promise a callback into the initiating chat
+without an actual return transport**, and inventing one would mean holding the coordinator open
+across the work, which is the cadence failure #984/#985 named. So the launcher **names the absence
+at startup** — `chat_return: none (detached workers report to <dir>)` — and an absent delivery path
+is never substituted for one that delivers somewhere else.
+
+**The periodic report is composed from what the workers reported**, not from the coordinator's own
+guess: each role's last recorded outcome is read back from the tick log's `loop-attempt-<role>`
+line, the record that carries the four facts apart (*the process terminated*, *the role executed*,
+*the work completed*, *the notification was delivered*). A role with no recorded attempt is named
+as unrecorded, never rendered as a healthy one.
+
+**The completion report rests on the tree, not on the tick's own bookkeeping.** *Everything is
+done* is a claim about merged work, a drained queue and a reconciled set of open pull requests —
+three readings this repository already owns (`plan-units.sh`, `list-claims.sh`,
+`list-stranded-publications.sh`) — and never about what this session believes it did. A tick that
+cannot make those readings reports them as unreadable and claims no completion.
+
+**A delivery that failed is retried once and never duplicated.** The shape already exists and is
+composed rather than re-derived: `story/scripts/record-unposted-line.sh` carries a refused line on
+the unit's own story, `list-unposted-lines.sh` offers it to a later tick, and
+`clear-unposted-line.sh` clears it on a landed send — idempotent, one `## Unposted Line` section
+replaced rather than stacked. A still-refused send leaves the record standing and is reported as
+unposted. **An unresolvable thread posts a new keyed root** rather than nothing: that is the
+stateless lookup's own case 4, never a similarity match and never recency.
+
+## Who owns the channel
+
+**The coordinator owns the channel *turn*, and that is a narrower thing than *Slack*** (2026-09-06,
+mission `finish-the-backlog-without-handing-it-back-to-the-operator`). This is the one statement of
+the boundary; `codex-loop.sh`'s per-role prompt cites it and does not restate it.
+
+The **turn** is four acts, and they are the coordinator's alone: reading the inbound channel
+**window**, answering a message in it, filing an inbound **ask**, and posting the receipt for
+one. A worker performs none of them, so there is still exactly one inbound owner and no second
+reader of the window.
+
+**Reading or replying to a thread a step already identified is not the turn.** `/moderate`'s
+`question-answers` reads one thread per outstanding question **at a coordinate it already holds**,
+and `thread-reconcile` replies into an item's own thread found by the stateless lookup;
+`/implement` posts its per-unit finish line into the thread that same lookup resolved. None of
+those reads the window, none discovers a message, and none can file an ask — each acts on a thread
+its own step named first.
+
+**What the conflation cost, measured**: one generic worker prompt carried *do not read or answer
+the inbound channel* for every role, which disabled both `/moderate` steps outright. The same
+prompt named `commands/<role>.md` and nothing else, so a dispatched `propose` ran `/propose`
+alone — never the propose-**then**-specificate sequence the routine contract names — and the
+proposal it opened was ingested by nothing. Each role's prompt now carries its own clause,
+**derived from the command body it names** so there is one source rather than a paraphrase that
+drifts, while the four acts above stay refused for every worker.
+
 ## Running it in the ChatGPT desktop app
 
 Create a Scheduled task **inside the current chat**, choose this repository's **local project**

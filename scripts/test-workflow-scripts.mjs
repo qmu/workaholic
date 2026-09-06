@@ -22250,11 +22250,22 @@ function testWorkaholifyRepoSettings() {
 T("loops/claimable-units.sh: how much work is independently claimable this tick", testClaimableUnits);
 function testClaimableUnits() {
   const reader = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts/claimable-units.sh");
-  const read = (obj) => JSON.parse(execSync(`sh ${reader} --survey -`,
-    { input: JSON.stringify(obj), encoding: "utf8" }));
+  // BOTH readings ARE HANDED IN, so the suite stays hermetic. Without `--recovery` the reader
+  // calls `list-catchable-claims.sh` and `list-stranded-publications.sh`, which reach GitHub —
+  // and a test that reached the network would answer differently on every machine and every day.
+  const tmp = mkdtempSync(join(tmpdir(), "wh-claimable-"));
+  const readWith = (obj, recovery) => {
+    const s = join(tmp, "survey.json");
+    const r = join(tmp, "recovery.json");
+    writeFileSync(s, JSON.stringify(obj));
+    writeFileSync(r, JSON.stringify(recovery));
+    return JSON.parse(execSync(`sh ${reader} --survey ${s} --recovery ${r}`, { encoding: "utf8" }));
+  };
+  const noRecovery = { units: [], stranded: 0 };
+  const read = (obj) => readWith(obj, noRecovery);
   const healthy = {
     current: true, shallow: false, backlog_error: "", owner_unresolved: false,
-    placeholder_identity: false, missions: [], backlog: [], resumable: [],
+    placeholder_identity: false, missions: [], backlog: [], resumable: [], undelivered: [],
   };
 
   // 1. THE COUNT. A mission is one unit; ALL loose backlog is one, because the batch partition
@@ -22294,20 +22305,75 @@ function testClaimableUnits() {
   }
 
   // 4. AN UNPARSEABLE SURVEY IS NOT AN EMPTY ONE either, and the reader exits 0 regardless.
+  //    The survey is judged BEFORE the recovery term, so this reaches no reader and no network.
   const bad = execSync(`sh ${reader} --survey -; echo "exit=$?"`,
     { input: "boom", encoding: "utf8" });
   assertTrue("a survey that is not JSON is named and exits 0",
     bad.includes('"reason": "survey_unreadable"') && bad.includes("exit=0"), bad);
 
-  // 5. IT COMPOSES THE SURVEY AND DERIVES NOTHING OF ITS OWN — no second walker, and no count
-  //    of `todo/` files, which would ignore missions, claims, ownership and every exclusion.
+  // 5. RECOVERY AND DELIVERY WORK IS CLAIMABLE WORK (2026-09-06, mission
+  //    `finish-the-backlog-without-handing-it-back-to-the-operator`). THE LOAD-BEARING
+  //    ASSERTION IS THE FIRST ONE: before this, a repository whose only work was an undelivered
+  //    unit answered `0` — byte-identical to one with genuinely nothing to do — so the tick
+  //    spawned no runner while an `/implement` pass would have caught the branch up and merged
+  //    it. Measured by the operator as 28 tickets waiting, zero units, four conflicting pull
+  //    requests, and no pass ever run to inspect them.
+  r = read({ ...healthy, undelivered: [{ unit: "u1" }] });
+  assertEq("an undelivered unit alone is claimable work",
+    [r.claimable, r.recovery_units, r.undelivered], [1, 1, 1]);
+  r = readWith(healthy, { units: ["u2"], stranded: 0 });
+  assertEq("a catchable claim alone is claimable work",
+    [r.claimable, r.recovery_units, r.catchable], [1, 1, 1]);
+  r = readWith(healthy, { units: [], stranded: 2 });
+  assertEq("a stranded publication alone is claimable work",
+    [r.claimable, r.recovery_units, r.stranded], [1, 1, 2]);
+
+  //    ALL RECOVERY WORK IS ONE UNIT, for the reason all loose backlog is one: those acts are
+  //    once-per-run readings inside the Unified Run, so one pass walks every entry. N runners
+  //    would do one runner's work and race each other on the same pull requests.
+  r = readWith({ ...healthy, undelivered: [{ unit: "a" }, { unit: "b" }, { unit: "c" }] },
+    { units: ["d", "e"], stranded: 4 });
+  assertEq("nine recovery entries are still one unit",
+    [r.claimable, r.recovery_units], [1, 1]);
+  //    ...and a unit in BOTH sets is counted once, because the Unified Run takes it once.
+  r = readWith({ ...healthy, undelivered: [{ unit: "u1" }] }, { units: ["u1"], stranded: 0 });
+  assertEq("one unit in both recovery sets is one unit",
+    [r.claimable, r.recovery_units, r.undelivered, r.catchable], [1, 1, 1, 1]);
+  //    ...and it ADDS to the queue's own units rather than replacing them.
+  r = readWith({ ...healthy, missions: [{}, {}], undelivered: [{ unit: "u1" }] }, noRecovery);
+  assertEq("two missions and recovery work are three units", r.claimable, 3);
+  //    ...while a repository with genuinely nothing to do still answers zero.
+  r = readWith(healthy, noRecovery);
+  assertEq("nothing to do is still zero and readable",
+    [r.claimable, r.recovery_units, r.readable], [0, 0, undefined]);
+
+  //    A RECOVERY COMPONENT THAT COULD NOT BE READ YIELDS NO READING, exactly as a blind survey
+  //    does. A zero there is the collapse this whole widening exists to close.
+  const unread = JSON.parse(execSync(
+    `sh ${reader} --survey ${join(tmp, "survey.json")} --recovery ${join(tmp, "nope.json")}`,
+    { encoding: "utf8" }));
+  assertEq("an unreadable recovery reading is null and named, never zero",
+    [unread.readable, unread.reason, unread.claimable, unread.recovery_units],
+    [false, "recovery_unreadable", null, null]);
+
+  // 6. IT COMPOSES READERS THAT ALREADY EXIST AND DERIVES NOTHING OF ITS OWN — no second
+  //    walker, no count of `todo/` files (which would ignore missions, claims, ownership and
+  //    every exclusion), and no verdict re-derived here.
   const src = readFileSync(reader, "utf8");
   const code = src.replace(/^#.*$/gm, "");
   assertTrue("it composes plan-units.sh", code.includes("plan-units.sh"), code.slice(0, 200));
+  assertTrue("...and list-catchable-claims.sh",
+    code.includes("list-catchable-claims.sh"), "the catchable reader is not composed");
+  assertTrue("...and list-stranded-publications.sh",
+    code.includes("list-stranded-publications.sh"), "the stranded reader is not composed");
   assertTrue("...and walks no queue of its own",
     !/tickets\/todo/.test(code), "a second walker appeared");
-  assertTrue("...and reaches no network of its own",
-    !/\bgh \b|curl|git fetch/.test(code), "a network read appeared");
+  //    IT REACHES THE NETWORK ONLY THROUGH THOSE READERS. The two recovery readers make bounded
+  //    REST reads of their own; this script must still make none directly, or it would be a
+  //    second transport beside `gh-rest.sh`.
+  assertTrue("...and opens no transport of its own",
+    !/\bgh \b|curl|git fetch/.test(code), "a direct network read appeared");
+  rmSync(tmp, { recursive: true, force: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -37890,6 +37956,8 @@ function testCodexLoopReadiness() {
       join(dir, "plugins/workaholic/skills/work/scripts/codex-loop.sh"));
     copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
       join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"),
+      join(dir, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"));
     writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
     writeFileSync(join(dir, "plugins/workaholic/commands/infinite-development.md"), "# Tick\n");
     const stub = join(dir, "bin/codex");
@@ -37910,9 +37978,18 @@ exit "\${STUB_EXIT:-0}"
       env: { ...process.env, PATH: `${join(dir, "bin")}:${process.env.PATH}`, ...env }
     });
 
+  // A GENUINELY SUCCESSFUL RUN NOW REPORTS THROUGH THE SCHEMA (2026-09-06, mission
+  // `finish-the-backlog-without-handing-it-back-to-the-operator`) — `codex exec --output-schema`,
+  // confirmed present on the installed `codex-cli 0.153.4`. Every field of the ready verdict is
+  // unchanged; what moved is that `ready` is now read off the report rather than assumed for one
+  // that matched no failure pattern.
+  const okReport = JSON.stringify({
+    executed: true, outcome: "ok", reason: "",
+    report: "no_candidates\nloops: none due",
+  });
   const readyDir = makeFixture();
   try {
-    const r = invoke(readyDir, { STUB_REPORT: "no_candidates\\nloops: none due" });
+    const r = invoke(readyDir, { STUB_REPORT: okReport });
     assertEq("a successful reported first tick starts the clock", r.status, 0);
     assertTrue("the completed first-tick verdict is printed before readiness can succeed",
       r.stdout.includes("outcome=ready"), r.stdout + r.stderr);
@@ -37965,6 +38042,17 @@ exit "\${STUB_EXIT:-0}"
     { name: "missing report", env: { STUB_WRITES_REPORT: "0" }, outcome: "report_missing", reason: "no_tick_report" },
     { name: "absent transport", env: { STUB_REPORT: "no_slack_transport" }, outcome: "transport_absent", reason: "no_slack_transport" },
     { name: "blocked work", env: { STUB_REPORT: "slack_turn_failed: channel_unreadable" }, outcome: "work_blocked", reason: "slack_turn_failed" },
+    // THE LOAD-BEARING ROWS (2026-09-06). `ready` was the fall-through for a report matching none
+    // of the patterns above, so a run that reported it had never executed — and one whose report
+    // this function simply could not read — were both graded a healthy tick. Successful process
+    // termination, valid execution, work completion and notification delivery are four facts, and
+    // the exit status was standing in for all four.
+    { name: "an unparseable report", env: { STUB_REPORT: "loops: none due" },
+      outcome: "report_unreadable", reason: "unreadable:unparseable_report" },
+    { name: "a run that did not execute",
+      env: { STUB_REPORT: JSON.stringify({ executed: false, outcome: "failed",
+        reason: "plugin_command_missing", report: "" }) },
+      outcome: "work_blocked", reason: "not_executed:plugin_command_missing" },
   ]) {
     const dir = makeFixture();
     try {
@@ -37994,6 +38082,8 @@ function testCodexCoordinatorCadence() {
       join(dir, "plugins/workaholic/skills/work/scripts/codex-loop.sh"));
     copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/relay-contract.sh"),
       join(dir, "plugins/workaholic/skills/work/scripts/relay-contract.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"),
+      join(dir, "plugins/workaholic/skills/work/scripts/worker-result.schema.json"));
     writeFileSync(join(dir, "plugins/workaholic/skills/work/SKILL.md"), "# Work\n");
     for (const name of ["infinite-development", "implement", "propose", "moderate"]) {
       writeFileSync(join(dir, `plugins/workaholic/commands/${name}.md`), `# ${name}\n`);
@@ -38006,7 +38096,7 @@ while [ $# -gt 0 ]; do
 done
 sleep ${sleepSeconds}
 printf 'stub\\n'
-printf 'idle\\n' >"$out"
+printf '{"executed":true,"outcome":"ok","reason":"","report":"idle"}\\n' >"$out"
 exit 0
 `);
     chmodSync(stub, 0o755);

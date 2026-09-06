@@ -670,4 +670,5 @@
 * [Make the Codex work entrypoint self-contained and diagnostic](20260904171517-make-the-codex-work-entrypoint-self-contained-and-diagnostic.md)
 * [Report each tick in the originating Codex chat, and prove it end to end](20260906022552-report-each-tick-in-the-originating-codex-chat-and-prove-it-end-to-end.md)
 * [Make /work own completion on Codex and Claude Code](20260906081415-make-work-own-completion-on-codex-and-claude-code.md)
+* [Finish Codex support as an external process with inspectable state](20260906101722-finish-codex-support-as-an-external-process-with-inspectable-state.md)
 <!-- okf:generated:end -->

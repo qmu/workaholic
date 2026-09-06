@@ -210,9 +210,31 @@ of what is queued**, and the queue moves only when `implement` lands something o
 writes an ask — neither of which happens inside five minutes. `0` means every tick. What was
 measured, and why a change-detector was refused: `workaholic:loops`, *The record behind the tick*.
 
+**A `running` runner is not necessarily a working one, and the tick reads which** (2026-09-06,
+mission `see-a-frozen-runner-and-give-back-its-slot`). `ListAgents` says `running` for a runner
+executing a tool and for one blocked forever on a permission dialog nobody will answer — measured,
+`implement-10` frozen 38m29s and reported healthy by nine consecutive calls. Read
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-runner-advance.sh --names <the running loop
+names>`: per name `advancing` / `not_advancing` / `unreadable:<reason>`, off the claim worktree's
+own files, offline and local.
+
+**A runner the reader answers `not_advancing` for does not consume a fan-out slot.** Subtract it
+from `running` **in the fan-out expression below and nowhere else**: the slot coming back is what
+recovers the work, because the frozen runner's own claim heartbeat lapses and `claim.sh resume`
+takes over one's own lapsed claim — and without the slot no runner is spawned to do so. Measured
+with `WORKAHOLIC_IMPLEMENT_FANOUT=3` and one frozen runner, the loop was a 2-runner loop for 38
+minutes and said nothing about it in any tick report.
+
+**The concurrency rule's other half does not move**: a loop whose subagent is `running` and
+**advancing** is still not spawned again. **`unreadable:<reason>` frees nothing** and is reported
+by its own reason, never as headroom — a gate that cannot be read is not a gate. And **no agent is
+stopped and no work is killed on this reading**: the unconditional `TaskStop` stays exactly where
+it is, on `idle`, and this adds no second liveness authority. The slot comes back; the frozen
+session is the operator's to end, or the next `idle` observation's.
+
 Read claimable units with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/claimable-units.sh` and
 CPU facts with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-machine-load.sh`. Spawn
-`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − running)` implement runners; absent means one,
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − (running − not_advancing))` implement runners; absent means one,
 and `bad_fanout` or an unreadable claimable result falls back to one and is reported. Do not hand
 a unit to a runner: each surveys and claims, and the claim arbiter settles any race.
 
@@ -338,6 +360,14 @@ readings.
   held the fan-out** and never what the tick would otherwise have spawned, and it **reaches Slack
   through nothing**: this is the tick's own run report, and the loop posts no status line about its
   own capacity.
+- **The freed slot, beside the allocation and only when it fires**: a tick that subtracted a
+  non-advancing runner names it the way the machine bound is named — `runner_not_advancing:
+  <name> (idle <age>)`, the runner and the reader's own word — because a bound that fires silently
+  is the failure this reading exists to end. An `unreadable:<reason>` reading **frees nothing** and
+  is named by that reason, **never as advancing** and never as headroom. **A tick that freed no
+  slot adds no line**, the machine line's own rule and for its reason: an unchanged answer restated
+  every tick is what `📦 Release Preparation` was retired for. It carries no mention token, reaches
+  Slack through nothing, and **stops no agent** — only the fan-out expression reads it.
 - **Every reaping is named** — `reaped: <name>` — even on a tick that spawns nothing, because
   stopping a session is an act the tick took and the listing afterwards is the only other evidence.
 - **The cadence's own source is named where a loop was skipped**: `not_due: <name> (finish

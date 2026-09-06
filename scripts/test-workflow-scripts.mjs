@@ -13,7 +13,7 @@
 // state, and cleans up. No network, no real remotes, no GitHub token, no
 // mutation of the developer's working tree. Run with `node scripts/test-workflow-scripts.mjs`.
 
-import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, renameSync, symlinkSync } from "node:fs";
+import { cpSync, copyFileSync, mkdtempSync, rmSync, writeFileSync, appendFileSync, readFileSync, mkdirSync, existsSync, statSync, chmodSync, readdirSync, realpathSync, renameSync, symlinkSync, utimesSync } from "node:fs";
 import { execSync, execFileSync } from "node:child_process";
 import { join, resolve, dirname, basename } from "node:path";
 import { tmpdir } from "node:os";
@@ -15063,7 +15063,7 @@ async function testPluginRootPathVsRead() {
 // reads as terminate `pending`). The run would have been lost to the very failure the newer
 // code prevents, while reporting a version that was not the code it ran. The fix is a second
 // tie-break axis: on an EQUAL version prefer the immutable, version-addressed candidate.
-T("check-deps/plugin-src.sh: an equal version goes to the immutable tree", testPluginSrcTieBreak);
+T("check-deps/plugin-src.sh: an equal version goes to the immutable tree, the call to the checkout", testPluginSrcTieBreak);
 function testPluginSrcTieBreak() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -15122,6 +15122,20 @@ function testPluginSrcTieBreak() {
       r.candidates.map((c) => [c.source, c.immutable]),
       [["checkout", false], ["registry", true]]);
 
+    // GATE 2b — `call_src` ANSWERS THE OTHER QUESTION (2026-09-06, ticket
+    //   `keep-the-loop-s-own-script-calls-off-the-plugin-cache-path`). `src` answers which code
+    //   RUNS and correctly took the immutable cache above. A composed `bash` call at that path is
+    //   covered by `Bash(bash:*)` — a prefix rule with no path term — and froze a runner anyway,
+    //   because a path inside `.claude/` is classified as Claude's own configuration by a judgement
+    //   applied above the allowlist. So the CALL spells the checkout whenever the checkout carries
+    //   the SAME version: identical bytes, inside the workspace, nothing about `src` moved.
+    assertEq("an equal version sends a composed call to the checkout, not the cache",
+      { call_src: r.call_src, from: r.call_src_source }, { call_src: checkout, from: "checkout" });
+    assertTrue("...and `src` itself did not move with it",
+      r.src === cacheRoot && r.call_src !== r.src, `src=${r.src} call_src=${r.call_src}`);
+    assertEq("...and the bytes at call_src are the very version the run resolved",
+      JSON.parse(readFileSync(join(r.call_src, ".claude-plugin/plugin.json"), "utf8")).version, r.version);
+
     // GATE 3 — the point of the whole change: the resolved source survives the freshen.
     const before = readFileSync(join(r.src, "skills/marker.sh"), "utf8");
     execSync(`git checkout -q ${staleSha}`, { cwd: repo });   // what sync-main.sh did to the tick
@@ -15136,12 +15150,23 @@ function testPluginSrcTieBreak() {
     assertEq("a strictly newer checkout still wins over an immutable older cache",
       { source: r.source, version: r.version, immutable: r.src_immutable },
       { source: "checkout", version: "1.0.9", immutable: false });
+    assertEq("...and the call spells that same tree, so nothing diverges when src is the checkout",
+      r.call_src, r.src);
 
     // And the reverse: a newer CACHE beats the checkout on version alone, as it always did.
     setCheckoutVersion("1.0.1");
     r = resolve_();
     assertEq("a newer cache still wins on the version axis",
       { source: r.source, version: r.version }, { source: "registry", version: "1.0.5" });
+
+    // GATE 5 — `call_src` CANNOT RUN OLDER CODE, which is the bound that makes it safe. Here a
+    //   checkout exists and is BEHIND, so there is no identical-version workspace copy and the
+    //   call must fall back to `src` rather than preferring the stale tree sitting in the
+    //   workspace. This is also the stated residue: a repository that vendors nothing has no
+    //   checkout candidate at all and reads exactly this — `call_src` is `src`, byte-identical to
+    //   the behaviour before the field existed.
+    assertEq("a behind checkout never captures the call",
+      { call_src: r.call_src, from: r.call_src_source }, { call_src: r.src, from: r.source });
   } finally { cleanup(dir); }
 }
 
@@ -21274,7 +21299,7 @@ function testPostLanguageRuleShipsWithThePlugin() {
   // THE CEILING SURFACES SAY IT TOO. A rule stated only in `rules/` is loaded but not adjacent
   // to the shapes; each routine-fired command names it right above the blocks it authorizes,
   // which is where a session reads what to emit.
-  const CHECKOUT_PATH_RULE = "**And it is read at the checkout's own path** (`plugins/workaholic/\u2026`), never at `<src>` (2026-09-06, ticket `20260902043117`): `bash` is allowlisted by prefix with no path term, so a script runs from `<src>` without a prompt, while a **Read** of `<src>` lands under the plugin cache whenever the registry tree wins the equal-version tie \u2014 outside the allowlist and inside a `.claude/` directory the harness classifies as sensitive. The reach is removed, not permitted.";
+  const CHECKOUT_PATH_RULE = "**And both reaches take the checkout's own path** (`plugins/workaholic/\u2026`), never `<src>` (2026-09-06, ticket `20260906185501`): a **Read** of `<src>` lands under the plugin cache whenever the registry tree wins the equal-version tie, and a `bash` call at that same path froze a runner even though `Bash(bash:*)` is allowlisted by prefix with no path term \u2014 the allowlist covers that call, and a path inside a `.claude/` directory is classified as Claude's own configuration by a judgement applied above it. So compose every call at `call_src`, which `plugin-src.sh` answers beside `src`: identical bytes, inside the workspace, and equal to `src` wherever no checkout holds that version. The reach is removed, not permitted.";
   for (const id of ["implement", "specificate", "propose", "moderate"]) {
     const cmd = readFileSync(join(REPO_ROOT, `plugins/workaholic/commands/${id}.md`), "utf8");
     assertTrue(`/${id} states the language of its free-text slots`,
@@ -22396,6 +22421,122 @@ function testClaimableUnits() {
 }
 
 // ---------------------------------------------------------------------------
+// A FROZEN RUNNER STOPS HOLDING A FAN-OUT SLOT (2026-09-06, mission
+// `see-a-frozen-runner-and-give-back-its-slot`). `ListAgents` says `running` for a runner
+// executing a tool and for one blocked forever on a permission dialog nobody will answer, so a
+// frozen runner consumed a slot for as long as nobody looked -- measured, a 3-runner loop was a
+// 2-runner one for 38m29s and no tick report said so.
+//
+// WHAT IS PINNED is the reader's SAFETY and the ceiling's prose. The subtraction itself is an
+// agent act composed at run time, so what a check can see is that the expression names it, that
+// the report names it when it fires, and -- load-bearing -- that no unreadable reading can ever
+// free a slot.
+T("a non-advancing runner stops holding a fan-out slot", testRunnerAdvance);
+function testRunnerAdvance() {
+  const reader = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts/read-runner-advance.sh");
+  const tmp = mkdtempSync(join(tmpdir(), "wh-advance-"));
+  const fixture = (units) => {
+    const root = join(tmp, `fx${Math.random().toString(36).slice(2)}`);
+    for (const [unit, ageSeconds] of units) {
+      const d = join(root, ".worktrees", unit);
+      mkdirSync(d, { recursive: true });
+      if (ageSeconds === null) continue;          // a claim whose files cannot be read at all
+      const f = join(d, "f.md");
+      writeFileSync(f, "work\n");
+      const when = new Date(Date.now() - ageSeconds * 1000);
+      utimesSync(f, when, when);
+    }
+    return root;
+  };
+  const read = (root, names, env = {}) => JSON.parse(execSync(
+    `sh ${reader} --names ${names} ${root}`, { env: { ...process.env, ...env }, encoding: "utf8" }));
+
+  try {
+    // 1. THE EVIDENCE. A claim worktree flat past the window is `not_advancing`; one that moved
+    //    is `advancing`. This is the only signal that is not also flat during a long ticket.
+    const mixed = fixture([["unit-a", 7200], ["unit-b", 0]]);
+    let r = read(mixed, "implement,implement-2");
+    assertEq("a flat worktree and a moving one are told apart",
+      [r.claims.find((c) => c.unit === "unit-a").verdict,
+       r.claims.find((c) => c.unit === "unit-b").verdict], ["not_advancing", "advancing"]);
+
+    // 2. THE ONE CASE THAT FREES A SLOT: every runner frozen, every claim readable.
+    const frozen = fixture([["unit-a", 7200], ["unit-b", 7200]]);
+    r = read(frozen, "implement,implement-2");
+    assertEq("with no claim advancing, both names are not_advancing and two slots come back",
+      [r.frozen_count, r.running, r.advancing], [2, 2, 0]);
+    assertEq("...and each name carries the verdict, so the report can name the runner",
+      r.names.map((n) => n.verdict), ["not_advancing", "not_advancing"]);
+
+    // 3. NOTHING BINDS A LOOP NAME TO A WORKTREE, so a partially frozen tick REFUSES rather than
+    //    guessing which runner is stuck -- and frees nothing while it refuses.
+    r = read(mixed, "implement,implement-2");
+    assertEq("a partial freeze refuses the binding by name and frees no slot",
+      [r.names[0].reason, r.frozen_count], ["ambiguous_binding", 0]);
+
+    // 4. AN UNREADABLE READING FREES NOTHING, in every form. THIS IS THE LOAD-BEARING GROUP: a
+    //    wrong `not_advancing` spawns a second runner against one that is working, and
+    //    `frozen_count` is what a consumer spends -- so it must count only names actually
+    //    answered `not_advancing`, never `running - advancing`, which names nobody.
+    const none = fixture([]);
+    mkdirSync(join(none, ".worktrees"), { recursive: true });
+    r = read(none, "implement");
+    assertEq("no claim worktree at all is no_claim_evidence, never not_advancing",
+      [r.names[0].verdict, r.names[0].reason, r.frozen_count],
+      ["unreadable", "no_claim_evidence", 0]);
+    const blind = fixture([["unit-a", 7200], ["unit-b", null]]);
+    r = read(blind, "implement");
+    assertEq("one flat claim beside one that could not be read frees nothing",
+      [r.names[0].verdict, r.names[0].reason, r.frozen_count],
+      ["unreadable", "claim_evidence_incomplete", 0]);
+    r = read(frozen, "propose,moderate");
+    assertEq("a role that holds no claim is refused, never assumed healthy",
+      [r.names[0].reason, r.frozen_count], ["role_holds_no_claim", 0]);
+    const bad = JSON.parse(execSync(`sh ${reader} --names implement ${frozen}`,
+      { env: { ...process.env, WORKAHOLIC_RUNNER_ADVANCE_STALE_MINUTES: "nope" }, encoding: "utf8" }));
+    assertEq("a window that is not a number holds nothing and says so",
+      [bad.readable, bad.reason, bad.frozen_count], [false, "bad_window", null]);
+
+    // 5. A COMPLETED READ CARRIES NO `readable` KEY -- the `merge_policy` / `status:` convention,
+    //    so a consumer tests `readable == false` and never `readable // true`.
+    assertTrue("a completed read carries no readable key",
+      read(frozen, "implement").readable === undefined, "a readable key appeared");
+
+    // 6. IT IS A PURE READ that stops nothing and opens no transport. The killing is nobody's,
+    //    and a reader that reached the network would cost a five-minute tick its cadence.
+    const code = readFileSync(reader, "utf8").replace(/^#.*$/gm, "");
+    assertTrue("it opens no transport of its own",
+      !/\bgh \b|curl|git fetch|git ls-remote/.test(code), "a network read appeared");
+    assertTrue("...and stops no agent", !/TaskStop|kill /.test(code), "it stops an agent");
+    assertTrue("...and reads the tick log for no cadence of its own",
+      !/log-read\.sh|log-append\.sh/.test(code), "a second cadence source appeared");
+
+    // 7. THE CEILING AND THE SKILL CARRY THE RULE. The subtraction is composed by the agent at
+    //    run time, so the expression naming it is the only checkable form of the act.
+    const tick = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+    const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/loops/SKILL.md"), "utf8");
+    for (const [what, body] of [["the tick ceiling", tick], ["the loops skill", skill]]) {
+      assertTrue(`${what} subtracts a non-advancing runner from the fan-out`,
+        /bound − \(running − not_advancing\)/.test(body), `the expression still spends every running slot in ${what}`);
+    }
+    assertTrue("the tick reads the reader by name",
+      /read-runner-advance\.sh/.test(tick), "the reading is never taken");
+    assertTrue("the subtraction is bounded to the fan-out expression",
+      /in the fan-out expression below and nowhere else/.test(tick), "the subtraction is unbounded");
+    assertTrue("the concurrency rule's other half is stated unchanged",
+      /`running` and\s+\*\*advancing\*\* is still not spawned again/.test(tick), "the other half moved");
+    assertTrue("an unreadable reading frees nothing, in the ceiling",
+      /\*\*frees nothing\*\*/.test(tick), "a degraded read could read as headroom");
+    assertTrue("no agent is stopped on this reading",
+      /`TaskStop` stays exactly where\s+it is, on `idle`/.test(tick), "the reaping was widened to a judgement");
+    assertTrue("the report names the freed slot, the runner and the word",
+      /runner_not_advancing:/.test(tick), "a bound that fires silently");
+    assertTrue("...and a tick that freed no slot adds no line",
+      /A tick that freed no\s+slot adds no line/.test(tick), "the line is restated every tick");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
 // THE TICK'S PROGRESS READING (2026-09-06, ticket `20260906193731`). The load-bearing
 // assertions are again the NEGATIVE ones, and this reader failed in the one shape a positive
 // test cannot see: it resolved its sibling readers against the tree being READ rather than
@@ -27193,18 +27334,21 @@ function testWorkaholifyRoutines() {
       assertEq(`the [${id}] prompt authorizes no post shape of its own`,
         [...pr.matchAll(/```\n([\s\S]*?)```/gu)].map((m) => m[1]), []);
       assertTrue(`the [${id}] prompt names its command`, new RegExp(`Run \`/${id}\``).test(pr), pr);
-      // AND THE FALLBACK POINTS THE READ AT THE CHECKOUT, NEVER AT `<src>` (2026-09-06,
-      // ticket `20260902043117`). `<src>` is the plugin cache whenever the registry tree wins
-      // the equal-version tie -- outside `Read(//home/**)` and inside a `.claude/` directory
-      // the harness classifies as sensitive -- so a Read of it parks the tick on a prompt
-      // nobody unattended can answer. Scripts keep `<src>`: `Bash(bash:*)` is a prefix rule
-      // with no path term and was measured not to prompt there.
+      // AND THE FALLBACK POINTS BOTH REACHES AT THE WORKSPACE, NEVER AT `<src>` (2026-09-06,
+      // ticket `keep-the-loop-s-own-script-calls-off-the-plugin-cache-path`, superseding the
+      // read-only half of `20260902043117`). `<src>` is the plugin cache whenever the registry
+      // tree wins the equal-version tie. A Read of it is outside `Read(//home/**)`; a `bash`
+      // call at it IS covered by `Bash(bash:*)` -- a prefix rule with no path term -- and froze
+      // a runner regardless, because a path inside `.claude/` is classified as Claude's own
+      // configuration by a judgement applied above the allowlist. So the prompt spells
+      // `<call_src>`, which `plugin-src.sh` answers beside `src`: the checkout at an equal
+      // version, `src` itself otherwise, so the newest-tree guarantee is untouched.
       assertTrue(`and the load fallback that reads it when the plugin did not bind`,
         pr.includes(`plugins/workaholic/commands/${id}.md`), pr);
       assertTrue(`the [${id}] prompt sends no Read to <src>`,
         !/read `<src>\//.test(pr), pr);
-      assertTrue(`and still runs its scripts from <src>`,
-        pr.includes("script path under `<src>`"), pr);
+      assertTrue(`and runs its scripts from <call_src>, not the plugin cache`,
+        pr.includes("script path under `<call_src>`") && !pr.includes("script path under `<src>`"), pr);
     }
     // The merged [Propose] prompt runs BOTH commands, in order (2026-09-02).
     {

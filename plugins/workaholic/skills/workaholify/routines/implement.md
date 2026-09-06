@@ -56,4 +56,4 @@ the command when the plugin did not bind.
 
 Run `/implement`.
 
-If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `src`, then read `plugins/workaholic/commands/implement.md` from the checkout with the Read tool and follow it with every script path under `<src>`. Scripts take `<src>`; a Read takes the checkout's path.
+If the command or its skills did not load, do not stop: run `bash plugins/workaholic/skills/check-deps/scripts/plugin-src.sh` from the checkout, take its `call_src`, then read `plugins/workaholic/commands/implement.md` from the checkout with the Read tool and follow it with every script path under `<call_src>`. Scripts take `<call_src>`; a Read takes the checkout's path.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T18:55:01+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -106,3 +107,52 @@ the reporter's own three suggestions are recorded under Considerations as hypoth
   unconditionally; extending an unconditional stop to a *judgement* about advancement would kill
   work in progress on a reading, which is the mistake the machine-load bound already refuses by
   name.
+
+## Final Report
+
+Development completed as planned.
+
+The diagnosis ran first, as the ticket required. **Reproduction** was taken from this
+repository's own dated record rather than re-staged: driving a live subagent into a permission
+dialog is not something this run can do from inside one, and the measurement it would produce
+already exists (`implement-10`, last tool call 05:42:49 UTC, nine consecutive `ListAgents` calls
+reporting `running`, stopped by hand at 06:21:18 — 38m29s). **Localization was measured here**,
+and it is what decided the design.
+
+Over one reading of the live checkout: the claim worktree of a run that was mid-ticket had a
+newest file mtime **101 seconds** old, while three worktrees of runs that had stopped read
+**15, 17 and 18 hours**. That is the only candidate that moves during healthy work and is flat
+during a freeze. Each of the others was ruled out by evidence rather than by preference: the
+claim tip and heartbeat are flat in *both* (the beat is step 0 of every ticket, so a run
+legitimately mid-ticket carries an old tip — the ticket's own Considerations demanded this be
+established before the tip was used, and it does not survive it), and are besides carried on a
+**remote** ref this reader may not fetch; `loop-finish-<name>` is written when a run is first
+observed **idle**, so it says nothing during any run; archived tickets share the tip's
+granularity; the pull request is a network read.
+
+`loops/scripts/read-runner-advance.sh` reads exactly that and nothing else.
+
+### Discovered Insights
+
+- **Insight**: nothing this repository owns is keyed by loop subagent name — a claim is keyed by
+  unit, a worktree by unit, `loop-finish-<name>` by role.
+  **Context**: so a running name cannot in general be bound to the worktree its runner is writing
+  in, and the reader refuses that binding (`ambiguous_binding`) rather than inventing one. It
+  answers exactly where the binding is not needed: all names `advancing` when at least as many
+  worktrees advance as there are runners, all `not_advancing` when none does and every claim was
+  readable. A later change wanting per-name precision has to add the keying first, not loosen the
+  refusal.
+
+- **Insight**: `frozen_count` had to be defined as *the names actually answered `not_advancing`*,
+  not as `running - advancing`.
+  **Context**: the arithmetic form is sound about **how many** runners are stuck while naming
+  none of them, so a consumer would be told "one is frozen" on a tick where every name read
+  `unreadable` — spending a reading the reader had explicitly declined to make. Two defects of
+  exactly this kind were caught by exercising the fixtures rather than by reading the code: the
+  count leaked through `no_claim_evidence`, and one unreadable claim let the all-frozen branch
+  fire on evidence that was never established.
+
+- **Insight**: an empty `.worktrees/` must answer `no_claim_evidence`, never `not_advancing`.
+  **Context**: a runner still in its survey has claimed nothing yet and has no worktree to move,
+  so the flat reading is indistinguishable from a freeze. This is the one false-positive path
+  that would have the loop spawn a second runner against a working one.

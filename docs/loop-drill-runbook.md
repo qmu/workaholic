@@ -1825,6 +1825,18 @@ assumed to have run. Its breaker is written against the behaviour — restoring 
 healthy write grades the non-executing tick `ready`, and the drill fails. **What it does not
 cover**: the classification of a live relay tick, which needs a real `codex exec`.
 
+**And that a live supervisor is not an unwritten record** (2026-09-07, ticket
+`20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`). A real
+`flock` holder is stood up on the supervisor lock with no record beside it, and `--status` must
+read `running_unrecorded` rather than `never_started`; releasing the lock must return the reading
+to `never_started`, so a repository that never ran this path is unaffected. Its breaker answers
+from the record file alone again and the same live supervisor comes back `never_started`. Three
+further rows drive the start decision on a `flock`-less `PATH`: a pid the role's own record proves
+belongs to another boot no longer holds the role, a live pid on **this** boot is refused exactly as
+before, and a pid with no record to supply a boot id stays held — the safe direction for a
+concurrency answer. **What it does not cover**: a genuine reboot, which no hermetic drill can
+stage; the recycled-pid case is exercised by a record naming a boot id that is not this one.
+
 **`verify-work-drain` covers the hermetic half of a drained backlog, and its bound is stated on the
 drill itself.** It seeds each recovery state the ask names and asserts that the loop reads it as
 *work a pass would act on* rather than as an idle repository, that a worker exiting **zero** while

@@ -9110,6 +9110,91 @@ STATUS_FIXTURE
     rm -f "$_oldack"
     rm -rf "${_repo}/.codex-loop"
 
+    # A LIVE SUPERVISOR IS NOT AN UNWRITTEN RECORD (2026-09-07, ticket
+    # `20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`).
+    # `supervisor_reading` answered from its record file alone, so an older supervisor holding the
+    # lock and turning was reported `never_started` — MEASURED 2026-09-06 (#1052), the operator
+    # could neither see the live supervisor nor start a working one. The lock is read as
+    # EVIDENCE here; it stays the only concurrency authority and this reading refuses nothing.
+    if command -v flock >/dev/null 2>&1; then
+        mkdir -p "${_repo}/.codex-loop"
+        _suplock="${_repo}/.codex-loop/.supervisor.lock"
+        sh -c "exec 9>'$_suplock'; flock -n 9 || exit 1; sleep 30" &
+        _holder=$!
+        sleep 1
+        _held=$(cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --status 2>&1 | head -n 1)
+        case "$_held" in
+            *running_unrecorded*)
+                add_row "a_held_supervisor_lock_is_never_never_started" true "a live supervisor with no record of its own is named rather than reported as never started" load ;;
+            *) add_row "a_held_supervisor_lock_is_never_never_started" false "a held supervisor lock read: $(one_line "$_held")" load ;;
+        esac
+        # THE BREAKER, AGAINST THE BEHAVIOUR: answer from the record file alone again, and the
+        # same live supervisor comes back `never_started`.
+        _blindsup="${_plugin}/skills/work/scripts/blindsup-codex-loop.sh"
+        sed 's/^    if \[ ! -f "\$SUPERVISOR_FILE" \]; then$/    if [ ! -f "$SUPERVISOR_FILE" ]; then printf '"'"'never_started'"'"'; return 0;/' \
+            "$_launcher" > "$_blindsup"
+        _blind=$(cd "$_repo" && PATH="${_bin}:$PATH" sh "$_blindsup" --status 2>&1 | head -n 1)
+        case "$_blind" in
+            *never_started*)
+                add_row "supervisor_liveness_breaker" true "reading the record file alone reports a live supervisor as never_started (this drill can fail)" breaker ;;
+            *) add_row "supervisor_liveness_breaker" false "the neutered reader did not reproduce never_started: $(one_line "$_blind")" breaker ;;
+        esac
+        rm -f "$_blindsup"
+        for _p in $(fuser "$_suplock" 2>/dev/null || true); do kill "$_p" 2>/dev/null || true; done
+        kill "$_holder" 2>/dev/null || true
+        wait "$_holder" 2>/dev/null || true
+        _free=$(cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --status 2>&1 | head -n 1)
+        case "$_free" in
+            *never_started*)
+                add_row "an_unheld_lock_still_means_never_started" true "a repository with no supervisor and no record reads exactly as it did before" load ;;
+            *) add_row "an_unheld_lock_still_means_never_started" false "a free lock with no record read: $(one_line "$_free")" load ;;
+        esac
+        rm -rf "${_repo}/.codex-loop"
+    else
+        add_row "supervisor_liveness_needs_flock" true "flock is absent; the supervisor-lock evidence reads unverifiable by design" advisory
+    fi
+
+    # A PID IS NOT A LIVENESS PROOF ACROSS A REBOOT. `role_state`'s pid-file fallback tested
+    # `kill -0` alone, dropping the boot-id term `liveness_reading` carries — so a recycled pid
+    # number refused every start of that role forever, while the role's own record read
+    # `died_unrecorded:reboot`, a proof the process was gone.
+    _noflock="${_tmp}/noflock"
+    mkdir -p "$_noflock"
+    for _c in sh jq git date cat printf sed grep tr sleep kill rm mkdir dirname basename awk ls mktemp; do
+        _cp=$(command -v "$_c" 2>/dev/null) && ln -sf "$_cp" "${_noflock}/${_c}"
+    done
+    printf '#!/bin/sh\nexit 0\n' > "${_noflock}/codex"
+    chmod +x "${_noflock}/codex"
+    mkdir -p "${_repo}/.codex-loop"
+    sleep 30 &
+    _livepid=$!
+    printf '%s\n' "$_livepid" > "${_repo}/.codex-loop/worker-implement.pid"
+    printf '{"state":"running","pid":"%s","boot_id":"00000000-0000-0000-0000-000000000000","started_at":"2026-09-07T00:00:00Z"}\n' \
+        "$_livepid" > "${_repo}/.codex-loop/worker-implement.json"
+    _recycled=$(cd "$_repo" && PATH="$_noflock" sh "$_launcher" --dispatch implement --dry-run 2>&1 | head -n 1)
+    case "$_recycled" in
+        *already_running*) add_row "a_recycled_pid_does_not_refuse_a_start_forever" false "a pid the record proves is from another boot still refused the start: $(one_line "$_recycled")" load ;;
+        *"would start"*)   add_row "a_recycled_pid_does_not_refuse_a_start_forever" true "a pid the record proves belongs to another boot no longer holds the role" load ;;
+        *) add_row "a_recycled_pid_does_not_refuse_a_start_forever" false "the dispatch answered neither: $(one_line "$_recycled")" load ;;
+    esac
+    printf '{"state":"running","pid":"%s","boot_id":"%s","started_at":"2026-09-07T00:00:00Z"}\n' \
+        "$_livepid" "$(tr -d '\n' </proc/sys/kernel/random/boot_id 2>/dev/null || printf '')" \
+        > "${_repo}/.codex-loop/worker-implement.json"
+    _samboot=$(cd "$_repo" && PATH="$_noflock" sh "$_launcher" --dispatch implement --dry-run 2>&1 | head -n 1)
+    case "$_samboot" in
+        *already_running*) add_row "a_live_worker_on_this_boot_is_still_refused" true "a genuinely running role is refused exactly as before" load ;;
+        *) add_row "a_live_worker_on_this_boot_is_still_refused" false "a live worker on this boot was not refused: $(one_line "$_samboot")" load ;;
+    esac
+    rm -f "${_repo}/.codex-loop/worker-implement.json"
+    _unknown=$(cd "$_repo" && PATH="$_noflock" sh "$_launcher" --dispatch implement --dry-run 2>&1 | head -n 1)
+    case "$_unknown" in
+        *already_running*) add_row "an_unreadable_liveness_never_starts_a_second_worker" true "with no record to supply a boot id the role stays held, which is the safe direction for a concurrency answer" load ;;
+        *) add_row "an_unreadable_liveness_never_starts_a_second_worker" false "an unverifiable pid started a second worker: $(one_line "$_unknown")" load ;;
+    esac
+    kill "$_livepid" 2>/dev/null || true
+    wait "$_livepid" 2>/dev/null || true
+    rm -rf "${_repo}/.codex-loop"
+
     mkdir -p "${_repo}/scripts"
     cp "$_shim_src" "${_repo}/scripts/codex-loop.sh"
     rm "$_launcher"

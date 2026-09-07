@@ -110,10 +110,32 @@ role_state() {
         printf 'idle'; return 0
     fi
     _pf=$(role_pidfile "$1")
-    if [ -s "$_pf" ] && kill -0 "$(cat "$_pf" 2>/dev/null)" 2>/dev/null; then
-        printf 'running'; return 0
+    _rs_pid=$(cat "$_pf" 2>/dev/null || printf '')
+    [ -s "$_pf" ] || { printf 'idle'; return 0; }
+    # A PID ALONE IS NOT A LIVENESS PROOF ACROSS A REBOOT (2026-09-07, ticket
+    # `20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`). This
+    # fallback tested `kill -0` and nothing else, dropping the boot-id term `liveness_reading`
+    # carries for exactly this reason — so a recycled pid number refused every start of that role,
+    # forever. MEASURED: on one machine `role_state` answered `running` and refused the dispatch
+    # `already_running` while the role's own record read `died_unrecorded:reboot` — a proof the
+    # process was gone. Two readers, one machine, and the one deciding the start was the weaker.
+    #
+    # THE BOOT ID COMES FROM THE ROLE'S OWN RECORD, and only when that record names this same pid;
+    # the pid file carries no boot id and inventing one would be worse than having none. With no
+    # boot id on either side the reading is `unverifiable`, which stays `running` — for a
+    # concurrency answer an unreadable reading must never start a second worker. Only the sound
+    # rungs move: `gone` and `reboot` are proofs the process is not there.
+    _rs_boot=""
+    _rs_rec=$(role_record "$1")
+    if [ -f "$_rs_rec" ] && command -v jq >/dev/null 2>&1; then
+        if [ "$(jq -r '.pid // ""' "$_rs_rec" 2>/dev/null || printf '')" = "$_rs_pid" ]; then
+            _rs_boot=$(jq -r '.boot_id // ""' "$_rs_rec" 2>/dev/null || printf '')
+        fi
     fi
-    printf 'idle'
+    case "$(liveness_reading "$_rs_pid" "$_rs_boot")" in
+        gone|reboot) printf 'idle' ;;
+        *)           printf 'running' ;;
+    esac
 }
 
 # THE FALLBACK CLAIM IS ATOMIC TOO, for the same reason (2026-09-06, ticket `20260906210556`).
@@ -202,9 +224,45 @@ liveness_reading() {
     printf 'unverifiable'
 }
 
-# One word, derived from the file alone — no lock, no live probe of anything but the pid.
+# THE SUPERVISOR LOCK IS EVIDENCE, NEVER A SECOND AUTHORITY (2026-09-07, ticket
+# `20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`). Reading
+# it answers *is something turning here*; it decides nothing about who may run, starts nothing and
+# refuses nothing — the lock stays the only concurrency authority, exactly as `role_state` already
+# probes a role lock for the same evidential purpose.
+#
+# IT NEVER CREATES THE FILE. `exec >` would, and a status surface that writes is the one thing this
+# surface may not become — so an absent lock is answered before any probe, and that is also what
+# keeps *absent means never started* true for a repository that never ran the Codex path.
+#   held | free | unreadable:<reason>
+supervisor_lock() { printf '%s/.supervisor.lock' "$LOG_DIR"; }
+
+supervisor_lock_state() {
+    _sl_file=$(supervisor_lock)
+    [ -e "$_sl_file" ] || { printf 'free'; return 0; }
+    command -v flock >/dev/null 2>&1 || { printf 'unreadable:flock_missing'; return 0; }
+    if ( exec 7>"$_sl_file"; flock -n 7 ) 2>/dev/null; then printf 'free'; else printf 'held'; fi
+}
+
+# One word. A RECORD IS NOT THE ONLY EVIDENCE THAT A SUPERVISOR EXISTS, which is where this
+# reader was wrong (2026-09-07, the same ticket). It answered `never_started` from the record file
+# alone, so an older supervisor — launched from a plugin tree since replaced, holding the lock and
+# turning — was reported as one that had never run. MEASURED 2026-09-06 (#1052): the operator could
+# neither see the live supervisor through `--status` nor start a working one.
+#
+# `never_started` NOW MEANS WHAT IT SAYS: no record, and nothing holding the lock. A held lock with
+# no record is `running_unrecorded` — something is turning here and this reader cannot say what,
+# which is a third fact and not a shade of either neighbour. A lock that exists and cannot be
+# probed is `unreadable:<reason>`, never `never_started`: an absence of a reading is never a proof
+# of absence.
 supervisor_reading() {
-    [ -f "$SUPERVISOR_FILE" ] || { printf 'never_started'; return 0; }
+    if [ ! -f "$SUPERVISOR_FILE" ]; then
+        case "$(supervisor_lock_state)" in
+            held)          printf 'running_unrecorded' ;;
+            free)          printf 'never_started' ;;
+            unreadable:*)  printf 'unreadable:supervisor_lock_unverifiable' ;;
+        esac
+        return 0
+    fi
     command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
     jq -e 'type == "object" and (.state | type == "string") and (.pid | type == "string")' \
         "$SUPERVISOR_FILE" >/dev/null 2>&1 || { printf 'unreadable:malformed'; return 0; }
@@ -266,6 +324,11 @@ show_supervisor() {
     case "$_sv_read" in
         never_started)
             printf 'codex supervisor: never_started (%s)\n' "$SUPERVISOR_FILE" ;;
+        running_unrecorded|unreadable:supervisor_lock_unverifiable)
+            # The evidence is named, because the reading rests on the lock rather than a record —
+            # and a reader who is about to conclude "nothing is running here" needs to know which
+            # file to look at.
+            printf 'codex supervisor: %s (%s)\n' "$_sv_read" "$(supervisor_lock)" ;;
         *)
             _sv_detail=""
             if [ -f "$SUPERVISOR_FILE" ] && command -v jq >/dev/null 2>&1; then
@@ -293,7 +356,15 @@ show_status() {
         return 4
     fi
     if [ "$_ss_read" = readable ]; then
+        # THE TICK'S FINISH TIME IS ON THE LINE, so *a tick recently succeeded* and *a supervisor
+        # is turning* are two readings a person can tell apart (2026-09-07, ticket
+        # `20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`).
+        # `outcome=ready` with no time beside it reads as *the loop is fine* whether the tick
+        # finished a minute or a day ago, and the supervisor line above it is then the only thing
+        # saying otherwise. It is the value the tick already recorded — no second clock, no stored
+        # cursor and no bound anybody had to pick.
         jq -r '"codex loop status: state=\(.state) outcome=\(.outcome)" +
+          (if (.finished_at // "") == "" then "" else " finished_at=\(.finished_at)" end) +
           (if .blocked_reason == "" then "" else " blocked_reason=\(.blocked_reason)" end) +
           (if .next_due == "" then "" else " next_due=\(.next_due)" end) +
           (if (.relay_state // "none") == "none" then "" else " relay=\(.relay_state)" end) +

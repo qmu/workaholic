@@ -66,7 +66,8 @@ The supervisor completes and classifies the first tick before reporting ready. E
 atomically replaces `.codex-loop/status.json` with the outcome, blocked reason, report path,
 transport verdict and next due time; `sh scripts/codex-loop.sh --status` reads that state without
 starting another process. **It answers the whole loop, not only the tick** (2026-09-06): the
-supervisor's own liveness (`.codex-loop/supervisor.json` — absent means never started), every
+supervisor's own liveness (`.codex-loop/supervisor.json` — absent **and an unheld lock** means
+never started; a held lock with no record is `running_unrecorded`), every
 worker's state and last **reported** outcome (`.codex-loop/worker-<role>.json`, evidence beside
 the lock, which stays the only concurrency authority), and the last tick, composed from the
 directory alone with `--status --json` rendering the same reading for a machine. Each unreadable

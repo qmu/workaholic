@@ -132,7 +132,22 @@ case "$route" in
 esac
 result=$("$adapter" --request "$TRANSPORT_REQUEST_FILE")
 status=$(printf '%s' "$result" | jq -r .status); reason=$(printf '%s' "$result" | jq -r .reason)
-if [ "$status" = ok ]; then transition_outbox confirmed "$(printf '%s' "$result" | jq -c .data)"
+if [ "$status" = ok ]; then
+  # Provider adapters and parent connectors cross the same confirmation seam.
+  # An adapter's successful invocation is not delivery evidence until the
+  # returned target, timestamp, and sender satisfy the original request.
+  printf '%s' "$result" | jq -c --arg op "$TRANSPORT_OPERATION" '
+    {request_id,operation:$op,status,target:(.data|{workspace,channel,channel_id}),data}' >"$tmpdir/adapter-observation.json"
+  accepted=$("${SCRIPT_DIR}/accept-observation.sh" --request "$TRANSPORT_REQUEST_FILE" --result "$tmpdir/adapter-observation.json")
+  if [ "$(printf '%s' "$accepted" | jq -r .status)" = ok ]; then
+    transition_outbox confirmed "$(printf '%s' "$accepted" | jq -c .data)"
+    result=$accepted
+  else
+    # The provider may already have accepted the effect. Missing or mismatched
+    # evidence therefore requires reconciliation and never licenses a resend.
+    transition_outbox unknown
+    result=$accepted
+  fi
 elif [ "$reason" = accepted_send_timeout ] || [ "$reason" = provider_timeout ] || [ "$reason" = qfs_connector_failure ]; then transition_outbox unknown
 else transition_outbox refused
 fi

@@ -12,16 +12,24 @@ mount=$(printf '%s' "$route" | jq -r '.mount // empty')
 [ -n "$mount" ] || { transport_result error qfs_binding_invalid "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
 workspace=$(jq -r '.input.binding.workspace' "$TRANSPORT_REQUEST_FILE")
 channel=$(jq -r '.input.binding.channel_id // .input.binding.channel' "$TRANSPORT_REQUEST_FILE")
-case "$mount" in /slack/*) base="${mount%/}/${channel}" ;; *) transport_result error qfs_binding_invalid "$TRANSPORT_REQUEST_ID" '{}'; exit 0;; esac
+# QFS paths and `after` coordinates are syntax, not values. Keep every dynamic
+# coordinate inside Slack's portable identifier/timestamp grammar so provider
+# output cannot append a pipe-SQL operator on the next poll.
+case "$mount" in /slack/*) ;; *) transport_result error qfs_binding_invalid "$TRANSPORT_REQUEST_ID" '{}'; exit 0;; esac
+case "${mount#/slack/}" in ''|*[!A-Za-z0-9._/-]*|*..*|/*|*/|*//* ) transport_result error qfs_binding_invalid "$TRANSPORT_REQUEST_ID" '{}'; exit 0;; esac
+case "$channel" in ''|*[!A-Za-z0-9._-]*) transport_usage "QFS channel coordinate is invalid";; esac
+base="${mount%/}/${channel}"
 
 case "$TRANSPORT_OPERATION" in
   read_channel_delta)
     cursor=$(jq -r '.input.cursor // empty' "$TRANSPORT_REQUEST_FILE")
+    case "$cursor" in '') ;; *[!0-9.]*|*.*.*|.*|*.) transport_usage "QFS cursor is invalid";; *.*) ;; *) transport_usage "QFS cursor is invalid";; esac
     query="${base}/messages |> select id, ts, thread_ts, sender_id, text, edited_at |> limit 100"
     [ -z "$cursor" ] || query="${query} |> after ${cursor}"
     ;;
   read_thread)
     thread=$(jq -r '.input.thread_ts // empty' "$TRANSPORT_REQUEST_FILE"); [ -n "$thread" ] || transport_usage "read_thread requires thread_ts"
+    case "$thread" in *[!0-9.]*|*.*.*|.*|*.) transport_usage "QFS thread coordinate is invalid";; *.*) ;; *) transport_usage "QFS thread coordinate is invalid";; esac
     query="${base}/threads/${thread}/messages |> select id, ts, thread_ts, sender_id, text, edited_at |> limit 100"
     ;;
   search_exact)

@@ -11,12 +11,18 @@ record=$(printf '%s' "$meta" | jq -c .data.record); owner=$(printf '%s' "$record
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 captured=0
 jq -c '.messages[]' "$REQ" | while IFS= read -r message; do
-  id=$(printf '%s' "$message" | jq -jr '.id // .ts // empty' | tr -c 'A-Za-z0-9._-' '-')
-  [ -n "$id" ] || exit 9
-  jq -cn --arg now "$now" --argjson owner "$owner" --argjson generation "$generation" --argjson message "$message" '{updated_at:$now,owner:$owner,generation:$generation,data:{state:"captured",message:$message}}' > "$tmp/inbox.json"
+  provider_id=$(printf '%s' "$message" | jq -jr '.id // .ts // empty')
+  [ -n "$provider_id" ] || exit 9
+  id=$(printf '%s' "$provider_id" | sha256sum | cut -d' ' -f1)
+  jq -cn --arg now "$now" --arg provider_id "$provider_id" --argjson owner "$owner" --argjson generation "$generation" --argjson message "$message" '{updated_at:$now,owner:$owner,generation:$generation,data:{state:"captured",provider_id:$provider_id,message:$message}}' > "$tmp/inbox.json"
   result=$(call create --scope binding --id "$binding" --record "inbox/$id" --input "$tmp/inbox.json")
   status=$(printf '%s' "$result" | jq -r .status); reason=$(printf '%s' "$result" | jq -r .reason)
-  [ "$status" = ok ] || [ "$reason" = revision_conflict ] || exit 10
+  if [ "$status" != ok ]; then
+    [ "$reason" = revision_conflict ] || exit 10
+    existing=$(call read --scope binding --id "$binding" --record "inbox/$id")
+    printf '%s' "$existing" | jq -e --arg provider_id "$provider_id" --argjson message "$message" \
+      '.status=="ok" and .data.found==true and .data.record.data.provider_id==$provider_id and .data.record.data.message==$message' >/dev/null 2>&1 || exit 10
+  fi
 done
 pipe_status=$?; [ "$pipe_status" -eq 0 ] || { printf '{"status":"deferred","reason":"capture_incomplete"}\n'; exit 0; }
 rev=$(printf '%s' "$record" | jq -r .revision); data=$(printf '%s' "$record" | jq -c --argjson cursor "$(jq -c .next_cursor "$REQ")" '.data + {cursor:$cursor}')

@@ -6,6 +6,7 @@ case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction) ;; *) transpor
 [ -n "${SLACK_BOT_TOKEN:-}" ] || { transport_result deferred no_token "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
 channel=$(jq -r '.input.binding.channel_id // .input.binding.channel // empty' "$TRANSPORT_REQUEST_FILE")
 [ -n "$channel" ] || transport_usage "token transport requires a channel"
+workspace=$(jq -r '.input.binding.workspace // empty' "$TRANSPORT_REQUEST_FILE")
 sender_expected=$(jq -r '.input.expected_sender_id // .input.binding.sender_id // empty' "$TRANSPORT_REQUEST_FILE")
 
 case "$TRANSPORT_OPERATION" in
@@ -34,10 +35,10 @@ code=$(curl -sS -o "$body" -w '%{http_code}' -X POST -H "Authorization: Bearer $
   transport_result deferred provider_timeout "$TRANSPORT_REQUEST_ID" '{"accepted":null}'; exit 0;
 }
 [ "$code" = 200 ] || { transport_result deferred "http_${code}" "$TRANSPORT_REQUEST_ID" '{"accepted":false}'; exit 0; }
-parsed=$(jq -c --arg expected "$sender_expected" '
+parsed=$(jq -c --arg expected "$sender_expected" --arg workspace "$workspace" '
   if .ok!=true then {ok:false,reason:("slack_"+(.error//"unknown"))}
   elif $expected!="" and (.message.user//.user//"")!=$expected then {ok:false,reason:"sender_mismatch",sender_id:(.message.user//.user//null)}
-  else {ok:true,data:{workspace:(.team//null),channel:(.channel//null),ts:(.ts//.message.ts//null),thread_ts:(.message.thread_ts//null),sender_id:(.message.user//.user//null),confirmed_by:"provider_response",delivered:true}} end
+  else {ok:true,data:{workspace:(.team//$workspace),channel:(.channel//null),ts:(.ts//.message.ts//null),thread_ts:(.message.thread_ts//null),sender_id:(.message.user//.user//null),confirmed_by:"provider_response",delivered:true}} end
 ' "$body" 2>/dev/null) || { transport_result error slack_unparseable "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
 if [ "$(printf '%s' "$parsed" | jq -r .ok)" != true ]; then transport_result deferred "$(printf '%s' "$parsed" | jq -r .reason)" "$TRANSPORT_REQUEST_ID" "$(printf '%s' "$parsed" | jq 'del(.ok,.reason)')"; exit 0; fi
 transport_result ok "" "$TRANSPORT_REQUEST_ID" "$(printf '%s' "$parsed" | jq -c .data)"

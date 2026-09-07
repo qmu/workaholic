@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 const source=resolve(import.meta.dirname,'../../..'); const skills=join(source,'plugins/workaholic/skills');
 const run=(a,o={})=>spawnSync(a[0],a.slice(1),{encoding:'utf8',...o});
@@ -35,7 +36,9 @@ test('P5 inbox cursor advances only after durable deduplicated captures', t => {
   const capture=join(skills,'transport/scripts/capture-inbox.sh');
   for(let i=0;i<2;i++){const r=run(['sh',capture,'--request',request],{cwd:dir});assert.equal(r.status,0,r.stderr);assert.equal(JSON.parse(r.stdout).status,'ok');}
   const read=JSON.parse(run(['sh',state,'read','--scope','binding','--id','b'],{cwd:dir}).stdout); assert.equal(read.data.record.data.cursor,'c2');
-  const inbox=JSON.parse(run(['sh',state,'read','--scope','binding','--id','b','--record','inbox/m1'],{cwd:dir}).stdout); assert.equal(inbox.data.record.data.message.text,'hello');
+  const messageKey=createHash('sha256').update('m1').digest('hex');
+  const inbox=JSON.parse(run(['sh',state,'read','--scope','binding','--id','b','--record',`inbox/${messageKey}`],{cwd:dir}).stdout); assert.equal(inbox.data.record.data.message.text,'hello');
+  assert.equal(inbox.data.record.data.provider_id,'m1');
 });
 
 test('P5 metrics keep unavailable provider usage null', () => {

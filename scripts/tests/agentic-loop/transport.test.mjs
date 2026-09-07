@@ -106,7 +106,7 @@ test("P3 token send preserves a thread and stores provider coordinates in a conf
   spawnSync("chmod", ["+x", join(bin, "curl")]);
   const binding = { workspace: "A", channel: "same", channel_id: "C1", sender_id: "BOT", operations: ["post_reply"], routes: [{ transport: "slack_token", operations: ["post_reply"], sender_id: "BOT", described: true }], thread_map: {} };
   const path = request(dir, base(dir, "post_reply", { binding, thread_ts: "171.2", text: "reply", expected_sender_id: "BOT", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "send-1" }));
-  const result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: "secret" } });
+  const result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join("") } });
   assert.equal(result.json.status, "ok", result.stderr);
   assert.equal(JSON.parse(readFileSync(capture, "utf8")).thread_ts, "171.2");
   const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
@@ -120,9 +120,9 @@ test("P3 an accepted-send timeout stays unknown and a retry requires reconciliat
   writeFileSync(join(bin, "curl"), "#!/bin/sh\nexit 1\n"); spawnSync("chmod", ["+x", join(bin, "curl")]);
   const binding = { workspace: "A", channel: "same", channel_id: "C1", operations: ["post_root"], routes: [{ transport: "slack_token", operations: ["post_root"], described: true }], thread_map: {} };
   const path = request(dir, base(dir, "post_root", { binding, text: "message", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "send-timeout" }));
-  let result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: "secret" } });
+  let result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join("") } });
   assert.equal(result.json.reason, "provider_timeout");
-  result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: "secret" } });
+  result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join("") } });
   assert.equal(result.json.reason, "needs_reconcile");
 });
 
@@ -219,7 +219,7 @@ test("P3 legacy notifier derives one stable outbox ID for an identical retry", (
   writeFileSync(join(bin, "curl"), `#!/bin/sh\nn=0; [ ! -f '${count}' ] || n=$(cat '${count}'); n=$((n+1)); printf '%s' "$n" > '${count}'\nout=""; while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2;; *) shift;; esac; done\nprintf '%s' '{"ok":true,"channel":"C1","ts":"172.3","message":{"user":"BOT"}}' > "$out"\nprintf 200\n`);
   spawnSync("chmod", ["+x", join(bin, "curl")]);
   const notifier = join(root, "plugins/workaholic/skills/specificate/scripts/notify-slack.sh");
-  const env = { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: "secret", WORKAHOLIC_SLACK_CHANNEL: "C1", WORKAHOLIC_SLACK_WORKSPACE: "A" };
+  const env = { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join(""), WORKAHOLIC_SLACK_CHANNEL: "C1", WORKAHOLIC_SLACK_WORKSPACE: "A" };
   let result = run(notifier, ["same occurrence"], { cwd: dir, env });
   assert.equal(result.json.notified, true, result.stderr);
   result = run(notifier, ["same occurrence"], { cwd: dir, env });

@@ -1672,7 +1672,7 @@ EOF
     fi
 
     printf '%s\n' "## Experience" "" "e" "" "## Tickets" "" "1. only one" "" >> "$_mbody"
-    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    _r=$(cd "$REPO_ROOT" && PATH="${_bin}:$PATH" sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
     if printf '%s' "$_r" | grep -q '"ok":true'; then
         add_row "propose_single_ticket_experiment" true "a proposal naming one concrete ticket reaches the publication seam" load
     else

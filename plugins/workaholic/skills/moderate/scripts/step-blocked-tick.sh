@@ -88,6 +88,16 @@ DIR="${ROOT}/.workaholic/moderations"
 since=$(ls "$DIR" 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\)\.md$/\1/p' | sort | tail -2 | head -1)
 [ -n "$since" ] || emit skipped no_log_area "the tick log holds no day file yet"
 
+# TWO READS, ONE PER OWNER, AND THAT IS THE POINT (2026-09-07, ticket `20260907063154`).
+# `log-read.sh` answers moderation by default, so the moderate arm below takes the default
+# and the propose arm asks for its own owner BY NAME. It was one unfiltered read feeding
+# both arms, which is exactly how a `loop-finish-*` section — written by the coordinator
+# under the coordinator's own tick id, every five minutes — became "the tick before last"
+# and got reported as a moderate tick that opened and closed. MEASURED on the live log:
+# `blocked-tick: ok — the tick before last opened and closed; 1 step(s) recorded`, over a
+# section holding one `loop-finish-implement` line, while the real moderate tick before it
+# had stopped. The second read is the propose arm's own and costs one more walk of at most
+# two day files.
 out=$(sh "$LOG_READ" --root "$ROOT" --since "$since" 2>/dev/null || true)
 if [ -z "$out" ] || ! printf '%s' "$out" | jq -e . >/dev/null 2>&1; then
     emit degraded log_unreadable "the tick log returned nothing this step could parse"
@@ -95,6 +105,16 @@ fi
 if printf '%s' "$out" | jq -e '.read == false' >/dev/null 2>&1; then
     why=$(printf '%s' "$out" | jq -r '.reason // "unreadable"' 2>/dev/null || printf unreadable)
     emit degraded "$why" "the tick log could not be read: ${why}"
+fi
+
+# The propose arm's own read. A degradation here is NOT fatal to the moderate arm: losing
+# the moderate reading because the propose one could not be parsed would trade one silence
+# for another, so an unparseable answer leaves `propose_out` empty and that arm silent.
+propose_out=$(sh "$LOG_READ" --root "$ROOT" --since "$since" --owner propose 2>/dev/null || true)
+if [ -n "$propose_out" ]; then
+    if ! printf '%s' "$propose_out" | jq -e '.read == true' >/dev/null 2>&1; then
+        propose_out=''
+    fi
 fi
 
 # The tick before last: distinct ticks newest-first, this one dropped, the second taken.
@@ -107,7 +127,8 @@ subject=$(printf '%s' "$out" | jq -r --arg now "$TICK" \
 # fire, produces nothing and reads as scheduled and healthy; a person noticed days later.
 #
 # It is read HERE rather than in a step of its own because the question is identical — *this opened
-# and never closed* — and the log is already in hand from the one read above. A sibling step would
+# and never closed* — over the same day files already selected above (since 2026-09-07 through this
+# arm's own owner-filtered read, which is what keeps it seeing its lines at all). A sibling step would
 # be a second reader of one file answering one question, which is how two readings start to
 # disagree. Same structural bound as the moderate subject: the tick BEFORE LAST, never a threshold,
 # so a propose tick still running when the next one starts is never called stopped.
@@ -115,7 +136,7 @@ subject=$(printf '%s' "$out" | jq -r --arg now "$TICK" \
 # The pair it looks for is `propose-open` / `propose-close`, which `/propose` writes and nothing
 # else does. A repository whose propose tick predates that contract simply has no `propose-open`
 # line, and this arm stays silent rather than reporting a stop it cannot see.
-propose_subject=$(printf '%s' "$out" | jq -r --arg now "$TICK" \
+propose_subject=$(printf '%s' "$propose_out" | jq -r --arg now "$TICK" \
     '[.entries[] | select(.step == "propose-open") | .tick] | unique | reverse
      | map(select(. != $now)) | .[1] // ""' 2>/dev/null || true)
 
@@ -141,14 +162,14 @@ propose_needs=""
 propose_event=""
 propose_summary=""
 if [ -n "$propose_subject" ]; then
-    p_closed=$(printf '%s' "$out" | jq -r --arg t "$propose_subject" \
+    p_closed=$(printf '%s' "$propose_out" | jq -r --arg t "$propose_subject" \
         '[.entries[] | select(.tick == $t and .step == "propose-close")] | length' 2>/dev/null || printf 0)
-    p_reached=$(printf '%s' "$out" | jq -r --arg t "$propose_subject" \
+    p_reached=$(printf '%s' "$propose_out" | jq -r --arg t "$propose_subject" \
         '[.entries[] | select(.tick == $t) | .step | select(startswith("propose-"))] | length' 2>/dev/null || printf 0)
     if [ "$p_closed" -gt 0 ]; then
         propose_summary="the propose tick before last opened and closed"
     else
-        p_last=$(printf '%s' "$out" | jq -r --arg t "$propose_subject" \
+        p_last=$(printf '%s' "$propose_out" | jq -r --arg t "$propose_subject" \
             '[.entries[] | select(.tick == $t) | .step | select(startswith("propose-"))] | last // "propose-open"' 2>/dev/null || printf propose-open)
         propose_needs=$(jq -cn --arg tick "$propose_subject" --arg last "$p_last" --arg reached "$p_reached" \
             '{action: "ask_about_a_propose_tick_that_never_closed",

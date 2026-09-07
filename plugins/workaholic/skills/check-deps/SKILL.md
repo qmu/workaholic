@@ -100,7 +100,18 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/plugin-src.sh [--clone] [--
 
 Returns the **newest plugin tree present on this machine** and the run executes every script
 from it: `{"ok": true, "src": …, "source": "checkout|registry|clone|bound", "version": …,
-"src_immutable": …, "degraded": …, "bound_version": …, "candidates": [{…, "immutable": …}]}`.
+"src_immutable": …, "degraded": …, "call_src": …, "call_src_source": …, "bound_version": …,
+"candidates": [{…, "immutable": …}]}`.
+
+**`src` is which code runs; `call_src` is which path a composed call spells.** They are the
+same path except where a checkout holds the **same version** as the resolved `src`, and there
+`call_src` is the checkout — identical bytes, inside the workspace. A `bash` call at the
+plugin cache is covered by `Bash(bash:*)` (a prefix rule with no path term) and froze a runner
+regardless, because a `.claude/` path is classified as Claude's own configuration by a
+judgement applied above the allowlist; the reach is removed rather than permitted
+(`rules/shell.md`, *And BOTH reaches take the CHECKOUT's path, never `<src>`*). Where the
+checkout is behind, no identical-version workspace copy exists and `call_src` **is** `src`, so
+the newest-tree guarantee is untouched and a repository that vendors nothing is unaffected.
 The candidates are the **checkout** (`<project>/plugins/workaholic`), the newest **registry**
 `installPath` (already downloaded — no network), a **clone** at `$WORKAHOLIC_SRC_HOME` (created
 only with `--clone`), and the **bound** `${CLAUDE_PLUGIN_ROOT}`. Picking the newest can only move
@@ -110,6 +121,20 @@ a run forward on the staleness axis, which is what makes the demoted gate above 
 genuinely newer checkout still executes, which is what lets this repository develop its own
 plugin and run the result. On an **equal** version the **immutable** candidate wins, because a
 tie on version is not a tie on stability.
+
+**`src` is the path for `bash`, and a Read takes the checkout's path** (2026-09-06, ticket
+`20260902043117`). The tie-break above is what makes this matter: on an **equal** version the
+immutable candidate wins, so in a container whose baked cache matches its checkout `src` is
+`~/.claude/plugins/cache/workaholic/workaholic/<version>/` — a path **outside** a repository's
+`Read(//home/**)` allow entry and **inside** a `.claude/` directory the harness classifies as
+sensitive. `Bash(bash:*)` is a prefix rule with no path term, so running a script from there
+never prompts (measured); **reading** a markdown file from there does, and it parked the
+`[Propose]` tick hourly. So the run executes every **script** from `src` and reads every
+**skill section, reference file and command body** with the Read tool at the checkout's own
+path (`plugins/workaholic/…`), where the same bytes sit inside the workspace. The newest-tree
+resolution is unchanged and keeps its whole purpose — the code that runs is still the newest on
+the machine. Full statement and the rejected allow-entry repair: `rules/shell.md`, *And it is
+read at the CHECKOUT's path, never at `<src>`*.
 
 **`src_immutable` is the field to read, not a convention to remember.** A candidate is immutable
 when its path is **version-addressed** — its own basename is the version it carries, the cache

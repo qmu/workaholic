@@ -296,6 +296,21 @@ esac
 # the log rather than stored; a tick that posted nothing writes none. With no posting tick in the
 # window the reader falls back to the previous tick, which is exactly the behaviour that predates
 # this and the right answer for a repository whose log does not go back far enough.
+#
+# AND THAT FALLBACK IS NOW BOUNDED TO MODERATE TICKS, BY `log-read.sh`'S OWN DEFAULT (2026-09-07,
+# ticket `20260907063154`). This call names no owner and therefore asks about moderation, which is
+# the whole repair: the fallback took the newest tick before this one WHATEVER step it carried, and
+# the coordinator writes a `loop-finish-*` section every five minutes under its own tick id, so it
+# landed on a section with no moderation rows at all. `${TMP}/prev` came back empty and EVERY step
+# with an event compared against an empty `was` and counted as changed — the diff no longer
+# suppressing an unchanged answer, which is the one property it exists to guarantee, and the reason
+# `📦 Release Preparation` was retired. REPRODUCED hermetically on identical run JSON whose one row
+# repeats the previous tick's summary verbatim: with a `loop-finish-implement` section between,
+# `previous_tick` was that section and `change_count` was 1; with it removed, the previous moderate
+# tick and 0. Nothing here moved — the repair is the reader's default, and this call inherits it.
+#
+# `no_rows` IS UNAFFECTED and keeps its meaning: it is emitted from `${TMP}/now` — this tick's own
+# rows, off the run JSON on stdin — well ABOVE this point, so a rowless baseline cannot produce it.
 PREV=$(printf '%s\n' "$LOG" | tr '{' '\n' \
        | sed -n 's/.*"tick": *"\([^"]*\)".*"step": *"human-checkin-post".*/\1/p' \
        | sort -u | awk -v t="$TICK" '$0 < t' | tail -n 1)

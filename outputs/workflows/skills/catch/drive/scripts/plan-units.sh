@@ -126,6 +126,18 @@
 # 06:43. Its next action is a person running the declared verification, which is neither
 # `claimed_reported`'s merge nor `claimed_active`'s wait.
 #
+# IT NOW TAKES *EVERY* REMAINING MEMBER, NOT ANY ONE OF THEM (2026-09-07, mission
+# `hand-off-the-members-that-declare-and-drive-the-rest`). The verdict was reached from a single
+# declaring member, so a claim whose remaining work was only PARTLY declared was excluded whole:
+# measured 2026-09-06 on `report-each-tick-in-the-originating-codex-chat`, 7 queued tickets with
+# ONE declaration, `backlog_all_excluded` reporting 7 offered as 0, and the route step that would
+# drive the other six never entered because the unit reached no offer. `lib/claims.sh` now asks
+# whether every remaining member is held, so such a unit keeps its ordinary verdict and is
+# offered here; the exclusion, its reason word and everything an ALL-declaring unit does are
+# byte-identical. THE COST, STATED: a partly-declared unit is re-offered every tick until its
+# non-declaring members are driven, which is the intended behaviour — those tickets are work —
+# and it is bounded by the claim protocol, which refuses what is already taken.
+#
 # IT MUST NOT FORBID `ok` (drive/SKILL.md §7). A unit waiting on a declared human verification is
 # the gate WORKING, exactly like a pull request a scan finding holds open; making it `pending`
 # would put `ok` out of reach on precisely the runs where the machinery did its job -- and, since
@@ -331,7 +343,7 @@ u_sep=""
 if [ -n "$ROWS" ]; then
     sep=""
     r_sep=""
-    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_handoff c_arts; do
+    while IFS='	' read -r c_unit c_branch c_at c_stale c_author c_resumable c_reason c_reported c_handoff c_members c_arts; do
         [ -n "$c_unit" ] || continue
 
         # A DEAD BRANCH BESIDE A LIVE ONE GOVERNS NOTHING (2026-08-27). Since a fresh claim

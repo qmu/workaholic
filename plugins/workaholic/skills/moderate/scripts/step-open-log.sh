@@ -68,4 +68,41 @@ DAY=$(printf '%s' "$TICK" | cut -c1-4)-$(printf '%s' "$TICK" | cut -c5-6)-$(prin
 # (`persist-log.sh`'s header carries the whole record): `.workaholic/moderations/` is git-ignored
 # and stays in the checkout, so the log the previous tick wrote is already here and there is
 # nothing to carry in.
+
+# WHAT THE TICK STILL OWES ITSELF: WHETHER ITS OWN LOG IS ON THE BASE (ticket `20260902042038`).
+# `.workaholic/moderations/` is git-ignored from the day the design landed, and a gitignore does
+# NOT untrack what is already tracked -- so a repository whose ticks wrote day files to the base
+# before that day still carries them, and every reader of this tree reported healthy over them.
+# Measured on a consuming repository: twelve days of silent hourly accumulation, ended only when
+# the operator ran `/workaholify` by hand and committed the staged removals themselves.
+#
+# THIS STEP RAISES A FINDING AND MOVES NOTHING, AND THAT IS THE DESIGN RATHER THAN THE FALLBACK
+# (the ticket asked for the decision to be stated here). The mover it was written against --
+# `gather/scripts/migrate-moderations-off-main.sh` -- was DELETED on 2026-09-03 with the log
+# branch it served, and `workaholic:workaholify` now states that no migration at that seam may
+# reach the network. Composing a mover is therefore impossible and writing a second one is what
+# that rule forbids; an unattended tick that deletes tracked files from the base on its own
+# reading is a wider act than the one this repository just spent a mission narrowing. The
+# acceptance is disjunctive -- land the move OR raise a finding, never both silent -- and this is
+# the second. The finding is classified `repairable`, so it goes the long way round through
+# `file-findings` -> `[FB]` -> `/specificate` -> `/implement` and is asked ONCE per subject rather
+# than restated hourly at nobody.
+#
+# THE READING IS THREE-VALUED. Tracked files are a finding; a clean tree says nothing extra; a
+# root that is not a git repository has no base to be on (the drill's throwaway root, a hermetic
+# fixture) and is NOT a degradation. Only a git that failed INSIDE a repository is `degraded`,
+# named by its own reason, because a reading we could not take must never render as clean.
+if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    if TRACKED=$(git -C "$ROOT" ls-files -- .workaholic/moderations 2>/dev/null); then
+        if [ -n "$TRACKED" ]; then
+            N=$(printf '%s\n' "$TRACKED" | grep -c '' 2>/dev/null || printf 0)
+            printf '{"step": "open-log", "status": "degraded", "reason": "log_tracked_on_base", "summary": "%s tick-log file(s) are tracked on the base; the log is git-ignored and belongs in the checkout only, and untracking them is filed as work rather than done here", "event": "the tick log is still tracked in git", "needs_agent": []}\n' "$N"
+            exit 0
+        fi
+    else
+        printf '{"step": "open-log", "status": "degraded", "reason": "log_tracking_unreadable", "summary": "whether the tick log is tracked on the base could not be read; a log on the base is indistinguishable from one off it this tick", "needs_agent": []}\n'
+        exit 0
+    fi
+fi
+
 printf '{"step": "open-log", "status": "ok", "reason": "", "summary": "tick log open at .workaholic/moderations/%s.md, kept in this checkout", "needs_agent": []}\n' "$DAY"

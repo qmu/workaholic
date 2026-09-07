@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["executed", "outcome", "reason", "report"],
+  "properties": {
+    "executed": {
+      "type": "boolean",
+      "description": "True only if you actually read the role's command body and performed it. False if anything stopped you before that — a missing file, a refused read, a precondition you could not meet."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["ok", "pending", "blocked", "failed"],
+      "description": "The run's own terminal token. Use the token the command body derives; never grade yourself."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Empty when the outcome is ok. Otherwise the single word or short phrase naming what stopped or withheld it."
+    },
+    "report": {
+      "type": "string",
+      "description": "The run's own report block, verbatim."
+    }
+  }
+}

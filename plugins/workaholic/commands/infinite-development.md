@@ -224,7 +224,7 @@ stop it — so there is no second walk and no new store. `log-append.sh` is idem
 is what used to make the idle agent load-bearing and force the reaping to wait for the next spawn:
 
 ```
-bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-<name> --latest-tick
+bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --owner loop --step-prefix loop-finish-<name> --latest-tick
 ```
 
 The tick id it answers **is** the finish time. A loop whose recorded finish is older than its
@@ -246,11 +246,42 @@ of what is queued**, and the queue moves only when `implement` lands something o
 writes an ask — neither of which happens inside five minutes. `0` means every tick. What was
 measured, and why a change-detector was refused: `workaholic:loops`, *The record behind the tick*.
 
+**A `running` runner is not necessarily a working one, and the tick reads which** (2026-09-06,
+mission `see-a-frozen-runner-and-give-back-its-slot`). `ListAgents` says `running` for a runner
+executing a tool and for one blocked forever on a permission dialog nobody will answer — measured,
+`implement-10` frozen 38m29s and reported healthy by nine consecutive calls. Read
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-runner-advance.sh --names <the running loop
+names>`: per name `advancing` / `not_advancing` / `unreadable:<reason>`, off the claim worktree's
+own files, offline and local.
+
+**A runner the reader answers `not_advancing` for does not consume a fan-out slot.** Subtract it
+from `running` **in the fan-out expression below and nowhere else**: the slot coming back is what
+recovers the work, because the frozen runner's own claim heartbeat lapses and `claim.sh resume`
+takes over one's own lapsed claim — and without the slot no runner is spawned to do so. Measured
+with `WORKAHOLIC_IMPLEMENT_FANOUT=3` and one frozen runner, the loop was a 2-runner loop for 38
+minutes and said nothing about it in any tick report.
+
+**The concurrency rule's other half does not move**: a loop whose subagent is `running` and
+**advancing** is still not spawned again. **`unreadable:<reason>` frees nothing** and is reported
+by its own reason, never as headroom — a gate that cannot be read is not a gate. And **no agent is
+stopped and no work is killed on this reading**: the unconditional `TaskStop` stays exactly where
+it is, on `idle`, and this adds no second liveness authority. The slot comes back; the frozen
+session is the operator's to end, or the next `idle` observation's.
+
 Read claimable units with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/claimable-units.sh` and
 CPU facts with `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/read-machine-load.sh`. Spawn
-`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − running)` implement runners; absent means one,
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable, bound − (running − not_advancing))` implement runners; absent means one,
 and `bad_fanout` or an unreadable claimable result falls back to one and is reported. Do not hand
 a unit to a runner: each surveys and claims, and the claim arbiter settles any race.
+
+**`claimable` counts the recovery and delivery work a pass would act on, not only fresh units**
+(2026-09-06). An undelivered unit, a catchable claim or a stranded publication each make the
+count non-zero on their own, and **all of them together are one unit** because a single
+`/implement` pass walks every one. When the count is non-zero and `missions` and `backlog_units`
+are both zero, the §3 allocation line **names the recovery term that earned the runner**
+(`undelivered` / `catchable` / `stranded`) — a runner spawned to recover is a different fact from
+one spawned to drive a ticket, and a bare number tells a reader neither. A `readable: false`
+count is named by its own reason and never rendered as an idle repository.
 
 **Both bounds are declared in `.claude/settings.json`'s `env` block**, beside `WORKAHOLIC_WIP_LIMIT`
 and for its reason: a routine selects an account-level environment, so a per-repository number
@@ -292,10 +323,30 @@ with the Read tool.
 
 **`moderate`'s gate is read from its own tick log rather than from the listing**, because its
 acts are hourly by nature and the log is a reader that already exists: run
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --latest-tick` — which answers
-that one timestamp and **carries no entries** — and spawn it only when the newest tick there is
-**older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just now*. An unreadable log spawns it — over-reporting
-beats a maintenance tick that silently stopped.
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --owner loop --step-prefix loop-finish-moderate --latest-tick`
+— which answers that one timestamp and **carries no entries** — and spawn it only when the newest
+tick there is **older than 30 minutes**. An empty `latest_tick` means *no such tick*, never *just
+now*. An unreadable log spawns it — over-reporting beats a maintenance tick that silently stopped.
+
+**The filter is what makes it `moderate`'s own gate** (2026-09-07, ticket `20260907031134`). Every
+loop writes its `loop-finish-<name>` line into this same file under the **coordinator's** tick id,
+so an unfiltered `--latest-tick` answers whichever tick wrote last — normally this tick itself —
+and the gate reads *moderate ran just now* on a loop busy enough to write every five minutes.
+Measured at coordinator tick `20260906-175547`: the bare read answered `20260906-174615` (that
+session's own `loop-finish-propose` line) while the filtered read answered `20260906-173626`, so
+the real finish was 19 minutes older than the gate believed. **The failure is silent by
+construction** — the wrong answer is a well-formed tick id, so no `cadence_unreadable` fires and
+nothing reports a maintenance tick that was never spawned. All three cadences are therefore keyed
+on the same filtered shape, which is the one `implement` and `propose` already read.
+
+**And all three name `--owner loop`** (2026-09-07, ticket `20260907063154`). `log-read.sh` derives
+each entry's owner from the step id and answers **moderation by default**, because the loop's
+finish records were shadowing the moderation sections every reader of that file composes — a
+coordinator-only section became `render-tick-post.sh`'s change baseline and `blocked-tick`'s "tick
+before last", both silently. A `loop-finish-*` line is the coordinator's, so these three reads ask
+for it **by name**; without the flag the default would filter out the very lines the cadence is
+counting. The `--step-prefix` filter above is untouched and still does its own job: the owner says
+*whose lines*, the prefix says *which loop*.
 
 Then **end** — which is the **branch's** word, not a final answer (`workaholic:work`, *What "end"
 means*): under the native-parent branch it returns control to the coordinator's own loop and emits
@@ -325,6 +376,16 @@ one tick old, and the render names when they were read.
 It holds no cursor and no store, so a **trend** is the caller's to see: this tick's reading
 beside the last one is what says *draining* or *stuck*. `draining` on a row is only the fact
 that this mission's archive is non-empty.
+
+**A row it could not read is named, never counted** (2026-09-06, ticket `20260906193731`). Such
+a row carries `readable: false`, a named reason (`progress_reader_missing` /
+`queue_reader_missing` / `progress_unreadable` / `queue_unreadable`) and **null** counts, with
+`draining: null` rather than `false` — and `propose_gate` is three-valued, so a walk holding an
+unreadable row answers **`unreadable`** rather than `open`. Render each by its own reason: an
+unreadable row is never a mission with nothing queued, and `unreadable` is never *the gate is
+open*. Measured before it: on a repository that does not vendor the plugin every row came back
+`null` and the gate answered `open` against a queue carrying work, for ~50 minutes across eight
+readings.
 
 ## 3. Report, in one short block
 
@@ -357,6 +418,14 @@ that this mission's archive is non-empty.
   held the fan-out** and never what the tick would otherwise have spawned, and it **reaches Slack
   through nothing**: this is the tick's own run report, and the loop posts no status line about its
   own capacity.
+- **The freed slot, beside the allocation and only when it fires**: a tick that subtracted a
+  non-advancing runner names it the way the machine bound is named — `runner_not_advancing:
+  <name> (idle <age>)`, the runner and the reader's own word — because a bound that fires silently
+  is the failure this reading exists to end. An `unreadable:<reason>` reading **frees nothing** and
+  is named by that reason, **never as advancing** and never as headroom. **A tick that freed no
+  slot adds no line**, the machine line's own rule and for its reason: an unchanged answer restated
+  every tick is what `📦 Release Preparation` was retired for. It carries no mention token, reaches
+  Slack through nothing, and **stops no agent** — only the fan-out expression reads it.
 - **Every reaping is named** — `reaped: <name>` — even on a tick that spawns nothing, because
   stopping a session is an act the tick took and the listing afterwards is the only other evidence.
 - **The cadence's own source is named where a loop was skipped**: `not_due: <name> (finish
@@ -368,6 +437,27 @@ that this mission's archive is non-empty.
   mission carrying queued work — acceptance `checked/total` and tickets left — and the
   origination gate's next answer with what has to clear for it to open. Name when the reading
   was taken. A reading that has not landed yet is named as pending, never rendered as zero.
+  **A mission row the reading could not make is named by its own reason** —
+  `progress_unreadable: <slug>` — and never rendered as a mission with nothing queued; a
+  `propose_gate` of **`unreadable`** is reported as *the gate could not be read* and never as
+  *open*, the rule the allocation and machine lines above already carry. `unreadable_missions`
+  is the count, so a walk that saw part of the board says so rather than looking complete.
+- **Where this report goes is named once, at startup, per entrypoint** (2026-09-06, mission
+  `finish-the-backlog-without-handing-it-back-to-the-operator`). A report written into a local
+  transcript is not a delivered report, and the failure this closes is a **missing** delivery path
+  being mistaken for a working one. In this session the report reaches the session itself — it is
+  the chat. Under an external clock it reaches a file, and the launcher says so in those words
+  (`chat_return: none`), because **an absent delivery path is named, never substituted for one that
+  delivers somewhere else**. The table per entrypoint is `workaholic:work`,
+  *Where a report goes, per entrypoint*.
+- **Each worker's outcome comes from what the worker reported**, never from this tick's guess:
+  `executed` / `outcome` / `reason` as its run gave them, so *the process terminated*, *the role
+  executed*, *the work completed* and *the notification was delivered* stay four facts. A role with
+  no recorded outcome is named as unrecorded and **never** as a healthy finish.
+- **A completion claim rests on the tree, not on this tick's bookkeeping.** *Everything is done* is
+  a statement about merged work, a drained queue and a reconciled set of open pull requests — the
+  readings `plan-units.sh`, `list-claims.sh` and `list-stranded-publications.sh` already make — and
+  a tick that could not make them says so and claims no completion.
 - **Nothing else, and a tick that did nothing says one line.** A quiet channel, no candidate, no
   loop due and a clean checkout is `idle` and nothing further — the principle this plugin already
   holds one surface over (`/moderate`'s post gate makes an idle hour silent), applied to the tick's

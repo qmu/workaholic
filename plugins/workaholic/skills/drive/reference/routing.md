@@ -331,8 +331,32 @@ pull request. Absent or empty is the ordinary route. It is recorded **at creatio
 writes the artifact (`workaholic:create-ticket`, `workaholic:specificate`) and read at route time
 by `verification-handoff.sh`; like `merge_policy` it is never edited mid-run — a run that could
 declare its own unit unverifiable would have handed itself the soft landing `handoff` is
-written never to become. Any member declaring it carries the whole unit, because the unit is
-one merge.
+written never to become. A declaration on the mission's own `mission.md` carries the whole unit,
+because the unit is one merge.
+
+**Which MEMBERS it carries is a partition, not a unit-wide verdict** (2026-09-07, mission
+`hand-off-the-members-that-declare-and-drive-the-rest`). *Any member declaring it carries the
+whole unit* was this section's own rule, and it is right about the **merge** and wrong about the
+**work**: it stopped every member of a unit because one of them declared. **Measured 2026-09-06**
+on `report-each-tick-in-the-originating-codex-chat` — 7 queued tickets, **one** declaring a prose
+handoff only the operator's own Codex chat can discharge, six declaring nothing, the claim read
+`awaiting_verification`, the survey excluded the unit, and the repository drove nothing for hours.
+So the route reads `verification-handoff.sh`'s `members[]` (or the claim row's `declared_members`)
+and splits the unit in two, on the **file test alone** — never a judgement about what a ticket
+probably needs, and never prose read anywhere but the declaration itself. The probe is run **per
+declaring member**, unchanged in meaning, so a `clean` one leaves the declaring set and is driven.
+
+| Declaring set | What the route does |
+| ------------- | ------------------- |
+| Empty | The **ordinary** route — `auto` ships, `review` merges. A unit whose every declaration was falsified is not a handoff. |
+| Every member, or the mission's own `mission.md` | The **whole-unit** handoff below, byte-identical to what it always was. |
+| Some members | Drive the non-declaring members through the ordinary ticket workflow; leave each declaring member **stamped and queued in `todo/`**, undriven, exactly as the half-driven path leaves undriven work. The pull request opens with that work pushed; the `## Handoff` names **only** the declaring members and must not claim the driven ones need a person. Merge, claim, finish line and token are the whole-unit row's, unchanged. |
+
+**The handoff is not weakened, and that is the ask's own non-goal.** A declaring member is still
+handed off, still on its own declaration, still with the claim standing and the pull request open.
+Only the members that declared **nothing** move — and the pull request now carries work while the
+unit is still handed off, which is already the half-driven path's shape, so no new pull-request
+state is introduced.
 
 **What the run then does**, whatever the merge policy says — `auto` does not outrank it, for
 the same reason `auto` has never meant "no gate applies":
@@ -403,8 +427,11 @@ route uses; its 🟡 line is the unit's one finish post. On the **half-driven** 
 tickets stay stamped and stay in `todo/`, so merging that PR carries a `claim:` onto the base —
 expected, and history rather than
 a claim (M1). Do **not** strip the stamp: the stamp at the tip is what keeps the ticket claimed
-while the PR is open. On the **declared** path (*The declared handoff*) nothing is left in
-`todo/` — every ticket archived normally, and what waits is the verification, not the work.
+while the PR is open. On the **whole-unit declared** path (*The declared handoff*) nothing is left
+in `todo/` — every ticket archived normally, and what waits is the verification, not the work. On
+the **partly declared** path each declaring member stays stamped and queued exactly as a
+half-driven unit's undriven tickets do, because what waits there is the work as well as its
+verification, and the person who takes it needs the ticket intact.
 The PR section is the authoritative record; the run report is the log. A
 later run resumes exactly this shape — a handoff and a resumption are one story told at two
 moments.

@@ -357,9 +357,19 @@ elif [ -n "$MISSION_SLUGS" ]; then
         # IT IS A CONSUMER, NOT A SECOND DERIVATION. `acceptance-handoffs.sh` resolves the
         # items' tickets and delegates the declaration itself to
         # `verification-handoff.sh`, the one reader.
+        #
+        # ONLY A PROSE DECLARATION REACHES THIS REFUSAL (2026-09-06, ticket
+        # `20260906105853`). A `probe:` form exists to be re-tested and §6 runs it at claim
+        # time, so the reader hands it back under `measurable_tickets` and it holds nothing
+        # here. The refusal names WHICH form held it, and names the probe declarations it
+        # found beside them, so the two are told apart from the run's own output. Full
+        # reasoning, and the cost: `mission/scripts/acceptance-handoffs.sh`'s own header.
         HOFF=$(sh "${MISSION_SCRIPTS}/acceptance-handoffs.sh" "$MISSION_FILE" 2>/dev/null || true)
         HOFF_ANY=$(printf '%s' "$HOFF" | sed -n 's/.*"handoff"[[:space:]]*:[[:space:]]*\(true\|false\).*/\1/p')
         HOFF_TICKETS=$(printf '%s' "$HOFF" | sed -n 's/.*"tickets"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p')
+        HOFF_MEASURABLE=$(printf '%s' "$HOFF" | sed -n 's/.*"measurable_tickets"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p')
+        HOFF_PROBED=""
+        [ -z "$HOFF_MEASURABLE" ] || HOFF_PROBED="; a probe declaration (${HOFF_MEASURABLE}) was found and did not hold — the drive run re-runs it"
 
         # An unreadable reader is NOT a proof: a missing number leaves the mission alone.
         if [ -n "$M_CHECKED" ] && [ -n "$M_TOTAL" ] && [ -n "$M_UNLINKED" ] && [ -n "$M_TODO" ] \
@@ -369,7 +379,7 @@ elif [ -n "$MISSION_SLUGS" ]; then
             # Reported where the close would have been reported, and by name, so the
             # reason is in the run's own output rather than only in a mission file
             # nobody reopens.
-            echo "    ! mission ${MISSION_SLUG}: ${M_CHECKED}/${M_TOTAL} accepted and queue empty, but NOT closed — an acceptance item is answered only by a declared verification handoff (${HOFF_TICKETS:-unnamed}); a person must verify it and close the mission"
+            echo "    ! mission ${MISSION_SLUG}: ${M_CHECKED}/${M_TOTAL} accepted and queue empty, but NOT closed — an acceptance item is answered only by a PROSE verification handoff (${HOFF_TICKETS:-unnamed}); a person must verify it and close the mission${HOFF_PROBED}"
         elif [ -n "$M_CHECKED" ] && [ -n "$M_TOTAL" ] && [ -n "$M_UNLINKED" ] && [ -n "$M_TODO" ] \
            && [ "$M_TOTAL" -gt 0 ] && [ "$M_CHECKED" -eq "$M_TOTAL" ] \
            && [ "$M_UNLINKED" -eq 0 ] && [ "$M_TODO" -eq 0 ]; then

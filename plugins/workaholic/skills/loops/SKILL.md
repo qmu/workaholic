@@ -143,18 +143,112 @@ change-detector was refused by name: *has the queue moved* is a second derivatio
 home in the tick that calls it. `0` means every tick.
 
 `moderate` runs on a **30-minute** gate read from its own tick log
-(`moderate/scripts/log-read.sh`) rather than from the listing: its acts — retirement, closable
-missions, standing rulings, findings — are hourly by nature, and the log is a reader that
-already exists. An unreadable log spawns it.
+(`moderate/scripts/log-read.sh --owner loop --step-prefix loop-finish-moderate --latest-tick`)
+rather than from the listing: its acts — retirement, closable missions, standing rulings, findings
+— are hourly by nature, and the log is a reader that already exists. An unreadable log spawns it.
+**The step filter is what makes it *its own***: every loop's `loop-finish-<name>` line lands in that
+one file under the coordinator's tick id, so an unfiltered read answers whichever tick wrote last
+and the gate can read *moderate ran just now* indefinitely — silently, because the wrong answer is
+a well-formed tick id (2026-09-07, ticket `20260907031134`). **And `--owner loop` is what keeps it
+reading anything at all** (2026-09-07, ticket `20260907063154`): `log-read.sh` derives each entry's
+owner from the step id and answers moderation by default, so the coordinator's own `loop-finish-*`
+lines must be asked for by name. The two filters answer different questions — the owner says *whose
+lines*, the prefix says *which loop* — and all three cadences carry both.
+
+## A `running` runner is not necessarily a working one
+
+`ListAgents` reports `running` for a runner executing a tool and for one blocked forever on a
+permission dialog nobody will answer. **Measured 2026-09-06**: `implement-10` made its last tool
+call at 05:42:49 UTC and was reported `running` by **nine** consecutive calls until the parent
+stopped it by hand at 06:21:18 — 38m29s. The tick's reaping stops only `idle`, so a frozen runner
+is never stopped, never records `loop-finish-<name>`, and stays counted by the fan-out.
+
+`loops/scripts/read-runner-advance.sh` answers it, per running loop name, from the evidence the
+localization proved and no other. **What moves during healthy work and is flat during a freeze is
+the claim worktree's own files** — measured in one reading: a worktree mid-ticket had a newest
+mtime 101 seconds old while three worktrees of stopped runs read 15, 17 and 18 hours. **What is
+flat in both, and is therefore not read**: the claim tip and heartbeat (the beat is step 0 of every
+ticket rather than a cadence, so a run legitimately mid-ticket carries an old tip — record
+`20260906121540`, and `batch-20260831141002` resumed at 33 minutes while working; it is besides
+that on a remote ref, and this reader makes no network call), and `loop-finish-<name>`, which is
+written when a run is first observed **idle** and so says nothing during any run. `started` age
+stays retired and does not come back here.
+
+**Nothing this repository owns is keyed by loop subagent name** — a claim is keyed by unit, a
+worktree by unit, `loop-finish-<name>` by role — so a name cannot in general be bound to the
+worktree its runner writes in. The reader **refuses that binding by name** (`ambiguous_binding`)
+rather than inventing it, and answers exactly where the binding is not needed: every name is
+`advancing` when at least as many worktrees are advancing as there are runners, and every name is
+`not_advancing` when none is and every claim was readable.
+
+**An unreadable reading frees nothing**, in each of its forms — `no_claim_evidence` (no worktree
+exists to have moved, so a runner still surveying is indistinguishable from a frozen one),
+`claim_evidence_incomplete`, `role_holds_no_claim`, `bad_window`. `frozen_count` counts only the
+names actually answered `not_advancing`, so no consumer can spend a reading the reader declined to
+make; `running` and `advancing` ride beside it, leaving the gap visible without being spendable.
+A wrong `not_advancing` sends the loop after a runner that is working, which is the one way this
+reading can do harm. Drilled offline by `verify-runner-advance`.
+
+**A `not_advancing` runner stops consuming a fan-out slot**, and that is the whole act. It is
+subtracted from `running` **in the fan-out expression and nowhere else** — the concurrency rule's
+other half is byte-identical, so a loop whose subagent is `running` and **advancing** is still not
+spawned again. Measured with `WORKAHOLIC_IMPLEMENT_FANOUT=3` and one frozen runner: a 2-runner
+loop for 38 minutes, with no tick report saying so.
+
+**The slot is what recovers the work, and the claim protocol already owns the rest**: the frozen
+runner's heartbeat lapses and `claim.sh resume` takes over one's **own** lapsed claim, so a runner
+spawned into the freed slot picks the unit up. No second path to release a claim was added.
+
+**Nothing is stopped or killed on this reading.** The unconditional `TaskStop` stays on `idle`, and
+extending an unconditional stop to a *judgement* about advancement would kill work in progress —
+the mistake the machine-load bound already refuses by name. The frozen session is the operator's to
+end, or the next `idle` observation's. The reading is taken fresh each tick, as `claimable-units.sh`
+and `read-machine-load.sh` are: no store, no cursor, no field on any artifact. The risk it carries
+is a false `not_advancing` on a slow unit, which would spawn a second runner against a working one;
+the claim arbiter settles that race and the loser refuses `claim_race_lost` holding nothing, so the
+cost is bounded — but the reader's precision is the reader's obligation, not something compensated
+for here.
 
 ## The allocation is decided from what the tick just read
 
 Read independently claimable work with `loops/scripts/claimable-units.sh` and machine CPU facts
 with `loops/scripts/read-machine-load.sh`. Both return null counts with a named degradation when
 they cannot read; a missing reading never becomes a plausible zero. `implement` fans out to
-`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound − running)`, with an absent bound meaning
+`min(WORKAHOLIC_IMPLEMENT_FANOUT, claimable units, bound − (running − not_advancing))`, with an absent bound meaning
 one and an invalid bound reported as `bad_fanout`. Each runner surveys and claims for itself, so
 the claim arbiter remains the only allocator and a losing race holds nothing.
+
+**The question that count answers is *is there work an `/implement` pass would act on*, which is
+not *is there a new unit to claim*** (2026-09-06, mission
+`finish-the-backlog-without-handing-it-back-to-the-operator`). Those two stopped being the same
+question once the Unified Run grew its recovery and delivery acts, and until this the count read
+only the survey's fresh units: **measured**, a repository whose only work was one
+`report_undelivered` unit answered `claimable: 0`, byte-identical to one with genuinely nothing
+to do, so no runner was spawned at all — while an `/implement` pass would have caught the branch
+up and merged it. The operator's own report of the failure is 28 tickets waiting, zero units and
+four conflicting pull requests with no pass ever run to inspect them. The count therefore
+composes `plan-units.sh`'s own `undelivered[]`, `drive/scripts/list-catchable-claims.sh` and
+`branching/scripts/list-stranded-publications.sh` — readers that already exist, no second walker,
+no new field, no verdict re-derived.
+
+**All of that recovery work is ONE unit**, for the reason all loose backlog is one: those three
+are **once-per-run** acts, so a single pass walks every entry, and counting them per entry would
+spawn N runners to do one runner's work and race each other on the same pull requests. The
+per-term counts (`undelivered`, `catchable`, `stranded`) ride beside `recovery_units` so the
+tick's report can name **which** term earned the runner. A unit appearing in two of the sets is
+counted once. `parked_with_pr`, `awaiting_verification` and `superseded` are still not counted as
+units to **claim** — the first two are reached through the catchable term where they are
+actionable at all (`awaiting_verification` since 2026-09-07, ticket `20260907070931`: a handoff
+branch that has fallen behind is work an `/implement` pass would act on, so the `catchable` count
+rises, and the catch-up still delivers nothing for it), and the third holds nothing to drive.
+
+**A recovery component that could not be read answers `readable: false` with its own reason**
+(`catchable_unreadable`, `stranded_unreadable`), never a zero: the caller's stated behaviour on
+an unreadable count is to fall back to one runner and report it, so a named degradation still
+spawns the pass that a zero would not. The cost is stated rather than tuned around — the two
+readers add bounded REST reads of this repository's open pull requests, once per tick and never
+once per entry, and `--recovery <path|->` lets a caller that has already made those readings hand
+them in.
 
 **Both bounds are declared in `.claude/settings.json`'s `env` block**, beside `WORKAHOLIC_WIP_LIMIT`
 and for its reason: a routine declares no environment variables of its own — it *selects* an

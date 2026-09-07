@@ -174,15 +174,63 @@ on another machine coordinates through exactly the same artifact.
     02:14 UTC, taken over again at 06:43 for nothing. The new verdict is
     **`awaiting_verification`**, excluded `claimed_awaiting_verification`, `resumable: false`,
     and it does **not** forbid `ok`.
+    **It is reached by a PROSE declaration only** (2026-09-06, mission
+    `finish-the-backlog-without-handing-it-back-to-the-operator`). The verdict was taken from the
+    mere **presence** of a `verification_handoff:` line, including the `probe:` form — which exists
+    precisely to be re-tested at claim time, and which §6 runs. **Measured on this repository**:
+    `verification-handoff.sh` answered `handoff: true` for a ticket declaring
+    `probe: command -v codex` while `run-verification-probe.sh` answered `clean` against an
+    installed CLI, on the same machine in the same second; the oracle would have parked that unit
+    out of every offer, forever, on a declaration its own probe had already falsified. The scan
+    **does not run the probe** — it is offline by construction, and executing a command out of an
+    artifact inside a read every survey makes is a hazard no verdict is worth — so the reading
+    moves to the one place that already runs it: `claims_declared_handoff` answers `false` for a
+    **measurable** declaration, the claim keeps its ordinary verdict, and §6 takes the handoff route
+    on `blocking` exactly as before. A prose declaration is **unchanged** and still parks the claim,
+    because it is the one form nothing can falsify. **The cost, stated**: a unit whose probe
+    genuinely reads `blocking` is re-offered each tick and re-routed to handoff each time, where
+    before it was parked once — a re-derivation the probe form was built to make cheap, against a
+    unit parked forever on a declaration that had gone false.
+    **And one consumer loses a case, named rather than left to be discovered.** `/moderate`'s
+    `handoff-units` step enumerates `awaiting_verification` rows, so with probe declarations no
+    longer reaching that verdict the step now sees **prose** declarations only, and its
+    `blocking`-probe branch becomes unreachable from this verdict. That is deliberate and it is the
+    operator's own rule applied to its own machinery: a probe is re-run at every claim, so the run
+    that meets it already has the probe's **own output and exit status** as the reason, in the
+    `## Handoff` and the `🟡` it writes — which is strictly more than a question naming a stale
+    sentence could carry. Nothing is asked of a person for a state the loop re-derives every tick.
+    **And the verdict is reached from EVERY remaining member, never from any one of them**
+    (2026-09-07, mission `hand-off-the-members-that-declare-and-drive-the-rest`). The reader's
+    unit-level `handoff` is `any` — *the unit is one merge*, the same ground `effective-policy.sh`
+    stands on — which is right for the **route** and wrong for the **offer**: it took a unit whose
+    members only *partly* declare out of every offer, so the members that declared nothing were
+    driven by nothing. **Measured 2026-09-06** on `report-each-tick-in-the-originating-codex-chat`:
+    7 queued tickets, **one** declaring a prose handoff only the operator's own Codex chat can
+    discharge, six declaring nothing; the row read `awaiting_verification`, `plan-units.sh`
+    excluded the unit `claimed_awaiting_verification`, and the route step that would have driven
+    the six was never entered because the unit reached no offer at all. `claims_declared_split` is
+    now the one derivation: a member **holds** when the reader answered `"unmeasured": true` for it
+    (a non-empty declaration carrying no probe), and the verdict is `true` only when every
+    remaining **queued ticket** member holds — or when the mission's own `mission.md` does, which
+    still carries the whole unit and is byte-identical to what it always was. A partly-declared
+    unit keeps its ordinary verdict and is offered; §6 partitions it from the row rather than
+    re-deriving it. **The partition rides the row** as `declared_members`, meaningful on a `false`
+    row too, so a consumer that must name which members a person acts on never grows the second
+    parser of `verification_handoff:` this whole shape forbids. **The cost, stated**: a
+    partly-declared unit is re-offered every tick until its non-declaring members are driven, where
+    before it was parked once — which is the intended behaviour, since those tickets are work, and
+    it is bounded by the claim protocol, which refuses what is already taken.
     **A sibling word, not a narrowed `parked_with_pr`**, on the `report_undelivered` precedent:
     the two states call for different next actions — take it over versus satisfy the declared
     verification — and one word answering both is what made this invisible. `claim.sh resume`
     refuses it under its own name; refusing under `queue_drained` would send the reader to wait
     for a merge that is not what is owed.
     **Nothing new is derived, and no artifact gained a field.** `verification-handoff.sh` already
-    reads the declaration and stays its only reader: `claims_declared_handoff` materialises the
-    tip-side blobs of the unit's still-queued work — plus the mission's own `mission.md`, since
-    any member declaring it carries the whole unit — and hands them to that script. The set comes
+    reads the declaration and stays its only reader: `claims_declared_reading` materialises the
+    tip-side blobs of the unit's still-queued work — plus the mission's own `mission.md`, since a
+    declaration on the container carries the whole unit — and hands them to that script. The
+    partition above is read out of that same reading's `members[]`, so there is still one
+    materialisation, one call and no second parser. The set comes
     from `claims_remaining_tickets`, the walk `claims_has_work` already made, lifted out so the
     two readings cannot answer from two different ticket sets.
     **It releases itself.** The declaration is read from the work still *queued*, never the
@@ -279,9 +327,11 @@ branch, artifacts, last_commit_at, stale, author, resumable, resume_reason, repo
 `resume_reason` is one of `heartbeat_lapsed` / `report_incomplete` / `parked_with_pr` (resumable)
 or `claim_active` / `superseded` / `awaiting_verification` / `queue_drained` /
 `report_undelivered` / `foreign_identity` / `identity_unresolved` / `shallow_history`. Each row
-also carries `declared_handoff`, whether the work this claim still has **queued** was declared
-unverifiable here — read through the one script that owns `verification_handoff:`, from the
-branch tip, with no network call.
+also carries `declared_handoff`, whether **every** member of the work this claim still has
+**queued** was declared unverifiable here — read through the one script that owns
+`verification_handoff:`, from the branch tip, with no network call — and `declared_members`, the
+paths of the members that hold it, which is meaningful on a `false` row too because a unit whose
+members only partly declare keeps its ordinary verdict and is offered.
 
 `merged_lookup_unanswered` is `[{branch, reason}]` — every claim the **merged-pull-request
 lookup** could not answer for (2026-08-26). That lookup, `claim-merged.sh`, is the claim
@@ -321,7 +371,7 @@ same fact, which is exactly what this exists to prevent.
 | `heartbeat_lapsed` | judgement | The tip has not moved inside the heartbeat window. It says a run *probably* died; it does not prove one did. Offered as a takeover, which the runner decides — never acted on by anything else. |
 | `report_incomplete` | judgement | The queue is drained with no story at the tip: the run *probably* died between §4 and §5. Same standing as `heartbeat_lapsed` — a mandatory **takeover offer**, not a licence to close, delete or merge anything. |
 | `parked_with_pr` | judgement | Reported and pushed, with work still on the branch **that nothing declared unverifiable here**. A human is the next step; a takeover is legitimate but never forced. |
-| `awaiting_verification` | judgement | Reported and pushed, with work still on the branch that was **declared** unverifiable in an unattended environment at creation (`verification_handoff:`). Classifying it a *proof* is the tempting error — the declaration is read straight off the tree, which looks like the property `superseded` has. It is not: a proof is a reading that **cannot** become false by looking again, and this one is designed to, because driving the declared ticket releases it. So a consumer may only **report** it, and decline to offer the takeover; nothing closes, deletes, merges or retires on it. Its one enumerated **reporting** consumer is `/moderate`'s `step-handoff-units.sh`, which asks the claim holder to run the declared verification and does nothing else. |
+| `awaiting_verification` | judgement | Reported and pushed, with work still on the branch that was **declared** unverifiable in an unattended environment at creation (`verification_handoff:`). Classifying it a *proof* is the tempting error — the declaration is read straight off the tree, which looks like the property `superseded` has. It is not: a proof is a reading that **cannot** become false by looking again, and this one is designed to, because driving the declared ticket releases it. So a consumer may only **report** it, and decline to offer the takeover; nothing closes, deletes, merges or retires on it. Its one enumerated **reporting** consumer is `/moderate`'s `step-handoff-units.sh`, which asks the claim holder to run the declared verification and does nothing else — naming, since 2026-09-07, the **members** that hold it rather than the unit, off `declared-handoff-detail.sh`'s own partition. Its one enumerated **acting** consumer is the catch-up (`list-catchable-claims.sh` offering, `catch-up-claim.sh` acting), added 2026-09-07 under *When a bounded act may read a judgement* below and bounded by it: it merges the **base into the branch** and pushes, which is reversible, idempotent and re-derived at the moment of the act, and it **never delivers** — the pull request stays open, reported `delivery: not_attempted: awaiting_verification`, because a person is the next actor by construction. It reads no declaration, weakens none, and merges no handoff pull request. The verdict itself now means *every remaining member declares*, so a unit whose members only partly declare never reaches this row at all: it keeps its ordinary verdict, is offered, and is split at `drive` §6. |
 | `queue_drained` | judgement | Reported, pushed, at an open pull request, with **no** recorded merge refusal. It means *waiting on a person*, and an absent merge-outcome section keeps it — the reading is claimed only on positive evidence, so a consumer must not read it as "delivered" or as "refused". Report it; a person merges. |
 | `claim_active` | judgement | The tip moved inside the heartbeat window: another run is *probably* still driving. Wait — never take over, never retire. |
 | `stale` | judgement | Not a `resume_reason` but a boolean beside it (`WORKAHOLIC_CLAIM_STALE_HOURS`, default 24). It has been **reported, never acted on** since the protocol shipped and stays that way: a tip older than the threshold says *look at this*, not *take it*. `/moderate`'s `stalled-units` step asks a person about it, which is the only thing a judgement licenses. |
@@ -440,7 +490,7 @@ empty*).
 | `list-retirable-claims.sh` | a `superseded_only` candidate | **no candidate**, so neither `retire-claim.sh` nor `delete-retired-claim-branch.sh` is ever handed it |
 | `retire-claim.sh` / `delete-retired-claim-branch.sh` | act, re-deriving the proof at the moment of the act | refuse by their own word — `not_superseded:stranded` on the act, `branch_holds_work` / `emptiness_unanswerable` where the emptiness is a gate rather than the row's own evidence |
 | `retry-undelivered.sh` | refuses `not_undelivered:superseded` | refuses `not_undelivered:stranded` — one rule, one word each, nothing special-cased |
-| `catch-up-claim.sh` | not offered (`list-catchable-claims.sh` takes only `report_undelivered` and `queue_drained`) | not offered either, and it carries **no `stranded` bound of its own** — stated rather than implied. That is safe because its act merges the base *into* the branch and pushes; it deletes nothing, so a stranded branch reached by a hand invocation would be brought forward, never lost |
+| `catch-up-claim.sh` | not offered (`list-catchable-claims.sh` takes only `report_undelivered`, `queue_drained` and `awaiting_verification`) | not offered either, and it carries **no `stranded` bound of its own** — stated rather than implied. That is safe because its act merges the base *into* the branch and pushes; it deletes nothing, so a stranded branch reached by a hand invocation would be brought forward, never lost |
 | `/moderate` `retire-claims` | hands the row to `retire-claim.sh` | **asks its holder** (`stranded-unit:<unit>`) what should happen to the work, and never suggests deleting the branch |
 | `/moderate` `stalled-units` | filters and counts it | filters and counts it, on the same pairing rule — one step asks and the other filters, and either half alone is a defect |
 | `/implement` §7's token | `superseded` does not forbid `ok` | `stranded` does not forbid `ok` either: the branch holds work, but nothing this run drove, and the person who must rule on it is reached by the question above rather than by a token nobody reads |
@@ -816,7 +866,7 @@ all, which is the same reason the proof-gated consumers are enumerated rather th
 
 | Acting consumer | The judgement it reads | How each clause is met |
 | --------------- | ---------------------- | ---------------------- |
-| `catch-up-claim.sh` | `mergeability ∈ {mechanical, content}` (`claim-mergeability.sh`), and `gate == refuse` on `checks_red` alone (`branch-checks.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word. **`content` joined the licence on 2026-09-02** and the clauses are met identically, because the licence is *the writer settles it without a judgement* rather than *the reader predicted mechanical*: the reader computes without the repository's `.gitattributes` and the writer merges with them, so its `content` is a pessimistic guess that the act now tests instead of trusting. The absence-word `unanswerable` is still refused, exactly as a licensing act must refuse an absence. **The check gate here reads `checks_red` and nothing else** (2026-09-03): this act merges immediately after its own push, so the head commit's checks are normally `checks_pending`, and refusing on that would hold a unit this script reports `already_current` for on its next run — nothing would ever deliver it. The limit is stated rather than hidden |
+| `catch-up-claim.sh` | `mergeability ∈ {mechanical, content}` (`claim-mergeability.sh`), `gate == refuse` on `checks_red` alone (`branch-checks.sh`), and — since 2026-09-07 — the offering verdict `awaiting_verification` beside `report_undelivered` and `queue_drained` (`lib/claims.sh`) | Re-derives by calling `claim-mergeability.sh` itself after resolving the unit, and re-reads the verdict off the live row rather than the caller's list; `already_current` on a branch that already contains the base, touching no ref; its write is a **merge commit** on the claim branch, revertible and never a rewrite; refuses `content_conflict`, `not_my_claim`, `foreign_identity`, `claim_active`, `dirty_worktree`, `scan_held:<tier>`, `pull_request_reviewed`, … each by its own word. **`content` joined the licence on 2026-09-02** and the clauses are met identically, because the licence is *the writer settles it without a judgement* rather than *the reader predicted mechanical*: the reader computes without the repository's `.gitattributes` and the writer merges with them, so its `content` is a pessimistic guess that the act now tests instead of trusting. The absence-word `unanswerable` is still refused, exactly as a licensing act must refuse an absence. **The check gate here reads `checks_red` and nothing else** (2026-09-03): this act merges immediately after its own push, so the head commit's checks are normally `checks_pending`, and refusing on that would hold a unit this script reports `already_current` for on its next run — nothing would ever deliver it. The limit is stated rather than hidden |
 | `archive.sh` | `holder == mine` (`claim-holder.sh`) | Re-derives by calling `claim-holder.sh` itself immediately before the ticket moves — ahead of the todo-layout migration, so nothing has been staged yet; the archive it gates is idempotent in the shape this seam already guarantees (a re-run of a refused call finds the tree byte-identical, and the mission mutators below it no-op on a repeat); its write is a **commit on the claim branch**, revertible and never a rewrite; refuses `claim_taken_over` and `ambiguous_claim` by their own words, moving nothing, staging nothing and committing nothing |
 | `merge-pr.sh` | `gate == refuse` on the branch's own checks (`branch-checks.sh` over `read-base-checks.sh`) | Re-derives by calling `branch-checks.sh` itself immediately before the merge, never from a survey or a handed-in reading; the merge it gates is idempotent in the shape the forge already guarantees (a second attempt on a merged pull request answers `merge_refused` over a landed merge and writes nothing); it makes no write of its own — what it gates is a **merge commit**, revertible and never a rewrite; refuses `checks_red` and `checks_pending` by their own words with nothing attempted. It is the rule's **GATING** shape, so it **proceeds** on every absence — no transport, no `gh`, a rate limit, a commit nothing has checked — naming the reading it could not make as `unreadable:<reason>`; refusing there would strand finished work in every repository whose checks this session cannot read |
 | `retry-undelivered.sh` | the same reading, at the retry | Re-derives by calling `branch-checks.sh` itself immediately before the merge, never from a survey or a handed-in reading; the merge it gates is idempotent in the shape the forge already guarantees (a second attempt on a merged pull request answers `merge_refused` over a landed merge and writes nothing); it makes no write of its own — what it gates is a **merge commit**, revertible and never a rewrite; refuses `checks_red` and `checks_pending` by their own words with nothing attempted. It is the rule's **GATING** shape, so it **proceeds** on every absence — no transport, no `gh`, a rate limit, a commit nothing has checked — naming the reading it could not make as `unreadable:<reason>`; refusing there would strand finished work in every repository whose checks this session cannot read. A refusal is recorded in the ordinary merge vocabulary, which leaves the unit `report_undelivered` for the next tick — the retry this script exists to be |
@@ -1476,7 +1526,10 @@ composition's own (`no_such_claim`, `no_origin`, `origin_unreachable`, `catchup_
 widening rather than to the act.** While the only candidates were `report_undelivered` units the
 question could not arise: such a pull request was refused by a **transport**, so nobody is
 looking at it. A `queue_drained` unit's pull request may be one a person is **mid-review** on,
-and a push resets an approval. What counts as a person's attention is decided rather than
+and a push resets an approval. **It matters most for the third candidate class**
+(`awaiting_verification`, 2026-09-07): a handoff pull request is open *precisely* so a person can
+satisfy the declaration, so it is the class likeliest to carry a submitted review. The bound is
+unchanged and is expected to fire. What counts as a person's attention is decided rather than
 inherited from the seam: the reviews endpoint returns only **submitted** reviews, so presence is
 submission; `APPROVED`, `CHANGES_REQUESTED`, `COMMENTED` and `DISMISSED` all count, because the
 safer reading of an ambiguous seam is that somebody looked; and a **bot's** review is not a
@@ -1491,6 +1544,30 @@ runner reads — is untouched, because nothing was pushed; the local merge is re
 `merged: true, pushed: false` rather than hidden, and it is not undone, because `git reset
 --hard` is what the failure contract's safety floor forbids outright. A re-run merges nothing
 new and re-runs the checks.
+
+**Three verdicts are offered and exactly one is delivered.** `list-catchable-claims.sh` offers
+this identity's `report_undelivered`, `queue_drained` and — since 2026-09-07, ticket
+`20260907070931-offer-an-awaiting-verification-claim-to-the-catch-up` — `awaiting_verification`
+claims whose `mergeability` is `mechanical` or `content`. The third joined because it is the one
+class **guaranteed** by design to sit open for a long time: the handoff route opens the pull
+request and leaves it open, waiting on a person, and it was the one class the catch-up never
+touched — so its work decayed for exactly as long as the person took. Measured 2026-09-07:
+mission `report-each-tick-in-the-originating-codex-chat`, claim `work-20260906-023953`, PR #993,
+open ~25 hours, six of its seven tickets driven and archived on the branch, `mergeability:
+content`, and the reader offered nothing at all. The open-pull-request term the reader relies on
+holds for it too, at no lookup: `awaiting_verification` is reachable only under the oracle's own
+`reported` term.
+
+**And the delivery bound has two different reasons, which is why it is written down twice.**
+`catch-up-claim.sh` merges only a `queue_drained` claim's pull request. For
+`report_undelivered` that is **ownership of the act** — the merge is `retry-undelivered.sh`'s,
+and two attempts in one turn report the second as a refusal over a landed merge. For
+`awaiting_verification` it is that **a person is the next actor by construction**: §6 routed the
+unit to the handoff route because a declared verification cannot run here, and merging it would
+discharge a handoff nobody discharged. Such a candidate is caught up, pushed, and reported
+`delivery: not_attempted: awaiting_verification` — a named reason rather than a bare word. A
+reader who finds only the first reason will conclude the bound is about avoiding a double
+attempt and widen it.
 
 **It overrides no gate.** A `hard` (`secret`) or `confirm` (`leak`) finding holding a pull
 request open is the gate *working*, so a scan-held unit is refused `scan_held:<tier>` — read off

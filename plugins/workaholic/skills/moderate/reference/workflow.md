@@ -79,12 +79,25 @@ which is a repository fact. Whether a change *line* may name an identifier is a 
 
 ## 1. `open-log` — open the tick's log
 
-- **Reads**: the layout allowlist; `.workaholic/moderations/`.
+- **Reads**: the layout allowlist; `.workaholic/moderations/`; and whether any path under it is
+  **tracked on the base** (`git ls-files`, local, no network).
 - **Writes**: nothing. The log line `run.sh` writes for it *is* the open.
 - **Aborts**: `no_workaholic_dir` (nothing here to keep), `area_unregistered` (this checkout's
   plugin predates the area — the tick still runs, its log does not), `unwritable`.
-- **Never**: creates the area behind the layout gate's back. A step that made its own directory
-  would be routing around the gate rather than reporting it.
+- **Finds**: **`log_tracked_on_base`** (2026-09-06, ticket `20260902042038`) — day files tracked
+  in git, which a `.gitignore` added later never untracks. `degraded` with an `event`, classified
+  `repairable`, so it is filed once through `file-findings` rather than restated hourly.
+- **Names an unreadable reading**: `log_tracking_unreadable` when git failed **inside** a
+  repository. A root that is not a repository has no base to be on (a drill's throwaway root, a
+  hermetic fixture) and is not a degradation — but a reading we could not take is never rendered
+  as clean.
+- **Never**: creates the area behind the layout gate's back — a step that made its own directory
+  would be routing around the gate rather than reporting it — and **never moves or untracks the
+  files it finds**. The mover this was written against (`migrate-moderations-off-main.sh`) was
+  deleted with the log branch, `/workaholify`'s converge seam takes no migration that reaches the
+  network, and an unattended tick deleting tracked files on its own reading is wider than what the
+  retirement left it. The acceptance is disjunctive — land the move **or** raise a finding — and
+  this is the finding.
 
 ## The route a record takes to the base
 
@@ -2584,7 +2597,7 @@ decide something before any change is the right one*.
 
 | Step id | Classification | Why |
 | ------- | -------------- | --- |
-| `open-log` | `needs_ruling` | Bookkeeping; it produces no finding to file. |
+| `open-log` | **`repairable`** | It produced no finding until 2026-09-06, when it began reading whether the tick log is **tracked on the base** (`log_tracked_on_base`). Untracking a git-ignored operational log is a change to this repository and nobody owes a decision first — the design already ruled that the log is committed nowhere. The step itself moves nothing: the repair goes the long way round through the filing seam, which is what keeps an unattended tick from deleting tracked files on its own reading. |
 | `inbound-sweep` | **`repairable`** | A diverged channel default or a broken transport config is a change to this repository. |
 | `workload-logs` | `needs_ruling` | An unreachable environment is somebody's credentials, not our code. |
 | `merge-conflicts` | **`repairable`** | A pull request conflicting with the base names a seam that keeps colliding; the filing yields a **plan**, never a push onto a claimed branch. |
@@ -2791,6 +2804,17 @@ the hour each routed.
 | the running identity | `undrivable-units` | never consulted — the claim's own `author` is the addressee, so an hourly repository-scoped question does not answer differently per account |
 | what it may read | `undrivable-units` | `list-claims.sh` is a pure read; **`plan-units.sh` is refused**, because the survey reaches the mission readers, which carry the living migrations and **stage** what they converge — the composition `closable-missions` already refused |
 
+**And it names WHICH MEMBERS hold it** (2026-09-07, mission
+`hand-off-the-members-that-declare-and-drive-the-rest`). `awaiting_verification` used to mean
+*some member of this unit declared something*, so the unit id was the whole answer; it now means
+*every remaining member declares*, and what the addressee has to act on is the tickets rather than
+the claim — a unit id sends a person to a claim, a ticket path sends them to the sentence they
+have to satisfy. `declared_members` rides each row straight off `declared-handoff-detail.sh`'s own
+partition, which is the same `claims_declared_split` the claim row carries, so there is no second
+reading and no new field on any artifact. **The key is untouched**: `already_asked` keys on the
+step id `lib/question-id.sh` derives from `handoff-unit:<unit>`, so a changed body re-asks nothing
+and changing the key would re-ask every standing question.
+
 **The question names the declared reason verbatim**, which is the whole point of the step: a
 boolean says a unit is waiting, only the string says what for. It is resolved per candidate by
 `drive/scripts/declared-handoff-detail.sh`, which composes `verification-handoff.sh` — still the
@@ -2858,9 +2882,10 @@ questions in two vocabularies. A degraded read (`no_claim_reader`, `claims_unrea
 `make-the-tick-s-questions-readable-and-close-them-in-the-thread`). Keyed `handoff-unit:<unit>`,
 unchanged.
 
-- **Heading** — *`<unit>` is finished and waiting on a check this environment cannot run*, then
-  the **declared reason verbatim** (which is the whole point of the step and is never
-  paraphrased) and the open pull request.
+- **Heading** — *the work is finished as far as this environment can take it and one check is
+  outstanding*, **then** `<unit>` and the tickets in `declared_members`, then the **declared
+  reason verbatim** (which is the whole point of the step and is never paraphrased) and the open
+  pull request. Lead with what happened; the identifier comes after it, never before.
 - **Body** — the one act: *run that verification where the credentials are, then merge.*
 - **Never alone**: `awaiting_verification`, `verification_handoff`. Both are this repository's
   field names; the reader's fact is that the work is done and one human check is outstanding.
@@ -3453,6 +3478,19 @@ opening there; this step reads for it. Without both halves neither is worth anyt
 (enough to hold the previous two ticks across a UTC midnight rollover; the log grows forever, so an
 unbounded walk gets more expensive every day). It groups the entries by the tick id that reader
 already returns — no second parser, no cursor, no store, no field on any artifact.
+
+**And it reads TWO owners, one per arm** (2026-09-07, ticket `20260907063154`). `log-read.sh`
+derives each entry's owner from the step id and answers **moderation by default**, so the moderate
+arm below takes the default and the propose arm asks for `--owner propose` **by name**. It was one
+unfiltered read feeding both, which is how a `loop-finish-*` section — written by the coordinator
+under the coordinator's own tick id, every five minutes — became *the tick before last*: such a
+section has `opened == 0`, which reaches the healthy branch, so the step reported **`the tick
+before last opened and closed`** over a moderate tick that had stopped. Measured on the live log,
+verbatim, over a section holding one `loop-finish-implement` line; and the failure is silent, since
+a healthy sentence is what a healthy tick produces. The propose arm is the reason the owner is a
+small named set rather than a boolean — *not moderate* is not one class, and a boolean would have
+broken that arm the same silent way. Both arms are drilled by `verify-blocked-tick`, whose breaker
+defeats the owner filter and requires the stopped tick to go unreported.
 
 **What "closed" means, and why it is not the persist.** The tempting signal is the closing
 persist's own `persist-log` line, and it is **wrong**: `run.sh` writes that line *after* the push,

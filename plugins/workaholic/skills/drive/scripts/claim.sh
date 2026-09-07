@@ -147,12 +147,13 @@ if [ "$kind" = "resume" ]; then
     r_author=$(printf '%s' "$resume_row" | cut -f5)
     r_resumable=$(printf '%s' "$resume_row" | cut -f6)
     r_reason=$(printf '%s' "$resume_row" | cut -f7)
-    # FIELD 10, NOT 8. The artifact list is the row's LAST field, and two booleans have been
-    # inserted before it -- `reported` (2026-08-23) and `declared_handoff` (2026-08-27) -- so
-    # this read once silently returned `true`/`false` as the unit's whole artifact list. It is
-    # the tail by construction (see lib/claims.sh's no-empty-field rule), which is what makes a
-    # fixed index safe at all; every insertion moves it, and this line moves with it.
-    r_arts=$(printf '%s' "$resume_row" | cut -f10)
+    # FIELD 11, NOT 8. The artifact list is the row's LAST field, and three columns have been
+    # inserted before it -- `reported` (2026-08-23), `declared_handoff` (2026-08-27) and
+    # `declared_members` (2026-09-07) -- so this read once silently returned `true`/`false` as
+    # the unit's whole artifact list. It is the tail by construction (see lib/claims.sh's
+    # no-empty-field rule), which is what makes a fixed index safe at all; every insertion moves
+    # it, and this line moves with it.
+    r_arts=$(printf '%s' "$resume_row" | cut -f11)
 
     # The verdict is the SHARED scan's, never re-derived here. A writer that decided
     # resumability for itself could take over a unit the reader still reports as
@@ -383,7 +384,7 @@ artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
 # claimable over.
 rows=$(claims_scan "$base")
 if [ -n "$rows" ]; then
-    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff held_arts; do
+    while IFS='	' read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff _held_members held_arts; do
         [ -n "$held_unit" ] || continue
         if [ "$_held_reason" = "superseded" ]; then
             continue
@@ -437,8 +438,14 @@ if [ -f "$ARBITER" ]; then
     # from a run that died inside it. Sweeping only on a lost take keeps the ordinary claim at
     # zero extra reads, and re-trying once is what stops a leak making an artifact claimable
     # exactly once, forever.
+    arb_unreapable=""
     if [ "$arb_state" = "lost" ]; then
-        sh "$ARBITER" reap >/dev/null 2>&1 || true
+        # THE SWEEP'S ANSWER IS READ, NOT DISCARDED. `>/dev/null 2>&1 || true` threw away the
+        # one reading that says whether the retry below has any chance: a sweep that met the
+        # blocking lock and could not delete it will lose the retry for the same reason, and
+        # the run must say so rather than report a plain race it lost.
+        reap_out=$(sh "$ARBITER" reap 2>/dev/null || printf '')
+        arb_unreapable=$(printf '%s' "$reap_out" | sed -n 's/.*"unreapable": \[\(.*\)\].*/\1/p')
         arb_out=$(sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
         arb_state=$(printf '%s' "$arb_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
     fi
@@ -456,6 +463,33 @@ if [ -f "$ARBITER" ]; then
             # `raced-units` names both branches once both exist.
             _arb_held=$(printf '%s' "$arb_out" | sed -n 's/.*"held_by_ref": "\([^"]*\)".*/\1/p')
             _arb_stale=$(printf '%s' "$arb_out" | sed -n 's/.*"stale_lock": \([a-z]*\).*/\1/p')
+            # A LOST RACE AND AN UNSWEEPABLE LOCK ARE DIFFERENT FACTS AND GET DIFFERENT WORDS.
+            # `claim_race_lost` says *another runner has this* -- survey again and something
+            # else gets driven. `claim_lock_unreapable` says *nobody has this and the lock
+            # cannot be removed*, which no amount of surveying repairs: the unit is parked
+            # until the lock goes. Reporting the second as the first is what made three days
+            # of hourly refusals look like ordinary contention.
+            # TWO TERMS, AND THE DRILL MEASURED WHY BOTH ARE NEEDED (2026-09-06,
+            # `verify-claim-race`). The first cut of this refused `claim_lock_unreapable`
+            # whenever the sweep reported ANY unreapable lock, and the drill's genuine race --
+            # a winner that has taken its ref and not yet pushed its branch -- was reported as
+            # a permanent park. Two things were wrong. The sweep speaks about EVERY lock it
+            # met, so an unrelated artifact's failure must not change this unit's word; and
+            # `undatable` is the ABSENCE OF A READING, not a proof of orphanhood -- a lock we
+            # cannot date may be a healthy claim seconds old, which is exactly what the drill
+            # holds. Only `push_refused` on THIS unit's own contended ref proves the lock is
+            # both standing for nothing and immovable; everything else stays `claim_race_lost`,
+            # whose recovery -- survey again -- is harmless when the race was real.
+            _arb_stuck=false
+            if [ -n "${_arb_held:-}" ] && [ -n "${arb_unreapable:-}" ]; then
+                printf '%s' "$arb_unreapable" \
+                    | tr '}' '\n' \
+                    | grep -F "\"ref\": \"${_arb_held}\"" 2>/dev/null \
+                    | grep -q '"reason": "push_refused"' 2>/dev/null && _arb_stuck=true
+            fi
+            if [ "$_arb_stuck" = true ]; then
+                fail "claim_lock_unreapable" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "unreapable": ['"${arb_unreapable}"'], "detail": "no live claim holds this unit and its arbiter lock could not be swept; surveying again will not repair it"'
+            fi
             fail "claim_race_lost" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "detail": "another runner won this unit'"'"'s arbitration at the remote; nothing was written here -- survey again"'
             ;;
         *)

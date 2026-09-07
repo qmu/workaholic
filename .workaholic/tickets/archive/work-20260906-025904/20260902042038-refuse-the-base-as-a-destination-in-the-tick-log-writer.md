@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-02T04:20:38+00:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission: take-the-moderation-tick-s-log-off-main
 merge_policy:
 verification_handoff: 
+claim: work-20260906-025904
 ---
 
 # Refuse the base as a destination in the tick log writer
@@ -91,3 +93,33 @@ of the repository it runs in.
   written to the base. That is the intended outcome and it is why the sibling ticket
   *Complete the log move from the tick* exists: refusing alone leaves such a tick with no
   memory, so the two ship together.
+
+## Final Report
+
+Development completed as planned, against a tree that had moved under the ticket. The log
+branch this ticket was written for was retired on 2026-09-03, three days after the ticket was
+written: `log-ref.sh`, `ensure-log-ref.sh`, `hydrate-log.sh` and
+`migrate-moderations-off-main.sh` are deleted, `.workaholic/moderations/` is git-ignored, and
+`persist-log.sh` no longer resolves a log destination at all. Step 1's enumeration therefore
+found **one** road left from this writer to the base — the `--record` path — and that road takes
+whatever a caller names, so a record naming a `.workaholic/moderations/` day file would put the
+log back on `main` through the publication seam. The refusal is keyed on that destination.
+
+`persist-log.sh` refuses `log_destination_is_base` with nothing written and exit 0, before the
+publish tree is opened. `--record`'s ordinary base write is untouched and the code says in its
+own comment that it must not be widened into. `run.sh` needed no change: it already reports the
+persist's `status`/`reason` verbatim, so the refusal reads as a named degradation.
+
+### Discovered Insights
+
+- **Insight**: `report()` in `persist-log.sh` exits, so the guard cannot live in a
+  `printf | while read` pipeline — the body runs in a subshell and the `exit` would end only
+  that subshell, letting the refused call carry on into the publication.
+  **Context**: several readers in this tree use that pipeline idiom for record lists; any of
+  them that grows an early-exit refusal has the same trap. The guard uses a newline-`IFS` `for`
+  loop instead, which runs in the caller's own shell.
+- **Insight**: the retirement left the *name* `persist-log.sh` and every call site in place on
+  purpose, so the script's header is now the only record that the log half ever existed.
+  **Context**: a reader who greps for the log's publication finds a script whose name promises
+  it and a body that refuses it; the header paragraph is load-bearing documentation, not
+  commentary.

@@ -59,7 +59,10 @@ a `/specificate` run: all still work. The brake is on **origination** alone.
    inconsistent name: all real, all `/moderate`'s. The test is whether a reasonable person
    could argue for the other side. If nobody could, it is not a move.
 
-5. **Open it.** Write the body to a file, then
+5. **Open it.** Write the body to a file **inside the repository** — the session's scratch
+   area or the checkout root; never a path outside it, which `guard-repo-confinement.sh` denies
+   and which an unattended run has nobody to answer for (2026-09-06, ticket `20260902043117`,
+   candidate C: the directory was unstated, so the shape was one nobody had enumerated) — then
    `open-proposal.sh --strategy <slug> --move <move> --title "<title>" <body-file>`.
    The body carries three mandatory sections and nothing above them — the script writes the
    three header lines itself:

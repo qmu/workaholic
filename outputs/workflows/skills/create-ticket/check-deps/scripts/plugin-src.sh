@@ -68,9 +68,15 @@
 #
 # Output (single JSON line, always exit 0 unless no source exists at all):
 #   {"ok":true,"src":"<abs path>","source":"checkout|registry|clone|bound","version":"…",
-#    "src_immutable":true|false,"degraded":true|false,"bound_root":"…","bound_version":"…",
+#    "src_immutable":true|false,"degraded":true|false,
+#    "call_src":"<abs path>","call_src_source":"checkout|registry|clone|bound",
+#    "bound_root":"…","bound_version":"…",
 #    "registry_version":"…","candidates":[{"source":"…","version":"…","path":"…",
 #    "immutable":true|false}]}
+#
+# `src` is WHICH CODE RUNS; `call_src` is WHICH PATH A COMPOSED CALL SPELLS. They are the same
+# path except where a checkout holds the same version as the resolved `src` -- see the block
+# above the final printf for why the workspace path is the one to spell, and for the residue.
 set -eu
 
 usage() {
@@ -257,6 +263,37 @@ add_candidate registry "$registry_path" "$registry_version"
 add_candidate clone    "$clone_path"    "$clone_version"
 add_candidate bound    "$bound_path"    "$bound_version"
 
-printf '{"ok": true, "src": "%s", "source": "%s", "version": "%s", "src_immutable": %s, "degraded": %s, "bound_root": "%s", "bound_version": "%s", "registry_version": "%s", "candidates": [%s]}\n' \
+# --- where a COMPOSED CALL points ------------------------------------------------------------
+# (2026-09-06, ticket `keep-the-loop-s-own-script-calls-off-the-plugin-cache-path`.)
+#
+# `src` answers WHICH CODE RUNS, and it does not move: newest wins, an equal version goes to the
+# immutable candidate. `call_src` answers WHICH PATH A COMPOSED CALL SPELLS. They differ in
+# exactly one case -- a checkout holding the SAME version as the resolved `src`, where the two
+# paths carry identical bytes and one of them is inside the workspace.
+#
+# WHY THE WORKSPACE PATH IS THE ONE TO SPELL. `Bash(bash:*)` is allowlisted by prefix with no
+# path term, so the static allowlist covers a call at either path -- and a runner still froze on a
+# `bash` call at the registry cache (measured: `record-merge-outcome.sh`, composed in full from a
+# resolved `src` under `~/.claude`). The allowlist is not the
+# only gate: a path under `~/.claude` is classified as Claude's own configuration, and that
+# judgement is applied per session above the allowlist. So the reach is REMOVED rather than
+# permitted -- the same repair the Read rule already took, for the same reason.
+#
+# THE VERSION AXIS IS UNTOUCHED. When the checkout is behind, `src` is the newer tree, no
+# identical-version workspace copy exists, and `call_src` IS `src`: the code that runs is still
+# the newest tree on the machine, never an older one that happens to sit in the workspace.
+#
+# THE RESIDUE, STATED. A consuming repository that does not vendor the plugin has no checkout
+# candidate at all, so `call_src` is `src` there and the behaviour is byte-identical to before
+# this field existed. That operator's own allow entry is the remedy; this repository adds none.
+call_src="$chosen_path"
+call_src_source="$chosen_source"
+if [ -n "$checkout_path" ] && [ "$checkout_version" = "$chosen_version" ]; then
+  call_src="$checkout_path"
+  call_src_source="checkout"
+fi
+
+printf '{"ok": true, "src": "%s", "source": "%s", "version": "%s", "src_immutable": %s, "degraded": %s, "call_src": "%s", "call_src_source": "%s", "bound_root": "%s", "bound_version": "%s", "registry_version": "%s", "candidates": [%s]}\n' \
   "$chosen_path" "$chosen_source" "$chosen_version" "$chosen_immutable" "$degraded" \
+  "$call_src" "$call_src_source" \
   "$bound_path" "$bound_version" "$registry_version" "$candidates"

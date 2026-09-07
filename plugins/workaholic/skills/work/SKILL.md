@@ -95,7 +95,14 @@ update only for a missing plugin-owned layer.
 The supervisor completes and classifies the first tick before reporting ready. Every completion
 atomically replaces `.codex-loop/status.json` with the outcome, blocked reason, report path,
 transport verdict and next due time; `sh scripts/codex-loop.sh --status` reads that state without
-starting another process. A failed first tick, missing report or absent report transport refuses
+starting another process. **It answers the whole loop, not only the tick** (2026-09-06): the
+supervisor's own liveness (`.codex-loop/supervisor.json` — absent means never started), every
+worker's state and last **reported** outcome (`.codex-loop/worker-<role>.json`, evidence beside
+the lock, which stays the only concurrency authority), and the last tick, composed from the
+directory alone with `--status --json` rendering the same reading for a machine. Each unreadable
+part is named by its own reason rather than omitted or rendered as healthy. Readings and their
+vocabularies: `reference/other-agents.md`, *One question, one answer*. A failed first tick,
+missing report or absent report transport refuses
 startup by name. Later failures update status and the sequential supervisor proceeds to its next
 due time.
 
@@ -126,12 +133,18 @@ log and never depended on an agent listing:
 
 ```
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/tick-id.sh
-sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --step-prefix loop-finish-<name> --latest-tick
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh --owner loop --step-prefix loop-finish-<name> --latest-tick
 ```
 
 (In the **published** copy of this skill that token is already rewritten to a real relative
 path by the build, so an agent reading it there runs the line as written. In this repository's
 own tree it is `plugins/workaholic`.)
+
+**`--owner loop` is not optional** (2026-09-07, ticket `20260907063154`): `log-read.sh` derives
+each entry's owner from the step id and answers **moderation by default**, so a `loop-finish-*`
+line — which the coordinator writes under its own tick id — must be asked for by name. Without the
+flag the cadence reads an empty `latest_tick`, which means *no such tick* and therefore **due**, so
+every loop would respawn every tick.
 
 Derive the tick id **once** at the top and use that one value. `latest_tick` is a
 `YYYYMMDD-HHMMSS` UTC stamp and **is** the finish time: a loop is due when

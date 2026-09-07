@@ -42,9 +42,17 @@
 #        resolved to their tip paths here, since driving a ticket is precisely a rename out of
 #        todo/ and "still queued" is only a question in the tip's coordinate space.
 # Output: one JSON line
-#   {"branch", "handoff": bool, "reason": "<verbatim>", "pull_request": "<url>",
+#   {"branch", "handoff": bool, "members": ["<path>", ...], "reason": "<verbatim>",
+#    "pull_request": "<url>",
 #    "pr_number": <n>|null, "open_hours": <n>|null, "lookup": "merged|not_merged|unanswerable|skipped",
 #    "lookup_reason": "", "degraded": ["..."]}
+#
+# `members` NAMES WHICH MEMBERS HOLD IT (2026-09-07, mission
+# `hand-off-the-members-that-declare-and-drive-the-rest`). `handoff` is now *every remaining member
+# declares*, so a person asked about a standing handoff needs to know WHICH of a unit's tickets
+# they must act on -- a unit id sends them to a claim, a ticket path sends them to the sentence
+# they have to satisfy. It comes out of the same partition `claims_declared_split` derives for the
+# claim row, so nothing here parses `verification_handoff:` and no second walk exists.
 #
 # Pure read: it inspects refs and calls one REST read. It writes nothing.
 
@@ -83,9 +91,11 @@ json_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
+MEMBERS_JSON=""
+
 emit() {
-    printf '{"branch": "%s", "handoff": %s, "reason": "%s", "pull_request": "%s", "pr_number": %s, "open_hours": %s, "lookup": "%s", "lookup_reason": "%s", "degraded": [%s]}\n' \
-        "$(json_escape "$BRANCH")" "$1" "$(json_escape "$2")" \
+    printf '{"branch": "%s", "handoff": %s, "members": [%s], "reason": "%s", "pull_request": "%s", "pr_number": %s, "open_hours": %s, "lookup": "%s", "lookup_reason": "%s", "degraded": [%s]}\n' \
+        "$(json_escape "$BRANCH")" "$1" "$MEMBERS_JSON" "$(json_escape "$2")" \
         "$(json_escape "${3:-}")" "${4:-null}" "${5:-null}" "${6:-skipped}" "${7:-}" "$DEGRADED"
     exit 0
 }
@@ -118,8 +128,23 @@ IFS="$old_ifs"
 # ONE walk of the still-queued set, shared by both readings below, so this can never answer from
 # a different ticket set than the oracle did.
 REMAINING=$(claims_remaining_tickets "$REF" "$TIP")
-HANDOFF=$(claims_declared_handoff "$REF" "$TIP" "$REMAINING")
+# ONE SPLIT, BOTH ANSWERS. `claims_declared_handoff` is itself a read of this, so calling the
+# split directly saves a whole materialisation and keeps the boolean and the member list from
+# being two readings that could disagree.
+SPLIT=$(claims_declared_split "$REF" "$TIP" "$REMAINING")
+HANDOFF=${SPLIT%%	*}
+MEMBERS=${SPLIT#*	}
 REASON=$(claims_declared_reason "$REF" "$TIP" "$REMAINING")
+
+msep=""
+old_ifs="$IFS"
+IFS=','
+for m in $MEMBERS; do
+    [ -n "$m" ] || continue
+    MEMBERS_JSON="${MEMBERS_JSON}${msep}\"$(json_escape "$m")\""
+    msep=", "
+done
+IFS="$old_ifs"
 
 if [ "$HANDOFF" != "true" ]; then
     degrade not_declared
@@ -129,6 +154,9 @@ fi
 # own rule -- it is the backstop against a reading that arrived truncated, and it is named rather
 # than passed on as a blank string a person cannot act on.
 [ -n "$REASON" ] || degrade reason_empty
+# A `handoff: true` with no member named is a reading that arrived truncated, not a calm empty
+# set: the verdict says every remaining member declares, so at least one path must be nameable.
+[ -n "$MEMBERS_JSON" ] || degrade members_empty
 
 if [ "$LOOKUP" -eq 0 ]; then
     emit "$HANDOFF" "$REASON"

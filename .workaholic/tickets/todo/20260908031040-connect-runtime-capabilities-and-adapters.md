@@ -3,6 +3,8 @@ created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260908031038-unify-loop-transports-and-durable-outbox.md, 20260908031039-make-publication-and-claim-recovery-safe.md]
+claim: work-20260908-043332
+claim_unit: batch-20260908043329
 ---
 
 # Connect runtime capabilities and adapters

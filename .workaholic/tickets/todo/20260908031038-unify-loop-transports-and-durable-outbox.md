@@ -4,6 +4,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260908031037-share-loop-snapshots-and-atomic-state.md]
 claim: work-20260908-043332
+claim_unit: batch-20260908043329
 ---
 
 # Unify loop transports and durable outbox

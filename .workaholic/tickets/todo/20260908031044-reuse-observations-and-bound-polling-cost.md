@@ -3,6 +3,8 @@ created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260908031040-connect-runtime-capabilities-and-adapters.md, 20260908031041-normalize-inputs-and-continue-strategy-learning.md, 20260908031043-resume-delivery-and-preserve-report-sections.md]
+claim: work-20260908-043332
+claim_unit: batch-20260908043329
 ---
 
 # Reuse observations and bound polling cost

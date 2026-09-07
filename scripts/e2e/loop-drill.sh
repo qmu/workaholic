@@ -1323,8 +1323,7 @@ cmd_verify_moderate() {
     # EVERY registered step contributes a reported line, so the drill now asks `run.sh` how many
     # it registers and compares. A step added tomorrow needs no edit here, and a step that stops
     # reporting still fails the drill.
-    _want=$(sed -n "s/^STEPS='\([^']*\)'.*/\1/p" \
-                "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh" | wc -w | tr -d ' ')
+    _want=$(jq '.steps | length' "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/steps.json" 2>/dev/null || printf 0)
     _steps=$(printf '%s' "$_out" | awk '{ n = gsub(/"step":/, "&"); print n + 0 }')
     if [ "${_want:-0}" -gt 0 ] && [ "${_steps:-0}" -eq "$_want" ]; then
         add_row "moderate_steps" true "all ${_want} registered steps reported" load
@@ -7907,7 +7906,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 printf '%s' "$data" > "$WORKAHOLIC_DRILL_CAPTURE"
-[ -n "$out" ] && printf '{"ok": true}' > "$out"
+[ -n "$out" ] && printf '{"ok":true,"channel":"C0DRILL0","ts":"1724371200.000200","message":{"user":"U0BOT"}}' > "$out"
 printf '200'
 STUB
     chmod +x "${_bin}/curl"
@@ -7916,6 +7915,7 @@ STUB
         ( PATH="${_bin}:$PATH" WORKAHOLIC_DRILL_CAPTURE="$_cap" \
           SLACK_BOT_TOKEN="${1}" WORKAHOLIC_SLACK_CHANNEL=C0DRILL0 \
           WORKAHOLIC_SLACK_API_URL='http://stub.invalid/chat.postMessage' \
+          WORKAHOLIC_TRANSPORT_OCCURRENCE_ID="drill-$$" \
           sh "$_spec" $2 "$3" 2>&1 || true )
     }
     TS='1724371200.000100'

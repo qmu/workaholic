@@ -53,6 +53,7 @@ test('P8 delivery resumes an unknown merge without repeating catch-up or the mer
   cpSync(join(scripts,'drive/scripts/deliver-unit.sh'),join(bundle,'drive/scripts/deliver-unit.sh'));
   cpSync(join(scripts,'runtime/scripts/state.sh'),join(bundle,'runtime/scripts/state.sh'));
   cpSync(join(scripts,'runtime/scripts/lib/result.sh'),join(bundle,'runtime/scripts/lib/result.sh'));
+  cpSync(join(scripts,'runtime/scripts/lib/lock.sh'),join(bundle,'runtime/scripts/lib/lock.sh'));
   const calls=join(dir,'calls');
   writeFileSync(join(bundle,'drive/scripts/catch-up-claim.sh'),`#!/bin/sh\necho catchup >>'${calls}'\nprintf '%s\\n' '{"outcome":"already_current"}'\n`);
   writeFileSync(join(bundle,'drive/scripts/retry-undelivered.sh'),`#!/bin/sh\necho prepare >>'${calls}'\nprintf '%s\\n' '{"outcome":"ready","merge_request":{"repo":"acme/repo","pr":7,"expected_sha":"headsha","method":"squash","title":"T","body":"B"}}'\n`);

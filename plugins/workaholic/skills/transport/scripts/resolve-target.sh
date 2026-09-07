@@ -20,7 +20,7 @@ resolution=$(jq -c '
     select((($t.mount // null)==null) or .mount==$t.mount)] as $matches |
   {matches:$matches,
    workspaces:([$matches[].workspace // empty]|unique),
-   public_misses:[$in.observations[]|select(.visibility=="public_miss")]} 
+   public_misses:[$in.observations[]|select(.visibility=="public_miss")]}
 ' "$TRANSPORT_REQUEST_FILE")
 count=$(printf '%s' "$resolution" | jq '.matches|length')
 workspaces=$(printf '%s' "$resolution" | jq '.workspaces|length')

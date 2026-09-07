@@ -126,6 +126,31 @@ test("P3 an accepted-send timeout stays unknown and a retry requires reconciliat
   assert.equal(result.json.reason, "needs_reconcile");
 });
 
+test("P3 unavailable reconciliation preserves an unknown send", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  writeFileSync(join(bin, "curl"), "#!/bin/sh\nexit 1\n"); spawnSync("chmod", ["+x", join(bin, "curl")]);
+  const binding = { workspace: "A", channel: "same", channel_id: "C1", operations: ["post_root"], routes: [{ transport: "slack_token", operations: ["post_root"], described: true }], thread_map: {} };
+  let path = request(dir, base(dir, "post_root", { binding, text: "message", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "uncertain" }));
+  let result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join("") } });
+  assert.equal(result.json.reason, "provider_timeout");
+  path = request(dir, base(dir, "reconcile_send", { binding, now: "2026-09-08T00:01:00Z" }, { binding_id: "binding-a", request_id: "uncertain" }), "reconcile.json");
+  result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.reason, "reconciliation_unavailable");
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(JSON.parse(readFileSync(join(dir, common, "workaholic/runtime/v1/bindings/binding-a/outbox/uncertain.json"), "utf8")).data.state, "unknown");
+});
+
+test("P3 a completed transport lease releases for the next instance", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  writeFileSync(join(bin, "curl"), '#!/bin/sh\nout=""; while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2;; *) shift;; esac; done\nprintf \'%s\' \'{"ok":true,"channel":"C1","ts":"172.3","message":{"user":"BOT"}}\' > "$out"\nprintf 200\n'); spawnSync("chmod", ["+x", join(bin, "curl")]);
+  const binding = { workspace: "A", channel: "same", channel_id: "C1", operations: ["post_root"], routes: [{ transport: "slack_token", operations: ["post_root"], described: true }], thread_map: {} };
+  const invoke = (instance, id) => run(join(scripts, "perform.sh"), ["--request", request(dir, base(dir, "post_root", { binding, text: id, now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: id, instance_id: instance }), `${id}.json`)], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join("") } });
+  assert.equal(invoke("instance-one", "lease-one").json.status, "ok");
+  const second = invoke("instance-two", "lease-two"); assert.equal(second.json.status, "ok", second.stderr);
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(JSON.parse(readFileSync(join(dir, common, "workaholic/runtime/v1/bindings/binding-a/meta.json"), "utf8")).owner, null);
+});
+
 test("P3 names missing QFS and missing operations separately", () => {
   const dir = repo();
   const binding = { workspace: "A", channel: "same", operations: ["read_thread"], routes: [{ transport: "qfs", mount: "/slack/a", operations: ["read_thread"], described: true }], thread_map: {} };
@@ -211,6 +236,24 @@ test("P5 inbox keys hash exact provider IDs and advance the cursor only after bo
   assert.deepEqual(listed.map(file => JSON.parse(readFileSync(file, "utf8")).data.provider_id).sort(), ["a/b", "a?b"]);
   const binding = JSON.parse(readFileSync(join(dir, common, "workaholic/runtime/v1/bindings/binding-a/meta.json"), "utf8"));
   assert.equal(binding.data.cursor, "2.0");
+});
+
+test("P5 production observer reads a QFS delta, captures it, and advances its cursor", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const queries = join(dir, "queries");
+  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"A","operations":["read_channel_delta"]}]}' ;; *) printf '%s\\n' '{"rows":[{"id":"m1","ts":"8.1","text":"hello"}],"has_more":false}' ;; esac\n`);
+  spawnSync("chmod", ["+x", qfs]);
+  const result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:00:00Z"], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs, WORKAHOLIC_SLACK_WORKSPACE: "A", WORKAHOLIC_INBOUND_SLACK_CHANNEL: "same" } });
+  assert.equal(result.json.status, "ok", result.stderr); assert.equal(result.json.data.observation_proved, true, JSON.stringify(result.json));
+  assert.deepEqual(result.json.data.new_input_ids, ["m1"]);
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  const bindings = join(dir, common, "workaholic/runtime/v1/bindings");
+  const record = spawnSync("find", [bindings, "-path", "*/inbox/*.json", "-type", "f"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(JSON.parse(readFileSync(record, "utf8")).data.provider_id, "m1");
+  const meta = spawnSync("find", [bindings, "-name", "meta.json", "-type", "f"], { encoding: "utf8" }).stdout.trim();
+  const bindingMeta = JSON.parse(readFileSync(meta, "utf8"));
+  assert.equal(bindingMeta.data.cursor, "8.1"); assert.equal(bindingMeta.owner, null);
+  assert.match(readFileSync(queries, "utf8"), /after 8\.1|limit 100/);
 });
 
 test("P3 legacy notifier derives one stable outbox ID for an identical retry", () => {

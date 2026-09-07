@@ -8,7 +8,17 @@ jq -e '.binding_id|type=="string" and length>0' "$TRANSPORT_REQUEST_FILE" >/dev/
 jq -e '.input.binding|type=="object" and (.workspace|type=="string" and length>0) and (.channel|type=="string" and length>0) and (.routes|type=="array")' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1 || transport_usage "operation requires resolved binding"
 binding_id=$(jq -r .binding_id "$TRANSPORT_REQUEST_FILE")
 case "$binding_id" in *[!A-Za-z0-9._-]*|.|..) transport_usage "binding_id is not path safe";; esac
-tmpdir=$(mktemp -d); trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+tmpdir=$(mktemp -d)
+LEASE_HELD=false
+cleanup_transport() {
+  if [ "$LEASE_HELD" = true ]; then
+    jq -cn --arg now "$(date -Iseconds)" --argjson owner "$owner" --argjson generation "$generation" \
+      '{updated_at:$now,event:"release",owner:$owner,generation:$generation}' >"$tmpdir/release.json" 2>/dev/null || true
+    state_call transition --scope binding --id "$binding_id" --expected-revision "$meta_revision" --input "$tmpdir/release.json" >/dev/null 2>&1 || true
+  fi
+  rm -rf "$tmpdir"
+}
+trap cleanup_transport EXIT HUP INT TERM
 case "$TRANSPORT_OPERATION" in read_thread|post_reply)
   if [ -z "$(jq -r '.input.thread_ts // empty' "$TRANSPORT_REQUEST_FILE")" ]; then
     thread_key=$(jq -r '.input.thread_key // empty' "$TRANSPORT_REQUEST_FILE")
@@ -68,7 +78,9 @@ STATE="${SCRIPT_DIR}/../../runtime/scripts/state.sh"
 repo=$(jq -r .repo_root "$TRANSPORT_REQUEST_FILE"); [ -d "$repo" ] || transport_usage "repo_root does not exist"
 now=$(jq -r '.input.now // empty' "$TRANSPORT_REQUEST_FILE"); [ -n "$now" ] || now=$(date -Iseconds)
 nonce=$(printf '%s' "$(jq -r .instance_id "$TRANSPORT_REQUEST_FILE"):$binding_id" | sha256sum | cut -c1-24)
-owner=$(jq -cn --arg i "$(jq -r .instance_id "$TRANSPORT_REQUEST_FILE")" --arg n "$nonce" --arg h "transport:$binding_id" '{instance_id:$i,nonce:$n,harness_receipt:$h}')
+boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || printf unknown)
+process_start=$(awk '{print $22}' "/proc/$$/stat" 2>/dev/null || printf unknown)
+owner=$(jq -cn --arg i "$(jq -r .instance_id "$TRANSPORT_REQUEST_FILE")" --arg n "$nonce" --argjson pid "$$" --arg boot "$boot_id" --arg start "$process_start" '{instance_id:$i,nonce:$n,process_id:$pid,boot_id:$boot,process_start:$start}')
 state_call() { (cd "$repo" && "$STATE" "$@"); }
 meta=$(state_call read --scope binding --id "$binding_id")
 if [ "$(printf '%s' "$meta" | jq -r '.data.found')" != true ]; then
@@ -85,8 +97,23 @@ if [ "$current_owner" = null ]; then
     [ "$(printf '%s' "$acquired" | jq -r .status)" = ok ] || { transport_result deferred binding_busy "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
     record=$(printf '%s' "$acquired" | jq -c '.data.record'); current_owner=$(printf '%s' "$record" | jq -c .owner); generation=$(printf '%s' "$record" | jq -r .generation)
 fi
-[ "$(printf '%s' "$current_owner" | jq -r .instance_id)" = "$(jq -r .instance_id "$TRANSPORT_REQUEST_FILE")" ] || { transport_result deferred binding_owned "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
+if [ "$(printf '%s' "$current_owner" | jq -r .instance_id)" != "$(jq -r .instance_id "$TRANSPORT_REQUEST_FILE")" ]; then
+    old_pid=$(printf '%s' "$current_owner" | jq -r '.process_id // empty'); old_boot=$(printf '%s' "$current_owner" | jq -r '.boot_id // empty'); old_start=$(printf '%s' "$current_owner" | jq -r '.process_start // empty')
+    old_ended=false
+    if [ -n "$old_pid" ] && [ -n "$old_boot" ] && [ -n "$old_start" ] && [ "$boot_id" != unknown ]; then
+      if [ "$old_boot" != "$boot_id" ] || [ ! -r "/proc/${old_pid}/stat" ]; then old_ended=true
+      else live_start=$(awk '{print $22}' "/proc/${old_pid}/stat" 2>/dev/null || printf ''); [ "$live_start" = "$old_start" ] || old_ended=true; fi
+    fi
+    [ "$old_ended" = true ] || { transport_result deferred binding_owned "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
+    rev=$(printf '%s' "$record" | jq -r .revision)
+    jq -cn --arg now "$now" --argjson owner "$owner" --argjson old "$current_owner" '{updated_at:$now,event:"takeover",expired:true,old_owner_ended:true,old_owner_evidence:{owner:$old,process:"ended"},owner:$owner}' >"$tmpdir/takeover.json"
+    acquired=$(state_call transition --scope binding --id "$binding_id" --expected-revision "$rev" --input "$tmpdir/takeover.json")
+    [ "$(printf '%s' "$acquired" | jq -r .status)" = ok ] || { transport_result deferred binding_busy "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
+    record=$(printf '%s' "$acquired" | jq -c '.data.record'); current_owner=$(printf '%s' "$record" | jq -c .owner); generation=$(printf '%s' "$record" | jq -r .generation)
+fi
 owner=$current_owner
+meta_revision=$(printf '%s' "$record" | jq -r .revision)
+LEASE_HELD=true
 
 out=$(state_call read --scope binding --id "$binding_id" --record "outbox/$TRANSPORT_REQUEST_ID")
 if [ "$(printf '%s' "$out" | jq -r '.data.found')" != true ]; then
@@ -139,8 +166,14 @@ case "$route" in
     data=$(jq -c '{operation,target:(.input.binding|{workspace,channel,channel_id}),arguments:(.input|del(.binding,.parent_observation))}' "$TRANSPORT_REQUEST_FILE")
     transport_result needs_parent connector_required "$TRANSPORT_REQUEST_ID" "$data"; exit 0;;
   qfs_unproved) [ "$out_state" = sending ] && transition_outbox unknown; transport_result deferred qfs_map_unverified "$TRANSPORT_REQUEST_ID" '{}'; exit 0;;
-  token_unavailable) transition_outbox refused; transport_result deferred no_token "$TRANSPORT_REQUEST_ID" '{}'; exit 0;;
-  *) transition_outbox refused; transport_result deferred operation_unavailable "$TRANSPORT_REQUEST_ID" '{}'; exit 0;;
+  token_unavailable)
+    if [ "$TRANSPORT_OPERATION" = reconcile_send ]; then transport_result deferred reconciliation_unavailable "$TRANSPORT_REQUEST_ID" '{}';
+    else transition_outbox refused; transport_result deferred no_token "$TRANSPORT_REQUEST_ID" '{}'; fi
+    exit 0;;
+  *)
+    if [ "$TRANSPORT_OPERATION" = reconcile_send ]; then transport_result deferred reconciliation_unavailable "$TRANSPORT_REQUEST_ID" '{}';
+    else transition_outbox refused; transport_result deferred operation_unavailable "$TRANSPORT_REQUEST_ID" '{}'; fi
+    exit 0;;
 esac
 result=$("$adapter" --request "$TRANSPORT_REQUEST_FILE")
 status=$(printf '%s' "$result" | jq -r .status); reason=$(printf '%s' "$result" | jq -r .reason)

@@ -830,8 +830,14 @@ plan_tick() {
         fi
     fi
     _pt_email=$(git -C "$REPO_ROOT" config user.email 2>/dev/null || printf '')
-    jq -cn --arg root "$REPO_ROOT" --arg now "$_pt_now" --arg email "$_pt_email" \
-        '{repo_root:$root,now:$now,config:{},identity:{email:$email}}' >"$_pt_dir/snapshot-input.json"
+    _pt_observe_sh="${SCRIPT_DIR}/../../transport/scripts/observe-channel.sh"
+    _pt_communication='{"observation_proved":false,"new_input_ids":[],"known_thread_changes":[],"has_more":null,"unreadable":["transport_unavailable"]}'
+    if [ -x "$_pt_observe_sh" ]; then
+        _pt_observed=$(sh "$_pt_observe_sh" --root "$REPO_ROOT" --now "$_pt_now" 2>/dev/null || printf '')
+        [ "$(printf '%s' "$_pt_observed" | jq -r .status 2>/dev/null || printf error)" != ok ] || _pt_communication=$(printf '%s' "$_pt_observed" | jq -c .data)
+    fi
+    jq -cn --arg root "$REPO_ROOT" --arg now "$_pt_now" --arg email "$_pt_email" --argjson communication "$_pt_communication" \
+        '{repo_root:$root,now:$now,config:{},identity:{email:$email},communication:$communication}' >"$_pt_dir/snapshot-input.json"
     if sh "$_pt_snapshot_sh" --input "$_pt_dir/snapshot-input.json" >"$_pt_dir/snapshot-result.json" 2>/dev/null \
         && jq -e '.status=="ok"' "$_pt_dir/snapshot-result.json" >/dev/null 2>&1; then
         _pt_proved=$(jq -r '.data.communication.observation_proved // false' "$_pt_dir/snapshot-result.json" 2>/dev/null || printf false)

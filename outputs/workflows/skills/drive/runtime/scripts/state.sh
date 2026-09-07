@@ -2,6 +2,7 @@
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/result.sh"
+. "${SCRIPT_DIR}/lib/lock.sh"
 
 ACTION=${1:-}; [ -n "$ACTION" ] || runtime_usage "state action is required"; shift
 SCOPE="" ID="" RECORD=meta EXPECTED="" INPUT=""
@@ -51,14 +52,20 @@ case "$ACTION" in update|transition) [ -n "$EXPECTED" ] || runtime_usage "--expe
 lock_name=$(printf '%s' "${PLURAL}.${ID}" | tr '/' '.')
 LOCK="${BASE}/locks/${lock_name}.lock"
 mkdir -p "${BASE}/locks"
+LOCK_GUARD="${LOCK}.guard"
+# The stable advisory-lock inode serializes both stale-owner reclamation and the
+# protected write. Without this outer guard, two reclaimers can both validate the
+# same dead JSON lock: one removes it and installs a live replacement, then the
+# other removes that replacement using its stale check. flock releases on process
+# death, while the JSON owner record retains the evidence needed after a crash.
+runtime_lock_acquire "$LOCK_GUARD" 9 true || { runtime_json_result deferred lock_busy "$REQUEST" '{}'; exit 0; }
 boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || printf unknown)
 process_start=$(awk '{print $22}' "/proc/$$/stat" 2>/dev/null || printf unknown)
 lock_candidate="${BASE}/locks/.${lock_name}.$$.$process_start"
 jq -cn --argjson pid "$$" --arg boot "$boot_id" --arg start "$process_start" \
   '{pid:$pid,boot_id:$boot,process_start:$start}' >"$lock_candidate"
-trap 'rm -f "$lock_candidate"' EXIT HUP INT TERM
-tries=0
-while ! ln "$lock_candidate" "$LOCK" 2>/dev/null; do
+trap 'rm -f "$lock_candidate"; runtime_lock_release' EXIT HUP INT TERM
+if ! ln "$lock_candidate" "$LOCK" 2>/dev/null; then
     # Reclaim only with process evidence. On another boot the recorded process is
     # necessarily gone; on this boot both PID and /proc start time must still match.
     observed=$(cat "$LOCK" 2>/dev/null || printf '')
@@ -76,12 +83,13 @@ while ! ln "$lock_candidate" "$LOCK" 2>/dev/null; do
     fi
     if [ "$owner_alive" = false ] && [ "$(cat "$LOCK" 2>/dev/null || printf '')" = "$observed" ]; then
         rm -f "$LOCK" 2>/dev/null || true
-        continue
+        ln "$lock_candidate" "$LOCK" 2>/dev/null || { runtime_json_result deferred lock_busy "$REQUEST" '{}'; exit 0; }
+    else
+        runtime_json_result deferred lock_busy "$REQUEST" '{}'
+        exit 0
     fi
-    tries=$((tries + 1)); [ "$tries" -lt 200 ] || { runtime_json_result deferred lock_busy "$REQUEST" '{}'; exit 0; }
-    sleep 0.01
-done
-trap 'rm -f "$LOCK" "$lock_candidate" 2>/dev/null || true' EXIT HUP INT TERM
+fi
+trap 'rm -f "$LOCK" "$lock_candidate" 2>/dev/null || true; runtime_lock_release' EXIT HUP INT TERM
 
 defer_conflict() {
     actual=null

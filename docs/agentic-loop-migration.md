@@ -32,7 +32,7 @@ The current `/work` selected path consists of `commands/work.md`, `skills/work/S
 
 Hermetic P5 fixtures advance 100 unchanged poll boundaries with zero observations and zero worker launches. Request metrics store wall time, reader/API/worker counts, bytes, and provider usage only when returned; unknown token usage remains `null`.
 
-The dedicated agentic-loop suite contains **72 tests** covering portable packaging, legacy projections, snapshots and atomic state, capability dispatch, transport reconciliation, publication and claim recovery, polling cost, input normalization, delivery resume, and section-preserving reports.
+The dedicated agentic-loop suite contains **77 tests** covering portable packaging, legacy projections, snapshots and atomic state, capability dispatch, transport reconciliation, production delta capture, publication and claim recovery, polling cost, input normalization, delivery resume, and section-preserving reports.
 
 ## Live verification still required
 

@@ -8,7 +8,25 @@ repo=$(jq -r .repo_root "$REQ"); binding=$(jq -r .binding_id "$REQ"); now=$(jq -
 call() { (cd "$repo" && sh "$STATE" "$@"); }
 meta=$(call read --scope binding --id "$binding"); [ "$(printf '%s' "$meta" | jq -r '.data.found')" = true ] || { printf '{"status":"deferred","reason":"binding_missing"}\n'; exit 0; }
 record=$(printf '%s' "$meta" | jq -c .data.record); owner=$(printf '%s' "$record" | jq -c .owner); generation=$(printf '%s' "$record" | jq -r .generation)
-tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+tmp=$(mktemp -d); LEASE_HELD=false; lease_revision=0
+cleanup_capture() {
+  if [ "$LEASE_HELD" = true ]; then
+    jq -cn --arg now "$now" --argjson owner "$owner" --argjson generation "$generation" '{updated_at:$now,event:"release",owner:$owner,generation:$generation}' >"$tmp/release.json" 2>/dev/null || true
+    call transition --scope binding --id "$binding" --expected-revision "$lease_revision" --input "$tmp/release.json" >/dev/null 2>&1 || true
+  fi
+  rm -rf "$tmp"
+}
+trap cleanup_capture EXIT HUP INT TERM
+if [ "$owner" = null ]; then
+  boot=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || printf unknown); start=$(awk '{print $22}' "/proc/$$/stat" 2>/dev/null || printf unknown)
+  nonce=$(printf '%s' "$binding:$$:$start" | sha256sum | cut -c1-24)
+  owner=$(jq -cn --arg i "capture-$binding" --arg n "$nonce" --argjson p "$$" --arg b "$boot" --arg s "$start" '{instance_id:$i,nonce:$n,process_id:$p,boot_id:$b,process_start:$s}')
+  rev=$(printf '%s' "$record" | jq -r .revision)
+  jq -cn --arg now "$now" --argjson owner "$owner" '{updated_at:$now,event:"acquire",owner:$owner}' >"$tmp/acquire.json"
+  acquired=$(call transition --scope binding --id "$binding" --expected-revision "$rev" --input "$tmp/acquire.json")
+  [ "$(printf '%s' "$acquired" | jq -r .status)" = ok ] || { printf '{"status":"deferred","reason":"binding_busy"}\n'; exit 0; }
+  record=$(printf '%s' "$acquired" | jq -c .data.record); generation=$(printf '%s' "$record" | jq -r .generation); lease_revision=$(printf '%s' "$record" | jq -r .revision); LEASE_HELD=true
+fi
 captured=0
 jq -c '.messages[]' "$REQ" | while IFS= read -r message; do
   provider_id=$(printf '%s' "$message" | jq -jr '.id // .ts // empty')
@@ -29,4 +47,5 @@ rev=$(printf '%s' "$record" | jq -r .revision); data=$(printf '%s' "$record" | j
 jq -cn --arg now "$now" --argjson data "$data" '{updated_at:$now,data:$data}' > "$tmp/meta.json"
 updated=$(call update --scope binding --id "$binding" --expected-revision "$rev" --input "$tmp/meta.json")
 [ "$(printf '%s' "$updated" | jq -r .status)" = ok ] || { printf '{"status":"deferred","reason":"cursor_conflict"}\n'; exit 0; }
+lease_revision=$(printf '%s' "$updated" | jq -r .data.record.revision)
 count=$(jq '.messages|length' "$REQ"); jq -cn --argjson count "$count" --argjson cursor "$(jq -c .next_cursor "$REQ")" '{status:"ok",reason:"",data:{captured:$count,cursor:$cursor}}'

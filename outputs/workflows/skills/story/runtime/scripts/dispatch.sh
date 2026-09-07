@@ -1,6 +1,7 @@
 #!/bin/sh -eu
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/result.sh"
+. "${SCRIPT_DIR}/lib/lock.sh"
 [ "${1:-}" = --request ] || runtime_usage "usage: dispatch.sh --request FILE"; REQUEST=${2:-}
 started_ms=$(date +%s%3N 2>/dev/null || printf 0)
 runtime_require_json_file "$REQUEST"
@@ -15,8 +16,8 @@ if [ "$dry" = true ]; then runtime_json_result ok "" "$id" "$(jq -cn --arg adapt
 git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || runtime_usage "repo_root is not a git repository"
 common=$(git -C "$root" rev-parse --path-format=absolute --git-common-dir); lock="${common}/workaholic/runtime/v1/locks/dispatch-${role}-${unit:-none}.lock"
 mkdir -p "$(dirname -- "$lock")"
-mkdir "$lock" 2>/dev/null || { runtime_json_result deferred already_running "$id" "$(jq -cn --arg role "$role" --arg unit "$unit" '{role:$role,unit:(if $unit=="" then null else $unit end)}')"; exit 0; }
-trap 'rmdir "$lock" 2>/dev/null || true' EXIT HUP INT TERM
+runtime_lock_acquire "$lock" 8 || { runtime_json_result deferred already_running "$id" "$(jq -cn --arg role "$role" --arg unit "$unit" '{role:$role,unit:(if $unit=="" then null else $unit end)}')"; exit 0; }
+trap 'runtime_lock_release' EXIT HUP INT TERM
 state="${SCRIPT_DIR}/state.sh"; now=${WORKAHOLIC_NOW:-$(date -Iseconds)}; instance_nonce=$(printf '%s' "$instance" | sha256sum | cut -c1-24); owner=$(jq -cn --arg i "$instance" --arg n "$instance_nonce" '{instance_id:$i,nonce:$n,harness_receipt:("instance:"+$i)}')
 meta=$(cd "$root" && sh "$state" read --scope instance --id "$instance")
 if [ "$(printf '%s' "$meta" | jq -r .data.found)" != true ]; then

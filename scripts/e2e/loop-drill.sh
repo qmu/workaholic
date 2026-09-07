@@ -8981,6 +8981,27 @@ cmd_verify_stage() {
 # The supported CLI clock must launch from the installed full plugin, with no supervisor copied
 # into the consuming repository. The breaker removes that packaged launcher and proves the
 # compatibility entrypoint names the clock layer rather than misdiagnosing the intact skill.
+codex_clock_wait_workers() {
+    # Dispatch returns before its worker. Deleting the logs at that point races the worker's
+    # writes, and deleting a held lock also lets the next scenario bypass it. Wait for the
+    # actual dispatched processes, including the breaker workers that deliberately hold no
+    # lock. Detached children cannot be shell-waited; a zombie has already stopped writing.
+    _cw_pids=$(printf '%s\n' "$1" | sed -n 's/.*started pid=\([0-9][0-9]*\).*/\1/p')
+    for _cw_pid in $_cw_pids; do
+        _cw_remaining=30
+        while kill -0 "$_cw_pid" 2>/dev/null; do
+            _cw_state=$(ps -p "$_cw_pid" -o stat= 2>/dev/null || true)
+            case "$_cw_state" in *Z*) break ;; esac
+            if [ "$_cw_remaining" -eq 0 ]; then
+                add_row "codex_clock_workers_stopped" false "worker ${_cw_pid} did not exit; preserving fixture ${_tmp}" load
+                emit_verdict "codex-clock" 0 "fail" 1
+            fi
+            sleep 1
+            _cw_remaining=$((_cw_remaining - 1))
+        done
+    done
+}
+
 cmd_verify_codex_clock() {
     _launcher_src="${REPO_ROOT}/plugins/workaholic/skills/work/scripts/codex-loop.sh"
     _shim_src="${REPO_ROOT}/scripts/codex-loop.sh"
@@ -9030,6 +9051,7 @@ cmd_verify_codex_clock() {
     else
         add_row "dispatch_claims_before_it_returns" false "concurrent dispatches started ${_started} worker(s) and refused ${_refused}: $(one_line "$_pair")" load
     fi
+    codex_clock_wait_workers "$_pair"
 
     # THE SECOND BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Not a return shape: make the parent's
     # own claim a no-op and nothing holds the role at all — the worker is told `--claimed` and so
@@ -9047,6 +9069,8 @@ cmd_verify_codex_clock() {
         *"started pid="*"started pid="*) add_row "dispatch_claim_breaker" true "removing the dispatch's own claim starts a second worker for one role (this drill can fail)" breaker ;;
         *) add_row "dispatch_claim_breaker" false "the neutered launcher did not dispatch at all: $(one_line "$_b1$_b2")" breaker ;;
     esac
+    codex_clock_wait_workers "$(printf '%s\n%s\n' "$_b1" "$_b2")"
+    add_row "codex_clock_workers_stopped" true "every dispatched worker exited before its logs or installed launcher were removed" load
     rm -rf "${_repo}/.codex-loop"
 
     mkdir -p "${_repo}/scripts"

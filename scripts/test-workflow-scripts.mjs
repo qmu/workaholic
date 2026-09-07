@@ -39167,7 +39167,22 @@ exit 0
 // duration + interval), and the work ran inline inside that tick. No Codex process is involved.
 T("the Codex clock stays anchored to startup and dispatches work it never waits for",
   testCodexCoordinatorCadence);
-function testCodexCoordinatorCadence() {
+async function testCodexCoordinatorCadence() {
+  // A dispatch returns before its worker. Join every PID it reports before deleting logs,
+  // locks or the installed launcher, including when an assertion throws. Zombies have
+  // stopped writing; a live worker at the deadline leaves its fixture intact for diagnosis.
+  const waitWorkers = async (dir, output) => {
+    for (const [, pid] of output.matchAll(/started pid=(\d+)/g)) {
+      const deadline = Date.now() + 30000;
+      while (true) {
+        try { process.kill(Number(pid), 0); }
+        catch (e) { if (e.code === "ESRCH") break; throw e; }
+        if (/Z/.test(run(dir, `ps -p ${pid} -o stat=`).stdout)) break;
+        if (Date.now() >= deadline) throw new Error(`worker ${pid} did not exit; preserving fixture ${dir}`);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+  };
   const makeFixture = (sleepSeconds) => {
     const dir = makeRepo("main");
     mkdirSync(join(dir, "plugins/workaholic/skills/work/scripts"), { recursive: true });
@@ -39216,6 +39231,7 @@ exit 0
   } finally { cleanup(slow); }
 
   const dir = makeFixture(6);
+  let dispatched = "";
   try {
     const env = { ...process.env, PATH: `${join(dir, "bin")}:${process.env.PATH}` };
     // The coordinator's own prompt must carry the substitution, not the work.
@@ -39226,16 +39242,18 @@ exit 0
 
     assertEq("an unknown role starts nothing", run(dir, `sh ${LAUNCHER} --dispatch nope`, { env }).status, 2);
     const first = run(dir, `sh ${LAUNCHER} --dispatch implement`, { env });
+    dispatched += first.stdout;
     assertTrue("dispatching returns at once with the worker started",
       first.status === 0 && /started pid=/.test(first.stdout), first.stdout + first.stderr);
     const second = run(dir, `sh ${LAUNCHER} --dispatch implement`, { env });
+    dispatched += second.stdout;
     assertTrue("a role already running is refused rather than started twice",
       /already_running/.test(second.stdout), second.stdout + second.stderr);
     const status = run(dir, `sh ${LAUNCHER} --status`, { env });
     assertTrue("status names the running worker and the idle ones",
       /codex worker implement: running/.test(status.stdout) &&
       /codex worker propose: idle/.test(status.stdout), status.stdout);
-  } finally { cleanup(dir); }
+  } finally { await waitWorkers(dir, dispatched); cleanup(dir); }
 
   // THE DISPATCH IS WHAT CLAIMS THE ROLE, AND IT CLAIMS BEFORE IT RETURNS (2026-09-06, ticket
   // `20260906210556`). The pair above is issued SEQUENTIALLY, so the first dispatch's own return
@@ -39247,20 +39265,23 @@ exit 0
   // the shape that exposes the window, and assert the exclusion itself — no sleep and no retry
   // stands in for it, because a drill that passes for having waited long enough proves nothing.
   const raced = makeFixture(2);
+  let pending = "";
   try {
     const env = { ...process.env, PATH: `${join(raced, "bin")}:${process.env.PATH}` };
     const pair = () => run(raced,
       `{ sh ${LAUNCHER} --dispatch implement 2>&1 & sh ${LAUNCHER} --dispatch implement 2>&1 & wait; }`,
       { env });
     for (let round = 1; round <= 5; round += 1) {
+      await waitWorkers(raced, pending);
       rmSync(join(raced, ".codex-loop"), { recursive: true, force: true });
       const out = pair().stdout;
+      pending = out;
       assertEq(`round ${round}: two concurrent dispatches start exactly one worker`,
         (out.match(/started pid=/g) || []).length, 1);
       assertEq(`round ${round}: the losing dispatch is refused by name`,
         (out.match(/already_running/g) || []).length, 1);
     }
-  } finally { cleanup(raced); }
+  } finally { await waitWorkers(raced, pending); cleanup(raced); }
 }
 
 T("the Codex parent relay validates intent, waits for acknowledgement, and never invents delivery",

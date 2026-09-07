@@ -189,7 +189,7 @@ and it has not moved.
 coordinator's own turn, so a resumed tick reads the harness's listing first and reconciles it with
 what it carried; **compaction stops nothing**, and a child the rediscovery cannot find is
 **reported unresolved**, never assumed finished and never grounds on its own for re-dispatching
-its role. The carried state is three things and no more — the startup anchor, the running child
+its role. The carried state is three things and no more — the startup anchor with its resolved interval, the running child
 identifiers with their roles, and the outcomes already reported — and it introduces **no file, no
 field and no store** (`workaholic:work`, *What survives a compaction*).
 

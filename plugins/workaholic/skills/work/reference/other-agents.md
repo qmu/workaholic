@@ -2,8 +2,8 @@
 
 **Corrected 2026-09-04**: the 2026-09-03 diagnosis below measured **Codex CLI**, not every
 Codex surface. The ChatGPT desktop app has Scheduled tasks that can return to an existing chat
-on a minute interval and work in a local project. That is the preferred clock when the loop is
-started from a desktop Codex chat; the external supervisor remains the CLI/IDE fallback. The
+on a minute interval and work in a local project. That was the clock recommended by that correction. Since 2026-09-06 the ordered
+capability table selects a native parent first; no product label chooses the mode. The
 tick contract stays shared with Claude Code.
 
 **Asked 2026-09-03**: can the loop-premised `/work` command run under Codex, and make it loop
@@ -93,8 +93,8 @@ What was retired was three **clocks**, three **views** and three places to look.
 is one coordinator holding the only clock and the only view, dispatching workers that hold
 neither: a worker decides no cadence, reads no channel, starts no other worker, and records its
 finish into the **same tick log** the coordinator reads to decide what is due. There is still one
-place that sees the whole loop. That is the Claude Code shape — a main agent with detached
-subagents — reached with processes, because processes are what Codex has.
+place that sees the whole loop. That is the coordinator-and-worker shape, reached with processes where a session
+cannot dispatch native children that outlive the call.
 
 The one thing a process gives that a **collected** subagent does not is the lifetime: `--dispatch`
 returns and its child survives, where a parent that must collect its subagents' results cannot end
@@ -132,6 +132,7 @@ closes is not a broken transport but a **missing** one being mistaken for a work
 
 | Entrypoint | The tick's report reaches | A dispatched worker's report reaches | The initiating chat receives |
 | ---------- | ------------------------- | ------------------------------------ | ---------------------------- |
+| Native parent (C1, C2 and C3 hold) | commentary in the initiating chat | the parent receives the native child result and reports it once | tick reports and child outcomes while the parent turn remains active |
 | Claude Code `/loop 5m /infinite-development` | the session that is running the loop | the parent session, as the subagent's result | the session itself — it *is* the chat |
 | Codex desktop Scheduled task | the chat the task was created in | `.codex-loop/<stamp>-<role>.md` | the tick's report only |
 | `scripts/codex-loop.sh` (CLI / IDE) | `.codex-loop/<stamp>.md` and the supervisor's own stdout | `.codex-loop/<stamp>-<role>.md`, with `.codex-loop/dispatch-<role>.log` holding the child's stdout | **nothing** |
@@ -140,8 +141,7 @@ closes is not a broken transport but a **missing** one being mistaken for a work
 `started pid=…` the instant the child is detached, and the child outlives the run that started it —
 which is exactly the lifetime the port needed and exactly why no result can come back through the
 process that returned. **A shell launcher cannot promise a callback into the initiating chat
-without an actual return transport**, and inventing one would mean holding the coordinator open
-across the work, which is the cadence failure #984/#985 named. So the launcher **names the absence
+without an actual return transport**, which would require a real parent coordinator such as branch 1 rather than a callback from the detached launcher. So the launcher **names the absence
 at startup** — `chat_return: none (detached workers report to <dir>)` — and an absent delivery path
 is never substituted for one that delivers somewhere else.
 

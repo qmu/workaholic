@@ -17,6 +17,16 @@ at every startup and cached nowhere: one product answers differently in its CLI,
 extension and its desktop app, so a cached answer carries one surface's reading into another's
 session.
 
+**Resolve the interval from the startup request before selecting a mode.** An explicit interval
+in the command argument or the person's instruction wins; otherwise use **five minutes**.
+Normalize it once to a positive duration and report it beside the selected mode. For example,
+`/work 1m` or “every minute” means **60 seconds**, including in native-parent mode. An invalid
+or ambiguous duration is named and clarified, never silently replaced by the default. Pass this
+same duration to the in-process timer, same-chat schedule, or supervisor's `--interval` (seconds),
+and use it in the native parent's `startup + k×interval` deadlines. The `5m` invocations below
+show the default, not a fixed interval. Approximate tool wake-up timing does not waive the
+requested cadence. Changing activity or time of day does not change it automatically.
+
 **Four capability questions, and no others.** Each asks about a tool this session holds:
 
 | # | Question |
@@ -260,7 +270,7 @@ A long conversation is compacted, and the native-parent branch holds its state i
 turn. **Three things survive, and nothing else** — this is not a new store for the loop's whole
 state, and **no file, field or store is introduced to hold them**:
 
-1. the **startup anchor**;
+1. the **startup anchor**, including the resolved interval used with it;
 2. the **running child identifiers**, with their roles;
 3. the **outcomes already reported**.
 

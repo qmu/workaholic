@@ -1,6 +1,6 @@
 ---
 name: moderate
-description: Use when a session runs `/moderate` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the thirty-one-step run, the hourly thread it posts, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
+description: Use when a session runs `/moderate` — the hourly maintenance tick that keeps the space around the loop judgeable. Defines the registry-driven run, the hourly thread it posts, what each step may write, the tick log it leaves behind, and the rulings the ask's steps are held to.
 allowed-tools: Bash
 user-invocable: false
 skills:
@@ -15,7 +15,7 @@ metadata:
 
 The loop's **maintenance tick**. `[Specificate]` turns asks into work and `[Implement]` drives it; nothing keeps the space *around* them tidy — stale issues, GitHub↔`.workaholic/` drift, pull requests stuck after a failed auto-merge, documentation that no longer matches the concept. `/moderate` finds those, files them **through the existing seams**, repairs the ones a **proof** licenses it to repair, and says what needs a human (issue #471).
 
-Relocated detail: [the thirty-one-step contract](reference/workflow.md) — each step's inputs, what it may write, its abort reasons, and the ruling it is held to.
+Relocated detail: [the step contract](reference/workflow.md) — each registered step's inputs, what it may write, its abort reasons, and the ruling it is held to.
 
 ## What the tick repairs, on what licenses it, and who does the rest
 
@@ -149,7 +149,7 @@ Like the `## Open Decisions` floor, this is a **prose contract, not a script gat
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run.sh
 ```
 
-One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the thirty-one steps **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The step list lives in `run.sh`, not in this prose: every step is invoked and every step contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
+One invocation is one **tick**. It mints the tick id (`tick-id.sh`, UTC — every later write in the same tick is passed that id), runs the steps from `scripts/steps.json` **in order**, writes **one log line per step** into `.workaholic/moderations/<UTC-day>.md`, and returns the report as JSON. The registry is the one source of the step count and order: every entry is invoked and contributes a line, so a step that is missing, crashes, or prints nothing is reported `degraded` with its reason instead of vanishing from the report.
 
 `--deadline-seconds <n>` bounds a tick. Steps not reached are logged `skipped` with reason `budget`, **by name** — a step that ran out of clock and a step that found nothing must never read the same.
 
@@ -211,7 +211,6 @@ Full rationale for both decisions (why it is not knowledge, why nothing prunes i
 
 **The guard covers every writer, not the moderation tick alone** (2026-09-06, ticket `20260902042039`). The accumulation carried **two** commit vocabularies — `Log the moderation tick` and `Log the propose tick` — riding the same day files, so a guard named after one tick leaves the other free. The writer set is therefore derived from the tree and pinned by `test-workflow-scripts.mjs` (each script whose *code* names the log declared with a role, exactly one `writer`, the roles proved by running the writer and the opener), and `verify-log-off-base` drills it offline for the whole set. **The limit is named rather than implied**: a path reached only through an interpolated variable cannot be found by a literal search and is not covered.
 
-**The log is committed by the tick itself, as its closing act** — `run.sh` runs `persist-log.sh` after the last step, and that is the only thing in this skill that writes to a branch. A routine-fired tick runs in a fresh container cloned from the base, so a log left in the checkout would take every dedup's memory with it *and* leave an hourly unattended process with no audit trail; a hand-run never sees the failure, because its checkout survives. The seam is the **publish tree, directly** (`branching/scripts/open-publish-tree.sh` → `publish-tree-commit.sh` → `close-publish-tree.sh`): the caller's checkout is left byte-identical, no `work-*` branch is created, and no `publish-main` ref reaches origin, so the claim protocol never sees it. This is **not** the unattended-`main`-writer class `workaholic:ship` §7 refused — the append is not self-referential, it touches no branch a claim owns, and it merges nothing — and the reasoning is spelled out in `persist-log.sh`'s header alongside the rejected alternative (a pull request per tick: twenty-four a day asking a human to approve a line about what a machine already did). Concurrent ticks **union by `(tick, step)`** against a freshly fetched base rather than replaying a patch, so two containers on the same day both land — whole sections the base lacks, and, within a section it already carries, the individual entries it lacks. That line-wise half is what lets the agent's second persist above carry a `<step>-filed` line into a section that has already landed; a `(tick, step)` the base already has is never rewritten, so nothing a colleague's container recorded can be clobbered. A persist that did not reach the base is reported `degraded` **by name** and the log stays in the checkout for the next tick to carry up. The *last* persist's own line is written to the checkout and not to the base — the outcome is only known after the push, and the base already answers the question it would ask: the tick's section is there iff its persist succeeded.
 
 ## Where a cadence is declared, and what it says
 

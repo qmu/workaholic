@@ -4,14 +4,12 @@
 
 0. **Take the channel reading the tick hands in.** The Slack turn and the inbound sweep belong
    to `/infinite-development`, not here (`workaholic:loops`). What reaches this run is one
-   word — **`human_spoke`**, **`only_the_loop_spoke`** or **`unreadable:<reason>`**. On
-   `only_the_loop_spoke` originate nothing: skip steps 1-5, open no proposal, and report the
-   refusal by that word — never as idle and never as an error. It is the one **run-level**
-   brake, refusing every direction at once where every other gate is per-direction.
-   `unreadable` never brakes, and a run handed no reading at all treats it as `unreadable`.
+   word — **`human_spoke`**, **`only_the_loop_spoke`** or **`unreadable:<reason>`**. Report the
+   reading as evidence and continue to the strategy survey. Silence and an unreadable channel
+   are distinct, but neither is an origination gate; a run handed no reading treats it as
+   `unreadable`.
 
-**The reactive half is untouched.** An issue somebody filed, an ask the tick just captured,
-a `/specificate` run: all still work. The brake is on **origination** alone.
+The reactive path remains independent of this reading.
 
 1. **Survey.**
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/survey-strategies.sh [window]`

@@ -17,10 +17,10 @@ landed against it, choose **one** move (`depth`, `breadth` or `contraction`), an
 demands, and its ordered ticket set — sized by what the container must be able to hold
 (`plugins/workaholic/rules/workaholic.md`, *What a Mission Must Be Able to Hold*: is there a
 mid-term plan here — several tickets wanting ordering and allocation across a period?). Seven or
-eight is an observation about typical size, never the criterion. `open-proposal.sh`
-floors it: the body carries `## Experience` and `## Tickets` beside the three commitment
-sections, and fewer than two tickets is refused `under_planned`. The ceiling stays this run's
-judgement. `/propose` plans; `/specificate` writes.
+eight is an observation about typical mission size, never the criterion. The body carries
+`## Experience` and one-or-more `## Tickets` beside the three commitment sections. A single
+ticket is a valid bounded hypothesis; `/specificate` only creates a mission when two or more
+tickets share the mid-term outcome. `/propose` plans; `/specificate` writes.
 
 **It writes nothing into this repository** — no file, no commit, no branch, no pull request, no
 merge, no deployment — and it never issues `AskUserQuestion`. Its only write is the GitHub
@@ -50,9 +50,10 @@ obligation nobody asked for is refused as `invented_obligation`; a `depth` move 
 roots in the loop's own earlier output is refused as `self_refining`.
 
 **Every refusal is reported by name and every gate is mechanical**: a strategy that is closed,
-not yours, being observed, past its date, arrived, citing no feedback record, already carrying
-queued work, or already carrying an open proposal is skipped with that reason stated. A tick
-that cannot read its own open proposals proposes nothing at all.
+not yours, past its date, cites no feedback record, already carries queued work, or already
+carries an open proposal is skipped with that reason stated. Stage and `arrived`/`quiescent`
+guide the hypothesis and ride the report; `観察中` permits observation work. A tick that cannot
+read its own open proposals proposes nothing at all.
 
 **The readings ride the report and gate nothing**: `pace`, `overdue`, `expiring`, `arrived` with
 its residue, each un-acted operator-facing pull request, and how long each standing blocker has

@@ -32,18 +32,19 @@ own scope.
   run in words;
 - a proposal **refining a prior self-proposal** — refused at `/propose`'s bar as
   **`self_refining`**, whatever move word it claims;
-- a tick into a window **where only the loop has spoken** — origination stops for that tick as
-  **`only_the_loop_spoke`**, run-level, while the reactive path continues.
+
+Channel silence is observation context, not evidence that a human-authored strategy should stop.
+`only_the_loop_spoke` remains a reportable reading but is retired as an origination refusal.
 
 **The measurement.** 2026-09-02: five consecutive `[FB]` roots in one day that no human wrote,
 each a record a routine session authored about the loop's own self-proposed apparatus, each
 proposed, ticketed, implemented and merged by the next ticks, each link refining the one
 before it — until the operator abandoned the direction mid-drive and reported the day as
 waste, with their own development stopped throughout. **Every gate held.** None of them asked
-*who wanted this*. The rule existed only as three consequences in three skills, and the next
+*who wanted this*. The rule existed only as scattered consequences in several skills, and the next
 session re-derived it wrong.
 
-**None of the three refusals is mechanical**, and none may become a gate: they are judgements
+**Neither refusal is mechanical**, and neither may become a gate: they are judgements
 the running model applies, reported by their own words so a refused run never reads as idle.
 What the statement buys is that a run originating from the loop's own output is visibly
 non-conformant, against one sentence, rather than against three consequences a reader has to
@@ -103,7 +104,7 @@ The `.workaholic/` directory has a fixed structure. Only these subdirectories ar
 | `release-notes/` | Per-branch release notes — one per shipped unit branch, written pre-merge; each also carries the prospective `## Deployment Plan` and the append-only `## Deployment Verification` |
 | `releases/`      | Per-`release/*`-branch ship records — which base commits a release carried, when it was cut, when it was confirmed or failed. **Not** `release-notes/`: that is one note per shipped unit, this is one record per production release |
 | `stories/`       | Development narratives per branch          |
-| `strategies/`    | **Outbound, resolved direction** — one flat `<slug>.md` per strategy, each carrying an Aim (what is being pursued), a Schedule (its dated bound), an Assignee (who carries it) and a **Stage** (the operator's declared phase — `進行中` / `改良中` / `観察中`; absent means `進行中`). The stage has one behavioural consequence: a `観察中` direction is refused `observing` by `/propose`, which originates nothing for it while inbound work still reaches it through `/specificate` unchanged. Operator-authored; the loop's only reach is `/specificate`'s strategy form, whose pull request does not auto-merge. Re-introduced 2026-08-13 with a bounded/dated/owned shape after the 2026-07-28 retirement of the open-ended `## Direction` artifact |
+| `strategies/`    | **Outbound, resolved direction** — one flat `<slug>.md` per strategy, each carrying an Aim (what is being pursued), a Schedule (its dated bound), an Assignee (who carries it) and a **Stage** (the operator's declared phase — `進行中` / `改良中` / `観察中`; absent means `進行中`). Stage guides the kind of hypothesis `/propose` may make; `観察中` permits observation work and does not authorize a machine-authored stage change. Operator-authored; the loop's only reach is `/specificate`'s strategy form, whose pull request does not auto-merge. Re-introduced 2026-08-13 with a bounded/dated/owned shape after the 2026-07-28 retirement of the open-ended `## Direction` artifact |
 | `terms/`         | **The project's glossary — one file per term family.** Holds: a term, what it means here, and what it is not, for terms this project uses in a way a reader would otherwise guess at. Never holds: how-to prose, current-state documentation (that is the repository's own `docs/`), or a term used in its ordinary sense. Written by a **human**, when a term is coined or re-defined; refreshed by the same act, and staleness is reported by `story/scripts/area-freshness.sh`. `inconsistencies.md` is a term entry like any other — a record of known terminology conflicts — and carries no special status |
 | `tickets/`       | Implementation work queue and archives — **two states only**: `todo/` and `archive/<branch>/`. A ticket's state is its `status:` frontmatter field, never its directory |
 | `trips/`         | **Legacy, read-only history** — design/decision artifacts from the retired trip workflow; no writer since 2026-07-28 |

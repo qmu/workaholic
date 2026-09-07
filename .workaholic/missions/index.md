@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [recover-the-codex-loop-from-a-retired-plugin-path-and-refuse-a-false-healthy-status](active/recover-the-codex-loop-from-a-retired-plugin-path-and-refuse-a-false-healthy-status/mission.md) - Recover the Codex loop from a retired plugin path and refuse a false healthy status
 * [report-each-tick-in-the-originating-codex-chat](active/report-each-tick-in-the-originating-codex-chat/mission.md) - Report each tick in the originating Codex chat
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 
@@ -102,6 +101,7 @@
 * [read-the-base-s-colour-past-a-bookkeeping-tip](archive/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [read-whether-the-base-survived-what-the-loop-merged](archive/read-whether-the-base-survived-what-the-loop-merged/mission.md) - Read whether the base survived what the loop merged
 * [reconcile-a-stale-thread-with-the-unit-s-real-state](archive/reconcile-a-stale-thread-with-the-unit-s-real-state/mission.md) - Reconcile a stale thread with the unit's real state
+* [recover-the-codex-loop-from-a-retired-plugin-path-and-refuse-a-false-healthy-status](archive/recover-the-codex-loop-from-a-retired-plugin-path-and-refuse-a-false-healthy-status/mission.md) - Recover the Codex loop from a retired plugin path and refuse a false healthy status
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
 * [refresh-the-outdated-documentation-to-match-current-behavior](archive/refresh-the-outdated-documentation-to-match-current-behavior/mission.md) - Refresh the outdated documentation to match current behavior
 * [refuse-a-commit-that-splits-a-rename](archive/refuse-a-commit-that-splits-a-rename/mission.md) - Refuse a commit that splits a rename

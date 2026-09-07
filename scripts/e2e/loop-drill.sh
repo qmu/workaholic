@@ -8986,6 +8986,20 @@ cmd_verify_codex_clock() {
     _shim_src="${REPO_ROOT}/scripts/codex-loop.sh"
     [ -f "$_launcher_src" ] || emit_err "codex_clock_unreadable" 4 "$_launcher_src is not present"
 
+    # Delete a launch tree between real ticks. The fixture also removes every candidate and
+    # neuters the boundary check, proving refusal and the original stale-path execution.
+    _retired=$(node "${REPO_ROOT}/scripts/e2e/fixtures/codex-retired-path.mjs" "$REPO_ROOT" 2>&1 || true)
+    for _retired_case in recovery workspace missing breaker; do
+        _retired_ok=$(printf '%s' "$_retired" | jq -r --arg k "$_retired_case" '.[$k] // false' 2>/dev/null || printf false)
+        _retired_bearing=load
+        [ "$_retired_case" != breaker ] || _retired_bearing=breaker
+        if [ "$_retired_ok" = true ]; then
+            add_row "retired_plugin_${_retired_case}" true "a removed launch tree: ${_retired_case} proved with observed worker prompts and supervisor state" "$_retired_bearing"
+        else
+            add_row "retired_plugin_${_retired_case}" false "retired-tree fixture failed: $(one_line "$_retired")" "$_retired_bearing"
+        fi
+    done
+
     _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     _tmp=$(mktemp -d)
     _repo="${_tmp}/consumer"

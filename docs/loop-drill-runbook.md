@@ -1814,6 +1814,21 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 | `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
 
+**`verify-codex-clock` proves recovery after the installed launch tree disappears** (2026-09-07,
+ticket `20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path`). A real
+supervisor completes its first tick through a deterministic, zero-exit worker, then the fixture
+deletes its launch version while a newer registered version remains installed. `retired_plugin_recovery`
+requires the next worker's prompt to name only the replacement tree and the supervisor's output to
+name both paths. `retired_plugin_workspace` adds an equal-version checkout and requires the
+resolver's workspace `call_src` in the prompt and record. `retired_plugin_missing` removes both versions and requires exit 2, no further
+worker execution, and `stopped` / `clock_wrapper_missing` in `supervisor.json`.
+`retired_plugin_breaker` has bearing **`breaker`**: disabling the boundary check makes the next
+worker receive the deleted path again. Before the repair, this same fixture observed that stale
+prompt, a zero-exit worker, and a supervisor still recorded as `running`. This proves the local
+path transition and failure record, not the work performed by a real Codex model. The boundary
+check does not pin files for a tick already in flight: a deletion during that tick can still
+invalidate its reads, and its execution report determines the result before the next boundary.
+
 **`verify-codex-clock` also proves that a delivered relay is not an executed tick** (2026-09-07,
 ticket `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`). Three further
 load-bearing rows drive the acknowledgement branch directly, with no `codex` run involved: a tick

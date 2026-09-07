@@ -62,6 +62,16 @@ The launcher is part of the full Workaholic plugin. From an installed skill, run
 work skill, tick command body, repository, or Codex CLI separately, and recommends a plugin
 update only for a missing plugin-owned layer.
 
+Before each tick the supervisor checks its workflow, command body, launcher, schema and relay
+files. If its installation was retired, it executes the sanctioned `plugin-src.sh` resolver from
+bytes retained at launch, then updates every tick and dispatch path to the resolved complete `call_src` tree.
+It logs the retired and replacement paths and records them in `supervisor.json`; an intact tree
+incurs no resolution. With no complete replacement it records `stopped` / `clock_wrapper_missing`
+and exits 2 before invoking Codex again. This changes workflow paths, not the already-running
+supervisor's shell code. Recovery requires no unattended confirmation. A retirement during an
+already-running tick can still invalidate that tick's file reads; its execution report determines
+its outcome, and the next boundary checks the installation again.
+
 The supervisor completes and classifies the first tick before reporting ready. Every completion
 atomically replaces `.codex-loop/status.json` with the outcome, blocked reason, report path,
 transport verdict and next due time; `sh scripts/codex-loop.sh --status` reads that state without

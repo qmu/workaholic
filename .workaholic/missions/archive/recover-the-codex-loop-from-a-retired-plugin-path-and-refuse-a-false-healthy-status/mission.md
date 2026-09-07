@@ -2,7 +2,7 @@
 type: Mission
 title: Recover the Codex loop from a retired plugin path and refuse a false healthy status
 slug: recover-the-codex-loop-from-a-retired-plugin-path-and-refuse-a-false-healthy-status
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-07T08:26:03+09:00
 author: a@qmu.jp
@@ -37,7 +37,7 @@ a live supervisor, a succeeded tick, an unwritten record.
 
 ## Acceptance
 
-- [ ] A supervisor whose launch path is retired mid-run stops running against it. (#20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path.md)
+- [x] A supervisor whose launch path is retired mid-run stops running against it. (#20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path.md)
 - [x] Nothing records a healthy outcome or transport for a tick that did not execute. (#20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing.md)
 - [x] `--status` and start tell those three apart; a live pid holding the lock is never
       `never_started`. (#20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record.md)
@@ -48,3 +48,5 @@ a live supervisor, a succeeded tick, an unwritten record.
 - 2026-09-07 — ticket archived — 20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing.md
 - 2026-09-07 — ticket archived — 20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record.md
 - 2026-09-07 — run recorded (+1.6h) — implement-20260907-091552
+- 2026-09-07 — ticket archived — 20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path.md
+- 2026-09-07 — mission achieved — mission.md

@@ -628,6 +628,10 @@ write_supervisor() {
         printf '  "interval": %s,\n' "$(json_quote "$INTERVAL")"
         printf '  "anchor": %s,\n' "$(json_quote "${LOOP_ANCHOR:-}")"
         printf '  "once": %s,\n' "$(json_quote "$ONCE")"
+        if [ -n "${RETIRED_PLUGIN_ROOT:-}" ]; then
+            printf '  "retired_plugin_root": %s,\n' "$(json_quote "$RETIRED_PLUGIN_ROOT")"
+            printf '  "plugin_root": %s,\n' "$(json_quote "$PLUGIN_ROOT")"
+        fi
         printf '  "log_dir": %s\n' "$(json_quote "$LOG_DIR")"
         printf '}\n'
     } >"$_sv_w_tmp"
@@ -1050,6 +1054,44 @@ if [ -n "$DISPATCH_ROLE" ]; then
     exit 0
 fi
 
+# Keep the sanctioned resolver's bytes before its installation can disappear. It is executed
+# only on missing resources, never on an ordinary tick; its version/stability axes stay intact.
+PLUGIN_RESOLVER_PATH="${SCRIPT_DIR}/../../check-deps/scripts/plugin-src.sh"
+PLUGIN_RESOLVER=$(cat "$PLUGIN_RESOLVER_PATH" 2>/dev/null || true)
+RETIRED_PLUGIN_ROOT=""
+plugin_tree_complete() {
+    _pt_skill="$1/skills/work"
+    [ -f "$1/commands/infinite-development.md" ] || return 1
+    for _pt_file in SKILL.md scripts/codex-loop.sh scripts/relay-contract.sh \
+        scripts/worker-result.schema.json; do
+        [ -f "$_pt_skill/$_pt_file" ] || return 1
+    done
+}
+ensure_plugin_tree() {
+    plugin_tree_complete "$PLUGIN_ROOT" && return 0
+    RETIRED_PLUGIN_ROOT=$PLUGIN_ROOT
+    printf 'clock_wrapper_missing: retired plugin tree %s\n' "$RETIRED_PLUGIN_ROOT" >&2
+    _resolved=""
+    if [ -n "$PLUGIN_RESOLVER" ] && command -v jq >/dev/null 2>&1; then
+        _resolution=$(CLAUDE_PLUGIN_ROOT="$RETIRED_PLUGIN_ROOT" sh -c "$PLUGIN_RESOLVER" "$PLUGIN_RESOLVER_PATH" 2>/dev/null || true)
+        _resolved=$(printf '%s' "$_resolution" | jq -er 'select(.ok == true) | (.call_src // .src) | select(type == "string" and length > 0)' 2>/dev/null || true)
+    fi
+    if [ -z "$_resolved" ] || ! plugin_tree_complete "$_resolved"; then
+        write_supervisor stopped clock_wrapper_missing
+        printf 'clock_wrapper_missing: no complete replacement for %s; update or reinstall the Workaholic plugin\n' "$RETIRED_PLUGIN_ROOT" >&2
+        return 1
+    fi
+    # The prompts compose script calls: preserve the resolver's equal-version workspace path.
+    PLUGIN_ROOT=$_resolved
+    TICK_PROMPT="${PLUGIN_ROOT}/skills/work/SKILL.md"
+    SCRIPT_DIR="${TICK_PROMPT%/*}/scripts"
+    COMMAND_BODY="${PLUGIN_ROOT}/commands/infinite-development.md"
+    RELAY_CONTRACT="${SCRIPT_DIR}/relay-contract.sh"
+    WORKER_SCHEMA="${SCRIPT_DIR}/worker-result.schema.json"
+    write_supervisor running ""
+    printf 'codex loop: recovered retired plugin tree %s -> %s\n' "$RETIRED_PLUGIN_ROOT" "$PLUGIN_ROOT" >&2
+}
+
 LOCK="${LOG_DIR}/.supervisor.lock"
 if command -v flock >/dev/null 2>&1; then
     exec 9>"$LOCK"
@@ -1071,6 +1113,7 @@ write_supervisor running ""
 _expected=$LOOP_ANCHOR
 _first=true
 while :; do
+    ensure_plugin_tree || exit 2
     if run_tick; then
         _tick_ready=true
     else

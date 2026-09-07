@@ -35,7 +35,7 @@ Never write a ticket anywhere else under `.workaholic/` (not `stories/`, `specs/
 
 ## Workflow
 
-The `/ticket` command (main agent) drives this Workflow directly: it issues every `AskUserQuestion` and spawns every discovery subagent itself. Leaf subagents do non-interactive work only.
+The `/ticket` command drives this Workflow directly. It keeps one normalized input, one discovery packet, and one set of answered decisions for the whole run.
 
 ### Pre-check: plugin health
 
@@ -57,9 +57,9 @@ Treat the returned `path` as the root every subsequent write resolves against (q
 
 Run the living migrations inside the publish tree — `( cd <publish_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-todo-owners.sh )` then `( cd <publish_path> && bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/migrate-ticket-states.sh )`. The first moves any legacy `todo/<user-slug>/X.md` to the flat root, stamping `assignees`; the second folds any retired `tickets/abandoned/` or `tickets/icebox/` directory into `archive/unbranched/` with the state in frontmatter. Both are git-staged so the moves ride the publish commit; both are no-ops in a converged tree. Report `migrated` when anything moved.
 
-### 2. Parallel Discovery
+### 2. Shared Discovery
 
-Spawn three `subagent_type: "general-purpose"` subagents in parallel (single message, three Task calls, `model: "opus"`), each preloading `workaholic:discover` and running one mode: **history** (Discover History → summary, tickets, `moderation`, `diagnosis_first` — *Diagnosis-First Rule*), **source** (Discover Source → summary, files, code_flow, snippets), **policy** (Discover Policy → summary, policies, architecture). Leaves MUST NOT call AskUserQuestion. Wait for all three.
+Write the manual request once as a `normalize_input` request and run `specificate/scripts/discover-input.sh --request <file>`. Use its snapshot for history, source, policy, queue, and strategy context. Inspect more evidence only where the request needs it, and add those readings to the same working packet. Do not prescribe a fixed worker count or repeat a reader that the snapshot already ran. Carry `answered_decisions` into the plan and implementation rather than asking the same question again.
 
 ### 3. Handle Moderation Result
 
@@ -83,7 +83,7 @@ List missions with `bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/list.sh`. 
 
 ### 4d. Record the merge policy
 
-Ask once per run — *auto: confirm the deploy before merging* or *review: merge immediately, gated later at the `release/*` QA window* — and write `merge_policy` into every ticket of the run; a genuinely unrecommendable fork, so asked, never derived. Mission-emitted tickets inherit the mission's policy instead. Absent reads as `review`; never write `auto` because nobody answered. Detail: [reference/interrogation.md](reference/interrogation.md) §4d.
+Reuse an explicit merge-policy answer carried by `answered_decisions`. Mission-emitted tickets inherit the mission's policy. With no explicit answer, leave `merge_policy` empty, whose existing reader meaning is `review`; do not interrupt the request solely to restate that default. Detail: [reference/interrogation.md](reference/interrogation.md) §4d.
 
 **And record `verification_handoff:` when — and only when — the ask already names a real-world verification an unattended run cannot perform** (a credential, device, or third-party account that is not in the routine's environment). Its value names what is missing; `/drive` then routes that unit to `handoff` instead of merging it (`workaholic:drive` §6). This is a statement of fact about the environment, not a preference, so it is derived from the ask rather than asked about; absent is the common case. Schema: [reference/ticket-format.md](reference/ticket-format.md).
 

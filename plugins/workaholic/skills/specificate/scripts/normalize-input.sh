@@ -15,4 +15,4 @@ jq -c --arg id "$id" '
   | {protocol:"workaholic.runtime/v1",request_id:$id,status:"ok",reason:"",data:{
       input_id:($i.input_id // $id),body:$i.body,original_subject:($subject.value + {source:$subject.source}),
       transport_actor:($i.transport.actor // null),authorizing_direction:($i.authorization.direction // null),
-      authorization_ref:($i.authorization.ref // null),source:($i.source // null),capture_state:"captured"}}' "$REQUEST"
+      authorization_ref:($i.authorization.ref // null),answered_decisions:($i.answers // {}),source:($i.source // null),capture_state:"captured"}}' "$REQUEST"

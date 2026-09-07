@@ -15,11 +15,15 @@ function fixture(t) { const root = mkdtempSync(join(tmpdir(), 'workaholic-planni
 test('P6 bot-carried input keeps the original person separate from its transport actor', (t) => {
   const root = fixture(t); const request = join(root, 'request.json');
   writeFileSync(request, JSON.stringify({ protocol: 'workaholic.runtime/v1', request_id: 'input-1', operation: 'normalize_input', repo_root: root, instance_id: 'i', input: {
-    body: 'Please change it', explicit_subject: { kind: 'person', identity: 'owner@example.com' }, transport: { actor: 'relay-bot', original_author_verified: true, original_author: { kind: 'person', identity: 'someone-else@example.com' } }, authorization: { direction: 'strategy-a', ref: 'feedback.md' }
+    body: 'Please change it', explicit_subject: { kind: 'person', identity: 'owner@example.com' }, transport: { actor: 'relay-bot', original_author_verified: true, original_author: { kind: 'person', identity: 'someone-else@example.com' } }, authorization: { direction: 'strategy-a', ref: 'feedback.md' }, answers: { merge_policy: 'review' }
   } }));
   const result = json(run(['sh', join(specificate, 'normalize-input.sh'), '--request', request]));
   assert.equal(result.data.original_subject.identity, 'owner@example.com'); assert.equal(result.data.original_subject.source, 'explicit');
   assert.equal(result.data.transport_actor, 'relay-bot'); assert.equal(result.data.authorizing_direction, 'strategy-a');
+  assert.equal(result.data.answered_decisions.merge_policy, 'review');
+  const snapshot = join(root, 'snapshot.json'); writeFileSync(snapshot, '{"snapshot_id":"shared","work":{"claimable_units":[]}}');
+  const discovered = json(run(['sh', join(specificate, 'discover-input.sh'), '--request', request, '--snapshot', snapshot]));
+  assert.equal(discovered.data.snapshot.snapshot_id, 'shared'); assert.equal(discovered.data.normalized.answered_decisions.merge_policy, 'review');
 });
 
 test('P6 plan variants keep the mission floor while allowing one or several loose tickets', (t) => {

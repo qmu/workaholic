@@ -70,7 +70,7 @@
 # different fault from a declared handoff -- conflating them would make this script the
 # place a broken link silently becomes a refusal nobody can explain.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts/"
+DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
 
 ARG="${1:-}"
 if [ -z "$ARG" ]; then

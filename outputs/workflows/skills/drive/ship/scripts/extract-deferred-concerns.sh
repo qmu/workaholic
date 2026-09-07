@@ -88,7 +88,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 current_branch=$(git branch --show-current 2>/dev/null || true)
 if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [ -z "${NO_COMMIT:-}" ]; then
   story_abs=$(CDPATH= cd -- "$(dirname -- "$story_file")" && pwd)/$(basename -- "$story_file")
-  open_out=$(sh "${SCRIPT_DIR}/../../branching/scripts//open-publish-tree.sh" "$base" 2>/dev/null || true)
+  open_out=$(sh "${SCRIPT_DIR}/../../branching/scripts/open-publish-tree.sh" "$base" 2>/dev/null || true)
   publish_path=$(printf '%s' "$open_out" | sed -n 's/.*"path": *"\([^"]*\)".*/\1/p')
   if [ -z "$publish_path" ]; then
     reason=$(printf '%s' "$open_out" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
@@ -106,11 +106,11 @@ if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [
   created=$(printf '%s' "$inner" | sed -n 's/.*"created":\([0-9][0-9]*\).*/\1/p')
   [ -n "$created" ] || created=0
   if [ "$created" -eq 0 ]; then
-    sh "${SCRIPT_DIR}/../../branching/scripts//close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
+    sh "${SCRIPT_DIR}/../../branching/scripts/close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
     printf '%s\n' "$inner"
     exit 0
   fi
-  pub=$(sh "${SCRIPT_DIR}/../../branching/scripts//publish-tree-commit.sh" \
+  pub=$(sh "${SCRIPT_DIR}/../../branching/scripts/publish-tree-commit.sh" \
     "Add deferred concerns from PR #${pr_number}" \
     "The just-merged story's section-6 concerns become kind: concern feedback records; the open set is computed from records on the base, so they are published there rather than to whatever branch the ship ran from" \
     "None -- knowledge records" "None" "None" \
@@ -118,7 +118,7 @@ if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [
     .workaholic/ 2>/dev/null || true)
   ok=$(printf '%s' "$pub" | sed -n 's/.*"ok": *\([a-z]*\).*/\1/p')
   if [ "$ok" = "true" ]; then
-    sh "${SCRIPT_DIR}/../../branching/scripts//close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
+    sh "${SCRIPT_DIR}/../../branching/scripts/close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
     printf '%s\n' "$inner" | sed 's/"pushed":false,"push_error":"[^"]*"/"pushed":true,"push_error":""/'
   else
     perr=$(printf '%s' "$pub" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
@@ -132,13 +132,13 @@ mkdir -p .workaholic/feedbacks
 
 # Living migration first: a legacy concerns/ corpus folds into the feedback
 # stream before we index existing ids. Best-effort — never blocks extraction.
-sh "${SCRIPT_DIR}/../../feedback/scripts//migrate-concerns.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../feedback/scripts/migrate-concerns.sh" >/dev/null 2>&1 || true
 
 origin_commit=$(git rev-parse --short HEAD)
 created_at=$(date -Iseconds)
 author_email=$(git config user.email 2>/dev/null || echo "unknown@unknown.invalid")
 
-owners_script="${SCRIPT_DIR}/../../gather/scripts//owners.sh"
+owners_script="${SCRIPT_DIR}/../../gather/scripts/owners.sh"
 
 result=$(python3 - "$story_file" "$pr_number" "$pr_url" "$branch" "$origin_commit" "$created_at" "$author_email" "$owners_script" <<'PY'
 import sys, re, os, json, glob, subprocess, hashlib, unicodedata
@@ -347,13 +347,13 @@ fi
 
 # Mission changelog: a newly-deferred concern records a "concern deferred (stuck)"
 # line on EVERY mission the story advances (idempotent). Best-effort.
-story_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$story_file" 2>/dev/null || true)
+story_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$story_file" 2>/dev/null || true)
 if [ -n "$story_missions" ]; then
   printf '%s\n' "$created_files" | while IFS= read -r cfile; do
     [ -n "$cfile" ] || continue
     printf '%s\n' "$story_missions" | while IFS= read -r sm; do
       [ -n "$sm" ] || continue
-      sh "${SCRIPT_DIR}/../../mission/scripts//append-changelog.sh" \
+      sh "${SCRIPT_DIR}/../../mission/scripts/append-changelog.sh" \
         "$sm" "concern deferred (stuck)" "$(basename "$cfile")" >/dev/null 2>&1 || true
     done
   done
@@ -363,7 +363,7 @@ pushed=false
 push_error="not_attempted"
 
 if [ -z "${NO_COMMIT:-}" ]; then
-  sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+  sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
   git add .workaholic/feedbacks/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/feedbacks/ >/dev/null
   git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
   # Non-fatal by design (the PR has already merged), but never silent: the

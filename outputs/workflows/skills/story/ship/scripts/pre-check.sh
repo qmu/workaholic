@@ -31,7 +31,7 @@ fi
 # them `state=all` and `merged_at`, and `head` needs the owner-qualified `owner:branch`
 # form. The field names are remapped here so every caller downstream is untouched.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>/dev/null || echo "")
 owner=${slug%%/*}
 

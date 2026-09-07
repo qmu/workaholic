@@ -61,7 +61,7 @@ note="${6:-}"
 # a credential, so a generic assignment is flagged on the key name alone,
 # whatever its right-hand side looks like.
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-. "${SCRIPT_DIR}/../../release-scan/scripts//lib/secret-patterns.sh"
+. "${SCRIPT_DIR}/../../release-scan/scripts/lib/secret-patterns.sh"
 
 # Returns 0 (match) if any argument looks like a secret.
 scan_secrets() {

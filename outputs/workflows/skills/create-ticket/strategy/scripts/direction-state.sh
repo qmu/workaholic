@@ -141,7 +141,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-SURVEY="${SCRIPT_DIR}/../../propose/scripts//survey-strategies.sh"
+SURVEY="${SCRIPT_DIR}/../../propose/scripts/survey-strategies.sh"
 
 PASS_THROUGH=''
 WITH_LEAVING=0

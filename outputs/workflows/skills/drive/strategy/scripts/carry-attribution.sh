@@ -65,7 +65,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-READ_FEEDBACK="${SCRIPT_DIR}/../../specificate/scripts//read-feedback-relation.sh"
+READ_FEEDBACK="${SCRIPT_DIR}/../../specificate/scripts/read-feedback-relation.sh"
 
 refuse() {
     printf '{"carried": false, "reason": "%s"}\n' "$1"

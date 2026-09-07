@@ -89,7 +89,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-DIGEST="${SCRIPT_DIR}/../../standup/scripts//digest.sh"
+DIGEST="${SCRIPT_DIR}/../../standup/scripts/digest.sh"
 DEFAULT_DATE="${SCRIPT_DIR}/default-target-date.sh"
 
 ROOT="${2:-.workaholic}"

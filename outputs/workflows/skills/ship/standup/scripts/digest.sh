@@ -88,11 +88,11 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-STRATEGY_LIST="${SCRIPT_DIR}/../../strategy/scripts//list.sh"
-ATTRIBUTED="${SCRIPT_DIR}/../../strategy/scripts//attributed-work.sh"
-PROGRESS="${SCRIPT_DIR}/../../mission/scripts//progress.sh"
-QUEUE_SIZE="${SCRIPT_DIR}/../../mission/scripts//queue-size.sh"
-LIST_TODO="${SCRIPT_DIR}/../../drive/scripts//list-todo.sh"
+STRATEGY_LIST="${SCRIPT_DIR}/../../strategy/scripts/list.sh"
+ATTRIBUTED="${SCRIPT_DIR}/../../strategy/scripts/attributed-work.sh"
+PROGRESS="${SCRIPT_DIR}/../../mission/scripts/progress.sh"
+QUEUE_SIZE="${SCRIPT_DIR}/../../mission/scripts/queue-size.sh"
+LIST_TODO="${SCRIPT_DIR}/../../drive/scripts/list-todo.sh"
 
 WINDOW="${1:-1 day ago}"
 ROOT="${2:-.workaholic}"

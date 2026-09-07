@@ -78,7 +78,7 @@ BODY=$(cat)
 SCRIPT_DIR=$(dirname "$0")
 
 # created_at / author from the single canonical gather script (one line per field).
-META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
+META=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
@@ -87,7 +87,7 @@ TS=$(printf '%s' "$CREATED_AT" | tr -dc '0-9' | cut -c1-14)
 [ -n "$TS" ] || { echo '{"created": false, "reason": "no_timestamp"}'; exit 1; }
 
 # Slug rule lives in mission/scripts/slug.sh (the single source), reused verbatim.
-SLUG=$(sh "${SCRIPT_DIR}/../../mission/scripts//slug.sh" "$TITLE")
+SLUG=$(sh "${SCRIPT_DIR}/../../mission/scripts/slug.sh" "$TITLE")
 [ -n "$SLUG" ] || { echo '{"created": false, "reason": "empty_slug"}'; exit 1; }
 
 DIR=".workaholic/feedbacks"
@@ -116,7 +116,7 @@ mkdir -p "$DIR"
 
 # Refresh the OKF bundle indexes so the registering commit ships a fresh hierarchy
 # (best-effort: an index problem must not block feedback capture).
-sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$FILE" 2>/dev/null || true
 

@@ -163,12 +163,12 @@ mkdir -p "$DIR"
 } > "$FILE"
 
 # Keep the OKF bundle indexes in step, exactly like every other knowledge write.
-sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$FILE" >/dev/null 2>&1 || true
 git add "${ROOT}/.workaholic/index.md" "${DIR}/index.md" >/dev/null 2>&1 || true
 
-if ! sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --skip-staging \
+if ! sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" --skip-staging \
   "Record release cut" \
   "A production release needs a durable record of what it carried and when, answerable from the filesystem." \
   "Adds ${SLUG}.md: the base commits this release branch carries, its cut time, and a pending confirmation." \

@@ -27,12 +27,13 @@
 //  closure skill's whole scripts/ dir is copied intact.)
 
 import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync, readdirSync, statSync, mkdtempSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
 import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
-import { SKILL_REF, SCRIPT_CROSS_REF, UNRESOLVED_PLUGIN_ROOT_PATH } from "./script-ref-patterns.mjs";
+import { SKILL_REF, UNRESOLVED_PLUGIN_ROOT_PATH } from "./script-ref-patterns.mjs";
+import { walkFiles, readDependencies, computeClosure } from "./skill-files.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const CORE_SKILLS = join(REPO_ROOT, "plugins/workaholic/skills");
@@ -47,22 +48,16 @@ const WORKFLOWS_PLUGIN = join(OUTPUTS_ROOT, "workflows"); // outputs/workflows
 // removed after a full build; left in place (and its path printed) for partial dev builds.
 const SCRATCH = mkdtempSync(join(tmpdir(), "workaholic-skills-"));
 
-// `work` -- THE LOOP -- IS DELIBERATELY NOT HERE (2026-09-03, and it was tried). This bundle is
-// the SELF-CONTAINED subset: six workflows a foreign agent can run with nothing else present.
-// The loop is the opposite shape -- its tick drives `implement`, `propose`, `specificate` and
-// `moderate`, so building it here pulled nineteen skills into the closure and still missed the
-// `lib/` and `../bootstrap/` files those carry, which this bundle's copier does not follow.
-// It needs no bundling: `plugins/workaholic/.codex-plugin/plugin.json` already exposes
-// `"skills": "./skills/"` over the WHOLE plugin, so `skills/work/` reaches Codex through the
-// full plugin the marketplace already installs -- which is also the only tree where the rest of
-// the loop exists. Making `work` a skill is what publishes it; no build change was needed.
+// The portable defaults are the six self-contained workflows. The full loop also
+// needs its runtime, bootstrap, adapters and session capabilities; copying nested
+// script assets does not establish that broader consumer contract. It remains
+// exposed through the source plugin's .codex-plugin manifest over all skills.
 const DEFAULT_TARGETS = ["create-ticket", "drive", "story", "ship", "catch", "mission"];
 // review-sections / write-release-note are pure prose (no scripts) but are skill-preload
 // dependencies of report, so they ship as their own skills alongside the workflows.
 const EXTRA_SKILLS = ["review-sections", "write-release-note"];
 
-// SKILL_REF and SCRIPT_CROSS_REF are imported from ./script-ref-patterns.mjs so the
-// build and verify.mjs's source lint share one definition of the detectable forms.
+// Reference patterns and closure discovery are shared with verify.mjs.
 
 function readText(p) { return readFileSync(p, "utf8"); }
 
@@ -76,55 +71,13 @@ function lookupVersion(pluginName) {
   return entry.version;
 }
 
-// Collect the cross-skill closure for a target: every skill whose scripts/ is reached
-// from the target's SKILL.md or transitively from copied scripts.
-function computeClosure(target) {
-  const closure = new Set([target]);
-  const queue = [target];
-  while (queue.length) {
-    const skill = queue.shift();
-    const skillDir = join(CORE_SKILLS, skill);
-    const sources = [];
-    const md = join(skillDir, "SKILL.md");
-    if (existsSync(md)) sources.push(readText(md));
-    // A companion reference/ file documents the same script paths the SKILL.md does,
-    // so a cross-skill reference can appear there too and must pull that skill into
-    // the closure -- otherwise the built bundle would rewrite the path and copy no
-    // scripts for it, and neither the leftover-token scan nor verify.mjs's SKILL.md
-    // check would notice.
-    const refSrc = join(skillDir, "reference");
-    if (existsSync(refSrc)) {
-      for (const f of readdirSync(refSrc)) {
-        const fp = join(refSrc, f);
-        if (statSync(fp).isFile()) sources.push(readText(fp));
-      }
-    }
-    const scriptsDir = join(skillDir, "scripts");
-    if (existsSync(scriptsDir)) {
-      for (const f of readdirSync(scriptsDir)) {
-        const fp = join(scriptsDir, f);
-        if (statSync(fp).isFile()) sources.push(readText(fp));
-      }
-    }
-    for (const text of sources) {
-      for (const re of [SKILL_REF, SCRIPT_CROSS_REF]) {
-        re.lastIndex = 0;
-        let m;
-        while ((m = re.exec(text))) {
-          const dep = m[1];
-          if (!closure.has(dep)) { closure.add(dep); queue.push(dep); }
-        }
-      }
-    }
-  }
-  return closure;
-}
+const explicitDependencies = readDependencies(join(REPO_ROOT, "scripts/build-plugins/skill-dependencies.json"), CORE_SKILLS);
 
 // Build one self-contained target skill into the scratch dir.
 function buildTarget(target) {
   const srcDir = join(CORE_SKILLS, target);
   if (!existsSync(join(srcDir, "SKILL.md"))) throw new Error(`No SKILL.md for target '${target}'`);
-  const closure = computeClosure(target);
+  const closure = computeClosure(target, CORE_SKILLS, explicitDependencies);
   const outDir = join(SCRATCH, target);
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
@@ -143,27 +96,23 @@ function buildTarget(target) {
   if (existsSync(refDir)) {
     const dRef = join(outDir, "reference");
     cpSync(refDir, dRef, { recursive: true });
-    for (const f of readdirSync(dRef)) {
-      const fp = join(dRef, f);
-      if (!statSync(fp).isFile()) continue;
-      // `../` because a reference file sits one level BELOW the skill root that
-      // SKILL.md's rewritten `<x>/scripts/` form is relative to.
-      writeFileSync(fp, readText(fp).replace(SKILL_REF, "../$1/scripts/"));
+    for (const fp of walkFiles(dRef)) {
+      if (!fp.endsWith(".md")) continue;
+      // Each companion's commands resolve from that companion's actual directory.
+      const prefix = relative(dirname(fp), outDir).split("\\").join("/");
+      writeFileSync(fp, readText(fp).replace(SKILL_REF, `${prefix}/$1/scripts/`));
     }
   }
 
-  // Copy each closure skill's scripts/ and rewrite cross-skill refs inside them.
+  // Copy each closure skill's scripts/ intact; cross-skill paths already work.
   for (const skill of closure) {
     const sScripts = join(CORE_SKILLS, skill, "scripts");
     if (!existsSync(sScripts)) continue;
     const dScripts = join(outDir, skill, "scripts");
     cpSync(sScripts, dScripts, { recursive: true });
-    for (const f of readdirSync(dScripts)) {
-      const fp = join(dScripts, f);
-      if (!statSync(fp).isFile()) continue;
-      const rewritten = readText(fp).replace(SCRIPT_CROSS_REF, "${SCRIPT_DIR}/../../$1/scripts/");
-      writeFileSync(fp, rewritten);
-    }
+    // The supported SCRIPT_DIR cross-skill form is already portable. Preserve
+    // copied bytes, including binary assets and schemas, at every nesting depth.
+
   }
 
   // Fail loudly if any unresolved plugin-root PATH survived. A bare read of the
@@ -255,9 +204,8 @@ function assembleWorkflowsPlugin(builtTargets) {
     publicizeSkillMd(join(skillsOut, name, "SKILL.md"));
     const refOut = join(skillsOut, name, "reference");
     if (!existsSync(refOut)) continue;
-    for (const f of readdirSync(refOut)) {
-      const fp = join(refOut, f);
-      if (statSync(fp).isFile() && f.endsWith(".md")) publicizeSkillMd(fp);
+    for (const fp of walkFiles(refOut)) {
+      if (fp.endsWith(".md")) publicizeSkillMd(fp);
     }
   }
 

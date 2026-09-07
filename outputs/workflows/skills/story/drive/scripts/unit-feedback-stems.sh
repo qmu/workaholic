@@ -57,9 +57,9 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-READER="${SCRIPT_DIR}/../../specificate/scripts//read-feedback-relation.sh"
-MISSION_READER="${SCRIPT_DIR}/../../mission/scripts//read-relation.sh"
-MISSION_RESOLVE="${SCRIPT_DIR}/../../mission/scripts//lib/resolve.sh"
+READER="${SCRIPT_DIR}/../../specificate/scripts/read-feedback-relation.sh"
+MISSION_READER="${SCRIPT_DIR}/../../mission/scripts/read-relation.sh"
+MISSION_RESOLVE="${SCRIPT_DIR}/../../mission/scripts/lib/resolve.sh"
 
 emit() {
     printf '{"count": %s, "stems": [' "$1"

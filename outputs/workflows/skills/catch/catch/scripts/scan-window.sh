@@ -168,7 +168,7 @@ emit_tickets() {
     # accepts both `mission: [a, b]` and a bare `mission: a`, then carried through this
     # record comma-joined and split back into an array by the jq below. Absent fields emit
     # "" and never fail the scan.
-    mission=$(sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$f" 2>/dev/null | paste -sd, - || true)
+    mission=$(sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$f" 2>/dev/null | paste -sd, - || true)
     # State is a field; the path is the fallback for a ticket the migration has
     # not reached. `status: done` is what an ordinary archived ticket carries, and
     # it reports as `archive` so the counters this feeds are unchanged by the fold.
@@ -268,7 +268,7 @@ if [ -d ".workaholic/missions" ]; then
   WINDOW_START_DATE=$(git log --since="$WINDOW" --branches --remotes \
     --format=%cd --date=format:'%Y-%m-%d' --reverse 2>/dev/null | head -n1 || true)
 
-  MLIST=$(sh "${SCRIPT_DIR}/../../mission/scripts//list.sh" 2>/dev/null || echo '[]')
+  MLIST=$(sh "${SCRIPT_DIR}/../../mission/scripts/list.sh" 2>/dev/null || echo '[]')
   [ -n "$MLIST" ] || MLIST='[]'
 
   # BOTH grow-with-corpus values go through files (see SCAN_TMP at the top).

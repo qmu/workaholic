@@ -58,7 +58,7 @@
 #   walked      how many commits the reader was called on.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 READ_CHECKS="${SCRIPT_DIR}/read-base-checks.sh"
 
 MAX="${WORKAHOLIC_BASE_ATTRIBUTION_MAX:-20}"

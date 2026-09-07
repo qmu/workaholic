@@ -29,7 +29,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-CLAIMS_LIB_DIR="${SCRIPT_DIR}/../../drive/scripts//lib"
+CLAIMS_LIB_DIR="${SCRIPT_DIR}/../../drive/scripts/lib"
 . "${CLAIMS_LIB_DIR}/claims.sh"
 
 slug="${1:-}"

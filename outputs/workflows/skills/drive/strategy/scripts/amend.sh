@@ -409,7 +409,7 @@ fi
 # It is IDEMPOTENT WITH THE REVISION: this point is reached only past the `already`
 # return above, so a no-op appends nothing and the file cannot grow a line on every
 # tick that re-ran the same ask.
-TODAY=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh" 2>/dev/null \
+TODAY=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh" 2>/dev/null \
     | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//' | cut -c1-10)
 case "$TODAY" in
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) : ;;

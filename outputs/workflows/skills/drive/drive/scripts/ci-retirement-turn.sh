@@ -79,7 +79,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 RECORD_READER="${SCRIPT_DIR}/read-ci-retirement-record.sh"
 
 # The workflow whose runs answer the question. Named once, here.

@@ -73,11 +73,11 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GATHER="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER="${SCRIPT_DIR}/../../gather/scripts"
 REFUSAL_LIB="${SCRIPT_DIR}/lib/publication-refusal.sh"
 AGE_LIB="${SCRIPT_DIR}/lib/publication-age.sh"
-LIST_CLAIMS="${SCRIPT_DIR}/../../drive/scripts//list-claims.sh"
-MERGEABILITY="${SCRIPT_DIR}/../../drive/scripts//claim-mergeability.sh"
+LIST_CLAIMS="${SCRIPT_DIR}/../../drive/scripts/list-claims.sh"
+MERGEABILITY="${SCRIPT_DIR}/../../drive/scripts/claim-mergeability.sh"
 
 LIMIT="${WORKAHOLIC_STRANDED_PUBLICATION_LIMIT:-10}"
 BASE=""

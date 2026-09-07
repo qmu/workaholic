@@ -71,7 +71,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-MISSION_RESOLVE="${SCRIPT_DIR}/../../mission/scripts//lib/resolve.sh"
+MISSION_RESOLVE="${SCRIPT_DIR}/../../mission/scripts/lib/resolve.sh"
 
 UNIT="${1:-}"
 

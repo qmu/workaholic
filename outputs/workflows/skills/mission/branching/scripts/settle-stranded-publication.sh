@@ -88,13 +88,13 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 READER="${SCRIPT_DIR}/list-stranded-publications.sh"
-GATHER="${SCRIPT_DIR}/../../gather/scripts/"
-CATCHUP="${SCRIPT_DIR}/../../ship/scripts//catchup-main.sh"
+GATHER="${SCRIPT_DIR}/../../gather/scripts"
+CATCHUP="${SCRIPT_DIR}/../../ship/scripts/catchup-main.sh"
 MAKE_WORKTREE="${SCRIPT_DIR}/create-mission-worktree.sh"
 CLEAN_WORKTREE="${SCRIPT_DIR}/cleanup-mission-worktree.sh"
 MERGE_REASON="${SCRIPT_DIR}/merge-reason.sh"
-SCAN="${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh"
-GATE="${SCRIPT_DIR}/../../release-scan/scripts//gate-decision.sh"
+SCAN="${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh"
+GATE="${SCRIPT_DIR}/../../release-scan/scripts/gate-decision.sh"
 
 NUMBER="${1:-}"
 BASE_BRANCH="${2:-main}"
@@ -259,7 +259,7 @@ if [ "$NEEDS_CATCHUP" = true ]; then
     # repair: every generated path the merge resolved by taking a side is re-derived from the
     # MERGED source. Absent tooling is not a failure — a consuming repository has no
     # `outputs/` to build.
-    REFRESH_INDEX="${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh"
+    REFRESH_INDEX="${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh"
     if [ -f "$REFRESH_INDEX" ] && [ -d "${WORKTREE}/.workaholic" ]; then
         ( cd "$WORKTREE" && sh "$REFRESH_INDEX" ) >/dev/null 2>&1 || refuse index_refresh_failed
         REGENERATED=true
@@ -332,7 +332,7 @@ slug="$(sh "${GATHER}/gh-rest.sh" slug 2>/dev/null || printf '')"
 # `merge_refused:` DELIVERY, never a refusal of the settlement -- the branch is caught up and
 # pushed, the publication stays open, and the next tick lists it again (as `clean` by then,
 # needing no push) and delivers it once the checks have concluded.
-check_gate="$(sh "${SCRIPT_DIR}/../../drive/scripts//branch-checks.sh" "${NUMBER}" 2>/dev/null || printf '')"
+check_gate="$(sh "${SCRIPT_DIR}/../../drive/scripts/branch-checks.sh" "${NUMBER}" 2>/dev/null || printf '')"
 case "$(printf '%s' "$check_gate" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')" in
     refuse)
         DELIVERY="merge_refused: $(printf '%s' "$check_gate" | jq -r '.reason // "checks_red"' 2>/dev/null || printf 'checks_red')"

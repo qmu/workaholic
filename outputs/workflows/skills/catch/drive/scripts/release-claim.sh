@@ -111,7 +111,7 @@ fi
 # worktree and only deletes a branch matching the ephemeral work-* pattern.
 worktree_removed=false
 if [ -d "$worktree_path" ]; then
-    cleanup_out=$( ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts//cleanup-mission-worktree.sh" "$unit" ) ) || {
+    cleanup_out=$( ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts/cleanup-mission-worktree.sh" "$unit" ) ) || {
         echo '{"released": false, "state": "untouched", "reason": "worktree_teardown_refused", "unit": "'"${unit}"'", "detail": "uncommitted work in the claim worktree; the claim was NOT released"}' >&2
         exit 1
     }

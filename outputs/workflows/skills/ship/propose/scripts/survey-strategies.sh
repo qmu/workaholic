@@ -172,8 +172,8 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts/"
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 # `--open-proposals <file>` lets a caller supply the remote read it has ALREADY performed
 # rather than making it twice: the run's first act is often `list-open-proposals.sh` in its
@@ -340,7 +340,7 @@ case "$WIP_LIMIT" in
         if [ -d "${ROOT}/missions/active" ]; then
             for _wip_d in $(find "${ROOT}/missions/active" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | LC_ALL=C sort); do
                 [ -f "${_wip_d}/mission.md" ] || continue
-                _wip_q=$(sh "${SCRIPT_DIR}/../../mission/scripts//queue-size.sh" "$(basename "$_wip_d")" "$ROOT" 2>/dev/null || true)
+                _wip_q=$(sh "${SCRIPT_DIR}/../../mission/scripts/queue-size.sh" "$(basename "$_wip_d")" "$ROOT" 2>/dev/null || true)
                 _wip_todo=$(printf '%s' "$_wip_q" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
                 if [ -z "$_wip_todo" ]; then _wip_ok=false; continue; fi
                 [ "$_wip_todo" -gt 0 ] && _wip_n=$((_wip_n + 1))

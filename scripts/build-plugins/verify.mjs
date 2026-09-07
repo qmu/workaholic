@@ -4,11 +4,13 @@
 // ${CLAUDE_PLUGIN_ROOT} token survives. Run after build.mjs.
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePolicyIndex, POLICY_INDEX_REL } from "./policy-index.mjs";
 import { generateOkfBundle, OKF_BUNDLE_REL } from "./okf.mjs";
-import { ANY_SKILL_SCRIPT, SKILL_MD_PREFIX, SCRIPT_PREFIX, UNRESOLVED_PLUGIN_ROOT_PATH } from "./script-ref-patterns.mjs";
+import { ANY_SKILL_SCRIPT, SKILL_MD_PREFIX, SCRIPT_PREFIX, UNRESOLVED_PLUGIN_ROOT_PATH, PORTABLE_MD_SCRIPT_REF, PORTABLE_SH_SCRIPT_REF } from "./script-ref-patterns.mjs";
+
+import { walkFiles, readDependencies, computeClosure } from "./skill-files.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../..");
 const OUTPUTS_ROOT = join(REPO_ROOT, "outputs");
@@ -18,10 +20,6 @@ const read = (p) => readFileSync(p, "utf8");
 // Relative markdown links inside the bundle: [text](path.md) / [text](dir/path.md).
 // Only relative ones matter -- an http(s) link is not a bundle-containment question.
 const MD_LINK = /\]\(([^)\s]+\.md(?:#[^)\s]*)?)\)/g;
-// SKILL.md relative refs: "<x>/scripts/<f>.sh"
-const MD_REF = /\b([a-z-]+\/scripts\/[a-z._-]+\.sh)\b/g;
-// script SCRIPT_DIR refs: ${SCRIPT_DIR}/<rest>.sh  (intra-dir or ../../<x>/scripts/<f>)
-const SH_REF = /\$\{SCRIPT_DIR\}\/([A-Za-z0-9._\/-]+\.sh)/g;
 
 let problems = 0;
 const check = (label, ok, detail) => { if (!ok) { problems++; console.error(`  MISS ${label}: ${detail}`); } };
@@ -54,13 +52,6 @@ for (const [target, skillRoot] of skillRoots) {
   };
   scanTokens(skillRoot);
 
-  // 2. SKILL.md relative script refs resolve from the skill root
-  const md = read(join(skillRoot, "SKILL.md"));
-  for (const m of md.matchAll(MD_REF)) {
-    refs++;
-    check(`${target} SKILL.md`, existsSync(join(skillRoot, m[1])), m[1]);
-  }
-
   // 2b. every intra-bundle markdown link resolves. A SKILL.md that relocates detail
   // into a companion reference/ file is only self-contained if that file actually
   // shipped -- and "every script reference resolved" says nothing about a doc link,
@@ -68,12 +59,11 @@ for (const [target, skillRoot] of skillRoots) {
   // both ways: from the SKILL.md, and from each reference file back.
   const mdFiles = [join(skillRoot, "SKILL.md")];
   const refRoot = join(skillRoot, "reference");
-  if (existsSync(refRoot)) {
-    for (const e of readdirSync(refRoot)) {
-      const fp = join(refRoot, e);
-      if (statSync(fp).isFile() && e.endsWith(".md")) mdFiles.push(fp);
-    }
-  }
+  mdFiles.push(...walkFiles(refRoot).filter((fp) => fp.endsWith(".md")));
+  const containedFile = (path) => {
+    const rel = relative(skillRoot, path);
+    return rel !== ".." && !rel.startsWith("../") && existsSync(path) && statSync(path).isFile();
+  };
   //
   // DELIBERATELY NARROW: only links into or out of a `reference/` dir are checked.
   // A skill's prose is full of relative-looking paths that are NOT bundle files --
@@ -82,13 +72,20 @@ for (const [target, skillRoot] of skillRoots) {
   // containment check that cries wolf gets deleted. The relocation seam is the thing
   // that can silently break, so that is what this pins.
   for (const fp of mdFiles) {
+    for (const m of read(fp).matchAll(PORTABLE_MD_SCRIPT_REF)) {
+      // Bare skill/script names in companions are prose identifiers. Rewritten
+      // commands carry an explicit parent-directory prefix from this location.
+      if (fp !== join(skillRoot, "SKILL.md") && !m[1].startsWith("../")) continue;
+      refs++;
+      check(`${target} ${basename(fp)} script`, containedFile(resolve(dirname(fp), m[1])), m[1]);
+    }
     for (const m of read(fp).matchAll(MD_LINK)) {
       const dest = m[1].split("#")[0];
       if (!dest || /^[a-z]+:/.test(dest)) continue;   // external / anchor-only
       const isBundleLink = dest.includes("reference/") || /(^|\/)SKILL\.md$/.test(dest);
       if (!isBundleLink) continue;
       refs++;
-      check(`${target} ${basename(fp)} link`, existsSync(resolve(dirname(fp), dest)), dest);
+      check(`${target} ${basename(fp)} link`, containedFile(resolve(dirname(fp), dest)), dest);
     }
   }
 
@@ -99,9 +96,9 @@ for (const [target, skillRoot] of skillRoots) {
       if (statSync(fp).isDirectory()) { scanScripts(fp); continue; }
       if (!fp.endsWith(".sh")) continue;
       const body = read(fp);
-      for (const m of body.matchAll(SH_REF)) {
+      for (const m of body.matchAll(PORTABLE_SH_SCRIPT_REF)) {
         refs++;
-        check(`${target} ${e}`, existsSync(resolve(dirname(fp), m[1])), m[1]);
+        check(`${target} ${e}`, containedFile(resolve(dirname(fp), m[1])), m[1]);
       }
     }
   };
@@ -122,7 +119,7 @@ const lintSourceRefs = (p) => {
   for (const e of readdirSync(p)) {
     const fp = join(p, e);
     if (statSync(fp).isDirectory()) { lintSourceRefs(fp); continue; }
-    const isSkillMd = e === "SKILL.md";
+    const isSkillMd = e === "SKILL.md" || (fp.includes("/reference/") && fp.endsWith(".md"));
     const isShell = fp.endsWith(".sh");
     if (!isSkillMd && !isShell) continue;
     const text = read(fp);
@@ -140,6 +137,21 @@ const lintSourceRefs = (p) => {
 if (existsSync(SOURCE_SKILLS)) {
   lintSourceRefs(SOURCE_SKILLS);
   console.log(`verified source cross-skill references use the build-detectable form`);
+}
+
+// Explicit edges and detected edges share validation; an unknown dependency must
+// never silently become an empty copied directory.
+try {
+  const dependencies = readDependencies(join(REPO_ROOT, "scripts/build-plugins/skill-dependencies.json"), SOURCE_SKILLS);
+  for (const [target, skillRoot] of skillRoots) {
+    for (const dep of computeClosure(basename(skillRoot), SOURCE_SKILLS, dependencies)) {
+      if (existsSync(join(SOURCE_SKILLS, dep, "scripts"))) {
+        check(`${target} dependency`, existsSync(join(skillRoot, dep, "scripts")), dep);
+      }
+    }
+  }
+} catch (error) {
+  check("skill dependencies", false, error.message);
 }
 
 // Policy index freshness (working-tree check): the on-disk digest must match a

@@ -134,7 +134,7 @@ while IFS="$tab" read -r path verdict rpr rcommit; do
     c_mission=$(fm_get mission)
 
     # Many-valued mission relation, read through the single reader for the roll.
-    concern_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$path" 2>/dev/null || true)
+    concern_missions=$(sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$path" 2>/dev/null || true)
 
     dest=".workaholic/feedbacks/${ts}-resolved-${c_id:-${concern_base%.md}}.md"
     if [ ! -e "$dest" ]; then
@@ -166,7 +166,7 @@ while IFS="$tab" read -r path verdict rpr rcommit; do
     # blocks verdict application.
     printf '%s\n' "$concern_missions" | while IFS= read -r cm; do
       [ -n "$cm" ] || continue
-      sh "${SCRIPT_DIR}/../../mission/scripts//append-changelog.sh" \
+      sh "${SCRIPT_DIR}/../../mission/scripts/append-changelog.sh" \
         "$cm" "concern resolved (unstuck)" "$concern_base" >/dev/null 2>&1 || true
     done
 

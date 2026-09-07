@@ -39,7 +39,7 @@ fi
 
 FILENAME=$(basename "$SRC")
 SCRIPT_DIR=$(dirname "$0")
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 sh "${GATHER_SCRIPTS}/migrate-todo-owners.sh" >/dev/null 2>&1 || true
 sh "${GATHER_SCRIPTS}/migrate-ticket-states.sh" >/dev/null 2>&1 || true

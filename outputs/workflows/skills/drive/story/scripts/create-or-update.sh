@@ -71,7 +71,7 @@ fi
 # /story stopped in a restricted session at the exact moment the branch and story were
 # already pushed. `head` needs the owner-qualified `owner:branch` form, and the slug now
 # comes from the remote rather than from `gh repo view`.
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 if ! REPO=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1); then
     printf '{"pr": null, "reason": "no_remote", "branch": "%s", "story": "%s", "detail": "could not resolve owner/repo from the git remote, so the pull request could not be addressed; the branch and its story are pushed -- open or update it by hand"}\n' \
         "$BRANCH" "$STORY_FILE"

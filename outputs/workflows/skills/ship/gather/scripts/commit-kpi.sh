@@ -33,7 +33,7 @@ SCRIPT_DIR=$(dirname "$0")
 # The single source of the per-commit threshold is the release-scan gate. The path is
 # overridable via COMMIT_KPI_SCAN only so tests can exercise the pre-gate null case
 # (a scan script without the constant); production never sets it.
-SCAN="${COMMIT_KPI_SCAN:-${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh}"
+SCAN="${COMMIT_KPI_SCAN:-${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh}"
 
 # Single-source the per-commit threshold from the release-scan gate. Absent -> null
 # oversize (the gate has not landed in this checkout), never a fabricated count.

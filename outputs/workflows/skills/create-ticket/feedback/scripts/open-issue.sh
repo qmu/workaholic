@@ -138,7 +138,7 @@ command -v gh >/dev/null 2>&1 || emit_err "gh is not available — cannot open a
 # entry is capped at 128 KiB on Linux. `--body-file` had that covered; a naive `-f
 # body=@...` would not.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 wire_title="$(sh "${SCRIPT_DIR}/fb-title.sh" "$title" 2>/dev/null || true)"
 [ -n "$wire_title" ] || emit_err "could not render the issue title for ${slug}: ${title}"

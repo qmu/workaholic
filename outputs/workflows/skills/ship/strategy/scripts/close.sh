@@ -58,7 +58,7 @@ awk -v new="$STATUS" '
 mv "$TMP" "$FILE"
 
 SCRIPT_DIR=$(dirname "$0")
-sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 git add "$FILE" 2>/dev/null || true
 
 printf '{"closed": true, "path": "%s", "status": "%s"}\n' "$FILE" "$STATUS"

@@ -141,7 +141,7 @@ done
 VERIFICATION_HANDOFF=$(printf '%s' "$VERIFICATION_HANDOFF" | tr '\n' ' ')
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
+MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 
 if [ "$LOOSE" = "1" ]; then
   # A loose ticket is the only carrier of its own provenance, so refuse one that
@@ -160,7 +160,7 @@ else
   fi
 fi
 
-META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
+META=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 STAMP=$(printf '%s\n' "$META" | grep '"filename_timestamp"' | sed -e 's/.*: *"//' -e 's/".*//')

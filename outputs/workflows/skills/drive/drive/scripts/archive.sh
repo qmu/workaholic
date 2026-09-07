@@ -78,7 +78,7 @@ fi
 # (`--skip-staging` is passed with no file list, so the "named path cannot be staged"
 # refusal cannot fire). The subject gate was the only one that could.
 SCRIPT_DIR=$(dirname "$0")
-if ! SUBJECT_REASON=$(sh "${SCRIPT_DIR}/../../commit/scripts//check-subject.sh" "$COMMIT_MSG"); then
+if ! SUBJECT_REASON=$(sh "${SCRIPT_DIR}/../../commit/scripts/check-subject.sh" "$COMMIT_MSG"); then
     echo "Error: rejected off-policy subject (${SUBJECT_REASON})."
     echo "  Subject: \"${COMMIT_MSG}\""
     echo ""
@@ -190,7 +190,7 @@ esac
 # Same failure boundary as the mission roll and the index refresh: non-blocking — a
 # migration problem must never strand an archive — but NOT silent, and silent on success,
 # since it runs on every archive and a success line each time would be noise.
-MIG_OUT=$(sh "${SCRIPT_DIR}/../../gather/scripts//migrate-todo-owners.sh" "$TICKETS_ROOT" 2>&1) && MIG_RC=0 || MIG_RC=$?
+MIG_OUT=$(sh "${SCRIPT_DIR}/../../gather/scripts/migrate-todo-owners.sh" "$TICKETS_ROOT" 2>&1) && MIG_RC=0 || MIG_RC=$?
 if [ "$MIG_RC" -ne 0 ]; then
     echo "    ! todo-layout migration failed (exit ${MIG_RC}); archive proceeds. migrate-todo-owners.sh said: ${MIG_OUT}"
 fi
@@ -274,7 +274,7 @@ report_mission_roll() {
 # ticket. Non-blocking but NOT silent (see report_mission_roll above) — each roll's
 # outcome is captured and reported instead of discarded. The mutators git-stage the
 # mission file, so it rides along in the archive commit's `git add -A` below.
-MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
+MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 # Resolution follows the TICKET, not the process cwd: the mission the archived ticket
 # names lives in the ticket's own .workaholic tree, so its root is derived from the
 # ticket's path and each slug is resolved to an ABSOLUTE mission.md under it before the
@@ -456,7 +456,7 @@ fi
 # refresh that fails must not strand the archive, and must not vanish either (discarding
 # both its output and its exit code did both). Silent on success — it runs on every
 # archive, so a success line each time would be pure noise.
-IDX_OUT=$(sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" 2>&1) && IDX_RC=0 || IDX_RC=$?
+IDX_OUT=$(sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" 2>&1) && IDX_RC=0 || IDX_RC=$?
 if [ "$IDX_RC" -ne 0 ]; then
     echo "    ! OKF index refresh failed (exit ${IDX_RC}); archive proceeds. refresh-index.sh said: ${IDX_OUT}"
 fi
@@ -467,7 +467,7 @@ git add -A
 
 # Delegate to commit skill (with --skip-staging since we already staged). SCRIPT_DIR is
 # already set above, where the subject gate uses it.
-COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/scripts//commit.sh"
+COMMIT_SCRIPT="${SCRIPT_DIR}/../../commit/scripts/commit.sh"
 
 sh "$COMMIT_SCRIPT" --skip-staging --category "$CATEGORY" "$COMMIT_MSG" "$WHY" "$CHANGES" "$CONCERNS" "$INSIGHTS" "$VERIFY"
 

@@ -52,7 +52,7 @@
 #           `unreadable:<read-base-checks reason>` or `gate_disabled` on a degraded pass.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 READ_CHECKS="${SCRIPT_DIR}/read-base-checks.sh"
 
 PR="${1:-}"

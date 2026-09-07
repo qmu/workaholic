@@ -69,7 +69,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
+MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 ROOT=".workaholic"
 
 while [ $# -gt 0 ]; do

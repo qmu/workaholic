@@ -1,8 +1,10 @@
 ---
 created_at: 2026-09-08T03:10:36+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: []
+claim: work-20260908-031557
 ---
 
 # Pin loop contracts and package nested assets
@@ -66,3 +68,24 @@ from the built target. Expected rewritten reference:
 
 This reproduces B01 before implementation. Preserve it as an executable isolated
 consumer regression in P1; the temporary local fixture is not a shipped test.
+
+## Final Report
+
+P1 is complete. Recursive file walking now discovers dependencies in nested
+scripts and references, rewrites companion commands relative to their actual
+depth, preserves nested assets byte-for-byte, and unions detected edges with the
+validated explicit dependency catalog. Generated verification follows the same
+recursive model, and the full build still removes orphaned output before assembly.
+
+The legacy contract suite fixes the pre-refactor CLI, JSON, stderr/exit and
+eleven-column claims TSV shapes. B01 is the only repaired behavior in this unit;
+its source, generated plugin, target-only build and isolated portable consumer
+fixtures all execute. No runtime state conversion exists yet; P2 starts from the
+unchanged legacy readers and introduces the versioned state writer and snapshot.
+
+Verification on branch head before this report: agentic-loop tests 24/24,
+workflow smoke 6,883/6,883, hermetic drills 41 proved / 0 failed / 1 unproved / 8
+skipped, generated verification and metadata validation passed, docs build passed,
+layout conformed with existing advisories, and `git diff --check` passed. The same
+four packaging tests all failed against the pre-P1 build implementation, confirming
+that they detect B01. Live transport and native-agent evidence remain outside P1.

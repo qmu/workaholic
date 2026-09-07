@@ -45,7 +45,7 @@ MAX_COMMIT_CHANGED_LINES=500   # per-commit added+deleted, generated/bulk exclud
 # connectivity, and it fails loudly instead of silently scanning against a stale `main`.
 BASE="${1:-}"
 if [ -z "$BASE" ]; then
-    if ! BASE=$("${SCRIPT_DIR}/../../gather/scripts//base-ref.sh"); then
+    if ! BASE=$("${SCRIPT_DIR}/../../gather/scripts/base-ref.sh"); then
         echo "scan-branch-safety: could not resolve a base ref; refusing to scan against an unknown base" >&2
         exit 1
     fi

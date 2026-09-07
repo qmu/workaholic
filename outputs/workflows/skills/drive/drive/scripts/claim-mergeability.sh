@@ -52,7 +52,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-. "${SCRIPT_DIR}/../../ship/scripts//lib/conflict-class.sh"
+. "${SCRIPT_DIR}/../../ship/scripts/lib/conflict-class.sh"
 
 BRANCH="${1:-}"
 BASE="${2:-}"

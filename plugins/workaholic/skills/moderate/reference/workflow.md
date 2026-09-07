@@ -2,7 +2,7 @@
 
 Companion to [`../SKILL.md`](../SKILL.md). One section per step: what it reads, **what it may
 write**, what it returns in `needs_agent`, and the reasons it aborts with. The step ids are the
-tick log's keys and `run.sh`'s step list — they are stable, and a step is renamed only with its
+tick log's keys and `steps.json`'s registry — they are stable, and a step is renamed only with its
 log history in mind.
 
 Every step returns one JSON line:
@@ -101,7 +101,7 @@ which is a repository fact. Whether a change *line* may name an identifier is a 
 
 ## The route a record takes to the base
 
-A record the tick writes reaches the base **on the log's own commit** (2026-08-23).
+A record the tick writes reaches the base through an **explicit record publication**.
 `feedback/scripts/create.sh` stages a file and stops, and a routine's container is discarded, so
 before this a finding the sweep or the triage wrote was reported filed and then lost.
 
@@ -109,8 +109,7 @@ before this a finding the sweep or the triage wrote was reported filed and then 
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/persist-log.sh --tick <id> --record <repo-relative-path> [--record ...]
 ```
 
-- **The same seam, widened by one argument.** No `work-*` branch, no claim, no pull request, no
-  merge — exactly how the log itself travels, and every heavy prohibition is unmoved.
+- **The record seam only.** No `work-*` branch, no claim, no pull request, and no log publication.
 - **Scoped to the tick's own records**, named one by one. Never a sweep of whatever is staged: that
   would let an unrelated container file ride an unattended commit to the base, which is the one
   thing this seam must never become.
@@ -1014,7 +1013,7 @@ loop is queued to re-implement `main`.
 question into the thread of the item it concerns; it posts the tick's own root and hangs its
 questions under it.
 
-1. Render the post: `run.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
+1. Render the post: `run-planned.sh`'s JSON | `render-tick-post.sh --tick <id> --root <repo-root> --questions <n>`.
    It returns `post`, a `reason`, the `changes[]` it found, the `impaired[]` steps it could not
    read, the `token` the lookup searches, and **two forms off one body** — `root_text` (head plus
    body) and `reply_text` (the body alone, no head).
@@ -2330,8 +2329,7 @@ contract is *writes nothing*.
    silence, and it was chosen rather than overlooked. `[Consent]`'s retirement is untouched: this
    **narrows** what the step corrects and announces no human merge it did not already announce.
 4. **Record one `thread-reconcile-filed` line per candidate** through `log-append.sh`, naming the
-   key and the outcome, then persist again through `persist-log.sh --tick` — the **second** persist,
-   without which the line dies with the container.
+   key and the outcome. The line remains in the checkout's local operational log.
 5. **One outcome per candidate, or the other**: `posted`, or a named not-posted reason —
    `no_thread`, `already_finished`, `proposal_merged_is_not_a_finish`, `unsure`,
    `no_slack_transport`, `thread_unreadable`, `post_failed`. The third is **counted rather than
@@ -2686,7 +2684,7 @@ it). Where one does arise it surfaces, if at all, as an ordinary `step_error`. *
 stated rather than glossed**: a reader must not take this contract as evidence that every refusal
 in a tick is visible.
 
-## What `run.sh` guarantees around the steps
+## What the planned run guarantees around the steps
 
 - **The report carries each step's `needs_agent` array, with `needs_agent_count` beside it**
   (2026-08-26). It carried the count alone, against this file's own stated shape, on the reasoning
@@ -2698,7 +2696,8 @@ in a tick is visible.
   re-invoke every step to see what the tick had found, which is extra network and clock in a
   container nobody is watching, and a second reading of steps whose window moves between
   invocations. One defect, two symptoms: a report that named how much there was and not what it was.
-- **Every step is invoked and every step reports.** Missing script → `degraded`/`step_missing`;
+- **Every registered step reports.** A step excluded by the runtime plan is `skipped`/`cadence`;
+  a selected missing script → `degraded`/`step_missing`;
   non-zero exit → `degraded`/`step_error`; empty or unparseable output → `degraded`/`no_output` or
   `bad_output`; a status outside the log vocabulary → `degraded`/`bad_output`. A step never
   disappears from the report.
@@ -2729,51 +2728,18 @@ in a tick is visible.
 
 ---
 
-## The closing act — `persist-log.sh`
+## Runtime planning and record publication
 
-Not a step at all: the registered entries above are the contract and the log's step keys, and this is the
-run's own bookkeeping. It runs **after** the last step has had its turn, so a tick that dies
-half-way still persists what it recorded on its next run, and it reports under the run's top-level
-`persist` key while logging under the step id `persist-log`.
+`run-planned.sh` prepares the due set from the registry, cadence state, and declared input
+snapshots; `run.sh` executes that plan and still emits one row for every registered step. Only
+selected steps advance their cadence state after execution. The state is runtime bookkeeping in
+the git common directory and is neither a knowledge artifact nor a second workflow queue.
 
-- **Reads**: the checkout's `.workaholic/moderations/<UTC-day>.md`, and the base's copy of the
-  same path.
-- **Writes**: that one file, on the base, through the publish tree — `open-publish-tree.sh` →
-  `publish-tree-commit.sh` → `close-publish-tree.sh`. Nothing else, anywhere. The caller's checkout
-  is byte-identical afterwards: no branch, no worktree, and no `publish-main` ref on origin, so the
-  claim protocol's branch scan never sees it.
-- **Who commits the log, and when**: this script, **twice** per tick. `run.sh` runs it as its
-  closing act, and the agent runs it again after recording its `<step>-filed` lines (`SKILL.md`,
-  *The run*) — the agent acts on `needs_agent` only after `run.sh` has returned, so the closing act
-  alone can never carry what the tick filed. It is the only writer to the base in the whole skill,
-  and it carries **every** section the checkout has and the base does not — so a tick whose persist
-  failed is carried up by the next tick in the same container.
-- **Concurrency is a union, not a rebase.** Two containers ticking on the same day both append to
-  the same file, and a textual rebase of two end-of-file appends conflicts. So each attempt
-  re-opens the publish tree at a freshly fetched base and appends only what the base is missing; a
-  rejected push re-unions rather than replaying a patch. Attempts are bounded (default 3) because
-  sustained divergence is something a human should see.
-- **The union is by `(tick, step)`, not by `(tick)`** (2026-08-18, PR #489). A `## <tick-id>`
-  section the base lacks is appended whole (`sections`); a section it already carries is merged
-  **entry by entry**, appending only the steps its copy lacks, in the checkout's order, at the end
-  of that section (`lines`). Nothing is rewritten, reordered or removed — a `(tick, step)` the base
-  already has wins over a differing local copy, the same append-only-in-substance rule
-  `log-append.sh` applies within a run. By section alone, the second persist above was inert: it
-  asked only whether the base had the section, it did, and every `<step>-filed` line died with the
-  container while the script reported `already_current` and was correct by its own rule.
-- **Aborts, each by name**: `not_a_repo` and `root_not_repo_root` (a `--root` outside the
-  repository — the drill's throwaway root — is never published into whatever repository the cwd
-  happens to be), `no_log` (nothing was recorded), `no_origin` (`skipped`: a local-only checkout
-  has no base, so nothing went wrong), and `origin_unreachable` / `base_unresolved` /
-  `dirty_publish_tree` / `diverged` / `push_failed` / `commit_failed` (`degraded`: the base exists
-  and the log did not reach it). A failed persist leaves the log in the checkout and says so; it
-  never half-writes.
-- **The last persist's own log line is not on the base, deliberately.** The outcome is known only after the push,
-  so recording it, pushing again, and recording *that* does not terminate. The base already carries
-  the answer: the tick's section is there iff its persist succeeded, and when it did not, the run
-  report names the reason. Full rationale, including the rejected pull-request-per-tick
-  alternative and the point-by-point contrast with the three writer designs `workaholic:ship` §7
-  refused, is in the script's header.
+`persist-log.sh` publishes only an explicitly named feedback record through `--record <path>`.
+The caller invokes it when a filing seam creates that record. It never publishes the operational
+tick log: `.workaholic/moderations/` remains git-ignored and local, and a path under it is refused
+as `log_destination_is_base`. A record already on the base is left untouched because feedback is
+immutable; missing, unreadable, and unlanded records are reported by name.
 
 ## 21. `handoff-units` — a finished unit waiting on a verification only a person can run
 
@@ -2955,9 +2921,9 @@ face — the enforcement the connector retry already carries, and for its reason
 check tells a real read from a claimed one, so what this buys is that a report naming no outcome
 is visibly wrong.
 
-**The recording reaches the base** on the log's own commit: it happens after `run.sh` returns, so
-`persist-log.sh`'s **second** run covers it, exactly as it covers every `<step>-filed` line. A
-line that died with the container is the defect that made the tick's feedback records evaporate.
+**The recording stays in the local operational log.** When the answer produces a feedback record,
+that record reaches the base through an explicit `persist-log.sh --record <path>` call; the log line
+is never the publication mechanism.
 
 **An answer that asks for something becomes one `[FB]` issue**, through
 `propose/scripts/file-inbound-ask.sh` — the writer the `:40` sweep already uses — assigned to the
@@ -3040,8 +3006,7 @@ exists to keep out.
 **The reply, the record, and what is never load-bearing.** One `🧾 対応結果` per candidate into
 that question's own thread, on the coordinate already in hand — no lookup, no search, no mention
 token, once ever. Each post is logged under `human-checkin-outcome-<slug>` through
-`log-append.sh`, then `persist-log.sh --tick` runs again — **the second persist**, without which
-the line dies with the container and the reply is posted a second time next tick. A failed post
+`log-append.sh`; the persistent checkout keeps that local dedup line for the next tick. A failed post
 is `outcome_post_failed: <reason>` and changes **nothing** about the recording, the filing, the
 stamp, the question's state or the reading; every one of those happened in an earlier tick.
 
@@ -3467,12 +3432,10 @@ sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-blocked-tick.sh --tick <id
 ```
 
 **Why it exists** (2026-08-31, mission `stop-an-unattended-tick-from-waiting-on-a-person`). An
-opening on the base with no closing is the signature of a tick that **stopped**, and nothing read
-for it. Measured: three consecutive ticks sat at `requires_action` waiting on a permission prompt
-raised by two reads of a plugin script — a routine has nobody to answer one — and the base carried
-no trace of any of them, because `persist-log.sh` was the tick's *closing* act and the record that
-would show the stop is the record the stop prevents. `run.sh`'s **opening persist** puts the
-opening there; this step reads for it. Without both halves neither is worth anything.
+opening in the persistent checkout's local log with no closing is the signature of a tick that
+**stopped**. Measured: three consecutive ticks sat at `requires_action` waiting on a permission
+prompt raised by two reads of a plugin script. The local log now lets the next ticks see that
+unfinished section without publishing operational history to the base.
 
 **What it reads.** `log-read.sh`, the log's one parser, bounded to the newest **two** day files
 (enough to hold the previous two ticks across a UTC midnight rollover; the log grows forever, so an
@@ -3492,16 +3455,10 @@ small named set rather than a boolean — *not moderate* is not one class, and a
 broken that arm the same silent way. Both arms are drilled by `verify-blocked-tick`, whose breaker
 defeats the owner filter and requires the stopped tick to go unreported.
 
-**What "closed" means, and why it is not the persist.** The tempting signal is the closing
-persist's own `persist-log` line, and it is **wrong**: `run.sh` writes that line *after* the push,
-so it never reaches the base on the tick that wrote it — it arrives only if the agent persists
-again, which a tick with an empty `needs_agent` has no reason to do, and a healthy tick would
-therefore read as stopped. The signal is a **`human-checkin` line**: it is the last member of
-`STEPS` and is deliberately exempt from `--deadline-seconds`, so a tick that reached the end of its
-run always logged it. The coupling is **stated** in the step's header rather than derived, because
-a step that read `run.sh`'s `STEPS` to find the last one would be inspecting a plugin script to
-find something out (`rules/shell.md`), and a second definition of *the tick's closing step* is
-exactly what would drift.
+**What "closed" means.** The signal is a **`human-checkin` line**, the last registered step and
+deliberately exempt from `--deadline-seconds`, so a tick that reached the end of its run logged it.
+The coupling is stated in the step's header; publication state and cadence state are not evidence
+that the conversational work completed.
 
 **Which tick, and why not the previous one.** A tick still **running** when the next one starts
 also has an opening and no closing, and the two are distinguishable only by time. Rather than tune

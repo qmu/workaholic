@@ -17,11 +17,11 @@ the next ticket, and what a person supplies instead is the **direction**. It run
 `/specificate`: the ask this command supplies is in the inbox that discovery reads seconds
 later, and the `implement` subagent drives what it queued (`workaholic:loops`).
 
-It reads the running identity's own `status: active` strategies, plans the single **mission**
-whose **evolutionary move** would bring the nearest one closer to its aim before its date, and
+It reads the running identity's own `status: active` strategies, plans the bounded **ticket or
+mission** whose **evolutionary move** would bring the nearest one closer to its aim before its date, and
 opens that plan as a **GitHub issue assigned to that identity** — the one surface
-`/specificate`'s unattended entrance actually reads. The unit is a mission, not a change
-(*The unit is a mission, not a change*, below).
+`/specificate`'s unattended entrance actually reads. The unit follows the hypothesis's natural
+scale (*The proposal is a bounded plan*, below).
 
 **It is a pure reader of this repository.** No file, no commit, no branch, no pull request, no
 merge, no deployment, and no `AskUserQuestion` at any step. Its only writes are issues, and
@@ -73,24 +73,17 @@ reason and continue; neither state changes the reactive path or the strategy sur
 human's ask or a human-authored strategy may; a record a routine wrote about the loop's own
 apparatus (`self_authored`) and a proposal refining a prior self-proposal (`self_refining`) may not.
 
-## The unit is a mission, not a change
+## The proposal is a bounded plan
 
-**One proposal plans one mission** (2026-08-26, the operator's ask). The issue names a mission
-**title**, the **experience** it demands once it lands, and its **ordered ticket set** — sized by
-**what the container must be able to hold** (`rules/workaholic.md`, *What a Mission Must Be Able
-to Hold*, cited rather than restated: a mission is the mid-term container between a strategy and a
-ticket, and the criterion is whether there is a mid-term plan here — several tickets wanting
-ordering and allocation across a period). A follow-up repair mission is available and a second
-concurrent mission is refused (`workaholic:specificate`, *A strategy is not a mission factory*).
-**A count is an observation about typical size, never the test** — 52% of this repository's corpus
-sat at exactly seven or eight, which was the old wording printed into the distribution.
-`/specificate` emits that plan rather than re-deriving one.
+**One proposal plans one bounded hypothesis.** The issue names the experience it demands and its
+ordered ticket set. One ticket is valid when that is the whole hypothesis. Several tickets that
+share a mid-term outcome may form a mission, sized by **what the container must be able to hold**
+(`rules/workaholic.md`, *What a Mission Must Be Able to Hold*); independent hypotheses remain loose
+tickets. `/specificate` emits the validated plan rather than re-deriving its scale.
 
-**The move vocabulary and every refusal built on it are unchanged; only the scale of the unit
-they are declared over moves.** A move is now what the *mission* does to the Aim, and
-`## What this is chosen against` names the rival **mission**, not the rival edit. The
-anti-housekeeping effect is expected to come from the scale as much as from the refusals: a
-mission-sized proposal cannot be "add a test" without saying so out loud.
+**The move vocabulary and every refusal built on it apply at either scale.** The move is what the
+ticket or mission does to the Aim, and `## What this is chosen against` names the rival hypothesis
+or plan. A proposal cannot hide housekeeping behind either container.
 
 **The body floor includes `## Experience` and `## Tickets`** (`open-proposal.sh`) beside the three
 commitment sections below. One ticket is a valid bounded hypothesis; `/specificate` emits it as a

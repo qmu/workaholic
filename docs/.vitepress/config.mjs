@@ -23,6 +23,10 @@ export default defineConfig({
           { text: 'ループドリル', link: '/loop-drill-runbook' },
         ],
       },
+      {
+        text: '設計案',
+        items: [{ text: 'エージェンティックループ再設計', link: '/agentic-loop-redesign' }],
+      },
     ],
     outline: { level: [2, 3], label: '目次' },
   },

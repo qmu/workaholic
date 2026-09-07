@@ -1,0 +1,1536 @@
+{
+  "description": "Source-tree inventory at the redesign baseline, including the generated policy index under hooks. UTF-8 bytes are not model token counts.",
+  "source_commit": "a41522ab3c6a85ff1cadf59d27c479b2edec0135",
+  "plugin_version": "1.0.331",
+  "file_count": 169,
+  "total_bytes": 2423901,
+  "scope": "All Markdown under plugins/workaholic; excludes generated outputs and repository history.",
+  "files": [
+    {
+      "path": "plugins/workaholic/README.md",
+      "role": "readme",
+      "bytes": 691,
+      "lines": 27,
+      "max_line_characters": 133,
+      "headings": 4,
+      "sha256": "e8b10842dad49766cb489d9799c8a3a9bc902e8bd5e4ac98427fae27939bc2f0"
+    },
+    {
+      "path": "plugins/workaholic/commands/catch.md",
+      "role": "commands",
+      "bytes": 737,
+      "lines": 14,
+      "max_line_characters": 341,
+      "headings": 1,
+      "sha256": "b33ea2acb6ea9c81f5fe02d8ee0462a8b35945593f85222b11913f4c159b1e9c"
+    },
+    {
+      "path": "plugins/workaholic/commands/commit.md",
+      "role": "commands",
+      "bytes": 787,
+      "lines": 13,
+      "max_line_characters": 491,
+      "headings": 1,
+      "sha256": "28d2f5c58641507922e267c55b5a0cf56251a977a52f5f6a69145638e98d336d"
+    },
+    {
+      "path": "plugins/workaholic/commands/drive.md",
+      "role": "commands",
+      "bytes": 1286,
+      "lines": 16,
+      "max_line_characters": 812,
+      "headings": 1,
+      "sha256": "3a34701a9bcf679715050be01fc0d8ed70877ce65f03a0a84d1e1f01722f3bdf"
+    },
+    {
+      "path": "plugins/workaholic/commands/explain.md",
+      "role": "commands",
+      "bytes": 846,
+      "lines": 14,
+      "max_line_characters": 443,
+      "headings": 1,
+      "sha256": "04480dfa78f05ab300e1a0daa1696ce8e63a7799c0cfd7032ead6f0e76524559"
+    },
+    {
+      "path": "plugins/workaholic/commands/fb.md",
+      "role": "commands",
+      "bytes": 4601,
+      "lines": 18,
+      "max_line_characters": 2621,
+      "headings": 1,
+      "sha256": "288ceecbdb54164939aeb384044f77563cf95dbfa539bc8607339c4f5eb02c9c"
+    },
+    {
+      "path": "plugins/workaholic/commands/implement.md",
+      "role": "commands",
+      "bytes": 21545,
+      "lines": 127,
+      "max_line_characters": 1593,
+      "headings": 6,
+      "sha256": "f3426aa4d0cd87bbefd67feab6f77af587d9643a11c4f67fcb2527da2f7fed3c"
+    },
+    {
+      "path": "plugins/workaholic/commands/infinite-development.md",
+      "role": "commands",
+      "bytes": 35979,
+      "lines": 467,
+      "max_line_characters": 467,
+      "headings": 6,
+      "sha256": "27e3df072ca8581f4c772c26e888c57c390769207cc31e093b0de68f20f66ca8"
+    },
+    {
+      "path": "plugins/workaholic/commands/mission-close.md",
+      "role": "commands",
+      "bytes": 940,
+      "lines": 13,
+      "max_line_characters": 691,
+      "headings": 1,
+      "sha256": "d7d1a0c8ffdb4613c96073be681799c79bf98d9103f43dffaac9ecaa2e1ef75f"
+    },
+    {
+      "path": "plugins/workaholic/commands/mission.md",
+      "role": "commands",
+      "bytes": 1196,
+      "lines": 14,
+      "max_line_characters": 769,
+      "headings": 1,
+      "sha256": "bca510c3a34689d6eb55658131493343486b4705744a805f68150cf6a2660eef"
+    },
+    {
+      "path": "plugins/workaholic/commands/moderate.md",
+      "role": "commands",
+      "bytes": 18538,
+      "lines": 120,
+      "max_line_characters": 1078,
+      "headings": 2,
+      "sha256": "9a269c6a536ddbf3513142f56001a2067593202ae43b23b1f3fbda597bf9471d"
+    },
+    {
+      "path": "plugins/workaholic/commands/prepare-release.md",
+      "role": "commands",
+      "bytes": 4801,
+      "lines": 33,
+      "max_line_characters": 1877,
+      "headings": 1,
+      "sha256": "fbee3c2ca9520c553e8e98ac6a1e52efb67abe03ae1e320e66facdd24d637944"
+    },
+    {
+      "path": "plugins/workaholic/commands/propose.md",
+      "role": "commands",
+      "bytes": 5681,
+      "lines": 64,
+      "max_line_characters": 724,
+      "headings": 1,
+      "sha256": "2ec7c0ddb98c76f4dc09527f8729daac5df06347b2c12498fb109f0c049d2efd"
+    },
+    {
+      "path": "plugins/workaholic/commands/report.md",
+      "role": "commands",
+      "bytes": 1392,
+      "lines": 27,
+      "max_line_characters": 117,
+      "headings": 1,
+      "sha256": "ade8a5629df53e6b2767ea7f6a5b32fb80a1e1603069620d3151369b5b382835"
+    },
+    {
+      "path": "plugins/workaholic/commands/setup-dev-routines.md",
+      "role": "commands",
+      "bytes": 5782,
+      "lines": 24,
+      "max_line_characters": 1357,
+      "headings": 1,
+      "sha256": "f5712abb63c5807ffc414d5e99b7db046d08de22bfc4cfb318ada09ec2ce920d"
+    },
+    {
+      "path": "plugins/workaholic/commands/setup-repo-routines.md",
+      "role": "commands",
+      "bytes": 5838,
+      "lines": 26,
+      "max_line_characters": 1059,
+      "headings": 1,
+      "sha256": "8981cac2570177a6372922bcde8de09c26accf2af890a9edaf8e5a0b213310d6"
+    },
+    {
+      "path": "plugins/workaholic/commands/ship.md",
+      "role": "commands",
+      "bytes": 1661,
+      "lines": 17,
+      "max_line_characters": 1150,
+      "headings": 1,
+      "sha256": "7ce2278b639fdeb88d406937609e94fcbcb995cd0ccac6b565c8ee308f72a993"
+    },
+    {
+      "path": "plugins/workaholic/commands/specificate.md",
+      "role": "commands",
+      "bytes": 9380,
+      "lines": 62,
+      "max_line_characters": 948,
+      "headings": 2,
+      "sha256": "63e55bb6a9593a0362c6cc2a68ec0ca637fa2f941db636c0772a1ded5a107aaf"
+    },
+    {
+      "path": "plugins/workaholic/commands/standup.md",
+      "role": "commands",
+      "bytes": 1239,
+      "lines": 17,
+      "max_line_characters": 311,
+      "headings": 1,
+      "sha256": "5c896bcb50a93cb3e276819cd6d3c265274e8718708947df23b35a6238714447"
+    },
+    {
+      "path": "plugins/workaholic/commands/story.md",
+      "role": "commands",
+      "bytes": 670,
+      "lines": 14,
+      "max_line_characters": 308,
+      "headings": 1,
+      "sha256": "a1c80fb780c0514359197057c2c4ea8aef28f331d14f824ef98ef95e9f58df95"
+    },
+    {
+      "path": "plugins/workaholic/commands/ticket.md",
+      "role": "commands",
+      "bytes": 1056,
+      "lines": 14,
+      "max_line_characters": 690,
+      "headings": 1,
+      "sha256": "f04ffd1bf88f44a5e5e43867d9d3b3210baf6e8a5d0bdcf0c35d33ee9c50a12f"
+    },
+    {
+      "path": "plugins/workaholic/commands/work.md",
+      "role": "commands",
+      "bytes": 2092,
+      "lines": 32,
+      "max_line_characters": 134,
+      "headings": 1,
+      "sha256": "abb714b321e6e386f91cdf645a0bc8edc72e9a3ce06ecee737425bd41479ed8a"
+    },
+    {
+      "path": "plugins/workaholic/commands/workaholify.md",
+      "role": "commands",
+      "bytes": 4087,
+      "lines": 18,
+      "max_line_characters": 1749,
+      "headings": 1,
+      "sha256": "e9e281185bfb5743dd28ae54acca241e8bdcf262a14152c2823a2d9aa9b5f236"
+    },
+    {
+      "path": "plugins/workaholic/hooks/policy-index.md",
+      "role": "hooks",
+      "bytes": 17312,
+      "lines": 68,
+      "max_line_characters": 432,
+      "headings": 5,
+      "sha256": "d285c67f6163402921b5b3c3905d862a6041ce0f221368a3770f0503a672f4e1"
+    },
+    {
+      "path": "plugins/workaholic/rules/diagrams.md",
+      "role": "rules",
+      "bytes": 1707,
+      "lines": 81,
+      "max_line_characters": 101,
+      "headings": 7,
+      "sha256": "799e61a9eae480b5ae35b032954f70e5246717cc302679282f6be5cbb4477a75"
+    },
+    {
+      "path": "plugins/workaholic/rules/general.md",
+      "role": "rules",
+      "bytes": 7901,
+      "lines": 16,
+      "max_line_characters": 3564,
+      "headings": 1,
+      "sha256": "194a0642b2ef8517209d12ce0ded910eaf26db220865612f2ef8e844e9bb5a9f"
+    },
+    {
+      "path": "plugins/workaholic/rules/interaction.md",
+      "role": "rules",
+      "bytes": 12122,
+      "lines": 130,
+      "max_line_characters": 944,
+      "headings": 3,
+      "sha256": "32aa81f871e41c05cac8f2a5bdb38dc13c63f53ece78b0a4bd70a2ec0275bc6e"
+    },
+    {
+      "path": "plugins/workaholic/rules/shell.md",
+      "role": "rules",
+      "bytes": 26852,
+      "lines": 334,
+      "max_line_characters": 1017,
+      "headings": 10,
+      "sha256": "e33c33d96783434e06266b0fb0cd72c9c1b294d3c248890ae1f698ca419118dd"
+    },
+    {
+      "path": "plugins/workaholic/rules/typescript.md",
+      "role": "rules",
+      "bytes": 1223,
+      "lines": 26,
+      "max_line_characters": 129,
+      "headings": 1,
+      "sha256": "961473f4c48b571bb034c573a2bacccb02b2774a15aa17d3569e8673e77ef2d4"
+    },
+    {
+      "path": "plugins/workaholic/rules/workaholic.md",
+      "role": "rules",
+      "bytes": 41369,
+      "lines": 226,
+      "max_line_characters": 6649,
+      "headings": 5,
+      "sha256": "dd18002b179a4c8cffbf7e37957d6dace7de2f1432e3bfe8af600145dc06c356"
+    },
+    {
+      "path": "plugins/workaholic/skills/branching/SKILL.md",
+      "role": "skills",
+      "bytes": 12927,
+      "lines": 118,
+      "max_line_characters": 1084,
+      "headings": 11,
+      "sha256": "de9206a6eaa64bc741394c64f43f79aa9b26aec706e416629770bdc9ebc74f91"
+    },
+    {
+      "path": "plugins/workaholic/skills/branching/reference/publish-tree.md",
+      "role": "reference",
+      "bytes": 6737,
+      "lines": 34,
+      "max_line_characters": 1305,
+      "headings": 4,
+      "sha256": "b4aa6a1b1bf8c93fdf1501f78289b088a8badc4bbba233921665a3dbe054b6cd"
+    },
+    {
+      "path": "plugins/workaholic/skills/branching/reference/worktrees.md",
+      "role": "reference",
+      "bytes": 10417,
+      "lines": 122,
+      "max_line_characters": 1306,
+      "headings": 9,
+      "sha256": "3bc9d34cdd9e79719138526c52cbfaa3d8c7fcc8f3c5e7d3965650c7bc06af90"
+    },
+    {
+      "path": "plugins/workaholic/skills/catch/SKILL.md",
+      "role": "skills",
+      "bytes": 10995,
+      "lines": 94,
+      "max_line_characters": 974,
+      "headings": 11,
+      "sha256": "e4f047dfb00164099c9dfd49cd579081c15ce59b0e583aa6508d55f615a0da85"
+    },
+    {
+      "path": "plugins/workaholic/skills/catch/reference/rendering.md",
+      "role": "reference",
+      "bytes": 9864,
+      "lines": 128,
+      "max_line_characters": 1049,
+      "headings": 13,
+      "sha256": "aeabeaae99d4ebd99c10bd4aa2fb048d8ab157d8a0ec44a038b20e7bad5d7d0f"
+    },
+    {
+      "path": "plugins/workaholic/skills/check-deps/SKILL.md",
+      "role": "skills",
+      "bytes": 14297,
+      "lines": 198,
+      "max_line_characters": 334,
+      "headings": 6,
+      "sha256": "293978edb557109f79af73ec1eee9cc0ef4659f8622702202709c8952d825e9c"
+    },
+    {
+      "path": "plugins/workaholic/skills/commit/SKILL.md",
+      "role": "skills",
+      "bytes": 14235,
+      "lines": 138,
+      "max_line_characters": 1080,
+      "headings": 10,
+      "sha256": "a7ea94c1dc5ed749a15dcb2978cbfa110c6a2acefc3a172f6aff95ef69e0c4a1"
+    },
+    {
+      "path": "plugins/workaholic/skills/create-ticket/SKILL.md",
+      "role": "skills",
+      "bytes": 12591,
+      "lines": 122,
+      "max_line_characters": 1181,
+      "headings": 21,
+      "sha256": "5494f201505f0fea12a3b0bb6b597e59f415fc99ebff9d2c7ee565b7509eaac8"
+    },
+    {
+      "path": "plugins/workaholic/skills/create-ticket/reference/interrogation.md",
+      "role": "reference",
+      "bytes": 6818,
+      "lines": 40,
+      "max_line_characters": 793,
+      "headings": 5,
+      "sha256": "641a071e8997548a89cc805ee3185d49cc22e6357aece65da59f1e9f0191bcb0"
+    },
+    {
+      "path": "plugins/workaholic/skills/create-ticket/reference/publishing.md",
+      "role": "reference",
+      "bytes": 2033,
+      "lines": 23,
+      "max_line_characters": 383,
+      "headings": 6,
+      "sha256": "413d822f3d5165c32bd300306220e3f1d2941018a458f0c1e86fc802480218ea"
+    },
+    {
+      "path": "plugins/workaholic/skills/create-ticket/reference/ticket-format.md",
+      "role": "reference",
+      "bytes": 14068,
+      "lines": 196,
+      "max_line_characters": 712,
+      "headings": 20,
+      "sha256": "7481e1c4cec7cfd9b71b32e9c6d05e0b6f166d89624600b6f376c7f14f0a7e6d"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/SKILL.md",
+      "role": "skills",
+      "bytes": 6741,
+      "lines": 35,
+      "max_line_characters": 508,
+      "headings": 3,
+      "sha256": "3ccbc43ae39c45d91c9d98c8a3d2f4fce0130dffaaf6921655af0ef9fd340ea1"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/access-control.md",
+      "role": "policy",
+      "bytes": 4229,
+      "lines": 53,
+      "max_line_characters": 479,
+      "headings": 9,
+      "sha256": "b55ede0186e115410b4845ccd45aae9db646e56c05a0ff0c8070c73cc29639b2"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/admin-isolation.md",
+      "role": "policy",
+      "bytes": 3784,
+      "lines": 48,
+      "max_line_characters": 557,
+      "headings": 8,
+      "sha256": "8432f2d7d1ef5094c60a59e09f00cea76c4da2ef74bc388b969bec6d98668b6e"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/auth-procurement.md",
+      "role": "policy",
+      "bytes": 4143,
+      "lines": 52,
+      "max_line_characters": 522,
+      "headings": 9,
+      "sha256": "dec044f808aec7455fb34c7be7640a1a4dcaf7d688a290e68fe713b8d22f9287"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/consent-recording.md",
+      "role": "policy",
+      "bytes": 3944,
+      "lines": 49,
+      "max_line_characters": 507,
+      "headings": 8,
+      "sha256": "7d6ad55e7ed109c50ab5d3ad8ed75d50143d628d073ac5f7d67503881aead545"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/data-sovereignty.md",
+      "role": "policy",
+      "bytes": 4010,
+      "lines": 54,
+      "max_line_characters": 500,
+      "headings": 9,
+      "sha256": "86fb7ca219a9d8e2f445ee39d8080c333aa6b453fd69d8625ee1ce30383dbf05"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/defense-in-depth.md",
+      "role": "policy",
+      "bytes": 6376,
+      "lines": 50,
+      "max_line_characters": 842,
+      "headings": 10,
+      "sha256": "feee0c0953ea10ee295d3ecd2eba504e9c775b5d5ad9e23eaf993f7ae0262fa5"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/email-sending-restraint.md",
+      "role": "policy",
+      "bytes": 3986,
+      "lines": 54,
+      "max_line_characters": 620,
+      "headings": 9,
+      "sha256": "6e4d30601e1e87ea5b304adf51231e38f84d185097d6363f5983004d20458881"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/history-structures.md",
+      "role": "policy",
+      "bytes": 5027,
+      "lines": 40,
+      "max_line_characters": 897,
+      "headings": 8,
+      "sha256": "fd2c7fe3c40978ff691bd84088888b6f040df258a13337ff9d9001435019103b"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/interaction-design-standard.md",
+      "role": "policy",
+      "bytes": 4198,
+      "lines": 53,
+      "max_line_characters": 515,
+      "headings": 9,
+      "sha256": "b5c9c8ce589de8ce1e0507c4feee3111a99f681961614edd56d7407307234576"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/modeless-design.md",
+      "role": "policy",
+      "bytes": 6390,
+      "lines": 78,
+      "max_line_characters": 653,
+      "headings": 15,
+      "sha256": "2379498571c981a896ab2248d1fad88a2d88ea58ccc15a0919856c3a63233b2a"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/modular-monolith-first.md",
+      "role": "policy",
+      "bytes": 3177,
+      "lines": 40,
+      "max_line_characters": 407,
+      "headings": 8,
+      "sha256": "9bb78d02077757cdc4de21ef7009a81787c8c7735624340d7ffa97fb147be10a"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/no-dark-patterns.md",
+      "role": "policy",
+      "bytes": 3770,
+      "lines": 52,
+      "max_line_characters": 516,
+      "headings": 8,
+      "sha256": "ce889916b50d34f0939d4842b41392b0d790c20703f5364258313110d4f7629d"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/per-tenant-database.md",
+      "role": "policy",
+      "bytes": 4155,
+      "lines": 48,
+      "max_line_characters": 683,
+      "headings": 8,
+      "sha256": "9ec8006df447d8aff7c8957944b8181e08f5f2077c96ee607dc7e6091a774f8c"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/rest-api-design.md",
+      "role": "policy",
+      "bytes": 4188,
+      "lines": 44,
+      "max_line_characters": 536,
+      "headings": 9,
+      "sha256": "47258160b6327e769097f1fc7bc130ce31fd943ee9aafe092ad78f699a5ff568"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/sacrificial-architecture.md",
+      "role": "policy",
+      "bytes": 5105,
+      "lines": 46,
+      "max_line_characters": 736,
+      "headings": 9,
+      "sha256": "a92c465a96d9106006dfda868271094ec4b8d2695c67d93b4eda3d6191bf4624"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/self-explanatory-ui.md",
+      "role": "policy",
+      "bytes": 3960,
+      "lines": 51,
+      "max_line_characters": 473,
+      "headings": 8,
+      "sha256": "9d3e3faf834c5bd640f66acf8a676b6d12b9f2b195906f6a554d08effb320153"
+    },
+    {
+      "path": "plugins/workaholic/skills/design/policies/vendor-neutrality.md",
+      "role": "policy",
+      "bytes": 12623,
+      "lines": 103,
+      "max_line_characters": 741,
+      "headings": 12,
+      "sha256": "d50bf2c55906fce13c54b67b858e44d6b9060be30b759d096238722697db1ec9"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/SKILL.md",
+      "role": "skills",
+      "bytes": 6028,
+      "lines": 32,
+      "max_line_characters": 592,
+      "headings": 3,
+      "sha256": "17e7827845d615f8d014642962c79689107681258f0ef86bb5a67fd899cb8332"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/ai-utilization.md",
+      "role": "policy",
+      "bytes": 5135,
+      "lines": 55,
+      "max_line_characters": 578,
+      "headings": 7,
+      "sha256": "2a5080ae3e054e64a5f466a4c9cb1da66e30ea0866ef47580039cf30653ddf17"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/code-of-conduct.md",
+      "role": "policy",
+      "bytes": 7496,
+      "lines": 66,
+      "max_line_characters": 677,
+      "headings": 9,
+      "sha256": "ecbb3ecfd96333c623dc0a8ee1f1b412be3cc623a3d8c11689559b2f12695c17"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/commit-change-history.md",
+      "role": "policy",
+      "bytes": 7476,
+      "lines": 56,
+      "max_line_characters": 689,
+      "headings": 9,
+      "sha256": "1b024e7903f1ee34c5fa92b5f5f89614f54ef1ffcdef98af482a668afb6aa949"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/explanations-on-demand.md",
+      "role": "policy",
+      "bytes": 4907,
+      "lines": 44,
+      "max_line_characters": 777,
+      "headings": 9,
+      "sha256": "41c0e22b93605537b77ad3067b834943b5e192ad685c9ff6e1e690981cdd1497"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/generalist.md",
+      "role": "policy",
+      "bytes": 4283,
+      "lines": 38,
+      "max_line_characters": 826,
+      "headings": 8,
+      "sha256": "4a75cb7259fc06f492071cbd2a4756066bc15432ef4fcedd41cede9733be8ecc"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/meeting-recording.md",
+      "role": "policy",
+      "bytes": 2858,
+      "lines": 38,
+      "max_line_characters": 812,
+      "headings": 6,
+      "sha256": "71ea6e215542135fcbcf9c8210e6d2895248e251074c6cbb08d6659d3d0ec63f"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/multiple-ai-use.md",
+      "role": "policy",
+      "bytes": 4887,
+      "lines": 52,
+      "max_line_characters": 535,
+      "headings": 10,
+      "sha256": "8507889eeebc43e4ccea6b181d62e8687682ca45a05b6f4c328e3e9fca0e8597"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/overnight-ai.md",
+      "role": "policy",
+      "bytes": 3793,
+      "lines": 46,
+      "max_line_characters": 762,
+      "headings": 10,
+      "sha256": "943bf428c66883ea9741fa87e1ed877ed960143d5fe1d4de1915520a4d5a824d"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/parallel-long-running-agents.md",
+      "role": "policy",
+      "bytes": 4999,
+      "lines": 50,
+      "max_line_characters": 477,
+      "headings": 10,
+      "sha256": "d0bfb515b265e1543e4e0a9fa1cd4bf1a77ebdefe86e482abd5389c89848fc97"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/policy-as-plugin.md",
+      "role": "policy",
+      "bytes": 5776,
+      "lines": 44,
+      "max_line_characters": 798,
+      "headings": 8,
+      "sha256": "30d7b8e77dc992df8447c044e613af035466d4264e769630bf0a11f0a84f86b1"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/qa-engineering.md",
+      "role": "policy",
+      "bytes": 5275,
+      "lines": 42,
+      "max_line_characters": 853,
+      "headings": 9,
+      "sha256": "eba3848a72f2a3e046b714a2f939b62bce10bd7d5e059b4f4ae6701c41188231"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/review.md",
+      "role": "policy",
+      "bytes": 4508,
+      "lines": 40,
+      "max_line_characters": 616,
+      "headings": 8,
+      "sha256": "202b2c6fb464859fe81c1adb3bcfdac74c9b051b3d4df974bab8f578ee0cdeda"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/voice-input.md",
+      "role": "policy",
+      "bytes": 4049,
+      "lines": 34,
+      "max_line_characters": 1187,
+      "headings": 6,
+      "sha256": "436cbf626129c442053f0146ada0779675836bbf9b6f9ef93f49f62cd7525f33"
+    },
+    {
+      "path": "plugins/workaholic/skills/development/policies/weekly-quota.md",
+      "role": "policy",
+      "bytes": 5181,
+      "lines": 52,
+      "max_line_characters": 716,
+      "headings": 11,
+      "sha256": "cfb8c56563e22b7c9911036655532ea02769b5901181e440f5f5752a099af18f"
+    },
+    {
+      "path": "plugins/workaholic/skills/discover/SKILL.md",
+      "role": "skills",
+      "bytes": 7087,
+      "lines": 112,
+      "max_line_characters": 604,
+      "headings": 8,
+      "sha256": "41452a15c3f0657dbee09da1903a4989df91a318a1e3f09716a365e7ab7727b3"
+    },
+    {
+      "path": "plugins/workaholic/skills/drive/SKILL.md",
+      "role": "skills",
+      "bytes": 120565,
+      "lines": 364,
+      "max_line_characters": 4285,
+      "headings": 13,
+      "sha256": "9820ddd0901b794b5099207d5adde3bfa2ec0abcc3b64816ec572dcdfa1ae4a5"
+    },
+    {
+      "path": "plugins/workaholic/skills/drive/reference/claims.md",
+      "role": "reference",
+      "bytes": 147771,
+      "lines": 1626,
+      "max_line_characters": 1715,
+      "headings": 32,
+      "sha256": "a5de53a493e2a6a2ab74e5c9fae1965c947efb5ce0f2f16568439376ee2fa7d3"
+    },
+    {
+      "path": "plugins/workaholic/skills/drive/reference/failure-contract.md",
+      "role": "reference",
+      "bytes": 11815,
+      "lines": 170,
+      "max_line_characters": 98,
+      "headings": 5,
+      "sha256": "655e8183ac6b903e94b63bc48b286c8b3c4e61d57c9fd30389d2eaabd59fd5b6"
+    },
+    {
+      "path": "plugins/workaholic/skills/drive/reference/routing.md",
+      "role": "reference",
+      "bytes": 45959,
+      "lines": 586,
+      "max_line_characters": 615,
+      "headings": 9,
+      "sha256": "d8b6881e9788ba030608564e777873273c639025cd0d03e2ef20cc00463e9267"
+    },
+    {
+      "path": "plugins/workaholic/skills/drive/reference/survey.md",
+      "role": "reference",
+      "bytes": 22774,
+      "lines": 238,
+      "max_line_characters": 1598,
+      "headings": 5,
+      "sha256": "592f1668bd7dd4a12215bab9540a2d055bd7bb94515e52c113bb40f97e24af90"
+    },
+    {
+      "path": "plugins/workaholic/skills/drive/reference/ticket-workflow.md",
+      "role": "reference",
+      "bytes": 17976,
+      "lines": 310,
+      "max_line_characters": 138,
+      "headings": 17,
+      "sha256": "425827c98c03c5408f95a83d01062f30f2bfbf8de7901ce9a19869a529d23740"
+    },
+    {
+      "path": "plugins/workaholic/skills/explain/SKILL.md",
+      "role": "skills",
+      "bytes": 8925,
+      "lines": 90,
+      "max_line_characters": 645,
+      "headings": 12,
+      "sha256": "d9087c2eea37242524842ae001b2afbb5fa062586c0da7cc6056e423d6966967"
+    },
+    {
+      "path": "plugins/workaholic/skills/explain/reference/html-template.md",
+      "role": "reference",
+      "bytes": 4318,
+      "lines": 93,
+      "max_line_characters": 654,
+      "headings": 1,
+      "sha256": "1b9d3f956042e3077183929707dfb8ce008e2455d84886eb135373501ddeb393"
+    },
+    {
+      "path": "plugins/workaholic/skills/feedback/SKILL.md",
+      "role": "skills",
+      "bytes": 27893,
+      "lines": 189,
+      "max_line_characters": 978,
+      "headings": 20,
+      "sha256": "bc1e8fe65d4d6fafe48e0d23b66346ec050461c132710f4fd393a432c9fcd7fc"
+    },
+    {
+      "path": "plugins/workaholic/skills/feedback/reference/crossing.md",
+      "role": "reference",
+      "bytes": 12936,
+      "lines": 200,
+      "max_line_characters": 126,
+      "headings": 6,
+      "sha256": "1df3c734185a8b30197459d31911b80ccd5061cecc6542d0b9dc01ffb48a3f38"
+    },
+    {
+      "path": "plugins/workaholic/skills/feedback/reference/schema.md",
+      "role": "reference",
+      "bytes": 7789,
+      "lines": 124,
+      "max_line_characters": 130,
+      "headings": 6,
+      "sha256": "03a18371bf24ef5e182e9a379a484ef0f97a8f3b1a973618db95663d888b7a5a"
+    },
+    {
+      "path": "plugins/workaholic/skills/gather/SKILL.md",
+      "role": "skills",
+      "bytes": 6950,
+      "lines": 94,
+      "max_line_characters": 853,
+      "headings": 9,
+      "sha256": "b1db008bfb5bb09cb0f03f1ff8471325f9875007123a0bea64d179d497e0ed4f"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/SKILL.md",
+      "role": "skills",
+      "bytes": 7404,
+      "lines": 35,
+      "max_line_characters": 485,
+      "headings": 3,
+      "sha256": "d5addd6913a59ff7f720ad4f3999afe553ea2870d21d31091177a589b40a1e64"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/anti-corruption-structure.md",
+      "role": "policy",
+      "bytes": 8998,
+      "lines": 59,
+      "max_line_characters": 1110,
+      "headings": 9,
+      "sha256": "800282ecb2bce23adde717634dc592513b5be843297803ea82f47b3e6b56aaf4"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/coding-standards.md",
+      "role": "policy",
+      "bytes": 11013,
+      "lines": 95,
+      "max_line_characters": 745,
+      "headings": 9,
+      "sha256": "7ded4a4f316d57bc29c6a56cbd46bd317247e6a1e355f34788a5127eb9f3807e"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/command-scripts.md",
+      "role": "policy",
+      "bytes": 3409,
+      "lines": 48,
+      "max_line_characters": 469,
+      "headings": 8,
+      "sha256": "f4c116b5028c59ff401158b27ed0eaf8d2c2083d66853540198fb5e7fc2b7d96"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/containerization.md",
+      "role": "policy",
+      "bytes": 3854,
+      "lines": 53,
+      "max_line_characters": 525,
+      "headings": 9,
+      "sha256": "3eb85ab43de5987a61858c03c269b5e7dfdaa817ca024bd2b0fd9e742479a360"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/diagram-generation.md",
+      "role": "policy",
+      "bytes": 3600,
+      "lines": 48,
+      "max_line_characters": 572,
+      "headings": 8,
+      "sha256": "ea98c24f2116e18ca8c29d8adec58e3fa652e2e460205d2e799f2646fab4aa0c"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/directory-structure.md",
+      "role": "policy",
+      "bytes": 5688,
+      "lines": 60,
+      "max_line_characters": 704,
+      "headings": 7,
+      "sha256": "04e999bf2e67a3a15598b0fe339f560914188ab0eb15c71ce8e0131053e68cff"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/domain-layer-separation.md",
+      "role": "policy",
+      "bytes": 6979,
+      "lines": 62,
+      "max_line_characters": 629,
+      "headings": 12,
+      "sha256": "9a542d9e7dbe9fb202d52baea04b043cf89d1bfc766df86d3be9277376996124"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/functional-programming.md",
+      "role": "policy",
+      "bytes": 8321,
+      "lines": 119,
+      "max_line_characters": 631,
+      "headings": 13,
+      "sha256": "55fa7e202a41b778e04ff54228e598bba93b291f27d36f0e4bb8b0ff420747b0"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/golang-coding-standards.md",
+      "role": "policy",
+      "bytes": 5400,
+      "lines": 58,
+      "max_line_characters": 839,
+      "headings": 11,
+      "sha256": "55176b37e27b6f0ad297bc1055acb3b2b5f61f2ccea638772852e507cb94d469"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/infrastructure-as-code.md",
+      "role": "policy",
+      "bytes": 8219,
+      "lines": 133,
+      "max_line_characters": 680,
+      "headings": 15,
+      "sha256": "457c03e9c1c26af05fe19887a007755fda082f8d608053f3102b994c946d2df1"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/objective-documentation.md",
+      "role": "policy",
+      "bytes": 3743,
+      "lines": 49,
+      "max_line_characters": 589,
+      "headings": 8,
+      "sha256": "c96ba3396adb570fff4021b1d7c746ff53d3441c389a58ce80145cfabeb085c9"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/observability.md",
+      "role": "policy",
+      "bytes": 8803,
+      "lines": 110,
+      "max_line_characters": 878,
+      "headings": 14,
+      "sha256": "df784d5853949d5080b58ea87dab329bdad1e06e3dc45c90fb742fc47e56571d"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/operational-planning.md",
+      "role": "policy",
+      "bytes": 8785,
+      "lines": 120,
+      "max_line_characters": 733,
+      "headings": 13,
+      "sha256": "0979be6cc63b6ce5cd0cd552a3fffd877342483f9d08f9da64122ac8185c8578"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/persistence.md",
+      "role": "policy",
+      "bytes": 7329,
+      "lines": 80,
+      "max_line_characters": 456,
+      "headings": 11,
+      "sha256": "4113f54ee7af5fc3ea373fc28c354cb038b2475adb15422abd7610f0867d7102"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/policy-conformance-audit.md",
+      "role": "policy",
+      "bytes": 4321,
+      "lines": 52,
+      "max_line_characters": 569,
+      "headings": 9,
+      "sha256": "e5d6580a52c51ae88a334a98985ae1aee4ee8d011c3f74b9e58c6ddd5304baca"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/test.md",
+      "role": "policy",
+      "bytes": 10323,
+      "lines": 84,
+      "max_line_characters": 764,
+      "headings": 13,
+      "sha256": "a1219080eb703968705b16d717558a0da60c8dfdb828c90e2e8403b87176b02e"
+    },
+    {
+      "path": "plugins/workaholic/skills/implementation/policies/type-driven-design.md",
+      "role": "policy",
+      "bytes": 11930,
+      "lines": 101,
+      "max_line_characters": 637,
+      "headings": 12,
+      "sha256": "432f9780823149cce4104b842deceef4c05b943efaec98ea065aec826bbd9179"
+    },
+    {
+      "path": "plugins/workaholic/skills/loops/SKILL.md",
+      "role": "skills",
+      "bytes": 25953,
+      "lines": 359,
+      "max_line_characters": 265,
+      "headings": 9,
+      "sha256": "08fe0296ef094ece658cc40797cb5bc10e593a358dfc0569462f0aed3aa33bcf"
+    },
+    {
+      "path": "plugins/workaholic/skills/loops/reference/tick-record.md",
+      "role": "reference",
+      "bytes": 3020,
+      "lines": 51,
+      "max_line_characters": 101,
+      "headings": 6,
+      "sha256": "bd130574027fb93350f8fb7212d1e9a06d6c6c0fdb04a4f572e00e61044ecefc"
+    },
+    {
+      "path": "plugins/workaholic/skills/mission/SKILL.md",
+      "role": "skills",
+      "bytes": 30623,
+      "lines": 188,
+      "max_line_characters": 1621,
+      "headings": 18,
+      "sha256": "3bb05d2c0a034c216de4307dd478b7a41e6b769c45604e7180d185881bde248c"
+    },
+    {
+      "path": "plugins/workaholic/skills/mission/reference/command-flows.md",
+      "role": "reference",
+      "bytes": 21982,
+      "lines": 149,
+      "max_line_characters": 1177,
+      "headings": 6,
+      "sha256": "4e482fa57517645c75cf6d6c673c4d1b0b1aeb33b7520945629644835c76ef9c"
+    },
+    {
+      "path": "plugins/workaholic/skills/mission/reference/schema.md",
+      "role": "reference",
+      "bytes": 29428,
+      "lines": 173,
+      "max_line_characters": 1623,
+      "headings": 11,
+      "sha256": "b20f59d25c0ef228eed8049258981d0b38386044aba4f295d4388e7ac1185607"
+    },
+    {
+      "path": "plugins/workaholic/skills/mission/reference/scripts.md",
+      "role": "reference",
+      "bytes": 21119,
+      "lines": 156,
+      "max_line_characters": 1704,
+      "headings": 3,
+      "sha256": "016531bea1ffd24bc0e1dbed3a96900a40a9b37e9a2f2030ef017cdac8cee23a"
+    },
+    {
+      "path": "plugins/workaholic/skills/moderate/SKILL.md",
+      "role": "skills",
+      "bytes": 70699,
+      "lines": 250,
+      "max_line_characters": 3254,
+      "headings": 10,
+      "sha256": "fa14fd76b4e7f7327b9b97bd4c11f140b054d8632115c5e8a95e2b1dc80eb670"
+    },
+    {
+      "path": "plugins/workaholic/skills/moderate/reference/workflow.md",
+      "role": "reference",
+      "bytes": 279371,
+      "lines": 3685,
+      "max_line_characters": 633,
+      "headings": 49,
+      "sha256": "e0afb5df6cbaa0a4b62cf329029d93ac2927e26e3ae5553e4554e62326a30f99"
+    },
+    {
+      "path": "plugins/workaholic/skills/notify/SKILL.md",
+      "role": "skills",
+      "bytes": 43776,
+      "lines": 168,
+      "max_line_characters": 3615,
+      "headings": 12,
+      "sha256": "3c91d5934d3d699a805eb49430d06d0d3800dcb826614dc1f75f13a40420db85"
+    },
+    {
+      "path": "plugins/workaholic/skills/notify/reference/notifications.md",
+      "role": "reference",
+      "bytes": 69054,
+      "lines": 423,
+      "max_line_characters": 2065,
+      "headings": 22,
+      "sha256": "dab226df8bbc1316f599d060e9b86e39bb4255e5ad7f104fc91527b36f102f5f"
+    },
+    {
+      "path": "plugins/workaholic/skills/okf/SKILL.md",
+      "role": "skills",
+      "bytes": 7002,
+      "lines": 59,
+      "max_line_characters": 1054,
+      "headings": 4,
+      "sha256": "feb2af72d52397b9b196a0cee0e88a6e62b15556fa3d6540ea96b2aa8e4a56bb"
+    },
+    {
+      "path": "plugins/workaholic/skills/operation/SKILL.md",
+      "role": "skills",
+      "bytes": 2566,
+      "lines": 21,
+      "max_line_characters": 425,
+      "headings": 3,
+      "sha256": "64317752a2ba7344d95ca18ec5fbe12fcab6f518b6cd23dda19638b1887153b4"
+    },
+    {
+      "path": "plugins/workaholic/skills/operation/policies/ai-production-investigation.md",
+      "role": "policy",
+      "bytes": 7106,
+      "lines": 48,
+      "max_line_characters": 775,
+      "headings": 9,
+      "sha256": "364b8b7752bb6b9c6043f02287a024d9c12b847d2defe840a88c7a2666fdeb39"
+    },
+    {
+      "path": "plugins/workaholic/skills/operation/policies/ci-cd.md",
+      "role": "policy",
+      "bytes": 7408,
+      "lines": 54,
+      "max_line_characters": 713,
+      "headings": 11,
+      "sha256": "f954b947648b3cb124681bc94e2954b250e1891c4ec931d76815af682be7d9ef"
+    },
+    {
+      "path": "plugins/workaholic/skills/operation/policies/no-customer-support-in-repo.md",
+      "role": "policy",
+      "bytes": 3824,
+      "lines": 48,
+      "max_line_characters": 654,
+      "headings": 8,
+      "sha256": "268d0bf09970dbeeb407e61564d5f6b53783b33be85c656da65fac6ce2442ee6"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/SKILL.md",
+      "role": "skills",
+      "bytes": 4584,
+      "lines": 28,
+      "max_line_characters": 425,
+      "headings": 3,
+      "sha256": "a1e03779a0432d08631c7a4fc5b2b1a7693b7bd5a6e901d27c7fdf4abe41043c"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/accessibility-first.md",
+      "role": "policy",
+      "bytes": 7225,
+      "lines": 62,
+      "max_line_characters": 596,
+      "headings": 12,
+      "sha256": "9aacf964cc47654f8fae63f956afc69be07468bdabfa240ad503eea8ac3501d3"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/ai-native-future.md",
+      "role": "policy",
+      "bytes": 3094,
+      "lines": 40,
+      "max_line_characters": 541,
+      "headings": 8,
+      "sha256": "8b4b5e2854a51305c3fa63e9959e99f8203df4530073edad9adfbfb6d1c23804"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/capability-over-track-record.md",
+      "role": "policy",
+      "bytes": 5189,
+      "lines": 48,
+      "max_line_characters": 669,
+      "headings": 10,
+      "sha256": "cd7aff4d0b72a19cab2c89adeae52b1a9142e8545acf2997713c5a0ac44047bf"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/cost-estimation.md",
+      "role": "policy",
+      "bytes": 3868,
+      "lines": 48,
+      "max_line_characters": 551,
+      "headings": 10,
+      "sha256": "781491cf771a9d3e763c9e4b1d93e279a70774f5bb76dbded8f6343da4dec7e4"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/it-investment-evaluation.md",
+      "role": "policy",
+      "bytes": 2989,
+      "lines": 40,
+      "max_line_characters": 518,
+      "headings": 8,
+      "sha256": "7bfc97fd2a041f35e1850613b31a941fd9e71eb139509086bea5e01f5f53c16f"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/legal-compliance-check.md",
+      "role": "policy",
+      "bytes": 4118,
+      "lines": 40,
+      "max_line_characters": 721,
+      "headings": 8,
+      "sha256": "dd2d91188e9ec3afddd0c8bd2df38e3c468c587582c45b1207d5bcbe45c6a70a"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/market-research.md",
+      "role": "policy",
+      "bytes": 3723,
+      "lines": 44,
+      "max_line_characters": 510,
+      "headings": 9,
+      "sha256": "505fcb00f5d076f1c149bee94d4bd04d02866320f83fb8bccccac97e22634366"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/modeling-centric-design.md",
+      "role": "policy",
+      "bytes": 3404,
+      "lines": 40,
+      "max_line_characters": 752,
+      "headings": 8,
+      "sha256": "4dcb9eed2bc75353e4035f6591362465843df81cb5f63ae5f6a1b55f22ba2955"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/terminology.md",
+      "role": "policy",
+      "bytes": 4256,
+      "lines": 44,
+      "max_line_characters": 629,
+      "headings": 9,
+      "sha256": "7afe3b35fd5f6c9fae53d28ec559a9f1c5ecf8e9a0c140ced8d166da1334fdcc"
+    },
+    {
+      "path": "plugins/workaholic/skills/planning/policies/verify-before-building.md",
+      "role": "policy",
+      "bytes": 5266,
+      "lines": 48,
+      "max_line_characters": 875,
+      "headings": 10,
+      "sha256": "f839728e555c1728643a124c374174d451e2f5e2eef14d93e5e240aebab11098"
+    },
+    {
+      "path": "plugins/workaholic/skills/propose/SKILL.md",
+      "role": "skills",
+      "bytes": 58808,
+      "lines": 816,
+      "max_line_characters": 1688,
+      "headings": 29,
+      "sha256": "0b062847ab7587f6375e3355eacb5d820ec06e0d419f467b3b2552ca89514f83"
+    },
+    {
+      "path": "plugins/workaholic/skills/propose/reference/loop.md",
+      "role": "reference",
+      "bytes": 8775,
+      "lines": 134,
+      "max_line_characters": 95,
+      "headings": 3,
+      "sha256": "54c05fbaeb6e556f59a1f44e8f4f44bd728802ec6090fb8b0d52da70f8ca27c8"
+    },
+    {
+      "path": "plugins/workaholic/skills/release-scan/SKILL.md",
+      "role": "skills",
+      "bytes": 14010,
+      "lines": 75,
+      "max_line_characters": 2166,
+      "headings": 6,
+      "sha256": "2687b050331566569f9a8341cf48f8d483c762f986df73a8d2e5c774e2c57024"
+    },
+    {
+      "path": "plugins/workaholic/skills/review-sections/SKILL.md",
+      "role": "skills",
+      "bytes": 7417,
+      "lines": 100,
+      "max_line_characters": 575,
+      "headings": 11,
+      "sha256": "2943bbd5cbc2be91cd3d96015225b752c470aeb44ba53d327888f8ed92581959"
+    },
+    {
+      "path": "plugins/workaholic/skills/safety/SKILL.md",
+      "role": "skills",
+      "bytes": 3423,
+      "lines": 24,
+      "max_line_characters": 500,
+      "headings": 3,
+      "sha256": "220e545c6b31991fc9d46b4850e741d4263a344d0bfbbcedfb4ac5bed8caabc7"
+    },
+    {
+      "path": "plugins/workaholic/skills/safety/policies/incident-report.md",
+      "role": "policy",
+      "bytes": 4866,
+      "lines": 55,
+      "max_line_characters": 586,
+      "headings": 7,
+      "sha256": "344a3260df0a462dd20783324d421b00b8e202f6e05bbbb1057f92d0b1a46e66"
+    },
+    {
+      "path": "plugins/workaholic/skills/safety/policies/incident-response.md",
+      "role": "policy",
+      "bytes": 8371,
+      "lines": 72,
+      "max_line_characters": 1016,
+      "headings": 10,
+      "sha256": "2b4739c01d0025e7013fc957629064615ef3c43e0f31d477f9a190cc72d656fc"
+    },
+    {
+      "path": "plugins/workaholic/skills/safety/policies/policy.md",
+      "role": "policy",
+      "bytes": 2657,
+      "lines": 49,
+      "max_line_characters": 517,
+      "headings": 9,
+      "sha256": "a8d5052973afb766865e17ee3deb5a671e17ff07d0ff82988e5cf1507e84457e"
+    },
+    {
+      "path": "plugins/workaholic/skills/safety/policies/privacy-policy.md",
+      "role": "policy",
+      "bytes": 4685,
+      "lines": 73,
+      "max_line_characters": 568,
+      "headings": 12,
+      "sha256": "4ee89bc94e33c5366c971f81effcfae484f40af33922b35954561947d98d5c25"
+    },
+    {
+      "path": "plugins/workaholic/skills/safety/policies/risk-management.md",
+      "role": "policy",
+      "bytes": 8944,
+      "lines": 76,
+      "max_line_characters": 941,
+      "headings": 15,
+      "sha256": "4873a40168ab9ddbfb274bb6344798a64f88f0de2d20383d3fc1d9bae0ba60c3"
+    },
+    {
+      "path": "plugins/workaholic/skills/safety/policies/standard.md",
+      "role": "policy",
+      "bytes": 10962,
+      "lines": 122,
+      "max_line_characters": 525,
+      "headings": 14,
+      "sha256": "ee84b67b0c98667d75aa15724b7de8c35cc55e25a842086806490a013c570e3b"
+    },
+    {
+      "path": "plugins/workaholic/skills/ship/SKILL.md",
+      "role": "skills",
+      "bytes": 48721,
+      "lines": 294,
+      "max_line_characters": 1496,
+      "headings": 21,
+      "sha256": "c51c6fe2768608d5fdfbbc19ff925fa3af2c7cb479903c4591005058deb80988"
+    },
+    {
+      "path": "plugins/workaholic/skills/ship/reference/flow.md",
+      "role": "reference",
+      "bytes": 11825,
+      "lines": 194,
+      "max_line_characters": 240,
+      "headings": 8,
+      "sha256": "13b43595ca5ac1672c416ea3c1265308632f7aafacb9a76bf2cf0ec084f188c2"
+    },
+    {
+      "path": "plugins/workaholic/skills/ship/reference/release-plan.md",
+      "role": "reference",
+      "bytes": 7438,
+      "lines": 135,
+      "max_line_characters": 185,
+      "headings": 7,
+      "sha256": "de6fd260ff2ae54fb94d7b96729ac88db97851cb9f7cab34c4b27ef14db8ff61"
+    },
+    {
+      "path": "plugins/workaholic/skills/ship/reference/release-tier.md",
+      "role": "reference",
+      "bytes": 5799,
+      "lines": 90,
+      "max_line_characters": 144,
+      "headings": 4,
+      "sha256": "bccc429d5bf505b1bf9de60beddc42a0414d72e36b0d13d15718c7a6fcb58350"
+    },
+    {
+      "path": "plugins/workaholic/skills/ship/reference/scripts.md",
+      "role": "reference",
+      "bytes": 17379,
+      "lines": 312,
+      "max_line_characters": 136,
+      "headings": 15,
+      "sha256": "de63ad08086ee7987eeef54b07c9f98bd441840f4cac5c2bc7d4f833f8761b5c"
+    },
+    {
+      "path": "plugins/workaholic/skills/specificate/SKILL.md",
+      "role": "skills",
+      "bytes": 66892,
+      "lines": 383,
+      "max_line_characters": 1519,
+      "headings": 17,
+      "sha256": "62326d59794ea4ab9b3c75f765c53d9632acb000255b7a75dc505e48265c029b"
+    },
+    {
+      "path": "plugins/workaholic/skills/specificate/reference/workflow.md",
+      "role": "reference",
+      "bytes": 45611,
+      "lines": 633,
+      "max_line_characters": 946,
+      "headings": 1,
+      "sha256": "fc3aa246e97133ce34e214be60df236a621c9a17fe0c2cc316c536caad931bd1"
+    },
+    {
+      "path": "plugins/workaholic/skills/standup/SKILL.md",
+      "role": "skills",
+      "bytes": 11799,
+      "lines": 89,
+      "max_line_characters": 805,
+      "headings": 5,
+      "sha256": "79be914f55a1a81d122c50dcefb572dda322b13a2ded367a3f0671fb4682ce35"
+    },
+    {
+      "path": "plugins/workaholic/skills/story/SKILL.md",
+      "role": "skills",
+      "bytes": 16268,
+      "lines": 106,
+      "max_line_characters": 1210,
+      "headings": 14,
+      "sha256": "d765ea7b3ce80f9e95f17aafa508a7b72488f2a3ae605b4f004ea2a0a2391c3b"
+    },
+    {
+      "path": "plugins/workaholic/skills/story/reference/create-pr.md",
+      "role": "reference",
+      "bytes": 2248,
+      "lines": 32,
+      "max_line_characters": 562,
+      "headings": 4,
+      "sha256": "f9d5433eb9a13848430bc7dea3cc3371c776d211e686ad5df177921730921825"
+    },
+    {
+      "path": "plugins/workaholic/skills/story/reference/judge-deferred-concerns.md",
+      "role": "reference",
+      "bytes": 3853,
+      "lines": 66,
+      "max_line_characters": 783,
+      "headings": 5,
+      "sha256": "61bddb0e5db4a20b2b6d049dacc62cdc595697dc6c6ea71e9f34a1408a2d4efb"
+    },
+    {
+      "path": "plugins/workaholic/skills/story/reference/orchestration.md",
+      "role": "reference",
+      "bytes": 14427,
+      "lines": 173,
+      "max_line_characters": 1069,
+      "headings": 10,
+      "sha256": "fa7b8f815e9202da6e5455c206adda6050b2c3cb120a4035e087e2315bc3e2e1"
+    },
+    {
+      "path": "plugins/workaholic/skills/story/reference/release-readiness.md",
+      "role": "reference",
+      "bytes": 6315,
+      "lines": 86,
+      "max_line_characters": 1623,
+      "headings": 5,
+      "sha256": "d9f309742368f4f97cf19f07c23bd63b7300be880a678c55ca5f24c32bb7187c"
+    },
+    {
+      "path": "plugins/workaholic/skills/story/reference/story-structure.md",
+      "role": "reference",
+      "bytes": 10528,
+      "lines": 198,
+      "max_line_characters": 548,
+      "headings": 24,
+      "sha256": "2c02a22ff6d545506f25ac5cb288c46ef11d507caa5eb442abd82f67388c30e1"
+    },
+    {
+      "path": "plugins/workaholic/skills/strategy/SKILL.md",
+      "role": "skills",
+      "bytes": 38654,
+      "lines": 535,
+      "max_line_characters": 672,
+      "headings": 27,
+      "sha256": "9876efd6ae572ccbb57144ad765510e92de9af7a3a8c704d4029cab2973fb729"
+    },
+    {
+      "path": "plugins/workaholic/skills/system-safety/SKILL.md",
+      "role": "skills",
+      "bytes": 4156,
+      "lines": 91,
+      "max_line_characters": 203,
+      "headings": 7,
+      "sha256": "f2d49975c0b6cc7f228d55e3f249ab743c9334aef0fb852fddd664d54cc23cf4"
+    },
+    {
+      "path": "plugins/workaholic/skills/validate-writer-output/SKILL.md",
+      "role": "skills",
+      "bytes": 1297,
+      "lines": 52,
+      "max_line_characters": 170,
+      "headings": 7,
+      "sha256": "8011274159b333062939052486bec8521a455717a9bb2e151d6b8c57943e1d7f"
+    },
+    {
+      "path": "plugins/workaholic/skills/work/SKILL.md",
+      "role": "skills",
+      "bytes": 25075,
+      "lines": 346,
+      "max_line_characters": 491,
+      "headings": 10,
+      "sha256": "d7def72a063b30bd539826078f3eea8eb60d1b66d6ad7340ea3ace60f587c432"
+    },
+    {
+      "path": "plugins/workaholic/skills/work/reference/codex-slack-relay.md",
+      "role": "reference",
+      "bytes": 3046,
+      "lines": 44,
+      "max_line_characters": 99,
+      "headings": 1,
+      "sha256": "41693b33208391a4b4f2ffc627ff69b1237e3d7beb39f3f7a0173ee301209ebf"
+    },
+    {
+      "path": "plugins/workaholic/skills/work/reference/other-agents.md",
+      "role": "reference",
+      "bytes": 37080,
+      "lines": 474,
+      "max_line_characters": 555,
+      "headings": 16,
+      "sha256": "213dd08dfc0f897f3687249b128b5e5a813c85a95782ac181ae15d8ffc229a75"
+    },
+    {
+      "path": "plugins/workaholic/skills/workaholify/SKILL.md",
+      "role": "skills",
+      "bytes": 80842,
+      "lines": 375,
+      "max_line_characters": 3495,
+      "headings": 22,
+      "sha256": "64226bcdaab477886ca38ad97b72f677985b531cb7699b4292cdda83f68b4865"
+    },
+    {
+      "path": "plugins/workaholic/skills/workaholify/reference/bootstrap.md",
+      "role": "reference",
+      "bytes": 10154,
+      "lines": 27,
+      "max_line_characters": 2988,
+      "headings": 4,
+      "sha256": "fd12959398410155dbe84b3068d9985b1a2fd9ff034a7ba9aa0db68375114afa"
+    },
+    {
+      "path": "plugins/workaholic/skills/workaholify/reference/routines.md",
+      "role": "reference",
+      "bytes": 29887,
+      "lines": 125,
+      "max_line_characters": 2403,
+      "headings": 16,
+      "sha256": "baae7321199a58e916408c1bedcce18dfea29e480f2b60e731e82f3626ed2ed1"
+    },
+    {
+      "path": "plugins/workaholic/skills/workaholify/routines/implement.md",
+      "role": "skills",
+      "bytes": 3606,
+      "lines": 59,
+      "max_line_characters": 373,
+      "headings": 2,
+      "sha256": "26c09c8e4cfa414426ebb4fc533be0443855121b5f68266c1bebaedb06e95c36"
+    },
+    {
+      "path": "plugins/workaholic/skills/workaholify/routines/moderate.md",
+      "role": "skills",
+      "bytes": 8277,
+      "lines": 120,
+      "max_line_characters": 372,
+      "headings": 2,
+      "sha256": "b02b89117284dedc9bfaf9e1a6ca31e04176d1aeb842328d917b53927cf86660"
+    },
+    {
+      "path": "plugins/workaholic/skills/workaholify/routines/propose.md",
+      "role": "skills",
+      "bytes": 6095,
+      "lines": 90,
+      "max_line_characters": 434,
+      "headings": 2,
+      "sha256": "9fe0e4a7b36b13da97c28dc04af5f7e43c7ee79974a368dbb645d17e59dd2dd0"
+    },
+    {
+      "path": "plugins/workaholic/skills/write-release-note/SKILL.md",
+      "role": "skills",
+      "bytes": 11437,
+      "lines": 224,
+      "max_line_characters": 554,
+      "headings": 19,
+      "sha256": "c5d0ff19042011b214d6ea88f5f076515243e7cde26f456239a9342495e9da38"
+    }
+  ],
+  "review": {
+    "scope": "Full prose review of all listed Markdown, by three discovery workers and the parent; byte-identical duplicate paragraphs were read once.",
+    "script_scope": "Targeted runtime, transport, artifact, build and test inspection; not full review of all 322 shell scripts.",
+    "details": "../agentic-loop-redesign.md"
+  }
+}

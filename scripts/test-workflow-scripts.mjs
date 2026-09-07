@@ -22607,7 +22607,8 @@ function testMergeBodyIsSingleSourced() {
       run(dir, `git status --porcelain`).stdout.trim(), "");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 
-  // NO CALL SITE SPELLS A BODY, and every merge call site READS the composer. The enumeration
+  // NO CALL SITE SPELLS A BODY. Callers compose the request; the one merge transport validates
+  // and forwards the supplied title and body without becoming a second composer.
   // is derived from the tree -- a `pulls/<n>/merge` REST call under `plugins/` -- never a
   // hand-kept list, so a sixth call site added tomorrow is covered the day it lands. Comments
   // are stripped first, exactly as the merge-method row does: every one of these files explains
@@ -22624,13 +22625,18 @@ function testMergeBodyIsSingleSourced() {
     }
   };
   walk(join(REPO_ROOT, "plugins/workaholic/skills"));
-  assertTrue("the enumeration found the merge call sites", mergeSites.length >= 5,
+  assertTrue("the enumeration found the centralized merge call sites", mergeSites.length >= 2,
     `found ${mergeSites.length}`);
   for (const [full, code] of mergeSites) {
     const rel = full.slice(REPO_ROOT.length + 1);
     assertTrue(`${rel} spells no literal body`,
       !/commit_(title|message)=(?!\$)[A-Za-z"']/.test(code), rel);
-    assertTrue(`${rel} reads the composer instead`, /merge-commit-body\.sh/.test(code), rel);
+    if (rel.endsWith("gather/scripts/merge-pull.sh")) {
+      assertTrue(`${rel} validates a composed title and body request`,
+        /\.title/.test(code) && /\.body/.test(code) && /commit_title/.test(code) && /commit_message/.test(code), rel);
+    } else {
+      assertTrue(`${rel} reads the composer instead`, /merge-commit-body\.sh/.test(code), rel);
+    }
   }
 
   // THE AGENT-LEVEL MERGES. Their call is composed at run time and appears in no file, so what
@@ -34040,9 +34046,9 @@ function testProofJudgementSplit() {
   //   `secret`/`leak` allowed to proceed         -> `... lets no scan finding through`
   //   the method spelled at the call site        -> `... reads the merge method`
   //   the `queue_drained` bound dropped          -> `... delivers only what no other act owns`
-  const deliveryAt = catchUp.indexOf('DELIVERY="merged"');
+  const deliveryAt = catchUp.indexOf('merge_resp=$(sh "$MERGE_PULL"');
   assertTrue("the catch-up delivers what it made mergeable",
-    deliveryAt > 0, "catch-up-claim.sh no longer merges the pull request it caught up");
+    deliveryAt > 0, "catch-up-claim.sh no longer delegates the merge through merge-pull.sh");
 
   // THE ORDER IS THE SAFETY PROPERTY, so it is asserted as an order and not as a presence: a
   // scan that runs after the merge has gated nothing at all.
@@ -34122,7 +34128,7 @@ function testProofJudgementSplit() {
   const JUDGEMENT_READERS = ["claim-mergeability.sh", "claim-holder.sh", "branch-checks.sh"];
   // Regexes, not substrings: `git -C "$WORKTREE" push` is the same act as `git push`, and a
   // literal match would miss precisely the consumer this rule was written for.
-  const ACT_SITES = [/\bgit\b[^\n]*\bpush\b/, /--method PUT/, /--method PATCH/,
+  const ACT_SITES = [/\bgit\b[^\n]*\bpush\b/, /--method PUT/, /--method PATCH/, /merge-pull\.sh/,
     /--method DELETE/, /\bgit\b[^\n]*\bpush\b\s*--delete/];
   const ACT_DIRS = ["plugins/workaholic/skills/drive/scripts",
     "plugins/workaholic/skills/branching/scripts", "plugins/workaholic/skills/ship/scripts",

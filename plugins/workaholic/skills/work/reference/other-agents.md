@@ -114,14 +114,51 @@ change — startup-anchored boundaries, dispatched-never-awaited work, a running
 name — and neither does the tick body. What changes is where the report goes: **commentary in the
 conversation the loop was started in**, on every boundary, while the work runs beneath it.
 
-**Not yet claimed, and deliberately so.** No end-to-end run of this branch in an operator's own
-chat has been recorded — no timestamps, no environment, no version. The acceptance run is the
-mission's own ticket
-(`20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat`), which declares
-`verification_handoff:` because it needs that chat, that account and that application. Until it
-lands here as a dated measurement, the reachability evidence is the tool set reported in issue
-#989 — an **implementation lead**, never a substitute for the run, and explicitly not the short
-15- and 20-second waits already observed there.
+### Live originating-chat measurement — 2026-09-07 (partial acceptance)
+
+The operator resumed the local `CODEX-HANDOFF.md` work in this Codex conversation. The candidate
+was PR #993, branch `work-20260906-023953`, based on head `4eb073d59`; its plugin version was
+1.0.329 at startup and was bumped to 1.0.330 during the run. The host reports Linux
+6.18.34+rpt-rpi-2712, aarch64. Installed `codex-cli 0.153.4` was read for environment context;
+the coordinator did **not** invoke `codex exec`, and that CLI version does not identify the
+chat harness build (which is not exposed).
+
+C1 was supplied by `clock.sleep`, C2 by commentary, and C3 by `collaboration.spawn_agent` and
+its listing/automatic result notifications. Four concurrent slots were exposed. C4 had no
+callable same-chat scheduler in this session. Branch 1 was selected, and the startup report
+named this chat as the delivery destination. The root checkout and claim worktree's supervisor
+readings both showed `never_started` and idle workers, so no external coordinator needed retiring.
+The Slack connector was callable, but searches for `dev-workaholic` and `workaholic` returned no
+channel; no Slack interaction or reply-deduplication success is claimed by this measurement.
+
+The bounded verification used the user's two existing implementation PRs as child work; it did
+not originate new proposals or perform the unrelated moderation backlog. The original anchor
+was **04:35:00 UTC / 13:35:00 JST**, with a **300-second** interval. Actual visible commentary:
+
+| Event | Observed time (JST) | Evidence in this conversation |
+| ----- | ------------------- | ----------------------------- |
+| First periodic report | 13:40:05 | Both child tasks running; duplicate dispatch refused |
+| Second periodic report | 13:45:13 | No user input since the preceding report; children still running |
+| Third periodic report | 13:50:05 | Same anchor retained; no duplicate dispatch |
+| Fourth periodic report | 13:55 | Same anchor retained; children still running |
+| Recovery child completed | 13:58:26 | Automatic result delivered here; 6,883 smoke assertions passed |
+| CI child completed | 13:58:54 | Automatic result delivered here; 6,875 smoke assertions passed |
+| Fifth periodic report | 14:00 | Both outcomes already reported; no duplicate dispatch |
+
+The CI repair child `/root/clock_ci` has a conservative measured interval from **04:34:07Z to
+04:58:54Z (24m47s)**, when its required full suite completed. Its duration came from diagnosis,
+repairs and verification, not a synthetic long sleep. `/root/retired_path` independently ran the
+other PR's implementation and checks. The parent never synchronously collected either across a
+boundary. Interruptible waits were capped at 45 seconds (and shortened near a boundary);
+intermediate implementation updates were additional commentary, not clock resets.
+
+**Still unresolved at this checkpoint:** a user status question actually received during a
+wait, followed by a report on the unchanged anchor. Both child completion reports arrived
+automatically and were reported once before the next periodic boundary. The
+operator's earlier acknowledgement was answered without stopping, but it was neither a status
+question nor observed during a wait and is not substituted for that criterion. No declaration
+is cleared and the acceptance ticket remains queued until its actual gate is met. This live
+300-second proof is also distinct from testing a requested 60-second cadence.
 
 ## Where a report goes, per entrypoint — and where it does not
 

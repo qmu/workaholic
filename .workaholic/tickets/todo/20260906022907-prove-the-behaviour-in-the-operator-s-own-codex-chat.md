@@ -85,3 +85,19 @@ what closes it.
 
 - The short 15- and 20-second waits already observed in the reporting session are evidence the
   branch is reachable and are explicitly **not** this acceptance run.
+
+## Verification progress — 2026-09-07
+
+Attempted in the originating operator Codex chat, using the candidate branch instructions.
+The dated environment, version, timestamps and exact limits are recorded in
+`plugins/workaholic/skills/work/reference/other-agents.md`. The 04:35:00 UTC anchor produced
+visible 13:40:05, 13:45:13, 13:50:05, 13:55 and 14:00 JST reports. No operator input occurred
+between the first two reports. A native child worked for a conservative measured 24m47s,
+and both child completions arrived automatically at 13:58:26 and 13:58:54 JST. The parent's
+live role map refused duplicate dispatch at the boundaries.
+
+The actual mid-wait user status question is still pending. The operator acknowledged the
+verification request earlier, but that was not a status question observed during a wait.
+This distinction is retained rather than marking the gate passed. The ticket remains queued
+and the verification declaration remains unchanged. The Slack channel was not discoverable
+through the current connector; no Slack reply or deduplication claim is made.

@@ -422,11 +422,28 @@ if [ -n "$ACK_FILE" ]; then
     sh "$RELAY_CONTRACT" acknowledgement "$RELAY_ENVELOPE" "$ACK_FILE" >/dev/null
     _relay=$(sh "$RELAY_CONTRACT" reconcile "$RELAY_ENVELOPE" "$ACK_FILE" | jq -r '.relay')
     _tmp="${STATUS_FILE}.tmp.$$"
+    # A DELIVERED RELAY MAY SET THE RELAY FIELDS AND MAY NOT BY ITSELF SET A HEALTHY OUTCOME
+    # (2026-09-07, ticket `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`).
+    # This branch used to write `ready` and `parent_connector` from the relay word alone, so the
+    # parent's successful delivery of a tick's intents OVERWROTE whatever the tick's own
+    # classification had established — a tick that reported it had executed nothing, and a tick
+    # already graded `work_blocked`, both came back healthy. MEASURED 2026-09-06 (#1052): the one
+    # artifact an operator inspects said the loop was fine while it was doing nothing.
+    #
+    # *The relay was delivered* and *the tick ran* are two facts. Only an outcome the relay itself
+    # was withholding — `relay_pending`, or a tick already `ready` — is released here; every other
+    # recorded outcome, `tick_not_executed` included, is carried through with its own
+    # `blocked_reason` and its own `transport_verdict` untouched. The state still moves to
+    # `blocked`, so a reader sees the relay closed and the tick still unhealthy.
     jq --arg relay "$_relay" --arg ack "$ACK_FILE" '
       .relay_state=$relay | .relay_ack_path=$ack |
       if $relay == "delivered" then
-        .state="sleeping" | .outcome="ready" | .blocked_reason="" |
-        .transport_verdict="parent_connector"
+        if (.outcome == "relay_pending" or .outcome == "ready") then
+          .state="sleeping" | .outcome="ready" | .blocked_reason="" |
+          .transport_verdict="parent_connector"
+        else
+          .state="blocked"
+        end
       else
         .state="blocked" | .outcome="relay_incomplete" |
         .blocked_reason="undelivered_relay_intents"
@@ -612,7 +629,21 @@ classify_report() {
             RELAY_ENVELOPE="$_report_file"
             _intent_count=$(jq '.slack_intents | length' "$_report_file")
             _worker_outcome=$(jq -r '.outcome' "$_report_file")
-            if [ "$_worker_outcome" = blocked ]; then
+            _relay_executed=$(jq -r '.executed' "$_report_file")
+            if [ "$_relay_executed" != true ]; then
+                # THE TICK'S OWN EXECUTION IS READ BEFORE ITS OUTCOME (2026-09-07). A relay tick
+                # that did not run is not a healthy tick whatever its intents reconcile to, and
+                # `not_executed:<reason>` is `worker_outcome`'s own word for exactly this fact —
+                # one vocabulary, not a second. The transport reads `unknown` rather than a
+                # reachable verdict: a non-executing tick's intents say nothing about Slack.
+                # The relay fields below are still derived, because the parent may still ack.
+                _relay_reason=$(jq -r '.reason // ""' "$_report_file" 2>/dev/null || printf '')
+                [ -n "$_relay_reason" ] || _relay_reason=unstated
+                TICK_OUTCOME=tick_not_executed
+                BLOCKED_REASON="not_executed:${_relay_reason}"
+                TRANSPORT_VERDICT=unknown
+                if [ "$_intent_count" -gt 0 ]; then RELAY_STATE=pending; else RELAY_STATE=delivered; fi
+            elif [ "$_worker_outcome" = blocked ]; then
                 TICK_OUTCOME=work_blocked
                 BLOCKED_REASON=worker_reported_blocked
                 TRANSPORT_VERDICT=pending_parent
@@ -686,7 +717,7 @@ run_tick() {
     CURRENT_TICK=$_stamp CURRENT_STARTED=$_started CURRENT_REPORT=$_out CURRENT_TRANSCRIPT=$_transcript
     _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. ${RESULT_CLAUSE}"
     if [ "$RELAY" = true ]; then
-        _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
+        _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. The envelope must carry \`executed\`, true only if you actually read that command body and performed it. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
     fi
     if [ "$DRY_RUN" = true ]; then
         printf 'codex exec -C %s --dangerously-bypass-approvals-and-sandbox --output-last-message %s %s\n' "$REPO_ROOT" "$_out" "$_prompt"

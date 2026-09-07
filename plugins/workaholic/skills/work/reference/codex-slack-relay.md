@@ -4,15 +4,22 @@ The relay crosses a capability boundary; it does not move the capability. A conn
 `codex exec` worker returns intent and evidence to the connector-owning chat. Only that parent
 may search, read, post, reply, or react in Slack. OAuth material never enters either JSON file.
 
-The envelope protocol is `workaholic.codex-slack-relay/v1`. It contains a non-empty `tick_id`,
-the tick `outcome` (`ok`, `pending`, or `blocked`), and ordered `slack_intents`. Every intent has
-a stable, unique `key`, a `channel`, and one closed operation:
+The envelope protocol is `workaholic.codex-slack-relay/v1`. It contains a non-empty `tick_id`, a
+boolean `executed`, the tick `outcome` (`ok`, `pending`, or `blocked`), and ordered
+`slack_intents`. Every intent has a stable, unique `key`, a `channel`, and one closed operation:
 
 - `search_exact`: `query` plus `private_inclusive: true`;
 - `read_thread`: `thread_ts`;
 - `post_root`: exact `text`;
 - `post_reply`: exact `thread_ts` and `text`;
 - `add_reaction`: exact `timestamp` and `emoji`.
+
+`executed` is true only if the tick actually read its command body and performed it — the same
+wording `worker-result.schema.json` uses, so a tick and a worker declare the one fact the same
+way. It is **required**: an envelope that omits it fails closed as `malformed_envelope`, because a
+report that says nothing about whether the tick ran must never be graded as one that ran. A
+delivered relay never overrides it — a tick reporting `executed: false` records
+`tick_not_executed` with the transport verdict `unknown`, whatever its intents reconcile to.
 
 The text, lookup tokens, coordinates, and shape come from `workaholic:notify`; the relay never
 invents them. An envelope carries no `notified` field because requested delivery is not delivery.

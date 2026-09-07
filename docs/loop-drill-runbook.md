@@ -1814,6 +1814,17 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 | `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
 
+**`verify-codex-clock` also proves that a delivered relay is not an executed tick** (2026-09-07,
+ticket `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`). Three further
+load-bearing rows drive the acknowledgement branch directly, with no `codex` run involved: a tick
+whose envelope declares `executed: false` keeps its own `tick_not_executed` outcome and an
+`unknown` transport verdict after its intents are delivered; a tick the relay was genuinely
+withholding is still released to `ready` / `parent_connector`, byte-identically to before; and an
+envelope that omits `executed` altogether fails closed as `malformed_envelope` rather than being
+assumed to have run. Its breaker is written against the behaviour — restoring the unconditional
+healthy write grades the non-executing tick `ready`, and the drill fails. **What it does not
+cover**: the classification of a live relay tick, which needs a real `codex exec`.
+
 **`verify-work-drain` covers the hermetic half of a drained backlog, and its bound is stated on the
 drill itself.** It seeds each recovery state the ask names and asserts that the loop reads it as
 *work a pass would act on* rather than as an idle repository, that a worker exiting **zero** while

@@ -9049,6 +9049,67 @@ cmd_verify_codex_clock() {
     esac
     rm -rf "${_repo}/.codex-loop"
 
+    # A DELIVERED RELAY IS NOT AN EXECUTED TICK (2026-09-07, ticket
+    # `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`). The
+    # acknowledgement branch wrote `ready` and `parent_connector` from the relay word alone, so a
+    # tick that reported it had executed nothing came back healthy — MEASURED 2026-09-06 (#1052).
+    # The rows below drive that branch directly; no `codex` run is involved, so they are hermetic.
+    _ack_fixture() {
+        mkdir -p "${_repo}/.codex-loop"
+        cat > "${_repo}/.codex-loop/envelope.json" <<'RELAY_ENVELOPE'
+{"protocol":"workaholic.codex-slack-relay/v1","tick_id":"20260907T000000Z","executed":false,"reason":"no tick ran","outcome":"ok","slack_intents":[{"key":"k1","operation":"post_root","channel":"C1","text":"hi"}]}
+RELAY_ENVELOPE
+        cat > "${_repo}/.codex-loop/ack.json" <<'RELAY_ACK'
+{"protocol":"workaholic.codex-slack-relay/v1","tick_id":"20260907T000000Z","results":[{"key":"k1","outcome":"delivered"}]}
+RELAY_ACK
+        cat > "${_repo}/.codex-loop/status.json" <<STATUS_FIXTURE
+{"state":"blocked","outcome":"$1","blocked_reason":"$2","tick_id":"20260907T000000Z","started_at":"2026-09-07T00:00:00Z","finished_at":"2026-09-07T00:01:00Z","report_path":"${_repo}/.codex-loop/envelope.json","transcript_path":"","transport_verdict":"$3","next_due":null,"relay_envelope_path":"${_repo}/.codex-loop/envelope.json"}
+STATUS_FIXTURE
+    }
+    _ack_reading() {
+        jq -r '[.outcome, .transport_verdict] | join(" ")' "${_repo}/.codex-loop/status.json" 2>/dev/null || printf 'unreadable'
+    }
+
+    _ack_fixture tick_not_executed "not_executed:no tick ran" unknown
+    (cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --ack "${_repo}/.codex-loop/ack.json" >/dev/null 2>&1 || true)
+    case "$(_ack_reading)" in
+        "tick_not_executed unknown")
+            add_row "a_delivered_relay_leaves_a_non_executing_tick_unhealthy" true "the tick keeps its own outcome and an unknown transport after its intents were delivered" load ;;
+        *) add_row "a_delivered_relay_leaves_a_non_executing_tick_unhealthy" false "the acknowledgement graded it $(_ack_reading)" load ;;
+    esac
+
+    _ack_fixture relay_pending awaiting_parent_ack pending_parent
+    (cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --ack "${_repo}/.codex-loop/ack.json" >/dev/null 2>&1 || true)
+    case "$(_ack_reading)" in
+        "ready parent_connector")
+            add_row "a_delivered_relay_still_releases_a_pending_tick" true "a tick the relay was withholding records exactly what it recorded before" load ;;
+        *) add_row "a_delivered_relay_still_releases_a_pending_tick" false "a healthy relay tick came back $(_ack_reading)" load ;;
+    esac
+
+    _relay_contract="${_plugin}/skills/work/scripts/relay-contract.sh"
+    jq 'del(.executed)' "${_repo}/.codex-loop/envelope.json" > "${_tmp}/no-executed.json"
+    _unstated=$(sh "$_relay_contract" envelope "${_tmp}/no-executed.json" 2>&1 || true)
+    case "$_unstated" in
+        *malformed_envelope*)
+            add_row "an_envelope_that_states_no_execution_fails_closed" true "an envelope omitting executed is refused rather than assumed to have run" load ;;
+        *) add_row "an_envelope_that_states_no_execution_fails_closed" false "the envelope validated without executed: $(one_line "$_unstated")" load ;;
+    esac
+
+    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Restore the pre-repair acknowledgement — a
+    # healthy write on the relay word alone — and the non-executing tick must come back `ready`.
+    _oldack="${_plugin}/skills/work/scripts/oldack-codex-loop.sh"
+    sed 's/if (\.outcome == "relay_pending" or \.outcome == "ready") then/if true then/' \
+        "$_launcher" > "$_oldack"
+    _ack_fixture tick_not_executed "not_executed:no tick ran" unknown
+    (cd "$_repo" && PATH="${_bin}:$PATH" sh "$_oldack" --ack "${_repo}/.codex-loop/ack.json" >/dev/null 2>&1 || true)
+    case "$(_ack_reading)" in
+        "ready parent_connector")
+            add_row "false_healthy_ack_breaker" true "restoring the unconditional healthy write grades a non-executing tick ready (this drill can fail)" breaker ;;
+        *) add_row "false_healthy_ack_breaker" false "the neutered acknowledgement did not reproduce the false-healthy write: $(_ack_reading)" breaker ;;
+    esac
+    rm -f "$_oldack"
+    rm -rf "${_repo}/.codex-loop"
+
     mkdir -p "${_repo}/scripts"
     cp "$_shim_src" "${_repo}/scripts/codex-loop.sh"
     rm "$_launcher"

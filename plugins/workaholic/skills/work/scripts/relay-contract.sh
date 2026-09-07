@@ -12,12 +12,22 @@ fail() {
 
 command -v jq >/dev/null 2>&1 || fail jq_missing
 
+# `executed` IS REQUIRED, AND THAT IS THE POINT (2026-09-07, ticket
+# `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`). The envelope
+# carried the tick's `outcome` and nothing about whether the tick ran, so a report that said in
+# words that nothing had executed still validated, and the acknowledgement path graded it healthy
+# — MEASURED 2026-09-06 (#1052). It is the same fact `worker-result.schema.json` already makes
+# required of every worker, on the same wording, so the relay stops being the one path where a
+# run's own execution is unstated. An envelope that omits it is `malformed_envelope`, which
+# `classify_report` already grades `relay_malformed`: an absence of a reading is never a healthy
+# run, and a missing field is named by the gate rather than assumed true.
 validate_envelope() {
     file=$1
     [ -s "$file" ] || fail envelope_missing
     jq -e --arg protocol "$PROTOCOL" '
       .protocol == $protocol and
       (.tick_id | type == "string" and length > 0) and
+      (.executed | type == "boolean") and
       (.outcome == "ok" or .outcome == "pending" or .outcome == "blocked") and
       (.slack_intents | type == "array") and
       ([.slack_intents[].key] | length == (unique | length)) and
@@ -65,7 +75,7 @@ validate_ack() {
 case "$cmd" in
     envelope)
         validate_envelope "${2:-}"
-        jq -c '{ok:true,protocol,tick_id,outcome,intents:(.slack_intents|length)}' "$2"
+        jq -c '{ok:true,protocol,tick_id,executed,outcome,intents:(.slack_intents|length)}' "$2"
         ;;
     acknowledgement)
         validate_ack "${2:-}" "${3:-}"

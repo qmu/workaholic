@@ -38,10 +38,11 @@ a live supervisor, a succeeded tick, an unwritten record.
 ## Acceptance
 
 - [ ] A supervisor whose launch path is retired mid-run stops running against it. (#20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path.md)
-- [ ] Nothing records a healthy outcome or transport for a tick that did not execute. (#20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing.md)
+- [x] Nothing records a healthy outcome or transport for a tick that did not execute. (#20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing.md)
 - [ ] `--status` and start tell those three apart; a live pid holding the lock is never
       `never_started`. (#20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-07 — ticket archived — 20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing.md

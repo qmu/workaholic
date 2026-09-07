@@ -134,7 +134,9 @@ Extending that list is a **deliberate edit to this skill**, never a model judgem
 
 **With no bot token a directed post uses the resolved non-bot route and the run says which sender carried it.** It is never counted as delivered on a surface it did not use.
 
-**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. When every available route uses the addressee's own identity, the token is omitted by *Never mention the identity you are posting as* and the result records that nobody was paged.
+**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+
+The transport binding generalizes that deployment statement: when every available route carries the addressee's own sender identity, the same paged-nobody outcome applies.
 
 That sentence changes the post's **text** and nothing else: no key, cap, hold, addressee or gate moves with it, and `/moderate`'s `already_asked` keys on the step id `lib/question-id.sh` derives from the key rather than on the text, so a question whose body gained the clause is never re-asked. The alternative fork — *a deployment emitting directed shapes must provision the token* — is a provisioning act rather than one a run can deliver, and is recorded here as the alternative rather than taken.
 

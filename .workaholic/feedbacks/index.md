@@ -698,4 +698,5 @@
 * [Separate the loop's finish records from the moderation log, rather than patching each reader](20260907062639-separate-the-loop-s-finish-records-from-the-moderation-log-rather-than-patching-each-reader.md)
 * [A scratchpad redirect must not assume > truncates](20260907070309-a-scratchpad-redirect-must-not-assume-truncates.md)
 * [Keep a handoff branch mergeable while it waits for the person](20260907070904-keep-a-handoff-branch-mergeable-while-it-waits-for-the-person.md)
+* [Correct the foreground Codex loop handoff reading](20260907134849-correct-the-foreground-codex-loop-handoff-reading.md)
 <!-- okf:generated:end -->

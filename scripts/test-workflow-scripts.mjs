@@ -19956,7 +19956,7 @@ printf '%s\\n' "$*" >> ${callLog}
 case "$*" in
   *"--method POST"*) cat >/dev/null; echo '{"html_url":"https://example.test/pr/7","number":7}' ;;
   *"--method PATCH"*) cat >/dev/null; echo '{"html_url":"https://example.test/pr/7","number":7}' ;;
-  *pulls*head=*) if [ -f ${state} ]; then echo '{"number":7,"url":"https://example.test/pr/7"}'; else echo ""; fi ;;
+  *pulls*head=*) if [ -f ${state} ]; then printf '%s\\n' '{"number":7,"url":"https://example.test/pr/7","body":"old\\nbody"}'; else echo ""; fi ;;
   *) echo "" ;;
 esac
 `);

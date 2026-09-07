@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Share loop snapshots and atomic state](work-20260908-034255.md) - The loop now shares one evidence snapshot and records local state through revision-checked atomic writes.
 * [Package nested portable skill assets](work-20260908-031557.md) - Portable workflow builds now include and verify nested dependencies and assets.
 * [work-20260907-091552](work-20260907-091552.md) - A delivered relay is not an executed tick, and a live supervisor is not an unwritten record — two readings that graded a loop doing nothing as healthy; retired plugin paths now recover through the sanctioned resolver.
 * [work-20260907-081753](work-20260907-081753.md) - A handoff claim whose base has moved is offered to the catch-up — the one class of branch guaranteed to sit open for a long time was the one class the catch-up never touched.

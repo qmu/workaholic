@@ -8852,21 +8852,21 @@ cmd_verify_stage() {
         add_row "stage_never_enters_the_state" false "the declared stage moved the lifecycle reading: states='${_states}'" load
     fi
 
-    # 4. THE GATE: 観察中 originates nothing; the other two and the unstaged one propose exactly
-    #    as before. This is the mission's central behaviour.
+    # 4. THE PLANNING INPUT: 観察中 remains available to the agent beside every other stage.
+    #    The declaration informs judgement; it does not mechanically stop learning.
     _s=$(_survey)
     _sel=$(_f "$_s" '.selected | sort | join(",")')
-    _obs=$(_f "$_s" '[.refused[] | select(.slug == "settled") | .reason] | join("")')
-    if [ "$_obs" = "observing" ] && [ "$_sel" = "improving,running,unstaged" ]; then
-        add_row "observing_originates_nothing" true "the 観察中 direction is refused observing and opens no issue; every other stage proposes" load
+    _obs=$(_f "$_s" '[.eligible[] | select(.slug == "settled") | .stage] | join("")')
+    if [ "$_obs" = "観察中" ] && [ "$_sel" = "improving,running,settled,unstaged" ]; then
+        add_row "observing_remains_eligible" true "the 観察中 direction remains eligible context beside every other stage" load
     else
-        add_row "observing_originates_nothing" false "expected observing + improving,running,unstaged; got '${_obs}' / '${_sel}'" load
+        add_row "observing_remains_eligible" false "expected 観察中 + improving,running,settled,unstaged; got '${_obs}' / '${_sel}'" load
     fi
-    _keep=$(_f "$_s" '[.refused[] | select(.slug == "settled") | (.pace|tostring), (.overdue|tostring), (.dormant|tostring), (.quiescent|tostring)] | length')
+    _keep=$(_f "$_s" '[.eligible[] | select(.slug == "settled") | (.pace|tostring), (.overdue|tostring), (.dormant|tostring), (.quiescent|tostring)] | length')
     if [ "$_keep" = "4" ]; then
-        add_row "observing_still_visible" true "the refused row still carries every reading, so a settled direction stays visible" load
+        add_row "observing_still_visible" true "the eligible row carries every reading, so the agent sees stage and evidence together" load
     else
-        add_row "observing_still_visible" false "a refused observing row lost its readings" load
+        add_row "observing_still_visible" false "the observing row lost its readings" load
     fi
 
     # 5. THE ORDER: 改良中 leads, with membership unchanged.
@@ -8934,29 +8934,22 @@ cmd_verify_stage() {
         add_row "writer_set_is_still_three" false "the writer set moved" load
     fi
 
-    # 9. THE BREAKER, written against the BEHAVIOUR rather than a return shape: the `observing`
-    #    gate wired at a DERIVED reading (`dormant`) instead of the declared field. The output
-    #    shape is identical — a refusal named `observing` on a row — so a breaker written
-    #    against the shape would pass; row 4 must fail, because evidence would be silencing a
-    #    direction the operator never settled. That substitution is this mission's central
-    #    failure mode.
+    # 9. THE BREAKER: restore the retired stage gate. Row 4 must fail because a declaration
+    #    that should inform the agent would mechanically remove the direction from its choices.
     _broken="${_tmp}/broken"
     mkdir -p "$_broken"
     cp -R "${REPO_ROOT}/plugins/workaholic/." "${_broken}/"
-    sed 's/elif (\.stage == "観察中") then "observing"/elif (.dormant == true) then "observing"/' \
+    sed '/elif \.owns != "mine" then "not_mine"/a\
+           elif (.stage == "観察中") then "observing"' \
         "$_srv" > "${_broken}/skills/propose/scripts/survey-strategies.sh"
     _bs=$( cd "$_fx" && sh "${_broken}/skills/propose/scripts/survey-strategies.sh" \
         --open-proposals "${_tmp}/open.json" "30 days ago" "$_wh" 2>/dev/null || true )
     _bsel=$(_f "$_bs" '.selected | sort | join(",")')
     _bobs=$(_f "$_bs" '[.refused[] | select(.slug == "settled") | .reason] | join("")')
-    # The break fires when the wired-at-evidence survey no longer reproduces row 4: either the
-    # declared direction stops being the refused one, or directions the operator never settled
-    # get silenced too. Over this fixture it is the second — every direction is `dormant`, so
-    # evidence silences all four and `selected` empties.
-    if [ "$_bobs" != "observing" ] || [ "$_bsel" != "improving,running,unstaged" ]; then
-        add_row "stage_breaker" true "with the gate wired at a derived reading (dormant) the silence no longer follows the declaration: refused='${_bobs}' selected='${_bsel}' (this drill can fail)" breaker
+    if [ "$_bobs" = "observing" ] && [ "$_bsel" = "improving,running,unstaged" ]; then
+        add_row "stage_breaker" true "restoring the retired observing gate removes the settled direction, so the eligibility assertion can fail" breaker
     else
-        add_row "stage_breaker" false "the breaker did not break: a derived reading reproduced the declared behaviour exactly, so row 4 proves nothing" breaker
+        add_row "stage_breaker" false "the breaker did not restore the observing refusal: refused='${_bobs}' selected='${_bsel}'" breaker
     fi
 
     # 10. THE NEGATIVE SPACE.
@@ -10934,10 +10927,14 @@ cmd_verify_stranded_publication() {
         {
             printf '#!/bin/sh\ncase "$*" in\n'
             printf "  *rate_limit*) printf '5000\\\\n'; exit 0 ;;\n"
-            printf "  *\"/merge\"*) printf '{\"merged\": true}\\\\n'; exit 0 ;;\n"
+            printf "  *\"/merge\"*) printf '{\"merged\":true,\"sha\":\"fixture-merge-sha\"}\\\\n'; exit 0 ;;\n"
             printf "  *\"pulls/41/files\"*) printf '[{\"status\":\"added\",\"filename\":\".workaholic/feedbacks/20260102000000-b.md\",\"patch\":\"+x\"},{\"status\":\"modified\",\"filename\":\".workaholic/feedbacks/index.md\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
             printf "  *\"pulls/42/files\"*) printf '[{\"status\":\"modified\",\"filename\":\"src/app.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
             printf "  *\"pulls/43/files\"*) printf '[{\"status\":\"added\",\"filename\":\"src/other.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/41\") sha=\$(git rev-parse origin/${_mech}); printf '{\"state\":\"open\",\"merged\":false,\"head\":{\"sha\":\"%%s\"}}\\\\n' \"\$sha\"; exit 0 ;;\n"
+            printf "  *\"pulls/42\") sha=\$(git rev-parse origin/${_content}); printf '{\"state\":\"open\",\"merged\":false,\"head\":{\"sha\":\"%%s\"}}\\\\n' \"\$sha\"; exit 0 ;;\n"
+            printf "  *\"pulls/43\") sha=\$(git rev-parse origin/${_clean}); printf '{\"state\":\"open\",\"merged\":false,\"head\":{\"sha\":\"%%s\"}}\\\\n' \"\$sha\"; exit 0 ;;\n"
+            printf "  *\"check-runs\"*) printf '{\"total_count\":0,\"check_runs\":[]}\\\\n'; exit 0 ;;\n"
             printf '  *"pulls?state=open"*)\n'
             for _n in "$@"; do
                 case "$_n" in

@@ -3,6 +3,7 @@ created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260908031036-pin-loop-contracts-and-package-nested-assets.md]
+claim: work-20260908-034255
 ---
 
 # Share loop snapshots and atomic state

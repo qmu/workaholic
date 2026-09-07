@@ -1,30 +1,31 @@
 ---
+status: done
 created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
-depends_on: [20260908031038-unify-loop-transports-and-durable-outbox.md, 20260908031039-make-publication-and-claim-recovery-safe.md]
+depends_on: [20260908031040-connect-runtime-capabilities-and-adapters.md, 20260908031039-make-publication-and-claim-recovery-safe.md]
 claim: work-20260908-043332
 claim_unit: batch-20260908043329
 ---
 
-# Connect runtime capabilities and adapters
+# Resume delivery and preserve report sections
 
 ## Overview
 
-Implement P4 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P4; consult P4 for the detailed procedure.
+Implement P8 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P8; consult P8 for the detailed procedure.
 
 ## Key Files
 
-- `plugins/workaholic/skills/{work,loops,runtime,workaholify}/`
-- `plugins/workaholic/commands/{work,infinite-development}.md`
-- `scripts/codex-loop.sh`
+- `plugins/workaholic/skills/{drive,gather,ship,story,moderate}/`
+- `H3 P8 delivery writer and steps.json`
 
 ## Implementation Steps
 
-1. Implement H2 capability selection and native/CLI adapters without model or permission overrides.
-2. Connect supervisor planning to plan-turn; share atomic fork-before-dispatch ownership including no-flock systems.
-3. Preserve original worker outcomes and typed retry counters; validate intervals before effects; keep dry-run pure.
-4. Preserve legacy status/relay contracts and explicit state migration; retain anchored interruptible native cadence.
+1. Bind release scan, checks and REST expected SHA to the pushed worktree head.
+2. Persist waiting_checks and retry delivery even after already_current; defer unreadable checks while retaining explicit no_checks semantics.
+3. Require merged evidence before cleanup; recover branch-independent unsent outbox.
+4. Replace only bounded markdown sections; avoid identical PR PATCH and unknown-as-absent creation.
+5. Register existing 33 maintenance steps in current order before P5 optimization; separate capture, acceptance, delivery and occurrence state.
 
 ## Policies
 
@@ -37,7 +38,7 @@ Implement P4 of `docs/agentic-loop-redesign.md`, H3. The operator requested star
 
 ### Acceptance Criteria
 
-- Contract fixtures cover both adapters, long workers, restart, PID reuse, duplicate dispatch and stop; real native interruption and automatic reports require separate H5 evidence.
+- Catch-up/pending/next-tick-green merges without reimplementation; changed head refuses; report sections preserve each other; notifications remain recoverable after branch deletion.
 - H4 unchanged contracts remain compatible; intentional behavior repairs have named B-number regression evidence.
 
 ### Verification Method

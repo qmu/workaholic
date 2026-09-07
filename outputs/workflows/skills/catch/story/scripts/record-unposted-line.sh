@@ -91,11 +91,9 @@ existing=$(sed -n "/^${HEADING}\$/{n;n;p;n;p;n;p;}" "$story" 2>/dev/null || true
 
 if [ "$cleared" = "true" ]; then
     [ -n "$existing" ] || emit true "" false
-    tmp=$(mktemp)
-    sed "/^${HEADING}\$/,\$d" "$story" > "$tmp"
-    printf '%s\n' "$(cat "$tmp")" > "${tmp}.trimmed"
-    mv "${tmp}.trimmed" "$story"
-    rm -f "$tmp"
+    tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT HUP INT TERM
+    awk -v heading="$HEADING" '$0==heading {skip=1;next} skip && /^## / {skip=0} !skip {print}' "$story" > "$tmp"
+    cat "$tmp" > "$story"
     emit true "" true
 fi
 
@@ -105,22 +103,8 @@ if [ "$existing" = "$wanted" ]; then
     emit true "" false
 fi
 
-tmp=$(mktemp)
-# Drop any previous section (it runs to end of file -- the section is always written last), then
-# append the current answer. Exactly one blank line before the heading, whatever the body ended
-# with.
-sed "/^${HEADING}\$/,\$d" "$story" > "$tmp"
-printf '%s' "$(cat "$tmp")" > "${tmp}.trimmed"
-mv "${tmp}.trimmed" "$tmp"
-{
-    echo ""
-    echo ""
-    echo "$HEADING"
-    echo ""
-    echo "shape: $shape"
-    echo "reason: $why"
-    echo "text: $text"
-} >> "$tmp"
-mv "$tmp" "$story"
+tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT HUP INT TERM
+printf 'shape: %s\nreason: %s\ntext: %s\n' "$shape" "$why" "$text" > "$tmp"
+sh "$(dirname -- "$0")/replace-section.sh" "$story" "$HEADING" "$tmp" >/dev/null
 
 emit true "" true

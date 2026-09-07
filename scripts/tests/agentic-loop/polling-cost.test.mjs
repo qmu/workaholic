@@ -26,6 +26,20 @@ test('P5 independent due and provider retry boundaries execute once', () => {
   r=invoke(script,{...base,now_epoch:200,state:{local_fingerprint:'same',maintenance_due_epoch:200,remote_due_epoch:900}}).data; assert.deepEqual(r.due,['maintenance']);
 });
 
+test('P5 maintenance cadence state selects no unchanged step twice inside its hour', t => {
+  const dir=mkdtempSync(join(tmpdir(),'workaholic-maintenance-plan-')); t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  run(['git','init','-q','-b','main',dir]); writeFileSync(join(dir,'tracked'),'x'); run(['git','-C',dir,'add','tracked']); run(['git','-C',dir,'-c','user.name=T','-c','user.email=t@example.com','commit','-qm','fixture']);
+  const state=join(skills,'moderate/scripts/runtime-plan.sh'); const planner=join(skills,'moderate/scripts/plan-steps.sh');
+  const prepare=now=>run(['sh',state,'prepare','--root',dir,'--now',String(now)],{cwd:dir});
+  const first=prepare(10000); assert.equal(first.status,0,first.stderr); const firstInput=join(dir,'first.json'); writeFileSync(firstInput,first.stdout);
+  assert.equal(JSON.parse(run(['sh',planner,'--input',firstInput]).stdout).data.count,33);
+  const completed=run(['sh',state,'complete','--root',dir,'--now','10000','--executed',JSON.parse(readFileSync(join(skills,'moderate/scripts/steps.json'))).steps.map(x=>x.id).join(',')],{cwd:dir});
+  assert.equal(completed.status,0,completed.stderr);
+  const second=prepare(10001); const secondInput=join(dir,'second.json'); writeFileSync(secondInput,second.stdout);
+  assert.deepEqual(JSON.parse(second.stdout).changed_snapshots,[]);
+  assert.equal(JSON.parse(run(['sh',planner,'--input',secondInput]).stdout).data.count,0);
+});
+
 test('P5 inbox cursor advances only after durable deduplicated captures', t => {
   const dir=mkdtempSync(join(tmpdir(),'workaholic-inbox-')); t.after(()=>rmSync(dir,{recursive:true,force:true}));
   run(['git','init','-q','-b','main',dir]); run(['git','-C',dir,'config','user.email','test@example.com']);

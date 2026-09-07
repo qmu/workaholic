@@ -1,34 +1,31 @@
 ---
+status: done
 created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
-depends_on: [20260908031036-pin-loop-contracts-and-package-nested-assets.md, 20260908031037-share-loop-snapshots-and-atomic-state.md, 20260908031038-unify-loop-transports-and-durable-outbox.md, 20260908031039-make-publication-and-claim-recovery-safe.md, 20260908031040-connect-runtime-capabilities-and-adapters.md, 20260908031041-normalize-inputs-and-continue-strategy-learning.md, 20260908031042-share-discovery-across-manual-entrypoints.md, 20260908031043-resume-delivery-and-preserve-report-sections.md, 20260908031044-reuse-observations-and-bound-polling-cost.md]
+depends_on: [20260908031040-connect-runtime-capabilities-and-adapters.md]
 claim: work-20260908-043332
 claim_unit: batch-20260908043329
 ---
 
-# Finish loop contracts and portable migration
+# Normalize inputs and continue strategy learning
 
 ## Overview
 
-Implement P9 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P9; consult P9 for the detailed procedure.
+Implement P6 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P6; consult P6 for the detailed procedure.
 
 ## Key Files
 
-- `CLAUDE.md`
-- `README.md`
-- `plugins/workaholic/{README.md,rules,commands,hooks,skills}/`
-- `scripts/build-plugins/`
-- `.github/workflows/`
-- `docs/`
+- `plugins/workaholic/skills/{propose,specificate,feedback,strategy}/`
+- `plugins/workaholic/rules/workaholic.md`
 
 ## Implementation Steps
 
-1. Assign each execution decision one owner and replace H4 contradictions in current instructions.
-2. Generate shared command fragments and make hooks adapters over writer-owned validators.
-3. Replace obsolete prose pins with behavioral regressions while accounting for every moved test.
-4. Verify all distribution forms, synchronized version sources and regenerated outputs.
-5. Measure actual selected-path context and document migration, rollback and unverified live boundaries.
+1. Separate original subject and authorization from transport actor in normalize-input.
+2. Page bounded inbound issues with continuation and preserve globally reachable inputs.
+3. Share strategy observations; replace silence/arrived brakes while preserving owner, stage, lineage and WIP constraints.
+4. Validate the five plan variants; allow single-ticket hypotheses without changing the mission floor.
+5. Track learning evidence and stop unchanged repeated hypotheses; recover captured unpublished feedback.
 
 ## Policies
 
@@ -41,7 +38,7 @@ Implement P9 of `docs/agentic-loop-redesign.md`, H3. The operator requested star
 
 ### Acceptance Criteria
 
-- Compatibility fixtures, full smoke, hermetic drills, metadata/build/freshness and docs build pass; retired behavior is absent from current instructions; live gaps remain explicit.
+- Fixtures cover bot-carried human asks, machine proposals, unknown legacy inputs, multiple loose tickets, more than 20 asks and a new hypothesis after mission completion.
 - H4 unchanged contracts remain compatible; intentional behavior repairs have named B-number regression evidence.
 
 ### Verification Method

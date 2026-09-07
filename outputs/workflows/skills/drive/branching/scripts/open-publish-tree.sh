@@ -35,6 +35,14 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 base="${1:-main}"
 PUBLISH_BRANCH="publish-main"
 
+if [ -n "${WORKAHOLIC_PUBLICATION_ID:-}" ]; then
+  out=$(sh "${SCRIPT_DIR}/publication.sh" open --transaction "$WORKAHOLIC_PUBLICATION_ID" --base "$base")
+  if [ "$(printf '%s' "$out" | jq -r .ok)" = true ]; then
+    printf '%s' "$out" | jq -c '{ok:true,path:.path,branch:"publish-main",base:.base,sha:.sha}'
+  else printf '%s\n' "$out"; fi
+  exit 0
+fi
+
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo '{"error": "not inside a git repository"}' >&2
   exit 1

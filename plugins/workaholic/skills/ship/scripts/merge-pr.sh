@@ -98,14 +98,17 @@ MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_
 
 # THE BRANCH'S OWN CHECKS ARE READ BEFORE THE MERGE (2026-09-03). `drive/scripts/branch-checks.sh`
 # is the one derivation of the gate and its header carries why, what it refuses on, and what it
-# deliberately does not: it refuses on `checks_red` and `checks_pending` and PASSES on every
-# other degradation, so a repository whose checks cannot be read here is exactly as ungated as
-# before. A refusal leaves the pull request open and the claim standing; the next tick's
+# deliberately does not: it refuses on `checks_red` and `checks_pending`, and defers every
+# unreadable result. A refusal leaves the pull request open and the claim standing; the next tick's
 # `retry-undelivered.sh` delivers it once the checks conclude.
 CHECK_GATE=$(sh "${SCRIPT_DIR}/../../drive/scripts/branch-checks.sh" "${pr_number}" "$branch_head" 2>/dev/null || printf '')
-CHECK_GATE_DECISION=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')
-CHECK_GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // ""' 2>/dev/null || printf '')
-if [ "$CHECK_GATE_DECISION" != "pass" ]; then
+CHECK_GATE_DECISION=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "defer"' 2>/dev/null || printf 'defer')
+CHECK_GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // "checks_unreadable"' 2>/dev/null || printf 'checks_unreadable')
+CHECK_GATE_HEAD=$(printf '%s' "$CHECK_GATE" | jq -r '.head // empty' 2>/dev/null || printf '')
+if [ "$CHECK_GATE_DECISION" != "pass" ] || [ -z "$branch_head" ] || [ -z "$CHECK_GATE_HEAD" ] || [ "$CHECK_GATE_HEAD" != "$branch_head" ]; then
+  if [ -z "$branch_head" ]; then CHECK_GATE_REASON=branch_head_unreadable;
+  elif [ -z "$CHECK_GATE_HEAD" ]; then CHECK_GATE_REASON=checks_head_unreadable;
+  elif [ "$CHECK_GATE_HEAD" != "$branch_head" ]; then CHECK_GATE_REASON=head_changed; fi
   CHECK_GATE_FAILING=$(printf '%s' "$CHECK_GATE" | jq -c '.failing // []' 2>/dev/null || printf '[]')
   echo '{"merged": false, "reason": "'"$CHECK_GATE_REASON"'", "pr_number": '"$pr_number"', "failing": '"$CHECK_GATE_FAILING"', "detail": "the branch'"'"'s own checks did not pass; nothing was merged and the pull request is left open for the next delivery retry"}' >&2
   exit 1

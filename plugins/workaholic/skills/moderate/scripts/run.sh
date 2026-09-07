@@ -80,6 +80,7 @@ PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
 # also cheapest-first: the log, then the reads, then the writes, then the ask.
 REGISTRY="${SCRIPT_DIR}/steps.json"
 STEPS=$(jq -r '.steps[].id' "$REGISTRY" 2>/dev/null | tr '\n' ' ')
+ALL_STEPS=$STEPS
 [ -n "$STEPS" ] || { printf '{"tick":"","error":"steps_registry_unreadable"}\n'; exit 1; }
 
 TICK=''
@@ -109,7 +110,8 @@ if [ -n "$PLAN_INPUT" ]; then
     planned=$(sh "${SCRIPT_DIR}/plan-steps.sh" --input "$PLAN_INPUT" 2>/dev/null || printf '')
     [ "$(printf '%s' "$planned" | jq -r '.status // "error"' 2>/dev/null || printf error)" = ok ] \
         || { printf '{"tick":"","error":"step_plan_unreadable"}\n'; exit 1; }
-    STEPS=$(printf '%s' "$planned" | jq -r '.data.steps[].id' | tr '\n' ' ')
+    PLANNED_STEPS=$(printf '%s' "$planned" | jq -r '.data.steps[].id' | tr '\n' ' ')
+    STEPS=$ALL_STEPS
 fi
 
 [ -n "$TICK" ] || TICK=$(sh "${SCRIPT_DIR}/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
@@ -304,6 +306,7 @@ PULLS_WANTED=0
 for _pw in merge-conflicts stuck-prs; do
     if [ -n "$ONLY" ] && ! in_list "$_pw" "$ONLY"; then continue; fi
     if [ -n "$SKIP" ] && in_list "$_pw" "$SKIP"; then continue; fi
+    if [ -n "${PLANNED_STEPS+x}" ] && ! in_list "$_pw" "$PLANNED_STEPS"; then continue; fi
     PULLS_WANTED=1
 done
 
@@ -402,6 +405,7 @@ run_persist() {
 # already durable and `blocked-tick` reads it where it is written. One fewer commit, one fewer
 # push, and nothing lost.
 
+executed_steps=''
 for step in $STEPS; do
     if [ -n "$ONLY" ] && ! in_list "$step" "$ONLY"; then
         continue
@@ -410,6 +414,12 @@ for step in $STEPS; do
         summary='skipped by the caller'
         logged=$(log_step "$step" skipped "$summary")
         emit_row "$step" skipped requested "$summary" "" "$logged" "" 0
+        continue
+    fi
+    if [ -n "${PLANNED_STEPS+x}" ] && ! in_list "$step" "$PLANNED_STEPS"; then
+        summary='not due and no relevant snapshot changed'
+        logged=$(log_step "$step" skipped "$summary")
+        emit_row "$step" skipped cadence "$summary" "" "$logged" "" 0
         continue
     fi
     # THE TICK'S VOICE IS NEVER STARVED (2026-08-21). The deadline cuts steps in order and
@@ -426,6 +436,7 @@ for step in $STEPS; do
     fi
 
     script="${SCRIPT_DIR}/step-${step}.sh"
+    executed_steps="${executed_steps}${executed_steps:+,}${step}"
     if [ ! -f "$script" ]; then
         summary="no step script at step-${step}.sh"
         logged=$(log_step "$step" degraded "$summary")

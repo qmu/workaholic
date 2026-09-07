@@ -528,4 +528,4 @@ tamurayoshiya <a@qmu.jp>
 The build follows nested script and reference dependencies, together with explicit entries in
 `scripts/build-plugins/skill-dependencies.json`. Portable consumer and legacy contract regressions
 run with `node --test scripts/tests/agentic-loop/*.test.mjs`; see
-[the contract map](docs/agentic-loop-contracts.md). Generated `outputs/` are rebuilt from source.
+[the contract map](docs/agentic-loop-contracts.md) and [the v1 migration and rollback guide](docs/agentic-loop-migration.md). Generated `outputs/` are rebuilt from source.

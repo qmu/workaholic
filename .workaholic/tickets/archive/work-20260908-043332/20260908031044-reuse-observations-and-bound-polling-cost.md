@@ -1,30 +1,30 @@
 ---
+status: done
 created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
-depends_on: [20260908031040-connect-runtime-capabilities-and-adapters.md]
+depends_on: [20260908031040-connect-runtime-capabilities-and-adapters.md, 20260908031041-normalize-inputs-and-continue-strategy-learning.md, 20260908031043-resume-delivery-and-preserve-report-sections.md]
 claim: work-20260908-043332
 claim_unit: batch-20260908043329
 ---
 
-# Normalize inputs and continue strategy learning
+# Reuse observations and bound polling cost
 
 ## Overview
 
-Implement P6 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P6; consult P6 for the detailed procedure.
+Implement P5 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P5; consult P5 for the detailed procedure.
 
 ## Key Files
 
-- `plugins/workaholic/skills/{propose,specificate,feedback,strategy}/`
-- `plugins/workaholic/rules/workaholic.md`
+- `plugins/workaholic/skills/{loops,propose,moderate,runtime,transport}/`
+- `P8 steps.json`
 
 ## Implementation Steps
 
-1. Separate original subject and authorization from transport actor in normalize-input.
-2. Page bounded inbound issues with continuation and preserve globally reachable inputs.
-3. Share strategy observations; replace silence/arrived brakes while preserving owner, stage, lineage and WIP constraints.
-4. Validate the five plan variants; allow single-ticket hypotheses without changing the mission floor.
-5. Track learning evidence and stop unchanged repeated hypotheses; recover captured unpublished feedback.
+1. Persist inbox capture before advancing cursors; use bounded overlap and explicit recovery reconciliation.
+2. Connect maintenance triggers to the registry and share snapshot observations.
+3. Keep fixed 300-second default and explicit interval priority; make adaptive polling opt-in, separate exploration/maintenance due times and provider backoff.
+4. Measure actual calls, bytes, time and nullable provider usage; bound recoverable snapshots/logs without dropping incomplete records.
 
 ## Policies
 
@@ -37,7 +37,7 @@ Implement P6 of `docs/agentic-loop-redesign.md`, H3. The operator requested star
 
 ### Acceptance Criteria
 
-- Fixtures cover bot-carried human asks, machine proposals, unknown legacy inputs, multiple loose tickets, more than 20 asks and a new hypothesis after mission completion.
+- 100 advanced fake-clock idle polls launch zero LLMs and zero full backlog scans; separate TTL/due/retry cases execute necessary work once; restart and compaction preserve deduplication.
 - H4 unchanged contracts remain compatible; intentional behavior repairs have named B-number regression evidence.
 
 ### Verification Method

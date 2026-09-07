@@ -330,7 +330,7 @@ fixture は pure contract、adapter、consumer migration、実環境 drill に�
 
 ### この時点で完了していること、していないこと
 
-完了しているのは、全ソース Markdown のレビュー、主要スクリプトの追加調査、この設計書、`docs/public/agentic-loop-audit.json`、ドキュメントの navigation と build です。**この後半に「新設」と書かれたプログラム、schema、テストはまだ存在しません。既存ファイルの不具合修正も未実施です。** スクリプト所見は、別途「再現済み」と書かない限り静的分析です。
+完了しているのは、全ソース Markdown のレビュー、主要スクリプトの追加調査、この設計書、`docs/public/agentic-loop-audit.json`、ドキュメントの navigation と build です。**後半に「新設」と記したプログラム、schema、テストは v1.0.334 の実装対象として追加されました。実装結果と未確認境界は `agentic-loop-migration.md` に記録します。** スクリプト所見は、別途「再現済み」と書かない限り静的分析です。
 
 引き継ぎ時は `main`、基準 HEAD は `a41522ab3`。設計資料は未コミットです。`CODEX-HANDOFF.md` は前の作業に関する利用者側の未追跡ファイルであり、今回の変更へ混ぜたり書き換えたりしません。既存の前景ループのミッションは完了済みです。その古い未完了メモを読んで再開しないでください。
 

@@ -1,30 +1,31 @@
 ---
+status: done
 created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
-depends_on: [20260908031037-share-loop-snapshots-and-atomic-state.md]
+depends_on: [20260908031038-unify-loop-transports-and-durable-outbox.md, 20260908031039-make-publication-and-claim-recovery-safe.md]
 claim: work-20260908-043332
 claim_unit: batch-20260908043329
 ---
 
-# Make publication and claim recovery safe
+# Connect runtime capabilities and adapters
 
 ## Overview
 
-Implement P7a of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P7a; consult P7 for the detailed procedure.
+Implement P4 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P4; consult P4 for the detailed procedure.
 
 ## Key Files
 
-- `plugins/workaholic/skills/branching/scripts/{open-publish-tree,publish-tree-pr,publish-tree-commit,close-publish-tree}.sh`
-- `plugins/workaholic/skills/drive/scripts/{claim,claim-arbitrate}.sh`
+- `plugins/workaholic/skills/{work,loops,runtime,workaholify}/`
+- `plugins/workaholic/commands/{work,infinite-development}.md`
+- `scripts/codex-loop.sh`
 
 ## Implementation Steps
 
-1. Implement the P7 publication transaction before enabling concurrent runtime publication.
-2. Preserve clean unpublished commits and resume the same transaction/SHA/branch after push failure.
-3. Keep PR lookup unknown separate from successful absence.
-4. Acquire stable-order arbiters, re-fetch overlap while held, and release only receipt-owned SHAs using compare-and-delete.
-5. Retain degraded arbitration and initialize claim liveness with recoverable post-push failure.
+1. Implement H2 capability selection and native/CLI adapters without model or permission overrides.
+2. Connect supervisor planning to plan-turn; share atomic fork-before-dispatch ownership including no-flock systems.
+3. Preserve original worker outcomes and typed retry counters; validate intervals before effects; keep dry-run pure.
+4. Preserve legacy status/relay contracts and explicit state migration; retain anchored interruptible native cadence.
 
 ## Policies
 
@@ -37,7 +38,7 @@ Implement P7a of `docs/agentic-loop-redesign.md`, H3. The operator requested sta
 
 ### Acceptance Criteria
 
-- Throwaway repos prove concurrent publication, failed-push resumption, unknown lookup and arbiter races; stale cleanup cannot delete a new owner lock.
+- Contract fixtures cover both adapters, long workers, restart, PID reuse, duplicate dispatch and stop; real native interruption and automatic reports require separate H5 evidence.
 - H4 unchanged contracts remain compatible; intentional behavior repairs have named B-number regression evidence.
 
 ### Verification Method

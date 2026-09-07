@@ -104,12 +104,20 @@ fi
 
 # Keep this legacy entry point's two-field response while delegating the effect
 # and its durable evidence to transport/v1. Callers may supply a stable ID for
-# retries; otherwise this compatibility wrapper mints one for this occurrence.
+# retries. The compatibility fallback derives one from the complete effect
+# context, making an identical retry idempotent even when its caller has not yet
+# learned the explicit ID option. Callers with a distinct recurrence supply an
+# occurrence ID so equal prose at a later event remains a separate effect.
 TRANSPORT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/../../transport/scripts" && pwd)
 REQUEST=$(mktemp); trap 'rm -f "$REQUEST"' EXIT HUP INT TERM
-request_id=${WORKAHOLIC_TRANSPORT_REQUEST_ID:-notify-$(date +%s)-$$}
 workspace=${WORKAHOLIC_SLACK_WORKSPACE:-legacy-token}
 operation=post_root; [ "$THREAD_TS_GIVEN" = 0 ] || operation=post_reply
+occurrence=${WORKAHOLIC_TRANSPORT_OCCURRENCE_ID:-}
+if [ -n "${WORKAHOLIC_TRANSPORT_REQUEST_ID:-}" ]; then
+  request_id=$WORKAHOLIC_TRANSPORT_REQUEST_ID
+else
+  request_id=notify-$(printf '%s\n' "$workspace" "$CHANNEL" "$operation" "$THREAD_TS" "$occurrence" "$TEXT" | sha256sum | cut -c1-48)
+fi
 binding_id=$(printf '%s' "slack-token:$workspace:$CHANNEL" | sha256sum | cut -c1-32)
 jq -cn --arg rid "$request_id" --arg op "$operation" --arg root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" \
   --arg instance "notify-$binding_id" --arg binding "$binding_id" --arg workspace "$workspace" --arg channel "$CHANNEL" \

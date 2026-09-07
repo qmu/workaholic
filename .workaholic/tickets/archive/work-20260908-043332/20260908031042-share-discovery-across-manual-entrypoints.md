@@ -1,29 +1,30 @@
 ---
+status: done
 created_at: 2026-09-08T03:10:36+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
-depends_on: [20260908031040-connect-runtime-capabilities-and-adapters.md, 20260908031041-normalize-inputs-and-continue-strategy-learning.md, 20260908031043-resume-delivery-and-preserve-report-sections.md]
+depends_on: [20260908031041-normalize-inputs-and-continue-strategy-learning.md, 20260908031039-make-publication-and-claim-recovery-safe.md]
 claim: work-20260908-043332
 claim_unit: batch-20260908043329
 ---
 
-# Reuse observations and bound polling cost
+# Share discovery across manual entrypoints
 
 ## Overview
 
-Implement P5 of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P5; consult P5 for the detailed procedure.
+Implement P7b of `docs/agentic-loop-redesign.md`, H3. The operator requested starting this redesign on 2026-09-08. Its H1 decisions and H2 boundaries are authoritative; the earlier foreground mission is complete. This ticket covers only P7b; consult P7 for the detailed procedure.
 
 ## Key Files
 
-- `plugins/workaholic/skills/{loops,propose,moderate,runtime,transport}/`
-- `P8 steps.json`
+- `plugins/workaholic/skills/{create-ticket,mission,drive,specificate}/`
+- `plugins/workaholic/commands/{ticket,drive,mission}.md`
 
 ## Implementation Steps
 
-1. Persist inbox capture before advancing cursors; use bounded overlap and explicit recovery reconciliation.
-2. Connect maintenance triggers to the registry and share snapshot observations.
-3. Keep fixed 300-second default and explicit interval priority; make adaptive polling opt-in, separate exploration/maintenance due times and provider backoff.
-4. Measure actual calls, bytes, time and nullable provider usage; bound recoverable snapshots/logs without dropping incomplete records.
+1. Pass manual input directly through normalize-input and validated planning.
+2. Carry discovery and answered decisions into implementation.
+3. Remove fixed three-worker discovery, repeated merge-policy questions and duplicate issue round trips.
+4. Preserve ticket as planning, drive as execution and mission as multi-ticket management.
 
 ## Policies
 
@@ -36,7 +37,7 @@ Implement P5 of `docs/agentic-loop-redesign.md`, H3. The operator requested star
 
 ### Acceptance Criteria
 
-- 100 advanced fake-clock idle polls launch zero LLMs and zero full backlog scans; separate TTL/due/retry cases execute necessary work once; restart and compaction preserve deduplication.
+- A manual multi-ticket request uses shared discovery and prior answers once, then executes through the repaired publication/claim path.
 - H4 unchanged contracts remain compatible; intentional behavior repairs have named B-number regression evidence.
 
 ### Verification Method

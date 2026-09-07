@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Read your own active strategies, plan the one mission whose evolutionary move brings the nearest one closer to its aim, and open that plan as a GitHub issue the next /specificate tick ingests. Reads this repository and writes nothing into it.
+description: Read your own active strategies, plan one bounded ticket or mission whose evolutionary move brings the nearest one closer to its aim, and open that plan as a GitHub issue the next /specificate tick ingests. Reads this repository and writes nothing into it.
 skills:
   - workaholic:propose
   - workaholic:strategy
@@ -13,14 +13,12 @@ steps. Survey the strategies (`survey-strategies.sh`), read the selected directi
 landed against it, choose **one** move (`depth`, `breadth` or `contraction`), and open it with
 `open-proposal.sh`.
 
-**The unit is a mission, not a change.** The issue names a mission title, the experience it
-demands, and its ordered ticket set — sized by what the container must be able to hold
-(`plugins/workaholic/rules/workaholic.md`, *What a Mission Must Be Able to Hold*: is there a
-mid-term plan here — several tickets wanting ordering and allocation across a period?). Seven or
-eight is an observation about typical mission size, never the criterion. The body carries
-`## Experience` and one-or-more `## Tickets` beside the three commitment sections. A single
-ticket is a valid bounded hypothesis; `/specificate` only creates a mission when two or more
-tickets share the mid-term outcome. `/propose` plans; `/specificate` writes.
+**The proposal is one bounded hypothesis.** The issue names the experience it demands and its
+ordered ticket set. A single ticket is valid when it is the whole hypothesis. Two or more tickets
+that share a mid-term outcome may form a mission, sized by what the container must be able to hold
+(`plugins/workaholic/rules/workaholic.md`, *What a Mission Must Be Able to Hold*). The body carries
+`## Experience` and one-or-more `## Tickets` beside the three commitment sections. `/propose`
+plans the natural scale; `/specificate` validates and writes it.
 
 **It writes nothing into this repository** — no file, no commit, no branch, no pull request, no
 merge, no deployment — and it never issues `AskUserQuestion`. Its only write is the GitHub

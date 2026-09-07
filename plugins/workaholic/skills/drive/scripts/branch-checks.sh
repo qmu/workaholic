@@ -16,18 +16,11 @@
 # This gate is narrower than that argument: it asks only whether the branch BROKE SOMETHING
 # ITSELF, which is a question about the unit in hand and not a QA window.
 #
-# IT REFUSES ON TWO WORDS AND PROCEEDS ON EVERY OTHER DEGRADATION, and that asymmetry is the
-# design rather than an oversight:
-#   checks_red      -- a completed failure. A reading we DID make; a re-run cannot un-fail it.
-#   checks_pending  -- the branch has not finished answering. Merging here is exactly the
-#                      measured defect, so waiting is the whole point.
-#   anything else   -- no transport, no `gh`, a rate limit, an unparseable body, a commit
-#                      nothing has checked. The gate PASSES and names the reading it could
-#                      not make. THE COST IS STATED: a repository whose checks this session
-#                      cannot read is exactly as ungated as it was before this existed. The
-#                      alternative -- refusing on an absence -- parks every unit forever in
-#                      any repository with no CI, which is a worse failure than the one this
-#                      cures.
+# RED AND PENDING REFUSE; UNREADABLE DEFERS. A successful API read with no check runs
+# keeps the legacy non-green pass and says `no_checks`; an explicit
+# WORKAHOLIC_MERGE_CHECK_GATE=0 says `gate_disabled`. A caller may pass the reviewed head as
+# argument two; a different PR head refuses `head_changed`. This keeps absence distinct from a
+# green result and prevents a transport failure from authorizing a merge.
 #
 # A REFUSAL IS NOT A FAILURE. The pull request stays open, the claim stays standing, and the
 # next tick's `retry-undelivered.sh` delivers it once the checks conclude -- the machinery

@@ -35521,7 +35521,7 @@ function testThreadReconcileStep() {
       ["the conservative candidate bar", /Only a \*\*latest\*\* status reply of `🔵 Proposed` or `🟡 Handoff`/],
       ["when unsure, post nothing", /\*\*When unsure, post nothing and say what made you unsure\*\*/],
       ["never invent an author or a time", /\*\*Never invent an author or a time\*\*/],
-      ["the second persist", /the \*\*second\*\* persist/],
+      ["the reconciliation line stays local", /line remains in the checkout's local operational log/],
       ["one outcome per candidate", /non-conformant on its face/],
       ["no mention token", /\*\*The post carries no mention token\.\*\*/],
       ["the structural idempotence", /\*\*The idempotence is structural/],

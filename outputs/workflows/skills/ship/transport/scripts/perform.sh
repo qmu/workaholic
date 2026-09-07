@@ -8,17 +8,39 @@ jq -e '.binding_id|type=="string" and length>0' "$TRANSPORT_REQUEST_FILE" >/dev/
 jq -e '.input.binding|type=="object" and (.workspace|type=="string" and length>0) and (.channel|type=="string" and length>0) and (.routes|type=="array")' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1 || transport_usage "operation requires resolved binding"
 binding_id=$(jq -r .binding_id "$TRANSPORT_REQUEST_FILE")
 case "$binding_id" in *[!A-Za-z0-9._-]*|.|..) transport_usage "binding_id is not path safe";; esac
+tmpdir=$(mktemp -d); trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
+case "$TRANSPORT_OPERATION" in read_thread|post_reply)
+  if [ -z "$(jq -r '.input.thread_ts // empty' "$TRANSPORT_REQUEST_FILE")" ]; then
+    thread_key=$(jq -r '.input.thread_key // empty' "$TRANSPORT_REQUEST_FILE")
+    mapped=$(jq -r --arg key "$thread_key" '.input.binding.thread_map[$key] // empty' "$TRANSPORT_REQUEST_FILE")
+    [ -n "$mapped" ] || { transport_result deferred thread_unresolved "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
+    jq --arg thread "$mapped" '.input.thread_ts=$thread' "$TRANSPORT_REQUEST_FILE" >"$tmpdir/mapped-request.json"
+    TRANSPORT_REQUEST_FILE="$tmpdir/mapped-request.json"
+  fi;;
+esac
 
-has_route() { jq -e --arg t "$1" --arg op "$TRANSPORT_OPERATION" '.input.binding.routes[]?|select(.transport==$t and (.operations|index($op)))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; }
-route_sender=$(jq -r --arg op "$TRANSPORT_OPERATION" '[.input.binding.routes[]?|select(.operations|index($op))][0].sender_id // empty' "$TRANSPORT_REQUEST_FILE")
-expected_sender=$(jq -r '.input.expected_sender_id // empty' "$TRANSPORT_REQUEST_FILE")
+required_sender=""
 case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction)
-  [ -z "$expected_sender" ] || [ -z "$route_sender" ] || [ "$expected_sender" = "$route_sender" ] || { transport_result deferred sender_mismatch "$TRANSPORT_REQUEST_ID" "$(jq -cn --arg actual "$route_sender" '{actual_sender_id:$actual}')"; exit 0; };; esac
+  required_sender=$(jq -r '.input.expected_sender_id // .input.binding.sender_id // empty' "$TRANSPORT_REQUEST_FILE")
+  if [ -n "$required_sender" ] && ! jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" \
+      '.input.binding.routes[]?|select((.operations|index($op)) and (.sender_id//"")==$sender)' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then
+    actual=$(jq -c --arg op "$TRANSPORT_OPERATION" '[.input.binding.routes[]?|select(.operations|index($op))|.sender_id//null]|unique' "$TRANSPORT_REQUEST_FILE")
+    transport_result deferred sender_mismatch "$TRANSPORT_REQUEST_ID" "$(jq -cn --arg expected "$required_sender" --argjson actual "$actual" '{expected_sender_id:$expected,actual_sender_ids:$actual}')"
+    exit 0
+  fi;;
+esac
+
+# Candidate filtering and ranking are one operation. The route whose sender was
+# checked is therefore always the route that executes, regardless of input order.
+has_route() {
+  jq -e --arg t "$1" --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" \
+    '.input.binding.routes[]?|select(.transport==$t and (.operations|index($op)) and ($sender=="" or (.sender_id//"")==$sender))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1
+}
 
 choose_route() {
-    if has_route qfs && jq -e --arg op "$TRANSPORT_OPERATION" '.input.binding.routes[]?|select(.transport=="qfs" and .described==true and (.operations|index($op)))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then echo qfs
-    elif has_route slack_token && [ -n "${SLACK_BOT_TOKEN:-}" ]; then echo slack_token
+    if has_route qfs && jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" '.input.binding.routes[]?|select(.transport=="qfs" and .described==true and (.operations|index($op)) and ($sender=="" or (.sender_id//"")==$sender))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then echo qfs
     elif has_route connector; then echo connector
+    elif has_route slack_token && [ -n "${SLACK_BOT_TOKEN:-}" ]; then echo slack_token
     elif has_route qfs; then echo qfs_unproved
     elif has_route slack_token; then echo token_unavailable
     else echo unavailable
@@ -47,8 +69,6 @@ repo=$(jq -r .repo_root "$TRANSPORT_REQUEST_FILE"); [ -d "$repo" ] || transport_
 now=$(jq -r '.input.now // empty' "$TRANSPORT_REQUEST_FILE"); [ -n "$now" ] || now=$(date -Iseconds)
 nonce=$(printf '%s' "$(jq -r .instance_id "$TRANSPORT_REQUEST_FILE"):$binding_id" | sha256sum | cut -c1-24)
 owner=$(jq -cn --arg i "$(jq -r .instance_id "$TRANSPORT_REQUEST_FILE")" --arg n "$nonce" --arg h "transport:$binding_id" '{instance_id:$i,nonce:$n,harness_receipt:$h}')
-tmpdir=$(mktemp -d); trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
-
 state_call() { (cd "$repo" && "$STATE" "$@"); }
 meta=$(state_call read --scope binding --id "$binding_id")
 if [ "$(printf '%s' "$meta" | jq -r '.data.found')" != true ]; then
@@ -124,8 +144,23 @@ case "$route" in
 esac
 result=$("$adapter" --request "$TRANSPORT_REQUEST_FILE")
 status=$(printf '%s' "$result" | jq -r .status); reason=$(printf '%s' "$result" | jq -r .reason)
-if [ "$status" = ok ]; then transition_outbox confirmed "$(printf '%s' "$result" | jq -c .data)"
-elif [ "$reason" = accepted_send_timeout ] || [ "$reason" = provider_timeout ]; then transition_outbox unknown
+if [ "$status" = ok ]; then
+  # Provider adapters and parent connectors cross the same confirmation seam.
+  # An adapter's successful invocation is not delivery evidence until the
+  # returned target, timestamp, and sender satisfy the original request.
+  printf '%s' "$result" | jq -c --arg op "$TRANSPORT_OPERATION" '
+    {request_id,operation:$op,status,target:(.data|{workspace,channel,channel_id}),data}' >"$tmpdir/adapter-observation.json"
+  accepted=$("${SCRIPT_DIR}/accept-observation.sh" --request "$TRANSPORT_REQUEST_FILE" --result "$tmpdir/adapter-observation.json")
+  if [ "$(printf '%s' "$accepted" | jq -r .status)" = ok ]; then
+    transition_outbox confirmed "$(printf '%s' "$accepted" | jq -c .data)"
+    result=$accepted
+  else
+    # The provider may already have accepted the effect. Missing or mismatched
+    # evidence therefore requires reconciliation and never licenses a resend.
+    transition_outbox unknown
+    result=$accepted
+  fi
+elif [ "$reason" = accepted_send_timeout ] || [ "$reason" = provider_timeout ] || [ "$reason" = qfs_connector_failure ]; then transition_outbox unknown
 else transition_outbox refused
 fi
 printf '%s\n' "$result"

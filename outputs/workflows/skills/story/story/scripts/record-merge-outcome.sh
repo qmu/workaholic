@@ -71,20 +71,8 @@ if [ "$existing" = "$outcome" ]; then
     emit true "" false
 fi
 
-tmp=$(mktemp)
-# Drop any previous section (it runs to end of file — the section is always written last), then
-# append the current answer.
-sed '/^## Merge Outcome$/,$d' "$story" > "$tmp"
-# Exactly one blank line before the heading, whatever the body ended with.
-printf '%s' "$(cat "$tmp")" > "${tmp}.trimmed"
-mv "${tmp}.trimmed" "$tmp"
-{
-    echo ""
-    echo ""
-    echo "## Merge Outcome"
-    echo ""
-    echo "$outcome"
-} >> "$tmp"
-mv "$tmp" "$story"
+tmp=$(mktemp); trap 'rm -f "$tmp"' EXIT HUP INT TERM
+printf '%s\n' "$outcome" > "$tmp"
+sh "$(dirname -- "$0")/replace-section.sh" "$story" "## Merge Outcome" "$tmp" >/dev/null
 
 emit true "" true

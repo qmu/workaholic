@@ -56,11 +56,12 @@ GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 READ_CHECKS="${SCRIPT_DIR}/read-base-checks.sh"
 
 PR="${1:-}"
+EXPECTED_HEAD="${2:-}"
 
 # $1 gate, $2 reason, $3 state, $4 failing (JSON array), $5 head
 emit() {
     _ok=true
-    case "${2:-}" in ''|checks_red|checks_pending) ;; *) _ok=false ;; esac
+    case "${1:-}:${2:-}" in pass:|pass:no_checks|pass:gate_disabled) ;; *) _ok=false ;; esac
     printf '{"ok": %s, "pr": "%s", "head": "%s", "gate": "%s", "reason": "%s", "state": "%s", "failing": %s}\n' \
         "$_ok" "$PR" "${5:-}" "$1" "${2:-}" "${3:-unread}" "${4:-[]}"
     exit 0
@@ -71,29 +72,30 @@ case "${WORKAHOLIC_MERGE_CHECK_GATE:-1}" in
 esac
 
 case "$PR" in
-    ''|*[!0-9]*) emit pass unreadable:no_pull_request ;;
+    ''|*[!0-9]*) emit defer unreadable:no_pull_request ;;
 esac
 
-[ -f "$GH_REST" ] || emit pass unreadable:no_transport_script
-[ -f "$READ_CHECKS" ] || emit pass unreadable:no_reader
+[ -f "$GH_REST" ] || emit defer unreadable:no_transport_script
+[ -f "$READ_CHECKS" ] || emit defer unreadable:no_reader
 
 slug=$(sh "$GH_REST" slug 2>/dev/null || true)
 case "$slug" in
     */*) ;;
-    *) emit pass unreadable:slug_unresolved ;;
+    *) emit defer unreadable:slug_unresolved ;;
 esac
 
 # One repository-scoped REST read for the head commit; never `gh pr view`, which is
 # GraphQL-backed and refusable mid-run (`rules/shell.md`).
 pr_body=$(sh "$GH_REST" api "repos/${slug}/pulls/${PR}" 2>/dev/null || true)
 head=$(printf '%s' "$pr_body" | jq -r '.head.sha // empty' 2>/dev/null || true)
-[ -n "$head" ] || emit pass unreadable:head_unresolved
+[ -n "$head" ] || emit defer unreadable:head_unresolved
+[ -z "$EXPECTED_HEAD" ] || [ "$head" = "$EXPECTED_HEAD" ] || emit refuse head_changed unread "[]" "$head"
 
 checks=$(sh "$READ_CHECKS" "$head" 2>/dev/null || true)
 state=$(printf '%s' "$checks" | jq -r '.state // empty' 2>/dev/null || true)
 reason=$(printf '%s' "$checks" | jq -r '.reason // ""' 2>/dev/null || true)
 failing=$(printf '%s' "$checks" | jq -c '.failing // []' 2>/dev/null || printf '[]')
-[ -n "$state" ] || emit pass unreadable:reader_unreadable unread "[]" "$head"
+[ -n "$state" ] || emit defer unreadable:reader_unreadable unread "[]" "$head"
 
 case "$state" in
     green) emit pass "" green "[]" "$head" ;;
@@ -103,5 +105,6 @@ esac
 # Every remaining state is `unanswerable`, and only one of its reasons is a refusal.
 case "$reason" in
     checks_pending) emit refuse checks_pending unanswerable "[]" "$head" ;;
+    no_checks) emit pass no_checks unanswerable "[]" "$head" ;;
 esac
-emit pass "unreadable:${reason:-unknown}" unanswerable "[]" "$head"
+emit defer "unreadable:${reason:-unknown}" unanswerable "[]" "$head"

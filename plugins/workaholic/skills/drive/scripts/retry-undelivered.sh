@@ -83,6 +83,7 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 
 GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts/merge-reason.sh"
+MERGE_PULL="${SCRIPT_DIR}/../../gather/scripts/merge-pull.sh"
 RECORD_OUTCOME="${SCRIPT_DIR}/../../story/scripts/record-merge-outcome.sh"
 
 unit=""
@@ -184,40 +185,32 @@ pr_json=$(sh "$GH_REST" api "repos/${SLUG}/pulls?head=${OWNER}:${BRANCH}&state=o
 PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf '')
 [ -n "$PR" ] || report false no_open_pull_request
 
-# THE BRANCH'S OWN CHECKS ARE READ BEFORE THE RETRY (2026-09-03). `branch-checks.sh` is the one
-# derivation of the gate; it refuses on `checks_red` and `checks_pending` and passes on every
-# other degradation. A refusal here is recorded in the ordinary merge vocabulary and the unit
-# stays `report_undelivered`, so the NEXT tick retries it -- which is exactly what this script
-# is for. Nothing is re-run, held, closed or written outside the recorded outcome.
-CHECK_GATE=$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" 2>/dev/null || printf '')
-GATE_REFUSAL=""
-case "$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')" in
-    refuse) GATE_REFUSAL=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // "checks_red"' 2>/dev/null || printf 'checks_red') ;;
-esac
+# Bind the checks and merge write to the same pushed head.
+EXPECTED_HEAD=$(git rev-parse "origin/${BRANCH}" 2>/dev/null || printf '')
+[ -n "$EXPECTED_HEAD" ] || { OUTCOME="merge_refused: branch_head_unreadable"; MERGE_REASON_WORD=branch_head_unreadable; }
+CHECK_GATE=$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" "$EXPECTED_HEAD" 2>/dev/null || printf '')
+GATE=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "defer"' 2>/dev/null || printf 'defer')
+GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // "checks_unreadable"' 2>/dev/null || printf 'checks_unreadable')
+EXPECTED_HEAD=$(printf '%s' "$CHECK_GATE" | jq -r '.head // empty' 2>/dev/null || printf '')
 
-# THE ONE OUTWARD ACT. REST, exactly as the original attempt made it -- including the method,
-# which is read from the one derivation rather than spelled here (2026-09-01).
-# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
-# is the one derivation of `commit_title` / `commit_message`; without them the forge
-# concatenates every commit on the branch into the trunk's record. A composer that could not
-# read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
 BODY_JSON=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')
 MERGE_TITLE=$(printf '%s' "$BODY_JSON" | jq -r '.title // ""' 2>/dev/null || printf '')
 MERGE_BODY=$(printf '%s' "$BODY_JSON" | jq -r '.body // ""' 2>/dev/null || printf '')
 MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
-if [ -n "$GATE_REFUSAL" ]; then
-    # The gate refused, so THE MERGE IS NOT ATTEMPTED AT ALL. The refusal is recorded in the
-    # ordinary merge vocabulary below, which leaves the unit `report_undelivered` for the next
-    # tick to retry once the checks conclude.
-    MERGE_REASON_WORD="$GATE_REFUSAL"
+if [ "$GATE" != pass ]; then
+    MERGE_REASON_WORD="$GATE_REASON"
 else
-    if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT \
-            -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-method.sh")" \
-            -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
-        OUTCOME="merged"
-        report true ""
-    fi
-    MERGE_REASON_WORD=$(sh "$MERGE_REASON" "$merge_out" 2>/dev/null || printf 'merge_failed')
+    request=$(mktemp); trap 'rm -f "$request"' EXIT HUP INT TERM
+    jq -cn --argjson pr "$PR" --arg sha "$EXPECTED_HEAD" \
+      --arg method "$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-method.sh")" \
+      --arg title "$MERGE_TITLE" --arg body "$MERGE_BODY" \
+      '{pr:$pr,expected_sha:$sha,method:$method,title:$title,body:$body}' > "$request"
+    merged=$(sh "$MERGE_PULL" --request "$request" 2>/dev/null || printf '')
+    case "$(printf '%s' "$merged" | jq -r '.status // "unknown"' 2>/dev/null || printf unknown)" in
+      merged) OUTCOME=merged; report true "" ;;
+      refused) MERGE_REASON_WORD=$(printf '%s' "$merged" | jq -r '.reason // "merge_failed"') ;;
+      *) MERGE_REASON_WORD=merge_effect_unknown ;;
+    esac
 fi
 OUTCOME="merge_refused: ${MERGE_REASON_WORD}"
 

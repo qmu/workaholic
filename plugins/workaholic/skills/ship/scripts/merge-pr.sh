@@ -66,7 +66,7 @@ if [ -z "$pr_number" ]; then
 fi
 
 # Captured before the merge, while this checkout is still on the work branch.
-branch_head=$(git rev-parse --short HEAD 2>/dev/null || true)
+branch_head=$(git rev-parse HEAD 2>/dev/null || true)
 
 if ! command -v gh >/dev/null 2>&1; then
   echo '{"merged": false, "reason": "gh_unavailable", "pr_number": '"$pr_number"', "detail": "the GitHub CLI is not installed here; nothing was merged -- merge the pull request from an environment that has it"}' >&2
@@ -102,10 +102,10 @@ MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_
 # other degradation, so a repository whose checks cannot be read here is exactly as ungated as
 # before. A refusal leaves the pull request open and the claim standing; the next tick's
 # `retry-undelivered.sh` delivers it once the checks conclude.
-CHECK_GATE=$(sh "${SCRIPT_DIR}/../../drive/scripts/branch-checks.sh" "${pr_number}" 2>/dev/null || printf '')
+CHECK_GATE=$(sh "${SCRIPT_DIR}/../../drive/scripts/branch-checks.sh" "${pr_number}" "$branch_head" 2>/dev/null || printf '')
 CHECK_GATE_DECISION=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')
 CHECK_GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // ""' 2>/dev/null || printf '')
-if [ "$CHECK_GATE_DECISION" = "refuse" ]; then
+if [ "$CHECK_GATE_DECISION" != "pass" ]; then
   CHECK_GATE_FAILING=$(printf '%s' "$CHECK_GATE" | jq -c '.failing // []' 2>/dev/null || printf '[]')
   echo '{"merged": false, "reason": "'"$CHECK_GATE_REASON"'", "pr_number": '"$pr_number"', "failing": '"$CHECK_GATE_FAILING"', "detail": "the branch'"'"'s own checks did not pass; nothing was merged and the pull request is left open for the next delivery retry"}' >&2
   exit 1
@@ -116,15 +116,18 @@ slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1) || {
   exit 1
 }
 
-if ! merge_out=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-    "repos/${slug}/pulls/${pr_number}/merge" --method PUT -f "merge_method=${MERGE_METHOD}" \
-    -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
-  # The underlying message rides the error rather than being swallowed: a 405 (GitHub
-  # refusing the merge) and a 403 (the transport being restricted) need different
-  # actions from whoever reads this.
-  echo '{"merged": false, "error": "merge failed", "detail": "'"$(printf '%s' "$merge_out" | tr -d '"\\' | tr '\n' ' ' | cut -c1-400)"'"}' >&2
+request=$(mktemp); trap 'rm -f "$request"' EXIT HUP INT TERM
+jq -cn --arg repo "$slug" --argjson pr "$pr_number" --arg sha "$branch_head" \
+  --arg method "$MERGE_METHOD" --arg title "$MERGE_TITLE" --arg body "$MERGE_BODY" \
+  '{repo:$repo,pr:$pr,expected_sha:$sha,method:$method,title:$title,body:$body}' > "$request"
+merge_out=$(sh "${GATHER_SCRIPTS}/merge-pull.sh" --request "$request" 2>/dev/null || printf '')
+merge_status=$(printf '%s' "$merge_out" | jq -r '.status // "unknown"' 2>/dev/null || printf unknown)
+if [ "$merge_status" != merged ]; then
+  merge_reason=$(printf '%s' "$merge_out" | jq -r '.reason // "merge_effect_unconfirmed"' 2>/dev/null || printf merge_effect_unconfirmed)
+  echo '{"merged": false, "reason": "'"$merge_reason"'", "pr_number": '"$pr_number"', "detail": "merge did not have confirmed merged evidence"}' >&2
   exit 1
 fi
+confirmed_merge_sha=$(printf '%s' "$merge_out" | jq -r '.merge_sha // empty')
 
 # --- From here the merge has LANDED. Nothing below may fail the script. --------------
 checked_out=false
@@ -156,20 +159,26 @@ git fetch origin "$base" --quiet >/dev/null 2>&1 || true
 
 commit_hash=""
 commit_hash_source=""
+if [ -n "$confirmed_merge_sha" ]; then
+  commit_hash="$confirmed_merge_sha"
+  commit_hash_source="merge_response"
+fi
 
 # `GET .../pulls/{n}` reading `merge_commit_sha` — the REST equivalent of the
 # `gh pr view --json mergeCommit` this replaces. The documented precedence below is
 # unchanged: the PR's own merge commit first, the base tip only as a fallback.
 resolved=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api "repos/${slug}/pulls/${pr_number}" \
   --jq '.merge_commit_sha // empty' 2>/dev/null || true)
-if [ -n "$resolved" ] && [ "$resolved" != "null" ]; then
-  commit_hash="$resolved"
-  commit_hash_source="pr_merge_commit"
-else
-  resolved=$(git rev-parse "origin/${base}" 2>/dev/null || true)
-  if [ -n "$resolved" ]; then
+if [ -z "$commit_hash" ]; then
+  if [ -n "$resolved" ] && [ "$resolved" != "null" ]; then
     commit_hash="$resolved"
-    commit_hash_source="base_tip"
+    commit_hash_source="pr_merge_commit"
+  else
+    resolved=$(git rev-parse "origin/${base}" 2>/dev/null || true)
+    if [ -n "$resolved" ]; then
+      commit_hash="$resolved"
+      commit_hash_source="base_tip"
+    fi
   fi
 fi
 

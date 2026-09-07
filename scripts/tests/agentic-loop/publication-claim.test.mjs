@@ -8,6 +8,8 @@ import { spawnSync } from 'node:child_process';
 const source = resolve(import.meta.dirname, '../../..');
 const publication = join(source, 'plugins/workaholic/skills/branching/scripts/publication.sh');
 const arbiter = join(source, 'plugins/workaholic/skills/drive/scripts/claim-arbitrate.sh');
+const survey = join(source, 'plugins/workaholic/skills/branching/scripts/survey-worktrees.sh');
+const reap = join(source, 'plugins/workaholic/skills/branching/scripts/reap-worktrees.sh');
 const run = (argv, options = {}) => spawnSync(argv[0], argv.slice(1), { encoding: 'utf8', ...options });
 const parsed = result => { assert.equal(result.status, 0, result.stderr); return JSON.parse(result.stdout); };
 
@@ -34,6 +36,28 @@ test('P7 publication transactions keep distinct branches and resume a clean unpu
   const sha = run(['git', '-C', one.path, 'rev-parse', 'HEAD']).stdout.trim();
   const resumed = invoke(f.repo, 'open', '--transaction', 'one');
   assert.equal(resumed.resumed, true); assert.equal(resumed.sha, sha); assert.equal(resumed.branch, one.branch);
+});
+
+test('P7 worktree cleanup preserves a checkout owned by an open publication manifest', (t) => {
+  const f = fixture(t);
+  const opened = invoke(f.repo, 'open', '--transaction', 'recoverable');
+  assert.equal(opened.ok, true);
+
+  const surveyed = parsed(run(['sh', survey, 'main'], { cwd: f.repo }));
+  const owned = surveyed.worktrees.find(worktree => worktree.path === opened.path);
+  assert.ok(owned, JSON.stringify(surveyed));
+  assert.equal(owned.merged, true);
+  assert.equal(owned.dirty, false);
+  assert.equal(owned.publication_transaction, true);
+  assert.equal(owned.transaction, 'recoverable');
+  assert.equal(owned.transaction_phase, 'open');
+  assert.equal(owned.reclaimable, false);
+  assert.equal(owned.skip_reason, 'publication_transaction');
+
+  const reaped = parsed(run(['sh', reap, '--apply', 'main'], { cwd: f.repo }));
+  assert.ok(reaped.skipped.some(worktree =>
+    worktree.path === opened.path && worktree.reason === 'publication_transaction'), JSON.stringify(reaped));
+  assert.equal(existsSync(opened.path), true);
 });
 
 test('P7 publication preserves one SHA through push failure and unknown PR lookup', (t) => {

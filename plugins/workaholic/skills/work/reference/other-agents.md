@@ -160,6 +160,15 @@ question nor observed during a wait and is not substituted for that criterion. N
 is cleared and the acceptance ticket remains queued until its actual gate is met. This live
 300-second proof is also distinct from testing a requested 60-second cadence.
 
+### Requested one-minute interval, measured separately
+
+After the five-minute child-work phase, the same coordinator explicitly changed the verification
+interval to 60 seconds while keeping the 04:35:00Z anchor. Commentary arrived at **14:07:03,
+14:08:02 and 14:09:01 JST** on 2026-09-07, with no user input between these reports. The observed
+59-second separations are approximate tool/report timing around 60-second boundaries, not an
+exact wake-up guarantee. No second coordinator or new child was started. This measures the
+requested interval path; it does not discharge the still-missing mid-wait user question.
+
 ## Where a report goes, per entrypoint — and where it does not
 
 **A report written into a local transcript is not a delivered report** (2026-09-06, mission

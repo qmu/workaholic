@@ -81,6 +81,12 @@ cmd="${1:-}"
 [ -n "$cmd" ] || { printf '{"arbitrated": false, "state": "unavailable", "reason": "no_command", "refs": [], "held_by_ref": "", "stale_lock": false}\n'; exit 0; }
 shift 2>/dev/null || true
 
+_delete_owned() { # $1 ref, $2 observed object id
+    _do_ref=$1 _do_sha=$2
+    git push --force-with-lease="${_do_ref}:${_do_sha}" origin ":${_do_ref}" >/dev/null 2>&1 || return 1
+    [ -z "$(git ls-remote origin "$_do_ref" 2>/dev/null)" ]
+}
+
 # The one derivation of an artifact's ref name. Git forbids a path component starting with
 # `.`, so `.workaholic/...` cannot be a ref path as it stands; every character outside the
 # portable set becomes `-`, the leading separators are stripped and a `.md` suffix dropped.
@@ -108,6 +114,28 @@ _emit() { # $1 state, $2 reason, $3 refs, $4 held_by_ref, $5 stale
         "$1" "$2" "$(_json_refs "$3")" "$4" "$5"
     exit 0
 }
+
+# Internal recovery path. The receipt is created by `take` and binds every ref
+# to the unique object this invocation pushed. A stale cleanup therefore cannot
+# delete a lock that another invocation acquired after it.
+if [ "$cmd" = "release-owned" ]; then
+    receipt=${1:-}
+    if [ ! -s "$receipt" ] || ! jq -e '.schema_version==1 and (.locks|type=="array") and all(.locks[];(.ref|type=="string") and (.sha|type=="string"))' "$receipt" >/dev/null 2>&1; then
+        _emit unavailable invalid_receipt "" "" false
+    fi
+    released=""; mismatch=""
+    _receipt_tab=$(printf '\t')
+    while IFS="$_receipt_tab" read -r r sha; do
+        [ -n "$r" ] || continue
+        if _delete_owned "$r" "$sha"; then released="${released}${r}
+"; else mismatch="${mismatch}${r}
+"; fi
+    done <<EOF
+$(jq -r '.locks[]|[.ref,.sha]|@tsv' "$receipt")
+EOF
+    [ -z "$mismatch" ] || _emit unavailable ownership_mismatch "$released" "$(printf '%s' "$mismatch" | sed -n '1p')" false
+    _emit released "" "$released" "" false
+fi
 
 # ═══ THE REAP — WHY A LOCK CANNOT BE ETERNAL ═════════════════════════════════════════
 # A ref nothing deletes makes an artifact claimable exactly once, forever — the regression the
@@ -169,7 +197,7 @@ if [ "$cmd" = "reap" ]; then
         # "I could not sweep the one thing there was", and the mission behind the lock was
         # refused `claim_race_lost` once an hour, forever. Reporting the refusal is what makes
         # the sweep's own failure legible; it is still never a hard stop.
-        if ! push_err=$(git push origin ":${r}" 2>&1); then
+        if ! push_err=$(git push --force-with-lease="${r}:${sha}" origin ":${r}" 2>&1); then
             unreapable="${unreapable}${r}|push_refused|$(
                 printf '%s' "$push_err" | tr '\n\t' '  ' \
                     | sed 's/[^A-Za-z0-9 ._:/-]/ /g; s/  */ /g' | cut -c1-120
@@ -230,7 +258,7 @@ _uniq=$(git commit-tree "${base_sha}^{tree}" -p "$base_sha" \
 
 won=""
 _unwind() {
-    for _u in $won; do git push origin ":${_u}" >/dev/null 2>&1 || true; done
+    for _u in $won; do _delete_owned "$_u" "$_uniq" || true; done
 }
 
 for r in $wanted; do
@@ -257,5 +285,12 @@ for r in $wanted; do
             _emit unavailable "push_failed" "" "" false ;;
     esac
 done
+
+if [ -n "${WORKAHOLIC_ARBITER_RECEIPT_FILE:-}" ]; then
+    _receipt_tmp="${WORKAHOLIC_ARBITER_RECEIPT_FILE}.tmp.$$"
+    jq -cn --arg sha "$_uniq" --argjson refs "$(printf '%s' "$won" | jq -Rsc 'split("\n")|map(select(length>0))')" \
+        '{schema_version:1,locks:[$refs[]|{ref:.,sha:$sha}]}' >"$_receipt_tmp" \
+        && mv -f "$_receipt_tmp" "$WORKAHOLIC_ARBITER_RECEIPT_FILE"
+fi
 
 _emit won "" "$won" "" false

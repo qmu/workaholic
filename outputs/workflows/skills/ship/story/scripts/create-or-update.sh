@@ -127,10 +127,12 @@ if [ -z "$PR_INFO" ] || [ "$PR_INFO" = "null" ]; then
     fi
     echo "PR created: $URL"
 else
-    NUMBER=$(echo "$PR_INFO" | jq -r '.number')
-    URL=$(echo "$PR_INFO" | jq -r '.url')
-    CURRENT_TITLE=$(echo "$PR_INFO" | jq -r '.title // ""')
-    CURRENT_BODY=$(echo "$PR_INFO" | jq -r '.body // ""')
+    # POSIX echo may expand backslash escapes. A PR body commonly contains JSON
+    # sequences such as `\\n`, so echo can turn valid JSON into invalid input for jq.
+    NUMBER=$(printf '%s\n' "$PR_INFO" | jq -r '.number')
+    URL=$(printf '%s\n' "$PR_INFO" | jq -r '.url')
+    CURRENT_TITLE=$(printf '%s\n' "$PR_INFO" | jq -r '.title // ""')
+    CURRENT_BODY=$(printf '%s\n' "$PR_INFO" | jq -r '.body // ""')
     WANTED_BODY=$(cat "$BODY_FILE")
     if [ "$CURRENT_TITLE" = "$TITLE" ] && [ "$CURRENT_BODY" = "$WANTED_BODY" ]; then
         echo "PR unchanged: $URL"

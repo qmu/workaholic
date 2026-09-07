@@ -89,7 +89,11 @@ else
     actual=$(printf '%s' "$old" | jq -r .revision); [ "$actual" = "$EXPECTED" ] || defer_conflict
     now=$(jq -r '.updated_at // .now // empty' "$INPUT"); [ -n "$now" ] || runtime_usage "$ACTION input requires updated_at"
     if [ "$ACTION" = update ]; then
-        jq -e '((has("owner") or has("generation")) | not) and (.data|type=="object")' "$INPUT" >/dev/null 2>&1 || runtime_usage "update cannot replace owner or generation"
+        if [ "$RECORD" = meta ]; then
+            jq -e '((has("owner") or has("generation")) | not) and (.data|type=="object")' "$INPUT" >/dev/null 2>&1 || runtime_usage "update cannot replace owner or generation"
+        else
+            jq -e '(.data|type=="object")' "$INPUT" >/dev/null 2>&1 || runtime_usage "child update requires data"
+        fi
         data=$(jq -c .data "$INPUT")
         value=$(printf '%s' "$old" | jq -c --arg now "$now" --argjson data "$data" '.revision += 1 | .updated_at=$now | .data=$data')
     else

@@ -62,11 +62,22 @@ The launcher is part of the full Workaholic plugin. From an installed skill, run
 work skill, tick command body, repository, or Codex CLI separately, and recommends a plugin
 update only for a missing plugin-owned layer.
 
+Before each tick the supervisor checks its workflow, command body, launcher, schema and relay
+files. If its installation was retired, it executes the sanctioned `plugin-src.sh` resolver from
+bytes retained at launch, then updates every tick and dispatch path to the resolved complete `call_src` tree.
+It logs the retired and replacement paths and records them in `supervisor.json`; an intact tree
+incurs no resolution. With no complete replacement it records `stopped` / `clock_wrapper_missing`
+and exits 2 before invoking Codex again. This changes workflow paths, not the already-running
+supervisor's shell code. Recovery requires no unattended confirmation. A retirement during an
+already-running tick can still invalidate that tick's file reads; its execution report determines
+its outcome, and the next boundary checks the installation again.
+
 The supervisor completes and classifies the first tick before reporting ready. Every completion
 atomically replaces `.codex-loop/status.json` with the outcome, blocked reason, report path,
 transport verdict and next due time; `sh scripts/codex-loop.sh --status` reads that state without
 starting another process. **It answers the whole loop, not only the tick** (2026-09-06): the
-supervisor's own liveness (`.codex-loop/supervisor.json` — absent means never started), every
+supervisor's own liveness (`.codex-loop/supervisor.json` — absent **and an unheld lock** means
+never started; a held lock with no record is `running_unrecorded`), every
 worker's state and last **reported** outcome (`.codex-loop/worker-<role>.json`, evidence beside
 the lock, which stays the only concurrency authority), and the last tick, composed from the
 directory alone with `--status --json` rendering the same reading for a machine. Each unreadable

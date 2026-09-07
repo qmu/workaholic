@@ -110,10 +110,32 @@ role_state() {
         printf 'idle'; return 0
     fi
     _pf=$(role_pidfile "$1")
-    if [ -s "$_pf" ] && kill -0 "$(cat "$_pf" 2>/dev/null)" 2>/dev/null; then
-        printf 'running'; return 0
+    _rs_pid=$(cat "$_pf" 2>/dev/null || printf '')
+    [ -s "$_pf" ] || { printf 'idle'; return 0; }
+    # A PID ALONE IS NOT A LIVENESS PROOF ACROSS A REBOOT (2026-09-07, ticket
+    # `20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`). This
+    # fallback tested `kill -0` and nothing else, dropping the boot-id term `liveness_reading`
+    # carries for exactly this reason — so a recycled pid number refused every start of that role,
+    # forever. MEASURED: on one machine `role_state` answered `running` and refused the dispatch
+    # `already_running` while the role's own record read `died_unrecorded:reboot` — a proof the
+    # process was gone. Two readers, one machine, and the one deciding the start was the weaker.
+    #
+    # THE BOOT ID COMES FROM THE ROLE'S OWN RECORD, and only when that record names this same pid;
+    # the pid file carries no boot id and inventing one would be worse than having none. With no
+    # boot id on either side the reading is `unverifiable`, which stays `running` — for a
+    # concurrency answer an unreadable reading must never start a second worker. Only the sound
+    # rungs move: `gone` and `reboot` are proofs the process is not there.
+    _rs_boot=""
+    _rs_rec=$(role_record "$1")
+    if [ -f "$_rs_rec" ] && command -v jq >/dev/null 2>&1; then
+        if [ "$(jq -r '.pid // ""' "$_rs_rec" 2>/dev/null || printf '')" = "$_rs_pid" ]; then
+            _rs_boot=$(jq -r '.boot_id // ""' "$_rs_rec" 2>/dev/null || printf '')
+        fi
     fi
-    printf 'idle'
+    case "$(liveness_reading "$_rs_pid" "$_rs_boot")" in
+        gone|reboot) printf 'idle' ;;
+        *)           printf 'running' ;;
+    esac
 }
 
 # THE FALLBACK CLAIM IS ATOMIC TOO, for the same reason (2026-09-06, ticket `20260906210556`).
@@ -202,9 +224,45 @@ liveness_reading() {
     printf 'unverifiable'
 }
 
-# One word, derived from the file alone — no lock, no live probe of anything but the pid.
+# THE SUPERVISOR LOCK IS EVIDENCE, NEVER A SECOND AUTHORITY (2026-09-07, ticket
+# `20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`). Reading
+# it answers *is something turning here*; it decides nothing about who may run, starts nothing and
+# refuses nothing — the lock stays the only concurrency authority, exactly as `role_state` already
+# probes a role lock for the same evidential purpose.
+#
+# IT NEVER CREATES THE FILE. `exec >` would, and a status surface that writes is the one thing this
+# surface may not become — so an absent lock is answered before any probe, and that is also what
+# keeps *absent means never started* true for a repository that never ran the Codex path.
+#   held | free | unreadable:<reason>
+supervisor_lock() { printf '%s/.supervisor.lock' "$LOG_DIR"; }
+
+supervisor_lock_state() {
+    _sl_file=$(supervisor_lock)
+    [ -e "$_sl_file" ] || { printf 'free'; return 0; }
+    command -v flock >/dev/null 2>&1 || { printf 'unreadable:flock_missing'; return 0; }
+    if ( exec 7>"$_sl_file"; flock -n 7 ) 2>/dev/null; then printf 'free'; else printf 'held'; fi
+}
+
+# One word. A RECORD IS NOT THE ONLY EVIDENCE THAT A SUPERVISOR EXISTS, which is where this
+# reader was wrong (2026-09-07, the same ticket). It answered `never_started` from the record file
+# alone, so an older supervisor — launched from a plugin tree since replaced, holding the lock and
+# turning — was reported as one that had never run. MEASURED 2026-09-06 (#1052): the operator could
+# neither see the live supervisor through `--status` nor start a working one.
+#
+# `never_started` NOW MEANS WHAT IT SAYS: no record, and nothing holding the lock. A held lock with
+# no record is `running_unrecorded` — something is turning here and this reader cannot say what,
+# which is a third fact and not a shade of either neighbour. A lock that exists and cannot be
+# probed is `unreadable:<reason>`, never `never_started`: an absence of a reading is never a proof
+# of absence.
 supervisor_reading() {
-    [ -f "$SUPERVISOR_FILE" ] || { printf 'never_started'; return 0; }
+    if [ ! -f "$SUPERVISOR_FILE" ]; then
+        case "$(supervisor_lock_state)" in
+            held)          printf 'running_unrecorded' ;;
+            free)          printf 'never_started' ;;
+            unreadable:*)  printf 'unreadable:supervisor_lock_unverifiable' ;;
+        esac
+        return 0
+    fi
     command -v jq >/dev/null 2>&1 || { printf 'unreadable:jq_missing'; return 0; }
     jq -e 'type == "object" and (.state | type == "string") and (.pid | type == "string")' \
         "$SUPERVISOR_FILE" >/dev/null 2>&1 || { printf 'unreadable:malformed'; return 0; }
@@ -266,6 +324,11 @@ show_supervisor() {
     case "$_sv_read" in
         never_started)
             printf 'codex supervisor: never_started (%s)\n' "$SUPERVISOR_FILE" ;;
+        running_unrecorded|unreadable:supervisor_lock_unverifiable)
+            # The evidence is named, because the reading rests on the lock rather than a record —
+            # and a reader who is about to conclude "nothing is running here" needs to know which
+            # file to look at.
+            printf 'codex supervisor: %s (%s)\n' "$_sv_read" "$(supervisor_lock)" ;;
         *)
             _sv_detail=""
             if [ -f "$SUPERVISOR_FILE" ] && command -v jq >/dev/null 2>&1; then
@@ -293,7 +356,15 @@ show_status() {
         return 4
     fi
     if [ "$_ss_read" = readable ]; then
+        # THE TICK'S FINISH TIME IS ON THE LINE, so *a tick recently succeeded* and *a supervisor
+        # is turning* are two readings a person can tell apart (2026-09-07, ticket
+        # `20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`).
+        # `outcome=ready` with no time beside it reads as *the loop is fine* whether the tick
+        # finished a minute or a day ago, and the supervisor line above it is then the only thing
+        # saying otherwise. It is the value the tick already recorded — no second clock, no stored
+        # cursor and no bound anybody had to pick.
         jq -r '"codex loop status: state=\(.state) outcome=\(.outcome)" +
+          (if (.finished_at // "") == "" then "" else " finished_at=\(.finished_at)" end) +
           (if .blocked_reason == "" then "" else " blocked_reason=\(.blocked_reason)" end) +
           (if .next_due == "" then "" else " next_due=\(.next_due)" end) +
           (if (.relay_state // "none") == "none" then "" else " relay=\(.relay_state)" end) +
@@ -422,11 +493,28 @@ if [ -n "$ACK_FILE" ]; then
     sh "$RELAY_CONTRACT" acknowledgement "$RELAY_ENVELOPE" "$ACK_FILE" >/dev/null
     _relay=$(sh "$RELAY_CONTRACT" reconcile "$RELAY_ENVELOPE" "$ACK_FILE" | jq -r '.relay')
     _tmp="${STATUS_FILE}.tmp.$$"
+    # A DELIVERED RELAY MAY SET THE RELAY FIELDS AND MAY NOT BY ITSELF SET A HEALTHY OUTCOME
+    # (2026-09-07, ticket `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`).
+    # This branch used to write `ready` and `parent_connector` from the relay word alone, so the
+    # parent's successful delivery of a tick's intents OVERWROTE whatever the tick's own
+    # classification had established — a tick that reported it had executed nothing, and a tick
+    # already graded `work_blocked`, both came back healthy. MEASURED 2026-09-06 (#1052): the one
+    # artifact an operator inspects said the loop was fine while it was doing nothing.
+    #
+    # *The relay was delivered* and *the tick ran* are two facts. Only an outcome the relay itself
+    # was withholding — `relay_pending`, or a tick already `ready` — is released here; every other
+    # recorded outcome, `tick_not_executed` included, is carried through with its own
+    # `blocked_reason` and its own `transport_verdict` untouched. The state still moves to
+    # `blocked`, so a reader sees the relay closed and the tick still unhealthy.
     jq --arg relay "$_relay" --arg ack "$ACK_FILE" '
       .relay_state=$relay | .relay_ack_path=$ack |
       if $relay == "delivered" then
-        .state="sleeping" | .outcome="ready" | .blocked_reason="" |
-        .transport_verdict="parent_connector"
+        if (.outcome == "relay_pending" or .outcome == "ready") then
+          .state="sleeping" | .outcome="ready" | .blocked_reason="" |
+          .transport_verdict="parent_connector"
+        else
+          .state="blocked"
+        end
       else
         .state="blocked" | .outcome="relay_incomplete" |
         .blocked_reason="undelivered_relay_intents"
@@ -540,6 +628,10 @@ write_supervisor() {
         printf '  "interval": %s,\n' "$(json_quote "$INTERVAL")"
         printf '  "anchor": %s,\n' "$(json_quote "${LOOP_ANCHOR:-}")"
         printf '  "once": %s,\n' "$(json_quote "$ONCE")"
+        if [ -n "${RETIRED_PLUGIN_ROOT:-}" ]; then
+            printf '  "retired_plugin_root": %s,\n' "$(json_quote "$RETIRED_PLUGIN_ROOT")"
+            printf '  "plugin_root": %s,\n' "$(json_quote "$PLUGIN_ROOT")"
+        fi
         printf '  "log_dir": %s\n' "$(json_quote "$LOG_DIR")"
         printf '}\n'
     } >"$_sv_w_tmp"
@@ -612,7 +704,21 @@ classify_report() {
             RELAY_ENVELOPE="$_report_file"
             _intent_count=$(jq '.slack_intents | length' "$_report_file")
             _worker_outcome=$(jq -r '.outcome' "$_report_file")
-            if [ "$_worker_outcome" = blocked ]; then
+            _relay_executed=$(jq -r '.executed' "$_report_file")
+            if [ "$_relay_executed" != true ]; then
+                # THE TICK'S OWN EXECUTION IS READ BEFORE ITS OUTCOME (2026-09-07). A relay tick
+                # that did not run is not a healthy tick whatever its intents reconcile to, and
+                # `not_executed:<reason>` is `worker_outcome`'s own word for exactly this fact —
+                # one vocabulary, not a second. The transport reads `unknown` rather than a
+                # reachable verdict: a non-executing tick's intents say nothing about Slack.
+                # The relay fields below are still derived, because the parent may still ack.
+                _relay_reason=$(jq -r '.reason // ""' "$_report_file" 2>/dev/null || printf '')
+                [ -n "$_relay_reason" ] || _relay_reason=unstated
+                TICK_OUTCOME=tick_not_executed
+                BLOCKED_REASON="not_executed:${_relay_reason}"
+                TRANSPORT_VERDICT=unknown
+                if [ "$_intent_count" -gt 0 ]; then RELAY_STATE=pending; else RELAY_STATE=delivered; fi
+            elif [ "$_worker_outcome" = blocked ]; then
                 TICK_OUTCOME=work_blocked
                 BLOCKED_REASON=worker_reported_blocked
                 TRANSPORT_VERDICT=pending_parent
@@ -686,7 +792,7 @@ run_tick() {
     CURRENT_TICK=$_stamp CURRENT_STARTED=$_started CURRENT_REPORT=$_out CURRENT_TRANSCRIPT=$_transcript
     _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. ${RESULT_CLAUSE}"
     if [ "$RELAY" = true ]; then
-        _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
+        _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. The envelope must carry \`executed\`, true only if you actually read that command body and performed it. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
     fi
     if [ "$DRY_RUN" = true ]; then
         printf 'codex exec -C %s --dangerously-bypass-approvals-and-sandbox --output-last-message %s %s\n' "$REPO_ROOT" "$_out" "$_prompt"
@@ -948,6 +1054,44 @@ if [ -n "$DISPATCH_ROLE" ]; then
     exit 0
 fi
 
+# Keep the sanctioned resolver's bytes before its installation can disappear. It is executed
+# only on missing resources, never on an ordinary tick; its version/stability axes stay intact.
+PLUGIN_RESOLVER_PATH="${SCRIPT_DIR}/../../check-deps/scripts/plugin-src.sh"
+PLUGIN_RESOLVER=$(cat "$PLUGIN_RESOLVER_PATH" 2>/dev/null || true)
+RETIRED_PLUGIN_ROOT=""
+plugin_tree_complete() {
+    _pt_skill="$1/skills/work"
+    [ -f "$1/commands/infinite-development.md" ] || return 1
+    for _pt_file in SKILL.md scripts/codex-loop.sh scripts/relay-contract.sh \
+        scripts/worker-result.schema.json; do
+        [ -f "$_pt_skill/$_pt_file" ] || return 1
+    done
+}
+ensure_plugin_tree() {
+    plugin_tree_complete "$PLUGIN_ROOT" && return 0
+    RETIRED_PLUGIN_ROOT=$PLUGIN_ROOT
+    printf 'clock_wrapper_missing: retired plugin tree %s\n' "$RETIRED_PLUGIN_ROOT" >&2
+    _resolved=""
+    if [ -n "$PLUGIN_RESOLVER" ] && command -v jq >/dev/null 2>&1; then
+        _resolution=$(CLAUDE_PLUGIN_ROOT="$RETIRED_PLUGIN_ROOT" sh -c "$PLUGIN_RESOLVER" "$PLUGIN_RESOLVER_PATH" 2>/dev/null || true)
+        _resolved=$(printf '%s' "$_resolution" | jq -er 'select(.ok == true) | (.call_src // .src) | select(type == "string" and length > 0)' 2>/dev/null || true)
+    fi
+    if [ -z "$_resolved" ] || ! plugin_tree_complete "$_resolved"; then
+        write_supervisor stopped clock_wrapper_missing
+        printf 'clock_wrapper_missing: no complete replacement for %s; update or reinstall the Workaholic plugin\n' "$RETIRED_PLUGIN_ROOT" >&2
+        return 1
+    fi
+    # The prompts compose script calls: preserve the resolver's equal-version workspace path.
+    PLUGIN_ROOT=$_resolved
+    TICK_PROMPT="${PLUGIN_ROOT}/skills/work/SKILL.md"
+    SCRIPT_DIR="${TICK_PROMPT%/*}/scripts"
+    COMMAND_BODY="${PLUGIN_ROOT}/commands/infinite-development.md"
+    RELAY_CONTRACT="${SCRIPT_DIR}/relay-contract.sh"
+    WORKER_SCHEMA="${SCRIPT_DIR}/worker-result.schema.json"
+    write_supervisor running ""
+    printf 'codex loop: recovered retired plugin tree %s -> %s\n' "$RETIRED_PLUGIN_ROOT" "$PLUGIN_ROOT" >&2
+}
+
 LOCK="${LOG_DIR}/.supervisor.lock"
 if command -v flock >/dev/null 2>&1; then
     exec 9>"$LOCK"
@@ -969,6 +1113,7 @@ write_supervisor running ""
 _expected=$LOOP_ANCHOR
 _first=true
 while :; do
+    ensure_plugin_tree || exit 2
     if run_tick; then
         _tick_ready=true
     else

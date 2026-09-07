@@ -1814,6 +1814,44 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 | `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
 
+**`verify-codex-clock` proves recovery after the installed launch tree disappears** (2026-09-07,
+ticket `20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path`). A real
+supervisor completes its first tick through a deterministic, zero-exit worker, then the fixture
+deletes its launch version while a newer registered version remains installed. `retired_plugin_recovery`
+requires the next worker's prompt to name only the replacement tree and the supervisor's output to
+name both paths. `retired_plugin_workspace` adds an equal-version checkout and requires the
+resolver's workspace `call_src` in the prompt and record. `retired_plugin_missing` removes both versions and requires exit 2, no further
+worker execution, and `stopped` / `clock_wrapper_missing` in `supervisor.json`.
+`retired_plugin_breaker` has bearing **`breaker`**: disabling the boundary check makes the next
+worker receive the deleted path again. Before the repair, this same fixture observed that stale
+prompt, a zero-exit worker, and a supervisor still recorded as `running`. This proves the local
+path transition and failure record, not the work performed by a real Codex model. The boundary
+check does not pin files for a tick already in flight: a deletion during that tick can still
+invalidate its reads, and its execution report determines the result before the next boundary.
+
+**`verify-codex-clock` also proves that a delivered relay is not an executed tick** (2026-09-07,
+ticket `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`). Three further
+load-bearing rows drive the acknowledgement branch directly, with no `codex` run involved: a tick
+whose envelope declares `executed: false` keeps its own `tick_not_executed` outcome and an
+`unknown` transport verdict after its intents are delivered; a tick the relay was genuinely
+withholding is still released to `ready` / `parent_connector`, byte-identically to before; and an
+envelope that omits `executed` altogether fails closed as `malformed_envelope` rather than being
+assumed to have run. Its breaker is written against the behaviour — restoring the unconditional
+healthy write grades the non-executing tick `ready`, and the drill fails. **What it does not
+cover**: the classification of a live relay tick, which needs a real `codex exec`.
+
+**And that a live supervisor is not an unwritten record** (2026-09-07, ticket
+`20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`). A real
+`flock` holder is stood up on the supervisor lock with no record beside it, and `--status` must
+read `running_unrecorded` rather than `never_started`; releasing the lock must return the reading
+to `never_started`, so a repository that never ran this path is unaffected. Its breaker answers
+from the record file alone again and the same live supervisor comes back `never_started`. Three
+further rows drive the start decision on a `flock`-less `PATH`: a pid the role's own record proves
+belongs to another boot no longer holds the role, a live pid on **this** boot is refused exactly as
+before, and a pid with no record to supply a boot id stays held — the safe direction for a
+concurrency answer. **What it does not cover**: a genuine reboot, which no hermetic drill can
+stage; the recycled-pid case is exercised by a record naming a boot id that is not this one.
+
 **`verify-work-drain` covers the hermetic half of a drained backlog, and its bound is stated on the
 drill itself.** It seeds each recovery state the ask names and asserts that the loop reads it as
 *work a pass would act on* rather than as an idle repository, that a worker exiting **zero** while

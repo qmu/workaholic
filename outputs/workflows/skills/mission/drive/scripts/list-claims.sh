@@ -84,6 +84,13 @@
 
 set -eu
 
+OBSERVATION=""
+if [ "${1:-}" = --observation ]; then
+    OBSERVATION=${2:-}
+    [ -f "$OBSERVATION" ] && jq -e '.schema_version == 1 and (.rows_tsv|type=="string")' "$OBSERVATION" >/dev/null 2>&1 \
+        || { echo '{"error":"claims_observation_invalid"}' >&2; exit 1; }
+fi
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
@@ -113,14 +120,17 @@ case "$heartbeat_minutes" in
         ;;
 esac
 
-fetched=$(claims_fetch)
-# The merged lookup reads this in the parent shell: `claims_fetch` runs in a command
-# substitution, so the flag it sets there dies with that subshell (see lib/claims.sh).
+if [ -n "$OBSERVATION" ]; then
+    fetched=$(jq -r .fetched "$OBSERVATION")
+    shallow=$(jq -r .shallow "$OBSERVATION")
+    base=$(jq -r .base "$OBSERVATION")
+else
+    fetched=$(claims_fetch)
+    CLAIMS_FETCH_OK="$fetched"
+    shallow=$(claims_shallow)
+    base=$(claims_base)
+fi
 CLAIMS_FETCH_OK="$fetched"
-# AFTER the fetch: claims_fetch deepens when it can, so this reports the state the scan
-# below actually ran against rather than the one the container started in.
-shallow=$(claims_shallow)
-base=$(claims_base)
 
 # THE MERGED LOOKUP'S UNANSWERED SET (2026-08-26). The scan now asks GitHub whether a claim
 # branch's work reached the base through a merged pull request — the claim protocol's one
@@ -132,7 +142,13 @@ export CLAIMS_UNANSWERED_FILE
 
 claims=""
 sep=""
-rows=$(claims_scan "$base")
+if [ -n "$OBSERVATION" ]; then
+    rows=$(jq -r .rows_tsv "$OBSERVATION")
+    jq -r '.merged_lookup_unanswered[]? | [.branch,.reason] | @tsv' "$OBSERVATION" >"$CLAIMS_UNANSWERED_FILE"
+else
+    CLAIMS_FETCH_OK="$fetched"
+    rows=$(claims_scan "$base")
+fi
 if [ -n "$rows" ]; then
     # Read the TSV the shared scan produced. `read -r` with a tab IFS keeps the
     # artifact list intact in the last field.

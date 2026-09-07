@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workaholic.runtime/state/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "owner", "generation", "updated_at", "data"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "owner": {"type": ["object", "null"]},
+    "generation": {"type": "integer", "minimum": 1},
+    "updated_at": {"type": "string", "minLength": 1},
+    "data": {"type": "object"}
+  }
+}

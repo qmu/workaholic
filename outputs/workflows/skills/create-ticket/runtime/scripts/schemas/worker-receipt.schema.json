@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workaholic.runtime/worker-receipt/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request_id", "role", "unit", "reserved", "executed", "result"],
+  "properties": {
+    "request_id": {"type": "string", "minLength": 1},
+    "role": {"type": "string", "minLength": 1},
+    "unit": {"type": ["string", "null"]},
+    "reserved": {"type": "boolean"},
+    "child_id": {"type": ["string", "null"]},
+    "executed": {"type": "boolean"},
+    "result": {"type": ["object", "null"]}
+  }
+}

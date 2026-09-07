@@ -11,6 +11,10 @@ metadata:
 
 Bundled probes that emit JSON for the work flow. Each script is independent; preload this skill once and call whichever you need.
 
+## Shared snapshot
+
+`scripts/read-snapshot.sh --input FILE [--previous FILE]` materializes claims once and projects the same observation through the legacy claim and drive readers. It returns a `workaholic.runtime/v1` result whose `data` is the snapshot accepted by the runtime planner and context packet scripts. Remote failure remains a named freshness result; dirty content participates in the local fingerprint even when HEAD is unchanged.
+
 ## Git Context
 
 ```bash

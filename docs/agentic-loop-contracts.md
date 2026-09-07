@@ -47,6 +47,8 @@ The old `claims.sh` header omits `declared_members`; the executable `printf` and
 
 The following classifications retain every H4 B-number. A listed defect is **not** frozen as desired behavior, and listing it does not claim its repair has passed. P1's nested distribution coverage lives separately in `packaging.test.mjs`; subsequent units add their own runtime, transport and consumer fixtures.
 
+P2 adds `snapshot-state.test.mjs`. Its hermetic fixtures pin revision conflicts, generation-checked lease takeover, allowlisted configuration precedence with literal false/zero values, fixed-clock action priority, mission acceptance aggregation, partial handoff membership, dirty-tree fingerprinting, unavailable-versus-empty reads, strategy boundary normalization, and one shared claims observation across snapshot consumers. On repository data, `plan-units.sh` projected byte-identical JSON with and without the precomputed mission corpus, including every legacy freshness and exclusion field.
+
 | ID | Repair contract | Owner |
 | --- | --- | --- |
 | B01 | Nested dependencies and references survive packaging and execute in installed consumers | P1 |

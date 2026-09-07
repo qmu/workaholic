@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workaholic.runtime/request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "request_id", "operation", "repo_root", "instance_id", "input"],
+  "properties": {
+    "protocol": {"const": "workaholic.runtime/v1"},
+    "request_id": {"type": "string", "minLength": 1},
+    "operation": {"type": "string", "minLength": 1},
+    "repo_root": {"type": "string", "minLength": 1},
+    "instance_id": {"type": "string", "minLength": 1},
+    "input": {"type": "object"},
+    "binding_id": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "configInput": {"type": "object"},
+    "capabilityInput": {"type": "object"},
+    "snapshotInput": {"type": "object", "required": ["repo_root", "now", "config", "identity"]},
+    "planInput": {"type": "object", "required": ["now", "snapshot", "state"]}
+  }
+}

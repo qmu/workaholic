@@ -260,6 +260,13 @@
 
 set -eu
 
+OBSERVATION="" CORPUS=""
+while [ $# -gt 0 ]; do
+    case "$1" in --claims-observation) OBSERVATION=${2:-}; shift 2;; --corpus) CORPUS=${2:-}; shift 2;; *) echo '{"error":"invalid_argument"}' >&2; exit 1;; esac
+done
+[ -z "$OBSERVATION" ] || { [ -f "$OBSERVATION" ] && jq -e '.schema_version == 1 and (.rows_tsv|type=="string")' "$OBSERVATION" >/dev/null 2>&1; } || { echo '{"error":"claims_observation_invalid"}' >&2; exit 1; }
+[ -z "$CORPUS" ] || { [ -f "$CORPUS" ] && jq -e '.schema_version == 1 and (.tickets|type=="array") and (.missions|type=="array")' "$CORPUS" >/dev/null 2>&1; } || { echo '{"error":"mission_corpus_invalid"}' >&2; exit 1; }
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
@@ -300,15 +307,19 @@ doc_title() {
 }
 
 # --- the claims in flight -----------------------------------------------------
-FETCHED=$(claims_fetch)
-# The merged lookup reads this in the parent shell: `claims_fetch` runs in a command
-# substitution, so the flag it sets there dies with that subshell (see lib/claims.sh).
+if [ -n "$OBSERVATION" ]; then
+    FETCHED=$(jq -r .fetched "$OBSERVATION")
+    SHALLOW=$(jq -r .shallow "$OBSERVATION")
+    BASE=$(jq -r .base "$OBSERVATION")
+    ROWS=$(jq -r .rows_tsv "$OBSERVATION")
+else
+    FETCHED=$(claims_fetch)
+    CLAIMS_FETCH_OK="$FETCHED"
+    SHALLOW=$(claims_shallow)
+    BASE=$(claims_base)
+    ROWS=$(claims_scan "$BASE")
+fi
 CLAIMS_FETCH_OK="$FETCHED"
-# Read AFTER the fetch, which deepens when it can: this must describe the history the
-# scan below actually saw, not the one the container was cloned with.
-SHALLOW=$(claims_shallow)
-BASE=$(claims_base)
-ROWS=$(claims_scan "$BASE")
 
 # --- freshness, reported never repaired (see the header) -----------------------
 # `claims_fetch` above updated the remote-tracking refs, so BASE reflects the remote
@@ -319,8 +330,13 @@ ROWS=$(claims_scan "$BASE")
 # "I match what I remember", not "I match the base". Reporting `current: true` there
 # would let a runner that cannot reach the remote at all emit `ok`, which is the
 # confident-stale-survey this field exists to make impossible.
-SURVEYED_SHA=$(git rev-parse HEAD 2>/dev/null || printf '')
-BASE_SHA=$(git rev-parse --verify --quiet "${BASE}^{commit}" 2>/dev/null || printf '')
+if [ -n "$OBSERVATION" ]; then
+    SURVEYED_SHA=$(jq -r .surveyed_sha "$OBSERVATION")
+    BASE_SHA=$(jq -r .base_sha "$OBSERVATION")
+else
+    SURVEYED_SHA=$(git rev-parse HEAD 2>/dev/null || printf '')
+    BASE_SHA=$(git rev-parse --verify --quiet "${BASE}^{commit}" 2>/dev/null || printf '')
+fi
 if [ "$FETCHED" = "true" ] && [ -n "$SURVEYED_SHA" ] && [ "$SURVEYED_SHA" = "$BASE_SHA" ]; then
     CURRENT=true
 else
@@ -655,7 +671,7 @@ if [ -d ".workaholic/missions/active" ]; then
                 continue
             fi
         fi
-        progress=$(sh "${MISSION_SCRIPTS}/progress.sh" "$f" 2>/dev/null || true)
+        if [ -n "$CORPUS" ]; then progress=$(jq -c --arg slug "$slug" '.missions[]|select(.slug==$slug)|{checked,total,unlinked}' "$CORPUS"); else progress=$(sh "${MISSION_SCRIPTS}/progress.sh" "$f" 2>/dev/null || true); fi
         checked=$(printf '%s' "$progress" | sed -n 's/.*"checked": *\([0-9][0-9]*\).*/\1/p')
         total=$(printf '%s' "$progress" | sed -n 's/.*"total": *\([0-9][0-9]*\).*/\1/p')
         [ -n "$checked" ] || checked=0
@@ -691,7 +707,7 @@ if [ -d ".workaholic/missions/active" ]; then
         # gate, on a proof the 2026-08-04 mission would have failed. A mission reaching this
         # branch as `queue_drained` is therefore one whose acceptance is NOT complete, or one
         # finished by a path that archived no ticket.
-        qs=$(sh "${MISSION_SCRIPTS}/queue-size.sh" "$slug" 2>/dev/null || true)
+        if [ -n "$CORPUS" ]; then qs=$(jq -c --arg slug "$slug" '.missions[]|select(.slug==$slug)|{todo:.queue.todo,archive:.queue.archive}' "$CORPUS"); else qs=$(sh "${MISSION_SCRIPTS}/queue-size.sh" "$slug" 2>/dev/null || true); fi
         queued=$(printf '%s' "$qs" | sed -n 's/.*"todo": *\([0-9][0-9]*\).*/\1/p')
         [ -n "$queued" ] || queued=0
         archived=$(printf '%s' "$qs" | sed -n 's/.*"archive": *\([0-9][0-9]*\).*/\1/p')
@@ -706,7 +722,7 @@ if [ -d ".workaholic/missions/active" ]; then
         fi
         title=$(json_escape "$(fm_field "$f" title)")
         policy=$(json_escape "$(fm_field "$f" merge_policy)")
-        next=$(json_escape "$(sh "${MISSION_SCRIPTS}/next-acceptance.sh" "$f" 2>/dev/null || true)")
+        if [ -n "$CORPUS" ]; then next=$(json_escape "$(jq -r --arg slug "$slug" '.missions[]|select(.slug==$slug)|.next' "$CORPUS")"); else next=$(json_escape "$(sh "${MISSION_SCRIPTS}/next-acceptance.sh" "$f" 2>/dev/null || true)"); fi
         MISSIONS="${MISSIONS}${m_sep}{\"slug\": \"${slug}\", \"title\": \"${title}\", \"merge_policy\": \"${policy}\", \"checked\": ${checked}, \"total\": ${total}, \"next\": \"${next}\", \"path\": \"$(json_escape "$f")\"}"
         m_sep=", "
     done
@@ -729,7 +745,7 @@ USER_SLUG=$(sh "${GATHER_SCRIPTS}/user-slug.sh" 2>/dev/null || true)
 BACKLOG_ERROR=""
 BACKLOG_SIZE=0
 todo_status=0
-TODO_LIST=$(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null) || todo_status=$?
+if [ -n "$CORPUS" ]; then TODO_LIST=$(jq -r '.tickets[]|select(.area=="todo")|.path' "$CORPUS") || todo_status=$?; else TODO_LIST=$(sh "${SCRIPT_DIR}/list-todo.sh" 2>/dev/null) || todo_status=$?; fi
 case "$todo_status" in
     0) ;;
     *) BACKLOG_ERROR="unreadable" ;;
@@ -771,8 +787,13 @@ for t in $TODO_LIST; do
     # The relation is MANY-valued and the test is ANY, not ALL: a ticket naming one live
     # mission and one closed one is still a member, arrives through the live mission's
     # unit, and must not also be offered as backlog.
-    relation=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$t" 2>/dev/null || true)
-    active_relation=$(sh "${MISSION_SCRIPTS}/read-active-relation.sh" "$t" 2>/dev/null || true)
+    if [ -n "$CORPUS" ]; then
+        relation=$(jq -r --arg path "$t" '.tickets[]|select(.path==$path)|.relations[]?' "$CORPUS")
+        active_relation=$(printf '%s\n' "$relation" | while IFS= read -r rel; do [ -n "$rel" ] && [ -d ".workaholic/missions/active/$rel" ] && printf '%s\n' "$rel"; done || true)
+    else
+        relation=$(sh "${MISSION_SCRIPTS}/read-relation.sh" "$t" 2>/dev/null || true)
+        active_relation=$(sh "${MISSION_SCRIPTS}/read-active-relation.sh" "$t" 2>/dev/null || true)
+    fi
     if [ -n "$active_relation" ]; then
         exclude ticket "$t" "mission_member"
         continue

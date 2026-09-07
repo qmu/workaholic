@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workaholic.runtime/snapshot/v1",
+  "type": "object",
+  "required": ["schema_version", "snapshot_id", "observed_at", "repo", "identity", "config_fingerprint", "policy_fingerprint", "freshness", "work", "communication", "evidence"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "snapshot_id": {"type": "string", "minLength": 1},
+    "observed_at": {"type": "string", "minLength": 1},
+    "repo": {"type": "object"},
+    "identity": {},
+    "config_fingerprint": {"type": "string"},
+    "policy_fingerprint": {"type": "string"},
+    "freshness": {"type": "object"},
+    "work": {"type": "object"},
+    "communication": {"type": "object"},
+    "evidence": {"type": "array"}
+  }
+}

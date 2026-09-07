@@ -1516,6 +1516,18 @@ cmd_verify_propose() {
 
     _root=$(mktemp -d)
     mkdir -p "${_root}/strategies" "${_root}/feedbacks"
+    _bin="${_root}/bin"; mkdir -p "$_bin"
+    cat >"${_bin}/gh" <<'STUB'
+#!/bin/sh
+case "$*" in
+  "api user --jq .login") printf '%s\n' drill-user ;;
+  *"api repos/"*"/issues --method POST --input -"*)
+    cat >/dev/null
+    printf '%s\n' '{"html_url":"https://drill.invalid/issues/1","assignees":[{"login":"drill-user"}]}' ;;
+  *) exit 1 ;;
+esac
+STUB
+    chmod +x "${_bin}/gh"
     printf -- '---\ntype: Feedback\n---\n\nx\n' > "${_root}/feedbacks/20260101000000-a.md"
     _far=$(date -u -d "+30 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
     _near=$(date -u -d "+3 days" +%Y-%m-%d 2>/dev/null || echo 2098-01-01)
@@ -1652,7 +1664,7 @@ EOF
     _mbody="${_root}/mission-body.md"
     printf '%s\n' "## What to change" "" "x" "" "## Why this commits to the strategy" "" "y" "" \
         "## What this is chosen against" "" "z" "" > "$_mbody"
-    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    _r=$(cd "$REPO_ROOT" && PATH="${_bin}:$PATH" sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
     if printf '%s' "$_r" | grep -q '"reason": "missing_section"'; then
         add_row "propose_floor_mission_shape" true "a body naming no experience and no ticket set is refused" load
     else

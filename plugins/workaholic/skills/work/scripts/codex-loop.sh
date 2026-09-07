@@ -812,11 +812,28 @@ plan_tick() {
         || { printf ''; return 0; }
     _pt_dir=$(mktemp -d)
     _pt_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    _pt_epoch=$(date -u +%s)
+    _pt_poll_state="${LOG_DIR}/poll-state.json"
+    _pt_poll_sh="${PLUGIN_ROOT}/skills/runtime/scripts/plan-poll.sh"
+    _pt_local="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown):$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | git hash-object --stdin 2>/dev/null || printf unknown)"
+    if [ -s "$_pt_poll_state" ] && [ -x "$_pt_poll_sh" ]; then
+        jq -cn --argjson now "$_pt_epoch" --arg fp "$_pt_local" --slurpfile state "$_pt_poll_state" \
+          --argjson interval "$INTERVAL" '{now_epoch:$now,polling:{mode:"fixed",interval_seconds:$interval},state:$state[0],observed:{local_fingerprint:$fp,input_ids:[]}}' >"$_pt_dir/poll-input.json"
+        _pt_poll=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll-input.json" 2>/dev/null || printf '')
+        if [ "$(printf '%s' "$_pt_poll" | jq -r '.data.observe // true' 2>/dev/null || printf true)" = false ]; then
+            jq -cn --argjson next "$(printf '%s' "$_pt_poll" | jq -r '.data.next_due')" '{protocol:"workaholic.runtime/v1",request_id:"plan-turn",status:"ok",reason:"",data:{actions:[{action:"wait",reason:"cached_observations",target:null}],next_due:$next,reasons:["cached_observations"]}}'
+            rm -rf "$_pt_dir"; return 0
+        fi
+    fi
     _pt_email=$(git -C "$REPO_ROOT" config user.email 2>/dev/null || printf '')
     jq -cn --arg root "$REPO_ROOT" --arg now "$_pt_now" --arg email "$_pt_email" \
         '{repo_root:$root,now:$now,config:{},identity:{email:$email}}' >"$_pt_dir/snapshot-input.json"
     if sh "$_pt_snapshot_sh" --input "$_pt_dir/snapshot-input.json" >"$_pt_dir/snapshot-result.json" 2>/dev/null \
         && jq -e '.status=="ok"' "$_pt_dir/snapshot-result.json" >/dev/null 2>&1; then
+        _pt_ttl=${WORKAHOLIC_REMOTE_TTL_SECONDS:-900}; case "$_pt_ttl" in ''|*[!0-9]*) _pt_ttl=900;; esac
+        jq -cn --arg fp "$_pt_local" --argjson due "$((_pt_epoch + _pt_ttl))" --slurpfile observed "$_pt_dir/snapshot-result.json" \
+          '{local_fingerprint:$fp,captured_input_ids:($observed[0].data.communication.new_input_ids // []),remote_due_epoch:$due,exploration_due_epoch:$due,maintenance_due_epoch:$due}' >"${_pt_poll_state}.tmp.$$"
+        mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
         jq -cn --arg now "$_pt_now" --slurpfile observed "$_pt_dir/snapshot-result.json" \
             '{now:$now,snapshot:$observed[0].data,state:{}}' >"$_pt_dir/plan-input.json"
         sh "$_pt_plan_sh" --input "$_pt_dir/plan-input.json" 2>/dev/null || printf ''

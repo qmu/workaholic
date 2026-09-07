@@ -2,6 +2,7 @@
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/result.sh"
 [ "${1:-}" = --request ] || runtime_usage "usage: dispatch.sh --request FILE"; REQUEST=${2:-}
+started_ms=$(date +%s%3N 2>/dev/null || printf 0)
 runtime_require_json_file "$REQUEST"
 jq -e '.protocol=="workaholic.runtime/v1" and .operation=="dispatch" and (.request_id|type=="string" and length>0) and (.repo_root|type=="string" and length>0) and (.instance_id|type=="string" and length>0) and (.input.role|type=="string" and length>0) and ((.input.unit//null)==null or (.input.unit|type=="string")) and (.input.adapter=="codex" or .input.adapter=="claude" or .input.adapter=="native") and (.input.prompt|type=="string" and length>0) and ((.input.dry_run//false)|type=="boolean")' "$REQUEST" >/dev/null 2>&1 || runtime_usage "invalid dispatch request"
 id=$(jq -r .request_id "$REQUEST"); root=$(jq -r .repo_root "$REQUEST"); instance=$(jq -r .instance_id "$REQUEST"); role=$(jq -r .input.role "$REQUEST"); unit=$(jq -r '.input.unit // empty' "$REQUEST"); adapter=$(jq -r .input.adapter "$REQUEST"); dry=$(jq -r '.input.dry_run // false' "$REQUEST")
@@ -37,8 +38,13 @@ if [ "$adapter" = native ]; then
 fi
 worker_request=$(mktemp); jq -c '.operation="run_worker"|.input={prompt:.input.prompt,output_schema:(.input.output_schema//null)}' "$REQUEST" >"$worker_request"
 result=$(sh "${SCRIPT_DIR}/adapters/${adapter}.sh" --request "$worker_request"); rm -f "$worker_request"
+finished_ms=$(date +%s%3N 2>/dev/null || printf "$started_ms")
+request_bytes=$(wc -c < "$REQUEST" | tr -d ' '); result_bytes=$(printf '%s' "$result" | wc -c | tr -d ' ')
+usage=$(printf '%s' "$result" | jq -c '.data.usage // null' 2>/dev/null || printf null)
+metrics=$(jq -cn --argjson wall "$((finished_ms-started_ms))" --argjson bytes "$((request_bytes+result_bytes))" --argjson usage "$usage" \
+  '{wall_ms:$wall,reader_calls:0,api_calls:0,worker_calls:1,read_bytes:$bytes,usage:$usage}')
 revision=$(printf '%s' "$reserved" | jq -r .data.record.revision)
-final=$(printf '%s' "$receipt" | jq -c --argjson result "$result" '.executed=($result.status=="ok" and $result.data.result.executed==true)|.result=($result.data.result//null)')
+final=$(printf '%s' "$receipt" | jq -c --argjson result "$result" --argjson metrics "$metrics" '.executed=($result.status=="ok" and $result.data.result.executed==true)|.result=($result.data.result//null)|.metrics=$metrics')
 input=$(mktemp); jq -cn --arg now "$now" --argjson owner "$owner" --argjson generation "$generation" --argjson data "$final" '{updated_at:$now,owner:$owner,generation:$generation,data:$data}' >"$input"
 (cd "$root" && sh "$state" update --scope instance --id "$instance" --record "worker/$id" --expected-revision "$revision" --input "$input") >/dev/null; rm -f "$input"
-runtime_json_result ok "" "$id" "$(jq -cn --argjson receipt "$final" --argjson adapter_result "$result" '{receipt:$receipt,adapter_result:$adapter_result}')"
+runtime_json_result ok "" "$id" "$(jq -cn --argjson receipt "$final" --argjson adapter_result "$result" --argjson metrics "$metrics" '{receipt:$receipt,adapter_result:$adapter_result,metrics:$metrics}')"

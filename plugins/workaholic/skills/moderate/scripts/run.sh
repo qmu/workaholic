@@ -89,6 +89,7 @@ SKIP=''
 DEADLINE=0
 DO_LOG=1
 DO_PERSIST=1
+PLAN_INPUT=''
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -99,9 +100,17 @@ while [ $# -gt 0 ]; do
         --deadline-seconds) DEADLINE="${2:-0}"; shift 2 ;;
         --no-log)           DO_LOG=0; shift ;;
         --no-persist)       DO_PERSIST=0; shift ;;
+        --plan-input)       PLAN_INPUT="${2:-}"; shift 2 ;;
         *) printf '{"tick": "", "error": "unknown_argument", "argument": "%s"}\n' "$1"; exit 1 ;;
     esac
 done
+
+if [ -n "$PLAN_INPUT" ]; then
+    planned=$(sh "${SCRIPT_DIR}/plan-steps.sh" --input "$PLAN_INPUT" 2>/dev/null || printf '')
+    [ "$(printf '%s' "$planned" | jq -r '.status // "error"' 2>/dev/null || printf error)" = ok ] \
+        || { printf '{"tick":"","error":"step_plan_unreadable"}\n'; exit 1; }
+    STEPS=$(printf '%s' "$planned" | jq -r '.data.steps[].id' | tr '\n' ' ')
+fi
 
 [ -n "$TICK" ] || TICK=$(sh "${SCRIPT_DIR}/tick-id.sh" | sed 's/.*"tick": "//; s/".*//')
 

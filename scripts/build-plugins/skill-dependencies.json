@@ -6,5 +6,7 @@
     "strategy",
     "branching",
     "mission"
-  ]
+  ],
+  "transport": ["runtime"],
+  "specificate": ["transport"]
 }

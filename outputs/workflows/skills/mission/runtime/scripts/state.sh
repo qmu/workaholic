@@ -124,6 +124,12 @@ else
                 value=$(printf '%s' "$old" | jq -c --arg now "$now" --arg e "$mapped" '.revision += 1 | .updated_at=$now | .data.state=$e') ;;
             *) runtime_usage "unknown transition event" ;;
         esac
+        # A transition may attach evidence produced by the effect it records
+        # (for example the provider ts that confirms an outbox send). The state
+        # machine still owns the finite state change above; callers can only
+        # merge data, never replace revision/owner/generation through it.
+        transition_data=$(jq -c '.data // {}' "$INPUT")
+        value=$(printf '%s' "$value" | jq -c --argjson extra "$transition_data" '.data += $extra')
     fi
 fi
 

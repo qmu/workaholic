@@ -15,6 +15,7 @@ Shared commands and skills for cross-workflow operations. Provides context-aware
 | ----- | ----------- |
 | branching | Context detection and branch pattern matching for unified commands |
 | runtime | Shared typed config, state, planning, and context contracts for agentic loops |
+| transport | Bound QFS, parent connector, and existing-token communication with durable outbox evidence |
 | ship | Ship workflow: PR merge, CLAUDE.md deploy, and production verify |
 
 ## Installation

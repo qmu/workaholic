@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workaholic.transport/result/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "request_id", "status", "reason", "data"],
+  "properties": {
+    "protocol": {"const": "workaholic.transport/v1"},
+    "request_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["ok", "needs_parent", "deferred", "error"]},
+    "reason": {"type": "string"},
+    "data": {}
+  }
+}

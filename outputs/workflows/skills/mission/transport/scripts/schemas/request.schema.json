@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workaholic.transport/request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "request_id", "operation", "repo_root", "instance_id", "input"],
+  "properties": {
+    "protocol": {"const": "workaholic.transport/v1"},
+    "request_id": {"type": "string", "minLength": 1},
+    "operation": {"enum": ["discover", "read_channel_delta", "read_thread", "search_exact", "post_root", "post_reply", "add_reaction", "reconcile_send"]},
+    "repo_root": {"type": "string", "minLength": 1},
+    "instance_id": {"type": "string", "minLength": 1},
+    "binding_id": {"type": "string", "minLength": 1},
+    "input": {"type": "object"}
+  }
+}

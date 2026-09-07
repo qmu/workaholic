@@ -1662,18 +1662,16 @@ EOF
 
     printf '%s\n' "## Experience" "" "e" "" "## Tickets" "" "1. only one" "" >> "$_mbody"
     _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
-    if printf '%s' "$_r" | grep -q '"reason": "under_planned"'; then
-        add_row "propose_floor_two_tickets" true "a proposal naming one ticket is refused as under-planned" load
+    if printf '%s' "$_r" | grep -q '"ok":true'; then
+        add_row "propose_single_ticket_experiment" true "a proposal naming one concrete ticket reaches the publication seam" load
     else
-        add_row "propose_floor_two_tickets" false "the two-ticket floor did not hold: $(one_line "$_r")" load
+        add_row "propose_single_ticket_experiment" false "a one-ticket experiment did not reach publication: $(one_line "$_r")" load
     fi
 
-    # And the refusal NAMES THE ALTERNATIVE — a refusal stating only the rule leaves the
-    # caller retrying the same thing, which is `check-floor.sh`'s own recorded discipline.
-    if printf '%s' "$_r" | grep -q 'plain ticket'; then
-        add_row "propose_floor_alternative" true "the under-planned refusal names what to do instead" load
+    if printf '%s' "$_r" | grep -q '"strategy":"live"' && printf '%s' "$_r" | grep -q '"move":"depth"'; then
+        add_row "propose_single_ticket_attribution" true "the published experiment preserves its strategy and evolutionary move" load
     else
-        add_row "propose_floor_alternative" false "the refusal states only the rule: $(one_line "$_r")" load
+        add_row "propose_single_ticket_attribution" false "the one-ticket experiment lost its strategy or move: $(one_line "$_r")" load
     fi
 
     # /propose writes NOTHING into the repository — the property that keeps it out of the

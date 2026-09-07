@@ -92,6 +92,8 @@ test('P2 fixed input planner keeps the priority order and finite actions', () =>
   assert.equal(invoke(base).data.actions[0].reason, 'exploration_due');
   base.state = { exploration_due_at: '2026-09-09T00:00:00Z', next_due: 'later' }; const waited = invoke(base);
   assert.equal(waited.data.actions[0].action, 'wait'); assert.equal(waited.data.next_due, 'later');
+  base.snapshot.work.strategy_survey = { eligible: [{ slug: 'learn', stage: '観察中', feedback_refs: ['f.md'], landed: [], queued: [], residue: {} }] };
+  const learning = invoke(base); assert.equal(learning.data.actions[0].reason, 'strategy_learning'); assert.equal(learning.data.actions[0].target[0].slug, 'learn');
 });
 
 test('P2 invalid input is one typed JSON result with exit two', () => {

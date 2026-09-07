@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T02:28:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -85,3 +86,27 @@ What is new is that the coordinator holds its own turn while doing it.
 
 - The end-to-end evidence that this branch actually delivers into the chat is the mission's own
   acceptance ticket and is deliberately not claimed here.
+
+## Final Report
+
+Development completed as planned.
+
+The branch is stated in `work/SKILL.md` as *The native-parent branch: the coordinator holds its
+own turn*, placed immediately after the three clock terms and **composing** them rather than
+restating them: its opening sentence says so in those words, and none of its six numbered terms
+re-derives the anchor rule, the dispatch rule or the already-running refusal. `other-agents.md`
+gains *What the native-parent branch restores* — the return path, which the 2026-09-05 repair to
+the external supervisor could not reach because `codex exec` has no parent to call back into.
+
+### Discovered Insights
+
+- **Insight**: the 2026-09-05 repair (issues #984/#985) fixed both of the clock's terms and left
+  a third property untouched that neither term names — *where the report goes*.
+  **Context**: it is why a correct-looking repair still ended with the operator learning nothing,
+  and why the supervisor's non-promise had to be written onto its own row rather than left to be
+  discovered by whoever next reads `.codex-loop/`.
+- **Insight**: the 60-second wait ceiling is a **refusal**, not a tuning constant — the number
+  bounds how long a person's question can go unanswered, which is the property the whole cadence
+  exists to protect, so a longer wait is wrong even where it would sleep less often.
+  **Context**: a later reader tempted to sleep the whole interval for efficiency is re-creating
+  the exact defect #984 measured, one layer up.

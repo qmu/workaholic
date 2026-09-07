@@ -699,4 +699,5 @@
 * [A scratchpad redirect must not assume > truncates](20260907070309-a-scratchpad-redirect-must-not-assume-truncates.md)
 * [Keep a handoff branch mergeable while it waits for the person](20260907070904-keep-a-handoff-branch-mergeable-while-it-waits-for-the-person.md)
 * [Run the Codex /work loop in the current session's foreground](20260907122433-run-the-codex-work-loop-in-the-current-session-s-foreground.md)
+* [Correct the foreground Codex loop handoff reading](20260907134849-correct-the-foreground-codex-loop-handoff-reading.md)
 <!-- okf:generated:end -->

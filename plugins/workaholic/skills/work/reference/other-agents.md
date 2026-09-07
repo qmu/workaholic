@@ -2,8 +2,8 @@
 
 **Corrected 2026-09-04**: the 2026-09-03 diagnosis below measured **Codex CLI**, not every
 Codex surface. The ChatGPT desktop app has Scheduled tasks that can return to an existing chat
-on a minute interval and work in a local project. That is the preferred clock when the loop is
-started from a desktop Codex chat; the external supervisor remains the CLI/IDE fallback. The
+on a minute interval and work in a local project. That was the clock recommended by that correction. Since 2026-09-06 the ordered
+capability table selects a native parent first; no product label chooses the mode. The
 tick contract stays shared with Claude Code.
 
 **Asked 2026-09-03**: can the loop-premised `/work` command run under Codex, and make it loop
@@ -32,14 +32,31 @@ skills into the closure and still left five unresolved references (`lib/raced-un
 that copier follows a skill's `scripts/` and not its siblings. The loop needs the whole
 apparatus, and the whole apparatus is the full plugin — which Codex already installs.
 
-## The four mechanisms, and what Codex has
+## Why the mode is read off the session
 
-| Claude mechanism | Codex, measured | Substitution |
+**Corrected 2026-09-06 (issue #989).** Everything in the next table was measured against **one
+surface at one version** — `codex-cli 0.149.1`, 2026-09-03 — and the tree then read those
+readings as facts about *every non-Claude agent*. They are not, and the cost was measured: a
+session whose own harness exposed an interruptible wait that returns early on user input,
+spawnable child agents with listing, messaging and interrupt, four concurrent slots, and the
+ability to emit commentary without ending its turn — read the identity-keyed table, selected
+`scripts/codex-loop.sh`, ended its turn, and told the operator that the chat the loop had been
+started in would receive nothing.
+
+So the **selection is capability-keyed** (`SKILL.md`, *Starting it*): four questions about tools
+this session holds, an ordered table over the answers, and a named refusal when no branch's terms
+hold. **The measurements below survive with their date and their scope** — they are evidence for
+how a session on that surface will usually answer, never a decider — and no row of this document
+states or implies that a non-Claude agent lacks native background agents.
+
+## The four mechanisms, and what `codex-cli 0.149.1` had (measured 2026-09-03)
+
+| Claude mechanism | That surface, measured | Substitution where the session answers the same way |
 | ---------------- | --------------- | ------------ |
-| `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **CLI/IDE:** no Scheduled management interface | a Scheduled task in the current chat for desktop; the installed work skill's `scripts/codex-loop.sh` for CLI/IDE |
+| `/loop <interval> <command>` — an in-process recurring timer | **Desktop app:** chat-bound Scheduled tasks support minute intervals. **That CLI:** no Scheduled management interface | a Scheduled task in the current chat for desktop; the installed work skill's `scripts/codex-loop.sh` where neither a parent turn nor a scheduler is held |
 | slash-command dispatch of `commands/*.md` | **None** (manifests expose skills only) | the loop is a **skill** (`workaholic:work`); the tick reads the other command bodies as files and executes them |
-| a **detached** background subagent whose parent ends first | Codex has concurrent subagents (`multi_agent`, `/agent`), but the **parent collects their results** — there is no parent-ends-children-continue lifetime | a **detached process**: `codex-loop.sh --dispatch <role>` starts one and returns. A process outlives the run that started it where a subagent does not |
-| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across `exec` runs — a fresh run cannot see the previous run's agents | a per-role **lock**, taken by `--dispatch` before it forks and inherited by the worker: `--dispatch` refuses `already_running`, and `--status` names each role's state. A lock is visible to a run that cannot see the previous run's agents. Nothing is reaped — a worker is a process that ends |
+| a **detached** background subagent whose parent ends first | that CLI's concurrent subagents (`multi_agent`, `/agent`) are **collected by the parent**, so its parent cannot end first. **This is a reading of that surface and of nothing else**: a session whose own tool set exposes children it need not collect answers **C3 yes** and takes the native-parent branch | a **detached process**: `codex-loop.sh --dispatch <role>` starts one and returns. A process outlives the run that started it where a *collected* subagent does not |
+| `ListAgents` as the live concurrency registry, `TaskStop` to reap | no equivalent across that CLI's `exec` runs — a fresh run cannot see the previous run's agents. A session that **does** hold a listing uses it, and the native-parent branch's role map is that | a per-role **lock**, taken by `--dispatch` before it forks and inherited by the worker: `--dispatch` refuses `already_running`, and `--status` names each role's state. A lock is visible to a run that cannot see the previous run's agents. Nothing is reaped — a worker is a process that ends |
 | `${CLAUDE_PLUGIN_ROOT}` | not defined | the tick names `plugins/workaholic` and writes paths out in full |
 | `.claude/settings.json` `env` | not read | `codex-loop.sh` reads that same block and exports it, so there is **one** declaration |
 | the plugin's `hooks/hooks.json` | not carried by either Codex manifest; Codex hooks are its own configuration | **the gates are absent on Codex** — see *What is lost* |
@@ -76,11 +93,81 @@ What was retired was three **clocks**, three **views** and three places to look.
 is one coordinator holding the only clock and the only view, dispatching workers that hold
 neither: a worker decides no cadence, reads no channel, starts no other worker, and records its
 finish into the **same tick log** the coordinator reads to decide what is due. There is still one
-place that sees the whole loop. That is the Claude Code shape — a main agent with detached
-subagents — reached with processes, because processes are what Codex has.
+place that sees the whole loop. That is the coordinator-and-worker shape, reached with processes where a session
+cannot dispatch native children that outlive the call.
 
-The one thing a process gives that a Codex subagent does not is the lifetime: `--dispatch`
-returns and its child survives, where a parent collecting subagent results cannot end first.
+The one thing a process gives that a **collected** subagent does not is the lifetime: `--dispatch`
+returns and its child survives, where a parent that must collect its subagents' results cannot end
+first. That is a statement about collection, not about a product: where a session's own children
+outlive the call, branch 1 gets the same lifetime without a process.
+
+## What the native-parent branch restores
+
+The external supervisor's clock was repaired on 2026-09-05 and its workers detached, and **the one
+thing that repair could not reach is the return path**: `codex exec` has no parent to call back
+into, so its report lands in `.codex-loop/` and the person who typed *start work* is told nothing.
+That is why the supervisor's row in the selection table names it as a non-promise rather than
+leaving it to be discovered.
+
+The native-parent branch reaches it by keeping the coordinator's own turn. The clock terms do not
+change — startup-anchored boundaries, dispatched-never-awaited work, a running role refused by
+name — and neither does the tick body. What changes is where the report goes: **commentary in the
+conversation the loop was started in**, on every boundary, while the work runs beneath it.
+
+### Live originating-chat measurement — 2026-09-07 (operator accepted)
+
+The operator resumed the local `CODEX-HANDOFF.md` work in this Codex conversation. The candidate
+was PR #993, branch `work-20260906-023953`, based on head `4eb073d59`; its plugin version was
+1.0.329 at startup and was bumped to 1.0.330 during the run. The host reports Linux
+6.18.34+rpt-rpi-2712, aarch64. Installed `codex-cli 0.153.4` was read for environment context;
+the coordinator did **not** invoke `codex exec`, and that CLI version does not identify the
+chat harness build (which is not exposed).
+
+C1 was supplied by `clock.sleep`, C2 by commentary, and C3 by `collaboration.spawn_agent` and
+its listing/automatic result notifications. Four concurrent slots were exposed. C4 had no
+callable same-chat scheduler in this session. Branch 1 was selected, and the startup report
+named this chat as the delivery destination. The root checkout and claim worktree's supervisor
+readings both showed `never_started` and idle workers, so no external coordinator needed retiring.
+The Slack connector was callable, but searches for `dev-workaholic` and `workaholic` returned no
+channel; no Slack interaction or reply-deduplication success is claimed by this measurement.
+
+The bounded verification used the user's two existing implementation PRs as child work; it did
+not originate new proposals or perform the unrelated moderation backlog. The original anchor
+was **04:35:00 UTC / 13:35:00 JST**, with a **300-second** interval. Actual visible commentary:
+
+| Event | Observed time (JST) | Evidence in this conversation |
+| ----- | ------------------- | ----------------------------- |
+| First periodic report | 13:40:05 | Both child tasks running; duplicate dispatch refused |
+| Second periodic report | 13:45:13 | No user input since the preceding report; children still running |
+| Third periodic report | 13:50:05 | Same anchor retained; no duplicate dispatch |
+| Fourth periodic report | 13:55 | Same anchor retained; children still running |
+| Recovery child completed | 13:58:26 | Automatic result delivered here; 6,883 smoke assertions passed |
+| CI child completed | 13:58:54 | Automatic result delivered here; 6,875 smoke assertions passed |
+| Fifth periodic report | 14:00 | Both outcomes already reported; no duplicate dispatch |
+
+The CI repair child `/root/clock_ci` has a conservative measured interval from **04:34:07Z to
+04:58:54Z (24m47s)**, when its required full suite completed. Its duration came from diagnosis,
+repairs and verification, not a synthetic long sleep. `/root/retired_path` independently ran the
+other PR's implementation and checks. The parent never synchronously collected either across a
+boundary. Interruptible waits were capped at 45 seconds (and shortened near a boundary);
+intermediate implementation updates were additional commentary, not clock resets.
+
+**Operator acceptance, 2026-09-07:** after reviewing this measurement, the operator stated that
+the remaining behavior is already known to work and they will now use it, and explicitly
+instructed merging without waiting for the additional question test. That ruling discharges
+the pre-merge handoff. The actual mid-wait status question remains **unmeasured in this session**;
+the earlier acknowledgement was neither that question nor observed during a wait, and is not
+substituted as evidence. The ticket closes by operator acceptance, with its original declaration
+retained as history. The 300-second proof is distinct from the 60-second trial below.
+
+### Requested one-minute interval, measured separately
+
+After the five-minute child-work phase, the same coordinator explicitly changed the verification
+interval to 60 seconds while keeping the 04:35:00Z anchor. Commentary arrived at **14:07:03,
+14:08:02 and 14:09:01 JST** on 2026-09-07, with no user input between these reports. The observed
+59-second separations are approximate tool/report timing around 60-second boundaries, not an
+exact wake-up guarantee. No second coordinator or new child was started. This measures the
+requested interval path; it does not supply a measurement of the operator-accepted mid-wait user question.
 
 ## Where a report goes, per entrypoint — and where it does not
 
@@ -91,6 +178,7 @@ closes is not a broken transport but a **missing** one being mistaken for a work
 
 | Entrypoint | The tick's report reaches | A dispatched worker's report reaches | The initiating chat receives |
 | ---------- | ------------------------- | ------------------------------------ | ---------------------------- |
+| Native parent (C1, C2 and C3 hold) | commentary in the initiating chat | the parent receives the native child result and reports it once | tick reports and child outcomes while the parent turn remains active |
 | Claude Code `/loop 5m /infinite-development` | the session that is running the loop | the parent session, as the subagent's result | the session itself — it *is* the chat |
 | Codex desktop Scheduled task | the chat the task was created in | `.codex-loop/<stamp>-<role>.md` | the tick's report only |
 | `scripts/codex-loop.sh` (CLI / IDE) | `.codex-loop/<stamp>.md` and the supervisor's own stdout | `.codex-loop/<stamp>-<role>.md`, with `.codex-loop/dispatch-<role>.log` holding the child's stdout | **nothing** |
@@ -99,8 +187,7 @@ closes is not a broken transport but a **missing** one being mistaken for a work
 `started pid=…` the instant the child is detached, and the child outlives the run that started it —
 which is exactly the lifetime the port needed and exactly why no result can come back through the
 process that returned. **A shell launcher cannot promise a callback into the initiating chat
-without an actual return transport**, and inventing one would mean holding the coordinator open
-across the work, which is the cadence failure #984/#985 named. So the launcher **names the absence
+without an actual return transport**, which would require a real parent coordinator such as branch 1 rather than a callback from the detached launcher. So the launcher **names the absence
 at startup** — `chat_return: none (detached workers report to <dir>)` — and an absent delivery path
 is never substituted for one that delivers somewhere else.
 
@@ -164,7 +251,10 @@ ten minutes and this prompt:
 The local-project choice is load-bearing: the tick already isolates implementation and
 publication writes in its own worktrees, while its git-ignored cadence log must persist between
 runs. Keep the computer and desktop app running when the task needs those local files. Do not run
-this schedule and the external supervisor against the same repository at once.
+this schedule and the external supervisor against the same repository at once, and do not run the
+native-parent branch beside either — **two coordinators against one repository is the state this
+rule exists to prevent, whichever pair they are** (the cutover: `SKILL.md`, *Cutting over from the
+external supervisor*).
 
 If this connector-owning chat deliberately delegates a tick to a nested CLI worker, it remains in
 the turn and runs the installed launcher with `--relay --once`. The worker returns the v1 envelope
@@ -174,6 +264,15 @@ worker receives neither the connector nor OAuth material. A detached or continuo
 process has no owning chat to call back into and therefore cannot use this path.
 
 ## Running it from Codex CLI or the IDE
+
+**This mode is kept, deliberately, and it is not what the native-parent branch replaces
+everywhere.** A cron entry, a systemd timer or any environment with **no conversation at all** is
+exactly what it is for, so deleting it was refused. What its own row states on its face is the
+non-promise: **its output is not claimed to reach the invoking conversation** — `codex exec` has
+no parent to call back into, and a report in `.codex-loop/` is not a report the person who started
+the loop will see. **No continuation after an app closure, a cancellation or a hard harness limit
+is promised anywhere without a tested mechanism named beside it**; an untested resumption is named
+as untested.
 
 The launcher ships beside this skill, so it works when the plugin is installed into an otherwise
 empty repository. Resolve the directory containing this `SKILL.md`, then run:

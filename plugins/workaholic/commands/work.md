@@ -1,15 +1,14 @@
 ---
-description: Start the development loop in this session — one tick every five minutes until you stop it.
+description: Start the development loop in this session — one tick at the requested interval (default five minutes) until you stop it.
 ---
 
 # Work
 
-Start the loop. Invoke the **`loop` skill** with the arguments `5m /infinite-development`,
-and let it run.
-
-That is the whole command. `/work` exists because the loop is the thing a developer starts
-most often and `/loop 5m /infinite-development` is three pieces of syntax to remember for one
-intention; the cadence and the tick live behind it so a person types neither.
+Run the **`workaholic:work` skill**, carrying `$ARGUMENTS` and any interval in the person's
+instruction into its startup interval resolution and capability selection. With no requested
+interval the default is five minutes; `/work 1m` requests one minute. Where the selected native
+mode uses the `loop` skill, invoke it with `<resolved interval> /infinite-development`.
+The command chooses neither a mode nor a second default of its own.
 
 **One session, one loop.** If this session is already looping, say so and start nothing —
 a second loop would spawn a second `implement` against the same claim protocol, and the

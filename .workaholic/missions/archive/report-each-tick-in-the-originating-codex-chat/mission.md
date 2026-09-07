@@ -2,20 +2,21 @@
 type: Mission
 title: Report each tick in the originating Codex chat
 slug: report-each-tick-in-the-originating-codex-chat
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-06T02:27:58+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.5
 feedback: [20260906022552-report-each-tick-in-the-originating-codex-chat-and-prove-it-end-to-end.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260906-023953
 ---
 
 # Report each tick in the originating Codex chat
@@ -38,13 +39,23 @@ for a supervisor delivering somewhere else.
 
 ## Acceptance
 
-- [ ] The mode is selected from capabilities the session exposes; an absent delivery path is
+- [x] The mode is selected from capabilities the session exposes; an absent delivery path is
       named at startup, not substituted. (#20260906022855-select-the-loop-mode-from-measured-capabilities.md)
-- [ ] While a delegated task outruns the interval, successive tick reports and its completion
+- [x] While a delegated task outruns the interval, successive tick reports and its completion
       arrive in the originating chat unprompted. (#20260906022855-run-the-tick-as-a-native-parent-that-keeps-its-turn.md)
-- [ ] The behaviour is demonstrated end to end in the operator's own chat, with timestamps,
-      environment and version. (#20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat.md)
+- [x] The originating-chat measurement records timestamps, environment and version; the operator
+      accepts the remaining user-question criterion for real use (2026-09-07). (#20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-06 — ticket archived — 20260906022855-select-the-loop-mode-from-measured-capabilities.md
+- 2026-09-06 — ticket archived — 20260906022855-run-the-tick-as-a-native-parent-that-keeps-its-turn.md
+- 2026-09-06 — ticket archived — 20260906022855-delegate-each-due-role-as-a-bounded-native-child.md
+- 2026-09-06 — ticket archived — 20260906022855-reserve-the-final-response-for-a-stop-or-a-refusal.md
+- 2026-09-06 — ticket archived — 20260906022855-carry-the-loop-state-across-context-compaction.md
+- 2026-09-06 — ticket archived — 20260906022855-retire-only-the-supervisor-the-native-mode-replaces.md
+- 2026-09-06 — story — work-20260906-023953.md
+- 2026-09-06 — run recorded (+1.5h) — work-20260906-023953
+- 2026-09-07 — ticket archived — 20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat.md
+- 2026-09-07 — mission achieved — mission.md

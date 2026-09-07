@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T02:28:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -73,3 +74,30 @@ is reserved for exactly two events: an explicit stop, and a named inability to c
 - The distinction is only meaningful where a final response ends the turn; on a branch where
   the clock re-invokes the tick, the existing wording is already correct and must not be
   rewritten around this one.
+
+## Final Report
+
+Development completed as planned.
+
+The substitution table's *end* row no longer renders once for every non-Claude session: it points
+at `work/SKILL.md`'s new *What "end" means, and the two events that earn a final response*, whose
+table renders the word per branch — return control to the coordinator under the native-parent
+branch, end the tick or the run or the process everywhere the clock re-invokes the body. The two
+events are stated there, the mid-loop question and the explicit stop are stated in
+`commands/infinite-development.md` §1 where the channel turn is specified, and §2's *end the turn*
+now names the branch's word rather than a final answer.
+
+**The gate held**: no post shape was added to or removed from the ceiling. The `💬`, `📥 受理` and
+`🟢 Implemented` blocks are byte-identical, and the paragraph added to §1 says explicitly that
+commentary in the originating conversation is not a Slack post.
+
+### Discovered Insights
+
+- **Insight**: one hermetic run of `node scripts/test-workflow-scripts.mjs` reported
+  `6620 passed, 1 failed` and an immediate re-run over the identical tree reported
+  `6621 passed, 0 failed`; a third run agreed. The failing row's name was lost to the pipe that
+  captured only the tail.
+  **Context**: the suite is asserted to be hermetic, so a non-reproducing failure is either a
+  test with a real timing dependency or a shared temp path colliding with a concurrent run — both
+  worth knowing before somebody reads a single red run as a regression. Recorded rather than
+  chased, because nothing in this mission touches the suite's own machinery.

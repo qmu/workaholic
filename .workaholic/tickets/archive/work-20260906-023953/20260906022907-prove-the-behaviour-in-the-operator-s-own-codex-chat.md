@@ -1,11 +1,11 @@
 ---
 created_at: 2026-09-06T02:29:07+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 mission: report-each-tick-in-the-originating-codex-chat
 merge_policy:
-verification_handoff: The ask requires a live run in the operator's own originating Codex chat: start work there, keep a delegated task running past ten minutes, and record at least two successive five-minute status reports arriving unprompted, then the completion report. An unattended run has no access to that chat, that account or that app, and the ask names shell stubs, passing tests, status.json, worker transcripts and Slack delivery as insufficient.
 ---
 
 # Prove the behaviour in the operator's own Codex chat
@@ -85,3 +85,33 @@ what closes it.
 
 - The short 15- and 20-second waits already observed in the reporting session are evidence the
   branch is reachable and are explicitly **not** this acceptance run.
+
+## Verification progress — 2026-09-07
+
+Attempted in the originating operator Codex chat, using the candidate branch instructions.
+The dated environment, version, timestamps and exact limits are recorded in
+`plugins/workaholic/skills/work/reference/other-agents.md`. The 04:35:00 UTC anchor produced
+visible 13:40:05, 13:45:13, 13:50:05, 13:55 and 14:00 JST reports. No operator input occurred
+between the first two reports. A native child worked for a conservative measured 24m47s,
+and both child completions arrived automatically at 13:58:26 and 13:58:54 JST. The parent's
+live role map refused duplicate dispatch at the boundaries.
+
+The actual mid-wait user status question is still pending. The operator acknowledged the
+verification request earlier, but that was not a status question observed during a wait.
+This distinction is retained rather than marking the gate passed. The ticket remains queued
+and the verification declaration remains unchanged. The Slack channel was not discoverable
+through the current connector; no Slack reply or deduplication claim is made.
+
+## Final Report — operator acceptance, 2026-09-07
+
+After reviewing the partial measurement, the operator stated that the remaining behavior is
+already known to work, that they will now use it, and explicitly instructed merging without
+waiting for the additional question test. This supersedes the outstanding pre-merge condition.
+The ticket is completed by **operator acceptance**, not by claiming that this session observed
+a mid-wait status question. The recorded timestamps, child runtime and one-minute trial remain
+the measured evidence; the question-specific criterion is accepted without a new measurement.
+
+The original declaration is retained as history below. Its frontmatter handoff is discharged by
+the operator's explicit ruling, and the mission acceptance is worded to reflect that ruling.
+
+> The ask requires a live run in the operator's own originating Codex chat: start work there, keep a delegated task running past ten minutes, and record at least two successive five-minute status reports arriving unprompted, then the completion report. An unattended run has no access to that chat, that account or that app, and the ask names shell stubs, passing tests, status.json, worker transcripts and Slack delivery as insufficient.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-06T02:28:55+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -72,3 +73,31 @@ ticket forbids by name.
 - A duplicate dispatch is bounded by the claim protocol, which refuses a taken unit — but the
   wasted run and the duplicated report are real costs, which is why rediscovery precedes
   dispatch rather than relying on that refusal.
+
+## Final Report
+
+Development completed as planned.
+
+`work/SKILL.md` gains *What survives a compaction, and what is rediscovered*, placed inside the
+native-parent branch: the three carried items and nothing else, rediscovery before any dispatch,
+the refusal to infer that compaction stopped a child, the anchor preserved, and the once-only
+reporting that the carried outcome set is what makes hold across a resume.
+`commands/infinite-development.md` §2 says the same where the per-tick dispatch decision is made.
+
+**The gate held**: no new file, field or store was introduced. All three items live in the
+coordinator's own turn, and the only reader consulted on a resume is the harness's own listing —
+which already exists and is the same one the concurrency rule reads.
+
+### Discovered Insights
+
+- **Insight**: the three carried items fail in three different ways, which is why the list is
+  closed rather than "whatever the loop knows".
+  **Context**: a re-derived anchor moves the phase silently; a lost role map duplicates work the
+  claim protocol then refuses noisily; a lost outcome set duplicates a report to a person. Only
+  the middle one has a safety net, and it is the one whose loss is cheapest — so the two without
+  a net are the reason the rule exists.
+- **Insight**: *rediscovery precedes dispatch* is a deliberate refusal to lean on the claim
+  arbiter.
+  **Context**: the arbiter would in fact catch a duplicate dispatch, and reaching for it would
+  make the coordinator's own bookkeeping optional — which is how a bound stops being maintained
+  and then stops holding when the thing behind it changes.

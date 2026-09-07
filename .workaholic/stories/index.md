@@ -17,6 +17,7 @@ Branch development narratives, one per branch, serving as the PR description and
 * [work-20260906-092226](work-20260906-092226.md) - Stop the loop handing routine engineering work back to a person — recovery work counts as claimable, a worker's finish comes from its own reported outcome, and a probe declaration no longer parks a claim.
 * [work-20260906-081744](work-20260906-081744.md) - A plugin markdown file is read at the checkout's own path, never at `<src>` — closing the reach that parked the `[Propose]` tick hourly.
 * [work-20260906-025904](work-20260906-025904.md) - Make the base an outright refusal for the tick log, read the residue it already left there, and pin the guard to every writer rather than to one tick's name
+* [work-20260906-023953](work-20260906-023953.md) - The loop selects its mode from the session's own capabilities and states a native-parent branch that keeps the coordinator's turn, so each tick reports into the chat it was started in.
 * [work-20260906-002101](work-20260906-002101.md) - Declare the tick's two fan-out bounds, refuse a fan-out the machine cannot carry, and report the machine beside the allocation
 * [Document the shared development loop](work-20260904-192506.md) - Bring the public and operator documentation into line with the shared work loop.
 * [Relay Codex Slack through its owning chat](work-20260904-184903.md) - Relay Codex Slack operations through the connector-owning parent with explicit acknowledgements and failure states.

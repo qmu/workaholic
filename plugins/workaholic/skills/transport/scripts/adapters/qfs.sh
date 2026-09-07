@@ -40,7 +40,7 @@ if case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction) true;; *) f
     preview=$($QFS_BIN run "$query" --json --preview 2>&1) || { transport_result deferred qfs_preview_failed "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
     printf '%s' "$preview" | jq -e '(.ok // true) != false' >/dev/null 2>&1 || { transport_result deferred qfs_preview_refused "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
     raw=$($QFS_BIN run "$query" --json --commit 2>&1) || {
-      case "$?" in 124) transport_result deferred accepted_send_timeout "$TRANSPORT_REQUEST_ID" '{"accepted":true}';; *) transport_result deferred qfs_connector_failure "$TRANSPORT_REQUEST_ID" '{}';; esac
+      case "$?" in 124) transport_result deferred accepted_send_timeout "$TRANSPORT_REQUEST_ID" '{"accepted":true}';; *) transport_result deferred qfs_connector_failure "$TRANSPORT_REQUEST_ID" '{"accepted":null}';; esac
       exit 0
     }
 else
@@ -52,4 +52,6 @@ data=$(printf '%s' "$raw" | jq -c --arg workspace "$workspace" --arg channel "$c
   else
     {workspace:$workspace,channel:$channel,ts:(.ts//.message.ts//null),thread_ts:(.thread_ts//.message.thread_ts//null),sender_id:(.sender_id//null),confirmed_by:(.confirmed_by//"qfs_response"),delivered:(.ok//true)}
   end' 2>/dev/null) || { transport_result error qfs_response_unparseable "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
+case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction)
+  [ "$(printf '%s' "$data" | jq -r .delivered)" = true ] || { transport_result deferred qfs_post_refused "$TRANSPORT_REQUEST_ID" "$data"; exit 0; };; esac
 transport_result ok "" "$TRANSPORT_REQUEST_ID" "$data"

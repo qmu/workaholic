@@ -2,7 +2,7 @@
 type: Mission
 title: Report each tick in the originating Codex chat
 slug: report-each-tick-in-the-originating-codex-chat
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-06T02:27:58+09:00
 author: a@qmu.jp
@@ -43,8 +43,8 @@ for a supervisor delivering somewhere else.
       named at startup, not substituted. (#20260906022855-select-the-loop-mode-from-measured-capabilities.md)
 - [x] While a delegated task outruns the interval, successive tick reports and its completion
       arrive in the originating chat unprompted. (#20260906022855-run-the-tick-as-a-native-parent-that-keeps-its-turn.md)
-- [ ] The behaviour is demonstrated end to end in the operator's own chat, with timestamps,
-      environment and version. (#20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat.md)
+- [x] The originating-chat measurement records timestamps, environment and version; the operator
+      accepts the remaining user-question criterion for real use (2026-09-07). (#20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat.md)
 
 ## Changelog
 
@@ -57,3 +57,5 @@ for a supervisor delivering somewhere else.
 - 2026-09-06 — ticket archived — 20260906022855-retire-only-the-supervisor-the-native-mode-replaces.md
 - 2026-09-06 — story — work-20260906-023953.md
 - 2026-09-06 — run recorded (+1.5h) — work-20260906-023953
+- 2026-09-07 — ticket archived — 20260906022907-prove-the-behaviour-in-the-operator-s-own-codex-chat.md
+- 2026-09-07 — mission achieved — mission.md

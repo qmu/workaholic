@@ -114,7 +114,7 @@ change — startup-anchored boundaries, dispatched-never-awaited work, a running
 name — and neither does the tick body. What changes is where the report goes: **commentary in the
 conversation the loop was started in**, on every boundary, while the work runs beneath it.
 
-### Live originating-chat measurement — 2026-09-07 (partial acceptance)
+### Live originating-chat measurement — 2026-09-07 (operator accepted)
 
 The operator resumed the local `CODEX-HANDOFF.md` work in this Codex conversation. The candidate
 was PR #993, branch `work-20260906-023953`, based on head `4eb073d59`; its plugin version was
@@ -152,13 +152,13 @@ other PR's implementation and checks. The parent never synchronously collected e
 boundary. Interruptible waits were capped at 45 seconds (and shortened near a boundary);
 intermediate implementation updates were additional commentary, not clock resets.
 
-**Still unresolved at this checkpoint:** a user status question actually received during a
-wait, followed by a report on the unchanged anchor. Both child completion reports arrived
-automatically and were reported once before the next periodic boundary. The
-operator's earlier acknowledgement was answered without stopping, but it was neither a status
-question nor observed during a wait and is not substituted for that criterion. No declaration
-is cleared and the acceptance ticket remains queued until its actual gate is met. This live
-300-second proof is also distinct from testing a requested 60-second cadence.
+**Operator acceptance, 2026-09-07:** after reviewing this measurement, the operator stated that
+the remaining behavior is already known to work and they will now use it, and explicitly
+instructed merging without waiting for the additional question test. That ruling discharges
+the pre-merge handoff. The actual mid-wait status question remains **unmeasured in this session**;
+the earlier acknowledgement was neither that question nor observed during a wait, and is not
+substituted as evidence. The ticket closes by operator acceptance, with its original declaration
+retained as history. The 300-second proof is distinct from the 60-second trial below.
 
 ### Requested one-minute interval, measured separately
 
@@ -167,7 +167,7 @@ interval to 60 seconds while keeping the 04:35:00Z anchor. Commentary arrived at
 14:08:02 and 14:09:01 JST** on 2026-09-07, with no user input between these reports. The observed
 59-second separations are approximate tool/report timing around 60-second boundaries, not an
 exact wake-up guarantee. No second coordinator or new child was started. This measures the
-requested interval path; it does not discharge the still-missing mid-wait user question.
+requested interval path; it does not supply a measurement of the operator-accepted mid-wait user question.
 
 ## Where a report goes, per entrypoint — and where it does not
 

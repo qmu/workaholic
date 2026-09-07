@@ -19,14 +19,22 @@ before=$(read_pr || true)
 head=$(printf '%s' "$before" | jq -r '.head.sha // empty' 2>/dev/null || true)
 state=$(printf '%s' "$before" | jq -r '.state // empty' 2>/dev/null || true)
 merged=$(printf '%s' "$before" | jq -r '.merged // false' 2>/dev/null || true)
-if [ "$merged" = true ]; then
+if [ "$merged" = true ] && [ "$head" = "$expected" ]; then
   sha=$(printf '%s' "$before" | jq -r '.merge_commit_sha // empty')
-  jq -cn --arg sha "$sha" --arg expected "$expected" '{status:"merged",merge_sha:$sha,expected_sha:$expected,reconciled:true}'
+  [ -n "$sha" ] && { jq -cn --arg sha "$sha" --arg expected "$expected" '{status:"merged",merge_sha:$sha,expected_sha:$expected,reconciled:true}'; exit 0; }
+fi
+if [ "$merged" = true ]; then
+  jq -cn --arg expected "$expected" --arg actual "$head" '{status:"refused",reason:"head_changed",expected_sha:$expected,actual_sha:$actual,reconciled:true}'
   exit 0
 fi
 [ -n "$head" ] || { printf '{"status":"deferred","reason":"pr_unreadable"}\n'; exit 0; }
 [ "$state" = open ] || { printf '{"status":"refused","reason":"pull_not_open"}\n'; exit 0; }
 [ "$head" = "$expected" ] || { jq -cn --arg expected "$expected" --arg actual "$head" '{status:"refused",reason:"head_changed",expected_sha:$expected,actual_sha:$actual}'; exit 0; }
+
+if [ "$(jq -r '.reconcile_only // false' "$REQUEST")" = true ]; then
+  jq -cn --arg expected "$expected" '{status:"unknown",reason:"merge_effect_unconfirmed",expected_sha:$expected,reconciled:true}'
+  exit 0
+fi
 
 method=$(jq -r .method "$REQUEST"); title=$(jq -r .title "$REQUEST"); body=$(jq -r .body "$REQUEST")
 if response=$(sh "$SCRIPT_DIR/gh-rest.sh" api "repos/${repo}/pulls/${pr}/merge" --method PUT \
@@ -41,8 +49,13 @@ fi
 
 # A failed/partial write is an unknown effect until the pull request itself answers.
 after=$(read_pr || true)
-if [ "$(printf '%s' "$after" | jq -r '.merged // false' 2>/dev/null || true)" = true ]; then
+after_head=$(printf '%s' "$after" | jq -r '.head.sha // empty' 2>/dev/null || true)
+if [ "$(printf '%s' "$after" | jq -r '.merged // false' 2>/dev/null || true)" = true ] && [ "$after_head" = "$expected" ]; then
   sha=$(printf '%s' "$after" | jq -r '.merge_commit_sha // empty' 2>/dev/null || true)
   [ -n "$sha" ] && { jq -cn --arg sha "$sha" --arg expected "$expected" '{status:"merged",merge_sha:$sha,expected_sha:$expected,reconciled:true}'; exit 0; }
+fi
+if [ "$(printf '%s' "$after" | jq -r '.merged // false' 2>/dev/null || true)" = true ]; then
+  jq -cn --arg expected "$expected" --arg actual "$after_head" '{status:"refused",reason:"head_changed",expected_sha:$expected,actual_sha:$actual,reconciled:true}'
+  exit 0
 fi
 jq -cn --arg expected "$expected" '{status:"unknown",reason:"merge_effect_unconfirmed",expected_sha:$expected}'

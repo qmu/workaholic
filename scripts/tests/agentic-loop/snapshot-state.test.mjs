@@ -48,6 +48,16 @@ test('P2 concurrent create has one winner and keeps valid JSON', async (t) => {
   assert.equal(stored.revision, 1); assert.equal(stored.data.value, 1);
 });
 
+test('P2 state reclaims only a lock whose recorded process is proved gone', (t) => {
+  const root = gitFixture(t); const input = join(root, 'input.json'); write(input, '{"updated_at":"t0","data":{"value":1}}');
+  const locks = join(root, '.git/workaholic/runtime/v1/locks'); mkdirSync(locks, { recursive: true });
+  const boot = readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim();
+  write(join(locks, 'bindings.b1.lock'), JSON.stringify({pid:2147483647,boot_id:boot,process_start:'1'}));
+  const result = json(run(['sh', join(runtime, 'state.sh'), 'create', '--scope', 'binding', '--id', 'b1', '--input', input], { cwd: root }));
+  assert.equal(result.status, 'ok'); assert.equal(result.data.record.data.value, 1);
+  assert.equal(existsSync(join(locks, 'bindings.b1.lock')), false);
+});
+
 test('P2 leases reject TTL-only takeover and stale generations', (t) => {
   const root = gitFixture(t); const input = join(root, 'input.json');
   const state = (...args) => json(run(['sh', join(runtime, 'state.sh'), ...args], { cwd: root }));

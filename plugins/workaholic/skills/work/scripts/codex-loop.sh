@@ -806,17 +806,21 @@ on_interrupt() {
 trap on_interrupt INT TERM
 
 plan_tick() {
-    _pt_snapshot_sh="${PLUGIN_ROOT}/skills/gather/scripts/read-snapshot.sh"
-    _pt_plan_sh="${PLUGIN_ROOT}/skills/runtime/scripts/plan-turn.sh"
+    _pt_snapshot_sh="${SCRIPT_DIR}/../../gather/scripts/read-snapshot.sh"
+    _pt_plan_sh="${SCRIPT_DIR}/../../runtime/scripts/plan-turn.sh"
     [ -d "$REPO_ROOT/.workaholic" ] && [ -x "$_pt_snapshot_sh" ] && [ -x "$_pt_plan_sh" ] && command -v jq >/dev/null 2>&1 \
         || { printf ''; return 0; }
     _pt_dir=$(mktemp -d)
     _pt_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     _pt_epoch=$(date -u +%s)
     _pt_poll_state="${LOG_DIR}/poll-state.json"
-    _pt_poll_sh="${PLUGIN_ROOT}/skills/runtime/scripts/plan-poll.sh"
+    _pt_poll_sh="${SCRIPT_DIR}/../../runtime/scripts/plan-poll.sh"
     _pt_local="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown):$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | git hash-object --stdin 2>/dev/null || printf unknown)"
-    if [ -s "$_pt_poll_state" ] && [ -x "$_pt_poll_sh" ]; then
+    # Cached waiting is safe only after this CLI process has a provider-side delta
+    # observation. A connector-owned parent must be given every explicit boundary;
+    # local Git equality is not evidence that its inbox stayed unchanged.
+    if [ -s "$_pt_poll_state" ] && [ -x "$_pt_poll_sh" ] \
+        && [ "$(jq -r '.remote_observation_proved // false' "$_pt_poll_state" 2>/dev/null || printf false)" = true ]; then
         jq -cn --argjson now "$_pt_epoch" --arg fp "$_pt_local" --slurpfile state "$_pt_poll_state" \
           --argjson interval "$INTERVAL" '{now_epoch:$now,polling:{mode:"fixed",interval_seconds:$interval},state:$state[0],observed:{local_fingerprint:$fp,input_ids:[]}}' >"$_pt_dir/poll-input.json"
         _pt_poll=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll-input.json" 2>/dev/null || printf '')
@@ -830,10 +834,19 @@ plan_tick() {
         '{repo_root:$root,now:$now,config:{},identity:{email:$email}}' >"$_pt_dir/snapshot-input.json"
     if sh "$_pt_snapshot_sh" --input "$_pt_dir/snapshot-input.json" >"$_pt_dir/snapshot-result.json" 2>/dev/null \
         && jq -e '.status=="ok"' "$_pt_dir/snapshot-result.json" >/dev/null 2>&1; then
-        _pt_ttl=${WORKAHOLIC_REMOTE_TTL_SECONDS:-900}; case "$_pt_ttl" in ''|*[!0-9]*) _pt_ttl=900;; esac
-        jq -cn --arg fp "$_pt_local" --argjson due "$((_pt_epoch + _pt_ttl))" --slurpfile observed "$_pt_dir/snapshot-result.json" \
-          '{local_fingerprint:$fp,captured_input_ids:($observed[0].data.communication.new_input_ids // []),remote_due_epoch:$due,exploration_due_epoch:$due,maintenance_due_epoch:$due}' >"${_pt_poll_state}.tmp.$$"
-        mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
+        _pt_proved=$(jq -r '.data.communication.observation_proved // false' "$_pt_dir/snapshot-result.json" 2>/dev/null || printf false)
+        if [ "$_pt_proved" = true ]; then
+            _pt_remote_ttl=${WORKAHOLIC_REMOTE_TTL_SECONDS:-900}; case "$_pt_remote_ttl" in ''|*[!0-9]*) _pt_remote_ttl=900;; esac
+            _pt_explore_ttl=${WORKAHOLIC_EXPLORATION_TTL_SECONDS:-3600}; case "$_pt_explore_ttl" in ''|*[!0-9]*) _pt_explore_ttl=3600;; esac
+            _pt_maintenance_ttl=${WORKAHOLIC_MAINTENANCE_TTL_SECONDS:-3600}; case "$_pt_maintenance_ttl" in ''|*[!0-9]*) _pt_maintenance_ttl=3600;; esac
+            jq -cn --arg fp "$_pt_local" --argjson remote "$((_pt_epoch + _pt_remote_ttl))" \
+              --argjson explore "$((_pt_epoch + _pt_explore_ttl))" --argjson maintain "$((_pt_epoch + _pt_maintenance_ttl))" \
+              --slurpfile observed "$_pt_dir/snapshot-result.json" \
+              '{remote_observation_proved:true,local_fingerprint:$fp,captured_input_ids:($observed[0].data.communication.new_input_ids // []),remote_due_epoch:$remote,exploration_due_epoch:$explore,maintenance_due_epoch:$maintain}' >"${_pt_poll_state}.tmp.$$"
+            mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
+        else
+            rm -f "$_pt_poll_state"
+        fi
         jq -cn --arg now "$_pt_now" --slurpfile observed "$_pt_dir/snapshot-result.json" \
             '{now:$now,snapshot:$observed[0].data,state:{}}' >"$_pt_dir/plan-input.json"
         sh "$_pt_plan_sh" --input "$_pt_dir/plan-input.json" 2>/dev/null || printf ''

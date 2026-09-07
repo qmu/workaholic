@@ -88,9 +88,11 @@ RECORD_OUTCOME="${SCRIPT_DIR}/../../story/scripts/record-merge-outcome.sh"
 
 unit=""
 own_tip=false
+prepare_only=false
 for arg in "$@"; do
     case "$arg" in
         --own-tip) own_tip=true ;;
+        --prepare-only) prepare_only=true ;;
         *) [ -n "$unit" ] || unit="$arg" ;;
     esac
 done
@@ -187,11 +189,14 @@ PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf ''
 
 # Bind the checks and merge write to the same pushed head.
 EXPECTED_HEAD=$(git rev-parse "origin/${BRANCH}" 2>/dev/null || printf '')
-[ -n "$EXPECTED_HEAD" ] || { OUTCOME="merge_refused: branch_head_unreadable"; MERGE_REASON_WORD=branch_head_unreadable; }
-CHECK_GATE=$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" "$EXPECTED_HEAD" 2>/dev/null || printf '')
-GATE=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "defer"' 2>/dev/null || printf 'defer')
-GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // "checks_unreadable"' 2>/dev/null || printf 'checks_unreadable')
-EXPECTED_HEAD=$(printf '%s' "$CHECK_GATE" | jq -r '.head // empty' 2>/dev/null || printf '')
+if [ -z "$EXPECTED_HEAD" ]; then
+    CHECK_GATE=''; GATE=defer; GATE_REASON=branch_head_unreadable
+else
+    CHECK_GATE=$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" "$EXPECTED_HEAD" 2>/dev/null || printf '')
+    GATE=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "defer"' 2>/dev/null || printf 'defer')
+    GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // "checks_unreadable"' 2>/dev/null || printf 'checks_unreadable')
+    EXPECTED_HEAD=$(printf '%s' "$CHECK_GATE" | jq -r '.head // empty' 2>/dev/null || printf '')
+fi
 
 BODY_JSON=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')
 MERGE_TITLE=$(printf '%s' "$BODY_JSON" | jq -r '.title // ""' 2>/dev/null || printf '')
@@ -199,7 +204,19 @@ MERGE_BODY=$(printf '%s' "$BODY_JSON" | jq -r '.body // ""' 2>/dev/null || print
 MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
 if [ "$GATE" != pass ]; then
     MERGE_REASON_WORD="$GATE_REASON"
+    if [ "$prepare_only" = true ]; then
+        jq -cn --arg unit "$unit" --arg branch "$BRANCH" --arg pr "$PR" --arg head "$EXPECTED_HEAD" --arg reason "$GATE_REASON" \
+          '{attempted:false,unit:$unit,branch:$branch,pull_request:$pr,outcome:(if $reason=="checks_pending" then "waiting_checks" else "refused" end),merge_reason:$reason,recorded:false,body_source:"",reason:$reason,expected_head:$head}'
+        exit 0
+    fi
 else
+    if [ "$prepare_only" = true ]; then
+        jq -cn --arg unit "$unit" --arg branch "$BRANCH" --arg pr "$PR" --arg head "$EXPECTED_HEAD" \
+          --arg method "$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-method.sh")" \
+          --arg title "$MERGE_TITLE" --arg body "$MERGE_BODY" --arg body_source "$MERGE_BODY_SOURCE" \
+          '{attempted:false,unit:$unit,branch:$branch,pull_request:$pr,outcome:"ready",merge_reason:"",recorded:false,body_source:$body_source,reason:"",merge_request:{pr:($pr|tonumber),expected_sha:$head,method:$method,title:$title,body:$body}}'
+        exit 0
+    fi
     request=$(mktemp); trap 'rm -f "$request"' EXIT HUP INT TERM
     jq -cn --argjson pr "$PR" --arg sha "$EXPECTED_HEAD" \
       --arg method "$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-method.sh")" \

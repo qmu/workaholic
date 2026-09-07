@@ -45,15 +45,43 @@ fi
 runtime_require_json_file "$INPUT"
 case "$ACTION" in update|transition) [ -n "$EXPECTED" ] || runtime_usage "--expected-revision is required" ;; esac
 
-lock_name=$(printf '%s' "${PLURAL}.${ID}.${RECORD}" | tr '/' '.')
+# One scope lock fences the lease metadata and every child record together. A child
+# therefore cannot pass a generation check while a concurrent release/takeover moves
+# the scope to another generation.
+lock_name=$(printf '%s' "${PLURAL}.${ID}" | tr '/' '.')
 LOCK="${BASE}/locks/${lock_name}.lock"
 mkdir -p "${BASE}/locks"
+boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || printf unknown)
+process_start=$(awk '{print $22}' "/proc/$$/stat" 2>/dev/null || printf unknown)
+lock_candidate="${BASE}/locks/.${lock_name}.$$.$process_start"
+jq -cn --argjson pid "$$" --arg boot "$boot_id" --arg start "$process_start" \
+  '{pid:$pid,boot_id:$boot,process_start:$start}' >"$lock_candidate"
+trap 'rm -f "$lock_candidate"' EXIT HUP INT TERM
 tries=0
-while ! mkdir "$LOCK" 2>/dev/null; do
+while ! ln "$lock_candidate" "$LOCK" 2>/dev/null; do
+    # Reclaim only with process evidence. On another boot the recorded process is
+    # necessarily gone; on this boot both PID and /proc start time must still match.
+    observed=$(cat "$LOCK" 2>/dev/null || printf '')
+    old_pid=$(printf '%s' "$observed" | jq -r '.pid // empty' 2>/dev/null || printf '')
+    old_boot=$(printf '%s' "$observed" | jq -r '.boot_id // empty' 2>/dev/null || printf '')
+    old_start=$(printf '%s' "$observed" | jq -r '.process_start // empty' 2>/dev/null || printf '')
+    owner_alive=unknown
+    if [ -n "$old_pid" ] && [ -n "$old_boot" ] && [ -n "$old_start" ] && [ "$boot_id" != unknown ]; then
+        if [ "$old_boot" != "$boot_id" ]; then owner_alive=false
+        elif [ -r "/proc/${old_pid}/stat" ]; then
+            live_start=$(awk '{print $22}' "/proc/${old_pid}/stat" 2>/dev/null || printf '')
+            if [ "$live_start" = "$old_start" ]; then owner_alive=true; else owner_alive=false; fi
+        else owner_alive=false
+        fi
+    fi
+    if [ "$owner_alive" = false ] && [ "$(cat "$LOCK" 2>/dev/null || printf '')" = "$observed" ]; then
+        rm -f "$LOCK" 2>/dev/null || true
+        continue
+    fi
     tries=$((tries + 1)); [ "$tries" -lt 200 ] || { runtime_json_result deferred lock_busy "$REQUEST" '{}'; exit 0; }
     sleep 0.01
 done
-trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT HUP INT TERM
+trap 'rm -f "$LOCK" "$lock_candidate" 2>/dev/null || true' EXIT HUP INT TERM
 
 defer_conflict() {
     actual=null
@@ -63,8 +91,8 @@ defer_conflict() {
 }
 
 # Child records are writable only by the current scope lease. The check occurs
-# under the child lock and the meta writer uses its own lock; a stale generation
-# can never complete after release/reacquire or takeover.
+# under the shared scope lock, so a stale generation cannot complete after
+# release/reacquire or takeover.
 if [ "$RECORD" != meta ]; then
     META="${BASE}/${PLURAL}/${ID}/meta.json"
     [ -f "$META" ] || { runtime_json_result deferred lease_missing "$REQUEST" '{}'; exit 0; }
@@ -124,7 +152,7 @@ else
             not_ready|waiting_checks|ready|merging|merged|unknown_delivery|refused_delivery)
                 case "$RECORD" in delivery/*) ;; *) runtime_usage "invalid delivery transition" ;; esac
                 mapped=$event; [ "$event" != unknown_delivery ] || mapped=unknown; [ "$event" != refused_delivery ] || mapped=refused
-                current=$(printf '%s' "$old" | jq -r '.data.state // ""'); case "$current:$mapped" in ':not_ready'|not_ready:waiting_checks|waiting_checks:ready|ready:merging|merging:merged|merging:unknown|*:refused) ;; *) runtime_json_result deferred invalid_transition "$REQUEST" '{}'; exit 0;; esac
+                current=$(printf '%s' "$old" | jq -r '.data.state // ""'); case "$current:$mapped" in ':not_ready'|refused:not_ready|not_ready:waiting_checks|waiting_checks:ready|ready:merging|merging:merged|merging:unknown|unknown:merged|*:refused) ;; *) runtime_json_result deferred invalid_transition "$REQUEST" '{}'; exit 0;; esac
                 value=$(printf '%s' "$old" | jq -c --arg now "$now" --arg e "$mapped" '.revision += 1 | .updated_at=$now | .data.state=$e') ;;
             *) runtime_usage "unknown transition event" ;;
         esac

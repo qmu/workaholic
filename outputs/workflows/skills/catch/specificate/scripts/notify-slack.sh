@@ -102,43 +102,37 @@ if [ -z "$CHANNEL" ]; then
     exit 0
 fi
 
-# JSON-encode the payload safely (text is arbitrary prose). The thread_ts key
-# rides ONLY when the flag was given, so a caller that passes no flag sends the
-# byte-identical payload this script has always sent.
-# The RESOLVED channel is exported for the encoder rather than read from the raw variable it
-# used to name: with the fallback above, the raw one is routinely unset while the resolved one
-# never is at this point.
-PAYLOAD=$(printf '%s' "$TEXT" | WORKAHOLIC_SLACK_RESOLVED_CHANNEL="$CHANNEL" python3 -c 'import json,sys,os
-p = {"channel": os.environ["WORKAHOLIC_SLACK_RESOLVED_CHANNEL"], "text": sys.stdin.read()}
-if sys.argv[1]:
-    p["thread_ts"] = sys.argv[1]
-print(json.dumps(p))' "$THREAD_TS")
-
-# The token rides only in the Authorization header of this one call; stderr is
-# discarded so a curl verbose/error path can never echo headers.
-HTTP_BODY=$(mktemp)
-trap 'rm -f "$HTTP_BODY"' EXIT
-HTTP_CODE=$(curl -sS -o "$HTTP_BODY" -w '%{http_code}' -X POST \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H 'Content-Type: application/json; charset=utf-8' \
-    --data "$PAYLOAD" \
-    "$API_URL" 2>/dev/null) || { echo '{"notified": false, "reason": "curl_failed"}'; exit 0; }
-
-if [ "$HTTP_CODE" != "200" ]; then
-    printf '{"notified": false, "reason": "http_%s"}\n' "$HTTP_CODE"
-    exit 0
+# Keep this legacy entry point's two-field response while delegating the effect
+# and its durable evidence to transport/v1. Callers may supply a stable ID for
+# retries. The compatibility fallback derives one from the complete effect
+# context, making an identical retry idempotent even when its caller has not yet
+# learned the explicit ID option. Callers with a distinct recurrence supply an
+# occurrence ID so equal prose at a later event remains a separate effect.
+TRANSPORT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/../../transport/scripts" && pwd)
+REQUEST=$(mktemp); trap 'rm -f "$REQUEST"' EXIT HUP INT TERM
+workspace=${WORKAHOLIC_SLACK_WORKSPACE:-legacy-token}
+operation=post_root; [ "$THREAD_TS_GIVEN" = 0 ] || operation=post_reply
+occurrence=${WORKAHOLIC_TRANSPORT_OCCURRENCE_ID:-}
+if [ -n "${WORKAHOLIC_TRANSPORT_REQUEST_ID:-}" ]; then
+  request_id=$WORKAHOLIC_TRANSPORT_REQUEST_ID
+else
+  request_id=notify-$(printf '%s\n' "$workspace" "$CHANNEL" "$operation" "$THREAD_TS" "$occurrence" "$TEXT" | sha256sum | cut -c1-48)
 fi
-
-python3 - "$HTTP_BODY" <<'PY'
-import json, sys
-try:
-    d = json.load(open(sys.argv[1]))
-except Exception:
-    print('{"notified": false, "reason": "slack_unparseable"}')
-    raise SystemExit(0)
-if d.get("ok"):
-    print('{"notified": true, "reason": ""}')
-else:
-    err = str(d.get("error", "unknown"))[:64].replace('"', '')
-    print(json.dumps({"notified": False, "reason": f"slack_{err}"}))
-PY
+binding_id=$(printf '%s' "slack-token:$workspace:$CHANNEL" | sha256sum | cut -c1-32)
+jq -cn --arg rid "$request_id" --arg op "$operation" --arg root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" \
+  --arg instance "notify-$binding_id" --arg binding "$binding_id" --arg workspace "$workspace" --arg channel "$CHANNEL" \
+  --arg text "$TEXT" --arg thread "$THREAD_TS" '
+  {protocol:"workaholic.transport/v1",request_id:$rid,operation:$op,repo_root:$root,instance_id:$instance,binding_id:$binding,
+   input:({binding:{workspace:$workspace,channel:$channel,channel_id:null,sender_id:null,operations:["post_root","post_reply"],
+          routes:[{transport:"slack_token",mount:null,account:null,operations:["post_root","post_reply"],sender_id:null,described:true}],thread_map:{}},
+          text:$text,legacy_payload:true} + (if $thread=="" then {} else {thread_ts:$thread} end))}' >"$REQUEST"
+result=$(SLACK_BOT_TOKEN="$TOKEN" WORKAHOLIC_SLACK_API_URL="$API_URL" "$TRANSPORT_DIR/perform.sh" --request "$REQUEST") || {
+  echo '{"notified": false, "reason": "curl_failed"}'; exit 0;
+}
+if [ "$(printf '%s' "$result" | jq -r .status 2>/dev/null)" = ok ]; then
+  echo '{"notified": true, "reason": ""}'
+  exit 0
+fi
+reason=$(printf '%s' "$result" | jq -r '.reason // "transport_failed"' 2>/dev/null || printf transport_failed)
+case "$reason" in provider_timeout|accepted_send_timeout|state_writer_missing|outbox_conflict|binding_busy|binding_owned) reason=curl_failed;; esac
+jq -cn --arg reason "$reason" '{notified:false,reason:$reason}'

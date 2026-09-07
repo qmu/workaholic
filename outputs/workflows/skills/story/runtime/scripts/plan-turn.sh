@@ -17,6 +17,8 @@ jq -c '
     {actions:[action("observe_input";"human_input";.snapshot.communication.new_input_ids),action("report";"human_input";null)],next_due:null,reasons:["human_input"]}
   elif ((.snapshot.work.claimable_units // [])|length)>0 or ((.state.ready_work // [])|length)>0 then
     {actions:[action("plan_work";"work_available";((.snapshot.work.claimable_units // []) + (.state.ready_work // []))),action("dispatch_worker";"work_available";null)],next_due:null,reasons:["work_available"]}
+  elif ((.snapshot.work.strategy_survey.eligible // [])|length)>0 then
+    {actions:[action("plan_work";"strategy_learning";[.snapshot.work.strategy_survey.eligible[]|{slug,stage,feedback_refs,landed,queued,residue}])],next_due:null,reasons:["strategy_learning"]}
   elif ($exploration_due or $maintenance_due) then
     {actions:[action("plan_work";(if $exploration_due then "exploration_due" else "maintenance_due" end);null)],next_due:(.state.next_due // null),reasons:[if $exploration_due then "exploration_due" else "maintenance_due" end]}
   else

@@ -6,6 +6,7 @@ RUNTIME_SCRIPTS="${SCRIPT_DIR}/../../runtime/scripts"
 DRIVE_SCRIPTS="${SCRIPT_DIR}/../../drive/scripts"
 LOOPS_SCRIPTS="${SCRIPT_DIR}/../../loops/scripts"
 STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
+PROPOSE_SCRIPTS="${SCRIPT_DIR}/../../propose/scripts"
 BRANCHING_SCRIPTS="${SCRIPT_DIR}/../../branching/scripts"
 . "${RUNTIME_SCRIPTS}/lib/result.sh"
 
@@ -51,6 +52,12 @@ sh "$LOOPS_SCRIPTS/claimable-units.sh" --survey "$tmp/survey.json" --recovery "$
 if [ -x "$STRATEGY_SCRIPTS/list.sh" ]; then sh "$STRATEGY_SCRIPTS/list.sh" "$ROOT/.workaholic" >"$tmp/strategies-legacy.json" 2>/dev/null || printf '{"count":null,"strategies":[],"readable":false,"reason":"strategy_unreadable"}\n' >"$tmp/strategies-legacy.json";
 else printf '{"count":null,"strategies":[],"readable":false,"reason":"strategy_unreadable"}\n' >"$tmp/strategies-legacy.json"; fi
 sh "$STRATEGY_SCRIPTS/normalize.sh" --input "$tmp/strategies-legacy.json" >"$tmp/strategies.json" || { runtime_json_result error strategy_unreadable read-snapshot '{}'; exit 0; }
+printf '{"ok":false,"reason":"strategy_survey_unavailable","eligible":[],"refused":[]}\n' >"$tmp/strategy-survey.json"
+if [ -x "$PROPOSE_SCRIPTS/list-open-proposals.sh" ] && [ -x "$PROPOSE_SCRIPTS/survey-strategies.sh" ]; then
+  if sh "$PROPOSE_SCRIPTS/list-open-proposals.sh" >"$tmp/open-proposals.json" 2>/dev/null; then
+    sh "$PROPOSE_SCRIPTS/survey-strategies.sh" --open-proposals "$tmp/open-proposals.json" "14 days ago" "$ROOT/.workaholic" >"$tmp/strategy-survey.json" 2>/dev/null || true
+  fi
+fi
 
 HEAD_SHA=$(git rev-parse HEAD)
 BASE_SHA=$(jq -r .base_sha "$tmp/claims-observation.json")
@@ -80,7 +87,7 @@ PREVIOUS_JSON=null; [ -z "$PREVIOUS" ] || PREVIOUS_JSON=$(cat "$PREVIOUS")
 
 jq -cn --arg sid "$SNAPSHOT_ID" --arg now "$NOW" --arg root "$ROOT" --arg common "$COMMON" --arg head "$HEAD_SHA" --arg base "$BASE_SHA" \
   --arg local "$LOCAL_FP" --arg config_fp "$CONFIG_FP" --arg policy_fp "$POLICY_FP" --argjson identity "$IDENTITY" --argjson config "$CONFIG" \
-  --slurpfile observation "$tmp/claims-observation.json" --slurpfile claims "$tmp/claims.json" --slurpfile survey "$tmp/survey.json" --slurpfile strategies "$tmp/strategies.json" --slurpfile claimable "$tmp/claimable.json" \
+  --slurpfile observation "$tmp/claims-observation.json" --slurpfile claims "$tmp/claims.json" --slurpfile survey "$tmp/survey.json" --slurpfile strategies "$tmp/strategies.json" --slurpfile strategy_survey "$tmp/strategy-survey.json" --slurpfile claimable "$tmp/claimable.json" \
   --argjson remote "$REMOTE" --argjson communication "$COMMUNICATION" --argjson recovery_readable "$recovery_readable" --argjson previous "$PREVIOUS_JSON" '
   {schema_version:1,snapshot_id:$sid,observed_at:$now,
    repo:{root:$root,git_common_dir:$common,head_sha:$head,base_sha:$base},identity:$identity,config:$config,config_fingerprint:$config_fp,policy_fingerprint:$policy_fp,
@@ -90,7 +97,7 @@ jq -cn --arg sid "$SNAPSHOT_ID" --arg now "$NOW" --arg root "$ROOT" --arg common
          if $previous.config_fingerprint != $config_fp then "config" else empty end,
          if $previous.policy_fingerprint != $policy_fp then "policy" else empty end,
          if $previous.freshness.remote.ok != $remote.ok or $previous.repo.base_sha != $base then "remote" else empty end]) end)},
-   work:{raw_claim_observation:$observation[0],claims:$claims[0].claims,missions:$survey[0].missions,tickets:$survey[0].backlog,strategies:$strategies[0].strategies,
+   work:{raw_claim_observation:$observation[0],claims:$claims[0].claims,missions:$survey[0].missions,tickets:$survey[0].backlog,strategies:$strategies[0].strategies,strategy_survey:$strategy_survey[0],
      survey:$survey[0],claimable:$claimable[0],claimable_units:(([ $survey[0].missions[]?.slug ] + [ $survey[0].backlog[]?.path ] + [ $survey[0].resumable[]?.unit ]) | unique)},
    communication:$communication,
    evidence:[{kind:"git",version:$head},{kind:"claims",version:$observation[0].surveyed_sha},{kind:"local",version:$local}]}' >"$tmp/snapshot.json"

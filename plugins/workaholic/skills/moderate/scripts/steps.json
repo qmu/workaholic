@@ -1,0 +1,466 @@
+{
+  "schema_version": 1,
+  "steps": [
+    {
+      "id": "open-log",
+      "script": "step-open-log.sh",
+      "depends_on_snapshot": [
+        "clock"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "blocked-tick",
+      "script": "step-blocked-tick.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "inbound-sweep",
+      "script": "step-inbound-sweep.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "workload-logs",
+      "script": "step-workload-logs.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "merge-conflicts",
+      "script": "step-merge-conflicts.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "issue-triage",
+      "script": "step-issue-triage.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "stuck-prs",
+      "script": "step-stuck-prs.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "doc-drift",
+      "script": "step-doc-drift.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "release-status",
+      "script": "step-release-status.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "note-cadence",
+      "script": "step-note-cadence.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "strategy-pace",
+      "script": "step-strategy-pace.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "direction-health",
+      "script": "step-direction-health.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "date-will-not-hold",
+      "script": "step-date-will-not-hold.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "stalled-units",
+      "script": "step-stalled-units.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "raced-units",
+      "script": "step-raced-units.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "undrivable-units",
+      "script": "step-undrivable-units.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "standing-rulings",
+      "script": "step-standing-rulings.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "undelivered-units",
+      "script": "step-undelivered-units.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "handoff-units",
+      "script": "step-handoff-units.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "thread-reconcile",
+      "script": "step-thread-reconcile.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "stranded-publications",
+      "script": "step-stranded-publications.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "operator-pulls",
+      "script": "step-operator-pulls.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "retire-claims",
+      "script": "step-retire-claims.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "closable-missions",
+      "script": "step-closable-missions.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "unrecorded-missions",
+      "script": "step-unrecorded-missions.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "base-health",
+      "script": "step-base-health.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "drill-health",
+      "script": "step-drill-health.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "cadence-lapse",
+      "script": "step-cadence-lapse.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "strategy-digest",
+      "script": "step-strategy-digest.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "question-answers",
+      "script": "step-question-answers.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "unanswered-asks",
+      "script": "step-unanswered-asks.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "file-findings",
+      "script": "step-file-findings.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
+      "id": "human-checkin",
+      "script": "step-human-checkin.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    }
+  ]
+}

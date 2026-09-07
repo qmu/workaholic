@@ -94,6 +94,27 @@ WHY="$2"
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 
+if [ -n "${WORKAHOLIC_PUBLICATION_ID:-}" ]; then
+  changes=$3 concerns=$4 insights=$5 verify=$6; shift 6
+  commit_request=$(mktemp); publish_request=$(mktemp); trap 'rm -f "$commit_request" "$publish_request"' EXIT
+  jq -cn --arg title "$TITLE" --arg why "$WHY" --arg changes "$changes" --arg concerns "$concerns" --arg insights "$insights" --arg verify "$verify" --args \
+    '{title:$title,why:$why,changes:$changes,concerns:$concerns,insights:$insights,verify:$verify,files:$ARGS.positional}' "$@" >"$commit_request"
+  committed=$(sh "${SCRIPT_DIR}/publication.sh" commit --transaction "$WORKAHOLIC_PUBLICATION_ID" --request "$commit_request")
+  [ "$(printf '%s' "$committed" | jq -r .ok)" = true ] || { printf '%s\n' "$committed"; exit 0; }
+  pr_title=${WORKAHOLIC_PR_TITLE:-$TITLE}
+  body="## Overview\n\n${WHY}"
+  case "${WORKAHOLIC_CLOSES_ISSUE:-}" in ''|*[!0-9]*) ;; *) body="${body}\n\nCloses #${WORKAHOLIC_CLOSES_ISSUE}";; esac
+  jq -cn --arg title "$pr_title" --arg body "$body" '{title:$title,body:$body}' >"$publish_request"
+  published=$(sh "${SCRIPT_DIR}/publication.sh" publish --transaction "$WORKAHOLIC_PUBLICATION_ID" --request "$publish_request" --mode pr)
+  if [ "$(printf '%s' "$published" | jq -r .ok)" = true ]; then
+    printf '%s' "$published" | jq -c --arg base "$base" '{ok:true,sha:.sha,branch:.branch,pr_url:.pr_url,base:$base,merged:(.phase=="merged"),merge_reason:(if .phase=="merged" then "merged" else "not_requested" end),body_source:"transaction"}'
+  else
+    reason=$(printf '%s' "$published" | jq -r .reason); case "$reason" in pr_lookup_unknown|pr_create_unknown) reason=pr_failed;; esac
+    printf '%s' "$published" | jq -c --arg reason "$reason" '{ok:false,reason:$reason,branch:(.branch//null),sha:(.sha//null),base:(.base//null)}'
+  fi
+  exit 0
+fi
+
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo '{"error": "not inside a git repository"}' >&2
   exit 1

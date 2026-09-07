@@ -46,7 +46,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-case "$INTERVAL" in ''|*[!0-9]*) printf 'interval must be whole seconds\n' >&2; exit 2 ;; esac
+case "$INTERVAL" in ''|*[!0-9]*|0) printf 'interval must be positive whole seconds\n' >&2; exit 2 ;; esac
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PLUGIN_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/../../.." && pwd)
@@ -98,12 +98,13 @@ role_known() {
 }
 role_lock() { printf '%s/worker-%s.lock' "$LOG_DIR" "$1"; }
 role_pidfile() { printf '%s/worker-%s.pid' "$LOG_DIR" "$1"; }
+has_flock() { [ "${WORKAHOLIC_FORCE_NO_FLOCK:-0}" != 1 ] && command -v flock >/dev/null 2>&1; }
 
 # `running` / `idle`. flock is the authority where it exists; a pid file is the fallback, and
 # a pid file naming a dead process is idle rather than an unreadable state.
 role_state() {
     _lock=$(role_lock "$1")
-    if command -v flock >/dev/null 2>&1; then
+    if has_flock; then
         if [ -e "$_lock" ] && ! ( exec 8>"$_lock"; flock -n 8 ) 2>/dev/null; then
             printf 'running'; return 0
         fi
@@ -157,7 +158,7 @@ role_claim_pidfile() {
 # function acts on the whole shell, so fd 8 stays open after this returns and is inherited by
 # the worker. 0 = this process now holds the role; 1 = somebody else does.
 dispatch_claim_role() {
-    if command -v flock >/dev/null 2>&1; then
+    if has_flock; then
         exec 8>"$(role_lock "$1")"
         flock -n 8 || return 1
         return 0
@@ -239,7 +240,7 @@ supervisor_lock() { printf '%s/.supervisor.lock' "$LOG_DIR"; }
 supervisor_lock_state() {
     _sl_file=$(supervisor_lock)
     [ -e "$_sl_file" ] || { printf 'free'; return 0; }
-    command -v flock >/dev/null 2>&1 || { printf 'unreadable:flock_missing'; return 0; }
+    has_flock || { printf 'unreadable:flock_missing'; return 0; }
     if ( exec 7>"$_sl_file"; flock -n 7 ) 2>/dev/null; then printf 'free'; else printf 'held'; fi
 }
 
@@ -554,19 +555,19 @@ if [ -n "$DISPATCH_ROLE" ] || [ -n "$WORKER_ROLE" ]; then
         exit 2; }
 fi
 
-command -v codex >/dev/null 2>&1 || { printf 'codex_cli_missing: the codex CLI is not on PATH\n' >&2; exit 2; }
+[ "$DRY_RUN" = true ] || command -v codex >/dev/null 2>&1 || { printf 'codex_cli_missing: the codex CLI is not on PATH\n' >&2; exit 2; }
 
 SETTINGS="${REPO_ROOT}/.claude/settings.json"
 ENV_SOURCE="none"
 if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
-    if _pairs=$(jq -r '(.env // {}) | to_entries[] | "\(.key)=\(.value)"' "$SETTINGS" 2>/dev/null); then
+    if _pairs=$(jq -r '(.env // {}) | to_entries[] | select(.key|startswith("WORKAHOLIC_")) | @base64' "$SETTINGS" 2>/dev/null); then
         ENV_SOURCE="settings"
         for _pair in $_pairs; do
-            _k=${_pair%%=*}
-            _v=${_pair#*=}
-            case "$_k" in CLAUDE_*) continue ;; esac
-            case "$_k" in [A-Za-z_][A-Za-z0-9_]*) ;; *) continue ;; esac
-            eval "_cur=\${${_k}:-}"
+            _decoded=$(printf '%s' "$_pair" | base64 -d 2>/dev/null || printf '')
+            _k=$(printf '%s' "$_decoded" | jq -r .key 2>/dev/null || printf '')
+            _v=$(printf '%s' "$_decoded" | jq -r '.value|tostring' 2>/dev/null || printf '')
+            case "$_k" in WORKAHOLIC_[A-Za-z0-9_]*) ;; *) continue ;; esac
+            _cur=$(printenv "$_k" 2>/dev/null || printf '')
             [ -n "${_cur}" ] || export "${_k}=${_v}"
         done
     else
@@ -583,7 +584,7 @@ fi
 # The earlier `mkdir` is gone, and a dry-run dispatch takes none at all. The supervisor's own
 # `--dry-run` still creates the directory and takes the lock; that residue is recorded as a
 # separate finding and is not repaired here.
-if [ "$DRY_RUN" != true ] || [ -z "${DISPATCH_ROLE}${WORKER_ROLE}" ]; then
+if [ "$DRY_RUN" != true ]; then
     mkdir -p "$LOG_DIR"
 fi
 
@@ -648,6 +649,21 @@ write_worker_record() {
     _ww_role=$1 _ww_state=$2 _ww_tick=$3 _ww_started=$4 _ww_finished=$5
     _ww_exit=$6 _ww_outcome=$7 _ww_report=$8 _ww_transcript=$9
     _ww_file=$(role_record "$_ww_role")
+    _ww_failures=$(jq -r '.consecutive_failures // 0' "$_ww_file" 2>/dev/null || printf 0)
+    case "$_ww_failures" in ''|*[!0-9]*) _ww_failures=0;; esac
+    if [ "$_ww_state" = finished ]; then
+        case "$_ww_outcome" in
+            ok) _ww_failures=0 ;;
+            pending|pending:*) : ;;
+            *) _ww_failures=$((_ww_failures + 1)) ;;
+        esac
+    fi
+    _ww_result=null _ww_executed=null _ww_work_outcome=null
+    if [ -s "$_ww_report" ] && command -v jq >/dev/null 2>&1; then
+        _ww_result=$(jq -c 'select(type=="object" and has("executed") and has("outcome") and has("reason") and has("report"))' "$_ww_report" 2>/dev/null || printf null)
+        _ww_executed=$(printf '%s' "$_ww_result" | jq -r '.executed // "null"' 2>/dev/null || printf null)
+        _ww_work_outcome=$(printf '%s' "$_ww_result" | jq -r '.outcome // "null"' 2>/dev/null || printf null)
+    fi
     _ww_tmp="${_ww_file}.tmp.$$"
     {
         printf '{\n'
@@ -661,7 +677,11 @@ write_worker_record() {
         printf '  "report_path": %s,\n' "$(json_quote "$_ww_report")"
         printf '  "transcript_path": %s,\n' "$(json_quote "$_ww_transcript")"
         printf '  "pid": %s,\n' "$(json_quote "$$")"
-        printf '  "boot_id": %s\n' "$(json_quote "$(boot_id)")"
+        printf '  "boot_id": %s,\n' "$(json_quote "$(boot_id)")"
+        printf '  "consecutive_failures": %s,\n' "$_ww_failures"
+        printf '  "executed": %s,\n' "$_ww_executed"
+        [ "$_ww_work_outcome" = null ] && printf '  "work_outcome": null,\n' || printf '  "work_outcome": %s,\n' "$(json_quote "$_ww_work_outcome")"
+        printf '  "result": %s\n' "$_ww_result"
         printf '}\n'
     } >"$_ww_tmp"
     mv "$_ww_tmp" "$_ww_file"
@@ -675,6 +695,7 @@ write_worker_record() {
 next_boundary() {
     _from=$1
     [ "$INTERVAL" -gt 0 ] || { printf '%s' "$_from"; return 0; }
+    [ "$_from" -ge "$LOOP_ANCHOR" ] || { printf '%s' "$LOOP_ANCHOR"; return 0; }
     _k=$(( (_from - LOOP_ANCHOR) / INTERVAL + 1 ))
     printf '%s' "$(( LOOP_ANCHOR + _k * INTERVAL ))"
 }
@@ -784,12 +805,77 @@ on_interrupt() {
 }
 trap on_interrupt INT TERM
 
+plan_tick() {
+    _pt_snapshot_sh="${SCRIPT_DIR}/../../gather/scripts/read-snapshot.sh"
+    _pt_plan_sh="${SCRIPT_DIR}/../../runtime/scripts/plan-turn.sh"
+    [ -d "$REPO_ROOT/.workaholic" ] && [ -x "$_pt_snapshot_sh" ] && [ -x "$_pt_plan_sh" ] && command -v jq >/dev/null 2>&1 \
+        || { printf ''; return 0; }
+    _pt_dir=$(mktemp -d)
+    _pt_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    _pt_epoch=$(date -u +%s)
+    _pt_poll_state="${LOG_DIR}/poll-state.json"
+    _pt_poll_sh="${SCRIPT_DIR}/../../runtime/scripts/plan-poll.sh"
+    _pt_local="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown):$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | git hash-object --stdin 2>/dev/null || printf unknown)"
+    # Cached waiting is safe only after this CLI process has a provider-side delta
+    # observation. A connector-owned parent must be given every explicit boundary;
+    # local Git equality is not evidence that its inbox stayed unchanged.
+    if [ -s "$_pt_poll_state" ] && [ -x "$_pt_poll_sh" ] \
+        && [ "$(jq -r '.remote_observation_proved // false' "$_pt_poll_state" 2>/dev/null || printf false)" = true ]; then
+        jq -cn --argjson now "$_pt_epoch" --arg fp "$_pt_local" --slurpfile state "$_pt_poll_state" \
+          --argjson interval "$INTERVAL" '{now_epoch:$now,polling:{mode:"fixed",interval_seconds:$interval},state:$state[0],observed:{local_fingerprint:$fp,input_ids:[]}}' >"$_pt_dir/poll-input.json"
+        _pt_poll=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll-input.json" 2>/dev/null || printf '')
+        if [ "$(printf '%s' "$_pt_poll" | jq -r '.data.observe // true' 2>/dev/null || printf true)" = false ]; then
+            jq -cn --argjson next "$(printf '%s' "$_pt_poll" | jq -r '.data.next_due')" '{protocol:"workaholic.runtime/v1",request_id:"plan-turn",status:"ok",reason:"",data:{actions:[{action:"wait",reason:"cached_observations",target:null}],next_due:$next,reasons:["cached_observations"]}}'
+            rm -rf "$_pt_dir"; return 0
+        fi
+    fi
+    _pt_email=$(git -C "$REPO_ROOT" config user.email 2>/dev/null || printf '')
+    _pt_observe_sh="${SCRIPT_DIR}/../../transport/scripts/observe-channel.sh"
+    _pt_communication='{"observation_proved":false,"new_input_ids":[],"known_thread_changes":[],"has_more":null,"unreadable":["transport_unavailable"]}'
+    if [ -x "$_pt_observe_sh" ]; then
+        _pt_observed=$(sh "$_pt_observe_sh" --root "$REPO_ROOT" --now "$_pt_now" 2>/dev/null || printf '')
+        [ "$(printf '%s' "$_pt_observed" | jq -r .status 2>/dev/null || printf error)" != ok ] || _pt_communication=$(printf '%s' "$_pt_observed" | jq -c .data)
+    fi
+    jq -cn --arg root "$REPO_ROOT" --arg now "$_pt_now" --arg email "$_pt_email" --argjson communication "$_pt_communication" \
+        '{repo_root:$root,now:$now,config:{},identity:{email:$email},communication:$communication}' >"$_pt_dir/snapshot-input.json"
+    if sh "$_pt_snapshot_sh" --input "$_pt_dir/snapshot-input.json" >"$_pt_dir/snapshot-result.json" 2>/dev/null \
+        && jq -e '.status=="ok"' "$_pt_dir/snapshot-result.json" >/dev/null 2>&1; then
+        _pt_proved=$(jq -r '.data.communication.observation_proved // false' "$_pt_dir/snapshot-result.json" 2>/dev/null || printf false)
+        if [ "$_pt_proved" = true ]; then
+            _pt_remote_ttl=${WORKAHOLIC_REMOTE_TTL_SECONDS:-900}; case "$_pt_remote_ttl" in ''|*[!0-9]*) _pt_remote_ttl=900;; esac
+            _pt_explore_ttl=${WORKAHOLIC_EXPLORATION_TTL_SECONDS:-3600}; case "$_pt_explore_ttl" in ''|*[!0-9]*) _pt_explore_ttl=3600;; esac
+            _pt_maintenance_ttl=${WORKAHOLIC_MAINTENANCE_TTL_SECONDS:-3600}; case "$_pt_maintenance_ttl" in ''|*[!0-9]*) _pt_maintenance_ttl=3600;; esac
+            jq -cn --arg fp "$_pt_local" --argjson remote "$((_pt_epoch + _pt_remote_ttl))" \
+              --argjson explore "$((_pt_epoch + _pt_explore_ttl))" --argjson maintain "$((_pt_epoch + _pt_maintenance_ttl))" \
+              --slurpfile observed "$_pt_dir/snapshot-result.json" \
+              '{remote_observation_proved:true,local_fingerprint:$fp,captured_input_ids:($observed[0].data.communication.new_input_ids // []),remote_due_epoch:$remote,exploration_due_epoch:$explore,maintenance_due_epoch:$maintain}' >"${_pt_poll_state}.tmp.$$"
+            mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
+        else
+            rm -f "$_pt_poll_state"
+        fi
+        jq -cn --arg now "$_pt_now" --slurpfile observed "$_pt_dir/snapshot-result.json" \
+            '{now:$now,snapshot:$observed[0].data,state:{}}' >"$_pt_dir/plan-input.json"
+        sh "$_pt_plan_sh" --input "$_pt_dir/plan-input.json" 2>/dev/null || printf ''
+    fi
+    rm -rf "$_pt_dir"
+}
+
 run_tick() {
     _stamp=$(date -u +%Y%m%dT%H%M%SZ)
     _out="${LOG_DIR}/${_stamp}.md"
     _transcript="${LOG_DIR}/${_stamp}.log"
     _started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     CURRENT_TICK=$_stamp CURRENT_STARTED=$_started CURRENT_REPORT=$_out CURRENT_TRANSCRIPT=$_transcript
+    _plan=""
+    if [ "$DRY_RUN" != true ] && [ -z "${RETIRED_PLUGIN_ROOT:-}" ]; then _plan=$(plan_tick); fi
+    _planned_action=$(printf '%s' "$_plan" | jq -r '.data.actions[0].action // empty' 2>/dev/null || printf '')
+    if [ "$_planned_action" = wait ]; then
+        _finished_epoch=$(date -u +%s); _finished=$(iso_from_epoch "$_finished_epoch"); _next_due=$(iso_from_epoch "$(next_boundary "$_finished_epoch")")
+        write_status sleeping idle "" "$_stamp" "$_started" "$_finished" "" "" parent_not_needed "$_next_due"
+        printf 'codex tick: outcome=idle next_due=%s\n' "$_next_due"
+        CURRENT_TICK=""
+        return 0
+    fi
     _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. ${RESULT_CLAUSE}"
     if [ "$RELAY" = true ]; then
         _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. The envelope must carry \`executed\`, true only if you actually read that command body and performed it. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
@@ -860,7 +946,8 @@ worker_outcome() {
         printf 'not_executed:%s' "$_wo_reason"; return 0
     fi
     case "$(jq -r '.outcome' "$_wo_report" 2>/dev/null || printf '')" in
-        ok|pending) printf 'ok' ;;
+        ok)         printf 'ok' ;;
+        pending)    printf 'pending:%s' "$_wo_reason" ;;
         blocked)    printf 'blocked:%s' "$_wo_reason" ;;
         failed)     printf 'failed:%s' "$_wo_reason" ;;
         *)          printf 'unreadable:unknown_outcome' ;;
@@ -901,12 +988,12 @@ record_worker_finish() {
         return 0
     fi
 
+    case "$_rw_outcome" in pending|pending:*) return 0;; esac
+
     _rw_max=${WORKAHOLIC_WORKER_ATTEMPT_MAX:-3}
     case "$_rw_max" in ''|*[!0-9]*) _rw_max=3 ;; esac
     [ "$_rw_max" -eq 0 ] && return 0
-    [ -f "$_log_read_sh" ] || return 0
-    _rw_seen=$(sh "$_log_read_sh" --owner loop --step-prefix "loop-attempt-${_rw_role}" --status blocked \
-        2>/dev/null | grep -c . || true)
+    _rw_seen=$(jq -r '.consecutive_failures // 0' "$(role_record "$_rw_role")" 2>/dev/null || printf 0)
     case "$_rw_seen" in ''|*[!0-9]*) _rw_seen=0 ;; esac
     if [ "$_rw_seen" -ge "$_rw_max" ]; then
         sh "$_log_append_sh" --tick "$_tick" --step "loop-finish-${_rw_role}" \
@@ -991,7 +1078,8 @@ run_worker() {
 }
 
 if [ -n "$WORKER_ROLE" ]; then
-    if command -v flock >/dev/null 2>&1; then
+    if [ "$DRY_RUN" = true ]; then run_worker "$WORKER_ROLE"; exit 0; fi
+    if has_flock; then
         # `--claimed` means fd 8 was opened and locked by the dispatching parent and inherited
         # across the fork; it stays open for this process's whole life and releases at exit.
         if [ "$CLAIMED" != true ]; then
@@ -999,8 +1087,10 @@ if [ -n "$WORKER_ROLE" ]; then
             flock -n 8 || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
         fi
     else
-        [ "$CLAIMED" = true ] || [ "$(role_state "$WORKER_ROLE")" = idle ] \
-            || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+        if [ "$CLAIMED" != true ]; then
+            role_claim_pidfile "$WORKER_ROLE" "$$" \
+                || { printf 'already_running: %s\n' "$WORKER_ROLE" >&2; exit 3; }
+        fi
         # The parent wrote the pid it forked; this overwrites it with the pid that is actually
         # running the work, and the trap removes the file whichever wrote it.
         WORKER_PIDFILE=$(role_pidfile "$WORKER_ROLE")
@@ -1043,7 +1133,7 @@ if [ -n "$DISPATCH_ROLE" ]; then
     _dpid=$!
     # The claim above named THIS process, which is about to exit; hand it to the pid that will
     # hold it. The parent is alive for the whole gap, so the role never reads idle in between.
-    command -v flock >/dev/null 2>&1 \
+    has_flock \
         || printf '%s\n' "$_dpid" >"$(role_pidfile "$DISPATCH_ROLE")"
     printf 'codex dispatch %s: started pid=%s log=%s\n' "$DISPATCH_ROLE" "$_dpid" "$_dlog"
     # WHERE THE RESULT WILL AND WILL NOT ARRIVE, said at the moment the child is detached
@@ -1093,11 +1183,18 @@ ensure_plugin_tree() {
 }
 
 LOCK="${LOG_DIR}/.supervisor.lock"
-if command -v flock >/dev/null 2>&1; then
+if [ "$DRY_RUN" = true ]; then run_tick; exit 0; fi
+if has_flock; then
     exec 9>"$LOCK"
     flock -n 9 || { printf 'another codex loop already holds %s\n' "$LOCK" >&2; exit 3; }
 else
-    printf 'flock is not installed: a second supervisor would not be refused\n' >&2
+    SUPERVISOR_LOCKDIR="${LOCK}.d"
+    if ! mkdir "$SUPERVISOR_LOCKDIR" 2>/dev/null; then
+        case "$(supervisor_reading)" in running) ;; *) rm -rf "$SUPERVISOR_LOCKDIR" 2>/dev/null || true;; esac
+        mkdir "$SUPERVISOR_LOCKDIR" 2>/dev/null \
+            || { printf 'another codex loop already holds %s\n' "$LOCK" >&2; exit 3; }
+    fi
+    trap 'rm -rf "$SUPERVISOR_LOCKDIR" 2>/dev/null || true' EXIT
 fi
 
 # The anchor is the moment the supervisor started. Every boundary is measured from it, so the

@@ -38,12 +38,12 @@ jq -cn \
     --arg env_interval "$env_interval" --arg env_mode "$env_mode" --arg env_max "$env_max" '
   def allowed:
     (type=="object") and all(keys[]; .=="polling" or .=="target" or .=="limits")
-    and ((.polling? // {}) | type=="object" and all(keys[]; .=="mode" or .=="interval_seconds"))
+    and ((.polling? // {}) | type=="object" and all(keys[]; .=="mode" or .=="interval_seconds" or .=="conversation_seconds" or .=="idle_seconds" or .=="max_seconds"))
     and ((.limits? // {}) | type=="object" and all(keys[]; .=="propose_max"))
     and ((.target? // {}) | type=="object" and all(keys[]; .=="workspace_id" or .=="channel_id" or .=="qfs" or .=="allowed_sender_ids" or .=="identity_policy"));
   ($cfg.profiles[$profile] // {}) as $selected
   | ($old.env // {}) as $legacy_env
-  | {polling:{mode:"fixed",interval_seconds:300},target:null,limits:{propose_max:null}} as $defaults
+  | {polling:{mode:"fixed",interval_seconds:300,conversation_seconds:30,idle_seconds:300,max_seconds:900},target:null,limits:{propose_max:null}} as $defaults
   | if (($selected|allowed) and ($explicit|allowed)) then . else error("unknown configuration key") end
   | ($defaults
       | if ($legacy_env.WORKAHOLIC_POLL_MODE? != null) then .polling.mode=$legacy_env.WORKAHOLIC_POLL_MODE else . end

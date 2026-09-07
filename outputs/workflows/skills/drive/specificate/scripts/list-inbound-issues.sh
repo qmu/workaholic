@@ -91,6 +91,8 @@ LIMIT="${WORKAHOLIC_PROPOSE_ISSUE_LIMIT:-20}"
 case "$LIMIT" in
   ''|*[!0-9]*) LIMIT=20 ;;
 esac
+PAGE="${WORKAHOLIC_PROPOSE_ISSUE_PAGE:-1}"
+case "$PAGE" in ''|*[!0-9]*|0) PAGE=1;; esac
 
 json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/\\t/g'
@@ -133,8 +135,8 @@ slug="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1)" || emit_err "list_failed" 
 # read below is unambiguous (title deliberately last). The `origin` field reads the
 # body's own header line: `source: moderate` is the tick's finding about the loop itself.
 rows="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
-  "repos/${slug}/issues?state=open&assignee=${login}&per_page=${LIMIT}" \
-  --jq 'map(select(.pull_request | not)) | sort_by(.number) | .[]
+  "repos/${slug}/issues?state=open&assignee=${login}&sort=created&direction=asc&per_page=${LIMIT}&page=${PAGE}" \
+  --jq 'map(select(.pull_request | not)) | .[]
         | [(.number|tostring), .html_url, .updated_at,
            (if ((.body // "") | test("^kind: [a-z_]+ / source: moderate"; "m")) then "self" else "human" end),
            .title] | @tsv' 2>&1)" \
@@ -202,5 +204,7 @@ done <<EOF
 $rows
 EOF
 
-printf '{"ok": true, "identity": "%s", "limit": %s, "issues": [%s], "excluded": [%s]}\n' \
-  "$(json_escape "$login")" "$LIMIT" "$issues" "$excluded"
+page_count=$(printf '%s\n' "$rows" | grep -c . || true)
+if [ "$page_count" -ge "$LIMIT" ]; then next_page=$((PAGE + 1)); else next_page=null; fi
+printf '{"ok": true, "identity": "%s", "limit": %s, "page": %s, "next_page": %s, "issues": [%s], "excluded": [%s]}\n' \
+  "$(json_escape "$login")" "$LIMIT" "$PAGE" "$next_page" "$issues" "$excluded"

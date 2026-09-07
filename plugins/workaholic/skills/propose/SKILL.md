@@ -17,11 +17,11 @@ the next ticket, and what a person supplies instead is the **direction**. It run
 `/specificate`: the ask this command supplies is in the inbox that discovery reads seconds
 later, and the `implement` subagent drives what it queued (`workaholic:loops`).
 
-It reads the running identity's own `status: active` strategies, plans the single **mission**
-whose **evolutionary move** would bring the nearest one closer to its aim before its date, and
+It reads the running identity's own `status: active` strategies, plans the bounded **ticket or
+mission** whose **evolutionary move** would bring the nearest one closer to its aim before its date, and
 opens that plan as a **GitHub issue assigned to that identity** — the one surface
-`/specificate`'s unattended entrance actually reads. The unit is a mission, not a change
-(*The unit is a mission, not a change*, below).
+`/specificate`'s unattended entrance actually reads. The unit follows the hypothesis's natural
+scale (*The proposal is a bounded plan*, below).
 
 **It is a pure reader of this repository.** No file, no commit, no branch, no pull request, no
 merge, no deployment, and no `AskUserQuestion` at any step. Its only writes are issues, and
@@ -46,13 +46,12 @@ nobody: the issue is assigned to exactly one person and GitHub already delivers 
 status line addressed to nobody is the noise that retired `🔧 Needs a decision` and
 `📦 Release Preparation`.
 
-## When only the loop has spoken, stop — the one run-level brake
+## The channel reading is evidence, not a run-level brake
 
-**Every other brake here reads the repository** — a strategy's status, its date, its attributed
-work, its open proposals. None reads whether **anybody is still there** (2026-09-02, mission
-`refuse-an-ask-the-loop-wrote-to-itself`; the operator's instruction: *when the loop is the only
-one talking in the channel, that is the signal to stop, not to propose*). The measured cost of
-proposing into that silence was a day of merged work the operator tore out by hand.
+The tick still hands in whether a human spoke so the report can distinguish a quiet channel from
+an unreadable one. That reading does not decide whether a strategy has another useful experiment:
+the strategy, its declared stage, the evidence accumulated against its Aim, its open work and the
+repository WIP limit decide continuation.
 
 **The reading is handed in, not taken.** The tick already read the channel, so it passes its own
 answer down: **`human_spoke`**, **`only_the_loop_spoke`** or **`unreadable:<reason>`**. The window
@@ -60,53 +59,37 @@ is the sweep's own — `WORKAHOLIC_INBOUND_SLACK_WINDOW_HOURS`, default 26 — s
 no second query, no second window and no cursor, and a run given no reading at all treats it as
 `unreadable`.
 
-**On `only_the_loop_spoke` the tick originates nothing**: it opens no proposal and reports the
-refusal by that word. It is the one **run-level** brake, refusing **every** direction at once —
-every other gate is per-direction.
+**`only_the_loop_spoke` is reported and gates nothing.** A quiet channel can coexist with a live,
+human-authored strategy whose next hypothesis is supported by repository evidence. The 2026-09-02
+run-level refusal is retired: it stopped every direction from one transport observation and made
+silence stand in for an operator decision.
 
-**`unreadable` never brakes.** A channel that could not be read is not silence, and a repository
-with no Slack transport at all reads `unreadable`, never `only_the_loop_spoke`. Report the
-reason and continue.
-
-**The reactive half is untouched.** An issue somebody filed, an ask the tick just captured, a
-`/specificate` run: all still work. The brake is on **origination**, exactly as `observing` and
-`arrived` are.
-
-**The cost is accepted, not tuned away.** A legitimately quiet stretch — a weekend, a holiday —
-costs one tick of proposals. No threshold is introduced against it.
+**`unreadable` remains distinct from silence.** A channel that could not be read is not quiet, and
+a repository with no Slack transport reads `unreadable`, never `only_the_loop_spoke`. Report the
+reason and continue; neither state changes the reactive path or the strategy survey.
 
 **What may originate a mission at all is not this skill's rule.** It is stated once, at
 `rules/workaholic.md`, *What May Originate a Mission*, and cited here rather than restated: a
 human's ask or a human-authored strategy may; a record a routine wrote about the loop's own
-apparatus (`self_authored`), a proposal refining a prior self-proposal (`self_refining`) and a
-tick into a window where only the loop has spoken (`only_the_loop_spoke`) may not.
+apparatus (`self_authored`) and a proposal refining a prior self-proposal (`self_refining`) may not.
 
-## The unit is a mission, not a change
+## The proposal is a bounded plan
 
-**One proposal plans one mission** (2026-08-26, the operator's ask). The issue names a mission
-**title**, the **experience** it demands once it lands, and its **ordered ticket set** — sized by
-**what the container must be able to hold** (`rules/workaholic.md`, *What a Mission Must Be Able
-to Hold*, cited rather than restated: a mission is the mid-term container between a strategy and a
-ticket, and the criterion is whether there is a mid-term plan here — several tickets wanting
-ordering and allocation across a period). A follow-up repair mission is available and a second
-concurrent mission is refused (`workaholic:specificate`, *A strategy is not a mission factory*).
-**A count is an observation about typical size, never the test** — 52% of this repository's corpus
-sat at exactly seven or eight, which was the old wording printed into the distribution.
-`/specificate` emits that plan rather than re-deriving one.
+**One proposal plans one bounded hypothesis.** The issue names the experience it demands and its
+ordered ticket set. One ticket is valid when that is the whole hypothesis. Several tickets that
+share a mid-term outcome may form a mission, sized by **what the container must be able to hold**
+(`rules/workaholic.md`, *What a Mission Must Be Able to Hold*); independent hypotheses remain loose
+tickets. `/specificate` emits the validated plan rather than re-deriving its scale.
 
-**The move vocabulary and every refusal built on it are unchanged; only the scale of the unit
-they are declared over moves.** A move is now what the *mission* does to the Aim, and
-`## What this is chosen against` names the rival **mission**, not the rival edit. The
-anti-housekeeping effect is expected to come from the scale as much as from the refusals: a
-mission-sized proposal cannot be "add a test" without saying so out loud.
+**The move vocabulary and every refusal built on it apply at either scale.** The move is what the
+ticket or mission does to the Aim, and `## What this is chosen against` names the rival hypothesis
+or plan. A proposal cannot hide housekeeping behind either container.
 
-**The body floor gains two sections and one count** (`open-proposal.sh`): `## Experience` and
-`## Tickets` join the three below, and a `## Tickets` section naming fewer than **two** tickets
-is refused `under_planned` with the alternative named — the discipline
-`mission/scripts/check-floor.sh` already applies at the publish seam, applied here at the
-proposing seam, because a proposal naming one unit of work is a plain ticket's worth of
-direction. The **ceiling stays a judgement**: a floor is checkable and "roughly seven" is not,
-and this floor has never graded a proposal.
+**The body floor includes `## Experience` and `## Tickets`** (`open-proposal.sh`) beside the three
+commitment sections below. One ticket is a valid bounded hypothesis; `/specificate` emits it as a
+loose ticket. Two or more tickets may form a mission only when they share the mid-term outcome,
+and `mission/scripts/check-floor.sh` retains that mission-publication floor. The ceiling stays a
+judgement.
 
 **`/propose` plans; `/specificate` writes.** The operator's ask is that this routine *take charge
 of planning*, and planning is not writing: the publish-tree seam, the ticket floor, the carry
@@ -566,9 +549,19 @@ reading refused when the tree could not be read (`workaholic:strategy`,
 refusing on it would let any unrelated mission suppress every arrival forever. What a non-empty
 residue earns is being **named**, in the question and in the run report.
 
-#### Quiescent gates origination — and the earlier decision is recorded beside the measurement that overturned it
+#### Quiescent is evidence, never an origination gate
 
-`quiescent` **refuses origination**, as `arrived`, one rung below `no_feedback_refs` (2026-09-02, issue #860). From 2026-08-27 to that day it lifted and closed no gate: an arrived direction stayed eligible, `/propose` kept proposing against it, and the run report merely named `arrived` beside the proposal — on the reasoning that a machine's reading of arrival is not a decision that the direction is done. **Measured on a consuming repository:** that reasoning selected the direction that needed work *least*. `work_waiting` and `open_proposal` refuse every direction with work in flight, so the directions the operator was invested in were the refused rows and the arrived one — nothing waiting, by definition — was the eligible one; `over_cap` being retired meant it got a new `depth` mission the hour its last one landed, indefinitely; `depth` on a documentation-shaped aim can always invent one more axis; and `[Implement]` drove each within the hour because it was the only claimable unit. Ten missions on one aim, each adding a metadata key, and the operator asking why the loop scheduled this first. The old decision's concern is kept by **where the decision lands**: the tick still makes no ruling that the direction is done — `/moderate`'s `direction-arrived:<slug>` question asks the assignee whether to close or extend, and extending is an amendment to the Schedule that changes what `landed`-versus-waiting reads, which lifts the gate through the artifact. Inbound work still reaches an arrived direction; this refuses origination only, as `observing` does. A degraded residue read still makes `quiescent` false, which now errs toward proposing — inherited, named, accepted.
+`quiescent` says attributed work landed and nothing attributable is waiting. It does not establish
+that the strategy's Aim is achieved, so an active direction remains eligible when the actual gates
+are clear. The run uses the evidence and declared stage to choose the next hypothesis: `観察中`
+permits observation work and does not authorize the loop to rewrite the stage. `/moderate` still
+asks the assignee whether an apparently arrived direction should close or change; that question is
+the route to an operator decision, not a temporary machine stop.
+
+The `arrived` refusal introduced on 2026-09-02 is retired. It prevented repeated low-value depth
+missions, but it also turned an empty queue into a claim that an Aim was complete. Repetition is
+now bounded by evidence, lineage, open-work and WIP checks instead of treating quiescence as a
+verdict.
 
 **And it names that strategy's residue beside it** (2026-08-28) — the unattributed mission slugs
 and the counts, kept short. An `arrived` reading printed without its residue is the same partial
@@ -581,17 +574,8 @@ no gate expression, no sort, no `selected` and no token reads the residue, and `
 `attribution_unreadable` are untouched.
 
 **The gate that eventually holds is `not_active`, after a *person* closes the direction.** That is
-the operator's act, not a reading's — and the whole point of the reading is to *reach* that
-person, not to pre-empt them.
-
-**The obvious next request will be to gate on `arrived`, and it should be refused
-deliberately rather than by accident.** Silencing the one routine that originates work on a
-machine's guess is exactly what `pace` already refuses: `arrived` is a **candidate, not a
-verdict** (a strategy's "Reached when" is prose no script reads, so nothing here can know the
-aim was met — only that everything attributed has landed and nothing is queued), and a wrong
-guess would stop the direction producing work while the operator was never asked. The reading's
-job is to raise the question with a name on it — `/moderate`'s `direction-arrived:<slug>` — and
-nothing else.
+the operator's act. `arrived` remains a candidate reading whose job is to raise the named
+`/moderate` question and inform the next proposal.
 
 ### The run report names a degraded direction reading
 
@@ -613,15 +597,14 @@ reaching a person is `/moderate`'s job and belongs in its own ask if it is wante
 
 (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`.) `survey-strategies.sh`
 carries the direction's **declared** `stage` on every surveyed row, eligible and refused alike —
-the refused case being the point, since a settled direction is normally refused. It comes off
+including rows refused by an independent ownership, date, lineage or work gate. It comes off
 `list.sh`, which resolves the absent-means-進行中 default through `read.sh`, the one place that
 default lives; a **degraded** row still carries it, because the degradation belongs to the
 attribution walk and the stage is read off the artifact.
 
-**Carrying it decides nothing**: `refusal`, `pace`, `overdue`, `expiring`, `dormant`,
-`quiescent`, the sort and `selected` are byte-identical under 進行中, 改良中 and an unstaged
-direction, which the hermetic suite pins rather than asserts. **観察中 is the one value that
-decides anything**, and it decides exactly one thing:
+**Carrying it does not decide eligibility**: `refusal`, `pace`, `overdue`, `expiring`, `dormant`
+and `quiescent` do not turn a declared stage into a stop. Stage guides the hypothesis: 観察中
+permits observation work while leaving stage changes to the operator.
 
 ### 改良中 competes for attention — the stage joins the sort and nothing else
 
@@ -652,31 +635,16 @@ partway has advanced — which is precisely what bounds this change's blast radi
 operator-set numeric rank is refused: a rank is a second thing to keep current, and if it is
 ever wanted it is a separate ask against a working ordering rather than a guess made now.
 
-### `observing` — the first DECLARED gate, and why that is what makes it safe
+### 観察中 permits observation work
 
-(2026-08-29, the same mission.) A direction the operator declared **観察中** is settled: the
-loop stays **reactive only** and no longer originates proposals for it. That is the refusal
-`observing`, one more entry on the gate list, reported by name like every other.
+The `observing` refusal introduced with the declared stage on 2026-08-29 is retired. 観察中 says
+which kind of learning the strategy needs; it does not say the strategy needs no further work.
+When the remaining gates are clear, `/propose` may originate a bounded observation hypothesis and
+must tie it to the Aim and existing evidence exactly as it would any other move.
 
-**It is the first gate on that list that is declared rather than derived, and that is precisely
-the argument for it.** A derived silence was refused here by name — `pace` changes order and
-never eligibility, because a machine's guess must not silence the one routine that originates
-work. The operator's own word is not a guess, it is read off the artifact, and no running
-session can make it differently.
-
-**Its placement is argued against both neighbours.** It sits **after** `not_active` and
-`not_mine`, because a closed or foreign direction is not this repository's question at all and
-answering `observing` for one would name the wrong fact; and **before** `past_target_date`,
-because an observing direction that is also overdue should read as observing — that is the fact
-a person acts on, and lateness on a settled direction is not a failure.
-
-**It stops origination and nothing else.** The refused row still carries `pace`, `overdue`,
-`expiring`, `dormant`, `quiescent` and its residue, so a settled direction stays visible; and
-**reactive work still reaches it** — an inbound ask, whether swept off the channel, filed as an
-issue or reported as an error, still becomes an `[FB]` issue, still reaches `/specificate`, and
-still lands as a mission or a ticket carrying that direction's refs. That asymmetry is the
-whole point of the stage. `no_evolutionary_move` stays what it is — an honest empty answer for
-a direction the run had nothing to propose against — and is never rendered as `observing`.
+The loop does not rewrite 観察中 to 進行中 or 改良中 on its own. A hypothesis that requires a
+stage change identifies the operator decision instead of impersonating it, while reactive work
+continues to reach the strategy unchanged.
 
 ### The run report names what is waiting on the operator
 
@@ -763,7 +731,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-open-proposals.sh
 bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/open-proposal.sh \
   --strategy <slug> --move depth|breadth|contraction --title "<title>" <body-file>
 #   body sections: What to change / Why this commits to the strategy /
-#                  What this is chosen against / Experience / Tickets (two or more)
+#                  What this is chosen against / Experience / Tickets (one or more)
 
 # The inbound sweep's dedup ledger and its ONE writer. BOTH ARE CALLED BY THE TICK, not by
 # this command (`commands/infinite-development.md`); they live here because moving them would

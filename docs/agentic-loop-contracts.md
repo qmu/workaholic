@@ -49,6 +49,10 @@ The following classifications retain every H4 B-number. A listed defect is **not
 
 P2 adds `snapshot-state.test.mjs`. Its hermetic fixtures pin revision conflicts, generation-checked lease takeover, allowlisted configuration precedence with literal false/zero values, fixed-clock action priority, mission acceptance aggregation, partial handoff membership, dirty-tree fingerprinting, unavailable-versus-empty reads, strategy boundary normalization, and one shared claims observation across snapshot consumers. On repository data, `plan-units.sh` projected byte-identical JSON with and without the precomputed mission corpus, including every legacy freshness and exclusion field.
 
+P3 adds `transport.test.mjs`. Its hermetic fixtures distinguish two workspaces with the same channel name, public-list misses, missing QFS and operations, connector unavailability, sender mismatch, read observations, confirmed threaded delivery, provider timeouts, unknown outbox recovery, and legacy relay ambiguity. Fake QFS, connector observations, and token endpoints are local; no fixture reads or writes a real communication service.
+
+P4 through P8 add runtime dispatch, planning input, publication/claim, delivery/report, and polling cost fixtures. Together they cover capability selection, receipt-before-worker dispatch, no-flock exclusion, author/carrier separation, proposal pagination, publication retry with one SHA, receipt-bound arbiter release, publication-manifest-aware worktree cleanup, head-bound merge reconciliation, bounded Markdown sections, capture-before-cursor, cadence separation, and 100 cached idle polls. The complete agentic-loop directory has **63 tests** before the final generated-output verification.
+
 | ID | Repair contract | Owner |
 | --- | --- | --- |
 | B01 | Nested dependencies and references survive packaging and execute in installed consumers | P1 |

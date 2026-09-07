@@ -101,6 +101,8 @@ GH_REST="${GATHER}/gh-rest.sh"
 CATCHUP="${SCRIPT_DIR}/../../ship/scripts/catchup-main.sh"
 MAKE_WORKTREE="${SCRIPT_DIR}/../../branching/scripts/create-mission-worktree.sh"
 MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts/merge-reason.sh"
+MERGE_PULL="${GATHER}/merge-pull.sh"
+RECORD_OUTCOME="${SCRIPT_DIR}/../../story/scripts/record-merge-outcome.sh"
 SCAN="${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh"
 GATE="${SCRIPT_DIR}/../../release-scan/scripts/gate-decision.sh"
 
@@ -487,44 +489,39 @@ pr_json=$(sh "$GH_REST" api \
 PR=$(printf '%s' "$pr_json" | jq -r '.[0].number // ""' 2>/dev/null || printf '')
 [ -n "$PR" ] || { DELIVERY="not_attempted: no_open_pull_request"; report caught_up ""; }
 
-# The method is READ, never spelled — `gather/scripts/merge-method.sh` is the one derivation
-# and the suite fails on a literal at a call site (`CLAUDE.md`, *Enforcement gates*).
-# THE BRANCH'S OWN CHECKS ARE READ BEFORE THE MERGE, AND ONLY `checks_red` REFUSES HERE
-# (2026-09-03). `drive/scripts/branch-checks.sh` is the one derivation of the gate. This act
-# merges immediately after ITS OWN push, so the head commit's checks are normally `no_checks`
-# or `checks_pending` and the gate passes -- THE LIMIT IS STATED RATHER THAN HIDDEN: what it
-# catches here is a branch that was already red before the catch-up ran, and nothing more.
-# Refusing on `checks_pending` too was rejected by name: this script reports `already_current`
-# and returns before the delivery half on its next run, so a unit held on pending here would
-# never be delivered by anything.
-check_gate="$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" 2>/dev/null || printf '')"
-case "$(printf '%s' "$check_gate" | jq -r '.reason // ""' 2>/dev/null || printf '')" in
-    checks_red) DELIVERY="not_attempted: checks_red"; report caught_up "" ;;
-esac
-
-method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
-# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
-# is the one derivation of `commit_title` / `commit_message`; without them the forge
-# concatenates every commit on the branch into the trunk's record. A composer that could not
-# read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
-# THE COMPOSER READS THE PUSHED TIP. This runs after the catch-up's own push, so the
-# branch story and the commit range it reads are the ones the merge will actually squash.
-body_json="$(sh "${GATHER}/merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')"
-merge_title="$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')"
-merge_body="$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')"
-MERGE_BODY_SOURCE="$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')"
-set +e
-merge_resp="$(sh "$GH_REST" api "repos/${slug}/pulls/${PR}/merge" \
-    --method PUT -f "merge_method=${method}" \
-    -f "commit_title=${merge_title}" -f "commit_message=${merge_body}" 2>&1)"
-merge_status=$?
-set -e
-
-if [ "$merge_status" -eq 0 ]; then
-    DELIVERY="merged"
-else
-    word="$(sh "$MERGE_REASON" "$merge_resp" 2>/dev/null || printf 'merge_failed')"
-    DELIVERY="merge_refused: ${word}"
+# Bind the scan, checks and merge to the pushed worktree head.
+expected_head=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || printf '')
+check_gate=$(sh "${SCRIPT_DIR}/branch-checks.sh" "${PR}" "$expected_head" 2>/dev/null || printf '')
+gate_word=$(printf '%s' "$check_gate" | jq -r '.gate // "defer"' 2>/dev/null || printf defer)
+gate_reason=$(printf '%s' "$check_gate" | jq -r '.reason // "checks_unreadable"' 2>/dev/null || printf checks_unreadable)
+if [ "$gate_word" != pass ]; then
+    DELIVERY="merge_refused: ${gate_reason}"
+    story="${WORKTREE}/.workaholic/stories/${BRANCH}.md"
+    if [ -f "$story" ]; then
+        sh "$RECORD_OUTCOME" "$story" "$DELIVERY" >/dev/null 2>&1 || true
+        git -C "$WORKTREE" add ".workaholic/stories/${BRANCH}.md" >/dev/null 2>&1 || true
+        if ! git -C "$WORKTREE" diff --cached --quiet; then
+            git -C "$WORKTREE" commit -m "Record waiting delivery" >/dev/null 2>&1 || true
+            git -C "$WORKTREE" push --quiet origin "$BRANCH" >/dev/null 2>&1 || true
+        fi
+    fi
+    report caught_up ""
 fi
+
+method=$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf '')
+body_json=$(sh "${GATHER}/merge-commit-body.sh" --branch "$BRANCH" --number "$PR" 2>/dev/null || printf '')
+merge_title=$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')
+merge_body=$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')
+MERGE_BODY_SOURCE=$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
+request=$(mktemp); trap 'rm -f "$request"' EXIT HUP INT TERM
+jq -cn --arg repo "$slug" --argjson pr "$PR" --arg sha "$expected_head" --arg method "$method" \
+  --arg title "$merge_title" --arg body "$merge_body" \
+  '{repo:$repo,pr:$pr,expected_sha:$sha,method:$method,title:$title,body:$body}' > "$request"
+merge_resp=$(sh "$MERGE_PULL" --request "$request" 2>/dev/null || printf '')
+case "$(printf '%s' "$merge_resp" | jq -r '.status // "unknown"' 2>/dev/null || printf unknown)" in
+  merged) DELIVERY=merged ;;
+  refused) DELIVERY="merge_refused: $(printf '%s' "$merge_resp" | jq -r '.reason // "merge_failed"')" ;;
+  *) DELIVERY="merge_refused: merge_effect_unknown" ;;
+esac
 
 report caught_up ""

@@ -6,7 +6,8 @@
 # Output (one JSON line):
 #   {"base": "<base>", "count": N, "total_bytes": N, "reclaimable_bytes": N,
 #    "worktrees": [{"path","branch","size_bytes","size_human","ahead","dirty",
-#                   "merged","reclaimable","skip_reason"}]}
+#                   "merged","publication_transaction","transaction","transaction_phase",
+#                   "reclaimable","skip_reason"}]}
 #
 # WHY THIS EXISTS. Worktrees were created silently and their cost never appeared in any
 # output, so growth stayed invisible until a disk filled: 53 GB across four repositories,
@@ -29,6 +30,11 @@
 # UNTRACKED FILES COUNT AS DIRTY. A half-written artifact from an interrupted run is
 # untracked by definition, and it is precisely the state worth protecting.
 #
+# AN OPEN PUBLICATION TRANSACTION IS NEVER RECLAIMABLE. Its clean checkout may point at
+# the base before the agent writes, or at an already-merged commit before `close`; either
+# state satisfies the ordinary merged-and-clean predicate while the durable manifest still
+# owns the checkout. The survey reads that manifest so the reaper cannot race recovery.
+#
 # THE MAIN TREE AND THE PUBLISH TREE ARE NEVER LISTED. The main tree is not a worktree
 # anyone reclaims, and `.publish/` is disposable but belongs to the publish lifecycle
 # (`open-publish-tree.sh` refuses a dirty one, `close-publish-tree.sh` removes it) — a
@@ -47,6 +53,23 @@ BASE="${1:-main}"
 # a real repository; the fixture tests below pin it so it cannot come back.
 main_root="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
 publish_path="${main_root}/.publish"
+common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+publication_dir="${common_dir}/workaholic/runtime/v1/publications"
+
+publication_for_path() {
+  _survey_path=$1
+  [ -d "$publication_dir" ] || return 0
+  for _survey_manifest in "$publication_dir"/*/meta.json; do
+    [ -f "$_survey_manifest" ] || continue
+    _survey_manifest_path=$(jq -r '.data.path // empty' "$_survey_manifest" 2>/dev/null || true)
+    [ "$_survey_manifest_path" = "$_survey_path" ] || continue
+    _survey_phase=$(jq -r '.data.phase // "unknown"' "$_survey_manifest" 2>/dev/null || printf unknown)
+    [ "$_survey_phase" = closed ] && continue
+    _survey_id=$(basename -- "$(dirname -- "$_survey_manifest")")
+    printf '%s\t%s\n' "$_survey_id" "$_survey_phase"
+    return 0
+  done
+}
 
 # Resolve the base once. origin/<base> is preferred — "merged" must mean merged into what
 # everyone else sees, not into a local branch that may itself be unpushed.
@@ -98,9 +121,21 @@ emit_record() {
   merged=false
   if [ "$ahead" -eq 0 ] && [ -n "$base_ref" ]; then merged=true; fi
 
+  publication_transaction=false
+  transaction=""
+  transaction_phase=""
+  publication_record=$(publication_for_path "$current_path")
+  if [ -n "$publication_record" ]; then
+    publication_transaction=true
+    transaction=$(printf '%s' "$publication_record" | cut -f1)
+    transaction_phase=$(printf '%s' "$publication_record" | cut -f2)
+  fi
+
   reclaimable=false
   skip=""
-  if [ "$merged" = "true" ] && [ "$dirty" = "false" ]; then
+  if [ "$publication_transaction" = "true" ]; then
+    skip="publication_transaction"
+  elif [ "$merged" = "true" ] && [ "$dirty" = "false" ]; then
     reclaimable=true
   elif [ "$merged" = "false" ] && [ "$dirty" = "true" ]; then
     skip="unmerged_and_dirty"
@@ -119,7 +154,7 @@ emit_record() {
   total=$((total + size_bytes))
   count=$((count + 1))
 
-  entries="${entries}${sep}{\"path\": \"${current_path}\", \"branch\": \"${current_branch}\", \"size_bytes\": ${size_bytes}, \"size_human\": \"$(human "$size_bytes")\", \"ahead\": ${ahead}, \"dirty\": ${dirty}, \"merged\": ${merged}, \"reclaimable\": ${reclaimable}, \"skip_reason\": \"${skip}\"}"
+  entries="${entries}${sep}{\"path\": \"${current_path}\", \"branch\": \"${current_branch}\", \"size_bytes\": ${size_bytes}, \"size_human\": \"$(human "$size_bytes")\", \"ahead\": ${ahead}, \"dirty\": ${dirty}, \"merged\": ${merged}, \"publication_transaction\": ${publication_transaction}, \"transaction\": \"${transaction}\", \"transaction_phase\": \"${transaction_phase}\", \"reclaimable\": ${reclaimable}, \"skip_reason\": \"${skip}\"}"
   sep=", "
 }
 

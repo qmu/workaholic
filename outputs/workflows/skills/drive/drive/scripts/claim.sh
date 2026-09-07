@@ -353,7 +353,7 @@ case "$kind" in
         done
         ;;
 esac
-artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' || true)
+artifact_rels=$(printf '%s' "$artifact_rels" | grep -v '^$' | sort -u || true)
 
 # --- 3. Refuse a unit (or an artifact) already in flight -------------------
 # Both checks matter: the unit id catches a second runner claiming the same mission,
@@ -428,9 +428,18 @@ fi
 arbitrated=false
 arbitration_reason=""
 arb_refs=""
+arb_receipt=""
 ARBITER="${SCRIPT_DIR}/claim-arbitrate.sh"
+arb_release() {
+    [ -n "${arb_receipt:-}" ] || return 0
+    sh "$ARBITER" release-owned "$arb_receipt" >/dev/null 2>&1 || true
+    rm -f "$arb_receipt" 2>/dev/null || true
+    arb_receipt=""
+    arb_refs=""
+}
 if [ -f "$ARBITER" ]; then
-    arb_out=$(sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
+    arb_receipt_candidate=$(mktemp "${TMPDIR:-/tmp}/workaholic-claim-arbiter.XXXXXX")
+    arb_out=$(WORKAHOLIC_ARBITER_RECEIPT_FILE="$arb_receipt_candidate" sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
     arb_state=$(printf '%s' "$arb_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
     # A LOST TAKE IS SWEPT ONCE, LAZILY, AND ONLY THEN RE-TRIED. Reaching here means §3's
     # oracle saw no claim, so a standing lock is either the seconds-long window between a
@@ -446,13 +455,35 @@ if [ -f "$ARBITER" ]; then
         # the run must say so rather than report a plain race it lost.
         reap_out=$(sh "$ARBITER" reap 2>/dev/null || printf '')
         arb_unreapable=$(printf '%s' "$reap_out" | sed -n 's/.*"unreapable": \[\(.*\)\].*/\1/p')
-        arb_out=$(sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
+        arb_out=$(WORKAHOLIC_ARBITER_RECEIPT_FILE="$arb_receipt_candidate" sh "$ARBITER" take $artifact_rels 2>/dev/null || printf '')
         arb_state=$(printf '%s' "$arb_out" | sed -n 's/.*"state": "\([^"]*\)".*/\1/p')
     fi
     case "$arb_state" in
         won)
             arbitrated=true
             arb_refs="$artifact_rels"
+            arb_receipt="$arb_receipt_candidate"
+            trap 'arb_release' EXIT HUP INT TERM
+            # Re-read the oracle while the remote refs are held. This closes the
+            # scan-to-arbitration gap without asking the script to judge which
+            # unit should run; it only rejects an overlap that became observable.
+            git fetch --quiet origin || fail "origin_unreachable" ', "detail": "could not re-read claims while holding the arbitration receipt"'
+            locked_rows=$(claims_scan "$base")
+            if [ -n "$locked_rows" ]; then
+                _claim_tab=$(printf '\t')
+                while IFS="$_claim_tab" read -r held_unit held_branch _held_at _held_stale _held_author _held_resumable _held_reason _held_reported _held_handoff _held_members held_arts; do
+                    [ -n "$held_unit" ] || continue
+                    [ "$_held_reason" = superseded ] && continue
+                    collision=""
+                    [ "$held_unit" = "$unit" ] && collision="$unit"
+                    for rel in $artifact_rels; do
+                        printf '%s\n' "$held_arts" | tr ',' '\n' | grep -Fqx "$rel" && collision="$rel"
+                    done
+                    [ -z "$collision" ] || fail "already_claimed" ', "artifact": "'"${collision}"'", "holder_branch": "'"${held_branch}"'", "holder_unit": "'"${held_unit}"'"'
+                done <<EOF
+$locked_rows
+EOF
+            fi
             ;;
         lost)
             # ITS OWN WORD, distinct from `branch_collision` (two units minted one name in one
@@ -493,6 +524,7 @@ if [ -f "$ARBITER" ]; then
             fail "claim_race_lost" ', "unit": "'"${unit}"'", "held_by_ref": "'"${_arb_held}"'", "stale_lock": '"${_arb_stale:-false}"', "detail": "another runner won this unit'"'"'s arbitration at the remote; nothing was written here -- survey again"'
             ;;
         *)
+            rm -f "$arb_receipt_candidate" 2>/dev/null || true
             arbitration_reason=$(printf '%s' "$arb_out" | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
             [ -n "$arbitration_reason" ] || arbitration_reason="arbiter_unreadable"
             ;;
@@ -500,20 +532,6 @@ if [ -f "$ARBITER" ]; then
 else
     arbitration_reason="no_arbiter_script"
 fi
-
-# Give the locks back on any later failure. A won arbitration whose claim never published is
-# exactly the leak the mechanism must not create, and this run is the only thing that knows
-# it happened.
-arb_release() {
-    [ -n "${arb_refs:-}" ] || return 0
-    sh "$ARBITER" release $arb_refs >/dev/null 2>&1 || true
-    # `arb_refs` is cleared so a second call is a no-op; `arbitrated` is NOT, because it
-    # reports whether this claim WON its arbitration — a fact about the act, which the caller
-    # reads to tell an arbitrated claim from one that ran where the transport refuses. Clearing
-    # it here made every successful claim report `arbitrated: false` the moment the lock was
-    # given back, which is the opposite of what happened.
-    arb_refs=""
-}
 
 # --- 4. Create the unit's worktree + branch --------------------------------
 # The sanctioned creator: it cuts from the FETCHED origin/main, mints the canonical
@@ -639,7 +657,7 @@ if git -C "$worktree_path" push -u --quiet origin "$branch" >&2; then
     # retired or superseded claim needs no lock handling at all, because by then there is no
     # lock. What remains is a process killed inside the window itself, and the arbiter's
     # oracle-and-age sweep collects that.
-    arb_release
+    :
 else
     # Classify the failure before reporting it. The branch name is minted from the
     # clock to the second (create-mission-worktree.sh), so two runners claiming
@@ -659,8 +677,10 @@ fi
 
 liveness_reason=$(cd "$worktree_path" && claims_liveness_write "$unit" "$branch")
 if [ -n "$liveness_reason" ]; then
-    abort_claim "$liveness_reason" ', "branch": "'"${branch}"'", "detail": "the claim branch was published but its liveness carrier could not be initialized"'
+    arb_release
+    fail "$liveness_reason" ', "branch": "'"${branch}"'", "recoverable": true, "detail": "the claim branch was published and remains available for resume; its liveness carrier could not be initialized"'
 fi
+arb_release
 
 # --- 7. Announce the claim -- AFTER the push, and NEVER load-bearing -------
 # Deliberately placed below every `abort_claim` call site and outside that error

@@ -65,7 +65,33 @@ if ! command -v qfs >/dev/null 2>&1; then
   exit 0
 fi
 
-OUT=$(qfs run "/slack/${WORKSPACE}/${CHANNEL}/messages |> select text |> limit 1" --json 2>&1 || true)
+TRANSPORT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/../../transport/scripts" && pwd)
+TMPDIR_CHECK=$(mktemp -d); trap 'rm -rf "$TMPDIR_CHECK"' EXIT HUP INT TERM
+DESCRIBED=$(qfs describe /slack --json 2>&1 || true)
+if ! printf '%s' "$DESCRIBED" | jq -e . >/dev/null 2>&1; then
+  OUT=$DESCRIBED
+else
+  # Only mounts returned by the live describe may become QFS routes. Flexible
+  # field aliases cover qfs versions without inventing a registry entry.
+  observations=$(printf '%s' "$DESCRIBED" | jq -c --arg workspace "$WORKSPACE" --arg channel "$CHANNEL" '
+    [(.mounts // .connections // .data // .items // [])[] |
+      {transport:"qfs",available:true,described:true,
+       mount:(.mount // .path // null),account:(.account // .name // null),
+       workspace:(.workspace // .workspace_name // .name // null),channel:$channel,
+       operations:(.operations // .read_map // ["read_channel_delta"])} |
+      select(.mount!=null) | select($workspace=="" or .workspace==$workspace)]')
+  jq -cn --arg root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" --arg workspace "$WORKSPACE" --arg channel "$CHANNEL" --argjson observations "$observations" \
+    '{protocol:"workaholic.transport/v1",request_id:"channel-probe-resolve",operation:"discover",repo_root:$root,instance_id:"channel-probe",input:{target:{workspace:$workspace,channel:$channel},observations:$observations}}' >"$TMPDIR_CHECK/resolve.json"
+  RESOLVED=$("$TRANSPORT_DIR/resolve-target.sh" --request "$TMPDIR_CHECK/resolve.json")
+  if [ "$(printf '%s' "$RESOLVED" | jq -r .status)" != ok ]; then
+    OUT='{"error":"transport_target_unverified"}'
+  else
+    binding=$(printf '%s' "$RESOLVED" | jq -c .data.binding); binding_id=$(printf '%s' "$RESOLVED" | jq -r .data.binding_id)
+    jq -cn --arg root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" --arg binding_id "$binding_id" --argjson binding "$binding" \
+      '{protocol:"workaholic.transport/v1",request_id:"channel-probe-read",operation:"read_channel_delta",repo_root:$root,instance_id:"channel-probe",binding_id:$binding_id,input:{binding:$binding}}' >"$TMPDIR_CHECK/read.json"
+    OUT=$("$TRANSPORT_DIR/perform.sh" --request "$TMPDIR_CHECK/read.json" 2>&1 || true)
+  fi
+fi
 
 case "$OUT" in
   *slack_missing_scope*|*slack_channel_name_not_found*)
@@ -97,7 +123,7 @@ esac
 
 # Any other error is an unrecognised failure, and an unrecognised failure is not a verdict.
 case "$OUT" in
-  *'"error"'*)
+  *'"status":"error"'*|*'"status":"deferred"'*|*'"error"'*)
     printf '{"channel": "%s", "checked": false, "reason": "probe_failed", "detail": "the read failed for a reason this script does not recognise; treat the channel as unverified"}\n' "$CHANNEL"
     exit 0
     ;;

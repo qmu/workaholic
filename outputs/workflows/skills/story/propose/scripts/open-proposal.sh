@@ -142,8 +142,8 @@ inside && /^## / { inside = 0 }
 inside && /^[ \t]*([0-9]+\.|[-*])[ \t]+[^ \t]/ { n++ }
 END { print n + 0 }
 ' "$BODY_FILE")
-if [ "$TICKETS" -lt 2 ]; then
-  refuse "under_planned" "the '## Tickets' section names ${TICKETS} ticket(s); a mission is proposed with two or more. One unit of work is a plain ticket's worth of direction - say so in the body and propose a mission that decomposes, or let /fb carry the bare direction."
+if [ "$TICKETS" -lt 1 ]; then
+  refuse "under_planned" "the '## Tickets' section must name at least one concrete unit of work"
 fi
 
 READ="$(sh "${STRATEGY_SCRIPTS}/read.sh" "$STRATEGY" "$ROOT" 2>/dev/null || true)"

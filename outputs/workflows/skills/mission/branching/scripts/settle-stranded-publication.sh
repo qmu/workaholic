@@ -326,41 +326,28 @@ sh "${GATHER}/gh-rest.sh" available >/dev/null 2>&1 || report settled gh_unavail
 slug="$(sh "${GATHER}/gh-rest.sh" slug 2>/dev/null || printf '')"
 [ -n "$slug" ] || report settled slug_unresolved
 
-# THE PUBLICATION'S OWN CHECKS ARE READ BEFORE THE MERGE (2026-09-03).
-# `drive/scripts/branch-checks.sh` is the one derivation of the gate: it refuses on
-# `checks_red` and `checks_pending` and passes on every other degradation. A refusal is a
-# `merge_refused:` DELIVERY, never a refusal of the settlement -- the branch is caught up and
-# pushed, the publication stays open, and the next tick lists it again (as `clean` by then,
-# needing no push) and delivers it once the checks have concluded.
-check_gate="$(sh "${SCRIPT_DIR}/../../drive/scripts/branch-checks.sh" "${NUMBER}" 2>/dev/null || printf '')"
-case "$(printf '%s' "$check_gate" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')" in
-    refuse)
-        DELIVERY="merge_refused: $(printf '%s' "$check_gate" | jq -r '.reason // "checks_red"' 2>/dev/null || printf 'checks_red')"
-        report settled ""
-        ;;
-esac
-
-method="$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf 'squash')"
-# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
-# is the one derivation of `commit_title` / `commit_message`; without them the forge
-# concatenates every commit on the branch into the trunk's record. A composer that could not
-# read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
-body_json="$(sh "${GATHER}/merge-commit-body.sh" "${NUMBER}" 2>/dev/null || printf '')"
-merge_title="$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')"
-merge_body="$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')"
-MERGE_BODY_SOURCE="$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')"
-set +e
-merge_resp="$(sh "${GATHER}/gh-rest.sh" api "repos/${slug}/pulls/${NUMBER}/merge" \
-    --method PUT -f "merge_method=${method}" \
-    -f "commit_title=${merge_title}" -f "commit_message=${merge_body}" 2>&1)"
-merge_status=$?
-set -e
-
-if [ "$merge_status" -eq 0 ]; then
-    DELIVERY="merged"
-else
-    word="$(sh "$MERGE_REASON" "$merge_resp" 2>/dev/null || printf 'merge_failed')"
-    DELIVERY="merge_refused: ${word}"
+# Bind the check observation and merge request to this worktree's pushed head.
+expected_head=$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || printf '')
+check_gate=$(sh "${SCRIPT_DIR}/../../drive/scripts/branch-checks.sh" "$NUMBER" "$expected_head" 2>/dev/null || printf '')
+gate_word=$(printf '%s' "$check_gate" | jq -r '.gate // "defer"' 2>/dev/null || printf defer)
+if [ "$gate_word" != pass ]; then
+    DELIVERY="merge_refused: $(printf '%s' "$check_gate" | jq -r '.reason // "checks_unreadable"' 2>/dev/null || printf checks_unreadable)"
+    report settled ""
 fi
+
+method=$(sh "${GATHER}/merge-method.sh" 2>/dev/null || printf '')
+body_json=$(sh "${GATHER}/merge-commit-body.sh" "$NUMBER" 2>/dev/null || printf '')
+merge_title=$(printf '%s' "$body_json" | jq -r '.title // ""' 2>/dev/null || printf '')
+merge_body=$(printf '%s' "$body_json" | jq -r '.body // ""' 2>/dev/null || printf '')
+MERGE_BODY_SOURCE=$(printf '%s' "$body_json" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
+request=$(mktemp); trap 'rm -f "$request"' EXIT HUP INT TERM
+jq -cn --arg repo "$slug" --argjson pr "$NUMBER" --arg sha "$expected_head" --arg method "$method" \
+  --arg title "$merge_title" --arg body "$merge_body" '{repo:$repo,pr:$pr,expected_sha:$sha,method:$method,title:$title,body:$body}' > "$request"
+merge_resp=$(sh "${GATHER}/merge-pull.sh" --request "$request" 2>/dev/null || printf '')
+case "$(printf '%s' "$merge_resp" | jq -r '.status // "unknown"' 2>/dev/null || printf unknown)" in
+  merged) DELIVERY=merged ;;
+  refused) DELIVERY="merge_refused: $(printf '%s' "$merge_resp" | jq -r '.reason // "merge_failed"')" ;;
+  *) DELIVERY="merge_refused: merge_effect_unknown" ;;
+esac
 
 report settled ""

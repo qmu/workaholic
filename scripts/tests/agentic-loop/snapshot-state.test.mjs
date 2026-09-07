@@ -48,6 +48,39 @@ test('P2 concurrent create has one winner and keeps valid JSON', async (t) => {
   assert.equal(stored.revision, 1); assert.equal(stored.data.value, 1);
 });
 
+test('P2 state reclaims only a lock whose recorded process is proved gone', (t) => {
+  const root = gitFixture(t); const input = join(root, 'input.json'); write(input, '{"updated_at":"t0","data":{"value":1}}');
+  const locks = join(root, '.git/workaholic/runtime/v1/locks'); mkdirSync(locks, { recursive: true });
+  const boot = readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim();
+  write(join(locks, 'bindings.b1.lock'), JSON.stringify({pid:2147483647,boot_id:boot,process_start:'1'}));
+  const result = json(run(['sh', join(runtime, 'state.sh'), 'create', '--scope', 'binding', '--id', 'b1', '--input', input], { cwd: root }));
+  assert.equal(result.status, 'ok'); assert.equal(result.data.record.data.value, 1);
+  assert.equal(existsSync(join(locks, 'bindings.b1.lock')), false);
+});
+
+test('P2 simultaneous stale-lock reclaimers cannot delete the winner', async (t) => {
+  const root = gitFixture(t); const input = join(root, 'input.json'); write(input, '{"updated_at":"t0","data":{"value":1}}');
+  const locks = join(root, '.git/workaholic/runtime/v1/locks'); mkdirSync(locks, { recursive: true });
+  const boot = readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim();
+  write(join(locks, 'bindings.b1.lock'), JSON.stringify({pid:2147483647,boot_id:boot,process_start:'1'}));
+  const args = [join(runtime, 'state.sh'), 'create', '--scope', 'binding', '--id', 'b1', '--input', input];
+  const invoke = () => new Promise(resolve => { const child = spawn('sh', args, { cwd: root }); let out = ''; let err = ''; child.stdout.on('data', x => out += x); child.stderr.on('data', x => err += x); child.on('close', status => resolve({ status, stdout: out, stderr: err })); });
+  const parsed = (await Promise.all([invoke(), invoke(), invoke(), invoke()])).map(json);
+  assert.equal(parsed.filter(x => x.status === 'ok').length, 1);
+  assert.equal(parsed.filter(x => x.reason === 'revision_conflict').length, 3);
+  assert.equal(JSON.parse(readFileSync(join(root, '.git/workaholic/runtime/v1/bindings/b1/meta.json'))).data.value, 1);
+  assert.equal(existsSync(join(locks, 'bindings.b1.lock')), false);
+});
+
+test('P2 portable mkdir backend serializes concurrent state writes without flock', async (t) => {
+  const root = gitFixture(t); const input = join(root, 'input.json'); write(input, '{"updated_at":"t0","data":{"value":1}}');
+  const args = [join(runtime, 'state.sh'), 'create', '--scope', 'publication', '--id', 'portable', '--input', input];
+  const invoke = () => new Promise(resolve => { const child = spawn('sh', args, { cwd: root, env: { ...process.env, WORKAHOLIC_LOCK_BACKEND: 'mkdir' } }); let out = ''; let err = ''; child.stdout.on('data', x => out += x); child.stderr.on('data', x => err += x); child.on('close', status => resolve({ status, stdout: out, stderr: err })); });
+  const parsed = (await Promise.all([invoke(), invoke()])).map(json);
+  assert.equal(parsed.filter(x => x.status === 'ok').length, 1);
+  assert.equal(parsed.filter(x => x.reason === 'revision_conflict').length, 1);
+});
+
 test('P2 leases reject TTL-only takeover and stale generations', (t) => {
   const root = gitFixture(t); const input = join(root, 'input.json');
   const state = (...args) => json(run(['sh', join(runtime, 'state.sh'), ...args], { cwd: root }));
@@ -92,6 +125,8 @@ test('P2 fixed input planner keeps the priority order and finite actions', () =>
   assert.equal(invoke(base).data.actions[0].reason, 'exploration_due');
   base.state = { exploration_due_at: '2026-09-09T00:00:00Z', next_due: 'later' }; const waited = invoke(base);
   assert.equal(waited.data.actions[0].action, 'wait'); assert.equal(waited.data.next_due, 'later');
+  base.snapshot.work.strategy_survey = { eligible: [{ slug: 'learn', stage: '観察中', feedback_refs: ['f.md'], landed: [], queued: [], residue: {} }] };
+  const learning = invoke(base); assert.equal(learning.data.actions[0].reason, 'strategy_learning'); assert.equal(learning.data.actions[0].target[0].slug, 'learn');
 });
 
 test('P2 invalid input is one typed JSON result with exit two', () => {

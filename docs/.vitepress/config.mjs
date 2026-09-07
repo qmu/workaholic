@@ -28,6 +28,7 @@ export default defineConfig({
         items: [
           { text: 'エージェンティックループ再設計', link: '/agentic-loop-redesign' },
           { text: '互換契約と検証', link: '/agentic-loop-contracts' },
+          { text: '移行とロールバック', link: '/agentic-loop-migration' },
         ],
       },
     ],

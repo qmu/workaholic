@@ -1323,8 +1323,7 @@ cmd_verify_moderate() {
     # EVERY registered step contributes a reported line, so the drill now asks `run.sh` how many
     # it registers and compares. A step added tomorrow needs no edit here, and a step that stops
     # reporting still fails the drill.
-    _want=$(sed -n "s/^STEPS='\([^']*\)'.*/\1/p" \
-                "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/run.sh" | wc -w | tr -d ' ')
+    _want=$(jq '.steps | length' "${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/steps.json" 2>/dev/null || printf 0)
     _steps=$(printf '%s' "$_out" | awk '{ n = gsub(/"step":/, "&"); print n + 0 }')
     if [ "${_want:-0}" -gt 0 ] && [ "${_steps:-0}" -eq "$_want" ]; then
         add_row "moderate_steps" true "all ${_want} registered steps reported" load
@@ -1517,6 +1516,18 @@ cmd_verify_propose() {
 
     _root=$(mktemp -d)
     mkdir -p "${_root}/strategies" "${_root}/feedbacks"
+    _bin="${_root}/bin"; mkdir -p "$_bin"
+    cat >"${_bin}/gh" <<'STUB'
+#!/bin/sh
+case "$*" in
+  "api user --jq .login") printf '%s\n' drill-user ;;
+  *"api repos/"*"/issues --method POST --input -"*)
+    cat >/dev/null
+    printf '%s\n' '{"html_url":"https://drill.invalid/issues/1","assignees":[{"login":"drill-user"}]}' ;;
+  *) exit 1 ;;
+esac
+STUB
+    chmod +x "${_bin}/gh"
     printf -- '---\ntype: Feedback\n---\n\nx\n' > "${_root}/feedbacks/20260101000000-a.md"
     _far=$(date -u -d "+30 days" +%Y-%m-%d 2>/dev/null || echo 2099-01-01)
     _near=$(date -u -d "+3 days" +%Y-%m-%d 2>/dev/null || echo 2098-01-01)
@@ -1653,7 +1664,7 @@ EOF
     _mbody="${_root}/mission-body.md"
     printf '%s\n' "## What to change" "" "x" "" "## Why this commits to the strategy" "" "y" "" \
         "## What this is chosen against" "" "z" "" > "$_mbody"
-    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    _r=$(cd "$REPO_ROOT" && PATH="${_bin}:$PATH" sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
     if printf '%s' "$_r" | grep -q '"reason": "missing_section"'; then
         add_row "propose_floor_mission_shape" true "a body naming no experience and no ticket set is refused" load
     else
@@ -1661,19 +1672,17 @@ EOF
     fi
 
     printf '%s\n' "## Experience" "" "e" "" "## Tickets" "" "1. only one" "" >> "$_mbody"
-    _r=$(cd "$REPO_ROOT" && sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
-    if printf '%s' "$_r" | grep -q '"reason": "under_planned"'; then
-        add_row "propose_floor_two_tickets" true "a proposal naming one ticket is refused as under-planned" load
+    _r=$(cd "$REPO_ROOT" && PATH="${_bin}:$PATH" sh "$_open_sh" --strategy live --move depth --title t --workaholic-root "$_root" "$_mbody" 2>&1) || true
+    if printf '%s' "$_r" | grep -q '"ok":true'; then
+        add_row "propose_single_ticket_experiment" true "a proposal naming one concrete ticket reaches the publication seam" load
     else
-        add_row "propose_floor_two_tickets" false "the two-ticket floor did not hold: $(one_line "$_r")" load
+        add_row "propose_single_ticket_experiment" false "a one-ticket experiment did not reach publication: $(one_line "$_r")" load
     fi
 
-    # And the refusal NAMES THE ALTERNATIVE — a refusal stating only the rule leaves the
-    # caller retrying the same thing, which is `check-floor.sh`'s own recorded discipline.
-    if printf '%s' "$_r" | grep -q 'plain ticket'; then
-        add_row "propose_floor_alternative" true "the under-planned refusal names what to do instead" load
+    if printf '%s' "$_r" | grep -q '"strategy":"live"' && printf '%s' "$_r" | grep -q '"move":"depth"'; then
+        add_row "propose_single_ticket_attribution" true "the published experiment preserves its strategy and evolutionary move" load
     else
-        add_row "propose_floor_alternative" false "the refusal states only the rule: $(one_line "$_r")" load
+        add_row "propose_single_ticket_attribution" false "the one-ticket experiment lost its strategy or move: $(one_line "$_r")" load
     fi
 
     # /propose writes NOTHING into the repository — the property that keeps it out of the
@@ -7909,7 +7918,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 printf '%s' "$data" > "$WORKAHOLIC_DRILL_CAPTURE"
-[ -n "$out" ] && printf '{"ok": true}' > "$out"
+[ -n "$out" ] && printf '{"ok":true,"channel":"C0DRILL0","ts":"1724371200.000200","message":{"user":"U0BOT"}}' > "$out"
 printf '200'
 STUB
     chmod +x "${_bin}/curl"
@@ -7918,6 +7927,7 @@ STUB
         ( PATH="${_bin}:$PATH" WORKAHOLIC_DRILL_CAPTURE="$_cap" \
           SLACK_BOT_TOKEN="${1}" WORKAHOLIC_SLACK_CHANNEL=C0DRILL0 \
           WORKAHOLIC_SLACK_API_URL='http://stub.invalid/chat.postMessage' \
+          WORKAHOLIC_TRANSPORT_OCCURRENCE_ID="drill-$$" \
           sh "$_spec" $2 "$3" 2>&1 || true )
     }
     TS='1724371200.000100'
@@ -8854,21 +8864,21 @@ cmd_verify_stage() {
         add_row "stage_never_enters_the_state" false "the declared stage moved the lifecycle reading: states='${_states}'" load
     fi
 
-    # 4. THE GATE: 観察中 originates nothing; the other two and the unstaged one propose exactly
-    #    as before. This is the mission's central behaviour.
+    # 4. THE PLANNING INPUT: 観察中 remains available to the agent beside every other stage.
+    #    The declaration informs judgement; it does not mechanically stop learning.
     _s=$(_survey)
     _sel=$(_f "$_s" '.selected | sort | join(",")')
-    _obs=$(_f "$_s" '[.refused[] | select(.slug == "settled") | .reason] | join("")')
-    if [ "$_obs" = "observing" ] && [ "$_sel" = "improving,running,unstaged" ]; then
-        add_row "observing_originates_nothing" true "the 観察中 direction is refused observing and opens no issue; every other stage proposes" load
+    _obs=$(_f "$_s" '[.eligible[] | select(.slug == "settled") | .stage] | join("")')
+    if [ "$_obs" = "観察中" ] && [ "$_sel" = "improving,running,settled,unstaged" ]; then
+        add_row "observing_remains_eligible" true "the 観察中 direction remains eligible context beside every other stage" load
     else
-        add_row "observing_originates_nothing" false "expected observing + improving,running,unstaged; got '${_obs}' / '${_sel}'" load
+        add_row "observing_remains_eligible" false "expected 観察中 + improving,running,settled,unstaged; got '${_obs}' / '${_sel}'" load
     fi
-    _keep=$(_f "$_s" '[.refused[] | select(.slug == "settled") | (.pace|tostring), (.overdue|tostring), (.dormant|tostring), (.quiescent|tostring)] | length')
+    _keep=$(_f "$_s" '[.eligible[] | select(.slug == "settled") | (.pace|tostring), (.overdue|tostring), (.dormant|tostring), (.quiescent|tostring)] | length')
     if [ "$_keep" = "4" ]; then
-        add_row "observing_still_visible" true "the refused row still carries every reading, so a settled direction stays visible" load
+        add_row "observing_still_visible" true "the eligible row carries every reading, so the agent sees stage and evidence together" load
     else
-        add_row "observing_still_visible" false "a refused observing row lost its readings" load
+        add_row "observing_still_visible" false "the observing row lost its readings" load
     fi
 
     # 5. THE ORDER: 改良中 leads, with membership unchanged.
@@ -8936,29 +8946,22 @@ cmd_verify_stage() {
         add_row "writer_set_is_still_three" false "the writer set moved" load
     fi
 
-    # 9. THE BREAKER, written against the BEHAVIOUR rather than a return shape: the `observing`
-    #    gate wired at a DERIVED reading (`dormant`) instead of the declared field. The output
-    #    shape is identical — a refusal named `observing` on a row — so a breaker written
-    #    against the shape would pass; row 4 must fail, because evidence would be silencing a
-    #    direction the operator never settled. That substitution is this mission's central
-    #    failure mode.
+    # 9. THE BREAKER: restore the retired stage gate. Row 4 must fail because a declaration
+    #    that should inform the agent would mechanically remove the direction from its choices.
     _broken="${_tmp}/broken"
     mkdir -p "$_broken"
     cp -R "${REPO_ROOT}/plugins/workaholic/." "${_broken}/"
-    sed 's/elif (\.stage == "観察中") then "observing"/elif (.dormant == true) then "observing"/' \
+    sed '/elif \.owns != "mine" then "not_mine"/a\
+           elif (.stage == "観察中") then "observing"' \
         "$_srv" > "${_broken}/skills/propose/scripts/survey-strategies.sh"
     _bs=$( cd "$_fx" && sh "${_broken}/skills/propose/scripts/survey-strategies.sh" \
         --open-proposals "${_tmp}/open.json" "30 days ago" "$_wh" 2>/dev/null || true )
     _bsel=$(_f "$_bs" '.selected | sort | join(",")')
     _bobs=$(_f "$_bs" '[.refused[] | select(.slug == "settled") | .reason] | join("")')
-    # The break fires when the wired-at-evidence survey no longer reproduces row 4: either the
-    # declared direction stops being the refused one, or directions the operator never settled
-    # get silenced too. Over this fixture it is the second — every direction is `dormant`, so
-    # evidence silences all four and `selected` empties.
-    if [ "$_bobs" != "observing" ] || [ "$_bsel" != "improving,running,unstaged" ]; then
-        add_row "stage_breaker" true "with the gate wired at a derived reading (dormant) the silence no longer follows the declaration: refused='${_bobs}' selected='${_bsel}' (this drill can fail)" breaker
+    if [ "$_bobs" = "observing" ] && [ "$_bsel" = "improving,running,unstaged" ]; then
+        add_row "stage_breaker" true "restoring the retired observing gate removes the settled direction, so the eligibility assertion can fail" breaker
     else
-        add_row "stage_breaker" false "the breaker did not break: a derived reading reproduced the declared behaviour exactly, so row 4 proves nothing" breaker
+        add_row "stage_breaker" false "the breaker did not restore the observing refusal: refused='${_bobs}' selected='${_bsel}'" breaker
     fi
 
     # 10. THE NEGATIVE SPACE.
@@ -10936,10 +10939,14 @@ cmd_verify_stranded_publication() {
         {
             printf '#!/bin/sh\ncase "$*" in\n'
             printf "  *rate_limit*) printf '5000\\\\n'; exit 0 ;;\n"
-            printf "  *\"/merge\"*) printf '{\"merged\": true}\\\\n'; exit 0 ;;\n"
+            printf "  *\"/merge\"*) printf '{\"merged\":true,\"sha\":\"fixture-merge-sha\"}\\\\n'; exit 0 ;;\n"
             printf "  *\"pulls/41/files\"*) printf '[{\"status\":\"added\",\"filename\":\".workaholic/feedbacks/20260102000000-b.md\",\"patch\":\"+x\"},{\"status\":\"modified\",\"filename\":\".workaholic/feedbacks/index.md\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
             printf "  *\"pulls/42/files\"*) printf '[{\"status\":\"modified\",\"filename\":\"src/app.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
             printf "  *\"pulls/43/files\"*) printf '[{\"status\":\"added\",\"filename\":\"src/other.txt\",\"patch\":\"+x\"}]\\\\n'; exit 0 ;;\n"
+            printf "  *\"pulls/41\") sha=\$(git rev-parse origin/${_mech}); printf '{\"state\":\"open\",\"merged\":false,\"head\":{\"sha\":\"%%s\"}}\\\\n' \"\$sha\"; exit 0 ;;\n"
+            printf "  *\"pulls/42\") sha=\$(git rev-parse origin/${_content}); printf '{\"state\":\"open\",\"merged\":false,\"head\":{\"sha\":\"%%s\"}}\\\\n' \"\$sha\"; exit 0 ;;\n"
+            printf "  *\"pulls/43\") sha=\$(git rev-parse origin/${_clean}); printf '{\"state\":\"open\",\"merged\":false,\"head\":{\"sha\":\"%%s\"}}\\\\n' \"\$sha\"; exit 0 ;;\n"
+            printf "  *\"check-runs\"*) printf '{\"total_count\":0,\"check_runs\":[]}\\\\n'; exit 0 ;;\n"
             printf '  *"pulls?state=open"*)\n'
             for _n in "$@"; do
                 case "$_n" in

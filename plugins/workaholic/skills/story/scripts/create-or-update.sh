@@ -92,9 +92,12 @@ if [ -z "$BASE_BRANCH" ]; then
     exit 0
 fi
 
-PR_INFO=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
+if ! PR_INFO=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
     "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=open&per_page=1" \
-    --jq '.[0] | select(. != null) | {number, url: .html_url}' 2>/dev/null || echo "")
+    --jq '.[0] | select(. != null) | {number, url: .html_url, title, body}' 2>/dev/null); then
+    printf '{"pr": null, "reason": "pr_lookup_unknown", "branch": "%s", "story": "%s"}\n' "$BRANCH" "$STORY_FILE"
+    exit 0
+fi
 
 if [ -z "$PR_INFO" ] || [ "$PR_INFO" = "null" ]; then
     # Create. The body goes in on STDIN, never through argv: it carries the whole story
@@ -124,8 +127,17 @@ if [ -z "$PR_INFO" ] || [ "$PR_INFO" = "null" ]; then
     fi
     echo "PR created: $URL"
 else
-    NUMBER=$(echo "$PR_INFO" | jq -r '.number')
-    URL=$(echo "$PR_INFO" | jq -r '.url')
+    # POSIX echo may expand backslash escapes. A PR body commonly contains JSON
+    # sequences such as `\\n`, so echo can turn valid JSON into invalid input for jq.
+    NUMBER=$(printf '%s\n' "$PR_INFO" | jq -r '.number')
+    URL=$(printf '%s\n' "$PR_INFO" | jq -r '.url')
+    CURRENT_TITLE=$(printf '%s\n' "$PR_INFO" | jq -r '.title // ""')
+    CURRENT_BODY=$(printf '%s\n' "$PR_INFO" | jq -r '.body // ""')
+    WANTED_BODY=$(cat "$BODY_FILE")
+    if [ "$CURRENT_TITLE" = "$TITLE" ] && [ "$CURRENT_BODY" = "$WANTED_BODY" ]; then
+        echo "PR unchanged: $URL"
+        exit 0
+    fi
     UPDATE=$(jq -n --arg t "$TITLE" --rawfile body "$BODY_FILE" '{title: $t, body: $body}' 2>/dev/null || true)
     printf '%s' "$UPDATE" \
         | sh "${GATHER_SCRIPTS}/gh-rest.sh" api "repos/${REPO}/pulls/${NUMBER}" \

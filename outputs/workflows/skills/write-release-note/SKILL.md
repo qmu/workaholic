@@ -32,13 +32,13 @@ targets: [<deploy-target slug>, ...]
 ## Changes
 
 ### Added
-- <Entry from story Section 4 where ticket category is "Added">
+- <Added entry derived from the landed commit range>
 
 ### Changed
-- <Entry from story Section 4 where ticket category is "Changed">
+- <Changed entry derived from the landed commit range>
 
 ### Removed
-- <Entry from story Section 4 where ticket category is "Removed">
+- <Removed entry derived from the landed commit range>
 
 ## Metrics
 
@@ -70,9 +70,9 @@ verification" below. Append-only: a later attempt never rewrites an earlier one.
 
 2. **Story Title (H1)**: Extract the first highlight from section 1 (Overview). Use the same derivation logic as PR title: first highlight text, appending "etc" if multiple highlights exist.
 
-3. **Key Changes**: Use the highlights from section 1. If fewer than 3 highlights, summarize the most impactful changes from section 4 (Changes).
+3. **Key Changes**: Use the highlights from section 1. If fewer than 3 highlights, summarize the most impactful entries from the story’s `## Changes` section and landed commit range.
 
-4. **Changes**: Group entries from story Section 4 by category (Added, Changed, Removed). The commit's `Category:` git trailer is the source — log-native, and it survives ticket pruning; read it via `git log --format='%(trailers:key=Category,valueonly)'`. (The ticket `category` frontmatter field is retired, 2026-08-07; tickets archived before then may still carry one, usable as a fallback for that history.) Each entry should be a concise one-line summary; omit empty subsections.
+4. **Changes**: Group the landed commit range by category (Added, Changed, Removed), using the story’s named `## Changes` section as narrative context. The commit's `Category:` git trailer is the source — log-native, and it survives ticket pruning; read it via `git log --format='%(trailers:key=Category,valueonly)'`. (The ticket `category` frontmatter field is retired, 2026-08-07; tickets archived before then may still carry one, usable as a fallback for that history.) Each entry should be a concise one-line summary; omit empty subsections.
 
 5. **Metrics**: Extract from story frontmatter:
    - `tickets_completed` field

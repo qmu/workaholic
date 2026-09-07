@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260907-091552
 ---
 
 # Recover the Codex loop from a retired plugin path and refuse a false healthy status

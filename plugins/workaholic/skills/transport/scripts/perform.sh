@@ -19,16 +19,28 @@ case "$TRANSPORT_OPERATION" in read_thread|post_reply)
   fi;;
 esac
 
-has_route() { jq -e --arg t "$1" --arg op "$TRANSPORT_OPERATION" '.input.binding.routes[]?|select(.transport==$t and (.operations|index($op)))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; }
-route_sender=$(jq -r --arg op "$TRANSPORT_OPERATION" '[.input.binding.routes[]?|select(.operations|index($op))][0].sender_id // empty' "$TRANSPORT_REQUEST_FILE")
-expected_sender=$(jq -r '.input.expected_sender_id // empty' "$TRANSPORT_REQUEST_FILE")
+required_sender=""
 case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction)
-  [ -z "$expected_sender" ] || [ -z "$route_sender" ] || [ "$expected_sender" = "$route_sender" ] || { transport_result deferred sender_mismatch "$TRANSPORT_REQUEST_ID" "$(jq -cn --arg actual "$route_sender" '{actual_sender_id:$actual}')"; exit 0; };; esac
+  required_sender=$(jq -r '.input.expected_sender_id // .input.binding.sender_id // empty' "$TRANSPORT_REQUEST_FILE")
+  if [ -n "$required_sender" ] && ! jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" \
+      '.input.binding.routes[]?|select((.operations|index($op)) and (.sender_id//"")==$sender)' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then
+    actual=$(jq -c --arg op "$TRANSPORT_OPERATION" '[.input.binding.routes[]?|select(.operations|index($op))|.sender_id//null]|unique' "$TRANSPORT_REQUEST_FILE")
+    transport_result deferred sender_mismatch "$TRANSPORT_REQUEST_ID" "$(jq -cn --arg expected "$required_sender" --argjson actual "$actual" '{expected_sender_id:$expected,actual_sender_ids:$actual}')"
+    exit 0
+  fi;;
+esac
+
+# Candidate filtering and ranking are one operation. The route whose sender was
+# checked is therefore always the route that executes, regardless of input order.
+has_route() {
+  jq -e --arg t "$1" --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" \
+    '.input.binding.routes[]?|select(.transport==$t and (.operations|index($op)) and ($sender=="" or (.sender_id//"")==$sender))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1
+}
 
 choose_route() {
-    if has_route qfs && jq -e --arg op "$TRANSPORT_OPERATION" '.input.binding.routes[]?|select(.transport=="qfs" and .described==true and (.operations|index($op)))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then echo qfs
-    elif has_route slack_token && [ -n "${SLACK_BOT_TOKEN:-}" ]; then echo slack_token
+    if has_route qfs && jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" '.input.binding.routes[]?|select(.transport=="qfs" and .described==true and (.operations|index($op)) and ($sender=="" or (.sender_id//"")==$sender))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then echo qfs
     elif has_route connector; then echo connector
+    elif has_route slack_token && [ -n "${SLACK_BOT_TOKEN:-}" ]; then echo slack_token
     elif has_route qfs; then echo qfs_unproved
     elif has_route slack_token; then echo token_unavailable
     else echo unavailable

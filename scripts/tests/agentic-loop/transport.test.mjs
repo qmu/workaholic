@@ -82,6 +82,23 @@ test("P3 connector delivery confirms the same threaded outbox and rejects the wr
   assert.equal(result.json.reason, "sender_mismatch");
 });
 
+test("P3 mixed routes select the required sender independent of route order", () => {
+  for (const routes of [
+    [{ transport: "qfs", mount: "/slack/a", operations: ["post_root"], sender_id: "BOT", described: true }, { transport: "connector", operations: ["post_root"], sender_id: "USER", described: true }],
+    [{ transport: "connector", operations: ["post_root"], sender_id: "USER", described: true }, { transport: "qfs", mount: "/slack/a", operations: ["post_root"], sender_id: "BOT", described: true }],
+  ]) {
+    const dir = repo(); const qfs = join(dir, "qfs"); const called = join(dir, "qfs-called");
+    writeFileSync(qfs, `#!/bin/sh\ntouch '${called}'\nprintf '%s\\n' '{"ok":true,"workspace":"A","channel":"C1","ts":"9.9","sender_id":"BOT"}'\n`);
+    spawnSync("chmod", ["+x", qfs]);
+    const binding = { workspace: "A", channel: "same", channel_id: "C1", operations: ["post_root"], routes, thread_map: {} };
+    const path = request(dir, base(dir, "post_root", { binding, text: "for user", expected_sender_id: "USER", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "mixed-send" }));
+    const result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { WORKAHOLIC_QFS_BIN: qfs } });
+    assert.equal(result.json.status, "needs_parent", result.stderr);
+    assert.equal(result.json.data.arguments.expected_sender_id, "USER");
+    assert.equal(spawnSync("test", ["-e", called]).status, 1);
+  }
+});
+
 test("P3 token send preserves a thread and stores provider coordinates in a confirmed outbox", () => {
   const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
   const capture = join(dir, "payload.json");

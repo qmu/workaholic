@@ -125,7 +125,7 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 . "${SCRIPT_DIR}/lib/runner-identity.sh"
 
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 PR_STATE="${SCRIPT_DIR}/branch-pull-request-state.sh"
 MISSION_STATE="${SCRIPT_DIR}/claim-mission-state.sh"
 

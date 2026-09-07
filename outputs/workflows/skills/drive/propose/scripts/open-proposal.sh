@@ -93,9 +93,9 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts/"
-FEEDBACK_SCRIPTS="${SCRIPT_DIR}/../../feedback/scripts/"
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+STRATEGY_SCRIPTS="${SCRIPT_DIR}/../../strategy/scripts"
+FEEDBACK_SCRIPTS="${SCRIPT_DIR}/../../feedback/scripts"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 STRATEGY=""; MOVE=""; TITLE=""; ROOT=".workaholic"
 while [ $# -gt 0 ]; do

@@ -105,7 +105,7 @@ emit_err() {
 command -v gh >/dev/null 2>&1 || emit_err "gh_unavailable" "gh is not on PATH"
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 login="$(gh api user --jq .login 2>&1)" || emit_err "identity_unresolved" "$login"
 [ -n "$login" ] || emit_err "identity_unresolved" "gh api user returned an empty login"

@@ -55,7 +55,7 @@ fi
 # `|| true` keeps a gh failure (no auth, no remote, network) from aborting the caller
 # under `set -e`.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 repo_slug="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>/dev/null || true)"
 
 # The filter runs through a real `jq`, not `gh api --jq`: the slug is data and belongs in

@@ -45,7 +45,7 @@ emit_err() {
 command -v gh >/dev/null 2>&1 || emit_err "gh_unavailable" "gh is not on PATH"
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 
 slug="$(sh "$GH_REST" slug 2>&1)" || emit_err "slug_unresolved" "$slug"
 [ -n "$slug" ] || emit_err "slug_unresolved" "gh-rest.sh slug returned empty"

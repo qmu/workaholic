@@ -302,7 +302,7 @@ fi
 
 # Refresh the OKF bundle indexes so the close commit ships a fresh hierarchy
 # (best-effort: an index problem must not block the close).
-sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$FILE" 2>/dev/null || true
 

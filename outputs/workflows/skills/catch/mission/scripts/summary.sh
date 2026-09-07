@@ -87,7 +87,7 @@ for pass in mine unassigned; do
 
         # Owners (the mission's own assignees, legacy singular fallback) via the
         # single oracle. `assignee` in the output is the first owner, aliased for callers.
-        owners=$(sh "${SCRIPT_DIR}/../../gather/scripts//owners.sh" "$f" 2>/dev/null || true)
+        owners=$(sh "${SCRIPT_DIR}/../../gather/scripts/owners.sh" "$f" 2>/dev/null || true)
         assignee=$(printf '%s\n' "$owners" | sed -n '1p')
         case "$pass" in
             mine)

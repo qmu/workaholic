@@ -102,7 +102,7 @@
 #   unverified  present only with `--declared`; null when the declared read was degraded.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 
 COMMIT=""
 DECLARED=false

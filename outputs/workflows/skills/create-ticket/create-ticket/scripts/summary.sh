@@ -21,8 +21,8 @@
 set -eu
 
 SCRIPT_DIR=$(dirname "$0")
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
-PATHS=$(sh "${SCRIPT_DIR}/../../drive/scripts//list-todo.sh")
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+PATHS=$(sh "${SCRIPT_DIR}/../../drive/scripts/list-todo.sh")
 ME=$(git config user.email 2>/dev/null || true)
 
 # JSON-escape a value (backslash and double-quote only; ticket text is plain).

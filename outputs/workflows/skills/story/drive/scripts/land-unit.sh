@@ -173,7 +173,7 @@ fi
 # --- 3. Catch up with the base, in the worktree -----------------------------------
 # Composed, never re-derived: catchup-main.sh owns the append-only .workaholic/
 # resolution and the mechanical/content conflict classification.
-catchup_out=$( ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../ship/scripts//catchup-main.sh" "$base" ) )
+catchup_out=$( ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../ship/scripts/catchup-main.sh" "$base" ) )
 case "$catchup_out" in
     *'"caught_up": true'*) ;;
     *)
@@ -189,7 +189,7 @@ case "$catchup_out" in
 esac
 
 # --- 4. The safety gates, unchanged -----------------------------------------------
-scan_out=$( ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh" "origin/${base}" ) )
+scan_out=$( ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh" "origin/${base}" ) )
 scan_verdict="pass"
 scan_findings=0
 case "$scan_out" in
@@ -220,7 +220,7 @@ push_land() { git -C "$worktree_path" push --quiet origin "HEAD:refs/heads/${bas
 if ! push_land; then
     retried=true
     git fetch --quiet origin "$base" >/dev/null 2>&1 || true
-    catchup_out=$( ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../ship/scripts//catchup-main.sh" "$base" ) )
+    catchup_out=$( ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../ship/scripts/catchup-main.sh" "$base" ) )
     case "$catchup_out" in
         *'"caught_up": true'*) ;;
         *) refuse "catchup_conflict" "the base moved and the retry could not absorb it; nothing was landed" ;;
@@ -239,7 +239,7 @@ git -C "$worktree_path" push --quiet origin HEAD >/dev/null 2>&1 || true
 # Everything below is bookkeeping AFTER an irreversible success. None of it may turn a
 # landed unit into a reported failure (merge-pr.sh learned this the expensive way).
 worktree_removed=false
-cleanup_out=$( ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts//cleanup-mission-worktree.sh" "$unit" ) 2>/dev/null ) || cleanup_out=""
+cleanup_out=$( ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts/cleanup-mission-worktree.sh" "$unit" ) 2>/dev/null ) || cleanup_out=""
 case "$cleanup_out" in
     *'"worktree_removed": true'*) worktree_removed=true ;;
 esac
@@ -255,7 +255,7 @@ fi
 # Without this the unit's leftover tickets are on the base but not in the working tree
 # plan-units.sh reads, so the run that just landed them would still not offer them.
 base_synced=false
-sync_out=$( ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts//sync-main.sh" "$base" ) 2>/dev/null ) || sync_out=""
+sync_out=$( ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts/sync-main.sh" "$base" ) 2>/dev/null ) || sync_out=""
 case "$sync_out" in
     *'"ok": true'*) base_synced=true ;;
 esac

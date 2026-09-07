@@ -46,7 +46,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GATHER="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER="${SCRIPT_DIR}/../../gather/scripts"
 REFUSAL_LIB="${SCRIPT_DIR}/lib/publication-refusal.sh"
 
 LIMIT="${WORKAHOLIC_OPERATOR_PULL_LIMIT:-10}"

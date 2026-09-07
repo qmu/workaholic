@@ -81,9 +81,9 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
-MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts//merge-reason.sh"
-RECORD_OUTCOME="${SCRIPT_DIR}/../../story/scripts//record-merge-outcome.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
+MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts/merge-reason.sh"
+RECORD_OUTCOME="${SCRIPT_DIR}/../../story/scripts/record-merge-outcome.sh"
 
 unit=""
 own_tip=false
@@ -201,7 +201,7 @@ esac
 # is the one derivation of `commit_title` / `commit_message`; without them the forge
 # concatenates every commit on the branch into the trunk's record. A composer that could not
 # read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.
-BODY_JSON=$(sh "${SCRIPT_DIR}/../../gather/scripts//merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')
+BODY_JSON=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-commit-body.sh" --branch "${BRANCH}" --number "${PR}" 2>/dev/null || printf '')
 MERGE_TITLE=$(printf '%s' "$BODY_JSON" | jq -r '.title // ""' 2>/dev/null || printf '')
 MERGE_BODY=$(printf '%s' "$BODY_JSON" | jq -r '.body // ""' 2>/dev/null || printf '')
 MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_composer"' 2>/dev/null || printf 'unreadable:no_composer')
@@ -212,7 +212,7 @@ if [ -n "$GATE_REFUSAL" ]; then
     MERGE_REASON_WORD="$GATE_REFUSAL"
 else
     if merge_out=$(sh "$GH_REST" api "repos/${SLUG}/pulls/${PR}/merge" --method PUT \
-            -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts//merge-method.sh")" \
+            -f "merge_method=$(sh "${SCRIPT_DIR}/../../gather/scripts/merge-method.sh")" \
             -f "commit_title=${MERGE_TITLE}" -f "commit_message=${MERGE_BODY}" 2>&1); then
         OUTCOME="merged"
         report true ""

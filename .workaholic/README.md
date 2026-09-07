@@ -55,3 +55,7 @@ Each artifact type serves a specific cognitive purpose:
 | ---------- | --------------------------------- | -------------------------------------- |
 | Tickets    | Change requests (future and past) | Capturing intent before implementation |
 | Stories    | Development narrative             | Preserving decision context            |
+
+The agentic loop redesign is planned in dependency-linked tickets. Its compatibility and
+portable consumer checks are described in [the contract map](../docs/agentic-loop-contracts.md).
+Runtime state belongs in the Git common directory; it does not introduce a knowledge area here.

@@ -240,7 +240,7 @@ if [ "$kind" = "resume" ]; then
         r_adopted=true
         worktree_path="$r_existing"
         branch="$r_branch"
-    elif create_out=$(sh "${SCRIPT_DIR}/../../branching/scripts//create-mission-worktree.sh" --branch "$r_branch" "$unit"); then
+    elif create_out=$(sh "${SCRIPT_DIR}/../../branching/scripts/create-mission-worktree.sh" --branch "$r_branch" "$unit"); then
         worktree_path=$(printf '%s' "$create_out" | sed -n 's/.*"worktree_path":[ ]*"\([^"]*\)".*/\1/p')
         branch=$(printf '%s' "$create_out" | sed -n 's/.*"branch":[ ]*"\([^"]*\)".*/\1/p')
     else
@@ -255,7 +255,7 @@ if [ "$kind" = "resume" ]; then
     # uncommitted work in it -- to report a race it merely lost.
     abort_resume() {
         if [ "$r_adopted" != "true" ]; then
-            ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts//cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
+            ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts/cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
         fi
         fail "$1" "${2:-}"
     }
@@ -273,7 +273,7 @@ if [ "$kind" = "resume" ]; then
     # to any file, and it must not show up in the PR diff. Its push is also the race's
     # arbiter, which is why it happens before a single line of work.
     r_liveness_ref=$(claims_liveness_ref "$r_branch")
-    ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --allow-empty \
+    ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" --allow-empty \
         --trailer "Unit: ${unit}" \
         --trailer "Liveness-Ref: ${r_liveness_ref}" \
         --housekeeping claim \
@@ -294,7 +294,7 @@ if [ "$kind" = "resume" ]; then
     r_liveness_reason=$(cd "$worktree_path" && claims_liveness_write "$unit" "$branch")
     [ -z "$r_liveness_reason" ] || abort_resume "$r_liveness_reason" ', "unit": "'"${unit}"'", "branch": "'"${branch}"'"'
 
-    r_notify="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../specificate/scripts//notify-slack.sh}"
+    r_notify="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../specificate/scripts/notify-slack.sh}"
     r_out=$(sh "$r_notify" "Resumed ${unit} on ${branch} — an earlier run left it unfinished; driving it now" 2>/dev/null) || r_out=''
     case "$r_out" in
         *'"notified": true'*) r_announced=true ;;
@@ -325,7 +325,7 @@ artifact_rels=""
 case "$kind" in
     mission)
         unit="$1"
-        . "${SCRIPT_DIR}/../../mission/scripts//lib/resolve.sh"
+        . "${SCRIPT_DIR}/../../mission/scripts/lib/resolve.sh"
         mission_file=$(mission_resolve "${repo_root}/.workaholic" "$unit")
         # A MISSING mission.md IS AN ERROR NOW (decision J1/J3). It used to be normal:
         # a mission could live on an unmerged branch in its own worktree, so absence
@@ -520,7 +520,7 @@ arb_release() {
 # work-* branch name, and reports the worktree's real HEAD. The worktree directory is
 # the unit id, so `.worktrees/<unit>` stays keyed 1:1 to the unit for both a mission
 # (dir = slug) and a batch (dir = batch id).
-if create_out=$(sh "${SCRIPT_DIR}/../../branching/scripts//create-mission-worktree.sh" "$unit"); then
+if create_out=$(sh "${SCRIPT_DIR}/../../branching/scripts/create-mission-worktree.sh" "$unit"); then
     :
 else
     fail "worktree_creation_failed" ', "unit": "'"${unit}"'", "detail": "see the creator'"'"'s error above"'
@@ -550,7 +550,7 @@ abort_claim() {
             git -C "$worktree_path" checkout -- "$_ac_rel" >/dev/null 2>&1 || true
         done
     fi
-    ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts//cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
+    ( cd "$repo_root" && sh "${SCRIPT_DIR}/../../branching/scripts/cleanup-mission-worktree.sh" "$unit" ) >/dev/null 2>&1 || true
     fail "$1" "${2:-}"
 }
 
@@ -612,7 +612,7 @@ done
 # `commit_failed` sent a live run looking at the commit machinery when the real answer was
 # a rejected subject, printed plainly by check-subject.sh and then thrown away.
 commit_log=$(mktemp "${TMPDIR:-/tmp}/workaholic-claim-commit.XXXXXX")
-if ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" "$@" ) >"$commit_log" 2>&1; then
+if ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" "$@" ) >"$commit_log" 2>&1; then
     cat "$commit_log" >&2
     rm -f "$commit_log"
 else
@@ -680,7 +680,7 @@ announce_claim() {
     # is the house test seam (cf. WORKAHOLIC_SLACK_API_URL in notify-slack.sh) -- the
     # hermetic suite must be able to make the notifier FAIL, which is the whole point of
     # the never-load-bearing contract and is not reachable through a URL override.
-    _ac_script="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../specificate/scripts//notify-slack.sh}"
+    _ac_script="${WORKAHOLIC_NOTIFIER:-${SCRIPT_DIR}/../../specificate/scripts/notify-slack.sh}"
     if _ac_out=$(sh "$_ac_script" "$_ac_text" 2>/dev/null); then
         case "$_ac_out" in
             *'"notified": true'*) printf 'true\t' ;;

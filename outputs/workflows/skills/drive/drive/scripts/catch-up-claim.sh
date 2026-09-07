@@ -96,13 +96,13 @@ CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
 MERGEABILITY="${SCRIPT_DIR}/claim-mergeability.sh"
-GATHER="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER="${SCRIPT_DIR}/../../gather/scripts"
 GH_REST="${GATHER}/gh-rest.sh"
-CATCHUP="${SCRIPT_DIR}/../../ship/scripts//catchup-main.sh"
-MAKE_WORKTREE="${SCRIPT_DIR}/../../branching/scripts//create-mission-worktree.sh"
-MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts//merge-reason.sh"
-SCAN="${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh"
-GATE="${SCRIPT_DIR}/../../release-scan/scripts//gate-decision.sh"
+CATCHUP="${SCRIPT_DIR}/../../ship/scripts/catchup-main.sh"
+MAKE_WORKTREE="${SCRIPT_DIR}/../../branching/scripts/create-mission-worktree.sh"
+MERGE_REASON="${SCRIPT_DIR}/../../branching/scripts/merge-reason.sh"
+SCAN="${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh"
+GATE="${SCRIPT_DIR}/../../release-scan/scripts/gate-decision.sh"
 
 unit="${1:-}"
 base="${2:-main}"
@@ -349,7 +349,7 @@ esac
 #
 # Absent tooling is not a failure: a consuming repository has no `outputs/` to rebuild, and
 # refusing there would make the catch-up unavailable to every repository but this one.
-REFRESH_INDEX="${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh"
+REFRESH_INDEX="${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh"
 if [ -f "$REFRESH_INDEX" ] && [ -d "${WORKTREE}/.workaholic" ]; then
     ( cd "$WORKTREE" && sh "$REFRESH_INDEX" ) >/dev/null 2>&1 || refuse index_refresh_failed
     REGENERATED=true

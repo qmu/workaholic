@@ -15,7 +15,7 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 todo_dir="${root}/.workaholic/tickets/todo"

@@ -110,7 +110,7 @@ fi
 before_sha="$(git -C "$publish_path" rev-parse HEAD)"
 
 # --- 1. Commit through the shared wrapper ------------------------------------
-if ( cd "$publish_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" "$@" ) >&2; then
+if ( cd "$publish_path" && sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" "$@" ) >&2; then
   :
 else
   printf '{"ok": false, "reason": "commit_failed", "path": "%s"}\n' "$publish_path"
@@ -241,7 +241,7 @@ PR_TITLE="${WORKAHOLIC_PR_TITLE:-$TITLE}"
 # indistinguishable from a network blip, an expired token, or a policy denial. The
 # underlying message now rides the `detail`, which alone would have made the measured
 # incident self-describing.
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 pr_url=""
 pr_number=""
 pr_err=""
@@ -369,7 +369,7 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
     exit 0
   fi
 
-  scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts//scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
+  scan_json=$( cd "$publish_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh" "origin/${base}" 2>/dev/null || true )
   case "$scan_json" in
     *'"verdict": "pass"'*)
       # `PUT .../merge` — the REST equivalent of the `gh pr merge` this replaces, for the

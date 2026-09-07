@@ -78,7 +78,7 @@ if [ -n "$ASSIGNEE" ]; then
 fi
 
 SCRIPT_DIR=$(dirname "$0")
-MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts/"
+MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 . "${MISSION_SCRIPTS}/lib/resolve.sh"
 ROOT=$(missions_root_default)
 missions_migrate_layout "$ROOT"
@@ -95,7 +95,7 @@ if [ -f "$EXISTING" ]; then
     exit 1
 fi
 
-META=$(sh "${SCRIPT_DIR}/../../gather/scripts//ticket-metadata.sh")
+META=$(sh "${SCRIPT_DIR}/../../gather/scripts/ticket-metadata.sh")
 CREATED_AT=$(printf '%s\n' "$META" | grep '"created_at"' | sed -e 's/.*: *"//' -e 's/".*//')
 AUTHOR=$(printf '%s\n' "$META" | grep '"author"' | sed -e 's/.*: *"//' -e 's/".*//')
 
@@ -144,7 +144,7 @@ gate_assert:
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 EOMISSION
 
-sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$MISSION_FILE" 2>/dev/null || true
 

@@ -53,13 +53,13 @@ doc_title() {
 }
 
 # --- missions ----------------------------------------------------------------
-MISSIONS=$(sh "${SCRIPT_DIR}/../../mission/scripts//list.sh" 2>/dev/null || true)
+MISSIONS=$(sh "${SCRIPT_DIR}/../../mission/scripts/list.sh" 2>/dev/null || true)
 [ -n "$MISSIONS" ] || MISSIONS="[]"
 
 # --- queue -------------------------------------------------------------------
 QUEUE=""
 q_sep=""
-for t in $(sh "${SCRIPT_DIR}/../../drive/scripts//list-todo.sh" 2>/dev/null || true); do
+for t in $(sh "${SCRIPT_DIR}/../../drive/scripts/list-todo.sh" 2>/dev/null || true); do
   [ -f "$t" ] || continue
   QUEUE="${QUEUE}${q_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"$(json_escape "$(doc_title "$t")")\"}"
   q_sep=", "

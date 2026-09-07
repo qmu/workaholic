@@ -31,7 +31,7 @@
 set -eu
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd -P)"
-. "${SCRIPT_DIR}/../../release-scan/scripts//lib/secret-patterns.sh"
+. "${SCRIPT_DIR}/../../release-scan/scripts/lib/secret-patterns.sh"
 
 body_file="${1:-}"
 if [ -z "$body_file" ] || [ ! -f "$body_file" ]; then

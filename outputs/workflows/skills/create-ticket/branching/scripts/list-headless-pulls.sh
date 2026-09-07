@@ -56,7 +56,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GATHER="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER="${SCRIPT_DIR}/../../gather/scripts"
 AGE_LIB="${SCRIPT_DIR}/lib/publication-age.sh"
 
 LIMIT="${WORKAHOLIC_HEADLESS_PULL_LIMIT:-10}"

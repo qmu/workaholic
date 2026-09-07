@@ -38,7 +38,7 @@ fi
 # reflected in the committed hierarchy (best-effort: never blocks the commit).
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/push-outcome.sh"
-sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$notes_dir"
 git commit -m "Add release notes for $branch" >/dev/null

@@ -55,7 +55,7 @@ fi
 before_sha="$(git -C "$publish_path" rev-parse HEAD)"
 
 # --- 1. Commit through the shared wrapper ------------------------------------
-if ( cd "$publish_path" && sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" "$@" ) >&2; then
+if ( cd "$publish_path" && sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" "$@" ) >&2; then
   :
 else
   printf '{"ok": false, "reason": "commit_failed", "path": "%s"}\n' "$publish_path"

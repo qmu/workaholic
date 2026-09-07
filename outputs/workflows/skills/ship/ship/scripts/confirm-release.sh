@@ -62,7 +62,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # same reason: this is a few lines of free-text deploy evidence bound for a public,
 # version-controlled record, where a false positive costs a rephrase and a false negative
 # publishes a credential.
-. "${SCRIPT_DIR}/../../release-scan/scripts//lib/secret-patterns.sh"
+. "${SCRIPT_DIR}/../../release-scan/scripts/lib/secret-patterns.sh"
 
 scan_secrets() {
   _re_in=$(printf '%s\n' "$@")
@@ -127,12 +127,12 @@ mv "$TMP" "$FILE"
   fi
 } >> "$FILE"
 
-sh "${SCRIPT_DIR}/../../okf/scripts//refresh-index.sh" >/dev/null 2>&1 || true
+sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$FILE" >/dev/null 2>&1 || true
 git add "${ROOT}/.workaholic/index.md" "${ROOT}/.workaholic/releases/index.md" >/dev/null 2>&1 || true
 
-if ! sh "${SCRIPT_DIR}/../../commit/scripts//commit.sh" --skip-staging \
+if ! sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" --skip-staging \
   "Record release confirmation" \
   "A release record is only durable if its outcome is written where the cut was." \
   "Records the ${STATUS} confirmation of ${BRANCH} against ${BASE}." \

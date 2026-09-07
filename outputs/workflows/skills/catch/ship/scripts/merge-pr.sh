@@ -84,7 +84,7 @@ fi
 # here would be one of four copies of one word, and a call site merging the other way would put
 # the loop's branch-internal bookkeeping back onto `main` for one route only.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 MERGE_METHOD=$(sh "${GATHER_SCRIPTS}/merge-method.sh")
 
 # THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
@@ -102,7 +102,7 @@ MERGE_BODY_SOURCE=$(printf '%s' "$BODY_JSON" | jq -r '.source // "unreadable:no_
 # other degradation, so a repository whose checks cannot be read here is exactly as ungated as
 # before. A refusal leaves the pull request open and the claim standing; the next tick's
 # `retry-undelivered.sh` delivers it once the checks conclude.
-CHECK_GATE=$(sh "${SCRIPT_DIR}/../../drive/scripts//branch-checks.sh" "${pr_number}" 2>/dev/null || printf '')
+CHECK_GATE=$(sh "${SCRIPT_DIR}/../../drive/scripts/branch-checks.sh" "${pr_number}" 2>/dev/null || printf '')
 CHECK_GATE_DECISION=$(printf '%s' "$CHECK_GATE" | jq -r '.gate // "pass"' 2>/dev/null || printf 'pass')
 CHECK_GATE_REASON=$(printf '%s' "$CHECK_GATE" | jq -r '.reason // ""' 2>/dev/null || printf '')
 if [ "$CHECK_GATE_DECISION" = "refuse" ]; then

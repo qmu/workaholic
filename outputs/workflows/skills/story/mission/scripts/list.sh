@@ -82,7 +82,7 @@ for d in $DIRS; do
     # Ownership (the mission's own assignees, legacy singular fallback) via the
     # single oracle — never parsed here. owners is the full set; assignee aliases the
     # first for back-compat; relation is the caller-centric partition.
-    owners_raw=$(sh "${SCRIPT_DIR}/../../gather/scripts//owners.sh" "$f" 2>/dev/null || true)
+    owners_raw=$(sh "${SCRIPT_DIR}/../../gather/scripts/owners.sh" "$f" 2>/dev/null || true)
     owners_json=""
     first_owner=""
     is_mine=0

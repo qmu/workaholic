@@ -45,7 +45,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GATHER="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER="${SCRIPT_DIR}/../../gather/scripts"
 AGE_LIB="${SCRIPT_DIR}/lib/publication-age.sh"
 [ -f "$AGE_LIB" ] || { printf '{"ok": false, "number": 0, "url": "", "effect": "unreadable", "age_hours": null, "reason": "no_age_rule"}\n'; exit 0; }
 . "$AGE_LIB"

@@ -110,8 +110,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
-CLEANUP="${SCRIPT_DIR}/../../branching/scripts//cleanup-mission-worktree.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
+CLEANUP="${SCRIPT_DIR}/../../branching/scripts/cleanup-mission-worktree.sh"
 
 unit="${1:-}"
 if [ -z "$unit" ]; then

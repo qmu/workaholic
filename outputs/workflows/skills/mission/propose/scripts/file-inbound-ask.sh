@@ -67,8 +67,8 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-OPEN_ISSUE="${SCRIPT_DIR}/../../feedback/scripts//open-issue.sh"
-ASK_FEEDBACK_LINE="${SCRIPT_DIR}/../../feedback/scripts//ask-feedback-line.sh"
+OPEN_ISSUE="${SCRIPT_DIR}/../../feedback/scripts/open-issue.sh"
+ASK_FEEDBACK_LINE="${SCRIPT_DIR}/../../feedback/scripts/ask-feedback-line.sh"
 
 usage() {
   echo "Usage: file-inbound-ask.sh (--slack-ref <channel>:<ts> [--permalink <url>] | --finding <step>:<id>) --subject '<kind>[:<id>]' --assignee <login> [--feedback '<ref>[, <ref>]'] <owner/name> <title> <body-file>" >&2

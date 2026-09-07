@@ -61,7 +61,7 @@ EOF
 if [ "$#" -ge 1 ] && [ -n "$1" ]; then
     BASE="$1"
 else
-    BASE=$("${SCRIPT_DIR}/../../gather/scripts//base-ref.sh" 2>/dev/null) || BASE_STATUS=$?
+    BASE=$("${SCRIPT_DIR}/../../gather/scripts/base-ref.sh" 2>/dev/null) || BASE_STATUS=$?
     if [ -z "${BASE:-}" ]; then
         # base-ref.sh's own exit vocabulary: 3 = origin configured but never fetched,
         # 4 = no origin and no local main/master.

@@ -47,7 +47,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 LISTER="${SCRIPT_DIR}/list-claims.sh"
-READER="${SCRIPT_DIR}/../../story/scripts//read-unposted-line.sh"
+READER="${SCRIPT_DIR}/../../story/scripts/read-unposted-line.sh"
 
 FETCHED=false
 SHALLOW=false

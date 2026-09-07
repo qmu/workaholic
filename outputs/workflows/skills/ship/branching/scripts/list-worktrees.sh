@@ -19,7 +19,7 @@ count=0
 # The slug is resolved ONCE, outside the loop: one worktree list can hold many branches
 # and the remote does not change between them.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
-GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts/"
+GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 pr_slug=$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>/dev/null || echo "")
 pr_owner=${pr_slug%%/*}
 

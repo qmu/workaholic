@@ -554,6 +554,7 @@ node scripts/build-plugins/build.mjs              # regenerate outputs/ AND hook
 node scripts/build-plugins/verify.mjs             # assert generated skills are self-contained AND the policy index is in sync
 node scripts/build-plugins/validate-metadata.mjs  # assert Codex manifests are well-formed and version-aligned
 node scripts/test-workflow-scripts.mjs            # hermetic smoke tests for branching + drive scripts
+node --test scripts/tests/agentic-loop/*.test.mjs # compatibility contracts and isolated portable consumers
 bash plugins/workaholic/hooks/layout-doctor.sh .  # audit .workaholic/ for an unregistered artifact directory
 sh scripts/e2e/loop-drill.sh verify-all           # run the classified drill set; CI runs the hermetic part on every push
 ```

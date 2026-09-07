@@ -54,7 +54,7 @@
 #   {"ok": false, "branch", "number": null, "reason": "<named>"}      — no "state" key
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GH_REST="${SCRIPT_DIR}/../../gather/scripts//gh-rest.sh"
+GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 
 BRANCH="${1:-}"
 

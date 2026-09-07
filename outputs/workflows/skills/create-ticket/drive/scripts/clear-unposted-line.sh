@@ -32,7 +32,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 LISTER="${SCRIPT_DIR}/list-claims.sh"
-RECORDER="${SCRIPT_DIR}/../../story/scripts//record-unposted-line.sh"
+RECORDER="${SCRIPT_DIR}/../../story/scripts/record-unposted-line.sh"
 
 UNIT="${1:-}"
 BRANCH=""

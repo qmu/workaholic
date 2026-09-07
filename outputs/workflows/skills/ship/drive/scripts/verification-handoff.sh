@@ -241,7 +241,7 @@ mission_member_tickets() {
     grep -rlF --include='*.md' -- "$_mmt_slug" $_mmt_dirs 2>/dev/null | sort | while IFS= read -r _mmt_f
     do
         [ -n "$_mmt_f" ] || continue
-        if sh "${SCRIPT_DIR}/../../mission/scripts//read-relation.sh" "$_mmt_f" 2>/dev/null \
+        if sh "${SCRIPT_DIR}/../../mission/scripts/read-relation.sh" "$_mmt_f" 2>/dev/null \
             | grep -qxF -- "$_mmt_slug"; then
             printf '%s\n' "$_mmt_f"
         fi
@@ -251,7 +251,7 @@ mission_member_tickets() {
 case "$KIND" in
     mission)
         UNIT="$1"
-        . "${SCRIPT_DIR}/../../mission/scripts//lib/resolve.sh"
+        . "${SCRIPT_DIR}/../../mission/scripts/lib/resolve.sh"
         ROOT=$(missions_root_for_arg "$UNIT")
         FILE=$(mission_resolve "$ROOT" "$UNIT")
         case "$FILE" in

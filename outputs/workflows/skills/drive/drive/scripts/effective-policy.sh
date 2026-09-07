@@ -113,7 +113,7 @@ classify() {
 case "$KIND" in
     mission)
         UNIT="$1"
-        . "${SCRIPT_DIR}/../../mission/scripts//lib/resolve.sh"
+        . "${SCRIPT_DIR}/../../mission/scripts/lib/resolve.sh"
         ROOT=$(missions_root_for_arg "$UNIT")
         FILE=$(mission_resolve "$ROOT" "$UNIT")
         # The unit id is the slug, whichever form the caller passed.

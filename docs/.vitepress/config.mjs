@@ -25,7 +25,10 @@ export default defineConfig({
       },
       {
         text: '設計案',
-        items: [{ text: 'エージェンティックループ再設計', link: '/agentic-loop-redesign' }],
+        items: [
+          { text: 'エージェンティックループ再設計', link: '/agentic-loop-redesign' },
+          { text: '互換契約と検証', link: '/agentic-loop-contracts' },
+        ],
       },
     ],
     outline: { level: [2, 3], label: '目次' },

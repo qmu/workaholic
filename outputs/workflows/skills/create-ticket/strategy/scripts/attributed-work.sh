@@ -96,8 +96,8 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-READ_FEEDBACK="${SCRIPT_DIR}/../../specificate/scripts//read-feedback-relation.sh"
-READ_MISSION="${SCRIPT_DIR}/../../mission/scripts//read-relation.sh"
+READ_FEEDBACK="${SCRIPT_DIR}/../../specificate/scripts/read-feedback-relation.sh"
+READ_MISSION="${SCRIPT_DIR}/../../mission/scripts/read-relation.sh"
 
 SLUG="${1:-}"
 WINDOW="${2:-1 day ago}"

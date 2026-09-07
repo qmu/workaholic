@@ -15,7 +15,7 @@ set -eu
 SCRIPT_DIR=$(dirname "$0")
 if [ "$#" -ge 1 ] && [ -n "$1" ]; then
     BASE_BRANCH="$1"
-elif ! BASE_BRANCH=$("${SCRIPT_DIR}/../../gather/scripts//base-ref.sh"); then
+elif ! BASE_BRANCH=$("${SCRIPT_DIR}/../../gather/scripts/base-ref.sh"); then
     echo "collect-commits: could not resolve a base ref" >&2
     exit 1
 fi

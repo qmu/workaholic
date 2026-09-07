@@ -41,3 +41,8 @@ export const SCRIPT_PREFIX = /\$\{SCRIPT_DIR\}\/\.\.\/\.\.\/[a-z-]+\/scripts(?:\
 // catch, and matching it only pushes authors into spelling the variable oddly to evade
 // the scan — a landmine for whoever writes the next one.
 export const UNRESOLVED_PLUGIN_ROOT_PATH = /\$\{CLAUDE_PLUGIN_ROOT\}\//;
+
+// Generated executable references. Companion Markdown uses an explicit ../ prefix;
+// nested script paths are retained, and verification resolves from the file's dir.
+export const PORTABLE_MD_SCRIPT_REF = /(?<![A-Za-z0-9_./-])((?:\.\.\/)*[a-z-]+\/scripts\/[A-Za-z0-9._/-]+\.sh)\b/g;
+export const PORTABLE_SH_SCRIPT_REF = /\$\{SCRIPT_DIR\}\/([A-Za-z0-9._\/-]+\.sh)/g;

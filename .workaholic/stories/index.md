@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260908-043332](work-20260908-043332.md) - Completed the P3-P9 agentic loop redesign with durable transport, portable runtime recovery, bounded polling, resumable publication and delivery, and migrated workflow contracts in v1.0.334.
 * [Share loop snapshots and atomic state](work-20260908-034255.md) - The loop now shares one evidence snapshot and records local state through revision-checked atomic writes.
 * [Package nested portable skill assets](work-20260908-031557.md) - Portable workflow builds now include and verify nested dependencies and assets.
 * [work-20260907-091552](work-20260907-091552.md) - A delivered relay is not an executed tick, and a live supervisor is not an unwritten record — two readings that graded a loop doing nothing as healthy; retired plugin paths now recover through the sanctioned resolver.

@@ -14,6 +14,7 @@ Shared commands and skills for cross-workflow operations. Provides context-aware
 | Skill | Description |
 | ----- | ----------- |
 | branching | Context detection and branch pattern matching for unified commands |
+| runtime | Shared typed config, state, planning, and context contracts for agentic loops |
 | ship | Ship workflow: PR merge, CLAUDE.md deploy, and production verify |
 
 ## Installation

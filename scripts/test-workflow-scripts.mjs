@@ -16234,7 +16234,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 printf '%s' "$data" > "${capture}"
-printf '{"ok": true}' > "$out"
+printf '{"ok":true,"team":"legacy-token","channel":"C123","ts":"1712345678.999999"}' > "$out"
 printf '200'
 `, { mode: 0o755 });
     const posted = { ...process.env, PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: "xoxb-test", WORKAHOLIC_SLACK_CHANNEL: "C123" };

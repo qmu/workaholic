@@ -52,3 +52,17 @@ Do not declare completion with failing relevant regressions. Record H5 real-envi
 - Dependencies are the actual H3 prerequisites, not numeric ordering. P1 is first.
 - Merge policy remains unset (the existing reader defaults to review); no merge, deployment, Slack send or standing process is authorized by this plan publication.
 - Preserve legacy wrappers and recoverable state. Record conversion, rollback reader, unfinished transaction locations and next unit under H6.
+
+## Baseline Reproduction
+
+On source HEAD `a41522ab3`, a throwaway build tree contained a target with only
+`reference/nested/details.md` referencing a second skill through the supported
+plugin-root script form. The dependency's source script exited 0 and printed
+`nested-dependency-ok`. Running `node scripts/build-plugins/build.mjs fixture-target`
+exited 1, reported `closure=[fixture-target]`, and rejected the unresolved
+plugin-root path in `reference/nested/details.md`. The dependency script was absent
+from the built target. Expected rewritten reference:
+`../../fixture-dependency/scripts/value.sh`.
+
+This reproduces B01 before implementation. Preserve it as an executable isolated
+consumer regression in P1; the temporary local fixture is not a shipped test.

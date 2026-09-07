@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260907-091552](work-20260907-091552.md) - A delivered relay is not an executed tick, and a live supervisor is not an unwritten record — two readings that graded a loop doing nothing as healthy; retired plugin paths now recover through the sanctioned resolver.
 * [work-20260907-081753](work-20260907-081753.md) - A handoff claim whose base has moved is offered to the catch-up — the one class of branch guaranteed to sit open for a long time was the one class the catch-up never touched.
 * [work-20260907-074532](work-20260907-074532.md) - State in rules/shell.md that a composed redirect must not assume > truncates, because under noclobber the next read is stale rather than empty.
 * [work-20260907-064247](work-20260907-064247.md) - Scope the tick log's one reader by owner so the coordinator's finish lines stop shadowing moderation, repairing two silently broken consumers without touching either.

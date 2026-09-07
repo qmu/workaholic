@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-07T08:27:37+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -113,3 +114,63 @@ Three states have to be told apart and today two readers collapse them: a superv
   its cadences, over introducing a second clock or a new stored cursor.
 - Widening what `--status` reads must not make it write, lock, or require the CLI — those four
   bounds are the surface's stated contract and were themselves a measured repair.
+
+## Final Report
+
+Development completed as planned.
+
+Both halves were reproduced first, and only one of the two the ticket named was actually broken —
+which the baseline is what established.
+
+**Half 1, broken as described.** A live process holding `.codex-loop/.supervisor.lock` with no
+supervisor record present read `codex supervisor: never_started` on the human surface and
+`"reading": "never_started"` in `--status --json`.
+
+**Half 2 as written — a record present with its process dead — was already correct**: it read
+`stopped_unclean`, because `supervisor_reading` already composes `liveness_reading` there. The real
+second defect was one layer over, in the **start decision**, and the Considerations named it: with
+a live pid whose own worker record proved a different boot id, `role_state`'s `flock`-less fallback
+answered `running` and refused the dispatch `already_running`, while `worker_reading` — the reader
+that does carry the boot id — answered `died_unrecorded:reboot`. Two readers on one machine, and
+the one deciding the start was the weaker.
+
+Three changes:
+
+- `supervisor_reading` reads the supervisor lock as **evidence** when the record is absent:
+  `never_started` now means *no record and nothing holding the lock*; a held lock with no record is
+  the new word `running_unrecorded`; a lock that exists and cannot be probed is
+  `unreadable:supervisor_lock_unverifiable`. The probe never creates the lock file, which is what
+  keeps a repository that never ran this path byte-identical to one before the change.
+- `role_state`'s pid-file fallback composes `liveness_reading`, taking the boot id from the role's
+  own record **only when that record names the same pid**. `gone` and `reboot` are proofs and free
+  the role; `unverifiable` stays `running`, because a concurrency answer must never start a second
+  worker on an unreadable reading. The `flock` path, including the parent's claim before it forks,
+  is untouched.
+- The human `--status` tick line carries the `finished_at` the tick already recorded, so *a tick
+  recently succeeded* and *a supervisor is turning* are two readings a person can tell apart.
+
+`CLAUDE.md`'s *Loops* section, `work/SKILL.md` and `other-agents.md`'s reading table were corrected
+in the same change, as the gate requires — each of them stated the reading being replaced.
+
+### Discovered Insights
+
+- **Insight**: The ticket's second half named the wrong seam. `supervisor_reading` already handled
+  a dead pid correctly; what could not tell the three states apart was the **start** path, whose
+  pid fallback silently omitted the boot-id term its sibling reader carries.
+  **Context**: The baseline step is what caught this — implementing the ticket's literal wording
+  would have changed a reader that was already right and left the defect standing. A reproduction
+  is not a formality when the ticket was written from an incident report rather than from the code.
+
+- **Insight**: "Recently succeeded" needed no bound, no constant and no second clock. The status
+  file already carries `finished_at`; printing it lets the reader judge, and refusing to pick a
+  recency threshold is what kept this from becoming a number nobody chose.
+  **Context**: The Considerations warned against a second clock and suggested composing the tick
+  log instead — but `worker_reading`'s own comment records that reading the moderate tick log was a
+  measured defect (a different tree, written by whichever loop last ran). The loop's own status file
+  is the record on its own path.
+
+- **Insight**: Reading a lock as *evidence* and reading it as *authority* are separable, and the
+  repository already had the pattern — `role_state` probes a role lock for exactly this purpose.
+  **Context**: The rule that the lock is the only concurrency authority is about who may **run**.
+  A status answer that refuses nothing does not touch it, and saying so explicitly is what stops the
+  next change from reintroducing a second allocator.

@@ -38753,7 +38753,7 @@ exit "\${STUB_EXIT:-0}"
   const relayDir = makeFixture();
   try {
     const envelope = JSON.stringify({
-      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay", outcome: "ok",
+      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay", executed: true, outcome: "ok",
       slack_intents: [{ key: "finish:1", operation: "post_reply", channel: "dev-workaholic",
         thread_ts: "123.456", text: "🟢 Implemented" }],
     });
@@ -38776,6 +38776,39 @@ exit "\${STUB_EXIT:-0}"
     assertEq("the parent acknowledgement is the delivery proof", delivered.relay_state, "delivered");
     assertEq("a completely acknowledged tick becomes ready", delivered.outcome, "ready");
   } finally { cleanup(relayDir); }
+
+  // A DELIVERED RELAY IS NOT AN EXECUTED TICK (2026-09-07, ticket
+  // `20260907082737-refuse-a-healthy-outcome-for-a-tick-that-executed-nothing`). The
+  // acknowledgement branch wrote `ready` and `parent_connector` from the relay word alone, so the
+  // parent's successful delivery overwrote whatever the tick's own classification had said — a
+  // tick that reported it had executed nothing came back healthy. Measured 2026-09-06 (#1052).
+  const notExecutedDir = makeFixture();
+  try {
+    const envelope = JSON.stringify({
+      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay",
+      executed: false, reason: "plugin_command_missing", outcome: "ok",
+      slack_intents: [{ key: "finish:1", operation: "post_reply", channel: "dev-workaholic",
+        thread_ts: "123.456", text: "🟢 Implemented" }],
+    });
+    run(notExecutedDir, `sh scripts/codex-loop.sh --relay --once --interval 60`, {
+      env: { ...process.env, PATH: `${join(notExecutedDir, "bin")}:${process.env.PATH}`, STUB_REPORT: envelope }
+    });
+    const statusPath = join(notExecutedDir, ".codex-loop/status.json");
+    const classified = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("a relay tick that did not execute carries its own word", classified.outcome, "tick_not_executed");
+    assertEq("...naming what the envelope said stopped it", classified.blocked_reason, "not_executed:plugin_command_missing");
+    assertEq("...and asserts no reachable transport", classified.transport_verdict, "unknown");
+    const ackPath = join(notExecutedDir, "ack.json");
+    writeFileSync(ackPath, `${JSON.stringify({
+      protocol: "workaholic.codex-slack-relay/v1", tick_id: "tick-relay",
+      results: [{ key: "finish:1", outcome: "delivered" }],
+    })}\n`);
+    run(notExecutedDir, `PATH=/usr/bin:/bin sh scripts/codex-loop.sh --ack ${ackPath}`);
+    const acked = JSON.parse(readFileSync(statusPath, "utf8"));
+    assertEq("delivering its intents records the relay", acked.relay_state, "delivered");
+    assertEq("...and does not grade the tick healthy", acked.outcome, "tick_not_executed");
+    assertEq("...nor claim the transport it never used", acked.transport_verdict, "unknown");
+  } finally { cleanup(notExecutedDir); }
 
   for (const row of [
     { name: "tick failure", env: { STUB_EXIT: "9" }, outcome: "tick_failure", reason: "codex_exit_9" },
@@ -39297,6 +39330,7 @@ function testCodexParentRelay() {
     const body = {
       protocol: "workaholic.codex-slack-relay/v1",
       tick_id: "tick-1",
+      executed: true,
       outcome: "ok",
       slack_intents: [
         { key: "lookup:fb", operation: "search_exact", channel: "dev-workaholic",
@@ -39324,6 +39358,15 @@ function testCodexParentRelay() {
 
     assertEq("the closed v1 envelope validates", run(dir, `sh ${contract} envelope ${envelope}`).status, 0);
     assertEq("a delivery claim inside an intent is refused", run(dir, `sh ${contract} envelope ${bad}`).status, 1);
+    // `executed` IS REQUIRED (2026-09-07). An envelope that says nothing about whether the tick
+    // ran was validated and then graded healthy; an absence of a reading is never a healthy run.
+    const unstated = join(dir, "unstated.json");
+    const { executed: _dropped, ...withoutExecuted } = body;
+    writeFileSync(unstated, `${JSON.stringify(withoutExecuted)}\n`);
+    assertEq("an envelope that states no execution is refused",
+      run(dir, `sh ${contract} envelope ${unstated}`).status, 1);
+    assertTrue("...by name, so the tick can grade it relay_malformed",
+      /malformed_envelope/.test(run(dir, `sh ${contract} envelope ${unstated}`).stdout), "no reason");
     assertEq("a complete acknowledgement validates",
       run(dir, `sh ${contract} acknowledgement ${envelope} ${ack}`).status, 0);
     assertEq("without acknowledgement every intent stays pending",

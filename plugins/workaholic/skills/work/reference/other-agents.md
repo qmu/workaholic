@@ -380,7 +380,9 @@ boot id, the start time, the interval, the anchor and the log directory.
 
 | Reading | What it means |
 | ------- | ------------- |
-| `never_started` | no record — **absent means never started**, and a repository that never runs this path is byte-identical to one before the record existed |
+| `never_started` | no record **and** nothing holding the supervisor lock — a repository that never runs this path is byte-identical to one before the record existed |
+| `running_unrecorded` | no record, but the lock is **held**: something is turning here and this reader cannot say what — typically a supervisor launched from a plugin tree since replaced |
+| `unreadable:supervisor_lock_unverifiable` | a lock file exists and cannot be probed (no `flock`), so a live supervisor cannot be told from a stale file |
 | `stopped:<reason>` | the supervisor returned through an exit it controls, naming which |
 | `running` | the recorded pid is alive under the recorded boot id |
 | `stopped_unclean` | the recorded pid is gone — an exit the script did not control |
@@ -390,6 +392,26 @@ boot id, the start time, the interval, the anchor and the log directory.
 **A pid is not a proof across a reboot**, which is why the boot id is recorded rather than the pid
 alone: a reading that cannot rule out a recycled number says so instead of claiming liveness. An
 absence of a reading is never a healthy one — the rule every other three-valued reader here holds.
+
+**A RECORD IS NOT THE ONLY EVIDENCE THAT A SUPERVISOR EXISTS** (2026-09-07, ticket
+`20260907082737-tell-a-live-supervisor-from-a-succeeded-tick-and-an-unwritten-record`). The
+reading answered from the record file alone, so a supervisor launched from a plugin tree since
+replaced — holding the lock and turning — came back `never_started`; measured 2026-09-06 (#1052),
+the operator could neither see it through `--status` nor start a working one. The supervisor lock
+is now read as **evidence**: it decides nothing about who may run, refuses nothing, starts nothing
+and **never creates the lock file**, which is what keeps *absent means never started* true for a
+repository that never ran this path. **The lock remains the only concurrency authority** — the
+same standing this document already gives the per-role lock beside `worker-<role>.json`.
+
+**And the pid-file fallback inherits the boot-id term rather than dropping it.** `role_state`
+without `flock` tested `kill -0` alone, so a recycled pid number refused every start of that role
+forever while the role's own record read `died_unrecorded:reboot` — two readers on one machine,
+and the one deciding the start was the weaker. It now composes `liveness_reading`, taking the boot
+id from the role's own record **only when that record names the same pid**; the pid file carries
+no boot id and inventing one would be worse than having none. Only the sound rungs move: `gone`
+and `reboot` are proofs the process is not there, while `unverifiable` stays `running`, because
+for a concurrency answer an unreadable reading must never start a second worker. The `flock`
+path — including the parent's claim before it forks — is untouched.
 
 ### Each worker's state and last outcome
 

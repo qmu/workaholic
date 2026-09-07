@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-07T08:27:37+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -103,3 +104,42 @@ ran read as not-healthy.
 - This overlaps ticket 1 of this mission: a tick against a retired path is one *cause* of a
   non-executing tick. They are kept separate because the false-healthy record is a defect even
   when the cause is something else entirely.
+
+## Final Report
+
+Development completed as planned.
+
+The baseline was recorded first, and it reproduced all three halves of the class. An envelope
+declaring `executed: false` with the reason *no tick ran*, reconciling to `delivered`, produced
+`state=sleeping outcome=ready blocked_reason="" transport_verdict=parent_connector`. A tick whose
+own classification had already recorded `work_blocked` was *upgraded* to `ready` by the same
+branch. And an envelope carrying no `executed` field at all validated and was graded healthy.
+
+Three seams changed, which is the whole class:
+
+- `relay-contract.sh` requires `executed` as a boolean on the envelope, so the relay stops being
+  the one path where a run's own execution is unstated. An envelope omitting it is
+  `malformed_envelope`, which `classify_report` already grades `relay_malformed`.
+- `classify_report`'s relay branch reads `executed` **before** the outcome and intent rungs, and a
+  false reading records the new word `tick_not_executed` with `not_executed:<reason>` — the
+  vocabulary `worker_outcome` already uses — and `transport_verdict=unknown`. The relay fields are
+  still derived, because the parent may still acknowledge.
+- The acknowledgement branch releases a healthy outcome only for an outcome the relay itself was
+  withholding (`relay_pending`, or a tick already `ready`). Every other recorded outcome is carried
+  through with its own `blocked_reason` and `transport_verdict` untouched; the state still moves to
+  `blocked`, so a reader sees the relay closed and the tick still unhealthy.
+
+### Discovered Insights
+
+- **Insight**: `worker_outcome` already read `executed` and already had the word for a run that
+  did not execute, but only the **non-relay** fall-through reached it. The relay path had a
+  parallel classification with no such term, and the acknowledgement branch then overwrote
+  whichever term either path had produced.
+  **Context**: The repair was not to invent a reading — it was to make the existing one reachable
+  on the second path and to stop a later writer discarding it. A search for *where is `executed`
+  read* finds the healthy-looking answer and misses that a second producer never consults it.
+
+- **Insight**: *The relay was delivered* and *the tick ran* are two facts, and the status file has
+  separate fields for them. The defect was one writer setting both from one word.
+  **Context**: The same shape recurs wherever a later stage rewrites an earlier stage's verdict.
+  A stage may set what it observed; it may not upgrade what it did not.

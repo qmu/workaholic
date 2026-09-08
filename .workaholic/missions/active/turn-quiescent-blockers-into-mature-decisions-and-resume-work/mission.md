@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.4
 feedback: [20260908123159-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md]
 tickets: []
 stories: []
@@ -42,3 +42,4 @@ A quiescent strategy no longer ends in a worker-only explanation. Premature ques
 - 2026-09-08 — ticket archived — 20260908123303-ask-mature-blockers-in-slack-and-record-the-answer.md
 - 2026-09-08 — ticket archived — 20260908123303-re-evaluate-quiescent-strategies-after-answers-arrive.md
 - 2026-09-08 — story written — work-20260908-175401.md
+- 2026-09-08 — run recorded (+0.4h) — implement-20260908-1144Z

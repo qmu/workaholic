@@ -1497,6 +1497,138 @@ cmd_verify_log_off_base() {
     emit_verdict "log-off-base" 0 "pass" 0
 }
 
+# ----------------------------------------------------------------- verify-checkout-residue
+# Does a tick get past residue the base provably already holds — and refuse everything else?
+# (2026-09-08, mission `clear-the-residue-the-base-already-holds-and-never-stop-silently`.)
+#
+# The measured failure was not a wrong answer, it was a permanent stop: `sync-main.sh` refuses
+# ANY unclean tree, so 21 ticks over ~100 minutes answered `dirty_workspace` ->
+# `current: false` -> `readable: false, reason: not_current` and never reached a survey, over six
+# staged paths of which four were blob-identical to `origin/main`. The fixture below is that
+# tree, and the drill's load-bearing row is the whole chain: dirty -> cleared -> the EXISTING
+# freshen fast-forwards -> the discarded bytes are back.
+#
+# Hermetic: throwaway repositories, no network, no `gh`, no credential.
+cmd_verify_checkout_residue() {
+    _classify="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/classify-residue.sh"
+    _clear="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/clear-proved-residue.sh"
+    _sync="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/sync-main.sh"
+    for _f in "$_classify" "$_clear" "$_sync"; do
+        [ -f "$_f" ] || emit_err "residue_scripts_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    _root=$(mktemp -d)
+    # THE FIXTURE IS THE MEASURED TREE: HEAD stepped back with `git reset --soft` while the index
+    # and the worktree keep content `origin/main` already holds, plus one path of every class the
+    # act must refuse.
+    _build_residue_fixture() {
+        rm -rf "${_root}/up.git" "${_root}/w"
+        (
+            cd "$_root"
+            git init -q --bare up.git
+            git init -q -b main w
+            cd w
+            git config user.email t@example.com
+            git config user.name t
+            git config commit.gpgsign false
+            printf 'onbase v1\n' > onbase.md
+            printf 'dev v1\n' > dev.md
+            git add -A
+            git commit -q -m init
+            git remote add origin ../up.git
+            git push -q -u origin main
+            printf 'onbase v2\n' > onbase.md
+            printf 'added on the base\n' > added.md
+            git add -A
+            git commit -q -m advance
+            git push -q origin main
+            git reset -q --soft HEAD~1
+            git fetch -q origin main
+        ) >/dev/null 2>&1
+    }
+    _w="${_root}/w"
+
+    # 1. THE DEADLOCK IS REAL, not assumed. Without the act, the freshen refuses and the tick
+    # stops before it can survey anything.
+    _build_residue_fixture
+    _out=$( (cd "$_w" && sh "$_sync") 2>/dev/null || true)
+    if printf '%s' "$_out" | grep -q '"reason": "dirty_workspace"'; then
+        add_row "residue_deadlock_reproduced" true "the freshen refuses the measured tree, exactly as it did for 21 ticks" load
+    else
+        add_row "residue_deadlock_reproduced" false "the fixture did not reproduce the refusal: $(one_line "$_out")" load
+    fi
+
+    # 2. THE WHOLE CHAIN. Clear once, freshen once, and the bytes the clear discarded come back —
+    # which is what makes "the base already holds it" a proof rather than a hope.
+    _out=$( (cd "$_w" && sh "$_clear") 2>/dev/null || true)
+    _dirty=$( (cd "$_w" && git status --porcelain) 2>/dev/null | wc -l | tr -d ' ')
+    _sync_out=$( (cd "$_w" && sh "$_sync") 2>/dev/null || true)
+    _back=$( (cd "$_w" && cat onbase.md) 2>/dev/null || printf '')
+    if printf '%s' "$_out" | grep -q '"ok": true' && [ "$_dirty" = "0" ] \
+        && printf '%s' "$_sync_out" | grep -q '"advanced": true' && [ "$_back" = "onbase v2" ]; then
+        add_row "residue_cleared_and_freshened" true "proved residue cleared, the existing freshen fast-forwarded, and the discarded content is back" load
+    else
+        add_row "residue_cleared_and_freshened" false "the chain did not complete: clear=$(one_line "$_out") dirty=${_dirty} sync=$(one_line "$_sync_out") content=${_back}" load
+    fi
+
+    # 3. A DEVELOPER'S OWN EDIT IS REFUSED, and the tree is byte-identical afterwards. A
+    # half-cleared tree is the failure mode that matters here.
+    _build_residue_fixture
+    printf 'dev v2\n' > "${_w}/dev.md"
+    _before=$( (cd "$_w" && git status --porcelain) 2>/dev/null || printf '')
+    _out=$( (cd "$_w" && sh "$_clear") 2>/dev/null || true)
+    _after=$( (cd "$_w" && git status --porcelain) 2>/dev/null || printf '')
+    if printf '%s' "$_out" | grep -q '"reason": "divergent_residue"' && [ "$_before" = "$_after" ]; then
+        add_row "residue_divergent_refused" true "a tracked edit that is not on the base refuses by name with nothing written" load
+    else
+        add_row "residue_divergent_refused" false "a developer's edit was not refused cleanly: $(one_line "$_out")" load
+    fi
+
+    # 4. AN UNTRACKED FILE IS NEVER REMOVED. It is on no ref, so no proof covers it, and deleting
+    # it is the one irreversible act available at this seam.
+    _build_residue_fixture
+    printf 'stray\n' > "${_w}/stray.txt"
+    _out=$( (cd "$_w" && sh "$_clear" --allow-untracked) 2>/dev/null || true)
+    if [ -f "${_w}/stray.txt" ] && printf '%s' "$_out" | grep -q '"untracked_left": \["stray.txt"\]'; then
+        add_row "residue_untracked_kept" true "the act clears the proved paths and leaves the untracked file where it is" load
+    else
+        add_row "residue_untracked_kept" false "an untracked file was not preserved and named: $(one_line "$_out")" load
+    fi
+
+    # 5. THE BREAKER. The proof `on_base` rests on is blob equality against the base. A copy of
+    # the READER with that comparison removed classifies a developer's edit as proved, and the
+    # act then clears it — so this drill fails on that copy, which is what makes its passing
+    # verdict mean something. Written against the outcome (was `dev.md` discarded) rather than
+    # against a return shape.
+    _bin="${_root}/broken/skills/branching/scripts"
+    mkdir -p "$_bin" "${_root}/broken/skills/ship/scripts/lib" "${_root}/broken/skills/okf/scripts"
+    cp "$_clear" "${_bin}/clear-proved-residue.sh"
+    cp "${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/check.sh" "${_bin}/check.sh"
+    cp "${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/lib/conflict-class.sh" \
+        "${_root}/broken/skills/ship/scripts/lib/conflict-class.sh"
+    cp "${REPO_ROOT}/plugins/workaholic/skills/okf/scripts/refresh-index.sh" \
+        "${_root}/broken/skills/okf/scripts/refresh-index.sh" 2>/dev/null || true
+    sed 's|^        && \[ "\$_co_index_blob" = "\$_co_base_blob" \].*|        ; then true|' \
+        "$_classify" > "${_bin}/classify-residue.sh"
+    chmod +x "${_bin}/classify-residue.sh" "${_bin}/clear-proved-residue.sh"
+    _build_residue_fixture
+    printf 'dev v2\n' > "${_w}/dev.md"
+    _bout=$( (cd "$_w" && sh "${_bin}/clear-proved-residue.sh") 2>/dev/null || true)
+    _devnow=$( (cd "$_w" && cat dev.md) 2>/dev/null || printf '')
+    if printf '%s' "$_bout" | grep -q '"reason": "divergent_residue"' || [ "$_devnow" = "dev v2" ]; then
+        add_row "residue_breaker" false "a copy with the blob comparison removed still protected the edit — this drill proves nothing" breaker
+    else
+        add_row "residue_breaker" true "a copy with the blob comparison removed discards a developer's edit, so that comparison is the protection" breaker
+    fi
+
+    rm -rf "$_root"
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "checkout-residue" 0 "fail" 1
+    fi
+    emit_verdict "checkout-residue" 0 "pass" 0
+}
+
 # ----------------------------------------------------------------- verify-propose
 # Is the BRAKE sound? `/propose` is the one routine here that drops the standing
 # conservative bar on purpose, so what is worth drilling is not that it can propose but
@@ -11830,6 +11962,7 @@ case "$CMD" in
     verify-standup) cmd_verify_standup "$@" ;;
     verify-moderate) cmd_verify_moderate "$@" ;;
     verify-log-off-base) cmd_verify_log_off_base "$@" ;;
+    verify-checkout-residue) cmd_verify_checkout_residue "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;
     verify-arrival) cmd_verify_arrival "$@" ;;

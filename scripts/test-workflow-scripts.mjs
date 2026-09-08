@@ -226,6 +226,7 @@ const SCRIPTS = {
   missionSizeDistribution: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/size-distribution.sh"),
   syncMain: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/sync-main.sh"),
   classifyResidue: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/classify-residue.sh"),
+  clearProvedResidue: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/clear-proved-residue.sh"),
   openPublishTree: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"),
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
@@ -17767,6 +17768,16 @@ function testClassifyResidue() {
     assertTrue("every row carries a reason", r.paths.every((p) => p.reason && p.reason.length > 0),
       JSON.stringify(r.paths));
 
+    // `--path` is how `clear-proved-residue.sh` RE-DERIVES one path's class in the moment before
+    // it touches that path, through this one reader rather than a second copy of the proof.
+    let one = JSON.parse(run(A, `${CLASSIFY} --path onbase.md`).stdout);
+    assertEq("--path classifies exactly the path it was given",
+      one.paths.map((p) => [p.path, p.class]), [["onbase.md", "on_base"]]);
+    assertEq("and counts only that path", one.counts.total, 1);
+    one = JSON.parse(run(A, `${CLASSIFY} --path README.md`).stdout);
+    assertEq("a path that is not dirty comes back empty, which is what makes the act skip it",
+      { ok: one.ok, paths: one.paths.length, total: one.counts.total }, { ok: true, paths: 0, total: 0 });
+
     // THE READER WRITES NOTHING -- including no fetch, because a fetch writes
     // remote-tracking refs.
     assertEq("classify-residue leaves the worktree byte-identical",
@@ -17791,6 +17802,126 @@ function testClassifyResidue() {
     assertEq("a missing base ref is named, never guessed past",
       { readable: r.readable, reason: r.reason, counts: r.counts },
       { readable: false, reason: "no_base_ref", counts: null });
+  } finally {
+    for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
+  }
+}
+
+// THE ACT ON THAT READING (2026-09-08, the same mission). The reader is useless without a caller
+// that clears what it proves, and the caller is only safe because every refusal it can check
+// precedes its writes. The end-to-end row is the one that matters: dirty -> cleared -> the
+// EXISTING `sync-main.sh` fast-forwards -> the discarded content is back, which is what makes
+// "the base already holds it" a proof rather than a hope.
+T("branching/clear-proved-residue.sh clears only what a proof covers", testClearProvedResidue);
+function testClearProvedResidue() {
+  const { origin, A, B } = makePublishFixture();
+  const CLEAR = `${POSIX_SH} ${SCRIPTS.clearProvedResidue}`;
+  const SYNC = `${POSIX_SH} ${SCRIPTS.syncMain}`;
+  try {
+    // Idempotence, first: a clean tree is `already_clean` and writes nothing.
+    let r = JSON.parse(run(A, CLEAR).stdout);
+    assertEq("a clean tree answers already_clean",
+      { ok: r.ok, already_clean: r.already_clean, cleared: r.cleared.length }, { ok: true, already_clean: true, cleared: 0 });
+
+    writeFileSync(join(B, "onbase.md"), "v1\n");
+    writeFileSync(join(B, "dev.md"), "dev v1\n");
+    execSync("git add -A && git commit -q -m 'Add the base files' && git push -q origin main", { cwd: B });
+    writeFileSync(join(B, "onbase.md"), "v2\n");
+    writeFileSync(join(B, "added.md"), "added on the base\n");
+    execSync("git add -A && git commit -q -m 'Advance the base' && git push -q origin main", { cwd: B });
+
+    execSync("git fetch -q origin main && git merge -q --ff-only origin/main", { cwd: A });
+    execSync("git reset -q --soft HEAD~1", { cwd: A });  // the measured shape
+
+    // A DIVERGENT PATH REFUSES, AND THE TREE IS BYTE-IDENTICAL AFTERWARDS. Checked before the
+    // success case, because a half-cleared tree is the failure mode that matters.
+    writeFileSync(join(A, "dev.md"), "dev v2\n");
+    let before = execSync("git status --porcelain", { cwd: A, encoding: "utf8" });
+    r = JSON.parse(run(A, CLEAR).stdout);
+    assertEq("a developer's own edit refuses by name",
+      { ok: r.ok, reason: r.reason, paths: r.paths }, { ok: false, reason: "divergent_residue", paths: ["dev.md"] });
+    assertEq("and the refusal wrote nothing",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }), before);
+    execSync("git checkout -q -- dev.md", { cwd: A });
+
+    // AN UNTRACKED FILE IS NEVER REMOVED. It is on no ref, so no proof covers it, and deleting
+    // it is the one irreversible act available at this seam.
+    writeFileSync(join(A, "stray.txt"), "stray\n");
+    before = execSync("git status --porcelain", { cwd: A, encoding: "utf8" });
+    r = JSON.parse(run(A, CLEAR).stdout);
+    assertEq("an untracked file refuses by its own word",
+      { ok: r.ok, reason: r.reason, paths: r.paths }, { ok: false, reason: "untracked_present", paths: ["stray.txt"] });
+    assertEq("and that refusal wrote nothing either",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }), before);
+    r = JSON.parse(run(A, `${CLEAR} --allow-untracked`).stdout);
+    assertEq("--allow-untracked clears the proved paths and names what it left",
+      { ok: r.ok, untracked_left: r.untracked_left }, { ok: true, untracked_left: ["stray.txt"] });
+    assertTrue("the untracked file is still there", existsSync(join(A, "stray.txt")));
+    rmSync(join(A, "stray.txt"));
+
+    // A path the base does not hold is `unanswerable`, and an absence of a reading is never a
+    // proof -- so it refuses too.
+    execSync("git reset -q --soft HEAD~0", { cwd: A });
+    writeFileSync(join(A, "brand.md"), "brand new\n");
+    execSync("git add brand.md", { cwd: A });
+    before = execSync("git status --porcelain", { cwd: A, encoding: "utf8" });
+    r = JSON.parse(run(A, CLEAR).stdout);
+    assertEq("a path with no base blob refuses rather than being cleared",
+      { ok: r.ok, reason: r.reason, paths: r.paths }, { ok: false, reason: "unanswerable_residue", paths: ["brand.md"] });
+    assertEq("and it wrote nothing",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }), before);
+    execSync("git rm -q --cached brand.md", { cwd: A });
+    rmSync(join(A, "brand.md"));
+
+    // THE END-TO-END CASE. `onbase.md` is a staged MODIFY of content the base holds; `added.md`
+    // is a staged ADD of a file HEAD does not carry at all -- the shape that has no `git restore`
+    // source and that the measured tree was full of. The `--allow-untracked` row above already
+    // cleared them, so the residue is re-established here rather than assumed: checking the
+    // base's blobs out onto a HEAD that is one commit behind is exactly what the measured
+    // `git reset` left behind.
+    execSync("git checkout -q origin/main -- onbase.md added.md", { cwd: A });
+    r = JSON.parse(run(A, CLEAR).stdout);
+    assertEq("both proved shapes are cleared", r.ok, true);
+    assertEq("and each is named with the class that licensed it",
+      r.cleared.map((c) => `${c.path}:${c.class}`).sort(), ["added.md:on_base", "onbase.md:on_base"]);
+    assertEq("the tree is clean afterwards",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+
+    // ...and the EXISTING freshen, unchanged, now fast-forwards -- which is the whole point.
+    const sync = JSON.parse(run(A, SYNC).stdout);
+    assertEq("the freshen the clear unblocked fast-forwards",
+      { ok: sync.ok, advanced: sync.advanced }, { ok: true, advanced: true });
+    // NOTHING WAS LOST: the discarded bytes came back with the fast-forward, which is what made
+    // discarding them a proof rather than a hope.
+    assertEq("the discarded content is back", readFileSync(join(A, "onbase.md"), "utf8"), "v2\n");
+    assertTrue("including the staged add that HEAD never carried", existsSync(join(A, "added.md")));
+
+    r = JSON.parse(run(A, CLEAR).stdout);
+    assertEq("a second call on the cleared tree writes nothing", r.already_clean, true);
+
+    // A REGENERABLE PATH IS RESTORED AND THE REPOSITORY'S OWN GENERATOR RE-RUN -- never a blind
+    // checkout of the base's copy.
+    mkdirSync(join(B, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(B, ".workaholic/feedbacks/one.md"),
+      "---\ntype: Feedback\ndescription: one\n---\n\n# one\n");
+    execSync(`${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh")}`, { cwd: B });
+    execSync("git add -A && git commit -q -m 'Add a generated index' && git push -q origin main", { cwd: B });
+    execSync("git fetch -q origin main && git merge -q --ff-only origin/main", { cwd: A });
+    const indexPath = join(A, ".workaholic/feedbacks/index.md");
+    assertTrue("the fixture's generated index exists", existsSync(indexPath));
+    const generated = readFileSync(indexPath, "utf8");
+    writeFileSync(indexPath, generated + "\nhand-edited tail\n");
+    execSync("git add -A", { cwd: A });
+    r = JSON.parse(run(A, CLEAR).stdout);
+    assertEq("a marked generated index is cleared as regenerable",
+      { ok: r.ok, cleared: r.cleared.map((c) => c.class) }, { ok: true, cleared: ["regenerable"] });
+    assertEq("and the repository's own generator was the thing re-run",
+      { regenerated: r.regenerated, generators: r.generators },
+      { regenerated: true, generators: ["okf/scripts/refresh-index.sh"] });
+    assertEq("the tree is clean after the regeneration",
+      execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), "");
+    assertEq("and the index is the generator's own output again",
+      readFileSync(indexPath, "utf8"), generated);
   } finally {
     for (const d of [origin, A, B]) rmSync(d, { recursive: true, force: true });
   }

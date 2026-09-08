@@ -2,7 +2,14 @@
 # CLASSIFY EVERY DIRTY PATH IN THIS CHECKOUT BY PROOF (2026-09-08, mission
 # `clear-the-residue-the-base-already-holds-and-never-stop-silently`).
 #
-#   classify-residue.sh [base-branch]      # base defaults to the branch check.sh calls main
+#   classify-residue.sh [base-branch]              # base defaults to the branch check.sh calls main
+#   classify-residue.sh [base-branch] --path <p>   # classify ONE path, nothing else
+#
+# `--path` exists so `clear-proved-residue.sh` can RE-DERIVE a single path's class in the moment
+# before it touches that path, through this one reader rather than a second copy of the proof
+# (`drive/reference/claims.md`, *When a bounded act may read a judgement*). A path that is not
+# dirty comes back with an empty `paths` and zero counts — the honest answer, and the one that
+# makes the act skip it.
 #
 # WHY IT EXISTS. `sync-main.sh` §2 refuses `dirty_workspace` on ANY unclean tree, which is
 # correct by its own stated rationale — *a reset would discard a developer's local commits* —
@@ -84,7 +91,14 @@ set -eu
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/../../ship/scripts/lib/conflict-class.sh"
 
-requested_base="${1:-}"
+requested_base=""
+only_path=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --path) only_path="${2:-}"; shift 2 ;;
+        *) [ -n "$requested_base" ] || requested_base="$1"; shift ;;
+    esac
+done
 
 emit_unreadable() {
     printf '{"ok": false, "readable": false, "reason": "%s", "base": "%s", "paths": null, "counts": null}\n' \
@@ -128,8 +142,13 @@ git rev-parse --verify --quiet "${base_ref}^{commit}" >/dev/null 2>&1 \
 # The NUL separators are turned into newlines INSIDE the substitution, because command
 # substitution drops NUL bytes outright — capturing the raw `-z` stream into a variable and
 # translating afterwards silently concatenates every record into one.
-status=$(git status --porcelain -z 2>/dev/null | tr '\0' '\n') \
-    || emit_unreadable status_unreadable "origin/${base}"
+if [ -n "$only_path" ]; then
+    status=$(git status --porcelain -z -- "$only_path" 2>/dev/null | tr '\0' '\n') \
+        || emit_unreadable status_unreadable "origin/${base}"
+else
+    status=$(git status --porcelain -z 2>/dev/null | tr '\0' '\n') \
+        || emit_unreadable status_unreadable "origin/${base}"
+fi
 
 # --- Per-path classification ---------------------------------------------------------------
 

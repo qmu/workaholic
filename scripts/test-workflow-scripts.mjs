@@ -28756,6 +28756,7 @@ function makeDrillFixture() {
   }
   mkdirSync(join(repo, "scripts/e2e"), { recursive: true });
   cpSync(SCRIPTS.loopDrill, join(repo, "scripts/e2e/loop-drill.sh"));
+  cpSync(join(REPO_ROOT, "scripts/e2e/drills"), join(repo, "scripts/e2e/drills"), { recursive: true });
   chmodSync(join(repo, "scripts/e2e/loop-drill.sh"), 0o755);
   writeFileSync(join(repo, "README.md"), "drill fixture\n");
   execSync("git add -A && git commit -q -m initial", { cwd: repo });
@@ -37683,6 +37684,7 @@ function testDrillVerdictPath() {
   mkdirSync(join(fx, "plugins/workaholic/skills/drive/scripts"), { recursive: true });
   mkdirSync(join(fx, "docs"), { recursive: true });
   copyFileSync(REGISTER, join(fx, "plugins/workaholic/skills/drive/scripts/drill-register.sh"));
+  cpSync(join(REPO_ROOT, "scripts/e2e/drills"), join(fx, "scripts/e2e/drills"), { recursive: true });
 
   const fakes = [
     'cmd_verify_alpha() { add_row "alpha_holds" true "fine" breaker; emit_verdict "alpha" 0 "pass" 0; }',
@@ -39972,6 +39974,9 @@ function testTickLogWriterSet() {
     "plugins/workaholic/skills/moderate/scripts/run.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/persist-log.sh": "refuser",
     "scripts/e2e/loop-drill.sh": "reader",
+    "scripts/e2e/drills/verify-blocked-tick.sh": "reader",
+    "scripts/e2e/drills/verify-cadence-lapse.sh": "reader",
+    "scripts/e2e/drills/verify-condition-age.sh": "reader",
   };
 
   const roots = ["plugins/workaholic", "scripts", "hooks"];

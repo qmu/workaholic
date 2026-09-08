@@ -43,3 +43,4 @@ often and becomes responsive again as soon as activity is observed.
 - 2026-09-08 — ticket archived — 20260908095512-reduce-first-tick-context-and-canonical-volume.md
 - 2026-09-08 — ticket archived — 20260908095513-adapt-slack-observation-cadence.md
 - 2026-09-08 — mission achieved — mission.md
+- 2026-09-08 — story reported — work-20260908-095427.md

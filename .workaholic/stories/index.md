@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260908-095427](work-20260908-095427.md) - Reduced loop startup cost and added activity-sensitive Slack and feedback-issue observation for Claude Code and Codex in v1.0.336.
 * [work-20260908-043332](work-20260908-043332.md) - Completed the P3-P9 agentic loop redesign with durable transport, portable runtime recovery, bounded polling, resumable publication and delivery, and migrated workflow contracts in v1.0.334.
 * [Share loop snapshots and atomic state](work-20260908-034255.md) - The loop now shares one evidence snapshot and records local state through revision-checked atomic writes.
 * [Package nested portable skill assets](work-20260908-031557.md) - Portable workflow builds now include and verify nested dependencies and assets.

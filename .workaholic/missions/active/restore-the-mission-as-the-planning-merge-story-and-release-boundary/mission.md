@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-130859
 ---
 
 # Restore the mission as the planning, merge, story, and release boundary

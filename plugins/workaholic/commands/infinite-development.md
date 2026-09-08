@@ -73,10 +73,11 @@ the roles still running.
 ## Announce landed asks
 
 Run
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-unannounced-feedbacks.sh`.
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-unannounced-closed-asks.sh`.
 For each readable item, resolve the exact `fb:<stem>` Slack thread, read it, and post one
 finish reply only if that thread has no prior finish from this loop. If the thread is missing
-or ambiguous, post nothing. Report `announced`, `already_announced`,
+or ambiguous, post nothing. Read the finish-line shape from
+`skills/notify/reference/notifications.md` only when a reply is due, and use it exactly. Report `announced`, `already_announced`,
 `thread_unresolved:<reason>`, `post_failed:<reason>`, or `held:<reason>`.
 
 ## Dispatch

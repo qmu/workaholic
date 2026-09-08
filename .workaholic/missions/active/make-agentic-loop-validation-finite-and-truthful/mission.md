@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-150309
 ---
 
 # Make agentic-loop validation finite and truthful

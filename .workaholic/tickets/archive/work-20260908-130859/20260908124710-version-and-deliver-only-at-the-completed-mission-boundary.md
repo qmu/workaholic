@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T12:47:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,23 @@ Move version allocation, release note creation, merge, deployment/delivery, and 
 ## Considerations
 
 Do not conflate proposal publication with product release; only the mission's completed implementation unit is a release boundary.
+
+## Final Report
+
+Added `story/scripts/release-boundary.sh`, a pure reader that permits version allocation only when
+the branch archives tickets belonging to exactly one mission and that mission is archived
+`achieved`, fully checked and linked, with an empty queue. Story, drive and ship now consume that
+verdict: ineligible proposal or loose-ticket PRs may merge normally but cannot bump a version,
+draft a release note, enter ship/delivery, or claim release completion. Eligible mission branches
+retain the existing collision re-bump immediately before merge.
+
+### Discovered Insights
+
+- A version check answers whether a number is free, not whether the branch deserves a release.
+  Eligibility must be proved first from mission completion, then number allocation can run.
+
+## Verify
+
+The four-ticket completed-mission fixture returns one eligible boundary; changing the same mission
+to active returns `mission_not_achieved`. Shell parsing, 6,830 workflow tests, bundle verification,
+planning-input tests and metadata validation all passed.

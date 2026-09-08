@@ -16,7 +16,7 @@
 # `list-proposed-refs.sh` owned this walk to answer *has this ask been proposed*, reading
 # the missions and tickets a branch adds. `list-inbound-issues.sh` needed the same walk
 # for a different artifact — the feedback records a branch adds — because its
-# `already_captured` exclusion grepped the caller's checkout, which at the propose seam is
+# the old `already_captured` exclusion grepped the caller's checkout, which at the propose seam is
 # a checkout of the base: an open issue whose record exists only on an unmerged proposal
 # branch was offered to `[Specificate]` again every hour. Measured 2026-09-01: issue #812's
 # record sat on `work-20260901-022335` behind pull request #813 since 02:23 and #812 was

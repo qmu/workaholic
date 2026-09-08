@@ -21,10 +21,9 @@
 # and for the same reason, so the same writer is reused rather than a second one written:
 # `feedback/scripts/open-issue.sh`, which has no destination opinion and no identity opinion.
 #
-# AND NO RECORD IS WRITTEN ALONGSIDE IT, deliberately. `list-inbound-issues.sh` excludes an
-# open issue that a feedback record already names (`already_captured`), so writing a record
-# here would SUPPRESS this proposal's own ingestion — the exact defect `/fb` measured. The
-# record for this ask is written by the `[Specificate]` run that takes it in hand.
+# AND NO RECORD IS WRITTEN ALONGSIDE IT, deliberately. Capture and judgment have one owner:
+# the `[Specificate]` run that takes this issue in hand. Discovery can recover a premature record
+# as `recorded_unplanned`, but `/propose` does not rely on recovery or create competing state.
 #
 # THE ASSIGNEE IS LOAD-BEARING. An unassigned issue is ingested by nobody, because
 # discovery lists only issues assigned to the running identity and never unassigned ones.

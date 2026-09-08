@@ -91,6 +91,20 @@ aimed at exactly those two.
 window. `WORKAHOLIC_WIP_LIMIT` holds **origination** only and says so, and a limit that swallowed
 the operator's own instructions on a busy day would be a worse defect than the one it cures.
 
+## The completed mission is the release boundary
+
+Related asks may extend the same active mission while the experience and acceptance remain
+coherent. Intake closes only when the assigned issue page has no unsettled ask or capture-only
+proposal branch; until then the coordinator allocates no new implementation claim. This makes
+formation an observable state, not an arbitrary batching timer or ticket-count target.
+
+Once formed, one mission is one claim, branch, worktree, pull request and story. Tickets retain
+their own commits and Final Reports inside that unit; they do not become separate merge or
+release boundaries. Version allocation, release-note drafting, ship/delivery and release
+completion belong only to the archived `achieved`, fully accepted, queue-empty mission. The
+mechanical reader is `story/scripts/release-boundary.sh`; a loose ticket or unfinished mission
+may still merge through the ordinary PR path, but it cannot claim or mint a release.
+
 # Work Directory Structure
 
 The `.workaholic/` directory has a fixed structure. Only these subdirectories are allowed:

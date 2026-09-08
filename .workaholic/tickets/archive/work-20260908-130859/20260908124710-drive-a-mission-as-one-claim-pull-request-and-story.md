@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T12:47:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,22 @@ Carry a formed mission as exactly one executable unit from claim through impleme
 ## Considerations
 
 Mixed handoff members must not force executable members into separate releases; their one-PR semantics need an explicit coherent route.
+
+## Final Report
+
+The existing mission allocator remains authoritative: a mission continues to be one claim,
+branch, worktree, PR and story, and its ticket files retain per-ticket commits and Final Reports
+inside that unit. The new release-boundary reader consumes the same ticket-to-mission relations
+and refuses mixed or relationless archived tickets, mechanically preserving that single-unit
+shape through publication. This implementation itself drives all four mission tickets in one
+claim as the end-to-end proof.
+
+### Discovered Insights
+
+- Claim partitioning was already correct; the split occurred at intake cadence and unconditional
+  version/ship effects. Keeping the allocator unchanged avoided introducing a second unit model.
+
+## Verify
+
+The release-boundary fixture archives four tickets under one mission and observes one eligible
+boundary with `tickets: 4`. The full workflow suite passed 6,830 tests.

@@ -2,7 +2,7 @@
 type: Mission
 title: Restore the mission as the planning, merge, story, and release boundary
 slug: restore-the-mission-as-the-planning-merge-story-and-release-boundary
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-08T12:47:04+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-130859
 ---
 
 # Restore the mission as the planning, merge, story, and release boundary
@@ -30,10 +31,15 @@ A burst of related small asks no longer creates one proposal merge, implementati
 
 ## Acceptance
 
-- [ ] Capture, specification, and dedup have one owner and cannot suppress an ask by recording it at the wrong seam. (#20260908124710-define-one-ownership-model-from-feedback-capture-to-mission-formation.md)
-- [ ] Related asks accumulate in one bounded mission whose whole ticket set is claimed, reviewed, and narrated as one PR-unit and story. (#20260908124710-batch-related-asks-into-one-standing-mission-plan.md)
-- [ ] Version bump, release note, merge, delivery, and human notification occur once at the completed mission boundary. (#20260908124710-version-and-deliver-only-at-the-completed-mission-boundary.md)
+- [x] Capture, specification, and dedup have one owner and cannot suppress an ask by recording it at the wrong seam. (#20260908124710-define-one-ownership-model-from-feedback-capture-to-mission-formation.md)
+- [x] Related asks accumulate in one bounded mission whose whole ticket set is claimed, reviewed, and narrated as one PR-unit and story. (#20260908124710-batch-related-asks-into-one-standing-mission-plan.md)
+- [x] Version bump, release note, merge, delivery, and human notification occur once at the completed mission boundary. (#20260908124710-version-and-deliver-only-at-the-completed-mission-boundary.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908124710-define-one-ownership-model-from-feedback-capture-to-mission-formation.md
+- 2026-09-08 — ticket archived — 20260908124710-batch-related-asks-into-one-standing-mission-plan.md
+- 2026-09-08 — ticket archived — 20260908124710-drive-a-mission-as-one-claim-pull-request-and-story.md
+- 2026-09-08 — ticket archived — 20260908124710-version-and-deliver-only-at-the-completed-mission-boundary.md
+- 2026-09-08 — mission achieved — mission.md

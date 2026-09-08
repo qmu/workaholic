@@ -11,13 +11,15 @@ and every abort reports a machine-readable reason.
    (SKILL.md, *Clock-fired discovery*):
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/list-inbound-issues.sh`
    — the open GitHub issues assigned to this session's own identity, oldest-first,
-   minus those a feedback record already names, on the base (`already_captured`) or on
+   minus those already related from a planned artifact (`already_planned`) or captured on
    an unmerged remote branch (`captured_on_branch` — an ask whose proposal is open as a
    pull request is in flight, not new), and minus the tick's own findings (`self_originated`
    — a body header reading `source: moderate`; the loop never takes its own output as an
    ask, issue #864). Each
    returned issue is an ask in hand: run steps 2–13 **once per issue**, in the order
-   returned, its URL carried into step 3's record (the exclusion's contract) and its
+   returned. A `recorded_unplanned` row carries the immutable record to reuse and step 3
+   MUST NOT write it again; an `uncaptured` row carries its URL into step 3's new record.
+   In both cases carry the issue
    number into step 10's `Closes #<N>`. An empty list is
    `{"proposed": 0, "reason": "nothing_in_hand"}`, stop; an `ok: false` list is the
    same stop with the script's `reason` reported beside it — an unreadable inbox is

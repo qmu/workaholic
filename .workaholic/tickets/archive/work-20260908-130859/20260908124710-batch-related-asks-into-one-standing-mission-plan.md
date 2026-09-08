@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T12:47:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,21 @@ Make mission formation a deliberate batching act: collect related small asks int
 ## Considerations
 
 The batching close condition must balance prompt work with enough observation to avoid per-message release churn.
+
+## Final Report
+
+The inbound issue page is now one mission-formation turn. While it contains an uncaptured or
+recorded-but-unplanned ask, or an unmerged capture, `/infinite-development` allocates zero new
+implement runners and processes the complete oldest-first page through `/specificate`. Compatible
+asks extend the standing active mission; unrelated or urgent asks keep an independent unit. The
+close condition is observable `formation_pending: false`, with no arbitrary delay or ticket cap.
+
+### Discovered Insights
+
+- Batching needs exclusion between intake and implementation, not a timer: the existing issue and
+  branch facts say when formation has actually settled.
+
+## Verify
+
+Hermetic fixtures cover unplanned records, planned relations, proposal branches, empty pages and
+numeric issue boundaries. The full workflow suite passed 6,830 tests.

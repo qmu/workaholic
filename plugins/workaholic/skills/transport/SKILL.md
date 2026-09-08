@@ -72,8 +72,9 @@ delta with a full-channel or every-thread scan; partial provider coverage stays 
 
 For each operation, prefer a QFS route only when its map was actually described. An operation
 leaves the preferred route **only on a named failure**: `qfs_unavailable` (availability),
-`qfs_operation_unavailable` / `qfs_map_unverified` (capability), `qfs_preview_refused`
-(authorization), `qfs_preview_failed` (reachability). Every other failure keeps the operation
+`qfs_operation_unavailable` / `qfs_map_unverified` (capability), and `qfs_preview_failed`
+(reachability). `qfs_preview_refused` preserves the refusal and never changes route to escape
+an authorization decision. Every other failure keeps the operation
 where it was declared — an untyped switch is how a route nobody configured starts carrying the
 traffic while every report says it succeeded.
 
@@ -106,3 +107,13 @@ messages; it is not a delivery acknowledgement.
 
 Scripts emit one JSON result on stdout. A typed result exits 0, invalid input
 exits 2, and an internal script failure exits 1.
+
+## Native QFS pipe-SQL
+
+Discovery accepts `connect --list` TSV and `describe` path/children/verbs responses, including
+`/slack-<account>` mounts. The native adapter normalizes `ts,user` into message identifiers and
+senders, reads replies at `messages/<ts>/replies`, and uses verified INSERT maps with QFS default
+preview (not a `--preview` flag). A committed write without a Slack timestamp remains an unknown
+effect requiring reconciliation. Generic `service_rejected` does not establish missing scope.
+Thread discovery, reaction maps, ambiguous root maps and sender verification remain explicit
+capability limitations; a successful channel read does not certify any of them.

@@ -69,7 +69,7 @@ qfs_fallback_class() {
   case "$1" in
     qfs_unavailable) echo availability ;;
     qfs_operation_unavailable|qfs_map_unverified) echo capability ;;
-    qfs_preview_refused) echo authorization ;;
+    qfs_preview_refused) echo none ;;
     qfs_preview_failed) echo reachability ;;
     *) echo none ;;
   esac
@@ -315,7 +315,7 @@ if [ "$status" = ok ]; then
     transition_outbox unknown
     result=$accepted
   fi
-elif [ "$reason" = accepted_send_timeout ] || [ "$reason" = provider_timeout ] || [ "$reason" = qfs_connector_failure ]; then transition_outbox unknown
+elif [ "$reason" = accepted_send_timeout ] || [ "$reason" = provider_timeout ] || [ "$reason" = qfs_connector_failure ] || [ "$reason" = qfs_receipt_unavailable ]; then transition_outbox unknown
 else transition_outbox refused
 fi
 decorate "$result" "$route"

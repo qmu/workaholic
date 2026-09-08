@@ -1,0 +1,71 @@
+# Native loop protocol
+
+The host observes conversation and children; `runtime/scripts/coordinator.sh` owns control,
+receipts and role cadence. Invoke it from the repository with `--instance <session-id>
+--input <event.json>`. IDs use letters, digits, dots, underscores or dashes. Every event contains
+`event` (the event name below) and `now`, UTC epoch seconds; for example,
+`{"event":"tick","now":1788884000}`. Check the returned `status` and `reason`, not process exit alone.
+
+On Claude Code, use the actual native `session_id` as the instance ID. Include
+`workaholic-receipt:<id>` in every child prompt. `guard-work-control.sh` rejects launches while
+held/stopped or without a reserved receipt, and rejects unattended `AskUserQuestion` while the
+loop is active. Other hosts use the same reducer but must enforce it in their own dispatch seam;
+the Claude hook is not a claim of host-independent enforcement.
+
+| Event | Other fields | Host action |
+| --- | --- | --- |
+| `start` | `session_id`; optional positive `max_workers` (2), `fanout` (1) | Keep the instance ID across compaction and scheduled ticks; start one clock. |
+| `tick` | none | Read `control,live,completed,due` before observing or dispatching. |
+| `hold` | `explicit:true` | Acknowledge once; suppress timer reports and new work; preserve schedule and anchor. |
+| `resume` | `explicit:true` | Resume only on the human's instruction; time never resumes it. |
+| `stop` | `explicit:true` | Cancel schedule and stop the exact `cancel_children` identifiers; preserve code and claims; report cancellation failures. |
+| `cancelled` | `id,child_id,confirmed:true` | Record only a successful native stop result for this exact child. Cancellation releases its slot without claiming execution, completion or advancing role cadence. |
+| `reserve` | `id,role,workers_readable,available_capacity,formation_pending`; optional `target` | Launch only on `reason:reserved`; the receipt already owns its slot. |
+| `started` | `id,child_id` | Bind the native child to its receipt. |
+| `launch` | `id` | Claude's PreToolUse guard consumes the reservation atomically; never launch the same receipt twice. |
+| `unknown` | `id` | Idle without a readable result keeps its slot pending reconciliation. |
+| `finish` | `id,terminal:true,result`; optional `process_exit` | Persist terminal execution, including failed attempts. |
+| `reported` | `id` | Mark a completed result after commentary was emitted. |
+
+`result` is `{executed:boolean,outcome:string,reason:string,report:string}`. The role supplies its
+terminal token; process exit does not establish it. Duplicate finishes retain the first timestamp;
+conflicting results are reported. Finish also writes `loop-finish-<role>-<receipt-hash>` through
+`log-append.sh`; replay repairs a missing log write. Cadence reads receipts, so log failure cannot
+turn every role due. Reservations use revision-checked atomic updates, including hold races.
+`due` is oldest first; apply formation, claimable work, load and capacity before reserving.
+
+The **live conversation is the first inbound source**, ahead of Slack and GitHub. Interpret
+“wait”, “let me send feedback first” and equivalent requests as hold. An ordinary question is
+answered without discarding the anchor. During hold only persist child results and honor the
+human. Hold does not kill an existing worker: say those workers may finish their current operation.
+When also instructed to stop workers, stop the known identifiers. On compaction read the same
+instance and rediscover actual children, matched by `child_id`, not a role nickname. An unknown
+inventory grants no free slots. A stopped instance requires a new explicit `/work` in a new
+native session; never invent another instance ID inside the stopped Claude session to evade its hook.
+Render role results, never raw monitor/control tags.
+
+After stopping a child successfully, record `cancelled` even if it has no role result. A failed
+stop or unreadable outcome leaves the child live pending reconciliation. A later valid terminal
+result may still be recorded with `finish`; malformed late results never reopen a cancelled slot.
+
+## Communication and evidence
+
+All native coordinator and role effects use `transport/scripts/perform.sh --request FILE` after
+`resolve-target.sh --request FILE`; read `transport/SKILL.md` for discovery and request fields.
+Channel observation uses `observe-channel.sh`. A connector carries only an exact `needs_parent`
+request, and its result passes through `accept-observation.sh`. Never run QFS ad hoc or substitute
+another account after a provider error. Keep an unavailable selected route visibly undelivered.
+
+The tick is unattended: never call `AskUserQuestion`. The Recommended-label test resolves routine
+decisions within existing authorization; missing authority uses the existing decision path while
+independent work continues. Diagnose from implementation and observed effects before filing.
+An unreadable source is unknown, not an empty queue or channel.
+
+For agent-composed writes, read a gate in one call before constructing the merge, push or deletion.
+Internally gated scripts may compose both because they branch on the result. Host permission
+denial is not an invitation to change spelling, transport or agent. An unsupported API may use
+another supported route only when that route is already authorized.
+
+Implementation, merge, deployment and notification are separate outcomes. A closed feedback
+issue or merged proposal proves capture, not implementation. Reconcile the queue, claims and
+implementation PRs before claiming all work complete; retain deployment and delivery failures.

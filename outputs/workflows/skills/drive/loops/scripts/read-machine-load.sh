@@ -32,6 +32,8 @@
 # Output: one JSON line
 #   {"cores": n, "load1": f, "load_per_core": f}
 #   {"cores": null, "load1": null, "load_per_core": null, "readable": false, "reason": "<word>"}
+# load_per_core uses the installed awk printf("%.2f") rounding contract. Consumers
+# must not substitute JavaScript toFixed at binary half-way values.
 #
 # PURE READ. It runs no command outside `nproc` / `getconf`, opens no network connection, writes
 # nothing anywhere, and exits 0 in every case.

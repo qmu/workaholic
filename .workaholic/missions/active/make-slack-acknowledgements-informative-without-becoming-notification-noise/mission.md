@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-140833
 ---
 
 # Make Slack acknowledgements informative without becoming notification noise

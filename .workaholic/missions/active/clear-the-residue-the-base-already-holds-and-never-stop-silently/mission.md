@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-192225
 ---
 
 # Clear the residue the base already holds, and never stop silently

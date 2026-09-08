@@ -20,6 +20,11 @@ import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../..");
+function readDrillSource() {
+  const main = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+  const modules = [...main.matchAll(/^\. "\$\{SCRIPT_DIR\}\/drills\/([^"]+)"$/gm)];
+  return main + modules.map(m => readFileSync(join(REPO_ROOT, "scripts/e2e/drills", m[1]), "utf8")).join("\n");
+}
 
 // The moderation registry is the executable step contract. Tests consume it directly so
 // orchestration may change its shell representation without turning that detail into failures.
@@ -1173,7 +1178,7 @@ function testSuccessionCostsNoFourthWriter() {
     // verify target carries, so a drill that is written and never wired reads exactly like one
     // that runs. Its deliberately-broken row is named in both places, because a drill that
     // cannot fail proves nothing and the runbook is where an operator learns which row that is.
-    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    const drill = readDrillSource();
     assertTrue("and is dispatched by its verb", /verify-succession\) cmd_verify_succession/.test(drill), "not wired");
     assertTrue("and its usage line names it", /verify-succession \[--json\]/.test(drill), "not in the usage line");
     const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -2531,7 +2536,7 @@ function testExpiringGatesNothing() {
     // exactly like one that runs. Its deliberately-broken row is named in both places, because
     // a drill that cannot fail proves nothing and the runbook is where an operator learns which
     // row that is.
-    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    const drill = readDrillSource();
     assertTrue("and is dispatched by its verb", /verify-expiry\) cmd_verify_expiry/.test(drill), "not wired");
     assertTrue("and its usage line names it", /verify-expiry \[--json\]/.test(drill), "not in the usage line");
     const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -2578,7 +2583,7 @@ function testResidueGatesNothing() {
   // every other verify target carries, so a drill that is written and never wired reads exactly
   // like one that runs. Its deliberately-broken row is named in both places, because a drill
   // that cannot fail proves nothing and the runbook is where an operator learns which row that is.
-  const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+  const drill = readDrillSource();
   assertTrue("and is dispatched by its verb", /verify-residue\) cmd_verify_residue/.test(drill), "not wired");
   assertTrue("and its usage line names it", /verify-residue \[--json\]/.test(drill), "not in the usage line");
   const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -28751,6 +28756,7 @@ function makeDrillFixture() {
   }
   mkdirSync(join(repo, "scripts/e2e"), { recursive: true });
   cpSync(SCRIPTS.loopDrill, join(repo, "scripts/e2e/loop-drill.sh"));
+  cpSync(join(REPO_ROOT, "scripts/e2e/drills"), join(repo, "scripts/e2e/drills"), { recursive: true });
   chmodSync(join(repo, "scripts/e2e/loop-drill.sh"), 0o755);
   writeFileSync(join(repo, "README.md"), "drill fixture\n");
   execSync("git add -A && git commit -q -m initial", { cwd: repo });
@@ -32988,7 +32994,7 @@ function testIdentityHandOffEndToEnd() {
       JSON.stringify(plan.excluded));
 
     // The operator's drill covers the same walk in a checkout; CI enforces this one.
-    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    const drill = readDrillSource();
     assertTrue("and is dispatched by its verb", /verify-identity-handoff\)/.test(drill),
       "the drill's verb is not wired");
     const runbook = readFileSync(join(REPO_ROOT, "docs/loop-drill-runbook.md"), "utf8");
@@ -34517,7 +34523,7 @@ function testProofJudgementSplit() {
   //   the candidate reader narrowed back            -> `... offers a content candidate`
   //   the strategy section deleted from claims.md   -> `... states its resolution strategy`
   const settle = readFileSync(join(REPO_ROOT,
-    "plugins/workaholic/skills/branching/scripts/settle-stranded-publication.sh"), "utf8");
+    "plugins/workaholic/skills/branching/scripts/prepare-publication.sh"), "utf8");
   const catchable = readFileSync(join(REPO_ROOT,
     "plugins/workaholic/skills/drive/scripts/list-catchable-claims.sh"), "utf8");
 
@@ -35202,7 +35208,7 @@ function testFileFindingsStep() {
     // ---- THE DRILL EXISTS, IS DISPATCHED BY ITS VERB, AND IS DOCUMENTED ----
     // The same three pins every other verify target carries, so a drill that is written and
     // never wired reads exactly like one that runs.
-    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    const drill = readDrillSource();
     assertTrue("and is dispatched by its verb", /verify-findings-to-work\)/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-findings-to-work \[--json\]/.test(drill),
@@ -36077,7 +36083,7 @@ function testThreadReconcileStep() {
     // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
     // every other verify target carries, so a drill that is written and never wired reads
     // exactly like one that runs.
-    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    const drill = readDrillSource();
     assertTrue("and is dispatched by its verb", /verify-reconcile\)/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-reconcile \[--json\]/.test(drill),
@@ -36183,7 +36189,7 @@ function testUndeliveredUnitsStep() {
     // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same three pins
     // every other verify target carries, so a drill that is written and never wired reads
     // exactly like one that runs.
-    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    const drill = readDrillSource();
     assertTrue("and is dispatched by its verb", /verify-close\)/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-close \[--json\]/.test(drill),
@@ -36333,8 +36339,8 @@ function testStrandedUnitReproduction() {
     const retry = () => JSON.parse(run(fx.A,
       `${POSIX_SH} ${SCRIPTS.retryUndelivered} ${unit.unit} --own-tip`, { env: withGh }).stdout);
     const first = retry();
-    assertEq("the retry attempts the merge and preserves an unconfirmed effect",
-      [first.attempted, first.outcome], [true, "merge_refused: merge_effect_unknown"]);
+    assertEq("the retry preserves a concrete 405 refusal instead of losing it as unknown",
+      [first.attempted, first.outcome], [true, "merge_refused: merge_not_allowed"]);
     const again = retry();
     assertEq("and is refused again, every time it is run, for the same reason",
       again.outcome, first.outcome);
@@ -36367,7 +36373,7 @@ function testStrandedUnitReproduction() {
     };
     walk(skills);
     assertEq("exactly three scripts reach the catch-up, and each is a deliberate composition",
-      callers.sort().join(","), "catch-up-claim.sh,land-unit.sh,settle-stranded-publication.sh");
+      callers.sort().join(","), "catch-up-claim.sh,land-unit.sh,prepare-publication.sh");
 
     // AND THE UNATTENDED ONE IS REACHABLE. `land-unit.sh` refuses `headless_context` FIRST and
     // unoverridably, which is the whole reason the loop had no caller at all.
@@ -36546,7 +36552,7 @@ function testStrandedPublicationReproduction() {
     walk(skills);
     assertEq("the mergeability reading's consumers are a closed set",
       readers.sort().join(","),
-      "catch-up-claim.sh,claim-mergeability.sh,list-claims.sh,list-stranded-publications.sh");
+      "catch-up-claim.sh,claim-mergeability.sh,list-claims.sh,list-operator-facing-pulls.sh,list-stranded-publications.sh");
   } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
 }
 
@@ -36585,6 +36591,50 @@ printf '[]\\n'
 function pubFiles(stems) {
   return JSON.stringify(stems.map((s) => ({ status: "added", filename: s, patch: "+x" })));
 }
+
+T("branching: operator publication catches up without a merge endpoint", () => {
+  const fx=makePublicationFixture();
+  const env={...process.env,PATH:`${fx.binDir}:${process.env.PATH}`};
+  try {
+    const branch=publishBranch(fx.A,'work-20260908-230000',wt=>{
+      mkdirSync(join(wt,'.claude'),{recursive:true});writeFileSync(join(wt,'.claude/git-identities'),'owner=owner\n');
+      writeFileSync(join(wt,'.workaholic/feedbacks/20260102000000-b.md'),'---\ntype: Feedback\n---\n\n# b\n');
+      writeFileSync(join(wt,'.workaholic/feedbacks/index.md'),feedbackIndex(['20260101000000-a','20260102000000-b']));
+    });
+    writeFileSync(join(fx.A,'.workaholic/feedbacks/20260103000000-c.md'),'---\ntype: Feedback\n---\n\n# c\n');
+    writeFileSync(join(fx.A,'.workaholic/feedbacks/index.md'),feedbackIndex(['20260101000000-a','20260103000000-c']));
+    execSync('git add -A && git commit -qm "Advance base" && git push -q origin main && git fetch -q origin',{cwd:fx.A});
+    const calls=join(fx.binDir,'calls'),reviewed=join(fx.binDir,'reviewed');
+    writeFileSync(join(fx.binDir,'gh'),`#!/bin/sh
+printf '%s\\n' "$*" >> '${calls}'
+case "$*" in
+  *rate_limit*) echo 5000;;
+  'api user --jq .login') echo owner;;
+  *'/reviews?'*) if [ -f '${reviewed}' ]; then echo '[{"state":"APPROVED"}]'; else echo '[]'; fi;;
+  *'/files?'*) echo '[{"status":"added","filename":".claude/git-identities","patch":"+owner=owner"}]';;
+  *'/pulls/77') echo '{"head":{"ref":"${branch}"},"base":{"ref":"main"}}';;
+  *'pulls?state=open'*) printf '77\\thttps://example.test/77\\tA ruling\\t2026-09-08T12:00:00Z\\towner\\n';;
+  *) echo '[]';;
+esac
+`,{mode:0o755});
+    const act=()=>JSON.parse(run(fx.A,`${POSIX_SH} ${join(REPO_ROOT,'plugins/workaholic/skills/branching/scripts/catch-up-operator-publication.sh')} 77`,{env}).stdout);
+    writeFileSync(reviewed,'yes');
+    assertEq('a reviewed operator branch stays untouched',act().reason,'reviewed_or_reviews_unreadable');
+    rmSync(reviewed);
+    const result=act();
+    assertEq('a held publication is caught up and pushed, while its ruling remains pending',
+      [result.outcome,result.pushed,result.delivery],['settled',true,'not_attempted: operator_facing']);
+    assertTrue('the caught-up branch contains current base',run(fx.A,`git merge-base --is-ancestor origin/main origin/${branch}`).status===0,JSON.stringify(result));
+    assertEq('catch-up is idempotent and keeps the operator delivery boundary',
+      [act().outcome,act().delivery],['already_current','not_attempted: operator_facing']);
+    writeFileSync(join(fx.A,'unrelated-base.txt'),'A conflict-free base advance\n');
+    execSync('git add unrelated-base.txt && git commit -qm "Advance cleanly" && git push -q origin main && git fetch -q origin',{cwd:fx.A});
+    const cleanBehind=act();
+    assertEq('clean-but-behind is caught up, not falsely called already current',
+      [cleanBehind.outcome,cleanBehind.pushed,cleanBehind.delivery],['settled',true,'not_attempted: operator_facing']);
+    assertTrue('the operator act never calls merge or close',!readFileSync(calls,'utf8').includes('/merge')&&!readFileSync(calls,'utf8').includes('--method PATCH'),'provider calls were read-only');
+  } finally {cleanup(fx.A);cleanup(fx.origin);cleanup(fx.binDir);}
+});
 
 // ---------- the reader: which publications the loop opened and could not merge (2026-08-31) ----
 T("branching/list-stranded-publications.sh: what the loop opened and could not merge", testStrandedPublicationReader);
@@ -36808,9 +36858,9 @@ function testSettleStrandedPublication() {
                              ".workaholic/feedbacks/index.md"]) },
     });
     const undelivered = settle(23);
-    assertEq("an unconfirmed delivery is reported in the merge vocabulary, settlement intact",
+    assertEq("a refused delivery preserves its reason, settlement intact",
       [undelivered.outcome, undelivered.pushed, undelivered.delivery],
-      ["settled", true, "merge_refused: merge_effect_unknown"]);
+      ["settled", true, "merge_refused: merge_not_allowed"]);
 
     // 6. A PUBLICATION THAT NEEDS NOTHING BUT A MERGE IS DELIVERED, AND TAKES NO CATCH-UP
     //    (2026-09-01, mission `deliver-a-stranded-publication-that-needs-nothing-but-a-merge`).
@@ -37278,7 +37328,7 @@ function testCatchUpClaimWriter() {
     // AND THE DRILL EXISTS, is dispatched by its verb, and is documented — the same four pins
     // every other verify target carries, so a drill that is written and never wired reads
     // exactly like one that runs.
-    const drill = readFileSync(join(REPO_ROOT, "scripts/e2e/loop-drill.sh"), "utf8");
+    const drill = readDrillSource();
     assertTrue("and is dispatched by its verb", /verify-catch-up\) cmd_verify_catch_up/.test(drill),
       "the drill's verb is not wired");
     assertTrue("and its usage line names it", /verify-catch-up \[--json\]/.test(drill),
@@ -37634,6 +37684,7 @@ function testDrillVerdictPath() {
   mkdirSync(join(fx, "plugins/workaholic/skills/drive/scripts"), { recursive: true });
   mkdirSync(join(fx, "docs"), { recursive: true });
   copyFileSync(REGISTER, join(fx, "plugins/workaholic/skills/drive/scripts/drill-register.sh"));
+  cpSync(join(REPO_ROOT, "scripts/e2e/drills"), join(fx, "scripts/e2e/drills"), { recursive: true });
 
   const fakes = [
     'cmd_verify_alpha() { add_row "alpha_holds" true "fine" breaker; emit_verdict "alpha" 0 "pass" 0; }',
@@ -38191,6 +38242,15 @@ esac
     const capped = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-operator-facing-pulls.sh --limit 2`).stdout);
     assertEq("a bounded read says so", [capped.total_open, capped.read, capped.truncated], [4, 2, true]);
 
+    writeStub('case "$2" in *"pulls/701/files"*) printf "null"; exit 0;; esac');
+    const unreadableFiles = JSON.parse(sh(`${POSIX_SH} ${BRA}/list-operator-facing-pulls.sh`).stdout);
+    assertEq("an unreadable file list is not an empty operator queue", unreadableFiles.reason, "files_unreadable");
+    assertEq("an unreadable membership carries no pull list", Object.hasOwn(unreadableFiles, "pulls"), false);
+    const savedFiles = FILES[701]; FILES[701] = Array(100).fill(savedFiles[0]); writeStub();
+    assertEq("a full page cannot silently prove complete membership",
+      JSON.parse(sh(`${POSIX_SH} ${BRA}/list-operator-facing-pulls.sh`).stdout).reason, "files_truncated");
+    FILES[701] = savedFiles; writeStub();
+
     // --- 3. THE FOUR EFFECT WORDS -------------------------------------------------------------
     const effect = (n) => {
       const r = sh(`${POSIX_SH} ${BRA}/publication-effect.sh ${n}`);
@@ -38227,6 +38287,8 @@ esac
       sh(`${POSIX_SH} ${MOD}/step-operator-pulls.sh --tick 20260829-000000 --root .`).stdout);
     const s1 = step();
     const asked = (s1.needs_agent[0]?.pulls ?? []).map((p) => p.key).sort();
+    assertTrue("an unreadable mergeability reaches the question instead of disappearing",
+      s1.needs_agent[0].pulls.every(p=>p.mergeability==='unanswerable'),JSON.stringify(s1));
     assertEq("one question per un-acted pull request, keyed on its number",
       asked.join(","), "operator-pull:701,operator-pull:702");
     assertTrue("the merged one is settled and asks nobody",
@@ -39912,6 +39974,9 @@ function testTickLogWriterSet() {
     "plugins/workaholic/skills/moderate/scripts/run.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/persist-log.sh": "refuser",
     "scripts/e2e/loop-drill.sh": "reader",
+    "scripts/e2e/drills/verify-blocked-tick.sh": "reader",
+    "scripts/e2e/drills/verify-cadence-lapse.sh": "reader",
+    "scripts/e2e/drills/verify-condition-age.sh": "reader",
   };
 
   const roots = ["plugins/workaholic", "scripts", "hooks"];

@@ -703,4 +703,5 @@
 * [Integrated release exceeds scan size guidance](20260908080410-integrated-release-exceeds-scan-size-guidance.md)
 * [Live transport and incremental-read evidence](20260908080410-live-transport-and-incremental-read-evidence.md)
 * [Native lifecycle and downgrade evidence](20260908080410-native-lifecycle-and-downgrade-evidence.md)
+* [Make quiescent loops surface decision-ready blockers and reopen after answers](20260908123159-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md)
 <!-- okf:generated:end -->

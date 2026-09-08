@@ -6,8 +6,9 @@
 #
 # Output (one JSON line, always exit 0 for a reported outcome):
 #   {"ok": true, "identity": "<login>", "limit": N,
-#    "issues":   [{"number", "title", "url", "updated_at"}...],   oldest first
-#    "excluded": [{"number", "reason": "already_captured"|"captured_on_branch"|"self_originated"}...]}
+#    "formation_pending": true|false,
+#    "issues":   [{"number", "title", "url", "updated_at", "state", "record"}...], oldest first
+#    "excluded": [{"number", "reason": "already_planned"|"captured_on_branch"|"self_originated"}...]}
 #   {"ok": false, "reason": "gh_unavailable" | "identity_unresolved" | "list_failed",
 #    "detail": "..."}
 #
@@ -40,13 +41,13 @@
 # stamps "[FB] " via feedback/scripts/fb-title.sh. The boundary is unaffected —
 # the crossing was never the only sender.)
 #
-# ALREADY-CAPTURED EXCLUSION: a merged proposal auto-closes its issue
-# (`Closes #<N>`), so an OPEN issue whose number a feedback record already
-# names is in flight — captured, its proposal PR open or its record-only merge
-# pending — and re-taking it would duplicate the record. The match is the
-# issue URL's `/issues/<N>` form, which the propose workflow's capture step
-# requires the record to carry. Excluded rows are reported with their reason,
-# never silently dropped.
+# CAPTURE IS NOT SETTLEMENT (2026-09-08, issues #1086/#1087/#1089). A moderation
+# tick can preserve an issue as an immutable feedback record before `/specificate`
+# judges it. Record existence therefore proves only `recorded`; it does not prove
+# `planned`. The issue remains in `issues[]` as `recorded_unplanned`, carrying the
+# record filename so the one specification seam REUSES it instead of writing a
+# duplicate. Only an artifact-to-feedback relation returned by the existing
+# proposal oracle (`list-proposed-refs.sh`) proves `already_planned`.
 #
 # AND THE RECORD MAY BE ON A BRANCH (2026-09-01, ticket 20260901042313). The
 # paragraph above always named the in-flight case — "its proposal PR open" — and
@@ -62,8 +63,8 @@
 # unmerged branches for exactly this reason a month earlier; the discovery half
 # had not. Both now read them through ONE walk (`lib/unmerged-branches.sh`).
 #
-# TWO REASON WORDS, NOT ONE, decided rather than defaulted: `already_captured`
-# means the record is on the base and the ask is settled, `captured_on_branch`
+# TWO REASON WORDS, NOT ONE, decided rather than defaulted: `already_planned`
+# means a base record is related from a planned artifact, `captured_on_branch`
 # means it is on an unmerged branch and the ask is waiting on that pull request.
 # The two send a reader to different places — one to the record, one to a pull
 # request that may need settling — and collapsing them would make the output say
@@ -144,6 +145,15 @@ rows="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
 
 TAB="$(printf '\t')"
 
+# One proposal oracle, read once for the whole page. It already covers missions and tickets on
+# the base and unmerged branches. An unreadable oracle cannot promote `recorded` to `planned`;
+# the conservative recovery is to re-offer the existing record, never manufacture a new one.
+if PLANNED_REFS=$(sh "${SCRIPT_DIR}/list-proposed-refs.sh" 2>/dev/null); then
+  :
+else
+  PLANNED_REFS=""
+fi
+
 # ---- the feedback records the open proposal branches add --------------------
 # Materialised once, before the issue loop: the walk's cost is the BRANCH count, so
 # doing it per issue would pay it up to LIMIT times to answer the same question.
@@ -177,6 +187,7 @@ fi
 
 issues=""
 excluded=""
+formation_pending=false
 while IFS="$TAB" read -r number url updated origin title; do
   [ -n "$number" ] || continue
   captured=""
@@ -188,16 +199,37 @@ while IFS="$TAB" read -r number url updated origin title; do
   # authored, originates a mission; the finding stays open as knowledge and is never taken.
   if [ "$origin" = self ]; then
     captured="self_originated"
-  elif [ -d "$FEEDBACKS_DIR" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$FEEDBACKS_DIR" 2>/dev/null; then
-    captured="already_captured"
+  elif [ -d "$FEEDBACKS_DIR" ]; then
+    record_paths=$(grep -rlE "/issues/${number}([^0-9]|\$)" "$FEEDBACKS_DIR" 2>/dev/null | sort || true)
+    record=""
+    for record_path in $record_paths; do
+      record_name=$(basename "$record_path")
+      case "$record_name" in index.md|README.md) continue ;; esac
+      [ -n "$record" ] || record="$record_name"
+      if printf '%s\n' "$PLANNED_REFS" | grep -Fxq "$record_name"; then
+        captured="already_planned"
+        break
+      fi
+    done
+    if [ -n "$record" ] && [ -z "$captured" ]; then
+      formation_pending=true
+      row="{\"number\": ${number}, \"title\": \"$(json_escape "$title")\", \"url\": \"$(json_escape "$url")\", \"updated_at\": \"$(json_escape "$updated")\", \"state\": \"recorded_unplanned\", \"record\": \"$(json_escape "$record")\"}"
+      issues="${issues:+${issues}, }${row}"
+      continue
+    fi
+    if [ -z "$record" ] && [ -n "$BRANCH_RECORDS" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$BRANCH_RECORDS" 2>/dev/null; then
+      captured="captured_on_branch"
+    fi
   elif [ -n "$BRANCH_RECORDS" ] && grep -rqE "/issues/${number}([^0-9]|\$)" "$BRANCH_RECORDS" 2>/dev/null; then
     captured="captured_on_branch"
   fi
   if [ -n "$captured" ]; then
+    [ "$captured" != captured_on_branch ] || formation_pending=true
     row="{\"number\": ${number}, \"reason\": \"${captured}\"}"
     excluded="${excluded:+${excluded}, }${row}"
   else
-    row="{\"number\": ${number}, \"title\": \"$(json_escape "$title")\", \"url\": \"$(json_escape "$url")\", \"updated_at\": \"$(json_escape "$updated")\"}"
+    formation_pending=true
+    row="{\"number\": ${number}, \"title\": \"$(json_escape "$title")\", \"url\": \"$(json_escape "$url")\", \"updated_at\": \"$(json_escape "$updated")\", \"state\": \"uncaptured\", \"record\": null}"
     issues="${issues:+${issues}, }${row}"
   fi
 done <<EOF
@@ -206,5 +238,5 @@ EOF
 
 page_count=$(printf '%s\n' "$rows" | grep -c . || true)
 if [ "$page_count" -ge "$LIMIT" ]; then next_page=$((PAGE + 1)); else next_page=null; fi
-printf '{"ok": true, "identity": "%s", "limit": %s, "page": %s, "next_page": %s, "issues": [%s], "excluded": [%s]}\n' \
-  "$(json_escape "$login")" "$LIMIT" "$PAGE" "$next_page" "$issues" "$excluded"
+printf '{"ok": true, "identity": "%s", "limit": %s, "page": %s, "next_page": %s, "formation_pending": %s, "issues": [%s], "excluded": [%s]}\n' \
+  "$(json_escape "$login")" "$LIMIT" "$PAGE" "$next_page" "$formation_pending" "$issues" "$excluded"

@@ -31,10 +31,11 @@ A burst of related small asks no longer creates one proposal merge, implementati
 
 ## Acceptance
 
-- [ ] Capture, specification, and dedup have one owner and cannot suppress an ask by recording it at the wrong seam. (#20260908124710-define-one-ownership-model-from-feedback-capture-to-mission-formation.md)
+- [x] Capture, specification, and dedup have one owner and cannot suppress an ask by recording it at the wrong seam. (#20260908124710-define-one-ownership-model-from-feedback-capture-to-mission-formation.md)
 - [ ] Related asks accumulate in one bounded mission whose whole ticket set is claimed, reviewed, and narrated as one PR-unit and story. (#20260908124710-batch-related-asks-into-one-standing-mission-plan.md)
 - [ ] Version bump, release note, merge, delivery, and human notification occur once at the completed mission boundary. (#20260908124710-version-and-deliver-only-at-the-completed-mission-boundary.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908124710-define-one-ownership-model-from-feedback-capture-to-mission-formation.md

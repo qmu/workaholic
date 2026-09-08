@@ -13,6 +13,10 @@ metadata:
 
 Standing rules, none optional:
 
+- **A ship is a completed mission boundary.** Before drafting a plan or allocating a version,
+  `story/scripts/release-boundary.sh` must report `eligible: true`. Any other result stops ship
+  as `not_release_boundary:<reason>`; proposal and loose-ticket PRs use drive's ordinary merge
+  path and do not create release notes, tags, deliveries, or outward release completion.
 - **A deployment is instructed, never inferred.** No invocation of `/ship` deploys on its own, and no unattended caller can reach the deploy step at all (§0). Merging is not an instruction to deploy; neither is `merge_policy: auto`.
 - **Catching up with `main` is mandatory**, and reconciling with `main` is standard ship behavior — never an optional "your call". A branch behind `main` either reverts merged work or silently no-ops the release (a deploy-on-merge release is idempotent, so a colliding version ships nothing). A `mechanical` conflict — the version/lockstep manifests or regenerated `outputs/` — is reconciled as routine; only a genuinely ambiguous `content` conflict halts for a human.
 - **Version-collision guard**: confirm the branch's target version is greater than `main`'s and not an already-published tag; re-bump past a collision as part of reconciliation.
@@ -93,7 +97,10 @@ Run `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/check-todo.sh`. On `clean: f
 
 Ship the current branch's PR. **The flow's outcome is a drafted plan and a merged PR; it deploys nothing.** Full per-step detail — JSON fields, failure branches, evidence and bypass invocations: [`reference/flow.md`](reference/flow.md).
 
-1. **Pre-check** (`pre-check.sh`): no PR ⇒ "run `/story` first", stop; already merged ⇒ warn, proceed to the drafting phase only. Capture `pr_number`/`url`.
+1. **Release boundary and pre-check**: run `story/scripts/release-boundary.sh`; when it is not
+   eligible, report `not_release_boundary:<reason>` and stop without writing. Then run
+   `pre-check.sh`: no PR ⇒ "run `/story` first", stop; already merged ⇒ warn, proceed to the
+   drafting phase only. Capture `pr_number`/`url`.
 2. **Catch up with `main`** (`catchup-main.sh`, mandatory) and apply the version-collision guard. `mechanical` ⇒ reconcile yourself as routine, no prompt; `content` ⇒ halt for the user; `merge_failed` ⇒ fix the working tree and re-run. Never present reconciliation as optional.
 2b. **Branch-safety scan gate** (pre-merge, blocks like §1-4): `release-scan`'s `scan-branch-safety.sh | gate-decision.sh`. `overridable: false` (`secret`) ⇒ non-overridable hard stop, no bypass ever; `overridable: true` (`size`/`leak`) ⇒ fix and re-run, or the developer overrides with the accepted risk recorded via `record-evidence.sh … "bypassed"`.
 3. **Draft the deployment plan** (the phase that replaced the deploy step): apply §1-4, then generate the release note (`workaholic:write-release-note`, passing the PR `url`) and run `draft-deploy-plan.sh <note-path>` over it. Report the plan — per target, what is waiting and the verification required. A degraded read (`ok: false`) is **reported and skipped**, never half-written. Run the capability check (`check-confirmation-capability.sh`) for each target's method and report an incapable environment: the plan says the check *would* run there.

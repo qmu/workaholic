@@ -28,6 +28,12 @@ short interval. A successful quiet observation advances the idle backoff. If eit
 source is unreadable, preserve the quiet streak and use provider retry. A new feedback issue
 makes propose-then-specificate due on this tick.
 
+`formation_pending: true` is the intake/implementation ownership boundary. Dispatch
+propose-then-specificate for the whole oldest-first page and allocate **zero new implement
+runners on this tick**. This is derived from unsettled issues and proposal branches by the
+reader, not from a timer or ticket-count guess. Existing implement runners continue; they are
+never killed. A later tick may implement only after the reader says formation is settled.
+
 ## Answer Slack
 
 Fetch the dedup ledger with
@@ -104,7 +110,10 @@ Dispatch due roles in the background and never await them. Native agents use bou
 children. Other agents call
 `sh <work-skill>/scripts/codex-loop.sh --dispatch <role>`.
 
-For implement, derive claimable units with `loops/scripts/claimable-units.sh`. Fanout is:
+For implement, derive claimable units with `loops/scripts/claimable-units.sh` only when issue
+discovery reports `formation_pending: false`. When formation is pending, report
+`implement allocation: 0 (mission_formation_pending)` without running the claimable reader.
+Otherwise fanout is:
 
 `min(WORKAHOLIC_IMPLEMENT_FANOUT default 1, claimable units, available child capacity)`.
 

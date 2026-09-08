@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T12:47:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,22 @@ Redesign ingestion ownership so capture records an ask without making `/specific
 ## Considerations
 
 Immutable feedback records stay intact; repair must change derived workflow ownership rather than delete or rewrite history.
+
+## Final Report
+
+Capture and planning are now separate derived facts. `list-inbound-issues.sh` returns an open
+issue whose record exists but no mission/ticket cites it as `recorded_unplanned`, naming the
+immutable record for `/specificate` to reuse; only the existing artifact-relation oracle proves
+`already_planned`. A capture on an unmerged proposal branch remains excluded as in flight, while
+`formation_pending` tells the coordinator that specification still owns the turn.
+
+### Discovered Insights
+
+- Record immutability did not require a new mutable workflow field: issue openness, record
+  presence, artifact relations and proposal-branch presence already form the required state.
+
+## Verify
+
+The #1086/#1087/#1089 collision is covered in the hermetic inbound-issue fixtures. The full
+workflow suite passed 6,830 tests; generated bundles, planning-input tests and metadata validation
+also passed.

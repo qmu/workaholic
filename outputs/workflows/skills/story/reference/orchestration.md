@@ -10,7 +10,11 @@ bash ../gather/scripts/git-context.sh
 
 Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
-Before the phases, bump the version following CLAUDE.md's Version Management section (patch increment) — skip when `bash ../branching/scripts/check-version-bump.sh` reports `already_bumped: true`.
+Before the phases, run `story/scripts/release-boundary.sh`. Only its `eligible: true` outcome
+allocates a patch version; an ineligible branch reports `version_not_allocated:<reason>` and
+continues as a non-release story/PR. At an eligible boundary, follow CLAUDE.md's Version
+Management section and skip only when `check-version-bump.sh` reports both
+`already_bumped: true` and `version_ahead: true`.
 
 The script measures against the resolved base (`gather/scripts/base-ref.sh`, i.e. `origin/<default>` as last fetched) and reports it in `base`; it does not fetch, so freshness stays the caller's act — on the drive path `sync-main.sh` has already fetched and the claim worktree is cut from that tip. A read whose base could not be resolved comes back `ok: false` with a named `reason` (`base_never_fetched`, `no_base_ref`, `base_not_found`, `base_unresolved`) and `already_bumped: false`: **bump, and report the reason**. Skipping on an unresolvable base is the failure this contract exists to prevent — it ships plugin changes on a stale version, silently.
 

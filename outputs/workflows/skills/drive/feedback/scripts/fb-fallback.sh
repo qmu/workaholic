@@ -28,8 +28,8 @@
 # which is the retired `[Propose Batch]` design.
 #
 # A SUCCESSFUL FILING NEVER ALSO WRITES A RECORD: `ok: true` answers `false` here, so the
-# fallback cannot fire on the happy path and re-introduce the `already_captured`
-# self-suppression the in-repo path exists to avoid.
+# fallback cannot fire on the happy path and create a competing capture before the one
+# specification seam owns it.
 
 set -eu
 

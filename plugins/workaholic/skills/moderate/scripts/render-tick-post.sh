@@ -219,9 +219,8 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT INT TERM
 # `%s\n`, not `%s`: without the trailing newline `sed` emits its last match unterminated
 # and the `while read` below silently drops it -- which cost exactly one step's change on
 # the first run of this script.
-printf '%s\n' "$INPUT" \
-  | tr '{' '\n' \
-  | sed -n 's/.*"step": *"\([^"]*\)".*"summary": *"\([^"]*\)".*/\1\t\2/p' > "${TMP}/now"
+printf '%s\n' "$INPUT" | jq -r '(.steps // .rows // [])[] |
+  select((.step|type)=="string" and (.summary|type)=="string") | [.step,.summary] | @tsv' > "${TMP}/now"
 
 # THE POST-FACING PHRASE, read beside the log-facing summary (2026-08-23). Each root line
 # used to be a step's LOG summary rendered verbatim — an audit trail, written for a
@@ -240,9 +239,8 @@ printf '%s\n' "$INPUT" \
 # root even if the diff calls it changed. A step that has not been given an event yet is
 # silent too, deliberately — silence is the safe failure here, and the tick log keeps every
 # line regardless.
-printf '%s\n' "$INPUT" \
-  | tr '{' '\n' \
-  | sed -n 's/.*"step": *"\([^"]*\)".*"event": *"\([^"]*\)".*/\1\t\2/p' > "${TMP}/events"
+printf '%s\n' "$INPUT" | jq -r '(.steps // .rows // [])[] |
+  select((.step|type)=="string" and (.event|type)=="string") | [.step,.event] | @tsv' > "${TMP}/events"
 
 # THE THIRD PASS, beside the two above and in the same idiom: `step<TAB>status<TAB>reason`,
 # whitespace-tolerant for the reason the header records. `status` and `reason` sit between
@@ -250,9 +248,9 @@ printf '%s\n' "$INPUT" \
 #
 # A ROW WITH NO `status` FIELD SIMPLY DOES NOT MATCH, so an impairment is never invented for
 # a producer that does not classify its steps; an empty `reason` matches and stays empty.
-printf '%s\n' "$INPUT" \
-  | tr '{' '\n' \
-  | sed -n 's/.*"step": *"\([^"]*\)".*"status": *"\([^"]*\)".*"reason": *"\([^"]*\)".*"summary": *"\([^"]*\)".*/\1\t\2\t\3\t\4/p' > "${TMP}/status"
+printf '%s\n' "$INPUT" | jq -r '(.steps // .rows // [])[] |
+  select((.step|type)=="string" and (.status|type)=="string") |
+  [.step,.status,(if (.reason // "")=="" then "-" else .reason end),(.summary // "")] | @tsv' > "${TMP}/status"
 
 # `STEPS` ORDER COMES FOR FREE: `run.sh` walks `STEPS` and emits its rows in that order, so
 # preserving the input order IS that order. Re-listing the steps here would be a second copy
@@ -260,6 +258,7 @@ printf '%s\n' "$INPUT" \
 : > "${TMP}/impaired"
 while IFS="$TAB" read -r step status reason summary || [ -n "$step" ]; do
     [ -n "$step" ] || continue
+    [ "$reason" != - ] || reason=''
     case "$status" in
         degraded|blocked) ;;
         *) continue ;;
@@ -449,10 +448,10 @@ done < "${TMP}/now"
 # even with zero questions — once per JST day, the day's opening statement. Every other
 # hour the question gate stands alone, unchanged.
 digest_ready=0
-grep -q '"step": *"strategy-digest".*"reason": *""' "${TMP}/now" 2>/dev/null || true
-case "$INPUT" in
-    *'"step": "strategy-digest"'*'render_the_morning_digest_at_the_top_of_the_root'*) digest_ready=1 ;;
-esac
+if printf '%s' "$INPUT" | jq -e '[(.steps // .rows // [])[] |
+    select(.step == "strategy-digest" and .status == "ok") |
+    .needs_agent[]? | select(.action == "render_the_morning_digest_at_the_top_of_the_root")] |
+    length > 0' >/dev/null 2>&1; then digest_ready=1; fi
 # A TICK THAT REACHED NOBODY IS THE THIRD GATE (2026-08-28, mission
 # `deliver-what-the-loop-already-knows-to-the-person-who-can-act`), added beside the digest on
 # exactly its precedent: the question gate's own expression is untouched and a second

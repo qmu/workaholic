@@ -6,6 +6,10 @@
 # Usage: direction-state.sh [window] [workaholic-root]
 #   --open-proposals <file>  passed straight through to the survey (see COST below)
 #   --aim-kind <kind>        passed straight through to the survey
+#   --emit-survey <file>     hand the survey this script already made back to the caller, so a
+#                            caller needing both readings pays the survey's one network read once
+#                            (see the flag's own block below). stdout is byte-identical with or
+#                            without it, and a failed write is silent.
 #   --with-leaving           attach `leaving` to every row (see THE LEAVING below)
 #   window: any `git log --since` expression; the survey's own default applies when omitted.
 #
@@ -145,10 +149,19 @@ SURVEY="${SCRIPT_DIR}/../../propose/scripts/survey-strategies.sh"
 
 PASS_THROUGH=''
 WITH_LEAVING=0
+# `--emit-survey <file>` HANDS BACK THE SURVEY THIS SCRIPT ALREADY MADE (2026-09-08, mission
+# `turn-quiescent-blockers-into-mature-decisions-and-resume-work`). A caller that needs both the
+# lifecycle state and the survey row behind it — `step-direction-health.sh`, which reads the
+# maturity of each subject before asking about it — would otherwise run `survey-strategies.sh` a
+# second time, paying its one network read twice and creating a second reading of one fact that
+# can disagree with the first. This is a HAND-BACK, not a second output: stdout is byte-identical,
+# a failed write is silent (the caller falls back to reading nothing), and no reading here changes.
+EMIT_SURVEY=''
 while [ $# -gt 0 ]; do
   case "$1" in
     --open-proposals) PASS_THROUGH="${PASS_THROUGH} --open-proposals ${2:-}"; shift 2 ;;
     --aim-kind)       PASS_THROUGH="${PASS_THROUGH} --aim-kind ${2:-}"; shift 2 ;;
+    --emit-survey)    EMIT_SURVEY="${2:-}"; shift 2 ;;
     --with-leaving)   WITH_LEAVING=1; shift ;;
     --)               shift; break ;;
     -*)               printf '{"ok": false, "reason": "usage", "detail": "unknown flag"}\n'; exit 0 ;;
@@ -180,6 +193,8 @@ fi
 
 [ -n "$OUT" ] || emit_unreadable "survey_no_output"
 printf '%s' "$OUT" | jq -e . >/dev/null 2>&1 || emit_unreadable "survey_unparseable"
+# The hand-back, best-effort and after the parse so a caller never receives half a survey.
+[ -z "$EMIT_SURVEY" ] || printf '%s' "$OUT" > "$EMIT_SURVEY" 2>/dev/null || true
 if [ "$(printf '%s' "$OUT" | jq -r '.ok // false')" != "true" ]; then
   emit_unreadable "$(printf '%s' "$OUT" | jq -r '.reason // "survey_refused"')"
 fi

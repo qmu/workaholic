@@ -177,11 +177,21 @@ WROOT="${ROOT%/}/.workaholic"
 # `attributed-work.sh` or `unattributed-work.sh` either: two readings of one fact drift, which
 # is the rule the residue already established here. It costs no extra read — the composer
 # carries all three facts off the row the survey already produced.
+#
+# `--emit-survey` HANDS BACK THE SURVEY THE READER ALREADY MADE (2026-09-08, mission
+# `turn-quiescent-blockers-into-mature-decisions-and-resume-work`). The maturity verdict below is
+# read off a `survey-strategies.sh` row, and running that survey a second time here would pay its
+# one network read twice and put a second reading of one fact beside the first — the drift this
+# step already refuses for the residue and the leaving. So the lifecycle reader hands its own
+# survey over and the verdict is judged against exactly the rows the states came from.
+SURVEY_SNAPSHOT=$(mktemp 2>/dev/null || printf '')
 if [ -n "$OPEN" ]; then
-    out=$(sh "$reader" --with-leaving --open-proposals "$OPEN" "14 days ago" "$WROOT" 2>/dev/null || true)
+    out=$(sh "$reader" --with-leaving ${SURVEY_SNAPSHOT:+--emit-survey "$SURVEY_SNAPSHOT"} --open-proposals "$OPEN" "14 days ago" "$WROOT" 2>/dev/null || true)
 else
-    out=$(sh "$reader" --with-leaving "14 days ago" "$WROOT" 2>/dev/null || true)
+    out=$(sh "$reader" --with-leaving ${SURVEY_SNAPSHOT:+--emit-survey "$SURVEY_SNAPSHOT"} "14 days ago" "$WROOT" 2>/dev/null || true)
 fi
+cleanup_snapshot() { [ -z "$SURVEY_SNAPSHOT" ] || rm -f "$SURVEY_SNAPSHOT" 2>/dev/null || true; }
+trap cleanup_snapshot EXIT INT TERM
 [ -n "$out" ] || emit degraded reader_unreadable "direction-state.sh produced no output"
 
 readable=$(printf '%s' "$out" | jq -r '.readable // false' 2>/dev/null || echo false)
@@ -507,6 +517,80 @@ if [ "$repository" = "none" ]; then
     n_subjects=1
 fi
 
+# ═══ ONLY A MATURE QUESTION MAY BECOME A GATE ══════════════════════════════════════════
+# (2026-09-08, mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`, from the
+# operator's own instruction: *a question that is premature, cannot yet be answered, does not
+# need an answer now, or is meaningless until its premises are examined must not become a gate
+# merely because it exists*.) Every reading above became a question the moment it fired, whatever
+# state the direction was actually in — so a direction the operator had already declared 観察中
+# was asked, hourly, to file its next move.
+#
+# THE RULE IS CITED, NEVER RESTATED: `plugins/workaholic/rules/workaholic.md`, *When a Human
+# Decision May Block the Loop*, and `decision-maturity.sh` is its one derivation. This step reads
+# the verdict and decides one thing with it — whether to ask — which is the whole licence a
+# reading carries here.
+#
+# IT APPLIES TO THE HUMAN-DECISION READINGS AND TO NO OTHERS. `arrived`, `cutover`, `dormant` and
+# `settled` are ATTRIBUTION readings: they say what has landed and what is answering, which is
+# exactly the class whose premises can be missing. `overdue` and `expiring` are DATE facts — a
+# date has passed or is coming, and no premise makes that less true — and `last_live` and
+# `none` are facts about the REPOSITORY rather than about a direction's progress. Gating those on
+# a maturity premise would suppress the escalations the loop exists to make.
+#
+# A DEGRADED VERDICT ASKS ANYWAY, and that is this step's own standing rule applied again: a
+# leaving we could not compose renders nothing and suppresses nothing, because our own blindness
+# must never silence a person's question. `readable: false` is counted and named, never treated
+# as *not mature*.
+#
+# A WITHHELD QUESTION IS RE-DERIVED EVERY TICK, so it needs no store, no cursor and no flag: the
+# hour its missing premise is met it is asked, through the same key, the same ledger and the same
+# assignee. Nothing is written here and no ledger line is made for a question that was not asked —
+# the asked-once gate must not be spent on a question nobody heard.
+#
+# IT IS PLACED AFTER `direction-last`, deliberately. Filtering earlier would let a withheld
+# subject free the direction to draw `direction-last:<slug>` instead, which is a second question
+# about the direction whose question we just decided not to ask.
+MATURITY="${SCRIPT_DIR}/decision-maturity.sh"
+withheld='[]'
+n_maturity_unreadable=0
+if [ -f "$MATURITY" ] && [ -n "$SURVEY_SNAPSHOT" ] && [ -s "$SURVEY_SNAPSHOT" ] && [ "$n_subjects" -gt 0 ]; then
+    TAB=$(printf '\t')
+    candidates=$(printf '%s' "$subjects" | jq -r '
+        .[] | select(.slug != "")
+            | select(.reading == "arrived" or .reading == "cutover"
+                     or .reading == "dormant" or .reading == "settled")
+            | [.slug, .reading] | @tsv' 2>/dev/null || printf '')
+    while IFS="$TAB" read -r m_slug m_reading; do
+        [ -n "${m_slug:-}" ] || continue
+        m=$(sh "$MATURITY" --strategy "$m_slug" --root "$ROOT" --survey "$SURVEY_SNAPSHOT" 2>/dev/null || printf '')
+        if [ -z "$m" ]; then n_maturity_unreadable=$((n_maturity_unreadable + 1)); continue; fi
+        if [ "$(printf '%s' "$m" | jq -r '.readable // "absent"' 2>/dev/null || printf absent)" = "false" ]; then
+            n_maturity_unreadable=$((n_maturity_unreadable + 1)); continue
+        fi
+        m_verdict=$(printf '%s' "$m" | jq -r '.verdict // ""' 2>/dev/null || printf '')
+        [ "$m_verdict" != "ask_now" ] || continue
+        [ -n "$m_verdict" ] || { n_maturity_unreadable=$((n_maturity_unreadable + 1)); continue; }
+        merged=$(printf '%s' "$withheld" | jq -c --argjson v "$m" --arg reading "$m_reading" \
+            '. + [{slug: $v.slug, reading: $reading, verdict: $v.verdict,
+                   verdict_reason: $v.verdict_reason, missing: $v.missing}]' 2>/dev/null || printf '')
+        [ -z "$merged" ] || withheld="$merged"
+    done <<CANDIDATES
+$candidates
+CANDIDATES
+    if [ "$(printf '%s' "$withheld" | jq 'length' 2>/dev/null || printf 0)" != "0" ]; then
+        filtered=$(printf '%s' "$subjects" | jq -c --argjson w "$withheld" \
+            '[ .[] | select((.slug as $s | $w | map(.slug) | index($s)) == null) ]' 2>/dev/null || printf '')
+        [ -z "$filtered" ] || subjects="$filtered"
+        n_subjects=$(printf '%s' "$subjects" | jq 'length' 2>/dev/null || echo 0)
+    fi
+fi
+n_withheld=$(printf '%s' "$withheld" | jq 'length' 2>/dev/null || echo 0)
+# THE LOG-FACING LINE NAMES EACH ONE. A question withheld and never said is indistinguishable
+# from one nobody thought to ask, which is the collapse this whole reading exists to end — so the
+# slug, the verdict and the premise it lacks ride the summary a maintainer reads.
+withheld_phrase=$(printf '%s' "$withheld" | jq -r \
+    '[ .[] | .slug + " (" + .verdict + ": " + .verdict_reason + ")" ] | join(", ")' 2>/dev/null || printf '')
+
 # A LEAVING WE COULD NOT COMPOSE IS NAMED IN THE LOG, and nowhere else. It asks nothing extra
 # and silences nothing: the question stands, without its evidence, and the count says so to
 # whoever diagnoses the tick. Our own degradation never becomes a person's question — the rule
@@ -515,7 +599,7 @@ n_leaving_degraded=$(printf '%s' "$subjects" | jq '[.[] | select(has("leaving"))
 
 n_last_live=$(printf '%s' "$subjects" | jq '[.[] | select(.reading == "last_live")] | length' 2>/dev/null || echo 0)
 
-summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_expiring} expiring, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_last_live} last-live; ${n_subjects} to ask; ${n_leaving_degraded} leaving unreadable"
+summary="${n_live} live, ${n_arrived} arrived, ${n_overdue} overdue, ${n_expiring} expiring, ${n_dormant} dormant, ${n_unreadable} unreadable; repository ${repository}; ${n_last_live} last-live; ${n_subjects} to ask; ${n_withheld} withheld as premature${withheld_phrase:+ (${withheld_phrase})}; ${n_maturity_unreadable} maturity unreadable; ${n_leaving_degraded} leaving unreadable"
 
 if [ "$n_subjects" -eq 0 ]; then
     emit ok "" "$summary"
@@ -571,10 +655,20 @@ needs=$(printf '%s' "$subjects" | jq -c --argjson groups "$groups" '{action: "as
 # in* is a repository event in the fullest sense — something finished — and reading it after a
 # lateness clause about a different direction is how a success gets read as a failure, which is
 # the defect this reading exists to remove.
+#
+# THE TWO GATED READINGS ARE COUNTED FROM WHAT IS ACTUALLY ASKED (2026-09-08, the maturity
+# block above). `n_arrived` and `n_dormant` are the READER's counts and stay in the log-facing
+# summary, where the repository's own facts belong; the ROOT names what happened and links the
+# subjects it names, so counting a withheld direction there would announce an event beside a
+# link list that does not contain it. `overdue` and `expiring` are never withheld and keep the
+# reader's counts unchanged.
+n_arrived_asked=$(printf '%s' "$subjects" | jq '[.[] | select(.reading == "arrived" or .reading == "cutover")] | length' 2>/dev/null || echo 0)
+n_dormant_asked=$(printf '%s' "$subjects" | jq '[.[] | select(.reading == "dormant" or .reading == "settled")] | length' 2>/dev/null || echo 0)
+
 phrase=""
-if [ "$n_arrived" -gt 0 ]; then
-    if [ "$n_arrived" -eq 1 ]; then phrase="a direction has its work in"
-    else phrase="${n_arrived} directions have their work in"; fi
+if [ "$n_arrived_asked" -gt 0 ]; then
+    if [ "$n_arrived_asked" -eq 1 ]; then phrase="a direction has its work in"
+    else phrase="${n_arrived_asked} directions have their work in"; fi
 fi
 if [ "$n_overdue" -gt 0 ]; then
     if [ "$n_overdue" -eq 1 ]; then ophrase="a direction has run past its date"
@@ -589,9 +683,9 @@ if [ "$n_expiring" -gt 0 ]; then
     else ephrase="${n_expiring} directions are about to reach their dates"; fi
     phrase="${phrase:+${phrase}; }${ephrase}"
 fi
-if [ "$n_dormant" -gt 0 ]; then
-    if [ "$n_dormant" -eq 1 ]; then dphrase="a direction has nothing answering it"
-    else dphrase="${n_dormant} directions have nothing answering them"; fi
+if [ "$n_dormant_asked" -gt 0 ]; then
+    if [ "$n_dormant_asked" -eq 1 ]; then dphrase="a direction has nothing answering it"
+    else dphrase="${n_dormant_asked} directions have nothing answering them"; fi
     phrase="${phrase:+${phrase}; }${dphrase}"
 fi
 # THE LAST LIVE DIRECTION IS A REPOSITORY EVENT in the fullest sense — the loop is one close

@@ -2,7 +2,7 @@
 type: Mission
 title: Reduce loop cost and adapt observation cadence
 slug: reduce-loop-cost-and-adapt-observation-cadence
-status: active
+status: achieved
 merge_policy: review
 created_at: 2026-09-08T09:55:05+09:00
 author: a@qmu.jp
@@ -35,9 +35,11 @@ often and becomes responsive again as soon as activity is observed.
 ## Acceptance
 
 - [x] The selected first-tick instructions and canonical implementation are smaller than the current main baseline without losing the loop's observable contracts. (#20260908095512-reduce-first-tick-context-and-canonical-volume.md)
-- [ ] Claude Code and Codex share an activity-sensitive observation plan for Slack and assigned feedback issues that shortens after activity and backs off gradually during silence within declared bounds. (#20260908095513-adapt-slack-observation-cadence.md)
+- [x] Claude Code and Codex share an activity-sensitive observation plan for Slack and assigned feedback issues that shortens after activity and backs off gradually during silence within declared bounds. (#20260908095513-adapt-slack-observation-cadence.md)
 
 ## Changelog
 
 - 2026-09-08 — mission created from issue #1084 and the developer's dynamic-observation instruction
 - 2026-09-08 — ticket archived — 20260908095512-reduce-first-tick-context-and-canonical-volume.md
+- 2026-09-08 — ticket archived — 20260908095513-adapt-slack-observation-cadence.md
+- 2026-09-08 — mission achieved — mission.md

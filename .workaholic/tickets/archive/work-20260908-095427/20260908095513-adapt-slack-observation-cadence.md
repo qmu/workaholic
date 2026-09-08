@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T09:55:13+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 mission: reduce-loop-cost-and-adapt-observation-cadence

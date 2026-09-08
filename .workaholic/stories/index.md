@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260908-175301](work-20260908-175301.md) - Make the repository's declared Slack binding the startup authority, verify the QFS route it names, discover replies buried in existing threads, and permit a fallback only on a typed failure.
 * [work-20260908-192225](work-20260908-192225.md) - Clear residue the base provably already holds so a tick reaches its survey, and make a coordinator-level stop reach the channel instead of nobody.
 * [Make agentic-loop validation finite and truthful](work-20260908-150309.md) - Agentic-loop validation now models distinct activity and fails within explicit process and CI bounds.
 * [Make Slack acknowledgements useful without adding noise](work-20260908-140833.md) - Slack receipts now group related asks while preserving truthful facts and per-message state.

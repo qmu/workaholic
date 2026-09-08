@@ -14,17 +14,42 @@ tool because shell reads from an installed plugin may require unattended permiss
 Read `git status --porcelain` once. Report a dirty checkout and its file count because this
 tick is already executing that unreviewed plugin behavior. Do not block, modify, or commit it.
 
+Read the repository's declared Slack binding **before** any Slack selection, read, or write:
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/transport/scripts/read-declared-binding.sh --root .`.
+A declaration is the destination; the environment variables below are the fallback for a
+repository that declares nothing (`declared: false`, an ordinary answer). Report
+`binding_contradictory`, `binding_incomplete`, or `binding_unreadable:<source>` and select no
+route on any of them — a contradictory declaration is two destinations, and guessing between
+them is the failure the declaration exists to prevent.
+
 Observe both inbound sources before dispatch:
 
-1. Read `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default: repository name) through the Slack
-   connector. Capture each message durably before advancing the cursor.
+1. Read the declared channel — or `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default: repository
+   name) when nothing is declared — through the Slack connector. Capture each message
+   durably before advancing the cursor.
 2. Run
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/list-inbound-issues.sh`.
    These are assigned, open GitHub feedback issues not already captured on main or an open
    branch. An unreadable result is reported and is never treated as an empty inbox.
 
-New human Slack activity or a new assigned feedback issue resets adaptive observation to the
-short interval. A successful quiet observation advances the idle backoff. If either configured
+**A new reply inside an existing thread is inbound activity, and it is discovered rather than
+assumed.** Slack channel history does not carry a reply under an older root, so a reply whose
+thread the loop has not touched today is invisible to the channel delta by construction.
+`observe-channel.sh` asks which **threads** changed inside the same bounded overlap window,
+reads each changed thread whole, and only then routes each reply: `moderation_answer` (under
+the loop's own `🙋`), `answer_to_loop` (under another of its shapes), `reaction_only`, or
+**`needs_judgement`** — a reply under a human root, which this tick reads in its thread context
+and treats as a question or an ask exactly as it would a top-level message. Never classify a
+reply from its own text alone; what a reply is depends on what it is a reply to.
+
+**Say `covered` only when the discovery operation ran.** `coverage.threads.status` is `covered`
+when replies whose coordinates were *not already known* could have been found, and `partial`
+with its reason otherwise (`operation_unavailable`, a refused read, a truncated fan-out). Report
+the reason; a channel delta that happens to carry a broadcast reply is not thread coverage, and
+reporting it as coverage is how a missed reply looks exactly like a quiet hour.
+
+New human Slack activity — top-level **or** a discovered thread reply — or a new assigned
+feedback issue resets adaptive observation to the short interval. A successful quiet observation advances the idle backoff. If either configured
 source is unreadable, preserve the quiet streak and use provider retry. A new feedback issue
 makes propose-then-specificate due on this tick.
 
@@ -160,7 +185,13 @@ reading. It may be one tick old. Null or unreadable counts stay named and never 
 Return one short Japanese block:
 
 - dirty checkout, only when dirty;
-- each Slack action or named degradation;
+- the declared binding this tick resolved, and any `binding_contradictory`,
+  `binding_incomplete` or `binding_unreadable:<source>` reading;
+- thread coverage: `covered`, or `partial` with its reason;
+- each Slack action or named degradation, naming the `route` it took and — when it left the
+  declared one — `degraded_from` and the typed `degradation_reason`. A connector or token
+  success is a **degraded** success: it proves delivery and never that the preferred route is
+  configured or that the declared sender spoke;
 - each assigned feedback issue observation or unreadable issue source;
 - each ask announcement result;
 - roles spawned or reaped; use `loops: none due` when all were quiet;

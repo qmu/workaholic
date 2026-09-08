@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T14:24:54+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,36 @@ scaffold or audit it without assuming that every agent reads `CLAUDE.md`.
 ## Considerations
 
 Repository instructions remain authoritative; setup may append a missing section but must not rewrite an operator's existing document.
+
+## Final Report
+
+Development completed as planned.
+
+The binding is a fenced `workaholic-slack-binding` block inside the repository's own
+instruction file, read by one script (`transport/scripts/read-declared-binding.sh`) with a
+stated precedence: root `CLAUDE.md`, root `AGENTS.md`, each `--scope` directory, then
+`WORKAHOLIC_SLACK_BINDING_FILE`. A deeper scope overrides; two sources at one depth
+disagreeing settle no value and are reported as a conflict. `/workaholify` audits it
+(`check-slack-binding.sh`, advisory) and can scaffold it (`apply-slack-binding.sh`, append-only,
+refusing `already_declared` with nothing written). `/infinite-development` reads it before any
+Slack selection. This repository declares its own binding in a new root `AGENTS.md`.
+
+### Discovered Insights
+
+- **Insight**: A fenced block inside the instruction file is the only Slack-binding surface every
+  agent already loads. A new `.workaholic/` area would have needed registration in two lockstep
+  allowlists, and an environment variable is invisible to the portable agents this repository
+  ships skills to — which is exactly how the destination became unreadable to them.
+  **Context**: The same argument applies to any future cross-agent configuration: the surface
+  must be one the consuming agent reads without being told to.
+- **Insight**: `declared: false` had to remain an ordinary answer rather than a refusal. Every
+  consuming repository today configures the channel through `WORKAHOLIC_INBOUND_SLACK_CHANNEL`
+  only, so a reader that treated absence as an error would have broken all of them on the first
+  tick after this landed.
+  **Context**: The declaration is an authority layered above the environment, never a
+  replacement for it; the environment stays the fallback and is not deprecated here.
+- **Insight**: A key declared twice with two values must settle *no* value. Picking a winner by
+  file order would make the loop post to a destination the operator never chose while reporting
+  success, which is the exact failure the declaration exists to prevent.
+  **Context**: `conflicts[]` names the key, both values and both sources, so the audit sends the
+  operator to the two lines that disagree rather than to the whole file.

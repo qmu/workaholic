@@ -14,10 +14,19 @@ tool because shell reads from an installed plugin may require unattended permiss
 Read `git status --porcelain` once. Report a dirty checkout and its file count because this
 tick is already executing that unreviewed plugin behavior. Do not block, modify, or commit it.
 
+Read the repository's declared Slack binding **before** any Slack selection, read, or write:
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/transport/scripts/read-declared-binding.sh --root .`.
+A declaration is the destination; the environment variables below are the fallback for a
+repository that declares nothing (`declared: false`, an ordinary answer). Report
+`binding_contradictory`, `binding_incomplete`, or `binding_unreadable:<source>` and select no
+route on any of them — a contradictory declaration is two destinations, and guessing between
+them is the failure the declaration exists to prevent.
+
 Observe both inbound sources before dispatch:
 
-1. Read `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default: repository name) through the Slack
-   connector. Capture each message durably before advancing the cursor.
+1. Read the declared channel — or `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default: repository
+   name) when nothing is declared — through the Slack connector. Capture each message
+   durably before advancing the cursor.
 2. Run
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/list-inbound-issues.sh`.
    These are assigned, open GitHub feedback issues not already captured on main or an open

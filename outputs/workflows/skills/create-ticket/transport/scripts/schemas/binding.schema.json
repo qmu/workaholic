@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workaholic.slack-binding/v1",
+  "description": "One repository-declared Slack binding. Written as a fenced `workaholic-slack-binding` block inside the repository's own instruction file (AGENTS.md, CLAUDE.md, or a nested one), read only through transport/scripts/read-declared-binding.sh.",
+  "type": "object",
+  "required": ["workspace", "channel"],
+  "additionalProperties": false,
+  "properties": {
+    "workspace": { "type": "string", "minLength": 1, "description": "Slack workspace or team name. Required: a channel name alone is never enough." },
+    "channel": { "type": "string", "minLength": 1, "description": "Channel name without the leading #." },
+    "channel_id": { "type": "string", "description": "Slack channel ID (C…). The stable coordinate; a name can be renamed." },
+    "mount": { "type": "string", "description": "Preferred QFS mount, e.g. /slack/qmu. Absent means: describe every connection." },
+    "account": { "type": "string", "description": "QFS account or profile label. An operator-facing label, never proof of who speaks." },
+    "sender_id": { "type": "string", "description": "Slack user/bot ID expected to speak (U…/B…). The only verified sender fact." },
+    "operations": {
+      "type": "array",
+      "description": "Operations this binding must be able to perform. A route offering fewer is not this binding.",
+      "items": { "enum": ["discover", "read_channel_delta", "read_thread", "list_thread_changes", "search_exact", "post_root", "post_reply", "add_reaction", "reconcile_send"] }
+    },
+    "fallback": {
+      "type": "array",
+      "description": "Ordered transports permitted after a TYPED preferred-route failure. An empty list forbids every fallback.",
+      "items": { "enum": ["connector", "slack_token"] }
+    }
+  }
+}

@@ -15,6 +15,21 @@ operation that can cause an effect. A binding identifies mount, account,
 workspace, channel, sender, and observed operations; a channel name alone is
 never enough when more than one workspace matches.
 
+## The declared binding
+
+The repository names its own destination once, in the instruction file every agent
+already loads — a fenced `workaholic-slack-binding` block (`scripts/schemas/binding.schema.json`).
+`scripts/read-declared-binding.sh` is its **one reader**: it takes `CLAUDE.md` and `AGENTS.md`
+at the root, then the same two under each `--scope`, then `WORKAHOLIC_SLACK_BINDING_FILE`;
+a deeper scope **overrides** a shallower one, and two sources at one depth disagreeing is a
+**conflict** that settles no value and is reported. `declared: false` is an ordinary answer —
+such a repository runs on its environment variables exactly as before.
+
+Read the declaration **before** selecting a route: it is the target discovery is judged
+against, never a hint added afterwards. `declared_digest` is the operator's declaration
+hashed, carried onto the resolved binding as `declared_digest` so an effect planned against a
+superseded declaration is refused rather than delivered somewhere the operator no longer means.
+
 For each operation, prefer a QFS route only when its map was actually described.
 Use a parent connector reaching the same binding when QFS cannot perform that
 operation. Keep the configured Slack token route as compatibility fallback and

@@ -35,10 +35,11 @@ private thread, and names the exact degradation before using the same destinatio
 
 ## Acceptance
 
-- [ ] Repository instructions carry one portable Slack binding that `/workaholify` can scaffold and audit. (#20260908142454-declare-and-audit-the-repository-slack-binding.md)
+- [x] Repository instructions carry one portable Slack binding that `/workaholify` can scaffold and audit. (#20260908142454-declare-and-audit-the-repository-slack-binding.md)
 - [ ] Startup resolves one verified QFS account, destination and sender, and discovers new thread replies with bounded overlap before classification. (#20260908142454-discover-and-classify-new-replies-before-claiming-thread-coverage.md)
 - [ ] Every fallback and revalidation preserves the bound channel/thread and reports the typed QFS or identity failure that caused it. (#20260908142454-preserve-typed-fallback-and-revalidate-slack-effects.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908142454-declare-and-audit-the-repository-slack-binding.md

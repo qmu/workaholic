@@ -79,6 +79,17 @@ Use `runtime/scripts/plan-poll.sh` for the pure cadence transition. Persist its
 advancing past uncaptured input. Sleep until the earliest work, observation, or retry
 deadline. Native waits remain interruptible and at most 60 seconds.
 
+**An answer recorded in a `/moderate` question's own thread needs no dispatch of its own**
+(2026-09-08, mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`). It is
+recorded by `moderate/scripts/record-answer.sh` inside the tick that read the thread, and the
+direction it unblocks is re-judged on the **next ordinary `[Propose]` turn**, which reads it
+through `moderate/scripts/decision-maturity.sh` before it may report `no_evolutionary_move`. So
+there is no reopen signal to route, no new due-role, no cursor to advance and no state to clear:
+the answer is derived state, and the cadence that already exists is what picks it up. An answer
+that also **asks for something** is a different fact and takes the path it always took — one
+`[FB]` issue through `propose/scripts/file-inbound-ask.sh`, which makes propose-then-specificate
+due immediately by the rule above.
+
 ## Children and reports
 
 Keep one child per role. Refuse a duplicate while that role is running. A completed child is

@@ -10,7 +10,7 @@ assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260908123552-slack-bot.md]
+feedback: [20260908123552-slack-bot.md, 20260908123559-discover-new-human-replies-inside-existing-slack-threads.md]
 tickets: []
 stories: []
 gate_type:

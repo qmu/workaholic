@@ -13,10 +13,11 @@ metadata:
 
 Standing rules, none optional:
 
-- **A ship is a completed mission boundary.** Before drafting a plan or allocating a version,
-  `story/scripts/release-boundary.sh` must report `eligible: true`. Any other result stops ship
-  as `not_release_boundary:<reason>`; proposal and loose-ticket PRs use drive's ordinary merge
-  path and do not create release notes, tags, deliveries, or outward release completion.
+- **A release names a change set, not a completed mission.** Before drafting a plan or allocating
+  a version, `story/scripts/release-boundary.sh` checks that the committed range is readable and
+  nonempty. Partial missions, loose tickets and multiple missions are permitted. Keep remaining
+  work open; readiness is established by branch checks, safety and the target's confirmation,
+  never by closing planning records. Publishing a version does not imply production activation.
 - **A deployment is instructed, never inferred.** No invocation of `/ship` deploys on its own, and no unattended caller can reach the deploy step at all (§0). Merging is not an instruction to deploy; neither is `merge_policy: auto`.
 - **Catching up with `main` is mandatory**, and reconciling with `main` is standard ship behavior — never an optional "your call". A branch behind `main` either reverts merged work or silently no-ops the release (a deploy-on-merge release is idempotent, so a colliding version ships nothing). A `mechanical` conflict — the version/lockstep manifests or regenerated `outputs/` — is reconciled as routine; only a genuinely ambiguous `content` conflict halts for a human.
 - **Version-collision guard**: confirm the branch's target version is greater than `main`'s and not an already-published tag; re-bump past a collision as part of reconciliation.

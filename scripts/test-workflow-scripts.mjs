@@ -24506,8 +24506,8 @@ function testVersionAheadOfTheBase() {
   } finally { cleanup(dir); }
 }
 
-// ---------- a release is exactly one completed mission boundary (2026-09-08) ----------
-T("story/release-boundary.sh: four mission tickets make one release, never four", testMissionReleaseBoundary);
+// ---------- a release names a change set, independent of mission completion ----------
+T("story/release-boundary.sh: partial missions and loose changes may release", testMissionReleaseBoundary);
 function testMissionReleaseBoundary() {
   const BOUNDARY = join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/release-boundary.sh");
   const dir = makeRepo();
@@ -24536,24 +24536,23 @@ function testMissionReleaseBoundary() {
     execSync('git add -A && git commit -q -m "finish one mission"', { cwd: dir });
 
     let r = JSON.parse(run(dir, `${POSIX_SH} ${BOUNDARY} base`).stdout);
-    assertEq("the whole four-ticket mission is one eligible boundary",
-      [r.eligible, r.reason, r.mission, r.tickets],
-      [true, "completed_mission", slug, 4]);
+    assertEq("the committed change set is eligible",
+      [r.eligible, r.reason], [true, "committed_change_set"]);
 
-    // A record or ticket can land without becoming a release. The same branch facts with a
-    // non-terminal mission refuse versioning rather than relying on a caller's restraint.
+    // Mission completion is planning state, never a release prerequisite.
     writeFileSync(join(missionDir, "mission.md"),
       readFileSync(join(missionDir, "mission.md"), "utf8").replace("status: achieved", "status: active"));
     r = JSON.parse(run(dir, `${POSIX_SH} ${BOUNDARY} base`).stdout);
-    assertEq("an active mission cannot allocate a version", [r.eligible, r.reason],
-      [false, "mission_not_achieved"]);
+    assertEq("an active mission may allocate a version", [r.eligible, r.reason],
+      [true, "committed_change_set"]);
+    assertEq("an empty range does not allocate a version",
+      JSON.parse(run(dir, `${POSIX_SH} ${BOUNDARY} HEAD`).stdout).reason, "no_changes");
+    assertEq("an unreadable base fails closed",
+      JSON.parse(run(dir, `${POSIX_SH} ${BOUNDARY} missing-base`).stdout).reason, "base_unreadable");
 
     const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
     assertTrue("unsettled intake mechanically allocates zero new implement runners",
       /formation_pending: true[\s\S]{0,500}?zero new implement/.test(loop), "formation boundary missing");
-    const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
-    assertTrue("a non-release unit cannot enter ship",
-      /version_not_allocated:[^\n]+[\s\S]{0,300}?must not call `\/ship`/.test(drive), "ship boundary missing");
   } finally { cleanup(dir); }
 }
 
@@ -26018,7 +26017,7 @@ function testStatelessThreadLookup() {
     if (!statSync(p).isFile()) continue;
     const body = readFileSync(p, "utf8");
     if (!/notify-slack\.sh/.test(body)) continue;
-    if (!/fallback/i.test(body)) scriptFirst.push(r);
+    if (!/fallback|transport\/scripts\/perform\.sh/i.test(body)) scriptFirst.push(r);
   }
   assertEq("no plugin markdown names notify-slack.sh as the primary finish-line transport",
     scriptFirst, []);
@@ -26137,18 +26136,18 @@ function testStatelessThreadLookup() {
   // it, or a session emits the shape with the poster's own token and reaches nobody again.
   assertTrue("and the /implement command says the token is the unit's assignee, never the runner",
     /unit's own assignee, never you/u.test(implementTemplate), "the handoff addressee is unstated in the command");
-  assertTrue("and that it rides the bot when a token is configured",
-    /SLACK_BOT_TOKEN/u.test(implementTemplate) && /--thread-ts/u.test(implementTemplate),
+  assertTrue("and its directed shape uses the resolved transport",
+    /transport\/scripts\/perform\.sh/u.test(implementTemplate) && /Preserve the explicitly selected sender/u.test(implementTemplate),
     "the /implement command names no carrier for its directed shape");
 
   // The same two facts for the tick's question, whose shape the [Moderate] template already
   // carried: what was missing there was only the carrier.
   const moderateTemplate = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/moderate.md"), "utf8");
-  assertTrue("the /moderate command says its question reply rides the bot when a token is configured",
-    /SLACK_BOT_TOKEN/u.test(moderateTemplate) && /--thread-ts/u.test(moderateTemplate),
+  assertTrue("the /moderate command preserves the sender through its transport seam",
+    /transport\/scripts\/perform\.sh/u.test(moderateTemplate) && /Preserve the explicitly selected sender/u.test(moderateTemplate),
     "the /moderate command names no carrier for its directed shape");
-  assertTrue("and that the root and the other replies stay on the connector",
-    /always ride the connector/u.test(moderateTemplate), "the /moderate command leaves its undirected shapes' carrier unstated");
+  assertTrue("and the root and other replies use the same seam",
+    /all use this same transport seam/u.test(moderateTemplate), "the /moderate command leaves its undirected shapes' carrier unstated");
 
   // A ROOT THE TICK COULD NOT DELIVER IS FILED, NOT LOST (2026-09-01, issue #806). Measured: a
   // tick rendered `post: true` with 7 change lines and 2 impairment lines, held 18 questions
@@ -26192,14 +26191,6 @@ function testStatelessThreadLookup() {
     "at all, which nothing inside the run can change. A refusal is per call; an absence is per " +
     "session, and reporting the first as the second is what made a run whose every call was " +
     "denied say the post did not exist.";
-  const PAGED_NOBODY_WORDING =
-    "**A directed post carrying no mention token says so in its own line** — " +
-    "`(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token " +
-    "was omitted reached the channel and paged nobody, and an unanswered thread must never be " +
-    "read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's " +
-    "two-transport model is one transport**: every post is made as the operator's own account, " +
-    "so a directed shape whose addressee *is* that account loses its token by *Never mention " +
-    "the identity you are posting as* and provably reaches nobody.";
   const notifySurfaces = [
     ["the notify model", notifySkill],
     ["the shape catalog", catalog],
@@ -26209,8 +26200,9 @@ function testStatelessThreadLookup() {
   for (const [name, body] of notifySurfaces) {
     assertTrue(`${name} carries the refused-call wording byte-identically`,
       body.includes(REFUSAL_WORDING), name);
-    assertTrue(`${name} carries the paged-nobody wording byte-identically`,
-      body.includes(PAGED_NOBODY_WORDING), name);
+    assertTrue(`${name} reports an ineffective mention without inferring the sender from a token`,
+      body.includes('(メンション先未解決: 誰にも通知していません)')
+      && !body.includes("two-transport model is one transport"), name);
   }
   // The word is distinct from the absent-surface word, and BOTH are in the report contract --
   // a vocabulary that names only one of them cannot tell the two apart where it matters.

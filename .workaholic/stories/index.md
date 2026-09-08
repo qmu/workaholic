@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Make agentic-loop validation finite and truthful](work-20260908-150309.md) - Agentic-loop validation now models distinct activity and fails within explicit process and CI bounds.
 * [work-20260908-130859](work-20260908-130859.md) - 関連するフィードバックを一つのミッションにまとめ、完遂時だけ一度リリースする境界を復元しました。
 * [work-20260908-124606](work-20260908-124606.md) - Bound Slack intake to verified identities and made overlapping channel observation durable, incremental, and evidence-bearing in v1.0.337.
 * [work-20260908-095427](work-20260908-095427.md) - Reduced loop startup cost and added activity-sensitive Slack and feedback-issue observation for Claude Code and Codex in v1.0.336.

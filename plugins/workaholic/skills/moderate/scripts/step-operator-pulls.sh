@@ -223,6 +223,9 @@ for number in $(printf '%s' "$candidates" | jq -r '.[].number'); do
         --argjson held "$held_json" --argjson hr "$held_readable" '
         .[] | select(.number == $num)
         | {number, url, title, refusal_word,
+           mergeability:(.mergeability // "unanswerable"),
+           mergeability_reason:(.mergeability_reason // "unreadable"),
+           mergeability_content_files:(.mergeability_content_files // []),
            addressees: (if $who == "" then [] else ($who | split(" ")) end),
            open_hours: $age,
            unblocks: (if $hr then

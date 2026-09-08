@@ -363,24 +363,25 @@ if [ "${WORKAHOLIC_AUTO_MERGE:-}" = "1" ]; then
   # The adapter: one line per changed file, `<status><TAB><path><TAB><feedback_line_moved>`.
   # The per-file `git diff` is asked only of the paths whose shape could possibly matter, which
   # is what the old inline test did too.
-  refusal_stream=$( cd "$publish_path" && \
+  shape_rows=$(mktemp)
+  shape_input=$(mktemp)
+  ( cd "$publish_path" && \
     printf '%s\n' "$changed_status" \
     | while IFS="$(printf '\t')" read -r st path rest; do
         [ -n "${path:-}" ] || continue
-        moved=0
-        case "$st:$path" in
-          M:.workaholic/missions/*)
-            if git diff "origin/${base}" HEAD -- "$path" 2>/dev/null | grep -q '^[+-]feedback:'; then
-              moved=1
-            fi
-            ;;
-        esac
-        printf '%s\t%s\t%s\n' "$st" "$path" "$moved"
+        patch=$(git diff "origin/${base}" HEAD -- "$path")
+        status=modified
+        case "$st" in A) status=added;; D) status=removed;; R*) status=renamed;; esac
+        jq -cn --arg status "$status" --arg filename "$path" --arg patch "$patch" \
+          '{status:$status,filename:$filename,patch:($patch|split("\n")|map(select((startswith("+++") or startswith("---"))|not))|join("\n"))}'
         # A rename/copy carries two paths and the old `--name-only` read saw both, so both are
         # emitted. The destination is what an `R`/`C` status means, and dropping it would let a
         # strategy file renamed into place slip past a test the old code passed.
-        [ -z "${rest:-}" ] || printf '%s\t%s\t0\n' "$st" "$rest"
-      done )
+        [ -z "${rest:-}" ] || jq -cn --arg filename "$rest" '{status:"renamed",filename:$filename,patch:""}'
+      done ) > "$shape_rows"
+  jq -s . "$shape_rows" > "$shape_input"
+  refusal_stream=$(sh "$SCRIPT_DIR/publication-shape.sh" --input "$shape_input")
+  rm -f "$shape_input" "$shape_rows"
 
   refusal_word=$(printf '%s\n' "$refusal_stream" | publication_refusal_word)
 

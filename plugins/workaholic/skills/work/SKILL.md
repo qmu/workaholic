@@ -12,6 +12,7 @@ Run one coordinator with two independent clocks:
   silence gradually lengthens it.
 
 The coordinator owns communication and never performs or waits for the dispatched work.
+The live conversation is the highest-priority input: a request to wait suspends dispatch.
 
 ## Start
 
@@ -22,9 +23,17 @@ Use the strongest mechanism this session actually has:
 2. Otherwise, if a same-chat scheduler is callable, schedule this tick in the local project.
 3. Otherwise run `scripts/codex-loop.sh`; use `--once` for cron or systemd.
 
-On Codex, prefer a Scheduled task attached to the current chat. Do not start `scripts/codex-loop.sh`
+If Codex cannot sustain the native parent in step 1, prefer a Scheduled task attached to the current chat. Do not start `scripts/codex-loop.sh`
 from that task because it would create a second clock. Codex CLI uses
 `scripts/codex-loop.sh` as its fallback.
+
+For native parents and same-chat schedulers, read `runtime/reference/native-loop.md` and call
+`runtime/scripts/coordinator.sh --instance <session-id> --input <event.json>` with a `start`
+event before creating the clock. On Claude Code this must be the actual native session ID;
+every child prompt includes `workaholic-receipt:<id>` for the launch guard. Reuse the instance ID after compaction. The same entrypoint
+handles `hold`, `resume`, `stop`, reservations and terminal results. Persist hold before saying
+you will wait. Timer events cannot resume. On stop cancel the schedule and stop named children.
+Record each confirmed native cancellation with `cancelled`; it is not a role completion.
 
 State the selected clock, where reports appear, and any missing continuation mechanism. An
 explicit interval selects fixed observation. Without one, use adaptive observation:
@@ -58,7 +67,7 @@ without command dispatch, translate command names as follows:
 
 Observe both inputs before deciding the next observation:
 
-- Slack through the configured connector, capturing messages before advancing its cursor;
+- Slack through `transport/scripts/observe-channel.sh`, capturing messages before advancing its cursor;
 - `specificate/scripts/list-inbound-issues.sh`, which returns open feedback issues assigned
   to this identity and excludes already captured or self-originated issues.
 
@@ -92,8 +101,13 @@ due immediately by the rule above.
 
 ## Children and reports
 
-Keep one child per role. Refuse a duplicate while that role is running. A completed child is
-reported once and released; after compaction, rediscover children before dispatching.
+Reserve a receipt through `coordinator.sh` before launching, then record `child_id` with `started`.
+Keep one child for propose/moderate and at most the configured implement fanout. Record each
+terminal result with `finish`, emit commentary once, then mark `reported`. After compaction,
+rediscover children. Idle without a readable result is `unknown`, never completed. Native
+cadence is derived from receipts, not remembered timestamps.
+For native children, also apply the tick's total `WORKAHOLIC_MAX_WORKERS` limit (default 2)
+across roles and reserve each launched slot immediately. Capacity-held roles remain due.
 
 Every worker returns the supplied result schema:
 

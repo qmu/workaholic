@@ -9,11 +9,46 @@ skills:
 
 # Implement
 
+All Slack effects use `workaholic:transport`: resolve the declared target, persist the effect
+through `perform.sh`, and accept a connector result only through `accept-observation.sh` for
+the exact `needs_parent` request. Keep the selected sender across errors. Provider-specific
+lookup names below describe capabilities, not permission to bypass the transport seam.
+
+Before a completion summary, reconcile every source feedback item with its actual review route
+or package, verification evidence, remaining tickets, implementation PR and deployment outcome.
+Validate those facts with `work/scripts/feedback-outcome.sh`. A similar sibling UI, passing
+tests on another package, or a merged proposal does not satisfy the named review surface.
+If persisted constraints tighten, test an upgrade with representative legacy rows as well as
+fresh schema creation. A failed deployed migration remains a failed deployment, even when the
+PR merged and local tests passed. Preserve the evidence in the unit report.
+
 <!-- workaholic:policy-lens — keep: hooks/policy-lens.sh matches this marker. -->
 
 Run the preloaded `workaholic:drive` skill's **Unified Run** section end to end. This is the **unattended** entry point — the one the `[Implement]` routine and every caller-side loop invoke: **no `AskUserQuestion` anywhere, at any step**; a decision the run cannot make is deferred and recorded in the final report, never asked. It **never overrides a gate** (a `secret` hard-stops; a `size`/`leak` block or a missing confirmation method demotes to the PR path, reported with the gate that caused it) and never calls `land-unit.sh`. `$ARGUMENTS`, when present, names one unit (a mission slug or a ticket path) — a scope, not a mode. End with the reconciliation line and the terminal token derived from the skill's §7 table — the `/goal /implement ok` caller contract, never self-graded.
 
 ## One PR-unit, then end
+
+When a coordinator supplies an explicit partition in the native receipt's `target`, that exact
+ticket set is the run's scope. Revalidate availability through the ordinary survey/claim arbiter,
+then claim that group only. Do not regroup the whole loose backlog or take another group's work.
+
+Before **each ticket**, including the first ticket after resume, run
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/heartbeat.sh <unit-id>` from the claim's worktree
+and read its result before reading or editing that ticket. Report a failed or unreadable beat;
+do not treat it as success. The archive-time beat is too late to replace this step. A refused
+beat during a merge does not authorize a commit or takeover; finish the existing recovery path.
+
+For agent-composed delivery, read each gate result in a separate tool call before constructing
+the merge, push or deletion. A zero process exit is not a passing JSON gate. Never concatenate
+an unconditional write after `branch-checks.sh` or `gate-decision.sh`. The existing delivery
+scripts may compose them because they branch on the result and bind the merge to its head.
+After a catch-up, the old head's passing result is stale and checks must be read again.
+
+Also read `branching/scripts/list-operator-facing-pulls.sh`. For the running identity's
+unreviewed, non-claim publication with a readable conflict, call
+`branching/scripts/catch-up-operator-publication.sh <PR> <base>`. This uses the shared catch-up,
+regeneration and validation path but cannot merge or close the PR. Report the catch-up result
+separately from the still-pending operator decision. Reviewed branches remain untouched.
 
 **An `/implement` run claims ONE PR-unit, drives it to its routed end, reports, and ends** (2026-09-03,
 mission `stop-a-finished-subagent-and-take-the-loop-s-clock-off-it`). It does not survey again for a
@@ -83,7 +118,7 @@ Finding the thread is **stateless** (Q1, 2026-08-07 — nothing carries a target
 1. The session's own trigger message — reply there; that message is the item's thread. Not a search, and not reducible to one: a hand-off knows its target at write time, and a message written before the record existed can never carry the key.
 2. Search `` <stem>.md `` — the record's own filename, which a thread root carries inside the URL it links, derived from the repository, never from Slack. (It was `` `fb:<stem>` `` on a line of its own until 2026-08-22; the line is gone from every rendered post and the URL answers the same query.) (`drive/scripts/unit-feedback-stems.sh` for `/implement`; the record `/specificate` just wrote for its finish post).
 3. Search the **originating** Issue or pull-request URL — the one the ask arrived on, a string that existed *before this run began*, and **never a URL this run itself created** (the pull request it just opened, the branch it just pushed), because such a string cannot pre-exist the run that made it and the query is guaranteed to return nothing — or its `#<number>` reference when no URL is in hand, a substitute and never an extra query — which finds the originating human thread when somebody pasted the link into Slack.
-4. No exact match → post a **new root** carrying `fb:<stem>` — never a keyless top-level line (two roots with one key is repairable; a keyless post is not attributable to anything). That root is a **description root**, and the finish line is a reply into it (*The description root*, below) — for `/specificate` and for `/implement` alike. Only a caller with no connector falls back to a keyed top-level finish line, because the tokened script cannot **search** — with no connector the lookup never ran at all, so nothing resolved a thread for it to reply into.
+4. A complete, private-inclusive exact lookup proved no match → post a new description root linking the feedback record, then reply into its confirmed timestamp. The link carries the key; never print a separate `fb:<stem>` control line. An unreadable, unavailable or truncated lookup is `thread_unresolved`, not not-found: retain the pending notification in the binding outbox and report the limitation. A token-only route cannot prove absence by itself and does not authorize an unthreaded substitute.
 
 **Every search in cases 2 and 3 runs private-inclusive** (`slack_search_public_and_private`, `include_bots: true`), never the default `slack_search_public` (ticket `20260810163359`, measured root cause of issue #360's misses — [reference/notifications.md](reference/notifications.md)). The repository's channel is typically **private**, so the connector's default public-only search returns zero results for the record's filename by construction, however faithfully a root carries the key — not because the search is unreliable, but because it never looked. This is a **standing, one-time developer consent** to read the repository's own channel, carried by this skill and by the commands that defer to it; a routine posting into that same channel needs no further, per-run consent to search it. Reading `include_bots: true` matters the same way: a routine's own prior posts are bots, and a search that silently excludes them can miss its own root.
 
@@ -105,7 +140,7 @@ The next run resumes it automatically; `git fetch && git checkout <branch>` to t
 <session URL>
 ```
 
-The `<@U…>` names the **unit's own assignee, never you**: resolve it from the unit's `assignees` and, when it does not resolve, post the line with **no token at all** rather than a guessed one, and report it as unaddressed. Post that line through the **tokened transport** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/notify-slack.sh --thread-ts <the thread's ts> "<the line>"` — whenever `SLACK_BOT_TOKEN` is set, so a bot speaks it and the mention notifies that person even when they are the account this session posts as. That script is `workaholic:notify`'s **fallback** transport, and it is selected here for its **identity** rather than for its availability: this one line is a directed post, which is the only case where which account speaks matters. The connector resolved the thread, so hand its `ts` straight through and never search for one. With no token, post it through the connector exactly as you post `🟢 Implemented`. Report per unit which surface carried it and whom it named. **`🟢 Implemented`, the `📝 FB` root and the precondition-stop shape always ride the connector**, unchanged.
+The `<@U…>` names the unit's own assignee, never you. Send this directed reply through `transport/scripts/perform.sh` using the resolved binding and verified root timestamp. Preserve the explicitly selected sender; do not switch to a token or operator account to make a mention work. If the sender would mention itself, omit that mention and report that nobody was paged. Record the route and typed delivery result. Roots, confirmations, reconciliation replies and handoffs all use this same transport seam.
 
 If that lookup finds no thread, post this description root first and the finish line above as a reply into it — no mention token of any kind on the root:
 
@@ -119,7 +154,7 @@ If the run stops before claiming anything, post `workaholic:notify`'s preconditi
 
 **A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
 
-**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+**A directed post carrying no effective mention says so in its own line** — `(メンション先未解決: 誰にも通知していません)`. Resolve the actual sender and addressee independently; a self-mention notifies nobody. Never infer the sender from the absence of `SLACK_BOT_TOKEN`, and never switch accounts to make a mention work. Report delivery and mention outcomes separately.
 
 **A line this run could not send is carried on the unit's own story, and a later tick sends it once.** Where the finish line does not post, record it before the run ends — `bash ${CLAUDE_PLUGIN_ROOT}/skills/story/scripts/record-unposted-line.sh <story-file> "<shape>" "<reason>" "<the line>"` from inside the worktree, then commit and push, exactly as a refused merge outcome is recorded. At the head of a later run, read `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/list-unposted-lines.sh`, send each candidate **once** through the transport this section already selects, and on a send that landed run `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/clear-unposted-line.sh <unit-id>`. A send refused again leaves the record standing and is reported in the same vocabulary the first attempt used; a candidate named with no outcome reported is non-conformant on its face. **A unit that merged has no branch left to carry the record**, so its refused line is reported by the run that lost it and carried by nobody.
 

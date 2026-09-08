@@ -96,11 +96,11 @@ STUB
     #    the enumeration exists to prevent — and it names both shapes and the deliberate-edit bar.
     _rule=$(sed -n '/Which transport carries which shape/,/^## /p' "$_notify" 2>/dev/null || true)
     _miss=''
-    for _t in '🙋' '🟡 Handoff' 'deliberate edit'; do
+    for _t in '🙋' '🟡 Handoff' 'required sender'; do
         case "$_rule" in *"$_t"*) : ;; *) _miss="${_miss} [${_t}]" ;; esac
     done
     if [ -n "$_rule" ] && [ -z "$_miss" ]; then
-        add_row "rule_enumerates_the_directed_set" true "the model names both directed shapes and makes extending the set a deliberate edit" load
+        add_row "rule_enumerates_the_directed_set" true "the model names both directed shapes and preserves the required sender" load
     else
         add_row "rule_enumerates_the_directed_set" false "the carrier rule is absent or incomplete:${_miss:-(section not found)}" load
     fi
@@ -127,7 +127,7 @@ STUB
     _tm=''
     for _pair in "${_tmod}:🙋" "${_timp}:🟡 Handoff"; do
         _p="${_pair%:*}"; _shape="${_pair##*:}"
-        grep -q -- '--thread-ts' "$_p" || _tm="${_tm} $(basename "$_p")(carrier)"
+        grep -q 'transport/scripts/perform.sh' "$_p" || _tm="${_tm} $(basename "$_p")(carrier)"
         grep -q "$_shape" "$_p" || _tm="${_tm} $(basename "$_p")(shape)"
     done
     if [ -z "$_tm" ]; then

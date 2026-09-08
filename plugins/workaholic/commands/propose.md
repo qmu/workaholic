@@ -8,6 +8,12 @@ skills:
 
 # Propose
 
+All Slack effects use `workaholic:transport`: resolve the declared target and call `perform.sh`.
+Only an exact `needs_parent` request reaches the connector; accept its result through
+`accept-observation.sh`. Preserve the selected sender and report failed receipts as delivery
+failures, never as a clean tick. An instruction to another agent does not cancel this loop's
+acknowledgement; a hold or stand-down addressed to this loop does.
+
 Run the preloaded `workaholic:propose` skill end to end — its `reference/loop.md` carries the
 steps. Survey the strategies (`survey-strategies.sh`), read the selected direction and what has
 landed against it, choose **one** move (`depth`, `breadth` or `contraction`), and open it with

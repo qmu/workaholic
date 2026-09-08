@@ -9,13 +9,14 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.4
 feedback: [20260908123159-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-175401
 ---
 
 # Turn quiescent blockers into mature decisions and resume work
@@ -30,10 +31,15 @@ A quiescent strategy no longer ends in a worker-only explanation. Premature ques
 
 ## Acceptance
 
-- [ ] A derived maturity verdict distinguishes decision-ready blockers from premature questions. (#20260908123303-judge-whether-a-human-decision-is-mature-enough-to-block.md)
-- [ ] A mature blocker is asked once through the existing Slack question/answer path and attributed to its responsible person. (#20260908123303-ask-mature-blockers-in-slack-and-record-the-answer.md)
-- [ ] Recording an answer reopens strategy evaluation without treating `quiescent` or `no_evolutionary_move` as terminal. (#20260908123303-re-evaluate-quiescent-strategies-after-answers-arrive.md)
+- [x] A derived maturity verdict distinguishes decision-ready blockers from premature questions. (#20260908123303-judge-whether-a-human-decision-is-mature-enough-to-block.md)
+- [x] A mature blocker is asked once through the existing Slack question/answer path and attributed to its responsible person. (#20260908123303-ask-mature-blockers-in-slack-and-record-the-answer.md)
+- [x] Recording an answer reopens strategy evaluation without treating `quiescent` or `no_evolutionary_move` as terminal. (#20260908123303-re-evaluate-quiescent-strategies-after-answers-arrive.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908123303-judge-whether-a-human-decision-is-mature-enough-to-block.md
+- 2026-09-08 — ticket archived — 20260908123303-ask-mature-blockers-in-slack-and-record-the-answer.md
+- 2026-09-08 — ticket archived — 20260908123303-re-evaluate-quiescent-strategies-after-answers-arrive.md
+- 2026-09-08 — story written — work-20260908-175401.md
+- 2026-09-08 — run recorded (+0.4h) — implement-20260908-1144Z

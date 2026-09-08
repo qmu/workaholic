@@ -26,7 +26,17 @@ The notification surface is **this command's**, not the routine's — a routine 
 
 **And that Japanese must be read on first sight, not decoded** — the bar is an outcome, not a style preference: *a channel reader must understand what is being asked without opening the English record behind the link.* An established technical term keeps its ordinary katakana or English form (ビルド, CI, デプロイ, PR, and the repository's own `terms/` entries); the **meaning** of a title is translated, never its words; a title that resists translation is **paraphrased** in plain Japanese rather than transliterated. Measured: 「組み立てを止める」 for *fail the build* belongs as 「ビルドが落ちる」, a bare 「形」 for *shape* as 「投稿の型」, 「示せるという判定」 for *demonstrable verdict* as 「実証できたかどうかの判定」.
 
-Read Slack only through the Slack connector, and only as a step asks: the `unanswered-asks` step names one channel and one window and hands that read back to you — no mention of any bot is required for a message to count, and you never reply to, react to, or capture a message you read there. Emit only the shapes below.
+Read and write Slack through `workaholic:transport`: discover and resolve the declared target,
+then call `perform.sh` for each effect. Only an exact `needs_parent` request reaches the connector;
+pass its result through `accept-observation.sh`. Preserve the selected account through failures.
+The `unanswered-asks` step names one channel and one window; no mention is required. Emit only
+the shapes below. A role must not substitute a token or operator account for the selected sender.
+
+Before offering questions, run `moderate/scripts/reconcile-questions.sh --input <file>` with
+the completed run and any explicitly associated human answers from the current conversation or
+bounded inbox. Each association carries the full question key, verified subject and source
+coordinate. Ambiguous answers remain deferred. Read the registry for held keys; never invert or
+re-hash a log slug. Reconcile liveness before asking, not after posting a stale question.
 
 The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread — the outcome reply below is a different event, posted only once the loop has acted on the answer.
 
@@ -72,7 +82,7 @@ Then post each question the check-in step cleared as a reply into that root, add
 One sentence, max 25 words, the question itself, with the two options when there are two.
 ```
 
-Post that reply through the **tokened transport** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/notify-slack.sh --thread-ts <the root's ts> "<the reply text>"` — whenever `SLACK_BOT_TOKEN` is set, so a bot speaks it and its `<@U…>` notifies the person even when that person is the account this session posts as. That script is `workaholic:notify`'s **fallback** transport, and it is selected here for its **identity** rather than for its availability: this one reply is a directed post, which is the only case where which account speaks matters. The connector returns the root's `ts` when it posts the root, so hand that same value straight through: never search for it. With no token, post the reply through the connector exactly as you post the root. Report per question which surface carried it — `bot`, `connector`, or the transport's own refusal word — and never retry a refusal. **The root, the `✅` confirmation and the `🟢`/`⚫` reconciliation replies always ride the connector**, unchanged.
+Send this directed reply through `transport/scripts/perform.sh` using the resolved binding and verified root timestamp. Preserve the explicitly selected sender; do not switch to a token or operator account to make a mention work. If the sender would mention itself, omit that mention and report that nobody was paged. Record the route and typed delivery result. Roots, confirmations, reconciliation replies and handoffs all use this same transport seam.
 
 For each previously asked question whose subject the check-in read as settled this tick, post one confirmation as a reply into the thread where it was asked — no mention token, once ever per question:
 
@@ -112,7 +122,7 @@ If the rendered post says not to post, post nothing at all — no root, no quest
 
 **A refused call and an absent surface are different outcomes.** `post_refused` is one call a transport that exists declined — the surface answered no, so the line is still sendable and the run carries it. `no_slack_transport` is this session holding no surface at all, which nothing inside the run can change. A refusal is per call; an absence is per session, and reporting the first as the second is what made a run whose every call was denied say the post did not exist.
 
-**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
+**A directed post carrying no effective mention says so in its own line** — `(メンション先未解決: 誰にも通知していません)`. Resolve the actual sender and addressee independently; a self-mention notifies nobody. Never infer the sender from the absence of `SLACK_BOT_TOKEN`, and never switch accounts to make a mention work. Report delivery and mention outcomes separately.
 
 Adding that clause changes the question's **text** and nothing else: `already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text, so no question is re-asked by it.
 

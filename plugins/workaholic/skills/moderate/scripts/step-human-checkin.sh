@@ -288,6 +288,9 @@ held_oldest_day=''
 gate_can_ask=false
 gate_day_cap=false
 gate_hold=false
+registry=$( (cd "$ROOT" && sh "$SCRIPT_DIR/../../runtime/scripts/state.sh" read --scope instance --id questions) 2>/dev/null || printf '{}')
+registry_keys=$(printf '%s' "$registry" | jq -r '.data.record.data.questions // {} | keys[]' 2>/dev/null || true)
+legacy_keys=$(printf '%s' "$held_rows" | jq -r '.entries[]? | .summary // "" | select(startswith("held ")) | ltrimstr("held ")' 2>/dev/null || true)
 if [ -n "$held_rows" ]; then
     # `day tick key` per held entry, straight out of the reader's own fields — no second
     # ledger, and no notion of age this step invents for itself.
@@ -314,12 +317,37 @@ if [ -n "$held_rows" ]; then
         asked=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "human-checkin-ask-${k}" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
         case "$asked" in ''|*[!0-9]*) asked=0 ;; esac
         [ "$asked" -eq 0 ] || continue
+        # A log suffix is not a content key. Resolve only a stored preimage; never
+        # guess one or ask an unidentifiable legacy question again.
+        full_key=''
+        while IFS= read -r candidate; do
+            [ -n "$candidate" ] || continue
+            slug=$(sh -c '. "$1"; question_slug "$2"' sh "$SCRIPT_DIR/lib/question-id.sh" "$candidate")
+            [ "$slug" != "$k" ] || { full_key=$candidate; break; }
+        done <<EOF
+$registry_keys
+EOF
+        if [ -z "$full_key" ]; then
+            while IFS= read -r candidate; do
+                [ -n "$candidate" ] || continue
+                slug=$(sh -c '. "$1"; question_slug "$2"' sh "$SCRIPT_DIR/lib/question-id.sh" "$candidate")
+                legacy=$(printf '%s' "$candidate" | sed 's/[^A-Za-z0-9_-]/-/g')
+                # Exact historical preimages only; a missing hashed preimage stays unknown.
+                if [ "$slug" = "$k" ] || [ "$legacy" = "$k" ]; then full_key=$candidate; break; fi
+            done <<EOF
+$legacy_keys
+EOF
+        fi
+        if [ -n "$full_key" ]; then
+            qstate=$(printf '%s' "$registry" | jq -r --arg key "$full_key" '.data.record.data.questions[$key].state // "candidate"')
+            case "$qstate" in answered|retired) continue;; esac
+        fi
         held_count=$((held_count + 1))
         # WHY THIS ONE IS HELD, in the gate's own word. The probe is read-only — recording an
         # ask is `--record-ask`'s separate mode — so nothing is written and no cap moves.
-        hold_reason=''
-        if [ -f "$GATE" ]; then
-            gout=$(sh "$GATE" --root "$ROOT" --tick "$TICK" --key "$k" \
+        hold_reason='question_identity_unavailable'
+        if [ -f "$GATE" ] && [ -n "$full_key" ]; then
+            gout=$(sh "$GATE" --root "$ROOT" --tick "$TICK" --key "$full_key" \
                      --hour "$HOUR" --weekday "$WEEKDAY" 2>/dev/null || true)
             case "$gout" in
                 *'"ask": true'*) gate_can_ask=true ;;
@@ -330,7 +358,7 @@ if [ -n "$held_rows" ]; then
                 quiet_hours|off_day|tick_cap) gate_hold=true ;;
             esac
         fi
-        held="${held:+${held}, }{\"key\": \"$(json_escape "$k")\", \"reason\": \"$(json_escape "$hold_reason")\"}"
+        held="${held:+${held}, }{\"key\": \"$(json_escape "$full_key")\", \"legacy_slug\": \"$(json_escape "$k")\", \"reason\": \"$(json_escape "$hold_reason")\"}"
         # The MINIMUM over the keys still held — an asked key has left the arrears and must
         # not go on ageing them. `YYYY-MM-DD` compares correctly as a string.
         if [ -z "$held_oldest_day" ] || [ "$day" \< "$held_oldest_day" ]; then

@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-124606
 ---
 
 # Make Slack intake incremental across messages, threads, and mentions

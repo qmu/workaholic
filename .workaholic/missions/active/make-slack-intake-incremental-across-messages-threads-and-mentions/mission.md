@@ -31,10 +31,11 @@ Each tick reads only new relevant activity, continues conversations after an unm
 
 ## Acceptance
 
-- [ ] Every Slack connection is bound to a verified account, bot/user identity, channel, and reply capability. (#20260908123811-bind-slack-connections-to-verified-bot-identities-and-destinations.md)
+- [x] Every Slack connection is bound to a verified account, bot/user identity, channel, and reply capability. (#20260908123811-bind-slack-connections-to-verified-bot-identities-and-destinations.md)
 - [ ] One incremental collector covers new top-level posts, active-thread replies, and addressed mentions with a shared overlap-safe cursor. (#20260908123811-collect-incremental-top-level-thread-and-mention-activity.md)
 - [ ] Reads and thread writes report measured calls, confirmed delivery, and unreadable or unauthorized coverage explicitly. (#20260908123811-verify-thread-replies-and-report-unreadable-slack-coverage.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908123811-bind-slack-connections-to-verified-bot-identities-and-destinations.md

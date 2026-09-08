@@ -59,3 +59,12 @@ Send replies through a path that accepts the real `thread_ts`, read the target t
 ## Considerations
 
 Verification must not multiply reads into another full-history scan.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Coverage and cost can be stated from the same transport result.
+  **Context**: The observer now distinguishes returned thread and mention coverage, missing sender identity, and the exact describe/read/capture call count.

@@ -42,6 +42,18 @@ test("P3 resolver refuses a channel shared by two workspaces and does not treat 
   assert.equal(result.json.data.public_misses, 1);
 });
 
+test("P3 resolver refuses two sender identities behind the same channel label", () => {
+  const dir = repo();
+  const observations = [
+    { transport: "qfs", available: true, described: true, mount: "/slack/a", account: "a", workspace: "A", channel: "same", sender_id: "BOT1", operations: ["read_channel_delta"] },
+    { transport: "qfs", available: true, described: true, mount: "/slack/b", account: "b", workspace: "A", channel: "same", sender_id: "BOT2", operations: ["read_channel_delta"] },
+  ];
+  const path = request(dir, base(dir, "discover", { target: { workspace: "A", channel: "same" }, observations }));
+  const result = run(join(scripts, "resolve-target.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.reason, "ambiguous_identity");
+  assert.equal(result.json.data.identities.length, 2);
+});
+
 test("P3 connector read makes a parent round trip and cannot serve as a delivery acknowledgement", () => {
   const dir = repo();
   const binding = { workspace: "A", channel: "same", channel_id: "C1", operations: ["read_thread", "post_reply"],
@@ -238,14 +250,17 @@ test("P5 inbox keys hash exact provider IDs and advance the cursor only after bo
   assert.equal(binding.data.cursor, "2.0");
 });
 
-test("P5 production observer reads a QFS delta, captures it, and advances its cursor", () => {
+test("P5 production observer reads an overlap-safe QFS delta, deduplicates it, and reports thread and mention coverage", () => {
   const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
   const qfs = join(bin, "qfs"); const queries = join(dir, "queries");
-  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"A","operations":["read_channel_delta"]}]}' ;; *) printf '%s\\n' '{"rows":[{"id":"bot","ts":"8.0","sender_id":"BOT","text":"own"},{"id":"m1","ts":"8.1","sender_id":"HUMAN","text":"hello"}],"has_more":false}' ;; esac\n`);
+  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"A","account":"bot-a","sender_id":"BOT","operations":["read_channel_delta"]}]}' ;; *) printf '%s\\n' '{"rows":[{"id":"bot","ts":"800.0","sender_id":"BOT","text":"own"},{"id":"m1","ts":"801.0","thread_ts":"799.0","sender_id":"HUMAN","text":"hello <@BOT>"}],"has_more":false}' ;; esac\n`);
   spawnSync("chmod", ["+x", qfs]);
   const result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:00:00Z"], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs, WORKAHOLIC_SLACK_WORKSPACE: "A", WORKAHOLIC_INBOUND_SLACK_CHANNEL: "same", WORKAHOLIC_SLACK_BOT_USER_ID: "BOT" } });
   assert.equal(result.json.status, "ok", result.stderr); assert.equal(result.json.data.observation_proved, true, JSON.stringify(result.json));
   assert.deepEqual(result.json.data.new_input_ids, ["m1"]);
+  assert.deepEqual(result.json.data.known_thread_changes.map(x => x.thread_ts), ["799.0"]);
+  assert.deepEqual(result.json.data.mentions.map(x => x.id), ["m1"]);
+  assert.equal(result.json.data.calls.total, 3);
   const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
   const bindings = join(dir, common, "workaholic/runtime/v1/bindings");
   const record = spawnSync("find", [bindings, "-path", "*/inbox/*.json", "-type", "f"], { encoding: "utf8" }).stdout.trim();
@@ -253,8 +268,10 @@ test("P5 production observer reads a QFS delta, captures it, and advances its cu
   assert.deepEqual(records, ["bot", "m1"]);
   const meta = spawnSync("find", [bindings, "-name", "meta.json", "-type", "f"], { encoding: "utf8" }).stdout.trim();
   const bindingMeta = JSON.parse(readFileSync(meta, "utf8"));
-  assert.equal(bindingMeta.data.cursor, "8.1"); assert.equal(bindingMeta.owner, null);
-  assert.match(readFileSync(queries, "utf8"), /after 8\.1|limit 100/);
+  assert.equal(bindingMeta.data.cursor, "801.0"); assert.equal(bindingMeta.owner, null);
+  const second = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:01:00Z"], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs, WORKAHOLIC_SLACK_WORKSPACE: "A", WORKAHOLIC_INBOUND_SLACK_CHANNEL: "same", WORKAHOLIC_SLACK_BOT_USER_ID: "BOT" } });
+  assert.deepEqual(second.json.data.new_input_ids, []);
+  assert.match(readFileSync(queries, "utf8"), /after 501\.000000/);
 });
 
 test("P3 legacy notifier derives one stable outbox ID for an identical retry", () => {

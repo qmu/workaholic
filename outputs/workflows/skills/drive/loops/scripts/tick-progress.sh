@@ -2,7 +2,9 @@
 # One tick's progress readout: where the queue stands, per mission, and what the
 # origination gate would answer next.
 #
-# Usage: tick-progress.sh [repo-root]
+# Usage: tick-progress.sh [repo-root] [--ref REF]
+# Native ticks pass --ref: materialize one immutable Git snapshot without moving
+# the caller's checkout. The ordinary tree reader stays available for local inspection.
 # Output: one JSON object, ALWAYS exit 0.
 #   {"queue_total": N,
 #    "missions": [{slug, checked, total, todo, archived, draining}
@@ -106,6 +108,20 @@ if [ -d "$ROOT" ]; then
 fi
 
 WORKAHOLIC="$ROOT/.workaholic"
+SOURCE_SHA=''
+if [ "${2:-}" = --ref ]; then
+  ref=${3:-}
+  snapshot=$(mktemp -d)
+  trap 'rm -rf "$snapshot"' EXIT HUP INT TERM
+  SOURCE_SHA=$(git -C "$ROOT" rev-parse --verify "$ref^{commit}" 2>/dev/null || true)
+  if [ -z "$SOURCE_SHA" ] || ! git -C "$ROOT" archive "$SOURCE_SHA" .workaholic > "$snapshot/tree.tar" 2>/dev/null \
+      || ! tar -xf "$snapshot/tree.tar" -C "$snapshot"; then
+    jq -cn --arg ref "$ref" '{readable:false,reason:"base_snapshot_unreadable",source_ref:$ref,
+      queue_total:null,missions:[],gating_missions:null,unreadable_missions:null,propose_gate:"unreadable"}'
+    exit 0
+  fi
+  WORKAHOLIC="$snapshot/.workaholic"
+fi
 ACTIVE="$WORKAHOLIC/missions/active"
 
 queue_total=$(find "$WORKAHOLIC/tickets/todo" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
@@ -175,7 +191,8 @@ printf '%s' "$rows" | jq -s \
   --argjson unreadable "$unreadable" \
   --arg limit "$limit" \
   --arg gate "$gate" \
+  --arg sha "$SOURCE_SHA" \
   '{queue_total: $queue, missions: ., gating_missions: $gating,
     unreadable_missions: $unreadable,
     wip_limit: (if $limit == "" then null else ($limit | tonumber) end),
-    propose_gate: $gate}'
+    propose_gate: $gate} + (if $sha == "" then {} else {source_sha:$sha,source_kind:"git_snapshot"} end)'

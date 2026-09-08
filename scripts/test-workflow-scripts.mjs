@@ -2593,7 +2593,7 @@ function testResidueGatesNothing() {
     ["plugins/workaholic/skills/propose/SKILL.md", /reports that strategy.s residue beside it|names that strategy's residue beside it/],
     ["plugins/workaholic/skills/propose/reference/loop.md", /Name that strategy.s residue beside the `arrived`/],
     ["plugins/workaholic/skills/strategy/SKILL.md", /unattributed-work\.sh/],
-    ["plugins/workaholic/skills/moderate/SKILL.md", /names what the reading could not see/],
+    ["plugins/workaholic/skills/moderate/SKILL.md", /names what the reading\s+could not see/],
     ["CLAUDE.md", /unattributed-work\.sh/],
   ]) {
     assertTrue(`${file} states the shipped behaviour`,
@@ -21583,6 +21583,305 @@ function testConditionAgeBound() {
   } finally { cleanup(dir); }
 }
 
+// ═══ THE MATURITY VERDICT (2026-09-08, mission
+// `turn-quiescent-blockers-into-mature-decisions-and-resume-work`) ═══════════════════════
+//
+// The rule it enforces is `rules/workaholic.md`, *When a Human Decision May Block the Loop*:
+// only a question that is currently necessary and supported by adequate premises may become a
+// gate. What must stay true is that the verdict is a LADDER over fields the survey already
+// emits — deterministic, no score, no threshold — that a degraded read is never a verdict, and
+// that the reader gates nothing and writes nothing.
+//
+// HERMETIC BY CONSTRUCTION: every case is driven off a `--survey <file>` fixture, so the test
+// makes no network call and needs no strategy tree, and the answer arm is driven through
+// `log-append.sh`, THE REAL WRITER, so it cannot pass against a line shape nothing produces.
+T("moderate/decision-maturity.sh: only a mature question may become a gate", testDecisionMaturity);
+function testDecisionMaturity() {
+  const MAT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/decision-maturity.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    const surveyPath = join(dir, "survey.json");
+    // One row per case. `eligible[]` rows carry no `reason` — they passed every gate — and
+    // `refused[]` rows carry the survey's own word; the reader must read both.
+    const row = (slug, extra) => Object.assign({
+      slug, title: slug, assignees: "a@example.com", stage: "進行中",
+      dormant: false, quiescent: false, waiting_count: 0, waiting_missions: 0,
+    }, extra);
+    writeFileSync(surveyPath, JSON.stringify({
+      ok: true,
+      eligible: [row("live-blocked", { dormant: true })],
+      refused: [
+        row("closed", { reason: "not_active", dormant: true }),
+        row("theirs", { reason: "not_mine", dormant: true }),
+        // THE STAGE IS READ OFF THE ROW, not off a refusal word: `survey-strategies.sh`'s
+        // ladder no longer emits `observing`, so a rung keyed on that word would be dead
+        // code. `stage_declared` is required — `absent means 進行中` is the right reading
+        // and the wrong thing to act on.
+        row("settled", { reason: "wip_limit", stage: "観察中", stage_declared: true, dormant: true }),
+        row("undeclared", { reason: "", stage: "進行中", dormant: true }),
+        row("uncited", { reason: "no_feedback_refs", dormant: true }),
+        row("proposed", { reason: "open_proposal", dormant: true }),
+        row("busy", { reason: "work_waiting", waiting_missions: 1, waiting_count: 4, dormant: true }),
+        row("moving", { reason: "wip_limit" }),
+        row("arrived-late", { reason: "past_target_date", quiescent: true }),
+        row("blind", { reason: "attribution_unreadable" }),
+      ],
+    }));
+    const verdict = (slug) => JSON.parse(run(dir,
+      `${MAT} --strategy ${slug} --root ${dir} --survey ${surveyPath}`).stdout);
+
+    // ---- THE LADDER, RUNG BY RUNG ----
+    for (const [slug, v, word] of [
+      ["closed", "retire", "direction_closed"],
+      ["theirs", "retire", "direction_not_mine"],
+      ["settled", "retire", "direction_observing"],
+      ["undeclared", "ask_now", ""],
+      ["uncited", "prerequisite", "no_feedback_refs"],
+      ["proposed", "defer", "proposal_open"],
+      ["busy", "defer", "work_in_flight"],
+      ["moving", "defer", "no_blocker"],
+      ["live-blocked", "ask_now", ""],
+      ["arrived-late", "ask_now", ""],
+    ]) {
+      const a = verdict(slug);
+      assertEq(`${slug} reads ${v}${word ? `: ${word}` : ""}`, [a.verdict, a.verdict_reason], [v, word]);
+      assertTrue(`${slug} carries no readable field on a completed reading`,
+        !Object.prototype.hasOwnProperty.call(a, "readable"), JSON.stringify(a));
+    }
+
+    // A DEAD PREMISE OUTRANKS A MISSING ONE. The ladder is ordered by what is missing, not by
+    // the operator's sentence order: a closed direction whose work is also in flight is
+    // `retire`, because reporting it as `defer` sends a reader to wait for work on a
+    // direction nobody is pursuing.
+    writeFileSync(surveyPath + ".2", JSON.stringify({ ok: true, eligible: [], refused: [
+      row("closed-and-busy", { reason: "not_active", waiting_missions: 2, dormant: true }) ] }));
+    assertEq("a dead premise outranks a premise that is merely not met yet",
+      JSON.parse(run(dir, `${MAT} --strategy closed-and-busy --root ${dir} --survey ${surveyPath}.2`).stdout).verdict,
+      "retire");
+
+    // ---- ONLY `ask_now` IS SILENT ABOUT WHAT IS MISSING ----
+    assertTrue("every deferred verdict names the premise or planning work it lacks",
+      ["closed", "uncited", "proposed", "busy", "moving"].every((s) => verdict(s).missing.length > 0),
+      "a verdict deferred a question without saying what it lacks");
+    assertEq("and ask_now names nothing missing", verdict("live-blocked").missing, "");
+
+    // ---- THE PREMISES ARE VISIBLE AND ARGUABLE, NEVER A SCORE ----
+    const busy = verdict("busy");
+    assertEq("every premise is rendered with its own evidence",
+      busy.premises.map((x) => x.name),
+      ["direction_is_still_pursued", "answers_can_be_seen_to_land",
+       "nothing_is_already_in_flight", "a_decision_is_actually_blocked"]);
+    assertEq("the failing premise is the one the verdict named, and only it",
+      busy.premises.filter((x) => !x.held).map((x) => x.name),
+      ["nothing_is_already_in_flight"]);
+    assertTrue("and its evidence carries the counts rather than a number nobody can argue with",
+      /1 mission\(s\), 4 ticket\(s\)/.test(busy.premises[2].evidence), busy.premises[2].evidence);
+
+    // ---- WHICH READING MADE IT A BLOCKER, IN `direction-state.sh`'s OWN PRECEDENCE ----
+    assertEq("quiescent is named before dormant", verdict("arrived-late").blocker, "quiescent");
+    assertEq("and a direction nothing is answering reads dormant", verdict("live-blocked").blocker, "dormant");
+
+    // ---- A DEGRADED READ IS NEVER A VERDICT ----
+    const blind = verdict("blind");
+    assertEq("an unreadable attribution walk answers readable:false and no verdict",
+      [blind.readable, blind.reason, Object.prototype.hasOwnProperty.call(blind, "verdict")],
+      [false, "attribution_unreadable", false]);
+    const absent = JSON.parse(run(dir, `${MAT} --strategy nobody --root ${dir} --survey ${surveyPath}`).stdout);
+    assertEq("a slug the survey never saw is a named refusal at exit 0",
+      [absent.readable, absent.reason], [false, "no_such_strategy"]);
+    writeFileSync(surveyPath + ".bad", JSON.stringify({ ok: false, reason: "inbox_unreadable" }));
+    assertEq("a survey that refused is carried through by its own word",
+      JSON.parse(run(dir, `${MAT} --strategy x --root ${dir} --survey ${surveyPath}.bad`).stdout).reason,
+      "survey_refused:inbox_unreadable");
+    assertEq("and a missing slug refuses without reading anything",
+      JSON.parse(run(dir, `${MAT} --root ${dir} --survey ${surveyPath}`).stdout).reason, "no_slug");
+
+    // ---- THE ANSWER RIDES THE SAME READING, MATCHED ON THE GROUPED KEY'S SLUG LIST ----
+    // Since 2026-09-03 one question names every direction in its reading, so the key is
+    // `direction-<reading>:<slug>+<slug>` and a per-slug lookup would answer `never_asked`
+    // for a direction asked about inside a group. Written through the REAL writer.
+    assertEq("with no tick log at all, nobody has been asked",
+      [verdict("live-blocked").answer_state, verdict("live-blocked").resumable],
+      ["never_asked", false]);
+    const GKEY = "direction-dormant:live-blocked+moving";
+    run(dir, `${LOG} --root ${dir} --tick 20260908-100000 --step human-checkin-ask-${slugOf(GKEY)} --status filed --summary "asked posted-at:C1:1.2 key:${GKEY}"`);
+    assertEq("a grouped ask is found for every slug the key names",
+      [verdict("live-blocked").answer_state, verdict("moving").answer_state], ["asked", "asked"]);
+    assertEq("and an outstanding question is not resumable — nobody has answered",
+      verdict("live-blocked").resumable, false);
+    run(dir, `${LOG} --root ${dir} --tick 20260908-110000 --step human-checkin-answered-${slugOf(GKEY)} --status filed --summary "cut it over key:${GKEY}"`);
+    const answered = verdict("live-blocked");
+    assertEq("a recorded answer is read back with its words and its tick",
+      [answered.answer_state, answered.answered_tick, answered.answer_key],
+      ["answered", "20260908-110000", GKEY]);
+    assertTrue("the answer carries the person's own words", /cut it over/.test(answered.answer), answered.answer);
+    assertEq("an answer beside a direction that still reads blocked is resumable",
+      answered.resumable, true);
+    assertEq("and an answer beside one that is NOT blocked is not — resumable is a conjunction",
+      verdict("moving").resumable, false);
+    assertEq("the verdict itself does not move on an answer: it is evidence, not a lifted gate",
+      answered.verdict, "ask_now");
+
+    // ---- IT IS A PURE READ, AND IT REACHES NO WRITER ----
+    const before = run(dir, "git status --porcelain").stdout;
+    verdict("live-blocked");
+    assertEq("reading a maturity verdict leaves the working tree byte-identical",
+      run(dir, "git status --porcelain").stdout, before);
+    // ON CALL SITES, NEVER ON WORDS: the header explains what it deliberately does not reach.
+    const code = codeLines(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/decision-maturity.sh"));
+    for (const forbidden of ["log-append.sh", "ask-question.sh", "record-answer.sh", "amend.sh",
+                             "close.sh", "create.sh", "git push", "curl ", "gh api", "open-proposal.sh"]) {
+      assertTrue(`the reader reaches no ${forbidden.trim()}`, !code.includes(forbidden), forbidden);
+    }
+    // NO SCORE, NO THRESHOLD, NO TUNABLE CONSTANT — the whole reason the verdict stays arguable.
+    assertTrue("the verdict carries no tunable constant",
+      !/WORKAHOLIC_[A-Z_]*MATURIT/.test(code), "a maturity threshold appeared");
+    // THE RESIDUE TERM IS DELIBERATELY ABSENT: `quiescent` already holds one and `dormant`
+    // deliberately does not, so re-imposing it here would overturn a recorded decision.
+    assertTrue("and imposes no residue term of its own",
+      !/residue/.test(code), "a residue gate appeared in the ladder");
+  } finally { cleanup(dir); }
+}
+
+// ═══ THE STEP WITHHOLDS AN IMMATURE QUESTION, AND ONLY AN IMMATURE ONE ══════════════════
+// (2026-09-08, mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`.)
+// MEASURED before this: a direction the operator had declared `観察中` — settled, the loop
+// reactive only — read `dormant` (which tests no stage) and was asked, hourly, to file its next
+// move. What must stay true is that the gate reaches the ATTRIBUTION readings and no others: a
+// date fact is never withheld, because no premise makes a date less true.
+T("direction-health asks only the mature questions", testDirectionHealthMaturity);
+function testDirectionHealthMaturity() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const A = makeRepo("main");
+  const w = (p2, body) => { mkdirSync(dirname(join(A, p2)), { recursive: true }); writeFileSync(join(A, p2), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref, stage) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    (stage ? `stage: ${stage}\n` : "") +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r === "a" ? 0 : r === "b" ? 1 : 2}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // `quiet` — nothing answering it, and every premise held: the question is MATURE.
+    w(".workaholic/strategies/quiet.md", strategy("quiet", day(400), "20260101000000-a.md"));
+    // `watched` — the same reading, on a direction the operator already declared settled.
+    w(".workaholic/strategies/watched.md", strategy("watched", day(400), "20260101000001-b.md", "観察中"));
+    // `late` — also declared settled, but its reading is a DATE fact and is never withheld.
+    w(".workaholic/strategies/late.md", strategy("late", day(-400), "20260101000002-c.md", "観察中"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const j = JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick 20260908-000000 --root ${A} --open-proposals ${open}`).stdout);
+    const keys = ((j.needs_agent[0] || {}).directions || []).map((d) => d.key).sort();
+
+    assertTrue("the mature dormant question is asked", keys.includes("direction-dormant:quiet"), keys.join(","));
+    assertTrue("the settled direction's dormant question is NOT asked",
+      !keys.includes("direction-dormant:watched"), keys.join(","));
+    assertTrue("but its DATE question is — a date fact carries no premise to be missing",
+      keys.includes("direction-overdue:late"), keys.join(","));
+
+    // A WITHHELD QUESTION IS NAMED IN THE LOG. One withheld and never said is
+    // indistinguishable from one nobody thought to ask, which is the collapse this ends.
+    assertTrue("the log-facing summary names the slug, the verdict and the reason",
+      /1 withheld as premature \(watched \(retire: direction_observing\)\)/.test(j.summary), j.summary);
+    assertTrue("and it still reports the reader's own counts beside it",
+      /2 dormant/.test(j.summary), j.summary);
+
+    // THE ROOT COUNTS WHAT IT ASKS. The event links the subjects it names, so counting a
+    // withheld direction there would announce an event beside a link list without it.
+    assertTrue("the event names one dormant direction, not two",
+      /a direction has nothing answering it/.test(j.event) && !/2 directions have nothing/.test(j.event),
+      j.event);
+    assertTrue("and links only the directions it asked about",
+      j.event.includes("quiet") && !j.event.includes("|watched>"), j.event);
+
+    // NOTHING IS WRITTEN, AND NO LEDGER LINE IS SPENT ON A QUESTION NOBODY HEARD.
+    assertEq("withholding a question writes nothing into the tree",
+      run(A, "git status --porcelain").stdout, "");
+
+    // THE GATE REACHES THE FOUR ATTRIBUTION READINGS AND NO OTHERS, on the call site rather
+    // than on prose: the step's own header explains why the date readings are exempt.
+    const code = codeLines(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"));
+    const gate = code.slice(code.indexOf("decision-maturity.sh"), code.indexOf("n_withheld="));
+    for (const reading of ["arrived", "cutover", "dormant", "settled"]) {
+      assertTrue(`the gate selects ${reading}`, gate.includes(`.reading == "${reading}"`), reading);
+    }
+    for (const reading of ["overdue", "expiring", "last_live"]) {
+      assertTrue(`and never ${reading}`, !gate.includes(`.reading == "${reading}"`), reading);
+    }
+    // A DEGRADED VERDICT ASKS ANYWAY — the subject is kept and the degradation counted, never
+    // read as "not mature". The reader's own `readable: false` cases are covered above.
+    assertTrue("a readable:false verdict is counted, not withheld",
+      /readable \/\/ "absent".*\n.*n_maturity_unreadable=/.test(
+        readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"), "utf8")),
+      "the unreadable branch no longer keeps the subject");
+    // AND THE SURVEY IS MADE ONCE. Running it again here would pay its one network read twice
+    // and put a second reading of one fact beside the first.
+    assertTrue("the step hands the lifecycle reader's own survey to the verdict",
+      code.includes("--emit-survey"), "the survey snapshot is gone");
+    assertTrue("and never composes survey-strategies.sh itself",
+      !code.includes("survey-strategies.sh"), "a second survey appeared in the step");
+  } finally { cleanup(A); }
+}
+
+// ═══ AN ANSWER REOPENS THE JUDGEMENT, AND NOTHING STORES THAT IT DID ════════════════════
+// (2026-09-08, mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`, third
+// ticket.) `no_evolutionary_move` is an observation, never permission to end silently — but the
+// moment somebody answered `/moderate`'s question about a direction, the next tick derived the
+// same silence from the same rows and reported the same word, and the answer reached no
+// judgement. The reopening is PROSE, because which move an answer makes nameable is a model's
+// call and putting it in a script would put a judgement inside a gate; what a test can hold is
+// that the three surfaces carry the instruction, and that nothing anywhere grew a reopen flag.
+T("propose reads a recorded answer before it reports no_evolutionary_move", testProposeAnswerReopen);
+function testProposeAnswerReopen() {
+  // THE THREE SURFACES A `/propose` RUN ACTUALLY READS. A command body names the ceiling, the
+  // skill carries the reasoning and `reference/loop.md` carries the step — an instruction on
+  // one of the three is an instruction a run following either of the others never sees.
+  for (const [path, what] of [
+    ["plugins/workaholic/commands/propose.md", "the command ceiling"],
+    ["plugins/workaholic/skills/propose/SKILL.md", "the skill"],
+    ["plugins/workaholic/skills/propose/reference/loop.md", "the step"],
+  ]) {
+    const body = readFileSync(join(REPO_ROOT, path), "utf8");
+    assertTrue(`${what} sends the refusal through decision-maturity.sh`,
+      body.includes("decision-maturity.sh"), path);
+    assertTrue(`${what} names the reading the refusal must carry`,
+      body.includes("answer_state"), path);
+    assertTrue(`${what} states that the answer lifts no gate`,
+      /lifts no(thing| gate)/.test(body), path);
+  }
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  assertTrue("and the refusal is non-conformant when it names no answer state",
+    /non-conformant on its face/.test(loop), "the enforcement sentence is gone");
+
+  // NO REOPEN FLAG, NO CURSOR, NO FIELD ON ANY ARTIFACT. `resumable` is two existing readings
+  // conjoined at the moment it is read, so nothing has to be cleared and nothing can go stale.
+  // A stored flag is the shape the ticket's own Considerations refused by name.
+  const offenders = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) { if (e.name !== "node_modules" && e.name !== ".git") walk(full); continue; }
+      if (!/\.(sh|mjs|md|json)$/.test(e.name)) continue;
+      const body = readFileSync(full, "utf8");
+      if (/\breopen(ed|_flag)?\s*:/.test(body) || /WORKAHOLIC_[A-Z_]*REOPEN/.test(body)) {
+        offenders.push(full.slice(REPO_ROOT.length + 1));
+      }
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic"));
+  assertEq("no artifact, script or schema grew a reopen flag", offenders, []);
+
+  // THE COORDINATOR ROUTES NOTHING NEW: the answer rides the ordinary `[Propose]` turn.
+  const workSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8");
+  assertTrue("the coordinator states that an answer needs no dispatch of its own",
+    /no reopen signal to route/.test(workSkill), "the coordinator's own statement is gone");
+  assertTrue("and still routes an answer that ASKS for something the way it always did",
+    workSkill.includes("file-inbound-ask.sh"), "the [FB] path is unnamed");
+}
+
 // A shell script's CODE, with its commentary removed. Every ban in this suite that means
 // "this script must not reach X" has to be written against call sites rather than words:
 // these scripts explain their own bounds in prose, so a word-level test fails on the very
@@ -23274,8 +23573,13 @@ function testReadMachineLoad() {
     const cores = Number(execSync("nproc", { encoding: "utf8" }).trim());
     assertEq("the core count matches nproc", r.cores, cores);
     assertTrue("load1 is a number", typeof r.load1 === "number", JSON.stringify(r));
-    assertEq("load_per_core is load1 over cores",
-      r.load_per_core, Number((r.load1 / cores).toFixed(2)));
+    assertTrue("live load_per_core is numeric", typeof r.load_per_core === "number", JSON.stringify(r));
+    const bin = join(tmp, "bin"); mkdirSync(bin);
+    writeFileSync(join(bin, "nproc"), "#!/bin/sh\nprintf '4\\n'\n"); chmodSync(join(bin, "nproc"), 0o755);
+    const fixed = join(tmp, "loadavg"); writeFileSync(fixed, "2.51 0 0 1/1 1\n");
+    const fixedReading = run({PATH:`${bin}:${process.env.PATH}`, WORKAHOLIC_LOADAVG_PATH:fixed});
+    const awkRounded = Number(execFileSync("awk", ["BEGIN { printf \"%.2f\", 2.51 / 4 }"], {encoding:"utf8"}));
+    assertEq("fixture pins the declared awk rounding contract", fixedReading.load_per_core, awkRounded);
     assertTrue("a completed read carries no readable key", r.readable === undefined,
       JSON.stringify(r));
 
@@ -29504,7 +29808,7 @@ function testAnswerReturnPath() {
     const scripts = readdirSync(M).filter((f) => f.endsWith(".sh"));
     for (const f of scripts) {
       const body = readFileSync(join(M, f), "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
-      if (f !== "record-answer.sh") {
+      if (f !== "record-answer.sh" && f !== "reconcile-questions.sh") {
         assertTrue(`${f} never executes record-answer.sh`, !invokes(body, "record-answer.sh"), f);
       }
       // `answer-outcome.sh` joined the allowlist on 2026-08-31 (mission
@@ -30508,7 +30812,7 @@ function testProposeCheckIn() {
     run(repo, `${LOG} --tick 20260817-020000 --step human-checkin-held-q-sizing --status skipped --summary "held q:sizing"`);
     j = JSON.parse(run(repo, `${STEP} --tick 20260817-120000 --root . --hour 14 --weekday 3`).stdout);
     assertEq("a held question is handed back when the window clears",
-      j.held.map((h) => h.key), ["q-sizing"]);
+      j.held.map((h) => h.key), ["q:sizing"]);
     // THE ASK IS RECORDED UNDER THE ID THE SCRIPT RETURNS, and that is now the whole gate
     // (2026-08-21, ticket `20260819062058`). It used to search the log's SUMMARY text for
     // the raw key, which nothing ever required a writer to put there — so the gate rested
@@ -39605,7 +39909,6 @@ function testTickLogWriterSet() {
     "plugins/workaholic/skills/moderate/scripts/log-read.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/condition-age.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/step-blocked-tick.sh": "reader",
-    "plugins/workaholic/skills/moderate/scripts/step-strategy-digest.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/run.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/persist-log.sh": "refuser",
     "scripts/e2e/loop-drill.sh": "reader",

@@ -56,12 +56,14 @@ LOG_APPEND="${SCRIPT_DIR}/log-append.sh"
 TICK=''
 KEY=''
 ANSWER=''
+SOURCE='session'
 ROOT='.'
 while [ $# -gt 0 ]; do
     case "$1" in
         --tick) TICK="${2:-}"; shift 2 ;;
         --key) KEY="${2:-}"; shift 2 ;;
         --answer) ANSWER="${2:-}"; shift 2 ;;
+        --source) SOURCE="${2:-}"; shift 2 ;;
         --root) ROOT="${2:-.}"; shift 2 ;;
         *) shift ;;
     esac
@@ -76,6 +78,17 @@ refuse() { printf '{"recorded": false, "reason": "%s"}\n' "$1"; exit 0; }
 [ -f "$LOG_APPEND" ] || refuse no_writer
 
 LOG_STEP="human-checkin-answered-$(question_slug "$KEY")"
+
+# Preserve the answer and full key outside the rotating operational log. Linked
+# worktrees read the same Git common directory; a log-prune cannot resurrect this question.
+registry_input=$(mktemp)
+trap 'rm -f "$registry_input"' EXIT HUP INT TERM
+jq -cn --arg key "$KEY" --arg answer "$ANSWER" --arg now "$TICK" --arg source "$SOURCE" \
+  '{event:"answer",key:$key,answer:$answer,now:$now,source:$source}' > "$registry_input"
+registry=$( (cd "$ROOT" && sh "$SCRIPT_DIR/question-registry.sh" --input "$registry_input") 2>/dev/null || printf '{}')
+if git -C "$ROOT" rev-parse --git-common-dir >/dev/null 2>&1; then
+  printf '%s' "$registry" | jq -e '.status == "ok"' >/dev/null 2>&1 || refuse registry_refused
+fi
 
 # The summary carries the answer verbatim on one line — the log is line-oriented, so a
 # newline would split the entry. Collapsing whitespace keeps the words; it does not

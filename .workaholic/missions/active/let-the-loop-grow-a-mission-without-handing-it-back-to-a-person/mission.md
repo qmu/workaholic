@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-210424
 ---
 
 # Let the loop grow a mission without handing it back to a person

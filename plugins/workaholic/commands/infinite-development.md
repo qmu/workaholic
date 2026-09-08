@@ -181,7 +181,13 @@ reading. It may be one tick old. Null or unreadable counts stay named and never 
 Return one short Japanese block:
 
 - dirty checkout, only when dirty;
-- each Slack action or named degradation;
+- the declared binding this tick resolved, and any `binding_contradictory`,
+  `binding_incomplete` or `binding_unreadable:<source>` reading;
+- thread coverage: `covered`, or `partial` with its reason;
+- each Slack action or named degradation, naming the `route` it took and — when it left the
+  declared one — `degraded_from` and the typed `degradation_reason`. A connector or token
+  success is a **degraded** success: it proves delivery and never that the preferred route is
+  configured or that the declared sender spoke;
 - each assigned feedback issue observation or unreadable issue source;
 - each ask announcement result;
 - roles spawned or reaped; use `loops: none due` when all were quiet;

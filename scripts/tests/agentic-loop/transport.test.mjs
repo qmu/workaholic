@@ -407,6 +407,113 @@ test("P5 a reply under an older root is discovered, classified in context, and n
   assert.ok(result.json.data.unreadable.includes("operation_unavailable"), "and the reason is named, not implied");
 });
 
+test("P3 a fallback needs a typed failure, keeps the destination, and never certifies the route", () => {
+  const dir = repo();
+  const qfsRoute = ops => ({ transport: "qfs", mount: "/slack/qmu", operations: ops, described: true });
+  const connector = ops => ({ transport: "connector", operations: ops, described: true });
+  const binding = (routes, extra = {}) => ({ workspace: "qmu", channel: "dev-x", channel_id: "C1",
+    operations: ["read_thread"], routes, thread_map: {}, ...extra });
+
+  // A QFS route that cannot perform the operation is a CAPABILITY failure: the switch is
+  // permitted, and it is reported as a degradation rather than made silently.
+  let path = request(dir, base(dir, "read_thread", { binding: binding([qfsRoute(["read_channel_delta"]), connector(["read_thread"])]), thread_ts: "1.2" }, { binding_id: "binding-a" }));
+  let result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.status, "needs_parent", result.stderr);
+  assert.equal(result.json.data.degraded, true);
+  assert.equal(result.json.data.degraded_from, "qfs");
+  assert.equal(result.json.data.preferred_route_verified, false);
+  assert.equal(result.json.data.target.channel_id, "C1", "the declared destination rides the fallback");
+  assert.equal(result.json.data.arguments.thread_ts, "1.2", "and so does the thread");
+
+  // An UNDESCRIBED map is the same class, and the connector win is no longer silent.
+  const undescribed = { transport: "qfs", mount: "/slack/qmu", operations: ["read_thread"], described: false };
+  path = request(dir, base(dir, "read_thread", { binding: binding([undescribed, connector(["read_thread"])]), thread_ts: "1.2" }, { binding_id: "binding-a" }), "undescribed.json");
+  result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.status, "needs_parent");
+  assert.equal(result.json.data.degradation_reason, "qfs_map_unverified");
+
+  // An EMPTY declared fallback forbids the switch outright: this route or nothing.
+  path = request(dir, base(dir, "read_thread", { binding: binding([undescribed, connector(["read_thread"])], { fallback: [] }), thread_ts: "1.2" }, { binding_id: "binding-a" }), "forbidden.json");
+  result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.status, "deferred");
+  assert.equal(result.json.reason, "qfs_map_unverified", "no untyped switch, and no permitted one either");
+
+  // A route with no QFS at all is the primary, not a degradation.
+  path = request(dir, base(dir, "read_thread", { binding: binding([connector(["read_thread"])]), thread_ts: "1.2" }, { binding_id: "binding-a" }), "primary.json");
+  result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.data.degraded, false);
+});
+
+test("P3 an unknown QFS effect is reconciled rather than sent again over a fallback", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(dir, "qfs"); const posted = join(dir, "posted");
+  // The preview succeeds and the commit times out: the provider may already have the effect.
+  writeFileSync(qfs, `#!/bin/sh\ncase " $* " in *" --preview "*) printf '%s\\n' '{"ok":true}';; *) exit 124;; esac\n`);
+  spawnSync("chmod", ["+x", qfs]);
+  writeFileSync(join(bin, "curl"), `#!/bin/sh\ntouch '${posted}'\nout=""; while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2;; *) shift;; esac; done\nprintf '%s' '{"ok":true,"channel":"C1","ts":"9.9","message":{"user":"BOT"}}' > "$out"\nprintf 200\n`);
+  spawnSync("chmod", ["+x", join(bin, "curl")]);
+  const binding = { workspace: "qmu", channel: "dev-x", channel_id: "C1", operations: ["post_root"], thread_map: {},
+    routes: [{ transport: "qfs", mount: "/slack/qmu", operations: ["post_root"], described: true },
+             { transport: "slack_token", operations: ["post_root"], described: true }] };
+  const path = request(dir, base(dir, "post_root", { binding, text: "message", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "unknown-effect" }));
+  const result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join("") } });
+  assert.equal(result.json.reason, "accepted_send_timeout", result.stderr);
+  assert.equal(spawnSync("test", ["-e", posted]).status, 1, "a post-commit failure must never be resent over another route");
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(JSON.parse(readFileSync(join(dir, common, "workaholic/runtime/v1/bindings/binding-a/outbox/unknown-effect.json"), "utf8")).data.state, "unknown");
+});
+
+test("P3 a pre-commit QFS refusal falls back and the token delivery stays explicitly degraded", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(dir, "qfs");
+  // The preview itself FAILS: nothing reached the commit, so a fallback is a first attempt
+  // rather than a resend — the distinction the whole class table turns on.
+  writeFileSync(qfs, "#!/bin/sh\nexit 1\n");
+  spawnSync("chmod", ["+x", qfs]);
+  writeFileSync(join(bin, "curl"), `#!/bin/sh\nout=""; while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift 2;; *) shift;; esac; done\nprintf '%s' '{"ok":true,"channel":"C1","ts":"9.9","message":{"user":"BOT"}}' > "$out"\nprintf 200\n`);
+  spawnSync("chmod", ["+x", join(bin, "curl")]);
+  const binding = { workspace: "qmu", channel: "dev-x", channel_id: "C1", sender_id: "BOT", operations: ["post_root"], thread_map: {},
+    routes: [{ transport: "qfs", mount: "/slack/qmu", operations: ["post_root"], sender_id: "BOT", described: true },
+             { transport: "slack_token", operations: ["post_root"], sender_id: "BOT", described: true }] };
+  const path = request(dir, base(dir, "post_root", { binding, text: "message", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "degraded-send" }));
+  const result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}`, SLACK_BOT_TOKEN: ["fixture"].join("") } });
+  assert.equal(result.json.status, "ok", result.stderr);
+  assert.equal(result.json.data.route, "slack_token");
+  assert.equal(result.json.data.degraded, true);
+  assert.equal(result.json.data.degradation_reason, "qfs_preview_failed");
+  assert.equal(result.json.data.preferred_route_verified, false,
+    "a delivered message proves delivery, never that the preferred route is configured");
+});
+
+test("P3 a preview that answers ok:false is a refusal, not an acceptance", () => {
+  const dir = repo(); const qfs = join(dir, "qfs"); const committed = join(dir, "committed");
+  writeFileSync(qfs, `#!/bin/sh\ncase " $* " in *" --preview "*) printf '%s\\n' '{"ok":false}';; *) touch '${committed}'; printf '%s\\n' '{"ok":true,"ts":"1.1"}';; esac\n`);
+  spawnSync("chmod", ["+x", qfs]);
+  const binding = { workspace: "qmu", channel: "dev-x", channel_id: "C1", operations: ["post_root"], thread_map: {}, fallback: [],
+    routes: [{ transport: "qfs", mount: "/slack/qmu", operations: ["post_root"], described: true }] };
+  const path = request(dir, base(dir, "post_root", { binding, text: "m", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "refused-preview" }));
+  const result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir, env: { WORKAHOLIC_QFS_BIN: qfs } });
+  assert.equal(result.json.reason, "qfs_preview_refused", result.stderr);
+  assert.equal(spawnSync("test", ["-e", committed]).status, 1, "a refused preview never reaches the commit");
+});
+
+test("P3 a binding resolved against a superseded declaration is refused before any effect", () => {
+  const dir = repo();
+  const binding = { workspace: "qmu", channel: "dev-x", channel_id: "C1", operations: ["post_root"], thread_map: {},
+    declared_digest: "old-digest", routes: [{ transport: "connector", operations: ["post_root"], described: true }] };
+  let path = request(dir, base(dir, "post_root", { binding, text: "m", expected_declared_digest: "new-digest", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "stale" }));
+  let result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.reason, "binding_stale");
+  assert.equal(result.json.data.binding_declared_digest, "old-digest");
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(spawnSync("test", ["-e", join(dir, common, "workaholic/runtime/v1/bindings/binding-a")]).status, 1,
+    "a refused revalidation writes no state at all");
+
+  path = request(dir, base(dir, "post_root", { binding, text: "m", expected_declared_digest: "old-digest", now: "2026-09-08T00:00:00Z" }, { binding_id: "binding-a", request_id: "fresh" }), "fresh.json");
+  result = run(join(scripts, "perform.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.status, "needs_parent", "a matching declaration proceeds exactly as before");
+});
+
 test("P3 legacy notifier derives one stable outbox ID for an identical retry", () => {
   const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
   const count = join(dir, "curl-count");

@@ -68,7 +68,32 @@ is `truncated: true`, never silence. `coverage.threads.status` is **`covered` on
 discovery operation ran**, and `partial` with its reason otherwise. Never replace the bounded
 delta with a full-channel or every-thread scan; partial provider coverage stays explicit.
 
-For each operation, prefer a QFS route only when its map was actually described.
+## Typed fallback and revalidation
+
+For each operation, prefer a QFS route only when its map was actually described. An operation
+leaves the preferred route **only on a named failure**: `qfs_unavailable` (availability),
+`qfs_operation_unavailable` / `qfs_map_unverified` (capability), `qfs_preview_refused`
+(authorization), `qfs_preview_failed` (reachability). Every other failure keeps the operation
+where it was declared — an untyped switch is how a route nobody configured starts carrying the
+traffic while every report says it succeeded.
+
+**A read may also leave on a reachability failure; a write may not.** Every write class above
+fails *before* `--commit`, so nothing was accepted and the fallback is a first attempt. A
+`qfs_connector_failure` or `accepted_send_timeout` happens after it: the outbox goes `unknown`
+and the effect is reconciled, never resent over another route.
+
+The declared `fallback` order governs; absent keeps the historical order, and an explicitly
+**empty** one forbids every fallback. Workspace, channel ID, thread timestamp and expected
+sender ride the handoff verbatim — a fallback that re-resolved the destination would be a
+different destination. Every result carries `route`, `degraded`, `degraded_from`,
+`degradation_reason` and **`preferred_route_verified`**: a connector or token success proves
+delivery and proves nothing about the preferred route's configuration or about who spoke.
+
+A caller that knows which declaration it resolved against passes `expected_declared_digest`; a
+binding carrying a different `declared_digest` is refused **`binding_stale`** before any effect,
+so a resolution never outlives the declaration it came from. Absent on both sides, nothing
+changes.
+
 Use a parent connector reaching the same binding when QFS cannot perform that
 operation. Keep the configured Slack token route as compatibility fallback and
 never require a new credential. A parent round trip returns `needs_parent`; pass

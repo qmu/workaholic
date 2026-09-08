@@ -8,6 +8,20 @@ jq -e '.binding_id|type=="string" and length>0' "$TRANSPORT_REQUEST_FILE" >/dev/
 jq -e '.input.binding|type=="object" and (.workspace|type=="string" and length>0) and (.channel|type=="string" and length>0) and (.routes|type=="array")' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1 || transport_usage "operation requires resolved binding"
 binding_id=$(jq -r .binding_id "$TRANSPORT_REQUEST_FILE")
 case "$binding_id" in *[!A-Za-z0-9._-]*|.|..) transport_usage "binding_id is not path safe";; esac
+# ---- Revalidation ------------------------------------------------------------------------
+# A caller that knows which declaration it resolved against says so, and a binding resolved
+# against a DIFFERENT declaration is refused rather than used: an operator who re-points the
+# channel must not have the next effect land at the old one because a resolution outlived the
+# declaration it came from. Absent on both sides, nothing changes.
+expected_digest=$(jq -r '.input.expected_declared_digest // empty' "$TRANSPORT_REQUEST_FILE")
+if [ -n "$expected_digest" ]; then
+  actual_digest=$(jq -r '.input.binding.declared_digest // empty' "$TRANSPORT_REQUEST_FILE")
+  if [ "$expected_digest" != "$actual_digest" ]; then
+    transport_result deferred binding_stale "$TRANSPORT_REQUEST_ID" \
+      "$(jq -cn --arg expected "$expected_digest" --arg actual "$actual_digest" '{expected_declared_digest:$expected,binding_declared_digest:(if $actual=="" then null else $actual end)}')"
+    exit 0
+  fi
+fi
 tmpdir=$(mktemp -d)
 LEASE_HELD=false
 cleanup_transport() {
@@ -47,24 +61,107 @@ has_route() {
     '.input.binding.routes[]?|select(.transport==$t and (.operations|index($op)) and ($sender=="" or (.sender_id//"")==$sender))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1
 }
 
+# ---- Typed fallback -----------------------------------------------------------------------
+# An operation leaves the preferred route ONLY on a named failure of one of four kinds. Every
+# other failure keeps the operation where it was declared: an untyped switch is how a route
+# nobody configured starts carrying the loop's traffic while every report says it succeeded.
+qfs_fallback_class() {
+  case "$1" in
+    qfs_unavailable) echo availability ;;
+    qfs_operation_unavailable|qfs_map_unverified) echo capability ;;
+    qfs_preview_refused) echo authorization ;;
+    qfs_preview_failed) echo reachability ;;
+    *) echo none ;;
+  esac
+}
+# A READ may also leave on a reachability failure; a WRITE may NOT. Every write class above
+# fails BEFORE `--commit`, so nothing was accepted; `qfs_connector_failure` and
+# `accepted_send_timeout` happen after it, and an unknown effect is reconciled, never resent.
+read_fallback_class() {
+  case "$1" in qfs_connector_failure) echo reachability ;; *) qfs_fallback_class "$1" ;; esac
+}
+# The declared order governs. An absent `fallback` keeps the historical order; an explicitly
+# EMPTY one forbids every fallback, which is how an operator says "this route or nothing".
+fallback_permits() {
+  jq -e --arg t "$1" 'if (.input.binding | has("fallback"))
+    then (((.input.binding.fallback // []) | index($t)) != null) else true end' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1
+}
+fallback_order() {
+  jq -r 'if (.input.binding | has("fallback")) then ((.input.binding.fallback // [])[]?)
+         else ("connector", "slack_token") end' "$TRANSPORT_REQUEST_FILE"
+}
+# The PREFERRED transport is a property of the binding, not of one operation: a binding that
+# declares a QFS route declares QFS as its route, and an operation that leaves it has left it.
+prefers_qfs() {
+  jq -e '.input.binding.routes[]?|select(.transport=="qfs")' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1
+}
+# Why it left, in the vocabulary the classifier already uses.
+undescribed_reason() {
+  if jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" \
+      '.input.binding.routes[]?|select(.transport=="qfs" and (.operations|index($op)) and ($sender=="" or (.sender_id//"")==$sender))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1
+  then echo qfs_map_unverified; else echo qfs_operation_unavailable; fi
+}
+DEGRADED_FROM="" DEGRADATION_REASON=""
+# Every result says which route carried it and whether that route was the declared one. A
+# connector success is a DEGRADED success: it proves the message arrived, and proves nothing
+# about the preferred route's configuration or about who spoke.
+decorate() {
+  printf '%s' "$1" | jq -c --arg route "$2" --arg from "$DEGRADED_FROM" --arg why "$DEGRADATION_REASON" \
+    '.data = ((.data // {}) + {route:$route, degraded:($from != ""),
+       degraded_from:(if $from == "" then null else $from end),
+       degradation_reason:(if $why == "" then null else $why end),
+       preferred_route_verified:($from == "" and $route == "qfs" and .status == "ok")})'
+}
+connector_handoff() {
+  # Workspace, channel ID, thread timestamp and expected sender ride the handoff verbatim:
+  # a fallback that re-resolved the destination would be a different destination.
+  data=$(jq -c '{operation, target:(.input.binding|{workspace,channel,channel_id}), arguments:(.input|del(.binding,.parent_observation))}' "$TRANSPORT_REQUEST_FILE")
+  decorate "$(transport_result needs_parent connector_required "$TRANSPORT_REQUEST_ID" "$data")" connector
+}
+
 choose_route() {
     if has_route qfs && jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" '.input.binding.routes[]?|select(.transport=="qfs" and .described==true and (.operations|index($op)) and ($sender=="" or (.sender_id//"")==$sender))' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then echo qfs
-    elif has_route connector; then echo connector
-    elif has_route slack_token && [ -n "${SLACK_BOT_TOKEN:-}" ]; then echo slack_token
+    elif has_route connector && { ! prefers_qfs || fallback_permits connector; }; then echo connector
+    elif has_route slack_token && [ -n "${SLACK_BOT_TOKEN:-}" ] && { ! prefers_qfs || fallback_permits slack_token; }; then echo slack_token
     elif has_route qfs; then echo qfs_unproved
     elif has_route slack_token; then echo token_unavailable
     else echo unavailable
     fi
 }
+# The first declared fallback that can actually carry this operation, or nothing.
+next_route() {
+    for candidate in $(fallback_order); do
+      case "$candidate" in
+        connector) if has_route connector; then echo connector; return 0; fi ;;
+        slack_token) if has_route slack_token && [ -n "${SLACK_BOT_TOKEN:-}" ]; then echo slack_token; return 0; fi ;;
+      esac
+    done
+    return 0
+}
 
 case "$TRANSPORT_OPERATION" in
   read_channel_delta|list_thread_changes|read_thread|search_exact)
     route=$(choose_route)
+    if [ "$route" = qfs ]; then
+      adapter_code=0
+      result=$("${SCRIPT_DIR}/adapters/qfs.sh" --request "$TRANSPORT_REQUEST_FILE") || adapter_code=$?
+      # An adapter that REFUSED THE INPUT is our defect, not a route failure: it exits
+      # non-zero and its verdict is passed through untouched, never turned into a fallback.
+      [ "$adapter_code" -eq 0 ] || { printf '%s\n' "$result"; exit "$adapter_code"; }
+      if [ "$(printf '%s' "$result" | jq -r .status)" = ok ]; then decorate "$result" qfs; exit 0; fi
+      reason=$(printf '%s' "$result" | jq -r .reason)
+      if [ "$(read_fallback_class "$reason")" = none ]; then printf '%s\n' "$result"; exit 0; fi
+      fallback=$(next_route)
+      [ -n "$fallback" ] || { printf '%s\n' "$result"; exit 0; }
+      DEGRADED_FROM=qfs; DEGRADATION_REASON=$reason; route=$fallback
+    elif prefers_qfs; then
+      # A declared QFS route that cannot carry this operation — its map was never described,
+      # or the operation is not in it. The switch is permitted, it is a capability failure,
+      # but it is never silent and it never certifies the preferred route.
+      DEGRADED_FROM=qfs; DEGRADATION_REASON=$(undescribed_reason)
+    fi
     case "$route" in
-      qfs) exec "${SCRIPT_DIR}/adapters/qfs.sh" --request "$TRANSPORT_REQUEST_FILE" ;;
-      connector)
-        data=$(jq -c '{operation, target:(.input.binding|{workspace,channel,channel_id}), arguments:(.input|del(.binding,.parent_observation))}' "$TRANSPORT_REQUEST_FILE")
-        transport_result needs_parent connector_required "$TRANSPORT_REQUEST_ID" "$data" ;;
+      connector) connector_handoff ;;
       qfs_unproved) transport_result deferred qfs_map_unverified "$TRANSPORT_REQUEST_ID" '{}' ;;
       *) transport_result deferred operation_unavailable "$TRANSPORT_REQUEST_ID" '{}' ;;
     esac
@@ -159,12 +256,18 @@ else
 fi
 
 route=$(choose_route)
+if [ "$route" != qfs ] && prefers_qfs; then DEGRADED_FROM=qfs; DEGRADATION_REASON=$(undescribed_reason); fi
+select_adapter() {
+  case "$1" in
+    qfs) adapter="${SCRIPT_DIR}/adapters/qfs.sh" ;;
+    slack_token) adapter="${SCRIPT_DIR}/adapters/slack-token.sh" ;;
+    *) adapter="" ;;
+  esac
+}
 case "$route" in
   qfs) adapter="${SCRIPT_DIR}/adapters/qfs.sh";;
   slack_token) adapter="${SCRIPT_DIR}/adapters/slack-token.sh";;
-  connector)
-    data=$(jq -c '{operation,target:(.input.binding|{workspace,channel,channel_id}),arguments:(.input|del(.binding,.parent_observation))}' "$TRANSPORT_REQUEST_FILE")
-    transport_result needs_parent connector_required "$TRANSPORT_REQUEST_ID" "$data"; exit 0;;
+  connector) connector_handoff; exit 0;;
   qfs_unproved) [ "$out_state" = sending ] && transition_outbox unknown; transport_result deferred qfs_map_unverified "$TRANSPORT_REQUEST_ID" '{}'; exit 0;;
   token_unavailable)
     if [ "$TRANSPORT_OPERATION" = reconcile_send ]; then transport_result deferred reconciliation_unavailable "$TRANSPORT_REQUEST_ID" '{}';
@@ -175,8 +278,27 @@ case "$route" in
     else transition_outbox refused; transport_result deferred operation_unavailable "$TRANSPORT_REQUEST_ID" '{}'; fi
     exit 0;;
 esac
-result=$("$adapter" --request "$TRANSPORT_REQUEST_FILE")
+adapter_code=0
+result=$("$adapter" --request "$TRANSPORT_REQUEST_FILE") || adapter_code=$?
+[ "$adapter_code" -eq 0 ] || { printf '%s\n' "$result"; exit "$adapter_code"; }
 status=$(printf '%s' "$result" | jq -r .status); reason=$(printf '%s' "$result" | jq -r .reason)
+# A WRITE leaves the preferred route only on a failure that happened BEFORE the provider was
+# asked to commit — capability, authorization, availability. The outbox stays `sending`
+# because nothing was accepted, so the fallback is a first attempt rather than a resend.
+if [ "$status" != ok ] && [ "$route" = qfs ] && [ "$(qfs_fallback_class "$reason")" != none ]; then
+  fallback=$(next_route)
+  if [ -n "$fallback" ] && [ "$fallback" != qfs ]; then
+    DEGRADED_FROM=qfs; DEGRADATION_REASON=$reason; route=$fallback
+    if [ "$route" = connector ]; then connector_handoff; exit 0; fi
+    select_adapter "$route"
+    if [ -n "$adapter" ]; then
+      adapter_code=0
+      result=$("$adapter" --request "$TRANSPORT_REQUEST_FILE") || adapter_code=$?
+      [ "$adapter_code" -eq 0 ] || { printf '%s\n' "$result"; exit "$adapter_code"; }
+      status=$(printf '%s' "$result" | jq -r .status); reason=$(printf '%s' "$result" | jq -r .reason)
+    fi
+  fi
+fi
 if [ "$status" = ok ]; then
   # Provider adapters and parent connectors cross the same confirmation seam.
   # An adapter's successful invocation is not delivery evidence until the
@@ -196,4 +318,4 @@ if [ "$status" = ok ]; then
 elif [ "$reason" = accepted_send_timeout ] || [ "$reason" = provider_timeout ] || [ "$reason" = qfs_connector_failure ]; then transition_outbox unknown
 else transition_outbox refused
 fi
-printf '%s\n' "$result"
+decorate "$result" "$route"

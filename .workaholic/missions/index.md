@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](active/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 
@@ -72,6 +71,7 @@
 * [make-routine-notifications-one-semantic-story](archive/make-routine-notifications-one-semantic-story/mission.md) - Make routine notifications one semantic story
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](archive/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
 * [make-slack-acknowledgements-informative-without-becoming-notification-noise](archive/make-slack-acknowledgements-informative-without-becoming-notification-noise/mission.md) - Make Slack acknowledgements informative without becoming notification noise
+* [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](archive/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [make-slack-intake-incremental-across-messages-threads-and-mentions](archive/make-slack-intake-incremental-across-messages-threads-and-mentions/mission.md) - Make Slack intake incremental across messages, threads, and mentions
 * [make-the-branch-story-concise-by-default](archive/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter

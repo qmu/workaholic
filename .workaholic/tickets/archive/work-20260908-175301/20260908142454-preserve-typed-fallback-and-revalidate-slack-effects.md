@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T14:24:54+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,39 @@ reachability failure, preserving the declared destination and thread while namin
 ## Considerations
 
 Effect retries must keep the stable request ID and reconcile unknown delivery before any resend.
+
+## Final Report
+
+Development completed as planned.
+
+`perform.sh` now leaves the preferred route only on one of four named failures — availability,
+capability, authorization, reachability — and keeps the operation where it was declared on every
+other. A read may also leave on a reachability failure; a write may not, because every write
+class fails before `--commit` while `qfs_connector_failure` and `accepted_send_timeout` happen
+after it and are reconciled rather than resent. The declared `fallback` order governs, an empty
+one forbids every fallback, and workspace, channel ID, thread timestamp and expected sender ride
+the handoff verbatim. Every result carries `route`, `degraded`, `degraded_from`,
+`degradation_reason` and `preferred_route_verified`. `expected_declared_digest` refuses
+`binding_stale` before any effect.
+
+### Discovered Insights
+
+- **Insight**: The untyped switch was not a missing feature, it was the default: `choose_route`
+  fell to the connector whenever the QFS map was undescribed, so a repository whose preferred
+  route was misconfigured ran on the fallback indefinitely with every report reading like a
+  clean success.
+  **Context**: The repair is mostly *reporting* — the same route is still chosen — which is why
+  `preferred_route_verified` had to be a field rather than an inference from `status: ok`.
+- **Insight**: The safe fallback boundary is `--commit`, not the transport. Classifying by
+  failure *kind* alone would have let a post-commit timeout be resent over the token route,
+  which is the double-post the outbox exists to prevent; the four permitted classes are exactly
+  those the QFS adapter can only emit before the commit.
+  **Context**: `qfs_connector_failure` looks like the most fallback-worthy word in the
+  vocabulary and is the one word a write may never fall back on.
+- **Insight**: `(.ok // true) != false` never fires for `{"ok": false}` — jq's `//` treats
+  `false` as empty, so the adapter's `qfs_preview_refused` guard read a refusal as an
+  acceptance and went on to commit. It is the authorization rung of this ticket's own class
+  table, so it was fixed here (`.ok != false`, the same tolerance for an absent field and an
+  actual test of a present one) with a row proving the commit is never reached.
+  **Context**: The same `// default` idiom guards boolean fields elsewhere in these scripts and
+  is wrong wherever the meaningful value is `false`.

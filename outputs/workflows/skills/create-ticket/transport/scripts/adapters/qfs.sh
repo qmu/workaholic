@@ -68,7 +68,10 @@ esac
 
 if case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction) true;; *) false;; esac; then
     preview=$($QFS_BIN run "$query" --json --preview 2>&1) || { transport_result deferred qfs_preview_failed "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
-    printf '%s' "$preview" | jq -e '(.ok // true) != false' >/dev/null 2>&1 || { transport_result deferred qfs_preview_refused "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
+    # `.ok // true` never fires for `{"ok": false}` — jq's `//` treats false as empty, so the
+    # refusal this guard exists for read as an acceptance. `.ok != false` is the same
+    # tolerance for an ABSENT field and an actual test of a present one.
+    printf '%s' "$preview" | jq -e '.ok != false' >/dev/null 2>&1 || { transport_result deferred qfs_preview_refused "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
     raw=$($QFS_BIN run "$query" --json --commit 2>&1) || {
       case "$?" in 124) transport_result deferred accepted_send_timeout "$TRANSPORT_REQUEST_ID" '{"accepted":true}';; *) transport_result deferred qfs_connector_failure "$TRANSPORT_REQUEST_ID" '{"accepted":null}';; esac
       exit 0

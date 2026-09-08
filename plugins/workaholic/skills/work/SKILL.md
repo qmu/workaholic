@@ -62,6 +62,13 @@ Observe both inputs before deciding the next observation:
 - `specificate/scripts/list-inbound-issues.sh`, which returns open feedback issues assigned
   to this identity and excludes already captured or self-originated issues.
 
+Report the route each Slack effect actually took. Startup names the declared binding it
+resolved, whether the channel and sender were verified, and any `binding_contradictory` /
+`binding_incomplete` reading; each effect names its `route` and, when it left the preferred one,
+`degraded_from` and the typed `degradation_reason`. A connector or token success is a **degraded
+success** — it proves delivery and never that the preferred route is configured — and reporting
+it as an ordinary one is how a repository runs for weeks on a route nobody chose.
+
 An observation is quiet only when every configured source was read successfully. Any new
 human Slack root or reply, or any new assigned feedback issue, is activity. Bot-authored
 messages do not reset the interval. A new feedback issue makes propose-then-specificate due

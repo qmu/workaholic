@@ -708,4 +708,5 @@
 * [Slack の巡回を最新投稿・対応中スレッド・Bot 宛てメンションの差分収集で効率化する](20260908123552-slack-bot.md)
 * [Discover new human replies inside existing Slack threads](20260908123559-discover-new-human-replies-inside-existing-slack-threads.md)
 * [Honor repository-declared QFS Slack bindings before connector fallback](20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback.md)
+* [Make Slack acknowledgements specific, conversational, and burst-aware](20260908124344-make-slack-acknowledgements-specific-conversational-and-burst-aware.md)
 <!-- okf:generated:end -->

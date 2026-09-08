@@ -23085,6 +23085,14 @@ function testOneSessionLoop() {
     /log-read\.sh/.test(tick) && /30 minutes/.test(tick), tick);
   assertTrue("propose does not own Slack transport", /posts nothing to Slack/.test(propose), propose);
   assertTrue("the tick carries reply and receipt shapes", /💬/.test(tick) && /📥 受理/u.test(tick), tick);
+  assertTrue("receipt facts are validated before natural prose is rendered",
+    /acknowledgement-contract\.sh --input/.test(tick) && /workflow_state: captured_for_specification/.test(tick), tick);
+  assertTrue("the observation page, not a timer or count, bounds receipt grouping",
+    /page is the batching boundary/.test(tick) && /never wait for a timer or an arbitrary item count/.test(tick), tick);
+  assertTrue("a related burst maps every recognizable subject to its issue in one receipt",
+    /related group uses one compact reply/.test(tick) && /その人の言葉で表した件名/u.test(tick), tick);
+  assertTrue("each grouped source keeps its own visible durable reaction",
+    /reaction_refs/.test(tick) && /ack_failed/.test(tick), tick);
   for (const outcome of ["announced", "already_announced", "thread_unresolved", "post_failed", "held"])
     assertTrue(`the ceiling names ${outcome}`, tick.includes(outcome), outcome);
 }
@@ -23898,6 +23906,57 @@ function testVersionAheadOfTheBase() {
     assertTrue("CLAUDE.md carries the measurement and the ruling on the collided numbers",
       /five consecutive merges carried two versions/.test(claude)
       && /recorded and left/.test(claude), "CLAUDE.md");
+  } finally { cleanup(dir); }
+}
+
+// ---------- a release is exactly one completed mission boundary (2026-09-08) ----------
+T("story/release-boundary.sh: four mission tickets make one release, never four", testMissionReleaseBoundary);
+function testMissionReleaseBoundary() {
+  const BOUNDARY = join(REPO_ROOT, "plugins/workaholic/skills/story/scripts/release-boundary.sh");
+  const dir = makeRepo();
+  try {
+    writeFileSync(join(dir, "seed.txt"), "base\n");
+    execSync('git add -A && git commit -q -m "seed"', { cwd: dir });
+    execSync("git branch -f base", { cwd: dir });
+    execSync("git checkout -q -b mission-unit", { cwd: dir });
+
+    const slug = "one-release";
+    const names = ["capture", "batch", "drive", "deliver"]
+      .map((s, i) => `2026090800000${i}-${s}.md`);
+    const missionDir = join(dir, `.workaholic/missions/archive/${slug}`);
+    const archiveDir = join(dir, ".workaholic/tickets/archive/work-20260908-000000");
+    mkdirSync(missionDir, { recursive: true });
+    mkdirSync(archiveDir, { recursive: true });
+    writeFileSync(join(missionDir, "mission.md"), [
+      "---", "type: Mission", `slug: ${slug}`, "status: achieved", "---", "",
+      "# One release", "", "## Acceptance", "",
+      ...names.map((name) => `- [x] ${name} (#${name})`), "",
+    ].join("\n"));
+    for (const name of names) {
+      writeFileSync(join(archiveDir, name),
+        `---\nmission: ${slug}\n---\n\n# ${name}\n`);
+    }
+    execSync('git add -A && git commit -q -m "finish one mission"', { cwd: dir });
+
+    let r = JSON.parse(run(dir, `${POSIX_SH} ${BOUNDARY} base`).stdout);
+    assertEq("the whole four-ticket mission is one eligible boundary",
+      [r.eligible, r.reason, r.mission, r.tickets],
+      [true, "completed_mission", slug, 4]);
+
+    // A record or ticket can land without becoming a release. The same branch facts with a
+    // non-terminal mission refuse versioning rather than relying on a caller's restraint.
+    writeFileSync(join(missionDir, "mission.md"),
+      readFileSync(join(missionDir, "mission.md"), "utf8").replace("status: achieved", "status: active"));
+    r = JSON.parse(run(dir, `${POSIX_SH} ${BOUNDARY} base`).stdout);
+    assertEq("an active mission cannot allocate a version", [r.eligible, r.reason],
+      [false, "mission_not_achieved"]);
+
+    const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+    assertTrue("unsettled intake mechanically allocates zero new implement runners",
+      /formation_pending: true[\s\S]{0,500}?zero new implement/.test(loop), "formation boundary missing");
+    const drive = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+    assertTrue("a non-release unit cannot enter ship",
+      /version_not_allocated:[^\n]+[\s\S]{0,300}?must not call `\/ship`/.test(drive), "ship boundary missing");
   } finally { cleanup(dir); }
 }
 
@@ -24852,10 +24911,11 @@ function testExtractIssueNumber() {
 
 // ---------- list-inbound-issues.sh (the clock-fired discovery) ----------
 // [Specificate]'s schedule fire hands the session nothing, so /specificate discovers its own
-// asks: the open issues assigned to this identity, minus those a feedback record
-// already names. `gh` is ALWAYS stubbed — the suite never touches the network — and
+// asks: the open issues assigned to this identity, minus those already carried by a planned
+// artifact. `gh` is ALWAYS stubbed — the suite never touches the network — and
 // the properties pinned are the ones a wrong inbox would corrupt silently:
-//   - already_captured keys on the URL's /issues/<N> form with a NUMERIC BOUNDARY,
+//   - record existence alone is recorded_unplanned, while already_planned requires an
+//     artifact relation, and matching keys on /issues/<N> with a NUMERIC BOUNDARY,
 //     because a record naming issue 12 must not swallow issue 120;
 //   - an exclusion is REPORTED, never silently dropped;
 //   - a missing gh is ok:false, because an unreadable inbox must never render as an
@@ -25032,9 +25092,15 @@ function testListInboundIssues() {
     execSync("git init -q", { cwd: repo });
     execSync("git remote add origin https://github.com/o/r.git", { cwd: repo });
 
-    // A record already names issue 12 by its URL — that issue is in flight, not new.
+    // A record names issue 12 but no artifact carries it: capture is not settlement.
     writeFileSync(join(repo, ".workaholic/feedbacks/20260812000000-captured.md"),
       `---\ntype: Feedback\n---\n\nSource: GitHub issue #12 (https://github.com/o/r/issues/12)\n`);
+    // Issue 9 has both facts: its record exists and a ticket relates the planned work to it.
+    writeFileSync(join(repo, ".workaholic/feedbacks/20260812000100-planned.md"),
+      `---\ntype: Feedback\n---\n\nSource: GitHub issue #9 (https://github.com/o/r/issues/9)\n`);
+    mkdirSync(join(repo, ".workaholic/tickets/todo"), { recursive: true });
+    writeFileSync(join(repo, ".workaholic/tickets/todo/20260812000100-planned.md"),
+      `---\nfeedback: [20260812000100-planned.md]\n---\n\n# Planned\n`);
 
     writeGh(restGh());
     const r = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
@@ -25042,9 +25108,12 @@ function testListInboundIssues() {
       r.issues.some((i) => i.number === 55), false);
     assertEq("a readable inbox is ok:true", r.ok, true);
     assertEq("the identity is the session's own login", r.identity, "tester");
-    assertEq("issue 12, already named by a record, and the tick's own finding are excluded",
-      r.excluded.map((e) => `${e.number}:${e.reason}`).sort(), ["12:already_captured", "30:self_originated"]);
+    assertEq("only a planned relation and the tick's own finding are excluded",
+      r.excluded.map((e) => `${e.number}:${e.reason}`).sort(), ["30:self_originated", "9:already_planned"]);
     assertEq("three issues survive", r.issues.length, 3);
+    assertEq("a captured but unplanned issue is re-offered with the record to reuse",
+      [r.issues.find((i) => i.number === 12)?.state, r.issues.find((i) => i.number === 12)?.record],
+      ["recorded_unplanned", "20260812000000-captured.md"]);
     assertEq("issue 120 is NOT swallowed by the record naming issue 12 (numeric boundary)",
       r.issues.some((i) => i.number === 120), true);
     assertEq("the oldest issue comes first", r.issues[0].number, 7);
@@ -25094,9 +25163,9 @@ function testListInboundIssues() {
     // a pull request — they send you to different places.
     assertEq("a record on an unmerged proposal branch excludes its issue, under its own word",
       withBranch.excluded.map((e) => `${e.number}:${e.reason}`).sort(),
-      ["12:already_captured", "30:self_originated", "7:captured_on_branch"]);
+      ["30:self_originated", "7:captured_on_branch", "9:already_planned"]);
     assertEq("and an issue no record names anywhere is still offered",
-      withBranch.issues.map((i) => i.number).sort((a, b) => a - b), [9, 120]);
+      withBranch.issues.map((i) => i.number).sort((a, b) => a - b), [12, 120]);
 
     // A MERGED-AND-DELETED BRANCH RESURRECTS NOTHING. The branch is what this keys on, so
     // deleting it frees the ask again — the same invariant that releases a claim.
@@ -25104,8 +25173,8 @@ function testListInboundIssues() {
     const afterDelete = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
     assertEq("a branch that is gone excludes nothing — issue 7 is offered again",
       afterDelete.issues.some((i) => i.number === 7), true);
-    assertEq("and the base record's own exclusion is untouched",
-      afterDelete.excluded.map((e) => e.reason).sort(), ["already_captured", "self_originated"]);
+    assertEq("and the planned base record's exclusion is untouched",
+      afterDelete.excluded.map((e) => e.reason).sort(), ["already_planned", "self_originated"]);
 
     // A DEGRADED WALK IS NAMED ON STDERR AND ERRS TOWARD EXCLUDING. `.git/shallow` is what
     // `--is-shallow-repository` answers from, so a shallow clone's over-read warning is
@@ -25130,7 +25199,7 @@ function testListInboundIssues() {
     assertTrue("with the reason on stderr",
       /no base ref resolved/.test(readFileSync(errFile, "utf8")), readFileSync(errFile, "utf8"));
     assertEq("and the base grep is untouched by the walk it could not make",
-      noBaseJson.excluded.map((e) => e.reason).sort(), ["already_captured", "self_originated"]);
+      noBaseJson.excluded.map((e) => e.reason).sort(), ["already_planned", "self_originated"]);
     git("update-ref refs/remotes/origin/main HEAD");
 
     // An empty inbox is ok:true with zero issues — the honest nothing_in_hand.
@@ -25660,13 +25729,13 @@ function testFbFilesAnIssue() {
   assertTrue("the skill says why the assignee is load-bearing",
     /assigned to the running identity and never unassigned/.test(skill), "the discovery filter is not explained");
 
-  // NO RECORD ON THE ISSUE PATH, and the reason is mechanical: a record naming the issue
-  // makes `[Specificate]` skip it as `already_captured`, so the ask would sit unproposed
-  // forever. Stating only "no record is written" would read as an omission.
+  // NO RECORD ON THE ISSUE PATH: capture and judgment have one owner. Recovery can distinguish
+  // a premature record from a plan, but the happy path must not manufacture competing state.
   assertTrue("the skill states that no record is written on that path",
     /No feedback record is written on this path/.test(skill));
-  assertTrue("and names already_captured as the reason",
-    /already_captured/.test(skill), "the suppression reason is not stated");
+  assertTrue("and names the one ownership seam and recovery state",
+    /one seam that records and judges/.test(skill) && /recorded_unplanned/.test(skill),
+    "the capture ownership is not stated");
 
   // WHICH GATES SURVIVE IS A DECISION WITH ITS REASONING, recorded as such.
   assertTrue("the skill records which gates apply with no boundary crossed",
@@ -25716,7 +25785,7 @@ function testFbFilesAnIssue() {
 // Making the primary path a network call made `/fb` losable in ways the old file write
 // never was. The fallback is deliberately narrow, and every edge of that narrowness is a
 // way to lose or duplicate an ask: firing on the happy path re-introduces the
-// `already_captured` self-suppression, not firing on an unparseable envelope drops the
+// competing capture ownership, not firing on an unparseable envelope drops the
 // ask silently, and firing on the crossing routes around another repository's own
 // decision about its boundary. Driven off stubbed envelopes — no `gh`, no network.
 T("/fb's one degradation: the fallback decision", testFbFallbackDecision);
@@ -25726,8 +25795,7 @@ function testFbFallbackDecision() {
     { encoding: "utf8", shell: "/bin/sh" }));
 
   // THE HAPPY PATH NEVER WRITES A RECORD. A `/fb` that opened the issue AND wrote the
-  // record would make `[Specificate]`'s discovery skip its own issue as `already_captured`,
-  // and the ask would sit unproposed forever — the defect the in-repo path exists to avoid.
+  // record would give capture two owners; discovery recovery is not a licence to do that.
   assertEq("a filed issue does not fall back",
     decide("in-repo", '{"ok": true, "url": "https://example.test/issues/1"}').fallback, false);
 
@@ -34257,7 +34325,8 @@ function testProofJudgementSplit() {
 //      point: a step that starts filing must say so where the intent is recorded.
 //
 //   2. THE DISCOVERY. `list-inbound-issues.sh` derives its candidates from the issues
-//      endpoint and reads `.workaholic/feedbacks/` only to compute `already_captured`.
+//      endpoint and reads `.workaholic/feedbacks/` to distinguish uncaptured from
+//      recorded-but-unplanned. Planning is proved only by an artifact relation.
 //      THE DISTINCTION IS ASSERTED, NOT THE ABSENCE — the script does read records, and a
 //      pin claiming otherwise would be wrong the day it was written. It is proved
 //      BEHAVIOURALLY over a stubbed `gh` with no network: with no records at all both
@@ -34331,17 +34400,23 @@ function testFindingToWorkGap() {
       bare.issues.map((i) => i.number).join(","), "7,8");
     assertEq("...and nothing is excluded", bare.excluded.length, 0);
 
-    // (b) ONE RECORD, NAMING ONE ISSUE. Exactly that issue is excluded `already_captured` and
-    // the other is still offered: records are the EXCLUSION source and nothing else.
+    // (b) ONE RECORD, NAMING ONE ISSUE. It remains offered, but with the existing immutable
+    // record named for reuse. This is the #1086/#1087/#1089 collision: moderation captured
+    // first and the old exclusion silently removed the ask before specification.
     mkdirSync(feedbacks, { recursive: true });
     writeFileSync(join(feedbacks, "20260829000000-an-ask.md"),
       "---\ntype: Feedback\n---\n\nCaptured from https://github.com/acme-org/source-repo/issues/8\n");
     const withRecord = JSON.parse(
       run(repo, `${POSIX_SH} ${LIST} ${feedbacks}`, { env }).stdout.trim());
-    assertEq("a record excludes the issue it names",
-      withRecord.excluded.map((e) => `${e.number}:${e.reason}`).join(","), "8:already_captured");
-    assertEq("...and leaves every other issue discoverable",
-      withRecord.issues.map((i) => i.number).join(","), "7");
+    assertEq("a record without a plan excludes nothing",
+      withRecord.excluded.length, 0);
+    assertEq("...and leaves both issues discoverable",
+      withRecord.issues.map((i) => i.number).join(","), "7,8");
+    assertEq("the recorded issue names its recovery state and reusable record",
+      [withRecord.issues[1].state, withRecord.issues[1].record],
+      ["recorded_unplanned", "20260829000000-an-ask.md"]);
+    assertEq("an unsettled page mechanically holds new implementation allocation",
+      withRecord.formation_pending, true);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 

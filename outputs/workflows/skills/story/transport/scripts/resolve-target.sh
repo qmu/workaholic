@@ -17,6 +17,7 @@ resolution=$(jq -c '
     select((.workspace // null) == ($t.workspace // null) or (($t.workspace // null)==null)) |
     select((.channel==$t.channel) or (.channel_id==$t.channel)) |
     select((($t.account // null)==null) or .account==$t.account) |
+    select((($t.sender_id // null)==null) or .sender_id==$t.sender_id) |
     select((($t.mount // null)==null) or .mount==$t.mount)] as $matches |
   {matches:$matches,
    workspaces:([$matches[].workspace // empty]|unique),
@@ -30,6 +31,14 @@ if [ "$count" -eq 0 ]; then
 fi
 if [ "$workspaces" -gt 1 ]; then
     transport_result deferred ambiguous_target "$TRANSPORT_REQUEST_ID" "$(printf '%s' "$resolution" | jq '{workspaces}')"
+    exit 0
+fi
+# A display label and workspace do not identify the account that will speak.
+# More than one described account/sender tuple is therefore an ambiguity, even
+# when every route reaches a channel with the same name.
+identities=$(printf '%s' "$resolution" | jq '[.matches[]|[(.account//""),(.sender_id//"")]|@tsv]|unique|length')
+if [ "$identities" -gt 1 ]; then
+    transport_result deferred ambiguous_identity "$TRANSPORT_REQUEST_ID" "$(printf '%s' "$resolution" | jq '{identities:[.matches[]|{account:(.account//null),sender_id:(.sender_id//null)}]|unique}')"
     exit 0
 fi
 

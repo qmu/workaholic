@@ -2,8 +2,9 @@
 
 ## active
 
+* [clear-the-residue-the-base-already-holds-and-never-stop-silently](active/clear-the-residue-the-base-already-holds-and-never-stop-silently/mission.md) - Clear the residue the base already holds, and never stop silently
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [make-slack-intake-incremental-across-messages-threads-and-mentions](active/make-slack-intake-incremental-across-messages-threads-and-mentions/mission.md) - Make Slack intake incremental across messages, threads, and mentions
+* [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](active/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 
@@ -67,9 +68,12 @@
 * [make-a-rename-a-registry-entry-not-a-sweep](archive/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep
 * [make-a-verification-handoff-a-probe-re-run-at-claim-time](archive/make-a-verification-handoff-a-probe-re-run-at-claim-time/mission.md) - Make a verification handoff a probe re-run at claim time
 * [make-acceptance-ticking-measure-satisfaction-not-marker-shape](archive/make-acceptance-ticking-measure-satisfaction-not-marker-shape/mission.md) - Make acceptance ticking measure satisfaction, not marker shape
+* [make-agentic-loop-validation-finite-and-truthful](archive/make-agentic-loop-validation-finite-and-truthful/mission.md) - Make agentic-loop validation finite and truthful
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](archive/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-routine-notifications-one-semantic-story](archive/make-routine-notifications-one-semantic-story/mission.md) - Make routine notifications one semantic story
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](archive/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
+* [make-slack-acknowledgements-informative-without-becoming-notification-noise](archive/make-slack-acknowledgements-informative-without-becoming-notification-noise/mission.md) - Make Slack acknowledgements informative without becoming notification noise
+* [make-slack-intake-incremental-across-messages-threads-and-mentions](archive/make-slack-intake-incremental-across-messages-threads-and-mentions/mission.md) - Make Slack intake incremental across messages, threads, and mentions
 * [make-the-branch-story-concise-by-default](archive/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
 * [make-the-codex-work-entrypoint-self-contained](archive/make-the-codex-work-entrypoint-self-contained/mission.md) - Make the Codex work entrypoint self-contained
@@ -117,6 +121,7 @@
 * [report-each-tick-in-the-originating-codex-chat](archive/report-each-tick-in-the-originating-codex-chat/mission.md) - Report each tick in the originating Codex chat
 * [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
 * [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](archive/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
+* [restore-the-mission-as-the-planning-merge-story-and-release-boundary](archive/restore-the-mission-as-the-planning-merge-story-and-release-boundary/mission.md) - Restore the mission as the planning, merge, story, and release boundary
 * [retire-a-claim-whose-work-is-finished-or-abandoned](archive/retire-a-claim-whose-work-is-finished-or-abandoned/mission.md) - Retire a claim whose work is finished or abandoned
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set

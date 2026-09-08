@@ -28,11 +28,24 @@ short interval. A successful quiet observation advances the idle backoff. If eit
 source is unreadable, preserve the quiet streak and use provider retry. A new feedback issue
 makes propose-then-specificate due on this tick.
 
+`formation_pending: true` is the intake/implementation ownership boundary. Dispatch
+propose-then-specificate for the whole oldest-first page and allocate **zero new implement
+runners on this tick**. This is derived from unsettled issues and proposal branches by the
+reader, not from a timer or ticket-count guess. Existing implement runners continue; they are
+never killed. A later tick may implement only after the reader says formation is settled.
+
 ## Answer Slack
 
 Fetch the dedup ledger with
 `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-swept-slack-refs.sh`. If it is
 unreadable, skip ask capture as `sweep_dedup_unreadable`.
+
+Collect every unswept message written by a person from this observation page before rendering
+receipts. File each ask first, then write one facts item for it and validate the whole page with
+`work/scripts/acknowledgement-contract.sh --input <facts.json>`. The facts keep the subject, issue
+URL, actual workflow state and source coordinate outside prose. `related_as` is the shared intended
+outcome only when that relationship is clear; an uncertain or unrelated ask uses `null` and stays
+separate. The page is the batching boundary — never wait for a timer or an arbitrary item count.
 
 For each unswept message written by a person:
 
@@ -55,13 +68,32 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
   [--feedback '<direction refs>'] <owner/name> "<title>" <body-file>
 ```
 
-  Then reply in that message's thread and add `:inbox_tray:` to the same coordinate:
+  Record `workflow_state: captured_for_specification`; filing an issue does not earn
+  `proposed_for_queue` or an implementation promise. After all asks in the page are filed, render
+  each validated `receipts[]` group once in its `thread_ref`, and add `:inbox_tray:` to every
+  coordinate in `reaction_refs`. A singleton keeps this shape:
 
 ```
 📥 受理 - [#123 [FB] Issue title](<repo-url>/issues/123)
-<依頼をどう受け取り、specificate が次にどう扱うか。80語以内>
+<件名が分かる自然な返答。依頼をどう受け取り、記録済みの状態と次の実際の工程をどう理解したか。80語以内>
 <session URL>
 ```
+
+  A related group uses one compact reply instead of repeating the sentence for every message:
+
+```
+📥 受理 - <N>件を一つのまとまりとして記録しました
+- [<その人の言葉で表した件名>](<issue URL>)
+- [<その人の言葉で表した件名>](<issue URL>)
+<共通して何を求められたと理解したか。記録済みの状態と次の実際の工程だけを述べ、80語以内>
+<session URL>
+```
+
+  The heading and links are required facts; the connective sentence is composed naturally in the
+  person's language and register. Never claim implementation, readiness, a date, or a schedule that
+  the structured `workflow_state` does not establish. A reaction or reply failure is still
+  `ack_failed` per source and never changes the filed issue. An ask arriving during composition is
+  outside this page and remains discoverable by the next overlapping observation.
 
 - A reply under the loop's own `🙋` question is an answer, not a new ask; moderate records it.
 - React to other human messages with `:eyes:` and do not reply.
@@ -104,7 +136,10 @@ Dispatch due roles in the background and never await them. Native agents use bou
 children. Other agents call
 `sh <work-skill>/scripts/codex-loop.sh --dispatch <role>`.
 
-For implement, derive claimable units with `loops/scripts/claimable-units.sh`. Fanout is:
+For implement, derive claimable units with `loops/scripts/claimable-units.sh` only when issue
+discovery reports `formation_pending: false`. When formation is pending, report
+`implement allocation: 0 (mission_formation_pending)` without running the claimable reader.
+Otherwise fanout is:
 
 `min(WORKAHOLIC_IMPLEMENT_FANOUT default 1, claimable units, available child capacity)`.
 

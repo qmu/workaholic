@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T12:38:11+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,12 @@ Give hourly, tick, and loop consumers one overlap-safe intake position and one d
 ## Considerations
 
 State must record delivery separately from interpretation so a reaction does not falsely mean the ask was fully handled.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Cursor overlap is safe only when durable capture reports which provider IDs were newly created.
+  **Context**: The high-water cursor can rewind each query while the inbox remains the single once-only action ledger.

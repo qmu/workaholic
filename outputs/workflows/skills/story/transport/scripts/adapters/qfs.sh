@@ -25,7 +25,12 @@ case "$TRANSPORT_OPERATION" in
     cursor=$(jq -r '.input.cursor // empty' "$TRANSPORT_REQUEST_FILE")
     case "$cursor" in '') ;; *[!0-9.]*|*.*.*|.*|*.) transport_usage "QFS cursor is invalid";; *.*) ;; *) transport_usage "QFS cursor is invalid";; esac
     query="${base}/messages |> select id, ts, thread_ts, sender_id, text, edited_at |> limit 100"
-    [ -z "$cursor" ] || query="${query} |> after ${cursor}"
+    if [ -n "$cursor" ]; then
+      overlap=$(jq -r '.input.overlap_seconds // 0' "$TRANSPORT_REQUEST_FILE")
+      case "$overlap" in *[!0-9]*|'') transport_usage "QFS overlap_seconds must be a non-negative integer";; esac
+      start=$(awk -v cursor="$cursor" -v overlap="$overlap" 'BEGIN { value=cursor-overlap; if (value<0) value=0; printf "%.6f", value }')
+      query="${query} |> after ${start}"
+    fi
     ;;
   read_thread)
     thread=$(jq -r '.input.thread_ts // empty' "$TRANSPORT_REQUEST_FILE"); [ -n "$thread" ] || transport_usage "read_thread requires thread_ts"

@@ -10,7 +10,7 @@ assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
 actual_hours:
-feedback: [20260908123159-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md]
+feedback: [20260908123159-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:

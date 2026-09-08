@@ -23339,6 +23339,52 @@ function testOneSessionLoop() {
     assertTrue(`the ceiling names ${outcome}`, tick.includes(outcome), outcome);
 }
 
+// A READING THE COORDINATOR COULD NOT MAKE IS NEVER ZERO CAPACITY, AND A TICK THAT SPAWNS
+// NOTHING BECAUSE OF IT SAYS SO ON THE CHANNEL (2026-09-08, mission
+// `clear-the-residue-the-base-already-holds-and-never-stop-silently`).
+//
+// `claimable-units.sh` states the caller's contract in its own header -- `readable: false` falls
+// back to one runner and is reported, which is what its NULL counts exist to make possible -- and
+// `commands/infinite-development.md` did not carry it: its fanout was
+// `min(fanout, claimable units, capacity)` with no rule for a null, so a reading that could not be
+// made became an allocation of zero. Measured 2026-09-08: 21 ticks over ~100 minutes,
+// `readable: false, reason: not_current`, no `/implement` runner ever spawned -- and therefore no
+// run in a position to post the precondition-stop shape, because that obligation lives in
+// `commands/implement.md` and the coordinator carried none of its own. Both halves are pinned
+// here, in the two documents that have to agree.
+T("loops: an unreadable allocation reading spawns a runner and reaches the channel", testCoordinatorDegradedAllocation);
+function testCoordinatorDegradedAllocation() {
+  const P = (...r) => join(REPO_ROOT, ...r);
+  const tick = readFileSync(P("plugins/workaholic/commands/infinite-development.md"), "utf8");
+  const reader = readFileSync(P("plugins/workaholic/skills/loops/scripts/claimable-units.sh"), "utf8");
+  const notify = readFileSync(P("plugins/workaholic/skills/notify/SKILL.md"), "utf8");
+  const loops = readFileSync(P("plugins/workaholic/skills/loops/SKILL.md"), "utf8");
+
+  // The reader's own stated contract, and the coordinator carrying it. The wording is pinned in
+  // the tick because that is the document a session actually executes.
+  assertTrue("the reader still states the fall-back-to-one contract",
+    /fall\n# back to one runner and report it/.test(reader), "claimable-units.sh header");
+  assertTrue("the tick carries it where the fanout is derived",
+    /A claimable reading of `readable: false` falls back to \*\*one\*\* runner and names the reason; never\nturn an unreadable claimable reading into zero capacity\./.test(tick), tick.slice(0, 200));
+  assertTrue("and it reads as one rule with the load rule beside it",
+    /never turn an\nunreadable load into zero capacity/.test(tick), "the load rule");
+
+  // The post obligation the coordinator lacked -- bounded, so an ordinary idle tick stays silent.
+  assertTrue("a degraded tick that spawned nothing posts under its own signature",
+    /post\n`workaholic:notify`'s precondition-stop shape under this tick's own signature/.test(tick), tick.slice(-800));
+  assertTrue("and an idle tick still posts nothing",
+    /nothing because nothing was due is\nan ordinary idle tick and posts nothing/.test(tick), tick.slice(-800));
+
+  // The class the shape belongs to now names the coordinator, and says what membership decides --
+  // the misreading that cost a wrong diagnosis is closed in the text.
+  assertTrue("the precondition-stop class names the coordinator's own stop",
+    /the coordinator's own pre-dispatch stop/.test(notify), "notify/SKILL.md");
+  assertTrue("and states that the class decides severity, not whether a stop is announced",
+    /decides SEVERITY, not whether a stop is announced at all/.test(notify), "notify/SKILL.md");
+  assertTrue("the loops execution model carries both halves",
+    /never becomes zero capacity/.test(loops) && /precondition-stop shape under its own signature/.test(loops), loops);
+}
+
 
 // ---------- the reading a claim branch's emptiness is derived from ----------
 // `claims_branch_emptiness` is the term that makes `superseded` mean what its header claims —

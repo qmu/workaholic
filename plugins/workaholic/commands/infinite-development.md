@@ -143,6 +143,10 @@ Otherwise fanout is:
 
 `min(WORKAHOLIC_IMPLEMENT_FANOUT default 1, claimable units, available child capacity)`.
 
+A claimable reading of `readable: false` falls back to **one** runner and names the reason; never
+turn an unreadable claimable reading into zero capacity. Its counts are `null` rather than `0` for
+exactly this reason, and a reading that could not be made says nothing about whether work exists.
+
 Before each runner beyond the first, apply `WORKAHOLIC_MAX_LOAD_PER_CORE` when configured.
 Never stop a running worker because of load, never refuse the first runner, and never turn an
 unreadable load into zero capacity. A non-advancing runner may free a fanout slot only when
@@ -164,6 +168,12 @@ Return one short Japanese block:
 - the latest progress reading and its observation time;
 - each completed worker's `executed`, `outcome`, and `reason`;
 - where this report is delivered.
+
+If this tick ends having spawned no runner because something it needed was degraded — an
+unreadable claimable reading, a freshen refusal, a degraded issue source — post
+`workaholic:notify`'s precondition-stop shape under this tick's own signature. Its dedup,
+escalation and cool-down apply unchanged. A tick that spawned nothing because nothing was due is
+an ordinary idle tick and posts nothing.
 
 Say `idle` alone when nothing happened. Claim completion only from merged work, an empty queue,
 and reconciled pull requests. Then end this tick without polling, waiting for workers, or

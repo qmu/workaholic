@@ -260,7 +260,15 @@ test("P5 production observer reads an overlap-safe QFS delta, deduplicates it, a
   assert.deepEqual(result.json.data.new_input_ids, ["m1"]);
   assert.deepEqual(result.json.data.known_thread_changes.map(x => x.thread_ts), ["799.0"]);
   assert.deepEqual(result.json.data.mentions.map(x => x.id), ["m1"]);
-  assert.equal(result.json.data.calls.total, 3);
+  // Undeclared: the observer must find the mount before it can describe it — enumerate,
+  // fall back to the aggregate describe, then describe the mount, plus the read and the
+  // capture. A repository that declares its mount pays one describe (the test below).
+  assert.equal(result.json.data.calls.total, 6);
+  assert.equal(result.json.data.calls.describe, 3);
+  // This mount offers no thread discovery, so thread coverage is PARTIAL and says why —
+  // the reading that used to be reported as covered because the channel delta had run.
+  assert.equal(result.json.data.coverage.threads.status, "partial");
+  assert.equal(result.json.data.coverage.complete, false);
   const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
   const bindings = join(dir, common, "workaholic/runtime/v1/bindings");
   const record = spawnSync("find", [bindings, "-path", "*/inbox/*.json", "-type", "f"], { encoding: "utf8" }).stdout.trim();
@@ -272,6 +280,131 @@ test("P5 production observer reads an overlap-safe QFS delta, deduplicates it, a
   const second = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:01:00Z"], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs, WORKAHOLIC_SLACK_WORKSPACE: "A", WORKAHOLIC_INBOUND_SLACK_CHANNEL: "same", WORKAHOLIC_SLACK_BOT_USER_ID: "BOT" } });
   assert.deepEqual(second.json.data.new_input_ids, []);
   assert.match(readFileSync(queries, "utf8"), /after 501\.000000/);
+});
+
+test("P3 the declared mount is described directly and a named mount is never guessed at /slack", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const queries = join(dir, "queries");
+  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1 $2" in\n  "connection list") printf '%s\\n' '{"connections":[{"name":"qmu","mount":"/slack/qmu","workspace":"qmu"},{"name":"other","mount":"/slack/other","workspace":"other"}]}' ;;\n  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","account":"bot-a","sender_id":"U9","operations":["read_channel_delta","post_root"],"channels":[{"name":"dev-x","id":"C1","is_private":true}]}' ;;\n  "describe /slack/other") printf '%s\\n' '{"mount":"/slack/other","workspace":"other","account":"bot-b","operations":["read_channel_delta"],"channels":[{"name":"unrelated","id":"C2"}]}' ;;\n  *) printf '%s\\n' '{}' ;;\nesac\n`);
+  spawnSync("chmod", ["+x", qfs]);
+  const describe = join(scripts, "describe-qfs.sh");
+  const env = { WORKAHOLIC_QFS_BIN: qfs };
+
+  let result = run(describe, ["--workspace", "qmu", "--channel", "dev-x", "--mount", "/slack/qmu"], { cwd: dir, env });
+  assert.equal(result.json.ok, true, result.stderr);
+  assert.equal(result.json.calls, 1, "a declared mount is described directly, with no enumeration");
+  assert.equal(result.json.observations[0].channel_id, "C1");
+  assert.equal(result.json.observations[0].channel_verified, true);
+  assert.equal(result.json.observations[0].sender_id, "U9");
+
+  result = run(describe, ["--workspace", "qmu", "--channel", "dev-x"], { cwd: dir, env });
+  const miss = result.json.observations.find(o => o.mount === "/slack/other");
+  assert.equal(miss.visibility, "public_miss", "a mount whose channel list lacks the channel is a miss, not a route");
+  assert.equal(miss.available, false);
+
+  result = run(describe, ["--workspace", "qmu", "--channel", "dev-x", "--mount", "/slack/absent"], { cwd: dir, env });
+  assert.equal(result.json.ok, false);
+  assert.equal(result.json.reason, "mount_not_described", "a declared mount that is not there is its own refusal");
+  assert.equal(result.json.observations.length, 0);
+
+  result = run(describe, ["--workspace", "qmu", "--channel", "dev-x"], { cwd: dir, env: { WORKAHOLIC_QFS_BIN: "/missing/qfs" } });
+  assert.equal(result.json.reason, "qfs_unavailable");
+});
+
+test("P3 the resolver narrows on required operations and refuses a label as a sender", () => {
+  const dir = repo();
+  const observations = [{ transport: "qfs", available: true, described: true, mount: "/slack/qmu", account: "bot-a",
+    workspace: "qmu", channel: "dev-x", channel_id: "C1", channel_verified: true, sender_id: "U9",
+    operations: ["read_channel_delta", "read_thread"] }];
+  const target = extra => ({ workspace: "qmu", channel: "dev-x", ...extra });
+
+  let path = request(dir, { ...base(dir, "discover", { declared_digest: "abc", target: target({ operations: ["read_channel_delta"] }), observations }) });
+  let result = run(join(scripts, "resolve-target.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.status, "ok", result.stderr);
+  assert.equal(result.json.data.binding.declared_digest, "abc", "the declaration the route was judged against rides the binding");
+  assert.equal(result.json.data.binding.sender_verified, true);
+  assert.equal(result.json.data.binding.channel_verified, true);
+
+  path = request(dir, base(dir, "discover", { target: target({ operations: ["read_channel_delta", "post_root"] }), observations }), "narrow.json");
+  result = run(join(scripts, "resolve-target.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.reason, "operations_unsatisfied", "a route that cannot perform what was declared is a different route");
+  assert.deepEqual(result.json.data.required, ["read_channel_delta", "post_root"]);
+
+  const labelled = [{ ...observations[0], sender_id: null }];
+  path = request(dir, base(dir, "discover", { target: target({ require_verified_sender: true }), observations: labelled }), "label.json");
+  result = run(join(scripts, "resolve-target.sh"), ["--request", path], { cwd: dir });
+  assert.equal(result.json.reason, "sender_unverified");
+  assert.deepEqual(result.json.data.accounts, ["bot-a"], "the profile label is reported, never promoted to a sender");
+});
+
+test("P5 a declared binding costs one describe and a contradicted one reads nothing at all", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs");
+  writeFileSync(qfs, `#!/bin/sh\ncase "$1 $2" in\n  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","account":"bot-a","sender_id":"U9","operations":["read_channel_delta"],"channels":[{"name":"dev-x","id":"C1"}]}' ;;\n  *) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","sender_id":"HUMAN","text":"hello"}],"has_more":false}' ;;\nesac\n`);
+  spawnSync("chmod", ["+x", qfs]);
+  const declaration = ["```workaholic-slack-binding", "workspace: qmu", "channel: dev-x", "mount: /slack/qmu",
+    "sender_id: U9", "operations: read_channel_delta", "```", ""].join("\n");
+  writeFileSync(join(dir, "AGENTS.md"), declaration);
+  const env = { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}` };
+
+  let result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:00:00Z"], { cwd: dir, env });
+  assert.equal(result.json.data.observation_proved, true, result.stderr);
+  assert.equal(result.json.data.calls.describe, 1, "the declared mount is described once and nothing is enumerated");
+  assert.equal(result.json.data.binding.channel_id, "C1");
+  assert.equal(result.json.data.binding.channel_verified, true);
+  assert.deepEqual(result.json.data.new_input_ids, ["m1"]);
+
+  writeFileSync(join(dir, "CLAUDE.md"), ["```workaholic-slack-binding", "workspace: qmu", "channel: elsewhere", "```", ""].join("\n"));
+  result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:01:00Z"], { cwd: dir, env });
+  assert.equal(result.json.data.observation_proved, false);
+  assert.deepEqual(result.json.data.unreadable, ["binding_contradictory"], "two destinations is not a destination");
+});
+
+test("P5 a reply under an older root is discovered, classified in context, and never claimed without the discovery", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const queries = join(dir, "queries");
+  // The channel delta deliberately does NOT carry the reply: that is the measured miss.
+  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1 $2" in\n  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","sender_id":"BOT","operations":["read_channel_delta","read_thread","list_thread_changes"],"channels":[{"name":"dev-x","id":"C1"}]}'; exit 0 ;;\nesac\ncase "$*" in\n  *"/threads |> select thread_ts"*) printf '%s\\n' '{"rows":[{"thread_ts":"700.0","last_reply_ts":"801.5","reply_count":2}],"has_more":false}' ;;\n  *"/threads/700.0/messages"*) printf '%s\\n' '{"rows":[{"id":"root","ts":"700.0","sender_id":"BOT","text":"🙋 which one"},{"id":"r1","ts":"801.5","thread_ts":"700.0","sender_id":"HUMAN","text":"the second"}]}' ;;\n  *) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","sender_id":"HUMAN","text":"top level"}],"has_more":false}' ;;\nesac\n`);
+  spawnSync("chmod", ["+x", qfs]);
+  const declare = ops => writeFileSync(join(dir, "AGENTS.md"), ["```workaholic-slack-binding", "workspace: qmu",
+    "channel: dev-x", "mount: /slack/qmu", "sender_id: BOT", `operations: ${ops}`, "```", ""].join("\n"));
+  declare("read_channel_delta, read_thread, list_thread_changes");
+  const env = { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}` };
+
+  let result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:00:00Z"], { cwd: dir, env });
+  assert.equal(result.json.data.observation_proved, true, result.stderr);
+  assert.deepEqual(result.json.data.new_input_ids, ["m1"], "the channel delta never carried the reply");
+  assert.deepEqual(result.json.data.thread_replies.map(r => r.id), ["r1"], "and the discovery found it anyway");
+  assert.equal(result.json.data.thread_replies[0].root_shape, "🙋");
+  assert.equal(result.json.data.thread_replies[0].route, "moderation_answer", "the whole thread decides what the reply is");
+  assert.equal(result.json.data.coverage.threads.status, "covered");
+  assert.equal(result.json.data.coverage.complete, true);
+  assert.match(readFileSync(queries, "utf8"), /threads \|> select thread_ts/, "discovery is a bounded delta, not a scan");
+
+  // The same reply again is a duplicate, and the channel cursor is not rewound by the
+  // thread capture — otherwise every tick would re-deliver the page it just captured.
+  result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:01:00Z"], { cwd: dir, env });
+  assert.deepEqual(result.json.data.new_input_ids, []);
+  assert.deepEqual(result.json.data.thread_replies, []);
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  const meta = spawnSync("find", [join(dir, common, "workaholic/runtime/v1/bindings"), "-name", "meta.json"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(JSON.parse(readFileSync(meta, "utf8")).data.cursor, "801.0", "the channel cursor governs and stays advanced");
+
+  // A route that cannot discover threads says PARTIAL with its reason. Reporting it as
+  // covered is the claim the whole path exists to stop making.
+  declare("read_channel_delta");
+  const bare = mkdtempSync(join(tmpdir(), "workaholic-threads-"));
+  spawnSync("git", ["init", "-q", bare]); spawnSync("git", ["-C", bare, "config", "user.email", "t@example.com"]);
+  writeFileSync(join(bare, "AGENTS.md"), readFileSync(join(dir, "AGENTS.md"), "utf8"));
+  const bareQfs = join(bare, "qfs");
+  writeFileSync(bareQfs, `#!/bin/sh\ncase "$1 $2" in\n  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","sender_id":"BOT","operations":["read_channel_delta"],"channels":[{"name":"dev-x","id":"C1"}]}'; exit 0 ;;\nesac\nprintf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","sender_id":"HUMAN","text":"top level"}],"has_more":false}'\n`);
+  spawnSync("chmod", ["+x", bareQfs]);
+  result = run(join(scripts, "observe-channel.sh"), ["--root", bare, "--now", "2026-09-08T00:00:00Z"], { cwd: bare, env: { WORKAHOLIC_QFS_BIN: bareQfs } });
+  assert.equal(result.json.data.coverage.threads.status, "partial");
+  assert.equal(result.json.data.coverage.threads.discovered, false);
+  assert.equal(result.json.data.coverage.threads.reason, "operation_unavailable");
+  assert.equal(result.json.data.coverage.complete, false);
+  assert.ok(result.json.data.unreadable.includes("operation_unavailable"), "and the reason is named, not implied");
 });
 
 test("P3 legacy notifier derives one stable outbox ID for an identical retry", () => {

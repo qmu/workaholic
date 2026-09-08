@@ -32,8 +32,24 @@ Observe both inbound sources before dispatch:
    These are assigned, open GitHub feedback issues not already captured on main or an open
    branch. An unreadable result is reported and is never treated as an empty inbox.
 
-New human Slack activity or a new assigned feedback issue resets adaptive observation to the
-short interval. A successful quiet observation advances the idle backoff. If either configured
+**A new reply inside an existing thread is inbound activity, and it is discovered rather than
+assumed.** Slack channel history does not carry a reply under an older root, so a reply whose
+thread the loop has not touched today is invisible to the channel delta by construction.
+`observe-channel.sh` asks which **threads** changed inside the same bounded overlap window,
+reads each changed thread whole, and only then routes each reply: `moderation_answer` (under
+the loop's own `🙋`), `answer_to_loop` (under another of its shapes), `reaction_only`, or
+**`needs_judgement`** — a reply under a human root, which this tick reads in its thread context
+and treats as a question or an ask exactly as it would a top-level message. Never classify a
+reply from its own text alone; what a reply is depends on what it is a reply to.
+
+**Say `covered` only when the discovery operation ran.** `coverage.threads.status` is `covered`
+when replies whose coordinates were *not already known* could have been found, and `partial`
+with its reason otherwise (`operation_unavailable`, a refused read, a truncated fan-out). Report
+the reason; a channel delta that happens to carry a broadcast reply is not thread coverage, and
+reporting it as coverage is how a missed reply looks exactly like a quiet hour.
+
+New human Slack activity — top-level **or** a discovered thread reply — or a new assigned
+feedback issue resets adaptive observation to the short interval. A successful quiet observation advances the idle backoff. If either configured
 source is unreadable, preserve the quiet streak and use provider retry. A new feedback issue
 makes propose-then-specificate due on this tick.
 

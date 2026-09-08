@@ -43,3 +43,4 @@ private thread, and names the exact degradation before using the same destinatio
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-08 — ticket archived — 20260908142454-declare-and-audit-the-repository-slack-binding.md
+- 2026-09-08 — ticket archived — 20260908142454-resolve-and-validate-the-preferred-qfs-slack-route.md

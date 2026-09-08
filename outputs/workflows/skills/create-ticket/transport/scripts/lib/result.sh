@@ -21,6 +21,7 @@ transport_request() {
       (.instance_id|type=="string" and length>0) and
       (.input|type=="object") and
       (.operation=="discover" or .operation=="read_channel_delta" or
+       .operation=="list_thread_changes" or
        .operation=="read_thread" or .operation=="search_exact" or
        .operation=="post_root" or .operation=="post_reply" or
        .operation=="add_reaction" or .operation=="reconcile_send")

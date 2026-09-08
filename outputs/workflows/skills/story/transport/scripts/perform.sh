@@ -58,7 +58,7 @@ choose_route() {
 }
 
 case "$TRANSPORT_OPERATION" in
-  read_channel_delta|read_thread|search_exact)
+  read_channel_delta|list_thread_changes|read_thread|search_exact)
     route=$(choose_route)
     case "$route" in
       qfs) exec "${SCRIPT_DIR}/adapters/qfs.sh" --request "$TRANSPORT_REQUEST_FILE" ;;

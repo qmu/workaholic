@@ -32,6 +32,23 @@ case "$TRANSPORT_OPERATION" in
       query="${query} |> after ${start}"
     fi
     ;;
+  list_thread_changes)
+    # Slack channel history does not carry a reply under an older root, so a new reply is
+    # invisible to `read_channel_delta` by construction. This asks the provider which THREADS
+    # changed, by their own coordinates, inside the same bounded overlap window — never a scan
+    # of every thread and never a full-channel read.
+    cursor=$(jq -r '.input.cursor // empty' "$TRANSPORT_REQUEST_FILE")
+    case "$cursor" in '') ;; *[!0-9.]*|*.*.*|.*|*.) transport_usage "QFS cursor is invalid";; *.*) ;; *) transport_usage "QFS cursor is invalid";; esac
+    limit=$(jq -r '.input.limit // 20' "$TRANSPORT_REQUEST_FILE")
+    case "$limit" in ''|*[!0-9]*) transport_usage "QFS limit must be a non-negative integer";; esac
+    query="${base}/threads |> select thread_ts, last_reply_ts, reply_count |> limit ${limit}"
+    if [ -n "$cursor" ]; then
+      overlap=$(jq -r '.input.overlap_seconds // 0' "$TRANSPORT_REQUEST_FILE")
+      case "$overlap" in *[!0-9]*|'') transport_usage "QFS overlap_seconds must be a non-negative integer";; esac
+      start=$(awk -v cursor="$cursor" -v overlap="$overlap" 'BEGIN { value=cursor-overlap; if (value<0) value=0; printf "%.6f", value }')
+      query="${query} |> after ${start}"
+    fi
+    ;;
   read_thread)
     thread=$(jq -r '.input.thread_ts // empty' "$TRANSPORT_REQUEST_FILE"); [ -n "$thread" ] || transport_usage "read_thread requires thread_ts"
     case "$thread" in *[!0-9.]*|*.*.*|.*|*.) transport_usage "QFS thread coordinate is invalid";; *.*) ;; *) transport_usage "QFS thread coordinate is invalid";; esac
@@ -60,7 +77,11 @@ else
     raw=$($QFS_BIN run "$query" --json 2>&1) || { transport_result deferred qfs_connector_failure "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
 fi
 data=$(printf '%s' "$raw" | jq -c --arg workspace "$workspace" --arg channel "$channel" --arg op "$TRANSPORT_OPERATION" '
-  if ($op|startswith("read_")) or $op=="search_exact" then
+  if $op=="list_thread_changes" then
+    {workspace:$workspace,channel:$channel,
+     threads:[((.threads // .rows // [])[]) | {thread_ts:(.thread_ts // .ts // null), last_reply_ts:(.last_reply_ts // .ts // null), reply_count:(.reply_count // null)} | select(.thread_ts != null)],
+     next_cursor:(.next_cursor//null),has_more:(.has_more//false),observed_at:(.observed_at//null)}
+  elif ($op|startswith("read_")) or $op=="search_exact" then
     {workspace:$workspace,channel:$channel,messages:(.messages // .rows // []),next_cursor:(.next_cursor//null),has_more:(.has_more//false),observed_at:(.observed_at//null)}
   else
     {workspace:$workspace,channel:$channel,ts:(.ts//.message.ts//null),thread_ts:(.thread_ts//.message.thread_ts//null),sender_id:(.sender_id//null),confirmed_by:(.confirmed_by//"qfs_response"),delivered:(.ok//true)}

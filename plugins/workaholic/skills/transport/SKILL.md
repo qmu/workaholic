@@ -30,6 +30,44 @@ against, never a hint added afterwards. `declared_digest` is the operator's decl
 hashed, carried onto the resolved binding as `declared_digest` so an effect planned against a
 superseded declaration is refused rather than delivered somewhere the operator no longer means.
 
+## Resolving the preferred route
+
+`scripts/describe-qfs.sh` describes what QFS actually offers. A **declared mount is described
+directly** and wins deterministically; only an undeclared binding enumerates connections and
+falls back to the aggregate `/slack` describe. Describing the literal path `/slack` was a guess —
+qfs mounts a connection under its own name — and on a machine whose mount is named it returned
+nothing while a working route sat one path segment away.
+
+It never guesses. A mount whose channel list was read and does not carry the channel is a
+`public_miss` observation, which is evidence of not seeing rather than of absence; a mount whose
+channel list could not be read carries `channel_verified: false` all the way onto the binding;
+an empty describe body is not a described route at all. An `account` is an operator-facing
+label and is never offered as `sender_id`. Refusals are typed and none is a verdict about the
+channel: `qfs_unavailable`, `connections_unreadable`, `no_connection`, `mount_not_described`,
+`missing_scope`, `no_route`.
+
+`resolve-target.sh` then verifies workspace, channel, account, sender and **required
+operations** as one binding. Operations narrow after the two ambiguity checks, so
+`target_unverified` still means *nothing reaches this channel* and `operations_unsatisfied`
+means *a route reaches it and cannot do what was declared*. `require_verified_sender` refuses
+`sender_unverified` rather than letting a profile label stand in for an identity Slack proved.
+The canonical binding carries `channel_verified`, `sender_verified` and `declared_digest`.
+
+## Discovering thread replies
+
+Slack channel history does not carry a reply under an older root, so `read_channel_delta` can
+never see one and a coverage claim based on it is false for exactly the messages people most
+expect an answer to. `list_thread_changes` asks which **threads** changed inside the same
+bounded overlap window, by their own coordinates and independently of any known-thread list;
+`observe-channel.sh` then reads each changed thread **whole** before classifying anything in it,
+captures its messages through the same dedup, and routes each new human reply
+`moderation_answer` / `answer_to_loop` / `reaction_only` / `needs_judgement`.
+
+The fan-out is bounded (`WORKAHOLIC_THREAD_FANOUT`, default 5) and reported: a truncated page
+is `truncated: true`, never silence. `coverage.threads.status` is **`covered` only when the
+discovery operation ran**, and `partial` with its reason otherwise. Never replace the bounded
+delta with a full-channel or every-thread scan; partial provider coverage stays explicit.
+
 For each operation, prefer a QFS route only when its map was actually described.
 Use a parent connector reaching the same binding when QFS cannot perform that
 operation. Keep the configured Slack token route as compatibility fallback and

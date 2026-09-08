@@ -710,4 +710,5 @@
 * [Honor repository-declared QFS Slack bindings before connector fallback](20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback.md)
 * [Make Slack acknowledgements specific, conversational, and burst-aware](20260908124344-make-slack-acknowledgements-specific-conversational-and-burst-aware.md)
 * [Restore mission-sized batching as the release boundary](20260908124644-restore-mission-sized-batching-as-the-release-boundary.md)
+* [Make Validate Plugins fail finitely](20260908145807-make-validate-plugins-fail-finitely.md)
 <!-- okf:generated:end -->

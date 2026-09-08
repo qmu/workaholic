@@ -68,6 +68,7 @@
 * [make-a-rename-a-registry-entry-not-a-sweep](archive/make-a-rename-a-registry-entry-not-a-sweep/mission.md) - Make a rename a registry entry, not a sweep
 * [make-a-verification-handoff-a-probe-re-run-at-claim-time](archive/make-a-verification-handoff-a-probe-re-run-at-claim-time/mission.md) - Make a verification handoff a probe re-run at claim time
 * [make-acceptance-ticking-measure-satisfaction-not-marker-shape](archive/make-acceptance-ticking-measure-satisfaction-not-marker-shape/mission.md) - Make acceptance ticking measure satisfaction, not marker shape
+* [make-agentic-loop-validation-finite-and-truthful](archive/make-agentic-loop-validation-finite-and-truthful/mission.md) - Make agentic-loop validation finite and truthful
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](archive/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-routine-notifications-one-semantic-story](archive/make-routine-notifications-one-semantic-story/mission.md) - Make routine notifications one semantic story
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](archive/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository

@@ -21373,7 +21373,12 @@ function testDecisionMaturity() {
       refused: [
         row("closed", { reason: "not_active", dormant: true }),
         row("theirs", { reason: "not_mine", dormant: true }),
-        row("settled", { reason: "observing", stage: "観察中", dormant: true }),
+        // THE STAGE IS READ OFF THE ROW, not off a refusal word: `survey-strategies.sh`'s
+        // ladder no longer emits `observing`, so a rung keyed on that word would be dead
+        // code. `stage_declared` is required — `absent means 進行中` is the right reading
+        // and the wrong thing to act on.
+        row("settled", { reason: "wip_limit", stage: "観察中", stage_declared: true, dormant: true }),
+        row("undeclared", { reason: "", stage: "進行中", dormant: true }),
         row("uncited", { reason: "no_feedback_refs", dormant: true }),
         row("proposed", { reason: "open_proposal", dormant: true }),
         row("busy", { reason: "work_waiting", waiting_missions: 1, waiting_count: 4, dormant: true }),
@@ -21390,6 +21395,7 @@ function testDecisionMaturity() {
       ["closed", "retire", "direction_closed"],
       ["theirs", "retire", "direction_not_mine"],
       ["settled", "retire", "direction_observing"],
+      ["undeclared", "ask_now", ""],
       ["uncited", "prerequisite", "no_feedback_refs"],
       ["proposed", "defer", "proposal_open"],
       ["busy", "defer", "work_in_flight"],
@@ -21495,6 +21501,87 @@ function testDecisionMaturity() {
     assertTrue("and imposes no residue term of its own",
       !/residue/.test(code), "a residue gate appeared in the ladder");
   } finally { cleanup(dir); }
+}
+
+// ═══ THE STEP WITHHOLDS AN IMMATURE QUESTION, AND ONLY AN IMMATURE ONE ══════════════════
+// (2026-09-08, mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`.)
+// MEASURED before this: a direction the operator had declared `観察中` — settled, the loop
+// reactive only — read `dormant` (which tests no stage) and was asked, hourly, to file its next
+// move. What must stay true is that the gate reaches the ATTRIBUTION readings and no others: a
+// date fact is never withheld, because no premise makes a date less true.
+T("direction-health asks only the mature questions", testDirectionHealthMaturity);
+function testDirectionHealthMaturity() {
+  const STEP = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh");
+  const A = makeRepo("main");
+  const w = (p2, body) => { mkdirSync(dirname(join(A, p2)), { recursive: true }); writeFileSync(join(A, p2), body); };
+  const day = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const strategy = (slug, target, ref, stage) =>
+    `---\ntype: Strategy\ntitle: T ${slug}\nslug: ${slug}\nstatus: active\ntarget_date: ${target}\n` +
+    (stage ? `stage: ${stage}\n` : "") +
+    `assignees: [test@example.com]\nfeedback: [${ref}]\n---\n\n## Aim\n\na\n\n## Schedule\n\ns\n`;
+  try {
+    for (const r of ["a", "b", "c"]) w(`.workaholic/feedbacks/2026010100000${r === "a" ? 0 : r === "b" ? 1 : 2}-${r}.md`, "---\ntype: Feedback\n---\n\nx\n");
+    // `quiet` — nothing answering it, and every premise held: the question is MATURE.
+    w(".workaholic/strategies/quiet.md", strategy("quiet", day(400), "20260101000000-a.md"));
+    // `watched` — the same reading, on a direction the operator already declared settled.
+    w(".workaholic/strategies/watched.md", strategy("watched", day(400), "20260101000001-b.md", "観察中"));
+    // `late` — also declared settled, but its reading is a DATE fact and is never withheld.
+    w(".workaholic/strategies/late.md", strategy("late", day(-400), "20260101000002-c.md", "観察中"));
+    const open = join(A, "open.json");
+    writeFileSync(open, '{"ok": true, "identity": "test", "proposals": []}\n');
+    execSync("git add -A && git commit -q -m seed", { cwd: A });
+
+    const j = JSON.parse(run(A, `${POSIX_SH} ${STEP} --tick 20260908-000000 --root ${A} --open-proposals ${open}`).stdout);
+    const keys = ((j.needs_agent[0] || {}).directions || []).map((d) => d.key).sort();
+
+    assertTrue("the mature dormant question is asked", keys.includes("direction-dormant:quiet"), keys.join(","));
+    assertTrue("the settled direction's dormant question is NOT asked",
+      !keys.includes("direction-dormant:watched"), keys.join(","));
+    assertTrue("but its DATE question is — a date fact carries no premise to be missing",
+      keys.includes("direction-overdue:late"), keys.join(","));
+
+    // A WITHHELD QUESTION IS NAMED IN THE LOG. One withheld and never said is
+    // indistinguishable from one nobody thought to ask, which is the collapse this ends.
+    assertTrue("the log-facing summary names the slug, the verdict and the reason",
+      /1 withheld as premature \(watched \(retire: direction_observing\)\)/.test(j.summary), j.summary);
+    assertTrue("and it still reports the reader's own counts beside it",
+      /2 dormant/.test(j.summary), j.summary);
+
+    // THE ROOT COUNTS WHAT IT ASKS. The event links the subjects it names, so counting a
+    // withheld direction there would announce an event beside a link list without it.
+    assertTrue("the event names one dormant direction, not two",
+      /a direction has nothing answering it/.test(j.event) && !/2 directions have nothing/.test(j.event),
+      j.event);
+    assertTrue("and links only the directions it asked about",
+      j.event.includes("quiet") && !j.event.includes("|watched>"), j.event);
+
+    // NOTHING IS WRITTEN, AND NO LEDGER LINE IS SPENT ON A QUESTION NOBODY HEARD.
+    assertEq("withholding a question writes nothing into the tree",
+      run(A, "git status --porcelain").stdout, "");
+
+    // THE GATE REACHES THE FOUR ATTRIBUTION READINGS AND NO OTHERS, on the call site rather
+    // than on prose: the step's own header explains why the date readings are exempt.
+    const code = codeLines(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"));
+    const gate = code.slice(code.indexOf("decision-maturity.sh"), code.indexOf("n_withheld="));
+    for (const reading of ["arrived", "cutover", "dormant", "settled"]) {
+      assertTrue(`the gate selects ${reading}`, gate.includes(`.reading == "${reading}"`), reading);
+    }
+    for (const reading of ["overdue", "expiring", "last_live"]) {
+      assertTrue(`and never ${reading}`, !gate.includes(`.reading == "${reading}"`), reading);
+    }
+    // A DEGRADED VERDICT ASKS ANYWAY — the subject is kept and the degradation counted, never
+    // read as "not mature". The reader's own `readable: false` cases are covered above.
+    assertTrue("a readable:false verdict is counted, not withheld",
+      /readable \/\/ "absent".*\n.*n_maturity_unreadable=/.test(
+        readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-direction-health.sh"), "utf8")),
+      "the unreadable branch no longer keeps the subject");
+    // AND THE SURVEY IS MADE ONCE. Running it again here would pay its one network read twice
+    // and put a second reading of one fact beside the first.
+    assertTrue("the step hands the lifecycle reader's own survey to the verdict",
+      code.includes("--emit-survey"), "the survey snapshot is gone");
+    assertTrue("and never composes survey-strategies.sh itself",
+      !code.includes("survey-strategies.sh"), "a second survey appeared in the step");
+  } finally { cleanup(A); }
 }
 
 // A shell script's CODE, with its commentary removed. Every ban in this suite that means

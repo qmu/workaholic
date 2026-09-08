@@ -1238,6 +1238,54 @@ this is the step choosing its wording, not a sixth lifecycle value.
 asked `direction-arrived` may be asked `direction-cutover` once. One extra question, ever, and
 it is the better-aimed one.
 
+### Only a mature question is asked (2026-09-08)
+
+Mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`, from the operator's own
+instruction: *a question that is premature, cannot yet be answered, does not need an answer now,
+or is meaningless until its premises are examined must not become a gate merely because it
+exists.* Every reading above became a question the moment it fired, whatever state the direction
+was actually in. **Measured**: a direction the operator had declared `観察中` — settled, the loop
+reactive only — reads `dormant` (which tests no stage) and was asked, hourly, to file its next
+move.
+
+**The rule is `plugins/workaholic/rules/workaholic.md`, *When a Human Decision May Block the
+Loop*, and it is cited rather than restated.** `decision-maturity.sh` is its one derivation; this
+step reads the verdict and decides **one** thing with it — whether to ask.
+
+| Verdict | What this step does |
+| ------- | ------------------- |
+| `ask_now` | asks, byte-identically to before: same key, same heading and body, same ledger, same assignee |
+| `retire` / `prerequisite` / `defer` | **does not ask.** The slug, the verdict and the premise it lacks ride the log-facing `summary`; nothing is written and **no ledger line is spent** — the asked-once gate must not be burned on a question nobody heard |
+| `readable: false` | **asks anyway**, and counts the degradation (`N maturity unreadable`). This step's own standing rule: our own blindness must never silence a person's question |
+
+**It reaches the four ATTRIBUTION readings and no others** — `arrived`, `cutover`, `dormant`,
+`settled`. Those say what has landed and what is answering, which is the class whose premises can
+be missing. `overdue` and `expiring` are **date facts** — no premise makes a date less true — and
+`direction-last` and `direction-none` are facts about the **repository**. Gating those would
+suppress exactly the escalations the loop exists to make, and the suite pins the selection on the
+call site.
+
+**It is placed after `direction-last`**, deliberately: filtering earlier would let a withheld
+subject free its direction to draw `direction-last:<slug>` instead — a second question about the
+direction whose question was just withheld.
+
+**The root counts what it asks.** The event's `arrived`/`dormant` phrases are counted from the
+subjects that remain, because the event links the subjects it names; the reader's own counts stay
+in the `summary`, where the repository's facts belong.
+
+**The survey is made once.** `direction-state.sh --emit-survey <file>` hands back the
+`survey-strategies.sh` output it already made, so the verdict is judged against exactly the rows
+the lifecycle states came from — no second network read, and no second reading of one fact to
+drift from the first. It is a hand-back, not a second output: `direction-state.sh`'s stdout is
+byte-identical with or without the flag and a failed write is silent.
+
+**A withheld question is re-derived every tick**, so it needs no store, no cursor and no flag: the
+hour its missing premise is met it is asked, through the same key, ledger and assignee. That is
+the observable route to resolution the ask demands — the ask, the thread lookup
+(`workaholic:notify`), the recording (`record-answer.sh`) and the `[FB]` filing
+(`propose/scripts/file-inbound-ask.sh`) are **reused unchanged**; no parallel inbox exists and
+none was added.
+
 **Neither is ever inferred from stuckness.** Both candidate sets are built only from readings
 that describe **work landing** (`quiescent`, `dormant` — attribution terms), never from a
 handoff, a block, a stale claim, an undelivered unit or a queue that will not drain: those

@@ -235,11 +235,22 @@ printf '%s' "$row" | jq -c \
     | (if ($r.quiescent // false) then "quiescent"
        elif ($r.dormant // false) then "dormant"
        else "" end) as $blocker
+    # THE STAGE IS READ OFF THE ROW, NOT OFF ANOTHER SCRIPT'"'"'S REFUSAL WORD (2026-09-08).
+    # `survey-strategies.sh`'"'"'s header still describes an `observing` refusal, and its
+    # ladder no longer emits one — `観察中` now permits observation work and guides the
+    # hypothesis instead of refusing it (`commands/propose.md`). That is the right rule for
+    # ORIGINATION and says nothing about whether the operator may be asked what comes next:
+    # they declared the direction settled, so asking them to file its next move asserts a
+    # premise they retired. So this rung tests the DECLARED stage, which rides every row,
+    # and it is correct whether or not any other script refuses on it. `stage_declared` is
+    # required: `absent means 進行中` is the right reading everywhere and the wrong thing to
+    # act on, exactly as `step-direction-health.sh` refuses to quote a stage nobody declared.
+    | (($r.stage_declared == true) and (($r.stage // "") == "観察中")) as $observing
     | [ {name: "direction_is_still_pursued",
-         held: ($reason != "not_active" and $reason != "not_mine" and $reason != "observing"),
+         held: ($reason != "not_active" and $reason != "not_mine" and ($observing | not)),
          evidence: (if $reason == "not_active" then "the direction is closed"
                     elif $reason == "not_mine" then "the direction is not this identity'"'"'s"
-                    elif $reason == "observing" then "the operator declared it 観察中"
+                    elif $observing then "the operator declared it 観察中"
                     else "active, this identity'"'"'s, and not declared 観察中" end)},
         {name: "answers_can_be_seen_to_land",
          held: ($reason != "no_feedback_refs"),
@@ -263,7 +274,7 @@ printf '%s' "$row" | jq -c \
             missing: "the direction is closed; the question is about something nobody is pursuing"}
        elif ($reason == "not_mine") then {verdict: "retire", verdict_reason: "direction_not_mine",
             missing: "the direction belongs to another identity; this loop has no decision to ask for"}
-       elif ($reason == "observing") then {verdict: "retire", verdict_reason: "direction_observing",
+       elif ($observing) then {verdict: "retire", verdict_reason: "direction_observing",
             missing: "the operator already declared it 観察中; asking what comes next asserts a premise they retired"}
        elif ($reason == "no_feedback_refs") then {verdict: "prerequisite", verdict_reason: "no_feedback_refs",
             missing: "cite the feedback records this direction answers, so work can be attributed back to it before anyone is asked whether it moved"}

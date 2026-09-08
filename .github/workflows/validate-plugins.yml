@@ -102,7 +102,7 @@ jobs:
         run: node scripts/build-plugins/validate-metadata.mjs
 
       - name: Test agentic loop contracts and consumers
-        run: node --test scripts/tests/agentic-loop/*.test.mjs
+        run: timeout --signal=TERM --kill-after=30s 5m node --test scripts/tests/agentic-loop/*.test.mjs
 
       - name: Smoke-test workflow scripts
         run: node scripts/test-workflow-scripts.mjs

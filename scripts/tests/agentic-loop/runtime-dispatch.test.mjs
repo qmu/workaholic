@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 const source = resolve(import.meta.dirname, '../../..');
 const runtime = join(source, 'plugins/workaholic/skills/runtime/scripts');
 const legacy = join(source, 'plugins/workaholic/skills/work/scripts/codex-loop.sh');
+const validationWorkflow = join(source, '.github/workflows/validate-plugins.yml');
 const run = (argv, options = {}) => spawnSync(argv[0], argv.slice(1), { encoding: 'utf8', ...options });
 const json = result => { assert.equal(result.status, 0, result.stderr); return JSON.parse(result.stdout); };
 function fixture(t) {
@@ -46,15 +47,21 @@ test('P5 Codex supervisor treats a new assigned feedback issue as immediate acti
 
 test('P5 observation activity cannot advance the anchored work clock', (t) => {
   const root = fixture(t); mkdirSync(join(root, '.workaholic')); run(['git', '-C', root, 'remote', 'add', 'origin', 'https://github.com/acme/repo.git']); const bin = join(root, 'bin'); mkdirSync(bin);
-  const now = join(root, 'now'); const count = join(root, 'count'); const prompts = join(root, 'prompts'); writeFileSync(now, '2000000000');
+  const now = join(root, 'now'); const count = join(root, 'count'); const prompts = join(root, 'prompts'); const qfsReads = join(root, 'qfs-reads'); writeFileSync(now, '2000000000');
   writeFileSync(join(bin, 'date'), `#!/bin/sh\n[ "$*" != '-u +%s' ] || { cat '${now}'; exit; }\nexec /bin/date "$@"\n`);
   writeFileSync(join(bin, 'sleep'), `#!/bin/sh\nv=$(cat '${now}'); printf '%s' $((v+$1)) >'${now}'\n`);
-  writeFileSync(join(bin, 'qfs'), `#!/bin/sh\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"qmu","operations":["read_channel_delta"]}]}' ;; *) printf '%s\\n' '{"rows":[{"id":"human","ts":"8.1","sender_id":"HUMAN","text":"hello"}],"has_more":false}' ;; esac\n`);
+  writeFileSync(join(bin, 'qfs'), `#!/bin/sh\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"qmu","operations":["read_channel_delta"]}]}' ;; *) n=0; [ ! -f '${qfsReads}' ] || n=$(cat '${qfsReads}'); n=$((n+1)); printf '%s' "$n" >'${qfsReads}'; printf '{"rows":[{"id":"human-%s","ts":"8.%s","sender_id":"HUMAN","text":"hello"}],"has_more":false}\\n' "$n" "$n" ;; esac\n`);
   writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ "$2" != user ] || printf me\n');
   writeFileSync(join(bin, 'codex'), `#!/bin/sh\nn=0; [ ! -f '${count}' ] || n=$(cat '${count}'); n=$((n+1)); printf '%s' "$n" >'${count}'; printf '%s\\n' "$*" >>'${prompts}'\nout=""; while [ $# -gt 0 ]; do case "$1" in --output-last-message) out=$2; shift 2;; *) shift;; esac; done\nprintf '%s' '{"executed":true,"outcome":"ok","reason":"","report":"done"}' >"$out"\n[ "$n" -lt 2 ] || kill -TERM "$PPID"\n`);
   for (const file of ['date', 'sleep', 'qfs', 'gh', 'codex']) chmodSync(join(bin, file), 0o755);
-  const result = run(['sh', legacy, '--log', join(root, 'loop-state')], { cwd: root, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_INBOUND_SLACK_CHANNEL: 'same' } });
+  const result = run(['sh', legacy, '--log', join(root, 'loop-state')], { cwd: root, timeout: 20000, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_INBOUND_SLACK_CHANNEL: 'same' } });
+  assert.equal(result.error, undefined, `supervisor exceeded its 20s fixture bound: ${result.error?.message}; qfs_reads=${existsSync(qfsReads) ? readFileSync(qfsReads, 'utf8') : 'none'}; codex_runs=${existsSync(count) ? readFileSync(count, 'utf8') : 'none'}; now=${readFileSync(now, 'utf8')}`);
   assert.equal(result.status, 130, result.stderr); assert.equal(readFileSync(count, 'utf8'), '2');
   assert.match(readFileSync(prompts, 'utf8').split('\n')[1], /observation-only wake; the work clock is not due/,
     `now=${readFileSync(now, 'utf8')} prompts=${readFileSync(prompts, 'utf8')}`);
+});
+
+test('P5 agentic-loop validation has a finite CI backstop', () => {
+  const workflow = readFileSync(validationWorkflow, 'utf8');
+  assert.match(workflow, /timeout --signal=TERM --kill-after=30s 5m node --test scripts\/tests\/agentic-loop\/\*\.test\.mjs/);
 });

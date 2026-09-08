@@ -42,3 +42,4 @@ A person scanning one receipt or a burst can tell what was heard, where it was r
 - 2026-09-08 — ticket archived — 20260908124419-group-burst-receipts-while-preserving-per-message-durable-state.md
 - 2026-09-08 — ticket archived — 20260908124419-test-acknowledgement-facts-separately-from-natural-prose.md
 - 2026-09-08 — mission achieved — mission.md
+- 2026-09-08 — concern deferred (stuck) — 20260908155352-relatedness-remains-a-semantic-judgement.md

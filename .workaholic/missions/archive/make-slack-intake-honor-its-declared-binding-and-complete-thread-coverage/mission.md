@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.5
 feedback: [20260908123559-discover-new-human-replies-inside-existing-slack-threads.md, 20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -47,3 +47,4 @@ private thread, and names the exact degradation before using the same destinatio
 - 2026-09-08 — ticket archived — 20260908142454-discover-and-classify-new-replies-before-claiming-thread-coverage.md
 - 2026-09-08 — ticket archived — 20260908142454-preserve-typed-fallback-and-revalidate-slack-effects.md
 - 2026-09-08 — mission achieved — mission.md
+- 2026-09-08 — run recorded (+2.5h) — implement-20260908-201510

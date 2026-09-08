@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [make-slack-acknowledgements-informative-without-becoming-notification-noise](active/make-slack-acknowledgements-informative-without-becoming-notification-noise/mission.md) - Make Slack acknowledgements informative without becoming notification noise
 * [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](active/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work

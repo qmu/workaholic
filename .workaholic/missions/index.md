@@ -4,7 +4,6 @@
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [make-slack-acknowledgements-informative-without-becoming-notification-noise](active/make-slack-acknowledgements-informative-without-becoming-notification-noise/mission.md) - Make Slack acknowledgements informative without becoming notification noise
-* [restore-the-mission-as-the-planning-merge-story-and-release-boundary](active/restore-the-mission-as-the-planning-merge-story-and-release-boundary/mission.md) - Restore the mission as the planning, merge, story, and release boundary
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 
@@ -119,6 +118,7 @@
 * [report-each-tick-in-the-originating-codex-chat](archive/report-each-tick-in-the-originating-codex-chat/mission.md) - Report each tick in the originating Codex chat
 * [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
 * [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](archive/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it
+* [restore-the-mission-as-the-planning-merge-story-and-release-boundary](archive/restore-the-mission-as-the-planning-merge-story-and-release-boundary/mission.md) - Restore the mission as the planning, merge, story, and release boundary
 * [retire-a-claim-whose-work-is-finished-or-abandoned](archive/retire-a-claim-whose-work-is-finished-or-abandoned/mission.md) - Retire a claim whose work is finished or abandoned
 * [retire-routine-management-into-a-setup-sheet](archive/retire-routine-management-into-a-setup-sheet/mission.md) - Retire routine management into a setup sheet
 * [revive-strategy-and-reshape-the-workaholic-artifact-set](archive/revive-strategy-and-reshape-the-workaholic-artifact-set/mission.md) - Revive Strategy and reshape the .workaholic artifact set

@@ -709,4 +709,5 @@
 * [Discover new human replies inside existing Slack threads](20260908123559-discover-new-human-replies-inside-existing-slack-threads.md)
 * [Honor repository-declared QFS Slack bindings before connector fallback](20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback.md)
 * [Make Slack acknowledgements specific, conversational, and burst-aware](20260908124344-make-slack-acknowledgements-specific-conversational-and-burst-aware.md)
+* [Restore mission-sized batching as the release boundary](20260908124644-restore-mission-sized-batching-as-the-release-boundary.md)
 <!-- okf:generated:end -->

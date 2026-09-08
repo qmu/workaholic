@@ -4,6 +4,8 @@
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [make-slack-acknowledgements-informative-without-becoming-notification-noise](active/make-slack-acknowledgements-informative-without-becoming-notification-noise/mission.md) - Make Slack acknowledgements informative without becoming notification noise
+* [make-slack-intake-incremental-across-messages-threads-and-mentions](active/make-slack-intake-incremental-across-messages-threads-and-mentions/mission.md) - Make Slack intake incremental across messages, threads, and mentions
+* [restore-the-mission-as-the-planning-merge-story-and-release-boundary](active/restore-the-mission-as-the-planning-merge-story-and-release-boundary/mission.md) - Restore the mission as the planning, merge, story, and release boundary
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 

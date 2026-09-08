@@ -704,4 +704,8 @@
 * [Live transport and incremental-read evidence](20260908080410-live-transport-and-incremental-read-evidence.md)
 * [Native lifecycle and downgrade evidence](20260908080410-native-lifecycle-and-downgrade-evidence.md)
 * [Make quiescent loops surface decision-ready blockers and reopen after answers](20260908123159-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md)
+* [Make quiescent loops surface decision-ready blockers and reopen after answers](20260908123545-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md)
+* [Slack の巡回を最新投稿・対応中スレッド・Bot 宛てメンションの差分収集で効率化する](20260908123552-slack-bot.md)
+* [Discover new human replies inside existing Slack threads](20260908123559-discover-new-human-replies-inside-existing-slack-threads.md)
+* [Honor repository-declared QFS Slack bindings before connector fallback](20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback.md)
 <!-- okf:generated:end -->

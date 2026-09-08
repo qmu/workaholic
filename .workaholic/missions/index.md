@@ -2,7 +2,10 @@
 
 ## active
 
+* [clear-the-residue-the-base-already-holds-and-never-stop-silently](active/clear-the-residue-the-base-already-holds-and-never-stop-silently/mission.md) - Clear the residue the base already holds, and never stop silently
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [let-the-loop-grow-a-mission-without-handing-it-back-to-a-person](active/let-the-loop-grow-a-mission-without-handing-it-back-to-a-person/mission.md) - Let the loop grow a mission without handing it back to a person
+* [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](active/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 

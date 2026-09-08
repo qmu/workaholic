@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-175301
 ---
 
 # Make Slack intake honor its declared binding and complete thread coverage

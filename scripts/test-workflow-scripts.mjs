@@ -23085,6 +23085,14 @@ function testOneSessionLoop() {
     /log-read\.sh/.test(tick) && /30 minutes/.test(tick), tick);
   assertTrue("propose does not own Slack transport", /posts nothing to Slack/.test(propose), propose);
   assertTrue("the tick carries reply and receipt shapes", /💬/.test(tick) && /📥 受理/u.test(tick), tick);
+  assertTrue("receipt facts are validated before natural prose is rendered",
+    /acknowledgement-contract\.sh --input/.test(tick) && /workflow_state: captured_for_specification/.test(tick), tick);
+  assertTrue("the observation page, not a timer or count, bounds receipt grouping",
+    /page is the batching boundary/.test(tick) && /never wait for a timer or an arbitrary item count/.test(tick), tick);
+  assertTrue("a related burst maps every recognizable subject to its issue in one receipt",
+    /related group uses one compact reply/.test(tick) && /その人の言葉で表した件名/u.test(tick), tick);
+  assertTrue("each grouped source keeps its own visible durable reaction",
+    /reaction_refs/.test(tick) && /ack_failed/.test(tick), tick);
   for (const outcome of ["announced", "already_announced", "thread_unresolved", "post_failed", "held"])
     assertTrue(`the ceiling names ${outcome}`, tick.includes(outcome), outcome);
 }

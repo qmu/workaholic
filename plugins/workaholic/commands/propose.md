@@ -8,6 +8,12 @@ skills:
 
 # Propose
 
+All Slack effects use `workaholic:transport`: resolve the declared target and call `perform.sh`.
+Only an exact `needs_parent` request reaches the connector; accept its result through
+`accept-observation.sh`. Preserve the selected sender and report failed receipts as delivery
+failures, never as a clean tick. An instruction to another agent does not cancel this loop's
+acknowledgement; a hold or stand-down addressed to this loop does.
+
 Run the preloaded `workaholic:propose` skill end to end — its `reference/loop.md` carries the
 steps. Survey the strategies (`survey-strategies.sh`), read the selected direction and what has
 landed against it, choose **one** move (`depth`, `breadth` or `contraction`), and open it with
@@ -42,7 +48,11 @@ plugin cache is a permission prompt an unattended run cannot answer.
 missing test, an inconsistent name are `/moderate`'s work. A proposal must commit to the
 strategy: it names what it is chosen against, or it is not emitted. A tick that cannot name one
 of the three moves reports `no_evolutionary_move` and opens nothing — a real answer, not a
-failure. **A move that would produce documentation *about* an Aim whose subject is to build
+failure. **But it reads the answer before it says so** (2026-09-08): `moderate/scripts/decision-maturity.sh
+--strategy <slug>` says whether somebody answered `/moderate`'s question about that direction and
+whether it still reads blocked, their words are evidence for the judgement, and a
+`no_evolutionary_move` report that does not name the `answer_state` is non-conformant on its
+face. It lifts no gate — every refusal in the survey holds unchanged. **A move that would produce documentation *about* an Aim whose subject is to build
 something is refused as `describing_move`**; a move whose deliverable is a new cross-cutting
 obligation nobody asked for is refused as `invented_obligation`; a `depth` move whose chain
 roots in the loop's own earlier output is refused as `self_refining`.

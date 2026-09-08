@@ -1,5 +1,9 @@
 # Loop Drill Runbook
 
+The dispatcher and shared helpers remain in `scripts/e2e/loop-drill.sh`. Larger verification
+groups are sourced from `scripts/e2e/drills/`, one command per module. Modules share the same
+runtime and repository root; the dispatcher remains the command inventory and public entrypoint.
+
 How to exercise the propose–implement loop **on demand** instead of waiting for its
 hourly ticks: seed an ask, fire each routine by hand, and read a machine verdict per
 stage. One command owns the mechanics — `scripts/e2e/loop-drill.sh` — and this document

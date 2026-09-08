@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-175401
 ---
 
 # Turn quiescent blockers into mature decisions and resume work

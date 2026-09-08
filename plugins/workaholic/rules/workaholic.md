@@ -50,6 +50,45 @@ What the statement buys is that a run originating from the loop's own output is 
 non-conformant, against one sentence, rather than against three consequences a reader has to
 reassemble.
 
+# When a Human Decision May Block the Loop
+
+**Only a question that is currently necessary and supported by adequate premises may become a
+gate.** Its companion is the rule above, and the two are one model on purpose: origination says
+*whose ask may start work*, and this says *whose decision may stop it*. A loop that answered the
+first correctly and the second not at all would refuse to invent work and then freeze itself on
+questions nobody could answer — which is the same failure from the other end.
+
+**The verdict is derived, in four words and no score** — `moderate/scripts/decision-maturity.sh`,
+the one derivation, over fields `propose/scripts/survey-strategies.sh` already emits:
+
+- **`retire`** — the assumption behind the question is gone. The direction is closed, is not this
+  identity's, or the operator declared it `観察中`.
+- **`prerequisite`** — a premise the **loop** must build first, named as planning work rather than
+  asked as a question (`no_feedback_refs`: nothing can be attributed back, so no answer could be
+  seen to land).
+- **`defer`** — the question cannot be answered *now*, or does not need to be: work is still in
+  flight, a proposal is already open, or nothing is blocked at all.
+- **`ask_now`** — necessary and supported. **Only this verdict may become a question.**
+
+**A reading is an observation, never permission to end silently.** `quiescent`,
+`no_evolutionary_move` and `dormant` say what the loop saw; none of them settles anything, and a
+run that ends on one without saying what becomes of it is non-conformant on its face. Every
+human-decision dependency has an observable route to resolution: a mature one reaches its
+assignee through the check-in path that already exists, and an immature one is **re-derived every
+tick**, so it becomes a question the hour its missing premise is met — which is why the deferral
+needs no store, no cursor and no flag.
+
+**It gates nothing by itself, and it lifts nothing.** No refusal ladder, precedence, origination
+gate, sort or token reads the verdict; what a consumer may do with it is stated where that
+consumer lives. A **degraded** reading (`readable: false`) is never a verdict: a consumer asks
+anyway and says the maturity could not be read, because our own blindness must never silence a
+person's question.
+
+**And an answer is evidence, not a lifted gate.** A recorded answer beside a direction that still
+reads blocked is `resumable` — two existing readings conjoined, with no reopen flag — and what it
+licenses is that the next `/propose` turn **judges again** with the answer in hand. It makes no
+ineligible direction eligible and re-asks nothing.
+
 # What a Mission Must Be Able to Hold
 
 **A mission is the mid-term container between a strategy and a ticket — an artifact with room to

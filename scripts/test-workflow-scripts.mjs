@@ -21341,6 +21341,162 @@ function testConditionAgeBound() {
   } finally { cleanup(dir); }
 }
 
+// ═══ THE MATURITY VERDICT (2026-09-08, mission
+// `turn-quiescent-blockers-into-mature-decisions-and-resume-work`) ═══════════════════════
+//
+// The rule it enforces is `rules/workaholic.md`, *When a Human Decision May Block the Loop*:
+// only a question that is currently necessary and supported by adequate premises may become a
+// gate. What must stay true is that the verdict is a LADDER over fields the survey already
+// emits — deterministic, no score, no threshold — that a degraded read is never a verdict, and
+// that the reader gates nothing and writes nothing.
+//
+// HERMETIC BY CONSTRUCTION: every case is driven off a `--survey <file>` fixture, so the test
+// makes no network call and needs no strategy tree, and the answer arm is driven through
+// `log-append.sh`, THE REAL WRITER, so it cannot pass against a line shape nothing produces.
+T("moderate/decision-maturity.sh: only a mature question may become a gate", testDecisionMaturity);
+function testDecisionMaturity() {
+  const MAT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/decision-maturity.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const dir = makeRepo("main");
+  try {
+    mkdirSync(join(dir, ".workaholic"), { recursive: true });
+    const surveyPath = join(dir, "survey.json");
+    // One row per case. `eligible[]` rows carry no `reason` — they passed every gate — and
+    // `refused[]` rows carry the survey's own word; the reader must read both.
+    const row = (slug, extra) => Object.assign({
+      slug, title: slug, assignees: "a@example.com", stage: "進行中",
+      dormant: false, quiescent: false, waiting_count: 0, waiting_missions: 0,
+    }, extra);
+    writeFileSync(surveyPath, JSON.stringify({
+      ok: true,
+      eligible: [row("live-blocked", { dormant: true })],
+      refused: [
+        row("closed", { reason: "not_active", dormant: true }),
+        row("theirs", { reason: "not_mine", dormant: true }),
+        row("settled", { reason: "observing", stage: "観察中", dormant: true }),
+        row("uncited", { reason: "no_feedback_refs", dormant: true }),
+        row("proposed", { reason: "open_proposal", dormant: true }),
+        row("busy", { reason: "work_waiting", waiting_missions: 1, waiting_count: 4, dormant: true }),
+        row("moving", { reason: "wip_limit" }),
+        row("arrived-late", { reason: "past_target_date", quiescent: true }),
+        row("blind", { reason: "attribution_unreadable" }),
+      ],
+    }));
+    const verdict = (slug) => JSON.parse(run(dir,
+      `${MAT} --strategy ${slug} --root ${dir} --survey ${surveyPath}`).stdout);
+
+    // ---- THE LADDER, RUNG BY RUNG ----
+    for (const [slug, v, word] of [
+      ["closed", "retire", "direction_closed"],
+      ["theirs", "retire", "direction_not_mine"],
+      ["settled", "retire", "direction_observing"],
+      ["uncited", "prerequisite", "no_feedback_refs"],
+      ["proposed", "defer", "proposal_open"],
+      ["busy", "defer", "work_in_flight"],
+      ["moving", "defer", "no_blocker"],
+      ["live-blocked", "ask_now", ""],
+      ["arrived-late", "ask_now", ""],
+    ]) {
+      const a = verdict(slug);
+      assertEq(`${slug} reads ${v}${word ? `: ${word}` : ""}`, [a.verdict, a.verdict_reason], [v, word]);
+      assertTrue(`${slug} carries no readable field on a completed reading`,
+        !Object.prototype.hasOwnProperty.call(a, "readable"), JSON.stringify(a));
+    }
+
+    // A DEAD PREMISE OUTRANKS A MISSING ONE. The ladder is ordered by what is missing, not by
+    // the operator's sentence order: a closed direction whose work is also in flight is
+    // `retire`, because reporting it as `defer` sends a reader to wait for work on a
+    // direction nobody is pursuing.
+    writeFileSync(surveyPath + ".2", JSON.stringify({ ok: true, eligible: [], refused: [
+      row("closed-and-busy", { reason: "not_active", waiting_missions: 2, dormant: true }) ] }));
+    assertEq("a dead premise outranks a premise that is merely not met yet",
+      JSON.parse(run(dir, `${MAT} --strategy closed-and-busy --root ${dir} --survey ${surveyPath}.2`).stdout).verdict,
+      "retire");
+
+    // ---- ONLY `ask_now` IS SILENT ABOUT WHAT IS MISSING ----
+    assertTrue("every deferred verdict names the premise or planning work it lacks",
+      ["closed", "uncited", "proposed", "busy", "moving"].every((s) => verdict(s).missing.length > 0),
+      "a verdict deferred a question without saying what it lacks");
+    assertEq("and ask_now names nothing missing", verdict("live-blocked").missing, "");
+
+    // ---- THE PREMISES ARE VISIBLE AND ARGUABLE, NEVER A SCORE ----
+    const busy = verdict("busy");
+    assertEq("every premise is rendered with its own evidence",
+      busy.premises.map((x) => x.name),
+      ["direction_is_still_pursued", "answers_can_be_seen_to_land",
+       "nothing_is_already_in_flight", "a_decision_is_actually_blocked"]);
+    assertEq("the failing premise is the one the verdict named, and only it",
+      busy.premises.filter((x) => !x.held).map((x) => x.name),
+      ["nothing_is_already_in_flight"]);
+    assertTrue("and its evidence carries the counts rather than a number nobody can argue with",
+      /1 mission\(s\), 4 ticket\(s\)/.test(busy.premises[2].evidence), busy.premises[2].evidence);
+
+    // ---- WHICH READING MADE IT A BLOCKER, IN `direction-state.sh`'s OWN PRECEDENCE ----
+    assertEq("quiescent is named before dormant", verdict("arrived-late").blocker, "quiescent");
+    assertEq("and a direction nothing is answering reads dormant", verdict("live-blocked").blocker, "dormant");
+
+    // ---- A DEGRADED READ IS NEVER A VERDICT ----
+    const blind = verdict("blind");
+    assertEq("an unreadable attribution walk answers readable:false and no verdict",
+      [blind.readable, blind.reason, Object.prototype.hasOwnProperty.call(blind, "verdict")],
+      [false, "attribution_unreadable", false]);
+    const absent = JSON.parse(run(dir, `${MAT} --strategy nobody --root ${dir} --survey ${surveyPath}`).stdout);
+    assertEq("a slug the survey never saw is a named refusal at exit 0",
+      [absent.readable, absent.reason], [false, "no_such_strategy"]);
+    writeFileSync(surveyPath + ".bad", JSON.stringify({ ok: false, reason: "inbox_unreadable" }));
+    assertEq("a survey that refused is carried through by its own word",
+      JSON.parse(run(dir, `${MAT} --strategy x --root ${dir} --survey ${surveyPath}.bad`).stdout).reason,
+      "survey_refused:inbox_unreadable");
+    assertEq("and a missing slug refuses without reading anything",
+      JSON.parse(run(dir, `${MAT} --root ${dir} --survey ${surveyPath}`).stdout).reason, "no_slug");
+
+    // ---- THE ANSWER RIDES THE SAME READING, MATCHED ON THE GROUPED KEY'S SLUG LIST ----
+    // Since 2026-09-03 one question names every direction in its reading, so the key is
+    // `direction-<reading>:<slug>+<slug>` and a per-slug lookup would answer `never_asked`
+    // for a direction asked about inside a group. Written through the REAL writer.
+    assertEq("with no tick log at all, nobody has been asked",
+      [verdict("live-blocked").answer_state, verdict("live-blocked").resumable],
+      ["never_asked", false]);
+    const GKEY = "direction-dormant:live-blocked+moving";
+    run(dir, `${LOG} --root ${dir} --tick 20260908-100000 --step human-checkin-ask-${slugOf(GKEY)} --status filed --summary "asked posted-at:C1:1.2 key:${GKEY}"`);
+    assertEq("a grouped ask is found for every slug the key names",
+      [verdict("live-blocked").answer_state, verdict("moving").answer_state], ["asked", "asked"]);
+    assertEq("and an outstanding question is not resumable — nobody has answered",
+      verdict("live-blocked").resumable, false);
+    run(dir, `${LOG} --root ${dir} --tick 20260908-110000 --step human-checkin-answered-${slugOf(GKEY)} --status filed --summary "cut it over key:${GKEY}"`);
+    const answered = verdict("live-blocked");
+    assertEq("a recorded answer is read back with its words and its tick",
+      [answered.answer_state, answered.answered_tick, answered.answer_key],
+      ["answered", "20260908-110000", GKEY]);
+    assertTrue("the answer carries the person's own words", /cut it over/.test(answered.answer), answered.answer);
+    assertEq("an answer beside a direction that still reads blocked is resumable",
+      answered.resumable, true);
+    assertEq("and an answer beside one that is NOT blocked is not — resumable is a conjunction",
+      verdict("moving").resumable, false);
+    assertEq("the verdict itself does not move on an answer: it is evidence, not a lifted gate",
+      answered.verdict, "ask_now");
+
+    // ---- IT IS A PURE READ, AND IT REACHES NO WRITER ----
+    const before = run(dir, "git status --porcelain").stdout;
+    verdict("live-blocked");
+    assertEq("reading a maturity verdict leaves the working tree byte-identical",
+      run(dir, "git status --porcelain").stdout, before);
+    // ON CALL SITES, NEVER ON WORDS: the header explains what it deliberately does not reach.
+    const code = codeLines(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/decision-maturity.sh"));
+    for (const forbidden of ["log-append.sh", "ask-question.sh", "record-answer.sh", "amend.sh",
+                             "close.sh", "create.sh", "git push", "curl ", "gh api", "open-proposal.sh"]) {
+      assertTrue(`the reader reaches no ${forbidden.trim()}`, !code.includes(forbidden), forbidden);
+    }
+    // NO SCORE, NO THRESHOLD, NO TUNABLE CONSTANT — the whole reason the verdict stays arguable.
+    assertTrue("the verdict carries no tunable constant",
+      !/WORKAHOLIC_[A-Z_]*MATURIT/.test(code), "a maturity threshold appeared");
+    // THE RESIDUE TERM IS DELIBERATELY ABSENT: `quiescent` already holds one and `dormant`
+    // deliberately does not, so re-imposing it here would overturn a recorded decision.
+    assertTrue("and imposes no residue term of its own",
+      !/residue/.test(code), "a residue gate appeared in the ladder");
+  } finally { cleanup(dir); }
+}
+
 // A shell script's CODE, with its commentary removed. Every ban in this suite that means
 // "this script must not reach X" has to be written against call sites rather than words:
 // these scripts explain their own bounds in prose, so a word-level test fails on the very

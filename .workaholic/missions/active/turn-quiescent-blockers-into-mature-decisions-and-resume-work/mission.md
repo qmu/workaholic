@@ -31,10 +31,11 @@ A quiescent strategy no longer ends in a worker-only explanation. Premature ques
 
 ## Acceptance
 
-- [ ] A derived maturity verdict distinguishes decision-ready blockers from premature questions. (#20260908123303-judge-whether-a-human-decision-is-mature-enough-to-block.md)
+- [x] A derived maturity verdict distinguishes decision-ready blockers from premature questions. (#20260908123303-judge-whether-a-human-decision-is-mature-enough-to-block.md)
 - [ ] A mature blocker is asked once through the existing Slack question/answer path and attributed to its responsible person. (#20260908123303-ask-mature-blockers-in-slack-and-record-the-answer.md)
 - [ ] Recording an answer reopens strategy evaluation without treating `quiescent` or `no_evolutionary_move` as terminal. (#20260908123303-re-evaluate-quiescent-strategies-after-answers-arrive.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908123303-judge-whether-a-human-decision-is-mature-enough-to-block.md

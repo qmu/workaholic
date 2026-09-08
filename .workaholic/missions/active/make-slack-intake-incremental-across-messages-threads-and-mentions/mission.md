@@ -40,3 +40,4 @@ Each tick reads only new relevant activity, continues conversations after an unm
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-08 — ticket archived — 20260908123811-bind-slack-connections-to-verified-bot-identities-and-destinations.md
 - 2026-09-08 — ticket archived — 20260908123811-collect-incremental-top-level-thread-and-mention-activity.md
+- 2026-09-08 — ticket archived — 20260908123811-share-intake-cursors-and-deduplicate-every-loop-consumer.md

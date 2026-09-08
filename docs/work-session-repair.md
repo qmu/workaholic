@@ -111,7 +111,7 @@ checkout-mutation refusals were rerun individually on a frozen tree, not silentl
 The original aggregate branch exceeded change-size limits. Delivery was partitioned into
 independently checked units, and the oversized drill was split into command modules (the main
 file decreased from approximately 744 KB to 493 KB). No size threshold or exemption was changed.
-The first three unit scans passed at 77, 67 and 99 changed files respectively; final publication
+The first three unit scans passed at 77, 69 and 99 changed files respectively; final publication
 still requires its own scan and CI after catching up with the merged base.
 
 The earlier live QFS read reached `channel_not_found` for the Workaholic target; channel-list misses are not
@@ -156,3 +156,8 @@ The repair started from published version 1.0.342. The operator instructed publi
 integrated repair as 1.0.343 after verification. The GitHub Release and its tag on main, not this
 audit or a version bump, are the publication receipt. Generated artifacts alone do not update
 an installed plugin cache. Existing unfinished feedback remains visible independently of release.
+
+A read-only `claude plugin list --json` before publication reported `workaholic@workaholic`
+at 1.0.288 in both user and project scopes. The live probes above explicitly loaded the repaired
+working plugin; they did not test that old cache. Update both registrations after publication
+and restart Claude Code before judging the released behavior.

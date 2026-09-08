@@ -31,9 +31,10 @@ A contributor sees `Validate Plugins` complete normally when the activity-clock 
 
 ## Acceptance
 
-- [ ] The observation-clock fixture presents two distinct source coordinates and proves that the second observation-only wake does not advance the anchored work cadence. (#20260908145846-make-the-observation-clock-fixture-emit-distinct-activity.md)
+- [x] The observation-clock fixture presents two distinct source coordinates and proves that the second observation-only wake does not advance the anchored work cadence. (#20260908145846-make-the-observation-clock-fixture-emit-distinct-activity.md)
 - [ ] The agentic-loop process test and its CI step terminate within explicit bounds, failing with actionable output instead of remaining pending. (#20260908145847-bound-agentic-loop-validation-against-leaked-processes.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908145846-make-the-observation-clock-fixture-emit-distinct-activity.md

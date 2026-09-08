@@ -1813,6 +1813,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-runner-advance` | `hermetic` | yes | `see-a-frozen-runner-and-give-back-its-slot` |
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 | `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
+| `verify-checkout-residue` | `hermetic` | yes | `clear-the-residue-the-base-already-holds-and-never-stop-silently` |
 
 **`verify-codex-clock` proves recovery after the installed launch tree disappears** (2026-09-07,
 ticket `20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path`). A real

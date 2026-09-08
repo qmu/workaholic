@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260908-192225](work-20260908-192225.md) - Clear residue the base provably already holds so a tick reaches its survey, and make a coordinator-level stop reach the channel instead of nobody.
 * [Make agentic-loop validation finite and truthful](work-20260908-150309.md) - Agentic-loop validation now models distinct activity and fails within explicit process and CI bounds.
 * [Make Slack acknowledgements useful without adding noise](work-20260908-140833.md) - Slack receipts now group related asks while preserving truthful facts and per-message state.
 * [work-20260908-130859](work-20260908-130859.md) - 関連するフィードバックを一つのミッションにまとめ、完遂時だけ一度リリースする境界を復元しました。

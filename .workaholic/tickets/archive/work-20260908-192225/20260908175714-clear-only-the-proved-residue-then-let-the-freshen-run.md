@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T17:57:14+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -122,3 +123,52 @@ moment of the act, be idempotent, write nothing on a refusal, and refuse each bo
   to the base's copy — the fallback would be a guess wearing a proof's clothes.
 - Risk: a path that is both `on_base` and generated. Classifying `on_base` first makes the stronger
   proof win, and the outcome is identical either way.
+
+## Final Report
+
+Development completed as planned. `sync-main.sh` is byte-identical to its pre-change form —
+`git diff origin/main..HEAD -- .../sync-main.sh` is empty — and the whole judgement lives in the
+layer above it, exactly as the ask required.
+
+The end-to-end chain is proved twice, in the hermetic suite and in `scripts/e2e/loop-drill.sh`'s
+new `verify-checkout-residue`: the measured tree refuses `dirty_workspace`, the act clears it,
+the **existing** freshen fast-forwards, and the bytes the act discarded come back — which is what
+makes "the base already holds it" a proof rather than a hope. The drill carries a real breaker:
+a copy of the reader with the blob comparison removed discards a developer's edit, so the drill
+fails on that copy and its passing verdict means something.
+
+Two deliberate departures from the ticket's own wording, both narrowing:
+
+- **`untracked_present` refuses up front rather than after the clear.** The ticket placed it
+  after ("when untracked paths remain after the clear"). An untracked file keeps
+  `check-workspace.sh` dirty however much else is cleared, so the end state is identical either
+  way — and refusing first keeps the stronger invariant that a refusal leaves the tree
+  byte-identical. `--allow-untracked` exists for a caller that does not need a clean tree.
+- **`origin_unreachable` is not one of the act's words.** The reader never fetches (a fetch
+  writes remote-tracking refs), so no call can reach that state; its neighbour `no_base_ref` is
+  what an absent remote-tracking ref actually answers, and it is passed through verbatim.
+
+### Discovered Insights
+
+- **Insight**: `git restore --source=HEAD --staged --worktree` has nothing to restore from when
+  `HEAD` does not carry the path — which is precisely the measured shape, a staged **add** of
+  content the base already holds. That case needs `git rm --cached` plus removing the file.
+  **Context**: The 2026-09-08 tree was four staged paths blob-identical to `origin/main`, and a
+  restore-only implementation would have cleared the modifies and left every add behind, so the
+  freshen would still have refused and the deadlock would have looked half-fixed.
+
+- **Insight**: `regenerable` restoration is safe only because restoring to `HEAD` and re-running
+  the generator against `HEAD`'s sources reproduces `HEAD`'s committed output — which holds
+  because CI already fails on generated drift.
+  **Context**: The generator is derived from which paths were restored (`refresh-index.sh` for a
+  `.workaholic/` path, `build.mjs` otherwise), so a tree with no regenerable residue runs
+  nothing. A generator that fails is `generator_failed` and the path is left where the restore
+  put it — never filled in from the base's copy, which would be a guess wearing a proof's
+  clothes.
+
+- **Insight**: the per-path re-derivation is a `--path` flag on the reader rather than an inlined
+  comparison in the act.
+  **Context**: *Re-derive the proof at the moment of the act* and *one home for one rule* pull
+  against each other unless the re-derivation goes back through the same reader. The flag costs
+  one process per cleared path (the measured tree had six) and keeps the act with no copy of the
+  proof in it at all.

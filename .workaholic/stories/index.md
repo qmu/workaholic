@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260908-175401](work-20260908-175401.md) - A human decision becomes an explicit loop state — judged for maturity before it may ask, asked once to the responsible person, and read back as evidence before the next tick reports no_evolutionary_move.
 * [Make agentic-loop validation finite and truthful](work-20260908-150309.md) - Agentic-loop validation now models distinct activity and fails within explicit process and CI bounds.
 * [Make Slack acknowledgements useful without adding noise](work-20260908-140833.md) - Slack receipts now group related asks while preserving truthful facts and per-message state.
 * [work-20260908-130859](work-20260908-130859.md) - 関連するフィードバックを一つのミッションにまとめ、完遂時だけ一度リリースする境界を復元しました。

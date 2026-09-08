@@ -41,3 +41,4 @@ A quiescent strategy no longer ends in a worker-only explanation. Premature ques
 - 2026-09-08 — ticket archived — 20260908123303-judge-whether-a-human-decision-is-mature-enough-to-block.md
 - 2026-09-08 — ticket archived — 20260908123303-ask-mature-blockers-in-slack-and-record-the-answer.md
 - 2026-09-08 — ticket archived — 20260908123303-re-evaluate-quiescent-strategies-after-answers-arrive.md
+- 2026-09-08 — story written — work-20260908-175401.md

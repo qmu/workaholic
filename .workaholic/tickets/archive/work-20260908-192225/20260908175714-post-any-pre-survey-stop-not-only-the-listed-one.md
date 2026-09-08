@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T17:57:14+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -119,3 +120,53 @@ and a tick that terminates before any runner is spawned reaches the channel unde
 - Sequencing: this ticket is independent of the two before it and can land in either order, but it
   is placed last because with the residue cleared this stop stops firing, and the repair should be
   proved against a stop that can still happen.
+
+## Final Report
+
+Development completed as planned, and the ticket's own diagnosis held under step 1's
+reproduction rather than the reporter's.
+
+**What was reproduced.** Feeding `loops/scripts/claimable-units.sh` the tree this mission's
+first ticket built — HEAD stepped back with content `origin/main` already holds — it answered
+`{"claimable": null, ..., "readable": false, "reason": "not_current"}`, which is the reader
+behaving exactly as its own header specifies. The defect is one layer up:
+`commands/infinite-development.md` derived fanout as
+`min(WORKAHOLIC_IMPLEMENT_FANOUT default 1, claimable units, available child capacity)` with
+**no rule for a null**, so a reading that could not be made became an allocation of zero — while
+the load term one paragraph below already carried the identical rule ("never turn an unreadable
+load into zero capacity"). No `/implement` runner was spawned, so the command that carries the
+pre-survey post obligation never ran, and the coordinator carried none of its own. That is the
+whole of the 100 minutes of silence.
+
+**And the reporter's mechanism is recorded as refuted rather than quietly dropped.** The ask
+attributed the silence to `workaholic:notify`'s precondition-stop class being a closed list whose
+only member is `no_plugin_source`. That class decides **severity** — membership buys the calm
+`⚪ Paused` on a first report, and `notify/reference/notifications.md` already said in its own
+words that a signature outside the class *is a red alert from its first report*. Membership
+therefore cannot silence anything. Both documents now say so explicitly, because the misreading
+cost a reader a wrong diagnosis.
+
+The `⚪ Paused` shape itself is byte-identical: the diff over
+`notify/reference/notifications.md` touches two prose lines and no line of the block.
+
+### Discovered Insights
+
+- **Insight**: the coordinator carried the "never zero on an unreadable reading" rule for
+  **load** and not for **claimable units**, in adjacent paragraphs of one document.
+  **Context**: A rule stated for one term of a `min()` and not for the others reads as complete
+  to anyone editing it. The repair is deliberately phrased so the two read as one rule rather
+  than two, which is what makes the third term's absence visible if it ever matters.
+
+- **Insight**: `null` counts and a `readable: false` flag only pay for themselves if a caller
+  branches on them; `claimable-units.sh` chose `null` over `0` precisely so this could not be
+  collapsed, and it was collapsed anyway by a document that never mentioned the field.
+  **Context**: The repository's convention — `readable` absent on a completed walk, null counts
+  on a failed one — protects the *reader*'s honesty and nothing else. The caller's contract has
+  to be written where the caller is, and pinned there.
+
+- **Insight**: the post obligation had to be bounded, or it would fire on every ordinary idle
+  tick.
+  **Context**: `workaholic:notify`'s standing rule is that the tie goes to silence, and a tick
+  that spawned nothing because nothing was due is the commonest tick there is. The obligation is
+  scoped to a tick that spawned nothing because something it needed was **degraded**, and the
+  bound is pinned in the suite beside the obligation itself.

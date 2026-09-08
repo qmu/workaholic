@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T17:57:14+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -113,3 +114,45 @@ The proof form is `superseded`'s, cited rather than re-invented (`drive/referenc
   hand-run `git reset`, but reading the reflog for provenance would be reading for a judgement, and
   the proof does not need one.
 - Cost: one `git hash-object` per dirty path. The measured tree had six.
+
+## Final Report
+
+Development completed as planned.
+
+Step 1's reproduction was built first and confirms the whole chain, not just the symptom: a
+throwaway repository whose `main` was stepped back with `git reset --soft` while its index and
+worktree kept content `origin/main` already holds answers `dirty_workspace` from `sync-main.sh`,
+`current: false` from `plan-units.sh`, and `readable: false, reason: not_current` from
+`claimable-units.sh` — the three readings the mission's ask names, in that order, with the
+survey never reached.
+
+`classify-residue.sh` is the reading and nothing else. It is a pure read that deliberately does
+**not** fetch: a fetch writes remote-tracking refs, and the contract asserted by the tests is
+that the index, the worktree and every ref are byte-identical across a call.
+
+### Discovered Insights
+
+- **Insight**: `$(git status --porcelain -z)` silently concatenates every record into one,
+  because POSIX command substitution drops NUL bytes outright. The translation has to happen
+  **inside** the substitution (`git status --porcelain -z | tr '\0' '\n'`), not after it.
+  **Context**: The first implementation captured the raw `-z` stream and translated afterwards,
+  and produced exactly one "path" whose name was every record run together — classified
+  `unanswerable`, so it failed safe rather than loudly. Any script here reaching for `-z` to
+  avoid git's path quoting has to do the same thing.
+
+- **Insight**: `ship/scripts/lib/conflict-class.sh` is already the repository's one home for
+  *which paths are generated output*, and it is sourced cross-skill by relative path
+  (`drive/scripts/claim-mergeability.sh` does it), so a third consumer costs nothing in the
+  build closure.
+  **Context**: It answers only the path-allowlist half. The other half — `hooks/policy-index.md`
+  and the flat-area indexes — is answered by the marker each generator writes into its own
+  output, read off the **base's** blob so residue cannot declare itself regenerable. That test
+  is self-verifying in the same shape `conflict_class_append_only` uses, and covers a generated
+  file added to the tree tomorrow without anybody editing a list.
+
+- **Insight**: `on_base` is stricter than the ticket's own wording ("the working-tree **or**
+  staged blob"), and deliberately: it requires the index entry *and* the worktree file to both
+  equal the base's blob.
+  **Context**: A path whose two representations disagree has one side that is not on the base,
+  and that side is somebody's work. Requiring both keeps the class a proof that discarding the
+  path loses literally nothing once the freshen fast-forwards.

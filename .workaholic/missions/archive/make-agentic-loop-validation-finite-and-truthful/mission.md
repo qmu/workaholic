@@ -2,7 +2,7 @@
 type: Mission
 title: Make agentic-loop validation finite and truthful
 slug: make-agentic-loop-validation-finite-and-truthful
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-08T14:58:31+09:00
 author: a@qmu.jp
@@ -32,9 +32,11 @@ A contributor sees `Validate Plugins` complete normally when the activity-clock 
 ## Acceptance
 
 - [x] The observation-clock fixture presents two distinct source coordinates and proves that the second observation-only wake does not advance the anchored work cadence. (#20260908145846-make-the-observation-clock-fixture-emit-distinct-activity.md)
-- [ ] The agentic-loop process test and its CI step terminate within explicit bounds, failing with actionable output instead of remaining pending. (#20260908145847-bound-agentic-loop-validation-against-leaked-processes.md)
+- [x] The agentic-loop process test and its CI step terminate within explicit bounds, failing with actionable output instead of remaining pending. (#20260908145847-bound-agentic-loop-validation-against-leaked-processes.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-08 — ticket archived — 20260908145846-make-the-observation-clock-fixture-emit-distinct-activity.md
+- 2026-09-08 — ticket archived — 20260908145847-bound-agentic-loop-validation-against-leaked-processes.md
+- 2026-09-08 — mission achieved — mission.md

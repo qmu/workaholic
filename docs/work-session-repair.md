@@ -104,8 +104,8 @@ target tags; it does not delete the orphan tag or declare old releases repaired.
 
 Verification including mission-independent release eligibility: the agentic-loop run passed 119/119 tests; generated-skill reference and
 plugin-metadata validation passed. A read-only query through the installed QFS parser round-tripped
-apostrophes, backslashes, newlines, tabs and double quotes. The earlier full workflow suite passed
-6,985 checks; that run predates the final QFS correction, which is covered by the final agentic run.
+apostrophes, backslashes, newlines, tabs and double quotes. The final full workflow suite passed
+6,989 checks, including the modular drill fixtures and mission-independent release boundary.
 The latest result per drill is 42 proved, seven unproved and two server-dependent skips; the three
 checkout-mutation refusals were rerun individually on a frozen tree, not silently counted as passes.
 The original aggregate branch exceeded change-size limits. Delivery was partitioned into

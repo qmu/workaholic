@@ -414,13 +414,9 @@ binding は repo + workspace ID + channel ID + 選択したidentity policy で�
 | --- | --- |
 | `runtime/SKILL.md` | 起動時の小さい共通契約と各script/referenceへの入口。過去障害の説明を入れない |
 | `runtime/scripts/read-config.sh` | `--root REPO [--input FILE]`。解決済み設定と由来をJSONで返す。保存・環境変更なし |
-| `runtime/scripts/read-capabilities.sh` | `--input FILE`。親が測定した能力からnative/scheduler/supervisor/onceを選ぶ。shellからMCP有無を推定しない |
 | `runtime/scripts/state.sh` | `read\|create\|update\|transition --scope binding\|instance\|publication\|snapshot --id ID [--record RECORD] [--expected-revision N --input FILE]`。ローカル状態の唯一のwriter。作成・更新条件は下記 |
 | `gather/scripts/read-snapshot.sh` | `--input FILE [--previous FILE]`。既存readerの下位producerを一回ずつ呼び、共通snapshotを返す |
 | `runtime/scripts/plan-turn.sh` | `--input FILE`。時刻・snapshot・状態から必要な観測、役割、待機期限を純粋に導出する |
-| `runtime/scripts/context-packet.sh` | `--snapshot FILE --role ROLE [--unit ID]`。担当に必要な証拠・既決事項・参照・完了条件を小さく返す |
-| `runtime/scripts/dispatch.sh` | `--request FILE`。排他とreceiptを確定してからCLI childを起動。native childは親が起動してreceiptを返す |
-| `runtime/scripts/adapters/codex.sh` / `claude.sh` | `--request FILE`。各CLIの引数・出力を共通worker契約へ変換。model/permissionはユーザーの選択を維持 |
 | `runtime/reference/codex.md` / `claude-code.md` | 同じ会話の待機・中断・child一覧・完了受信・圧縮からの復旧に必要な短いharness手順 |
 | `transport/SKILL.md` | QFS優先、操作別能力、宛先・送信者、結果確認の契約 |
 | `transport/scripts/resolve-target.sh` | `--request FILE`。QFS/connectorで同じ宛先を確認しbinding候補を返す。投稿しない |
@@ -441,7 +437,7 @@ domain reader → snapshot → plan-turn → dispatch/transport →結果の保�
 
 新しい内部scriptは、正常に型付き結果を返した場合にexit 0、入力/usage不正に2、script内部の異常に1とし、stdoutはJSON一件だけにします。旧wrapperのexit・stderr・文言はH4の互換表どおりに投影します。schemaに不正な入力を「成功した空結果」にしません。
 
-CLIの `--request FILE` は上記の完全なrequestを受け取ります。`--input FILE` のpure readerは目的別inputだけを受け取り、request ID等は入口で生成します。`read-config` は設定のoverride object、`read-capabilities` は観測済み能力とその証拠、`read-snapshot` は `repo_root/now/config/identity`、`plan-turn` は `now/snapshot/state` が入力です。それらの型はruntime request schemaの `$defs` に置きます。新scriptのstdoutは共通result envelope、保存するsnapshotや `--snapshot` の入力はその `data` だけです。envelopeとpayloadを混在させず、受け渡しの抽出をfixtureで固定します。既存readerにはこのenvelopeを強制しません。
+`--input FILE` のpure readerは目的別inputだけを受け取り、request ID等は入口で生成します。`read-config` は設定のoverride object、`read-snapshot` は `repo_root/now/config/identity`、`plan-turn` は `now/snapshot/state` が入力です。それらの型はruntime request schemaの `$defs` に置きます。stdoutは共通result envelopeとし、既存readerにはこのenvelopeを強制しません。
 
 capability入力はC1–C4それぞれを `true/false/null` と観測根拠で持ち、別に選択CLIの利用可否と永続ローカルprocess可否を持ちます。`true` の証拠がある組合せだけを使い、native（C1+C2+C3）→same-chat scheduler（C4）→CLI supervisor→onceの順に選択します。nullをfalseの確証やtrueに置き換えず、不明な機能は起動報告へ残します。mode名は `native | scheduler | supervisor | once` に統一します。
 
@@ -537,7 +533,7 @@ P3とP7aなど独立した単位は並行可能ですが必須ではありませ
 
 **既存:** `skills/drive/scripts/lib/claims.sh`、`list-claims.sh`、`plan-units.sh`、`skills/mission/scripts/progress.sh`、`queue-size.sh`、`next-acceptance.sh`、`skills/strategy/scripts/list.sh`、`mission-strategy.sh`、`skills/loops/scripts/claimable-units.sh`。
 
-**新設:** H2のruntime共通schema/store/config、`gather/scripts/read-snapshot.sh`、`runtime/scripts/plan-turn.sh`、`context-packet.sh`。
+**新設:** H2のruntime共通schema/store/config、`gather/scripts/read-snapshot.sh`、`runtime/scripts/plan-turn.sh`。
 
 1. `claims_scan`の外部TSV列順を維持して、fetchとrefs/rowsの観測producerを抽出する。古いlist/planは下位producerの結果を射影するfacadeにする。
 2. mission/ticketの列挙を一回にしてprogress/queue/nextを集計する。ownershipとrelationの意味は既存の `owners.sh` / mission readerを使い、並行した独自frontmatter parserを作らない。
@@ -591,7 +587,7 @@ CLI adapterはローカルhelpとfixtureでflagsを確かめる。今回の環�
 1. channelとopen threadのcursorをbinding stateへ接続する。capturedの保存前にcursorを進めない。再接続はbounded overlapで再取得する。
 2. GitHub上の直近issue全走査によるSlack重複判定は、通常時inboxを使い、初回/復旧の照合へ限定する。キャッシュ消失で副作用を重ねない。
 3. moderationの全33stepをそのまま再実装せず、P8のstep registryに「どの入力変更/期限で必要か」を付ける。同じattribution/claim結果を共有する。
-4. pollingは既定fixed300秒、明示周期最優先。adaptiveは設定した場合のみ。初期profileの推奨値は会話中30秒・idle300秒・上限900秒とし、いずれも変更可能な設定値。夜間自動変更はv1で導入しない。
+4. pollingは既定adaptive、明示周期またはfixed指定を最優先とする。活動後30秒、cold idle 300秒、静寂の継続で60/120/240/480/900秒へ後退する。時刻帯は判定せず、夜間も静寂そのものから間隔を導く。Slackと新しいassigned feedback issueを同じ活動入力とし、全対象を読めた場合だけ静寂を確定する。
 5. providerエラーにはretry-afterまたはbounded exponential backoffを適用する。正常な人間への応答周期とエラーretryを混同しない。探索・保守のdue時刻はpoll間隔とは別に持つ。
 6. requestごとにwall time、reader/API/worker回数、読取bytesを記録する。provider usageがある時だけinput/cached/outputを記録し、不明はnull。モデルの推測でtoken値を埋めない。
 

@@ -28,11 +28,11 @@ Shell code owns finite state changes, atomic writes, bounded retries, and eviden
 
 ## Context and cost evidence
 
-The current `/work` selected path consists of `commands/work.md`, `skills/work/SKILL.md`, `plan-turn.sh`, `plan-poll.sh`, and `context-packet.sh`: **33,509 bytes** at the P9 verification head. The pre-refactor audit enumerated **2,423,901 bytes across 169 Markdown files** when every source document was treated as startup context. The selected path is 1.38% of that inventory. Runtime packets include only the chosen role's snapshot evidence; historical rationale stays outside the packet.
+The current `/work` selected path is the short work skill and tick command plus the pure turn and polling planners. Historical rationale stays outside the path. Test-only capability, context-packet, dispatch, adapter, metrics, and compaction shells were removed after the live supervisor audit showed that no production path called them.
 
 Hermetic P5 fixtures advance 100 unchanged poll boundaries with zero observations and zero worker launches. Request metrics store wall time, reader/API/worker counts, bytes, and provider usage only when returned; unknown token usage remains `null`.
 
-The dedicated agentic-loop suite contains **77 tests** covering portable packaging, legacy projections, snapshots and atomic state, capability dispatch, transport reconciliation, production delta capture, publication and claim recovery, polling cost, input normalization, delivery resume, and section-preserving reports.
+The dedicated agentic-loop suite covers portable packaging, legacy projections, snapshots and atomic state, transport reconciliation, production delta capture, publication and claim recovery, adaptive polling, input normalization, delivery resume, and section-preserving reports.
 
 ## Live verification still required
 

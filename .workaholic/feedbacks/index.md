@@ -700,4 +700,7 @@
 * [Keep a handoff branch mergeable while it waits for the person](20260907070904-keep-a-handoff-branch-mergeable-while-it-waits-for-the-person.md)
 * [Run the Codex /work loop in the current session's foreground](20260907122433-run-the-codex-work-loop-in-the-current-session-s-foreground.md)
 * [Correct the foreground Codex loop handoff reading](20260907134849-correct-the-foreground-codex-loop-handoff-reading.md)
+* [Integrated release exceeds scan size guidance](20260908080410-integrated-release-exceeds-scan-size-guidance.md)
+* [Live transport and incremental-read evidence](20260908080410-live-transport-and-incremental-read-evidence.md)
+* [Native lifecycle and downgrade evidence](20260908080410-native-lifecycle-and-downgrade-evidence.md)
 <!-- okf:generated:end -->

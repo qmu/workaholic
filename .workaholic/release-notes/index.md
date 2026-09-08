@@ -103,4 +103,5 @@
 * [Relay Codex Slack through its owning chat](work-20260904-184903.md)
 * [Document the shared development loop](work-20260904-192506.md)
 * [Complete the agentic loop redesign](work-20260908-043332.md)
+* [Reduce loop cost and adapt observation cadence](work-20260908-095427.md)
 <!-- okf:generated:end -->

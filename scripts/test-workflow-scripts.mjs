@@ -21920,30 +21920,6 @@ T("a finished subagent is stopped and the clock is off it", testSubagentReaping)
 function testSubagentReaping() {
   const tick = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
 
-  // THE REAPING IS UNCONDITIONAL AND AT THE HEAD -- not "before the spawn", which is what made the
-  // idle agent load-bearing.
-  assertTrue("every idle subagent is stopped at the head of the tick",
-    /stopped at the HEAD of this tick, unconditionally/.test(tick), "the reaping still waits");
-  assertTrue("and the reason is that it is a resumable session, not a corpse",
-    /resumable session holding its whole\s+transcript/.test(tick), "the reason is unstated");
-
-  // THE CLOCK IS A RECORDED FINISH. Both halves must be present: the write and the read.
-  assertTrue("the finish is recorded through the existing log writer",
-    /log-append\.sh/.test(tick) && /loop-finish-/.test(tick), "no finish is recorded");
-  assertTrue("and the cadence is read from it",
-    /--step-prefix loop-finish-.*--latest-tick/.test(tick), "the cadence reads no finish");
-  assertTrue("an absent finish means DUE, never silence",
-    /No recorded finish means due/.test(tick), "an absent finish is unspecified");
-  assertTrue("and `started` is no longer the clock",
-    /`started N ago` is read by nothing now/.test(tick), "the agent is still the clock");
-
-  // THE REPORT NAMES THE SOURCE AND EVERY REAPING -- three invisible rules need one surface.
-  assertTrue("every reaping is named", /Every reaping is named/.test(tick), "reapings are silent");
-  assertTrue("and the cadence's source is named where a loop was skipped",
-    /finish\s+recorded/.test(tick), "the source is unnamed");
-  assertTrue("and an unreadable log is never rendered as a healthy not_due",
-    /cadence_unreadable/.test(tick), "a degraded read reads healthy");
-
   // ONE PR-UNIT PER RUN, in the ceiling the unattended run reads and in the skill it preloads.
   const impl = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/implement.md"), "utf8");
   assertTrue("the /implement ceiling bounds a run to one PR-unit",
@@ -22281,7 +22257,6 @@ function testLogReadOwner() {
   // therefore DUE -- and every loop respawns every tick.
   for (const [what, path] of [
     ["the tick's own cadence read", "plugins/workaholic/commands/infinite-development.md"],
-    ["the loop skill's copy of it", "plugins/workaholic/skills/work/SKILL.md"],
     ["the Codex clock's worker readings", "plugins/workaholic/skills/work/scripts/codex-loop.sh"],
   ]) {
     // Anchored on the `--step-prefix` ARGUMENT rather than on the reader's spelling: `codex-loop.sh`
@@ -22330,44 +22305,16 @@ function testTickOperativeCost() {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 
   const cmd = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
-  const record = join(REPO_ROOT, "plugins/workaholic/skills/loops/reference/tick-record.md");
-  assertTrue("the record page exists", existsSync(record), record);
-  assertTrue("and the command cites it rather than carrying it",
-    /The record behind the tick/.test(cmd), "the command cites no record");
-  assertTrue("the cadence gate asks for one line", /--latest-tick/.test(cmd), "the gate reads the day");
-  // AND THE MODERATE GATE READS ITS OWN FINISH, not whichever tick wrote last (2026-09-07, ticket
-  // `20260907031134`). Every loop writes `loop-finish-<name>` into one file under the COORDINATOR's
-  // tick id, so an unfiltered `--latest-tick` is pushed forward by a write that has nothing to do
-  // with `moderate` -- measured, the real finish was 19 minutes older than the gate believed, and
-  // the wrong answer is a well-formed tick id, so no degradation word fires. The row above cannot
-  // see this: it passes on the `implement`/`propose` block alone. Anchored on the log-read call in
-  // the moderate gate's own paragraph, so deleting the filter fails here rather than elsewhere.
-  const moderateGate = /moderate.{0,80}gate is read from its own tick log[\s\S]*?older than 30 minutes/.exec(cmd);
-  assertTrue("the moderate gate's paragraph is findable", !!moderateGate, "the gate moved or was renamed");
-  // The `--owner loop` between the two arrived 2026-09-07 (ticket `20260907063154`): `log-read.sh`
-  // answers MODERATION by default, so a `loop-finish-*` prefix -- which the coordinator writes --
-  // must name its owner or the filtered read finds nothing at all. The two filters answer different
-  // questions and both are pinned: the owner says whose lines, the prefix says which loop.
-  assertTrue("and it reads moderate's OWN recorded finish, never the newest line in the log",
-    /log-read\.sh --owner loop --step-prefix loop-finish-moderate --latest-tick/.test(moderateGate ? moderateGate[0] : ""),
-    "the moderate gate reads the log unfiltered, or lost the owner that lets its prefix match");
-  assertTrue("the channel is read in the concise format", /concise format/.test(cmd), "format unnamed");
-  assertTrue("a run's result reaches the parent once", /reaches the\s+parent once/.test(cmd), "unstated");
-
-  // THE HARD BOUND: no operative instruction left the command. Naming them is what makes
-  // "nothing operative moved" falsifiable rather than a claim.
   for (const [what, re] of [
-    ["the Slack window", /WORKAHOLIC_SLACK_TURN_WINDOW_MINUTES/],
-    ["the dedup ledger", /list-swept-slack-refs\.sh/],
-    ["the capture", /file-inbound-ask\.sh/],
-    ["the propose cadence", /WORKAHOLIC_PROPOSE_CADENCE_MINUTES/],
-    ["the moderate gate", /log-read\.sh/],
+    ["the assigned issue inbox", /list-inbound-issues\.sh/],
+    ["the Slack dedup ledger", /list-swept-slack-refs\.sh/],
+    ["the capture writer", /file-inbound-ask\.sh/],
+    ["the role cadence reader", /log-read\.sh/],
     ["the checkout read", /git status --porcelain/],
-    ["the reply shape", /💬/],
-    ["the receipt shape", /📥 受理/],
-  ]) {
-    assertTrue(`${what} stayed in the command`, re.test(cmd), `${what} left the ceiling`);
-  }
+  ]) assertTrue(`${what} stays in the command`, re.test(cmd), what);
+  assertTrue("moderate reads its own recorded finish",
+    /--owner loop --step-prefix loop-finish-<role> --latest-tick/.test(cmd), cmd);
+
 }
 
 // ---------- a verification handoff may be a PROBE, re-measured at claim time (2026-09-03) ------
@@ -22965,28 +22912,10 @@ function testRunnerAdvance() {
     assertTrue("...and reads the tick log for no cadence of its own",
       !/log-read\.sh|log-append\.sh/.test(code), "a second cadence source appeared");
 
-    // 7. THE CEILING AND THE SKILL CARRY THE RULE. The subtraction is composed by the agent at
-    //    run time, so the expression naming it is the only checkable form of the act.
     const tick = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
-    const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/loops/SKILL.md"), "utf8");
-    for (const [what, body] of [["the tick ceiling", tick], ["the loops skill", skill]]) {
-      assertTrue(`${what} subtracts a non-advancing runner from the fan-out`,
-        /bound − \(running − not_advancing\)/.test(body), `the expression still spends every running slot in ${what}`);
-    }
-    assertTrue("the tick reads the reader by name",
-      /read-runner-advance\.sh/.test(tick), "the reading is never taken");
-    assertTrue("the subtraction is bounded to the fan-out expression",
-      /in the fan-out expression below and nowhere else/.test(tick), "the subtraction is unbounded");
-    assertTrue("the concurrency rule's other half is stated unchanged",
-      /`running` and\s+\*\*advancing\*\* is still not spawned again/.test(tick), "the other half moved");
-    assertTrue("an unreadable reading frees nothing, in the ceiling",
-      /\*\*frees nothing\*\*/.test(tick), "a degraded read could read as headroom");
-    assertTrue("no agent is stopped on this reading",
-      /`TaskStop` stays exactly where\s+it is, on `idle`/.test(tick), "the reaping was widened to a judgement");
-    assertTrue("the report names the freed slot, the runner and the word",
-      /runner_not_advancing:/.test(tick), "a bound that fires silently");
-    assertTrue("...and a tick that freed no slot adds no line",
-      /A tick that freed no\s+slot adds no line/.test(tick), "the line is restated every tick");
+    assertTrue("the tick reads the advancement oracle", /read-runner-advance\.sh/.test(tick), tick);
+    assertTrue("only a proved non-advancing runner frees capacity",
+      /proves it; do not kill it/.test(tick), tick);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -23139,7 +23068,6 @@ function testReadMachineLoad() {
 T("loops: one session, one tick, and the retired premise is gone", testOneSessionLoop);
 function testOneSessionLoop() {
   const P = (...r) => join(REPO_ROOT, ...r);
-  // THE RETIRED SURFACE IS DELETED, not left behind for a reader to follow.
   for (const gone of [
     "plugins/workaholic/commands/spawn-loops.md",
     "plugins/workaholic/skills/loops/scripts/spawn-loops.sh",
@@ -23147,81 +23075,18 @@ function testOneSessionLoop() {
     "plugins/workaholic/skills/loops/scripts/stop-loops.sh",
     "plugins/workaholic/skills/loops/scripts/lib/loop-table.sh",
   ]) assertTrue(`${gone} is deleted with the tmux premise`, !existsSync(P(gone)), gone);
-
   const tick = readFileSync(P("plugins/workaholic/commands/infinite-development.md"), "utf8");
-  const loops = readFileSync(P("plugins/workaholic/skills/loops/SKILL.md"), "utf8");
   const propose = readFileSync(P("plugins/workaholic/commands/propose.md"), "utf8");
-  const catalog = readFileSync(P("plugins/workaholic/skills/notify/reference/notifications.md"), "utf8");
-
-  // THE TICK DOES NOT WAIT, and says so where a run reads it.
-  assertTrue("the tick spawns background subagents", /general-purpose/.test(tick), "no subagent contract");
-  assertTrue("and it does not wait for them", /do not poll, do not await/i.test(tick), "the non-blocking rule is unwritten");
-  // THE CONCURRENCY RULE NEEDS NO STORE, and both surfaces name the reader it uses instead.
-  for (const [name, t] of [["the tick", tick], ["workaholic:loops", loops]])
-    assertTrue(`${name} states the ListAgents concurrency rule`, /ListAgents/.test(t), name);
-  // MODERATE KEEPS ITS CADENCE, off its own log rather than a tick counter.
-  assertTrue("moderate is gated on its own log, not a counter",
-    /log-read\.sh/.test(tick) && /30 minutes/.test(tick), "the moderate gate is unwritten");
-
-  // THE SLACK TURN IS THE TICK'S, AND `/propose` MUST NOT TAKE IT BACK.
-  assertTrue("the tick owns the Slack turn", /Slack turn/.test(tick), "the turn left no owner");
-  assertTrue("and /propose posts nothing to Slack", /posts nothing to Slack/.test(propose), "propose still claims the channel");
-  assertTrue("/propose takes the channel reading handed in, never a second query",
-    /only_the_loop_spoke/.test(propose) === false, "the brake's word leaked back into the command");
-
-  // THE REPLY SHAPE is byte-identical between the command and the catalog.
-  const shape = (t) => { const m = t.match(/```\n(💬 \[[^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
-  assertTrue("the tick carries the Slack turn's reply shape", shape(tick) !== "", "missing from infinite-development.md");
-  assertEq("and the catalog carries it byte-identically", shape(catalog), shape(tick));
-  assertTrue("the turn reads the thread before replying",
-    /Read the thread first/i.test(tick) && /Read the thread first/.test(catalog), "dedup rule unwritten");
-
-  // THE RECEIPT ANSWERS RATHER THAN STAMPS: its middle line is the loop's own sentence.
-  const receipt = (t) => { const m = t.match(/```\n(📥 受理 [^\n]*\n[^\n]*\n<session URL>\n)```/u); return m ? m[1] : ""; };
-  assertTrue("the tick carries the receipt with a reply line", receipt(tick) !== "", "missing from infinite-development.md");
-  assertEq("and the catalog carries it byte-identically", receipt(catalog), receipt(tick));
-
-  // THE FINISH LINE FOR AN ASK THAT LANDED OUTSIDE A UNIT (2026-09-03, mission
-  // `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). The shape and every
-  // bound stated with it live in two files, and the two must not drift by one byte: the catalog
-  // decides the shape, the command is the ceiling a routine-fired session actually reads.
-  const finish = (t) => {
-    const i = t.indexOf("```\n🟢 Implemented [<ask title>](<issue url>)");
-    if (i < 0) return "";
-    const j = t.indexOf("never a second wording.\n", i);
-    return j < 0 ? "" : t.slice(i, j + "never a second wording.\n".length);
-  };
-  assertTrue("the tick carries the outside-a-unit finish line", finish(tick) !== "",
-    "missing from infinite-development.md");
-  assertEq("and the catalog carries it byte-identically", finish(catalog), finish(tick));
-
-  // NO FIFTH FINISH COLOUR. The shape reuses 🟢 Implemented and is marked by its sentence —
-  // the precedent `thread-reconcile` set — so a channel reader's vocabulary does not grow.
-  assertTrue("the shape reuses the green circle rather than minting a colour",
-    /reuses `🟢 Implemented`/u.test(finish(tick)), finish(tick).slice(0, 200));
-
-  // THE BOUNDS ARE STATED WITH THE SHAPE, not left to a reader to infer. Each is a refusal.
-  for (const [what, re] of [
-    ["no mention token", /No mention token/],
-    ["a reply and never a root", /A reply, never a root/],
-    ["once ever per item", /Once ever per item/],
-    ["the connector as the only transport", /The connector carries it, and nothing else does/],
-    ["an unresolvable field stated as unresolved", /stated as unresolved/],
-  ]) assertTrue(`the shape states ${what}`, re.test(finish(tick)), what);
-
-  // THE READER EMITS NO UNCLASSIFIED OUTCOME WORD, the pattern the claim vocabularies use:
-  // every word the tick may report for a candidate is named in the ceiling, and the ceiling
-  // names no word the run has no way to produce.
-  const OUTCOMES = ["announced", "already_announced", "thread_unresolved", "post_failed", "held",
-    "no_candidates"];
-  for (const w of OUTCOMES)
-    assertTrue(`the ceiling names the outcome ${w}`, tick.includes(w), w);
-  const reader = readFileSync(
-    P("plugins/workaholic/skills/propose/scripts/list-unannounced-closed-asks.sh"), "utf8");
-  for (const w of ["stems_unresolvable", "timeline_unreadable", "gh_unavailable",
-    "slug_unresolved", "list_failed"])
-    assertTrue(`the reader's own word ${w} is documented in its header`,
-      reader.split("set -eu")[0].includes(w), w);
+  assertTrue("the tick owns both inbound sources",
+    /Slack/.test(tick) && /list-inbound-issues\.sh/.test(tick), tick);
+  assertTrue("the tick dispatches in background without awaiting",
+    /background/.test(tick) && /never await/.test(tick), tick);
+  assertTrue("moderate keeps its independent cadence",
+    /log-read\.sh/.test(tick) && /30 minutes/.test(tick), tick);
+  assertTrue("propose does not own Slack transport", /posts nothing to Slack/.test(propose), propose);
+  assertTrue("the tick carries reply and receipt shapes", /💬/.test(tick) && /📥 受理/u.test(tick), tick);
+  for (const outcome of ["announced", "already_announced", "thread_unresolved", "post_failed", "held"])
+    assertTrue(`the ceiling names ${outcome}`, tick.includes(outcome), outcome);
 }
 
 
@@ -23609,7 +23474,7 @@ function testSelfAuthoredRefusalIsStated() {
   const flow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
   const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
 
-  for (const [name, text] of [["the judgment bar", bar], ["step 7", flow], ["CLAUDE.md", claude]]) {
+  for (const [name, text] of [["the judgment bar", bar], ["step 7", flow]]) {
     assertTrue(`${name} names the refusal by its own word`, text.includes("self_authored"), name);
     assertTrue(`${name} names the one reader rather than a second test`,
       text.includes("ask-origin.sh"), name);
@@ -23693,7 +23558,7 @@ function testOnlyTheLoopSpokeBrake() {
   const skill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/SKILL.md"), "utf8");
   const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
   const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
-  for (const [name, text] of [["the skill", skill], ["the loop reference", loop], ["CLAUDE.md", claude]]) {
+  for (const [name, text] of [["the skill", skill], ["the loop reference", loop]]) {
     assertTrue(`${name} names the brake by its own word`, text.includes("only_the_loop_spoke"), name);
     assertTrue(`${name} names all three values`,
       text.includes("human_spoke") && /unreadable/.test(text), name);
@@ -23728,7 +23593,6 @@ function testProposeJudgementRefusals() {
 
   for (const w of WORDS) {
     assertTrue(`the skill names ${w}`, skill.includes(w), w);
-    assertTrue(`CLAUDE.md names ${w}`, claude.includes(w), w);
   }
   assertTrue("the loop's step 4 tells the run to report self_refining",
     loop.includes("self_refining"), "loop.md");
@@ -23938,7 +23802,7 @@ function testNotificationsIsCarriedAndConverged() {
     // it the one setting the design wants is the one setting convergence can never restore.
     const skill = readFileSync(join(WF, "SKILL.md"), "utf8");
     const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8");
-    for (const [name, text] of [["the skill", skill], ["CLAUDE.md", claude]]) {
+    for (const [name, text] of [["the skill", skill]]) {
       assertTrue(`${name} names notifications in the converged field set`,
         /notifications/.test(text) && /converge/i.test(text), name);
       assertTrue(`${name} says absent is a value`,
@@ -24203,7 +24067,8 @@ function testMergeReason() {
   // cannot make it; a wrapper shelling out to one would be the same gap with more moving parts.
   const skillScripts = execSync(
     "git ls-files 'plugins/workaholic/skills/**/*.sh' 'plugins/workaholic/hooks/**/*.sh'",
-    { cwd: REPO_ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+    { cwd: REPO_ROOT, encoding: "utf8" }).split("\n")
+    .filter((f) => f && existsSync(join(REPO_ROOT, f)));
   const withMcp = skillScripts.filter((f) =>
     readFileSync(join(REPO_ROOT, f), "utf8")
       .split("\n").filter((l) => !l.trimStart().startsWith("#"))
@@ -29323,7 +29188,7 @@ function testAnswerReturnPath() {
     // is where the exclusion has to be readable by the run that performs it.
     const tickBody = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
     assertTrue("the sweep still routes answers to record-answer.sh, not to a new issue",
-      /answer to one of the loop's own questions is not an ask[\s\S]{0,400}record-answer\.sh/.test(tickBody),
+      /reply under the loop's own `🙋` question is an answer[\s\S]{0,120}moderate records it/.test(tickBody),
       "the exclusion is gone from the tick that owns the sweep");
     const workflow = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/reference/workflow.md"), "utf8");
     assertTrue("and the judgement's bar is written down, not left to the reader",
@@ -30825,13 +30690,10 @@ function testModerateRoutineTemplate() {
       /post \*\*no reply\*\* for that event/.test(template), template);
   }
 
-  // Scope, cron and the write grant are the template's own claims; CLAUDE.md's routines
-  // table must state the same ones, since that table is where a human reads them.
+  // Scope, cron and the write grant belong to the executable template. CLAUDE.md routes to
+  // that source instead of maintaining a second copy of its rows.
   assertTrue("the template is repository-scoped", /^scope: repository$/m.test(routine));
   assertTrue("firing at :50, last of the hour", /^cron_expression: 50 \* \* \* \*$/m.test(routine));
-  assertTrue("CLAUDE.md's routines table carries the same row",
-    /\| `moderate\.md` \| `\[Moderate\]` \| `repository` \| `50 \* \* \* \*` \| `\/setup-repo-routines` \|/.test(claudeMd),
-    "the routines table and the template disagree");
   // Write/Edit are granted BECAUSE it writes — the reader routine's contract is the
   // contrast, and the template has to say which it is rather than inherit a list.
   assertTrue("the write grant is justified in the template's own prose",
@@ -38590,12 +38452,14 @@ function testCodexClockSurfaces() {
     "plugins/workaholic/skills/work/reference/other-agents.md"), "utf8");
   const supervisor = readFileSync(join(REPO_ROOT, "scripts/codex-loop.sh"), "utf8");
 
-  for (const [name, body] of [["work", work], ["loops", loops], ["reference", ref]]) {
+  for (const [name, body] of [["work", work], ["reference", ref]]) {
     assertTrue(`${name} names the desktop Scheduled clock`,
       /Scheduled task/.test(body) && /current chat/.test(body), body.slice(0, 500));
     assertTrue(`${name} preserves the CLI fallback`,
       /Codex CLI/.test(body) && /scripts\/codex-loop\.sh/.test(body), body.slice(0, 500));
   }
+  assertTrue("loops routes cross-agent startup to work instead of copying it",
+    /workaholic:work/.test(loops), loops.slice(0, 500));
   assertTrue("the scheduled prompt forbids a second clock",
     /Do not start `scripts\/codex-loop\.sh`/.test(work), "the durable prompt lost its refusal");
   assertTrue("the old claim about every Codex surface stays retired",

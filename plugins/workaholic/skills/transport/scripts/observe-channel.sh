@@ -33,5 +33,6 @@ next=$(printf '%s' "$read_result" | jq -c --argjson old "$cursor" '.data.next_cu
 jq -cn --arg root "$ROOT" --arg bid "$binding_id" --arg now "$NOW" --argjson messages "$(printf '%s' "$read_result" | jq -c .data.messages)" --argjson next "$next" '{repo_root:$root,binding_id:$bid,now:$now,messages:$messages,next_cursor:$next}' >"$tmp/capture.json"
 captured=$("$SCRIPT_DIR/capture-inbox.sh" --request "$tmp/capture.json")
 [ "$(printf '%s' "$captured" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$captured" | jq -r .reason)"; exit 0; }
-data=$(printf '%s' "$read_result" | jq -c '{observation_proved:true,new_input_ids:[.data.messages[]?|(.id // .ts)]|map(select(.!=null))|unique,known_thread_changes:[],has_more:(.data.has_more//false),unreadable:[],next_cursor:.data.next_cursor}')
+BOT=${WORKAHOLIC_SLACK_BOT_USER_ID:-}
+data=$(printf '%s' "$read_result" | jq -c --arg bot "$BOT" '{observation_proved:true,new_input_ids:[.data.messages[]?|select($bot=="" or ((.sender_id // .author_id // .user // .user_id // "") != $bot))|(.id // .ts)]|map(select(.!=null))|unique,known_thread_changes:[],has_more:(.data.has_more//false),unreadable:[],next_cursor:.data.next_cursor}')
 runtime_json_result ok "" observe-channel "$data"

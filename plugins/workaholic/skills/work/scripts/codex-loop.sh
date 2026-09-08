@@ -2,6 +2,7 @@
 # Plugin-owned external clock for Codex CLI/IDE. Repository entrypoints are thin shims.
 
 INTERVAL=300
+INTERVAL_EXPLICIT=false
 ONCE=false
 DRY_RUN=false
 STATUS_ONLY=false
@@ -16,7 +17,7 @@ ROLES="implement propose moderate"
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --interval) INTERVAL="${2:-300}"; shift 2 ;;
+        --interval) INTERVAL="${2:-300}"; INTERVAL_EXPLICIT=true; shift 2 ;;
         --once) ONCE=true; shift ;;
         --dry-run) DRY_RUN=true; shift ;;
         --status) STATUS_ONLY=true; shift ;;
@@ -808,58 +809,58 @@ trap on_interrupt INT TERM
 plan_tick() {
     _pt_snapshot_sh="${SCRIPT_DIR}/../../gather/scripts/read-snapshot.sh"
     _pt_plan_sh="${SCRIPT_DIR}/../../runtime/scripts/plan-turn.sh"
-    [ -d "$REPO_ROOT/.workaholic" ] && [ -x "$_pt_snapshot_sh" ] && [ -x "$_pt_plan_sh" ] && command -v jq >/dev/null 2>&1 \
-        || { printf ''; return 0; }
-    _pt_dir=$(mktemp -d)
-    _pt_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    _pt_epoch=$(date -u +%s)
-    _pt_poll_state="${LOG_DIR}/poll-state.json"
     _pt_poll_sh="${SCRIPT_DIR}/../../runtime/scripts/plan-poll.sh"
-    _pt_local="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || printf unknown):$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null | git hash-object --stdin 2>/dev/null || printf unknown)"
-    # Cached waiting is safe only after this CLI process has a provider-side delta
-    # observation. A connector-owned parent must be given every explicit boundary;
-    # local Git equality is not evidence that its inbox stayed unchanged.
-    if [ -s "$_pt_poll_state" ] && [ -x "$_pt_poll_sh" ] \
-        && [ "$(jq -r '.remote_observation_proved // false' "$_pt_poll_state" 2>/dev/null || printf false)" = true ]; then
-        jq -cn --argjson now "$_pt_epoch" --arg fp "$_pt_local" --slurpfile state "$_pt_poll_state" \
-          --argjson interval "$INTERVAL" '{now_epoch:$now,polling:{mode:"fixed",interval_seconds:$interval},state:$state[0],observed:{local_fingerprint:$fp,input_ids:[]}}' >"$_pt_dir/poll-input.json"
-        _pt_poll=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll-input.json" 2>/dev/null || printf '')
-        if [ "$(printf '%s' "$_pt_poll" | jq -r '.data.observe // true' 2>/dev/null || printf true)" = false ]; then
-            jq -cn --argjson next "$(printf '%s' "$_pt_poll" | jq -r '.data.next_due')" '{protocol:"workaholic.runtime/v1",request_id:"plan-turn",status:"ok",reason:"",data:{actions:[{action:"wait",reason:"cached_observations",target:null}],next_due:$next,reasons:["cached_observations"]}}'
+    [ -d "$REPO_ROOT/.workaholic" ] && command -v jq >/dev/null 2>&1 || { printf ''; return 0; }
+    _pt_dir=$(mktemp -d); _pt_now=$(date -u +%Y-%m-%dT%H:%M:%SZ); _pt_epoch=$(date -u +%s)
+    _pt_poll_state="${LOG_DIR}/poll-state.json"; _pt_state='{}'
+    [ ! -s "$_pt_poll_state" ] || _pt_state=$(cat "$_pt_poll_state")
+    _pt_config_sh="${SCRIPT_DIR}/../../runtime/scripts/read-config.sh"
+    _pt_polling=$(sh "$_pt_config_sh" --root "$REPO_ROOT" 2>/dev/null | jq -c '.data.config.polling' 2>/dev/null || printf '')
+    [ -n "$_pt_polling" ] || _pt_polling='{"mode":"adaptive","interval_seconds":300,"conversation_seconds":30,"idle_seconds":300,"max_seconds":900}'
+    if [ "$INTERVAL_EXPLICIT" = true ]; then
+        _pt_polling=$(printf '%s' "$_pt_polling" | jq -c --argjson interval "$INTERVAL" '.mode="fixed" | .interval_seconds=$interval')
+    fi
+    jq -cn --argjson now "$_pt_epoch" --argjson polling "$_pt_polling" --argjson state "$_pt_state" '{now_epoch:$now,polling:$polling,state:$state}' >"$_pt_dir/poll.json"
+    _pt_due=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll.json" 2>/dev/null || printf '')
+    if [ "$(printf '%s' "$_pt_due" | jq -r '.data.observe // true' 2>/dev/null || printf true)" = false ]; then
+        _pt_next=$(printf '%s' "$_pt_due" | jq -r '.data.next_due')
+        if [ "${WORK_DUE:-true}" != true ]; then
+            jq -cn --argjson next "$_pt_next" '{protocol:"workaholic.runtime/v1",status:"ok",data:{actions:[{action:"wait",reason:"observation_cached"}],next_due:$next}}'
+            rm -rf "$_pt_dir"; return 0
+        fi
+    else
+        _pt_slack='{"observation_proved":false,"new_input_ids":[],"known_thread_changes":[],"has_more":false,"unreadable":["transport_unavailable"]}'
+        _pt_observe_sh="${SCRIPT_DIR}/../../transport/scripts/observe-channel.sh"
+        if [ -x "$_pt_observe_sh" ]; then
+            _pt_observed=$(sh "$_pt_observe_sh" --root "$REPO_ROOT" --now "$_pt_now" 2>/dev/null || printf '')
+            [ "$(printf '%s' "$_pt_observed" | jq -r .status 2>/dev/null || printf error)" != ok ] || _pt_slack=$(printf '%s' "$_pt_observed" | jq -c .data)
+        fi
+        _pt_issues='{"ok":false,"issues":[],"reason":"issue_reader_unavailable"}'
+        _pt_issue_sh="${SCRIPT_DIR}/../../specificate/scripts/list-inbound-issues.sh"
+        [ ! -x "$_pt_issue_sh" ] || _pt_issues=$(cd "$REPO_ROOT" && sh "$_pt_issue_sh" 2>/dev/null || printf '{"ok":false,"issues":[],"reason":"issue_reader_failed"}')
+        _pt_issue_activity=$(printf '%s' "$_pt_issues" | jq -r '(.issues // []) | length > 0')
+        _pt_activity=$(jq -cn --argjson slack "$_pt_slack" --argjson issues "$_pt_issues" '($slack.new_input_ids|length)>0 or ($issues.issues|length)>0')
+        _pt_proved=$(jq -cn --argjson slack "$_pt_slack" --argjson issues "$_pt_issues" '($slack.observation_proved==true) and ($issues.ok==true)')
+        _pt_more=$(printf '%s' "$_pt_slack" | jq -r '.has_more // false')
+        jq -cn --argjson now "$_pt_epoch" --argjson polling "$_pt_polling" --argjson state "$_pt_state" --argjson proved "$_pt_proved" --argjson activity "$_pt_activity" --argjson more "$_pt_more" '{now_epoch:$now,polling:$polling,state:$state,observed:{proved:$proved,activity:$activity,has_more:$more}}' >"$_pt_dir/poll.json"
+        _pt_after=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll.json" 2>/dev/null || printf '')
+        printf '%s' "$_pt_after" | jq -c .data.next_state >"${_pt_poll_state}.tmp.$$" && mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
+        _pt_next=$(printf '%s' "$_pt_after" | jq -r '.data.next_due')
+        if [ "$_pt_activity" != true ] && [ "${WORK_DUE:-true}" != true ]; then
+            jq -cn --argjson next "$_pt_next" '{protocol:"workaholic.runtime/v1",status:"ok",data:{actions:[{action:"wait",reason:"observed_quiet"}],next_due:$next}}'
             rm -rf "$_pt_dir"; return 0
         fi
     fi
     _pt_email=$(git -C "$REPO_ROOT" config user.email 2>/dev/null || printf '')
-    _pt_observe_sh="${SCRIPT_DIR}/../../transport/scripts/observe-channel.sh"
-    _pt_communication='{"observation_proved":false,"new_input_ids":[],"known_thread_changes":[],"has_more":null,"unreadable":["transport_unavailable"]}'
-    if [ -x "$_pt_observe_sh" ]; then
-        _pt_observed=$(sh "$_pt_observe_sh" --root "$REPO_ROOT" --now "$_pt_now" 2>/dev/null || printf '')
-        [ "$(printf '%s' "$_pt_observed" | jq -r .status 2>/dev/null || printf error)" != ok ] || _pt_communication=$(printf '%s' "$_pt_observed" | jq -c .data)
-    fi
-    jq -cn --arg root "$REPO_ROOT" --arg now "$_pt_now" --arg email "$_pt_email" --argjson communication "$_pt_communication" \
-        '{repo_root:$root,now:$now,config:{},identity:{email:$email},communication:$communication}' >"$_pt_dir/snapshot-input.json"
-    if sh "$_pt_snapshot_sh" --input "$_pt_dir/snapshot-input.json" >"$_pt_dir/snapshot-result.json" 2>/dev/null \
-        && jq -e '.status=="ok"' "$_pt_dir/snapshot-result.json" >/dev/null 2>&1; then
-        _pt_proved=$(jq -r '.data.communication.observation_proved // false' "$_pt_dir/snapshot-result.json" 2>/dev/null || printf false)
-        if [ "$_pt_proved" = true ]; then
-            _pt_remote_ttl=${WORKAHOLIC_REMOTE_TTL_SECONDS:-900}; case "$_pt_remote_ttl" in ''|*[!0-9]*) _pt_remote_ttl=900;; esac
-            _pt_explore_ttl=${WORKAHOLIC_EXPLORATION_TTL_SECONDS:-3600}; case "$_pt_explore_ttl" in ''|*[!0-9]*) _pt_explore_ttl=3600;; esac
-            _pt_maintenance_ttl=${WORKAHOLIC_MAINTENANCE_TTL_SECONDS:-3600}; case "$_pt_maintenance_ttl" in ''|*[!0-9]*) _pt_maintenance_ttl=3600;; esac
-            jq -cn --arg fp "$_pt_local" --argjson remote "$((_pt_epoch + _pt_remote_ttl))" \
-              --argjson explore "$((_pt_epoch + _pt_explore_ttl))" --argjson maintain "$((_pt_epoch + _pt_maintenance_ttl))" \
-              --slurpfile observed "$_pt_dir/snapshot-result.json" \
-              '{remote_observation_proved:true,local_fingerprint:$fp,captured_input_ids:($observed[0].data.communication.new_input_ids // []),remote_due_epoch:$remote,exploration_due_epoch:$explore,maintenance_due_epoch:$maintain}' >"${_pt_poll_state}.tmp.$$"
-            mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
-        else
-            rm -f "$_pt_poll_state"
-        fi
-        jq -cn --arg now "$_pt_now" --slurpfile observed "$_pt_dir/snapshot-result.json" \
-            '{now:$now,snapshot:$observed[0].data,state:{}}' >"$_pt_dir/plan-input.json"
-        sh "$_pt_plan_sh" --input "$_pt_dir/plan-input.json" 2>/dev/null || printf ''
+    _pt_communication=${_pt_slack:-'{"observation_proved":false,"new_input_ids":[],"known_thread_changes":[],"has_more":null,"unreadable":[]}'}
+    jq -cn --arg root "$REPO_ROOT" --arg now "$_pt_now" --arg email "$_pt_email" --argjson communication "$_pt_communication" '{repo_root:$root,now:$now,config:{},identity:{email:$email},communication:$communication}' >"$_pt_dir/snapshot-input.json"
+    if sh "$_pt_snapshot_sh" --input "$_pt_dir/snapshot-input.json" >"$_pt_dir/snapshot-result.json" 2>/dev/null && jq -e '.status=="ok"' "$_pt_dir/snapshot-result.json" >/dev/null 2>&1; then
+        jq -cn --arg now "$_pt_now" --slurpfile observed "$_pt_dir/snapshot-result.json" '{now:$now,snapshot:$observed[0].data,state:{}}' >"$_pt_dir/plan-input.json"
+        sh "$_pt_plan_sh" --input "$_pt_dir/plan-input.json" 2>/dev/null \
+            | jq -c --argjson issue_activity "${_pt_issue_activity:-false}" '.data.feedback_issue_activity=$issue_activity | if $issue_activity then .data.actions=[{action:"observe_input",reason:"feedback_issue_activity",target:null}] else . end' 2>/dev/null || printf ''
     fi
     rm -rf "$_pt_dir"
 }
-
 run_tick() {
     _stamp=$(date -u +%Y%m%dT%H%M%SZ)
     _out="${LOG_DIR}/${_stamp}.md"
@@ -870,13 +871,22 @@ run_tick() {
     if [ "$DRY_RUN" != true ] && [ -z "${RETIRED_PLUGIN_ROOT:-}" ]; then _plan=$(plan_tick); fi
     _planned_action=$(printf '%s' "$_plan" | jq -r '.data.actions[0].action // empty' 2>/dev/null || printf '')
     if [ "$_planned_action" = wait ]; then
-        _finished_epoch=$(date -u +%s); _finished=$(iso_from_epoch "$_finished_epoch"); _next_due=$(iso_from_epoch "$(next_boundary "$_finished_epoch")")
+        _finished_epoch=$(date -u +%s); _finished=$(iso_from_epoch "$_finished_epoch")
+        _next_epoch=$(printf '%s' "$_plan" | jq -r '.data.next_due // empty')
+        [ -n "$_next_epoch" ] || _next_epoch=$(next_boundary "$_finished_epoch")
+        _next_due=$(iso_from_epoch "$_next_epoch")
         write_status sleeping idle "" "$_stamp" "$_started" "$_finished" "" "" parent_not_needed "$_next_due"
         printf 'codex tick: outcome=idle next_due=%s\n' "$_next_due"
         CURRENT_TICK=""
         return 0
     fi
     _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. ${RESULT_CLAUSE}"
+    if [ "${WORK_DUE:-true}" != true ]; then
+        _prompt="${_prompt} This is an observation-only wake; the work clock is not due. Do not dispatch implement or moderate, and dispatch propose only for a new feedback issue."
+    fi
+    if [ "$(printf '%s' "$_plan" | jq -r '.data.feedback_issue_activity // false')" = true ]; then
+        _prompt="${_prompt} The preflight found a new assigned feedback issue; treat propose-then-specificate as due now."
+    fi
     if [ "$RELAY" = true ]; then
         _prompt="${_prompt} You are a connector-less worker with a connector-owning parent waiting for this result. Read ${PLUGIN_ROOT}/skills/work/reference/codex-slack-relay.md and return only one workaholic.codex-slack-relay/v1 JSON envelope. The envelope must carry \`executed\`, true only if you actually read that command body and performed it. Represent every earned Slack action as an ordered intent; call no connector, include no credential, and never claim an intent was delivered."
     fi
@@ -1209,6 +1219,8 @@ SUPERVISOR_BOOT=$(boot_id)
 write_supervisor running ""
 _expected=$LOOP_ANCHOR
 _first=true
+WORK_DUE=true
+NEXT_WORK_EPOCH=$LOOP_ANCHOR
 while :; do
     ensure_plugin_tree || exit 2
     if run_tick; then
@@ -1231,12 +1243,22 @@ while :; do
         break
     fi
     _now=$(date -u +%s)
-    _due=$(next_boundary "$_now")
-    _skipped=$(( (_due - _expected) / INTERVAL - 1 ))
-    if [ "$_skipped" -gt 0 ]; then
-        printf 'codex loop: the tick overran %s boundary(ies); next turn at %s\n' \
-            "$_skipped" "$(iso_from_epoch "$_due")" >&2
+    if [ "$WORK_DUE" = true ]; then
+        NEXT_WORK_EPOCH=$(next_boundary "$_now")
+        _skipped=$(( (NEXT_WORK_EPOCH - _expected) / INTERVAL - 1 ))
+        if [ "$_skipped" -gt 0 ]; then
+            printf 'codex loop: the tick overran %s work boundary(ies); next work at %s\n' \
+                "$_skipped" "$(iso_from_epoch "$NEXT_WORK_EPOCH")" >&2
+        fi
+        _expected=$NEXT_WORK_EPOCH
     fi
-    _expected=$_due
+    WORK_DUE=false
+    _due=$NEXT_WORK_EPOCH
+    if [ -s "${LOG_DIR}/poll-state.json" ]; then
+        _poll_due=$(jq -r '.retry_after_epoch // .next_observation_epoch // empty' "${LOG_DIR}/poll-state.json" 2>/dev/null || printf '')
+        case "$_poll_due" in ''|*[!0-9]*) ;; *) [ "$_poll_due" -ge "$_due" ] || _due=$_poll_due ;; esac
+    fi
+    [ "$_due" -gt "$_now" ] || _due=$((_now + 1))
     sleep "$((_due - _now))"
+    _now=$(date -u +%s); [ "$_now" -lt "$NEXT_WORK_EPOCH" ] || WORK_DUE=true
 done

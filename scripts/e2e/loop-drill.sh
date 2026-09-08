@@ -10243,7 +10243,7 @@ cmd_verify_runner_advance() {
 # WHAT IS DRILLABLE AND WHAT IS NOT. The POST is an agent act through the connector, and this
 # repository already says of the Japanese rule that what a run actually emits is checkable by
 # nothing — so the drill covers the two halves that ARE mechanical: the reader that decides
-# which items to look at, and the byte-identity of the shape across its two copies. The
+# which items to look at, and the command's route to the one shape catalog. The
 # announce-once behaviour is the thread read, which by design leaves no trace in the
 # repository; asserting it here would be asserting a fixture, not the mechanism.
 #
@@ -10402,8 +10402,7 @@ BLIND2
         add_row "announced_breaker" false "the breaker did not break: the wired-out reader still distinguished blindness ($(one_line "$_bk")), so rows 4 and 5 prove nothing" breaker
     fi
 
-    # 3. THE SHAPE LIVES IN TWO FILES AND THE TWO MUST NOT DRIFT. The catalog decides it; the
-    #    command is the ceiling a routine-fired session actually reads.
+    # 3. THE SHAPE HAS ONE OWNER. The command reaches the catalog only when a finish is due.
     _seg() {
         awk '/^```$/ { if (grab) { print; grab=0; next } }
              /🟢 Implemented \[<ask title>\]\(<issue url>\)/ { grab=1; print prev; print; next }
@@ -10411,11 +10410,12 @@ BLIND2
              ' "$1" 2>/dev/null | head -40
     }
     _a=$(_seg "$_catalog")
-    _b=$(_seg "$_ceiling")
-    if [ -n "$_a" ] && [ "$_a" = "$_b" ]; then
-        add_row "announced_shape_is_one_wording" true "the finish-line shape is byte-identical in the catalog and the command ceiling" load
+    if [ -n "$_a" ] \
+       && grep -q 'list-unannounced-closed-asks.sh' "$_ceiling" \
+       && grep -q 'skills/notify/reference/notifications.md' "$_ceiling"; then
+        add_row "announced_shape_is_one_wording" true "the command reaches the one finish-line catalog when a reply is due" load
     else
-        add_row "announced_shape_is_one_wording" false "the two copies of the shape differ, or neither carries it" load
+        add_row "announced_shape_is_one_wording" false "the finish-line catalog or the command route to it is missing" load
     fi
 
     # 4. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.

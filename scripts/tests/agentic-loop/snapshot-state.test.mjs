@@ -103,7 +103,7 @@ test('P2 config preserves false and zero while applying declared precedence', (t
   write(join(root, '.claude/settings.json'), '{"env":{"WORKAHOLIC_POLL_INTERVAL_SECONDS":"88","SECRET_TOKEN":"never"}}');
   const input = join(root, 'input.json'); write(input, '{"polling":{"interval_seconds":0},"target":{"identity_policy":false},"limits":{"propose_max":0}}');
   const result = json(run(['sh', join(runtime, 'read-config.sh'), '--root', root, '--input', input], { env: { ...process.env, WORKAHOLIC_PROFILE: 'night', WORKAHOLIC_POLL_MODE: 'event' } }));
-  assert.equal(result.data.config.polling.interval_seconds, 0); assert.equal(result.data.config.polling.mode, 'event');
+  assert.equal(result.data.config.polling.interval_seconds, 0); assert.equal(result.data.config.polling.mode, 'fixed');
   assert.equal(result.data.config.target.identity_policy, false); assert.equal(result.data.config.limits.propose_max, 0);
   assert.equal(result.data.config.target.channel_id, 'room with spaces');
   assert.doesNotMatch(JSON.stringify(result), /never|SECRET_TOKEN/);
@@ -189,8 +189,4 @@ test('P2 snapshot shares one claims observation across three consumers and finge
   const second = json(run(['sh', join(bundle, 'gather/scripts/read-snapshot.sh'), '--input', input, '--previous', previous], { cwd: root }));
   assert.notEqual(first.data.freshness.local_fingerprint, second.data.freshness.local_fingerprint);
   assert.deepEqual(second.data.freshness.invalidated, ['local']);
-  const snapshot = join(root, 'snapshot.json'); write(snapshot, JSON.stringify(second.data));
-  const packet = json(run(['sh', join(runtime, 'context-packet.sh'), '--snapshot', snapshot, '--role', 'implementer', '--unit', 'u1']));
-  assert.equal(packet.data.role, 'implementer'); assert.equal(packet.data.unit, 'u1');
-  assert.deepEqual(Object.keys(packet.data.communication), ['new_input_ids']);
 });

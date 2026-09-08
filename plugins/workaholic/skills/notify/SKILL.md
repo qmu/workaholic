@@ -49,6 +49,14 @@ Case 4 posts **two messages, not one**: the description root, then the run's fin
 
 **Only for a message this run filed.** An already-swept message gets nothing — neither reply nor reaction (its receipt is on the issue that already exists) — and no exclusion or degradation posts. The receipt is never load-bearing: the issue is open before either is attempted, and a failure of either is reported per message as `ack_failed` rather than retried or escalated. Shape: [reference/notifications.md](reference/notifications.md), *`/propose` — the inbound sweep's receipt*.
 
+**Facts before prose, and one receipt for a related observation batch.** The tick files every ask
+on the page first and validates its subject, issue URL, truthful workflow state, source coordinate
+and grouping with `work/scripts/acknowledgement-contract.sh`. The observation page is the only burst
+boundary: it waits for no timer and no magic count. A clearly shared intended outcome may use one
+compact subject-to-issue reply in the first source thread; uncertainty keeps receipts separate.
+Every source still receives its own `:inbox_tray:` reaction and durable `slack-ref` on its issue.
+Tests assert those facts and delivery coordinates, never one mandatory connective sentence.
+
 ### Which thread an `/implement` unit's posts land in
 
 These posts are the unattended run's (`/implement` — the routine and any caller-side loop): they exist so an absent operator can tell a working fleet from a dead one. **An attended `/drive` session posts nothing to Slack** — the developer is watching the run, and its report is the session's.

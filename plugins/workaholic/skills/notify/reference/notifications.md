@@ -128,15 +128,39 @@ Exactly one finish per thread stays the rule (SKILL, *Which thread an `/implemen
 
 **A capture the channel cannot see did not happen, as far as the person who wrote it is concerned** (2026-08-26, the developer's instruction). The sweep filed the `[FB]` issue and left **nothing** on the message it filed — so from `#dev-<repo>` a message that became an issue and a message nobody read are byte-identical. Measured the same day: two asks written at 18:56 and 19:20 JST were both captured as issues #620 and #621 within the hour, and the developer, seeing no trace in the channel, asked why neither had been treated as feedback. The capture worked; only its receipt was missing.
 
+Before rendering, the tick files every ask on the observation page, writes its semantic facts and
+passes the page through `work/scripts/acknowledgement-contract.sh`. A singleton renders as:
+
 ```
 📥 受理 - [#123 [FB] Issue title](<repo-url>/issues/123)
-<その人に話しかける言葉で、この依頼をどう受け取ったかと次に何が起きるか。最大80語、平易な日本語>
+<件名が分かる自然な返答。依頼をどう受け取り、記録済みの状態と次の実際の工程をどう理解したか。最大80語>
 <session URL>
 ```
 
+Clearly related asks on that same page render once in the first source thread:
+
+```
+📥 受理 - <N>件を一つのまとまりとして記録しました
+- [<その人の言葉で表した件名>](<issue URL>)
+- [<その人の言葉で表した件名>](<issue URL>)
+<共通して何を求められたと理解したか。記録済みの状態と次の実際の工程だけを述べ、最大80語>
+<session URL>
+```
+
+The observation page is the burst boundary — no global delay and no arbitrary count. `related_as`
+names a shared intended outcome only when clear; uncertainty stays separate. Every source still
+gets its own issue with `slack-ref` and its own `:inbox_tray:` reaction. An ask arriving while the
+reply is composed belongs to the next overlapping page, so it is neither silently joined nor lost.
+
 **The middle line is the reply, and the receipt is not a stamp** (2026-09-02, the developer's instruction: 「単に受理という形で返すのではなく、会話として応えるような形で反応してもらいたい」). Until then the shape was a label, a link and a URL — three lines with **no sentence of the loop's own in any of them** — so a person who wrote a paragraph asking for something got back a filing stamp, and from the thread *understood* and *logged* looked identical. The line says, in the writer's own language, **what the run understood the ask to be** and **what happens to it next**: the reply a colleague would give.
 
-**What it may say is bounded by what is already true.** It names only the next step the filed issue *already* commits to (`/specificate` がこれを読み、ミッションかチケットになります) — never a schedule, never a completion date, never a second act. It asks the person **nothing**, and carries **no mention token**. When the run cannot tell what was asked, it says so there rather than composing a confident paraphrase. Everything mechanical is untouched: one reply, the same coordinate, no lookup, only a message this run filed, never load-bearing.
+**What it may say is bounded by what is already true.** Required facts live outside the sentence:
+recognizable subject, issue link, actual state and grouping context. The agent says them naturally in
+the person's language and register; tests do not freeze one sentence. It names only the next step the
+structured state commits to (`captured_for_specification` means `/specificate` reads it) — never a
+schedule, completion date or implementation promise. It asks the person **nothing**, and carries
+**no mention token**. When the run cannot tell what was asked, it keeps the receipt separate and says
+so rather than composing a confident paraphrase.
 
 **One reply per filed issue, into the swept message's own thread** — `thread_ts` is the `ts` half of the `slack-ref` the run just wrote into the issue body, so the coordinates are already in hand and **no lookup runs**: this is the model's case 1 (SKILL, *One thread per feedback item*), not a search, and the two-query bound is untouched because no query is made. A message with no thread gets one, rooted on itself, which is exactly where a person looking at that message will find it.
 

@@ -43,3 +43,18 @@ test('P5 Codex supervisor treats a new assigned feedback issue as immediate acti
   const result = run(['sh', legacy, '--once', '--log', join(root, 'loop-state')], { cwd: root, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
   assert.equal(result.status, 0, result.stderr); assert.equal(existsSync(args), true, `${result.stdout}\n${result.stderr}`); assert.match(readFileSync(args, 'utf8'), /new assigned feedback issue/);
 });
+
+test('P5 observation activity cannot advance the anchored work clock', (t) => {
+  const root = fixture(t); mkdirSync(join(root, '.workaholic')); run(['git', '-C', root, 'remote', 'add', 'origin', 'https://github.com/acme/repo.git']); const bin = join(root, 'bin'); mkdirSync(bin);
+  const now = join(root, 'now'); const count = join(root, 'count'); const prompts = join(root, 'prompts'); writeFileSync(now, '2000000000');
+  writeFileSync(join(bin, 'date'), `#!/bin/sh\n[ "$*" != '-u +%s' ] || { cat '${now}'; exit; }\nexec /bin/date "$@"\n`);
+  writeFileSync(join(bin, 'sleep'), `#!/bin/sh\nv=$(cat '${now}'); printf '%s' $((v+$1)) >'${now}'\n`);
+  writeFileSync(join(bin, 'qfs'), `#!/bin/sh\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"qmu","operations":["read_channel_delta"]}]}' ;; *) printf '%s\\n' '{"rows":[{"id":"human","ts":"8.1","sender_id":"HUMAN","text":"hello"}],"has_more":false}' ;; esac\n`);
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\n[ "$2" != user ] || printf me\n');
+  writeFileSync(join(bin, 'codex'), `#!/bin/sh\nn=0; [ ! -f '${count}' ] || n=$(cat '${count}'); n=$((n+1)); printf '%s' "$n" >'${count}'; printf '%s\\n' "$*" >>'${prompts}'\nout=""; while [ $# -gt 0 ]; do case "$1" in --output-last-message) out=$2; shift 2;; *) shift;; esac; done\nprintf '%s' '{"executed":true,"outcome":"ok","reason":"","report":"done"}' >"$out"\n[ "$n" -lt 2 ] || kill -TERM "$PPID"\n`);
+  for (const file of ['date', 'sleep', 'qfs', 'gh', 'codex']) chmodSync(join(bin, file), 0o755);
+  const result = run(['sh', legacy, '--log', join(root, 'loop-state')], { cwd: root, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_INBOUND_SLACK_CHANNEL: 'same' } });
+  assert.equal(result.status, 130, result.stderr); assert.equal(readFileSync(count, 'utf8'), '2');
+  assert.match(readFileSync(prompts, 'utf8').split('\n')[1], /observation-only wake; the work clock is not due/,
+    `now=${readFileSync(now, 'utf8')} prompts=${readFileSync(prompts, 'utf8')}`);
+});

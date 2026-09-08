@@ -241,7 +241,7 @@ test("P5 inbox keys hash exact provider IDs and advance the cursor only after bo
 test("P5 production observer reads a QFS delta, captures it, and advances its cursor", () => {
   const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
   const qfs = join(bin, "qfs"); const queries = join(dir, "queries");
-  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"A","operations":["read_channel_delta"]}]}' ;; *) printf '%s\\n' '{"rows":[{"id":"bot","ts":"8.0","author_id":"BOT","text":"own"},{"id":"m1","ts":"8.1","author_id":"HUMAN","text":"hello"}],"has_more":false}' ;; esac\n`);
+  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"A","operations":["read_channel_delta"]}]}' ;; *) printf '%s\\n' '{"rows":[{"id":"bot","ts":"8.0","sender_id":"BOT","text":"own"},{"id":"m1","ts":"8.1","sender_id":"HUMAN","text":"hello"}],"has_more":false}' ;; esac\n`);
   spawnSync("chmod", ["+x", qfs]);
   const result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:00:00Z"], { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs, WORKAHOLIC_SLACK_WORKSPACE: "A", WORKAHOLIC_INBOUND_SLACK_CHANNEL: "same", WORKAHOLIC_SLACK_BOT_USER_ID: "BOT" } });
   assert.equal(result.json.status, "ok", result.stderr); assert.equal(result.json.data.observation_proved, true, JSON.stringify(result.json));

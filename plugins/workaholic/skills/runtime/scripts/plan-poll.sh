@@ -25,8 +25,8 @@ jq -c '
       | {observe:false,reason:"observation_unreadable",next_due:$due,next_state:(.state + {failure_streak:$fail,retry_after_epoch:$due})}
     else
       ((.observed.activity // false) == true) as $activity
-      | (if $mode=="fixed" then $fixed elif $activity then $fast
-         elif (.state.last_observed_epoch // null)==null then $idle
+      | (if $mode=="fixed" then $fixed elif $activity then ([$fast,$max]|min)
+         elif (.state.last_observed_epoch // null)==null then ([$idle,$max]|min)
          else ([((.state.current_interval_seconds // $fast)*2),$max]|min) end) as $interval
       | (if (.observed.has_more // false) then $i.now_epoch else ($i.now_epoch+$interval) end) as $due
       | {observe:false,reason:(if $activity then "activity" else "quiet" end),next_due:$due,

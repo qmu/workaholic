@@ -881,6 +881,9 @@ run_tick() {
         return 0
     fi
     _prompt="Read ${TICK_PROMPT} in full and execute exactly one tick of the development loop as it specifies, applying its substitutions for an agent with no interval feature. You are the coordinator: answer the inbound channel yourself, then start each DUE work run in the background with 'sh ${SCRIPT_DIR}/codex-loop.sh --dispatch <implement|propose|moderate>', which returns at once and refuses a role already running. Never run that work inline and never wait for a dispatched worker. Do not loop; end after one tick. ${RESULT_CLAUSE}"
+    if [ "${WORK_DUE:-true}" != true ]; then
+        _prompt="${_prompt} This is an observation-only wake; the work clock is not due. Do not dispatch implement or moderate, and dispatch propose only for a new feedback issue."
+    fi
     if [ "$(printf '%s' "$_plan" | jq -r '.data.feedback_issue_activity // false')" = true ]; then
         _prompt="${_prompt} The preflight found a new assigned feedback issue; treat propose-then-specificate as due now."
     fi

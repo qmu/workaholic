@@ -34,5 +34,5 @@ jq -cn --arg root "$ROOT" --arg bid "$binding_id" --arg now "$NOW" --argjson mes
 captured=$("$SCRIPT_DIR/capture-inbox.sh" --request "$tmp/capture.json")
 [ "$(printf '%s' "$captured" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$captured" | jq -r .reason)"; exit 0; }
 BOT=${WORKAHOLIC_SLACK_BOT_USER_ID:-}
-data=$(printf '%s' "$read_result" | jq -c --arg bot "$BOT" '{observation_proved:true,new_input_ids:[.data.messages[]?|select($bot=="" or ((.author_id // .user // .user_id // "") != $bot))|(.id // .ts)]|map(select(.!=null))|unique,known_thread_changes:[],has_more:(.data.has_more//false),unreadable:[],next_cursor:.data.next_cursor}')
+data=$(printf '%s' "$read_result" | jq -c --arg bot "$BOT" '{observation_proved:true,new_input_ids:[.data.messages[]?|select($bot=="" or ((.sender_id // .author_id // .user // .user_id // "") != $bot))|(.id // .ts)]|map(select(.!=null))|unique,known_thread_changes:[],has_more:(.data.has_more//false),unreadable:[],next_cursor:.data.next_cursor}')
 runtime_json_result ok "" observe-channel "$data"

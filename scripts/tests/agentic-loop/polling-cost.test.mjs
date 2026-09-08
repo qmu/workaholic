@@ -29,6 +29,10 @@ test('P5 cold quiet, fixed mode, due checks, and provider retry are explicit', (
   const script=join(skills,'runtime/scripts/plan-poll.sh');
   let r=invoke(script,{now_epoch:10,polling:{mode:'adaptive',conversation_seconds:30,idle_seconds:300,max_seconds:900},state:{},observed:{proved:true,activity:false}}).data;
   assert.equal(r.next_due,310);
+  r=invoke(script,{now_epoch:10,polling:{mode:'adaptive',conversation_seconds:50,idle_seconds:80,max_seconds:40},state:{},observed:{proved:true,activity:true}}).data;
+  assert.equal(r.next_due,50);
+  r=invoke(script,{now_epoch:10,polling:{mode:'adaptive',conversation_seconds:50,idle_seconds:80,max_seconds:40},state:{},observed:{proved:true,activity:false}}).data;
+  assert.equal(r.next_due,50);
   r=invoke(script,{now_epoch:20,polling:{mode:'fixed',interval_seconds:44},state:r.next_state,observed:{proved:true,activity:true}}).data;
   assert.equal(r.next_due,64);
   r=invoke(script,{now_epoch:50,polling:{mode:'adaptive'},state:{next_observation_epoch:60}}).data; assert.equal(r.reason,'observation_cached');

@@ -104,4 +104,5 @@
 * [Document the shared development loop](work-20260904-192506.md)
 * [Complete the agentic loop redesign](work-20260908-043332.md)
 * [Reduce loop cost and adapt observation cadence](work-20260908-095427.md)
+* [Make agentic-loop validation finite and truthful](work-20260908-150309.md)
 <!-- okf:generated:end -->

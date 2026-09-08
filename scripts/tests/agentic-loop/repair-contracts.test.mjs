@@ -127,6 +127,8 @@ else console.log(JSON.stringify({rows:[]}));
   assert.equal(JSON.parse(explicit.stdout).observations[0].dialect,'pipe-sql');
 });
 test('release preflight refuses an existing target and a downgrade without making a release',t=>{
+  const workflow=readFileSync(resolve(skills,'../../../.github/workflows/release.yml'),'utf8');
+  assert.ok(workflow.includes('--target "$GITHUB_SHA"'), 'release tag must bind to the workflow commit, not moving main');
   const {dir}=fixture(t),script=resolve(skills,'../../../scripts/release-preflight.mjs');
   const git=(...args)=>{const r=spawnSync('git',args,{cwd:dir,encoding:'utf8'});assert.equal(r.status,0,r.stderr);};
   git('-c','user.name=Test','-c','user.email=test@example.invalid','commit','--allow-empty','-m','Fixture');git('tag','v1.1.0');

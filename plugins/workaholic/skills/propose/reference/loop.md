@@ -42,9 +42,25 @@ The reactive path remains independent of this reading.
    | `breadth` | What does the aim cover that nothing has touched at all? |
    | `contraction` | What did the landed work leave inconsistent with the aim? |
 
-   If none of the three can be named, **emit nothing** and report `no_evolutionary_move`.
-   That is the one refusal that is a judgment rather than a gate, and it is the honest end
-   of a tick against a direction that is already where it wants to be.
+   If none of the three can be named, **read the answer before you say so** (2026-09-08,
+   mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`):
+   `moderate/scripts/decision-maturity.sh --strategy <slug>`, at the `src` this run already
+   resolved — **named rather than written in the `${CLAUDE_PLUGIN_ROOT}` invocation form**, for
+   the reason `workaholic:drive` records for its own cross-skill reader: that form resolves the
+   whole of `moderate` into this skill's script closure and breaks every bundle carrying it.
+   A **`resumable: true`** reading means a person answered the question `/moderate` asked
+   about this direction and the direction still reads blocked — their words are evidence for
+   this step's judgment, so read the answer and ask again whether one of the three moves can
+   now be named. Then **emit nothing** and report `no_evolutionary_move`, **naming the
+   `answer_state` and, when one stands, the answer that did not change the reading**. That is
+   the one refusal that is a judgment rather than a gate, and it is the honest end of a tick
+   against a direction that is already where it wants to be — but a report that does not say
+   whether an answer stands is **non-conformant on its face**, because a silent refusal is
+   exactly how an answered question went on producing the same word every hour.
+
+   **It lifts nothing.** Every gate in step 1 refuses as before; an answer is evidence for
+   this judgment and licenses no proposal the survey did not make eligible. A degraded
+   reading (`readable: false`) is named as degraded and never as *nobody answered*.
 
    **And ask what the move deepens.** Before committing to `depth`, trace the thing being
    deepened: does it come from a human's ask or a human-authored strategy, or only from a

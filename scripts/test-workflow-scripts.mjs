@@ -21584,6 +21584,62 @@ function testDirectionHealthMaturity() {
   } finally { cleanup(A); }
 }
 
+// ═══ AN ANSWER REOPENS THE JUDGEMENT, AND NOTHING STORES THAT IT DID ════════════════════
+// (2026-09-08, mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`, third
+// ticket.) `no_evolutionary_move` is an observation, never permission to end silently — but the
+// moment somebody answered `/moderate`'s question about a direction, the next tick derived the
+// same silence from the same rows and reported the same word, and the answer reached no
+// judgement. The reopening is PROSE, because which move an answer makes nameable is a model's
+// call and putting it in a script would put a judgement inside a gate; what a test can hold is
+// that the three surfaces carry the instruction, and that nothing anywhere grew a reopen flag.
+T("propose reads a recorded answer before it reports no_evolutionary_move", testProposeAnswerReopen);
+function testProposeAnswerReopen() {
+  // THE THREE SURFACES A `/propose` RUN ACTUALLY READS. A command body names the ceiling, the
+  // skill carries the reasoning and `reference/loop.md` carries the step — an instruction on
+  // one of the three is an instruction a run following either of the others never sees.
+  for (const [path, what] of [
+    ["plugins/workaholic/commands/propose.md", "the command ceiling"],
+    ["plugins/workaholic/skills/propose/SKILL.md", "the skill"],
+    ["plugins/workaholic/skills/propose/reference/loop.md", "the step"],
+  ]) {
+    const body = readFileSync(join(REPO_ROOT, path), "utf8");
+    assertTrue(`${what} sends the refusal through decision-maturity.sh`,
+      body.includes("decision-maturity.sh"), path);
+    assertTrue(`${what} names the reading the refusal must carry`,
+      body.includes("answer_state"), path);
+    assertTrue(`${what} states that the answer lifts no gate`,
+      /lifts no(thing| gate)/.test(body), path);
+  }
+  const loop = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/propose/reference/loop.md"), "utf8");
+  assertTrue("and the refusal is non-conformant when it names no answer state",
+    /non-conformant on its face/.test(loop), "the enforcement sentence is gone");
+
+  // NO REOPEN FLAG, NO CURSOR, NO FIELD ON ANY ARTIFACT. `resumable` is two existing readings
+  // conjoined at the moment it is read, so nothing has to be cleared and nothing can go stale.
+  // A stored flag is the shape the ticket's own Considerations refused by name.
+  const offenders = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) { if (e.name !== "node_modules" && e.name !== ".git") walk(full); continue; }
+      if (!/\.(sh|mjs|md|json)$/.test(e.name)) continue;
+      const body = readFileSync(full, "utf8");
+      if (/\breopen(ed|_flag)?\s*:/.test(body) || /WORKAHOLIC_[A-Z_]*REOPEN/.test(body)) {
+        offenders.push(full.slice(REPO_ROOT.length + 1));
+      }
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic"));
+  assertEq("no artifact, script or schema grew a reopen flag", offenders, []);
+
+  // THE COORDINATOR ROUTES NOTHING NEW: the answer rides the ordinary `[Propose]` turn.
+  const workSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8");
+  assertTrue("the coordinator states that an answer needs no dispatch of its own",
+    /no reopen signal to route/.test(workSkill), "the coordinator's own statement is gone");
+  assertTrue("and still routes an answer that ASKS for something the way it always did",
+    workSkill.includes("file-inbound-ask.sh"), "the [FB] path is unnamed");
+}
+
 // A shell script's CODE, with its commentary removed. Every ban in this suite that means
 // "this script must not reach X" has to be written against call sites rather than words:
 // these scripts explain their own bounds in prose, so a word-level test fails on the very

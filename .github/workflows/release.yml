@@ -48,6 +48,8 @@ jobs:
           current="${{ steps.version.outputs.version }}"
           latest="${{ steps.latest.outputs.version }}"
 
+          node scripts/release-preflight.mjs "$current" "$latest"
+
           if [ -z "$latest" ]; then
             echo "No existing release, will create first release"
             echo "needed=true" >> $GITHUB_OUTPUT

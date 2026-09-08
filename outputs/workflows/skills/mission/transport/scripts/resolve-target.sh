@@ -80,7 +80,8 @@ canonical=$(printf '%s' "$resolution" | jq -c --argjson digest "$(jq -c '.input.
    channel_verified:($primary.channel_verified//false),
    sender_verified:(($primary.sender_id//"") != ""),
    declared_digest:$digest,
-   operations:([.[].operations[]?]|unique),routes:[.[]|{transport,mount:(.mount//null),account:(.account//null),operations:(.operations//[]),sender_id:(.sender_id//null),described:(.described//false)}],
+   operations:([.[].operations[]?]|unique),routes:[.[]|{transport,mount:(.mount//null),account:(.account//null),operations:(.operations//[]),sender_id:(.sender_id//null),described:(.described//false)} +
+     (if .dialect == "pipe-sql" then {dialect,map_verified,thread_map_verified} else {} end)],
    thread_map:($primary.thread_map//{})}
 ')
 binding_id=$(printf '%s' "$canonical" | sha256sum | cut -c1-32)

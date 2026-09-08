@@ -72,6 +72,7 @@
 * [make-an-open-decision-a-question-to-answer-not-a-ruling](archive/make-an-open-decision-a-question-to-answer-not-a-ruling/mission.md) - Make an Open Decision a question to answer, not a ruling
 * [make-routine-notifications-one-semantic-story](archive/make-routine-notifications-one-semantic-story/mission.md) - Make routine notifications one semantic story
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](archive/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
+* [make-slack-intake-incremental-across-messages-threads-and-mentions](archive/make-slack-intake-incremental-across-messages-threads-and-mentions/mission.md) - Make Slack intake incremental across messages, threads, and mentions
 * [make-the-branch-story-concise-by-default](archive/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
 * [make-the-codex-work-entrypoint-self-contained](archive/make-the-codex-work-entrypoint-self-contained/mission.md) - Make the Codex work entrypoint self-contained

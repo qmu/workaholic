@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T12:38:11+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,12 @@ Collect the union of new top-level messages, new replies in tracked threads, and
 ## Considerations
 
 Slack search aggregation is not a complete event log; event subscriptions may replace polling only when the repository can actually host and verify them.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: The live channel delta already preserves `thread_ts` and message text.
+  **Context**: One bounded read can expose top-level input, returned thread changes, and addressed mentions without adding a broad search.

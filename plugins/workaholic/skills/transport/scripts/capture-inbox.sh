@@ -28,6 +28,7 @@ if [ "$owner" = null ]; then
   record=$(printf '%s' "$acquired" | jq -c .data.record); generation=$(printf '%s' "$record" | jq -r .generation); lease_revision=$(printf '%s' "$record" | jq -r .revision); LEASE_HELD=true
 fi
 captured=0
+new_ids="$tmp/new-ids"; duplicate_ids="$tmp/duplicate-ids"; : >"$new_ids"; : >"$duplicate_ids"
 jq -c '.messages[]' "$REQ" | while IFS= read -r message; do
   provider_id=$(printf '%s' "$message" | jq -jr '.id // .ts // empty')
   [ -n "$provider_id" ] || exit 9
@@ -40,6 +41,9 @@ jq -c '.messages[]' "$REQ" | while IFS= read -r message; do
     existing=$(call read --scope binding --id "$binding" --record "inbox/$id")
     printf '%s' "$existing" | jq -e --arg provider_id "$provider_id" --argjson message "$message" \
       '.status=="ok" and .data.found==true and .data.record.data.provider_id==$provider_id and .data.record.data.message==$message' >/dev/null 2>&1 || exit 10
+    printf '%s\n' "$provider_id" >>"$duplicate_ids"
+  else
+    printf '%s\n' "$provider_id" >>"$new_ids"
   fi
 done
 pipe_status=$?; [ "$pipe_status" -eq 0 ] || { printf '{"status":"deferred","reason":"capture_incomplete"}\n'; exit 0; }
@@ -48,4 +52,8 @@ jq -cn --arg now "$now" --argjson data "$data" '{updated_at:$now,data:$data}' > 
 updated=$(call update --scope binding --id "$binding" --expected-revision "$rev" --input "$tmp/meta.json")
 [ "$(printf '%s' "$updated" | jq -r .status)" = ok ] || { printf '{"status":"deferred","reason":"cursor_conflict"}\n'; exit 0; }
 lease_revision=$(printf '%s' "$updated" | jq -r .data.record.revision)
-count=$(jq '.messages|length' "$REQ"); jq -cn --argjson count "$count" --argjson cursor "$(jq -c .next_cursor "$REQ")" '{status:"ok",reason:"",data:{captured:$count,cursor:$cursor}}'
+count=$(jq '.messages|length' "$REQ")
+jq -cn --argjson count "$count" --argjson cursor "$(jq -c .next_cursor "$REQ")" \
+  --argjson new "$(jq -Rsc 'split("\n")|map(select(length>0))' "$new_ids")" \
+  --argjson duplicates "$(jq -Rsc 'split("\n")|map(select(length>0))' "$duplicate_ids")" \
+  '{status:"ok",reason:"",data:{captured:$count,new_input_ids:$new,duplicate_input_ids:$duplicates,cursor:$cursor}}'

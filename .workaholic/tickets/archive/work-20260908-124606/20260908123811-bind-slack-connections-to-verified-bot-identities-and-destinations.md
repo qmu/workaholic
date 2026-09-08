@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T12:38:11+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,12 @@ Discover live QFS Slack mounts and bind each authorized account to its actual wo
 ## Considerations
 
 Slack search and identity scopes vary by credential; the reader must preserve unknown instead of treating it as empty.
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: A workspace and channel label still permit multiple speaking identities.
+  **Context**: Target resolution now treats distinct account/sender tuples as ambiguous unless the caller supplies the verified sender identity.

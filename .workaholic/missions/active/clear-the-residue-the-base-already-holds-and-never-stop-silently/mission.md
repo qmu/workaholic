@@ -40,10 +40,11 @@ before the survey reaches the channel.
      plan. Approval replans this mission to drive-ready; only then may it be
      authorized. -->
 
-- [ ] One reader classifies every dirty path by proof, and never calls an unanswerable path clearable. (#20260908175714-classify-checkout-residue-by-proof-never-by-guess.md)
+- [x] One reader classifies every dirty path by proof, and never calls an unanswerable path clearable. (#20260908175714-classify-checkout-residue-by-proof-never-by-guess.md)
 - [ ] The tick clears only proved residue, re-derives the proof at the act, and reaches its survey. (#20260908175714-clear-only-the-proved-residue-then-let-the-freshen-run.md)
 - [ ] A run that stops before the survey posts its own signature, whatever the stop was. (#20260908175714-post-any-pre-survey-stop-not-only-the-listed-one.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-08 — ticket archived — 20260908175714-classify-checkout-residue-by-proof-never-by-guess.md

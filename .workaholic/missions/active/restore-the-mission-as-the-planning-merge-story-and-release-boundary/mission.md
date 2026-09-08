@@ -40,3 +40,4 @@ A burst of related small asks no longer creates one proposal merge, implementati
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-08 — ticket archived — 20260908124710-define-one-ownership-model-from-feedback-capture-to-mission-formation.md
 - 2026-09-08 — ticket archived — 20260908124710-batch-related-asks-into-one-standing-mission-plan.md
+- 2026-09-08 — ticket archived — 20260908124710-drive-a-mission-as-one-claim-pull-request-and-story.md

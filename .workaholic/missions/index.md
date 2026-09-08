@@ -3,6 +3,7 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [reduce-loop-cost-and-adapt-observation-cadence](active/reduce-loop-cost-and-adapt-observation-cadence/mission.md) - Reduce loop cost and adapt observation cadence
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 
 ## archive

@@ -43,17 +43,21 @@ jq -cn \
     and ((.target? // {}) | type=="object" and all(keys[]; .=="workspace_id" or .=="channel_id" or .=="qfs" or .=="allowed_sender_ids" or .=="identity_policy"));
   ($cfg.profiles[$profile] // {}) as $selected
   | ($old.env // {}) as $legacy_env
-  | {polling:{mode:"fixed",interval_seconds:300,conversation_seconds:30,idle_seconds:300,max_seconds:900},target:null,limits:{propose_max:null}} as $defaults
+  | {polling:{mode:"adaptive",interval_seconds:300,conversation_seconds:30,idle_seconds:300,max_seconds:900},target:null,limits:{propose_max:null}} as $defaults
   | if (($selected|allowed) and ($explicit|allowed)) then . else error("unknown configuration key") end
   | ($defaults
       | if ($legacy_env.WORKAHOLIC_POLL_MODE? != null) then .polling.mode=$legacy_env.WORKAHOLIC_POLL_MODE else . end
       | if ($legacy_env.WORKAHOLIC_POLL_INTERVAL_SECONDS? != null) then .polling.interval_seconds=($legacy_env.WORKAHOLIC_POLL_INTERVAL_SECONDS|tonumber) else . end
+      | if ($legacy_env.WORKAHOLIC_POLL_INTERVAL_SECONDS? != null and $legacy_env.WORKAHOLIC_POLL_MODE? == null) then .polling.mode="fixed" else . end
       | if ($legacy_env.WORKAHOLIC_PROPOSE_MAX? != null) then .limits.propose_max=($legacy_env.WORKAHOLIC_PROPOSE_MAX|tonumber) else . end
       | . * $selected
+      | if ($selected.polling.interval_seconds? != null and $selected.polling.mode? == null) then .polling.mode="fixed" else . end
       | if $env_mode != "" then .polling.mode=$env_mode else . end
       | if $env_interval != "" then .polling.interval_seconds=($env_interval|tonumber) else . end
+      | if ($env_interval != "" and $env_mode == "") then .polling.mode="fixed" else . end
       | if $env_max != "" then .limits.propose_max=($env_max|tonumber) else . end
-      | . * $explicit) as $resolved
+      | . * $explicit
+      | if ($explicit.polling.interval_seconds? != null and $explicit.polling.mode? == null) then .polling.mode="fixed" else . end) as $resolved
   | {protocol:"workaholic.runtime/v1",request_id:$request,status:"ok",reason:"",
      data:{schema_version:1,repo_root:$root,profile:$profile,config:$resolved,
        sources:{explicit:($input != "/dev/null"),environment:{polling_mode:($env_mode != ""),polling_interval_seconds:($env_interval != ""),propose_max:($env_max != "")},profile:($selected != {}),legacy:($legacy_env != {})}}}' \

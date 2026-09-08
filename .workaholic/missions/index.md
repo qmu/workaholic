@@ -2,6 +2,7 @@
 
 ## active
 
+* [clear-the-residue-the-base-already-holds-and-never-stop-silently](active/clear-the-residue-the-base-already-holds-and-never-stop-silently/mission.md) - Clear the residue the base already holds, and never stop silently
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](active/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction

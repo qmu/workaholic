@@ -711,4 +711,6 @@
 * [Make Slack acknowledgements specific, conversational, and burst-aware](20260908124344-make-slack-acknowledgements-specific-conversational-and-burst-aware.md)
 * [Restore mission-sized batching as the release boundary](20260908124644-restore-mission-sized-batching-as-the-release-boundary.md)
 * [Make Validate Plugins fail finitely](20260908145807-make-validate-plugins-fail-finitely.md)
+* [Relatedness remains a semantic judgement](20260908155352-relatedness-remains-a-semantic-judgement.md)
+* [Clear the residue the base already holds instead of stalling the loop forever](20260908175556-clear-the-residue-the-base-already-holds-instead-of-stalling-the-loop-forever.md)
 <!-- okf:generated:end -->

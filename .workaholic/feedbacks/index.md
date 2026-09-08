@@ -713,4 +713,5 @@
 * [Make Validate Plugins fail finitely](20260908145807-make-validate-plugins-fail-finitely.md)
 * [Relatedness remains a semantic judgement](20260908155352-relatedness-remains-a-semantic-judgement.md)
 * [Clear the residue the base already holds instead of stalling the loop forever](20260908175556-clear-the-residue-the-base-already-holds-instead-of-stalling-the-loop-forever.md)
+* [Distinguish an attribution ruling from a routine feedback append](20260908190817-distinguish-an-attribution-ruling-from-a-routine-feedback-append.md)
 <!-- okf:generated:end -->

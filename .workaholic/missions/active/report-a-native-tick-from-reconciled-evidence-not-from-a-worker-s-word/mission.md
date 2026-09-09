@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.1
 feedback: [20260909125918-repair-the-native-work-loop-s-control-delivery-and-truthful-reporting.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -48,3 +48,4 @@ queue; a failed or pending deployment stays visible.
 - 2026-09-09 — ticket archived — 20260909130138-reconcile-a-completion-claim-against-merges-claims-and-the-queue.md
 - 2026-09-09 — ticket archived — 20260909130138-verify-a-constraint-tightening-migration-against-legacy-rows.md
 - 2026-09-09 — Reported — work-20260909-200531.md
+- 2026-09-09 — run recorded (+1.1h) — implement-t29

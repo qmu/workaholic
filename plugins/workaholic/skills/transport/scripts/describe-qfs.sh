@@ -49,10 +49,36 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 # bounded-call claim would then be a number nobody counted.
 printf '0' >"$tmp/calls"
 qfs_calls() { cat "$tmp/calls"; }
-qfs_call() { expr "$(cat "$tmp/calls")" + 1 >"$tmp/calls"; "$QFS_BIN" "$@" 2>&1 || printf ''; }
+qfs_call() { expr "$(cat "$tmp/calls")" + 1 >"$tmp/calls"; timeout 20 "$QFS_BIN" "$@" 2>&1 || printf ''; }
 refuse() { jq -cn --arg reason "$1" --argjson unreadable "${2:-[]}" --argjson calls "$(qfs_calls)" \
   '{ok:false,described:false,observations:[],mounts:[],unreadable:$unreadable,calls:$calls,reason:$reason}'; exit 0; }
 command -v "$QFS_BIN" >/dev/null 2>&1 || refuse qfs_unavailable
+
+# Current QFS lists TSV mount/driver/account rows, not invented connection-list JSON.
+# Retain the older observation-envelope adapter below for already-described providers.
+native_connections=''
+[ -n "$MOUNT" ] || native_connections=$(qfs_call connect --list)
+native_mounts=$(printf '%s\n' "$native_connections" | awk -F '\t' '$2 == "slack" {print $1 "\t" $3}')
+if [ -n "$native_mounts" ]; then
+  : > "$tmp/native"
+  TAB=$(printf '\t')
+  while IFS="$TAB" read -r native_mount native_account; do
+    native_account=${native_account#account }
+    [ -z "$MOUNT" ] || [ "$native_mount" = "$MOUNT" ] || continue
+    [ -z "$ACCOUNT" ] || [ "$native_account" = "$ACCOUNT" ] || continue
+    sh "$(dirname -- "$0")/describe-native-qfs.sh" "$native_mount" "$WORKSPACE" "$CHANNEL" "$native_account" |
+      jq -c --arg mount "$native_mount" --arg account "$native_account" '. + {mount:$mount,account:$account}' >> "$tmp/native"
+  done <<EOF
+$native_mounts
+EOF
+  jq -sc '. as $routes | {observations:[.[].observations[]?]} | . + {ok:(.observations|length>0),
+    described:(.observations|length>0),mounts:[$routes[].mount],
+    unreadable:[$routes[]|select(.ok != true)|{mount,account,reason}],
+    reason:(if (.observations|length)>0 then "" elif ($routes|length)==0 then "no_route"
+      elif any($routes[]; .reason=="channel_lookup_failed") then "channel_lookup_failed"
+      else "channel_unreadable" end)}' "$tmp/native"
+  exit 0
+fi
 
 scoped() {
   # `missing_scope` is qfs saying the token may not look, which is never "it is not there".
@@ -89,11 +115,15 @@ fi
 : >"$tmp/unreadable"
 while IFS= read -r mount; do
   [ -n "$mount" ] || continue
-  case "$mount" in /slack/*) ;; *) printf '%s\n' "not_a_slack_mount:$mount" >>"$tmp/unreadable"; continue ;; esac
+  case "$mount" in /slack|/slack-*|/slack/*) ;; *) printf '%s\n' "not_a_slack_mount:$mount" >>"$tmp/unreadable"; continue ;; esac
   described=$(qfs_call describe "$mount" --json)
   if ! printf '%s' "$described" | jq -e . >/dev/null 2>&1; then
     scoped "$described" && printf '%s\n' "missing_scope:$mount" >>"$tmp/unreadable" || printf '%s\n' "mount_not_described:$mount" >>"$tmp/unreadable"
     continue
+  fi
+  if printf '%s' "$described" | jq -e '(.path|type)=="string" and (.children|type)=="array" and ((.verbs|type)=="object" or (.verbs|type)=="array")' >/dev/null 2>&1; then
+    sh "$(dirname -- "$0")/describe-native-qfs.sh" "$mount" "$WORKSPACE" "$CHANNEL" "$ACCOUNT"
+    exit 0
   fi
   : >"$tmp/one"
   printf '%s' "$described" | jq -c \

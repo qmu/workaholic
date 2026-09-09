@@ -58,4 +58,10 @@ if [ "$(printf '%s' "$after" | jq -r '.merged // false' 2>/dev/null || true)" = 
   jq -cn --arg expected "$expected" --arg actual "$after_head" '{status:"refused",reason:"head_changed",expected_sha:$expected,actual_sha:$actual,reconciled:true}'
   exit 0
 fi
-jq -cn --arg expected "$expected" '{status:"unknown",reason:"merge_effect_unconfirmed",expected_sha:$expected}'
+refusal=$(printf '%s' "$response" | sh "$SCRIPT_DIR/../../branching/scripts/merge-reason.sh")
+case "$refusal" in
+  session_type_cannot_merge|merge_forbidden|merge_not_allowed|head_moved)
+    jq -cn --arg expected "$expected" --arg reason "$refusal" \
+      '{status:"refused",reason:$reason,expected_sha:$expected,route:"github_rest",retry_authorized:false}' ;;
+  *) jq -cn --arg expected "$expected" '{status:"unknown",reason:"merge_effect_unconfirmed",expected_sha:$expected}' ;;
+esac

@@ -6,7 +6,8 @@ Version 1.0.334 moves the loop to typed snapshots, durable effect records, capab
 
 | Decision | Single owner |
 | --- | --- |
-| What is due and whether an agent is needed | `runtime/scripts/plan-poll.sh` and `plan-turn.sh` |
+| Native control, reservations, completions and role cadence | `runtime/scripts/coordinator.sh` |
+| External polling and finite turn selection | `runtime/scripts/plan-poll.sh` and `plan-turn.sh` |
 | Snapshot evidence and invalidation | `gather/scripts/read-snapshot.sh` |
 | Local state transitions and revisions | `runtime/scripts/state.sh` |
 | Transport selection and effect confirmation | `transport/scripts/perform.sh` |
@@ -17,6 +18,13 @@ Version 1.0.334 moves the loop to typed snapshots, durable effect records, capab
 | Maintenance order and triggers | `moderate/scripts/steps.json` |
 
 Shell code owns finite state changes, atomic writes, bounded retries, and evidence matching. The agent owns decomposition, conflict meaning, hypothesis choice, prose, and whether a discovered change is valuable. This boundary keeps recovery deterministic without encoding product judgement as shell branches.
+
+The native host uses its actual session ID for the coordinator instance, persisting hold before
+another dispatch and completion before reporting. Claude's PreToolUse hook consumes each dispatch
+reservation atomically and rejects launches while held/stopped. It does not interpret natural
+language or stop existing children: those remain host obligations. The moderation question registry
+retains full keys and verified answers independently of rotating logs. See the
+[session repair audit](work-session-repair.md) for reproduced failures and remaining live evidence.
 
 ## State conversion and rollback
 

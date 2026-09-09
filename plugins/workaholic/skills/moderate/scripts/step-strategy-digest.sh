@@ -84,8 +84,9 @@ jst_hour=$(date -u -d "@${jst_epoch}" +%H)
 [ "$jst_hour" -ge 9 ] || emit ok before_morning "before 09:00 JST (tick hour ${jst_hour}); the digest waits for the morning tick"
 
 # Once per JST day: the tick log is the dedup, exactly as every other step's is.
-log_dir="${ROOT}/.workaholic/moderations"
-if [ -d "$log_dir" ] && grep -rqs "strategy-digest-rendered:${jst_day}" "$log_dir" 2>/dev/null; then
+marker="strategy-digest-rendered-${jst_day}"
+logged=$(sh "$SCRIPT_DIR/log-read.sh" --root "$ROOT" --step "$marker" --status filed 2>/dev/null || printf '{}')
+if printf '%s' "$logged" | jq -e '.read == true and .count > 0' >/dev/null 2>&1; then
     emit ok already_rendered "the ${jst_day} digest is already in a Moderation root"
 fi
 
@@ -103,7 +104,8 @@ fi
 commits=$(printf '%s' "$digest" | jq -r '.commit_count // 0')
 count=$(printf '%s' "$digest" | jq -r '.strategy_count // 0')
 needs=$(printf '%s' "$digest" | jq -c '{action: "render_the_morning_digest_at_the_top_of_the_root",
-    bound: "numbered strategies, bold title on its own line, each strategy'"'"'s missions nested under it (title, acceptance checked/total, queued count; an unreadable grain by its reason with no numbers), headline is commit_count, honesty line names tickets, queued_total and the window; log strategy-digest-rendered:<jst-day> via log-append.sh when the root posts",
+    bound: "numbered strategies, bold title on its own line, each strategy'"'"'s missions nested under it (title, acceptance checked/total, queued count; an unreadable grain by its reason with no numbers), headline is commit_count, honesty line names tickets, queued_total and the window; log strategy-digest-rendered-<jst-day> with status filed via log-append.sh only after confirmed root delivery",
+    log_step: "'"$marker"'",
     jst_day: "'"$jst_day"'", digest: .}' 2>/dev/null || echo '{}')
 
 emit ok "" "morning digest ready for ${jst_day}: ${count} strategies, ${commits} commits" "$needs" \

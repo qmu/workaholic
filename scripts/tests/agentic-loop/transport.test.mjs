@@ -263,8 +263,8 @@ test("P5 production observer reads an overlap-safe QFS delta, deduplicates it, a
   // Undeclared: the observer must find the mount before it can describe it — enumerate,
   // fall back to the aggregate describe, then describe the mount, plus the read and the
   // capture. A repository that declares its mount pays one describe (the test below).
-  assert.equal(result.json.data.calls.total, 6);
-  assert.equal(result.json.data.calls.describe, 3);
+  assert.equal(result.json.data.calls.total, 7);
+  assert.equal(result.json.data.calls.describe, 4);
   // This mount offers no thread discovery, so thread coverage is PARTIAL and says why —
   // the reading that used to be reported as covered because the channel delta had run.
   assert.equal(result.json.data.coverage.threads.status, "partial");

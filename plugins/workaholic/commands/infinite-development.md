@@ -9,7 +9,41 @@ Execute one short tick. Use Japanese for human-facing free text. Keep identifier
 commands, slugs, and established technical terms unchanged. Read plugin files with the Read
 tool because shell reads from an installed plugin may require unattended permission.
 
+## Coordinator decisions
+
+This tick is unattended: never call `AskUserQuestion`. Apply the Recommended-label test here,
+where the coordinator reads it: if an option could honestly be marked “Recommended”, decide
+within the existing authorization, record the reason, and let the developer veto. A real missing
+authority or preference is recorded for the existing moderation decision path; it does not stop
+observation or independent work. A recommendation never authorizes overriding a merge gate.
+
+Before diagnosing a defect or filing the loop's own finding, read the responsible implementation
+and its caller, and verify the claimed cause. Distinguish observations from hypotheses. Compare
+blobs before saying they are identical; inspect a script's usage before constructing its call.
+After a refusal, inspect its reason and arguments before retrying the same operation.
+
+Readability precedes counting. A null, failed, malformed, inaccessible or incomplete read is
+unknown, never zero. Slack `channel_not_found` or an empty channel search does not prove that a
+channel or thread is absent: establish access to the declared channel first, otherwise report
+`channel_unreadable`. Only a successful, complete read establishes an empty result.
+
+For agent-composed operations, call `branch-checks.sh` / `gate-decision.sh` separately from the
+subsequent merge, push or deletion. Read and validate the returned decision before constructing
+the write call; shell exit zero alone is not a passing JSON gate. Never put an unconditional
+write after the gate in the same tool call. Existing delivery scripts may check and act in one
+invocation because they branch on the gate internally and bind the merge to the observed head.
+Prefer `drive/scripts/deliver-unit.sh <unit>` for reported units; a direct ship uses
+`ship/scripts/merge-pr.sh <pr-number> [base-branch]` from the PR's worktree. The second argument
+is a branch name, never a head SHA. Re-read checks after catch-up changes the head.
+
 ## Observe
+
+**Native parent / same-chat tick, before other work:** read `runtime/reference/native-loop.md`
+on first use. Call `runtime/scripts/coordinator.sh --instance <session-id> --input <event.json>`
+with `{"event":"tick","now":<epoch-seconds>}`. Handle the live conversation first: wait is
+`hold`, explicit resumption is `resume`, and stop is `stop`, with `explicit:true`. If `held`,
+capture terminal child results silently and end this timer tick without observation, dispatch
+or reports. If `stopped`, cancel the schedule and stop its named children. Keep the same anchor.
 
 Read `git status --porcelain` once. Report a dirty checkout and its file count because this
 tick is already executing that unreviewed plugin behavior. Do not block, modify, or commit it.
@@ -25,8 +59,10 @@ them is the failure the declaration exists to prevent.
 Observe both inbound sources before dispatch:
 
 1. Read the declared channel — or `WORKAHOLIC_INBOUND_SLACK_CHANNEL` (default: repository
-   name) when nothing is declared — through the Slack connector. Capture each message
-   durably before advancing the cursor.
+   name) when nothing is declared — through `transport/scripts/observe-channel.sh`. Read
+   `transport/SKILL.md` once. Every read, reply, reaction and root uses its `resolve-target.sh`
+   → `perform.sh` path; only an exact `needs_parent` result permits a connector call, returned
+   via `accept-observation.sh`. Capture before advancing the cursor. Never run ad-hoc QFS.
 2. Run
    `bash ${CLAUDE_PLUGIN_ROOT}/skills/specificate/scripts/list-inbound-issues.sh`.
    These are assigned, open GitHub feedback issues not already captured on main or an open
@@ -124,25 +160,50 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
 - React to other human messages with `:eyes:` and do not reply.
 
 Never answer at the channel root when a thread was requested. A mid-loop question or correction
-does not stop the loop or reset its anchor. An explicit stop prevents further dispatch and names
+preserves the objective and anchor; an explicit wait enters hold before dispatch. An explicit stop prevents further dispatch and names
 the roles still running.
 
 ## Announce landed asks
 
 Run
 `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-unannounced-closed-asks.sh`.
-For each readable item, resolve the exact `fb:<stem>` Slack thread, read it, and post one
-finish reply only if that thread has no prior finish from this loop. If the thread is missing
-or ambiguous, post nothing. Read the finish-line shape from
+For each readable item, reconcile its feedback, queued tickets, implementation PR and actual
+review surface. A timeline cross-reference or merged proposal is not implementation evidence.
+Pass the per-item facts through `work/scripts/feedback-outcome.sh --input <file>` before composing
+a finish line. Report every item, including queued, unverified and surface-mismatched work.
+Resolve the exact `fb:<stem>` thread. A complete lookup proving it missing earns the description
+root through the same durable transport, then the finish reply at its verified returned timestamp.
+An ambiguous, partial or failed lookup stays `thread_unresolved`; never silently discard it or
+invent a root timestamp. Read the thread and post only if there is no prior finish from this loop.
+Read the finish-line shape from
 `skills/notify/reference/notifications.md` only when a reply is due, and use it exactly. Report `announced`, `already_announced`,
 `thread_unresolved:<reason>`, `post_failed:<reason>`, or `held:<reason>`.
 
 ## Dispatch
 
 List current role workers once. Release completed native children after recording their result.
-Never start a second worker for a role already running.
+Propose and moderate each have one slot; implement is bounded by its validated PR-unit partition
+and configured fanout. Never dispatch the same unit to two receipts.
 
-Read each cadence from the loop tick log with both filters:
+On native/same-chat hosts, use `coordinator.sh` receipts: `reserve` before launching, `started`
+with the returned child ID, `finish` with a readable terminal result, then `reported` after its
+commentary. Idle without a result is `unknown` and still occupies its slot. The finish seam
+writes the `loop-finish-<role>-<receipt-hash>` log, including failed attempts; duplicate results
+do not advance its time. Native `due` comes from the receipts. The legacy log read below is for
+supervisor compatibility; never maintain a second in-memory cadence for native children.
+
+Count live workers across **all three roles** before each launch. The native coordinator's
+`WORKAHOLIC_MAX_WORKERS` defaults to **2**; intersect its remaining slots with the runtime's
+actual available child capacity. This is a per-coordinator bound, not a count of other sessions
+or a claim about machine-wide load. Existing workers are never killed to meet a lower bound.
+The configured limit must be a positive integer; report an invalid value and use the default.
+If native child discovery is unreadable, report `capacity_unreadable` and retry discovery before
+launching anything; unknown worker identities cannot establish a free slot.
+Reserve a slot immediately on dispatch, including propose and moderate. Due roles deferred for
+capacity remain due; offer them oldest-due first (ties: propose, moderate, implement), before
+extra implement runners. Record the deferred roles and reason, not a fabricated finish time.
+
+For the external supervisor only, read each cadence from the loop tick log with both filters:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/log-read.sh \
@@ -166,19 +227,37 @@ discovery reports `formation_pending: false`. When formation is pending, report
 `implement allocation: 0 (mission_formation_pending)` without running the claimable reader.
 Otherwise fanout is:
 
+For a loose backlog, decide its semantic PR-unit partition **before** allocating workers. Keep
+one coherent feedback/review batch together. Supply `{groups:[{id,tickets:[<exact paths>],reason}]}`
+to `claimable-units.sh --partitions FILE`; it validates complete disjoint coverage and keeps
+queued dependencies together. The native receipt's `target` and worker prompt carry that exact
+group. Workers claim only their assigned group through the existing arbiter and do not regroup
+or absorb another group's tickets. Without a valid partition the legacy conservative count is
+one; never label that fallback a measurement of independent work.
+
 `min(WORKAHOLIC_IMPLEMENT_FANOUT default 1, claimable units, available child capacity)`.
 
 A claimable reading of `readable: false` falls back to **one** runner and names the reason; never
 turn an unreadable claimable reading into zero capacity. Its counts are `null` rather than `0` for
 exactly this reason, and a reading that could not be made says nothing about whether work exists.
 
+Calculate this with `loops/scripts/allocate-implement.sh --input <allocation.json>`, supplying
+`formation_pending`, the whole `claimable` reader result, `fanout` (default 1), and the observed
+`available_capacity` after other role reservations. Use its `runners` and report its `reason`;
+do not coalesce null counts to zero. An unreadable survey grants at most one fallback runner,
+subject to actual capacity and the formation boundary. A prior worker's freshen refusal is
+not a permanent exclusion: a later eligible tick retries through the executor's freshen seam.
+
 Before each runner beyond the first, apply `WORKAHOLIC_MAX_LOAD_PER_CORE` when configured.
 Never stop a running worker because of load, never refuse the first runner, and never turn an
 unreadable load into zero capacity. A non-advancing runner may free a fanout slot only when
 `loops/scripts/read-runner-advance.sh` proves it; do not kill it.
 
-Start `loops/scripts/tick-progress.sh` in the background and render the previous completed
-reading. It may be one tick old. Null or unreadable counts stay named and never become zero.
+Resolve the base with `gather/scripts/base-ref.sh`, then start `loops/scripts/tick-progress.sh
+<repo-root> --ref <base-ref>` in the background and render the previous completed reading with
+its `source_sha`. It may be one tick old. This reads an immutable snapshot and never pulls or
+checks out the coordinator's working tree. A failed base lookup is unreadable; never fall back
+to checkout counts. Null or unreadable counts stay named and never become zero.
 
 ## Report and end
 
@@ -196,6 +275,7 @@ Return one short Japanese block:
 - each ask announcement result;
 - roles spawned or reaped; use `loops: none due` when all were quiet;
 - implement allocation and any load, fanout, or advancement refusal;
+- total live workers, the configured worker limit, and roles still due but held for capacity;
 - the latest progress reading and its observation time;
 - each completed worker's `executed`, `outcome`, and `reason`;
 - where this report is delivered.
@@ -209,3 +289,8 @@ an ordinary idle tick and posts nothing.
 Say `idle` alone when nothing happened. Claim completion only from merged work, an empty queue,
 and reconciled pull requests. Then end this tick without polling, waiting for workers, or
 summarizing work whose result has not arrived.
+
+Base CI health is detection and attribution, not automatic repair. A red reading earns the
+existing alert, and failed delivery is reported in this chat; it does not prove anyone was
+notified or that a fix was queued. This tick does not create a repair ticket from the red colour
+alone. Repair work enters through the existing diagnosed ask and specification path.

@@ -88,7 +88,15 @@ if git show-ref --verify --quiet "refs/heads/${PUBLISH_BRANCH}"; then
   if [ -n "$publish_sha" ]; then
     containing=$(git branch --remotes --contains "$publish_sha" --format='%(refname:short)' 2>/dev/null | grep '^origin/' || true)
   fi
-  if [ -z "$containing" ]; then
+  content_reached=false
+  if [ -z "$containing" ] && [ -n "$publish_sha" ]; then
+    # Squash merges preserve the patch, not its ancestry. Require the entire patch,
+    # including deletions/binaries, to reverse on the base; partial matches keep the tree.
+    if sh "$SCRIPT_DIR/content-reached-base.sh" "$publish_sha" "origin/$base"; then
+      content_reached=true
+    fi
+  fi
+  if [ -z "$containing" ] && [ "$content_reached" = false ]; then
     printf '{"ok": false, "reason": "unpublished_commits", "branch": "%s", "path": "%s", "detail": "no remote-tracking ref of origin contains publish-main tip %s (checked the base origin/%s and every pushed branch); nothing was removed — publish or discard them deliberately"}\n' \
       "$PUBLISH_BRANCH" "$publish_path" "$(printf '%.8s' "$publish_sha")" "$base"
     exit 0

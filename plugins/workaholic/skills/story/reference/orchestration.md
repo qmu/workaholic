@@ -11,6 +11,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/git-context.sh
 Returns: branch, base_branch, repo_url, archived_tickets, git_log.
 
 Before the phases, run `story/scripts/release-boundary.sh`. Only its `eligible: true` outcome
+for a readable, nonempty committed range (independent of mission completion or membership)
 allocates a patch version; an ineligible branch reports `version_not_allocated:<reason>` and
 continues as a non-release story/PR. At an eligible boundary, follow CLAUDE.md's Version
 Management section and skip only when `check-version-bump.sh` reports both

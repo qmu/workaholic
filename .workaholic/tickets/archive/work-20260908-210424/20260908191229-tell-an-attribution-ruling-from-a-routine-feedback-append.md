@@ -108,24 +108,48 @@ hours and conflicted; PR #1112, minting, landed in four minutes.
 
 ## Final Report
 
-Development completed as planned. The mission arm of `publication_refusal_word()` now asks what
-else the publication carried: an `M` on an existing mission whose `feedback:` line moves is the
-operator's ruling only when no artifact was **added** beside it. The term is derived from what
-each act writes — `carry-attribution.sh` stages one path and adds nothing, while `/specificate`
-growing a mission always adds at least the feedback record it just wrote — and the generated OKF
-indexes are exempt **by path** (`.workaholic/index.md`, `.workaholic/<area>/index.md`), never by
-inference. `strategy_touching` still outranks and `.claude/git-identities` stays unconditional.
+Development completed, and the outcome is not the one this ticket predicted: **the base landed
+the rule while this branch was driving it**, through the publication refactor that introduced
+`branching/scripts/publication-shape.sh` and `prepare-publication.sh`. This branch's own
+narrowing — an added-artifact term computed inside `publication_refusal_word` — collided with it
+head-on and was **resolved in favour of the base's**, which is the stricter and better rule.
+
+What the base's rule does: the mission arm reads a **fourth field** on the normalised stream,
+and `publication-shape.sh` sets it to `extension` only when the modification removes nothing but
+the `feedback:` line, adds refs without dropping any, has an **added feedback record for every
+new ref**, and carries an **added ticket naming that same mission**. Four conjoined proofs where
+this branch had tested one (*was anything added at all*), so a hand-made publication that
+carried a ruling beside an unrelated added file — the residue this branch's own header had to
+state as a cost — is not an extension there at all.
+
+What this branch contributes is what the base landed without: **rule-level coverage of that
+fourth field**. `publication-shape.sh` computes the term and `publish-tree-pr.sh`'s end-to-end
+row exercises the pair, but nothing fed the rule directly, so a rule that ignored the field
+would have passed every existing row. Five rows now pin it: a ruling regenerating the OKF
+indexes is still the operator's, an `extension` stream is ordinary routine work, a stream
+carrying **no fourth field at all** is still the operator's (the safe direction, and what a
+caller predating the field depends on), and neither the identity-mapping arm nor
+`strategy_touching` can be bought back by an `extension`.
 
 ### Discovered Insights
 
-- **Insight**: The two invariants the rule's header names are enforced by `awk` control flow, not
-  by ordering alone — `strategy` and the identity-mapping arm each `exit` in the `END` block, so
-  the new `mission_ruling && !added_artifact` term can only ever *narrow* the third arm and can
-  never take a publication away from the two stronger words.
-  **Context**: A later reader adding a fourth arm must keep it below those exits, or the
-  seam and the reader will disagree about the same publication.
-- **Insight**: The suite needed a row at **both** levels. The normalised-stream rows prove the
-  rule; the end-to-end `publishSeededArtifact` row proves the seam's own adapter actually carries
-  the added lines into the stream — without it the term could be correct and unreachable.
-  **Context**: `publication-refusal.sh` is sourced by three consumers, each with its own adapter;
-  a rule row alone cannot tell whether an adapter feeds it the whole publication.
+- **Insight**: The `extension` term is one `awk` comparison against a field a **different**
+  script computes, so the two halves can be individually correct and jointly wrong — and the
+  end-to-end row cannot see it, because it exercises both halves at once.
+  **Context**: This is why the direct-stream rows are worth their weight beside an integration
+  row. A rule dropping `&& $4 != "extension"` still passes every adapter-driven row that does
+  not happen to be an extension.
+- **Insight**: An absent fourth field must read as *not an extension*, and that is load-bearing
+  rather than incidental: `list-stranded-publications.sh` and `list-operator-facing-pulls.sh`
+  both feed the rule through the same adapter today, but any caller that ever built a
+  three-field stream by hand would otherwise have its publications silently released to
+  auto-merge.
+  **Context**: The row asserting it is the one that fails if somebody later reverses the
+  comparison to `$4 == "ruling"`.
+- **Insight**: The collision itself is the loop's own measured behaviour: this mission's claim
+  lapsed, the base drove the same three tickets through another route, and the survey still
+  offered the unit as `heartbeat_lapsed` because `superseded` is derived from **archived
+  tickets**, not from the work being present on the base. The tickets were never archived, so
+  no verdict could see it.
+  **Context**: Worth remembering before adding a *the base already did this* test — that is a
+  reading about behaviour, and `CLAUDE.md`'s planning section refuses exactly that shape.

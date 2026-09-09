@@ -28,76 +28,22 @@
 #
 #     <status><TAB><path><TAB><feedback_line_moved>
 #
-# `status` is git's letter (`A` `M` `D` `R` `C`, optionally score-suffixed as git writes
-# `R100`), `path` the destination path, and the third field `1` when this file's own patch adds
-# or removes a `feedback:` line and `0` otherwise. The adapter is trivial in both directions and
-# is the ONLY thing either caller owns.
+# `status` is git's letter (`A` `M` `D` `R` `C`), `path` the destination path, and the third
+# field `1` when this file's own patch adds or removes a `feedback:` line and `0` otherwise.
+# The adapter is trivial in both directions and is the ONLY thing either caller owns.
 #
 # THE TEST IS ON THE SHAPE OF THE CHANGE, NOT THE DIRECTORY (the seam's own words). A carried
 # attribution and a brand-new mission both live under `.workaholic/missions/`, and every
 # `/specificate` proposal writes one of the second kind — catching those would stop the loop's
 # ordinary publications from merging at all. So a mission counts only when it ALREADY EXISTED
-# on the base (`M`) and the diff moves its `feedback:` line. The mapping has no such ambiguity:
-# nothing but a ruling writes `.claude/git-identities` here.
+# on the base (`M`) and the diff moves its `feedback:` line, which is exactly and only what
+# `carry-attribution.sh` writes. The mapping has no such ambiguity: nothing but a ruling writes
+# `.claude/git-identities` here.
 #
-# ═══ THE MISSION ARM ALSO ASKS WHAT ELSE THE PUBLICATION CARRIED ═════════════════════
-# (2026-09-08, mission `let-the-loop-grow-a-mission-without-handing-it-back-to-a-person`.)
-#
-# `M` on an existing mission with the `feedback:` line moved is NOT exactly and only what
-# `carry-attribution.sh` writes, which is what this header used to claim. TWO acts move that
-# line and their per-line diffs are identical:
-#
-#   the RULING          `carry-attribution.sh` appends a named strategy's existing refs to one
-#                       mission. Read its header: it stages THE ONE PATH, never commits, and
-#                       deliberately does not refresh the OKF indexes. A ruling therefore ADDS
-#                       NO FILE ANYWHERE — it cannot: the script has no other write.
-#   the EXTENSION       `/specificate` appending a feedback ref while it grows an existing
-#                       mission. It always ADDS at least the feedback record it just wrote, and
-#                       usually the ticket files beside it.
-#
-# So the distinguishing term is derived from what each act WRITES rather than guessed: a
-# publication whose mission modification is accompanied by an ADDED artifact is an extension,
-# and an extension is ordinary routine work.
-#
-#   A ruling touches:      `.workaholic/missions/<area>/<slug>/mission.md`  (M)
-#                          and, when a caller regenerates them, the OKF indexes:
-#                          `.workaholic/index.md` and `.workaholic/<area>/index.md` (M or A).
-#   A ruling cannot touch: any added ticket, any added feedback record, any added mission, any
-#                          added or renamed file at all outside those generated indexes.
-#
-# MEASURED 2026-09-08: PR #1097 and #1094 each added a single `feedback:` ref to the existing
-# mission `make-slack-intake-incremental-across-messages-threads-and-mentions` and were held
-# `ruling_touching` for five hours while `main` moved under them and conflicted; #1094's target
-# mission was archived `achieved` while it waited, so it had nowhere to land and was closed as a
-# duplicate. PR #1112, MINTING a new mission in the same window, landed in four minutes. The
-# incentive was inverted: fragmenting the work flowed, growing a mission halted.
-#
-# THE GENERATED-INDEX EXEMPTION IS STATED BY PATH, NEVER INFERRED. `okf/scripts/refresh-index.sh`
-# writes `.workaholic/index.md` and one `.workaholic/<area>/index.md` per flat area and nothing
-# else, so the set is exactly those two shapes — one path segment deep. Inferring it from
-# "looks generated" would let an added artifact one directory over buy an extension the
-# operator's word.
-#
-# ═══ WHAT THIS DELIBERATELY DOES NOT NARROW, AND WHAT THAT COSTS ═════════════════════
-# The ask is explicit that the rule's AIM need not be loosened, so only the one measured
-# collision moves and every ambiguity still errs toward the operator:
-#
-#   * `.claude/git-identities` stays UNCONDITIONAL. A publication carrying that file plus any
-#     amount of other work is still the operator's, because nothing but a ruling writes it.
-#   * `strategy_touching` still OUTRANKS, unchanged and checked first, because this must be
-#     byte-identical to the seam.
-#   * Only an ADDED artifact disqualifies the mission arm. A publication carrying the mission
-#     modification alongside a MODIFIED or DELETED file elsewhere stays `ruling_touching`: an
-#     extension is recognised by what it writes, and a ruling accompanied by an unrelated edit
-#     is a shape no caller in this repository produces, so the safe direction is the operator's.
-#   * An unparseable line still contributes NOTHING, because a publication we could not classify
-#     must not become the operator's by accident.
-#
-# THE COST, STATED: a hand-made publication that carries a genuine attribution ruling AND adds
-# an unrelated file now auto-merges under `WORKAHOLIC_AUTO_MERGE=1`. `/specificate`'s
-# announcement route is `carry-attribution.sh`'s one caller and it stages that single path, so
-# this repository emits no such publication; a person who wants one is the person who can also
-# leave the variable unset.
+# STRATEGY OUTRANKS RULING, because the seam checks it first and this must be byte-identical to
+# the seam. The two name different trees and ask for different operator acts — authoring a
+# direction versus ruling on an attribution — and a publication that somehow did both is
+# reported under the stronger of the two rather than under a third word nothing emits.
 #
 # Sourced, never executed.
 
@@ -114,18 +60,11 @@ publication_refusal_word() {
             if (path == "") next
             if (path ~ /^\.workaholic\/strategies\//) { strategy = 1 }
             if (path == ".claude/git-identities") { ruling = 1 }
-            if (status == "M" && path ~ /^\.workaholic\/missions\// && moved == "1") { mission_ruling = 1 }
-            # An added artifact is what a ruling cannot write and an extension always does.
-            # The generated OKF indexes are exempt by path: `.workaholic/index.md` and one
-            # `.workaholic/<area>/index.md`, which is the whole of what refresh-index.sh emits.
-            if (status ~ /^[ACR]/ \
-                && path != ".workaholic/index.md" \
-                && path !~ /^\.workaholic\/[^\/]+\/index\.md$/) { added_artifact = 1 }
+            if (status == "M" && path ~ /^\.workaholic\/missions\// && moved == "1" && $4 != "extension") { ruling = 1 }
         }
         END {
             if (strategy) { print "strategy_touching"; exit }
-            if (ruling) { print "ruling_touching"; exit }
-            if (mission_ruling && !added_artifact) { print "ruling_touching" }
+            if (ruling)   { print "ruling_touching" }
         }
     '
 }

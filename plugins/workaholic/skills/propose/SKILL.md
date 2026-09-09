@@ -470,6 +470,49 @@ landed in the window and nothing is waiting at all*.
 "nothing is answering this" state a person should be told about — but it is a description of the
 direction, never an accusation, and the question's wording is held to that (`workaholic:moderate`).
 
+#### An answer turns the reading back into work (2026-09-08)
+
+Mission `turn-quiescent-blockers-into-mature-decisions-and-resume-work`. `no_evolutionary_move` is
+the honest end of a tick and it is **an observation, never permission to end silently** — but the
+moment somebody answers the question `/moderate` asked about that direction, the next tick was
+still deriving the same silence from the same rows and reporting the same word. The answer stayed
+in the tick log and reached no judgment.
+
+**Before reporting `no_evolutionary_move` for a direction, read
+`moderate/scripts/decision-maturity.sh --strategy <slug>` and name what it says about the
+answer** — `answer_state`, and `resumable` when it is `true`. A
+`resumable: true` reading means exactly two things at once: a person answered, and the direction
+still reads blocked. Their words are **evidence for step 4's own judgment** — read the answer, and
+ask again whether a `depth`, `breadth` or `contraction` move can now be named against the Aim.
+**A `no_evolutionary_move` report that does not say whether an answer stands is non-conformant on
+its face**, the enforcement this repository puts on every act whose absence no script can see.
+
+**It is evidence, and it lifts no gate**, so every mechanical brake is untouched: `work_waiting`,
+`open_proposal`, `arrived`, `no_feedback_refs`, `past_target_date`, `wip_limit` and the WIP bound
+refuse exactly as before, and a direction the survey refused is not proposed against because
+somebody answered a question about it. Both outcomes name the evidence — a move now named says
+which answer let it be named, and a refusal that still stands says the answer did not change the
+reading.
+
+**There is no reopen flag, no cursor and no new field.** `resumable` is two existing readings
+conjoined, derived at the moment it is read, so nothing has to be cleared and nothing can go
+stale. A container that carries no tick log reads `answer_state: never_asked` — the honest
+absence, not a claim that nobody answered.
+
+**The cost is stated**: `decision-maturity.sh` composes `survey-strategies.sh`, so reading it
+costs one more survey on a tick that was about to report `no_evolutionary_move`. That is the rare
+path by construction, and paying for it there rather than on every tick is why the read sits at
+the refusal rather than at step 1.
+
+**The reader is NAMED here rather than invoked, and a later reader must not "fix" that.** It
+lives in another skill, and writing the `${CLAUDE_PLUGIN_ROOT}` invocation form resolves it into
+**this** skill's script closure — which copies `moderate`, `standup` and `workaholify` wholesale
+into every cross-agent bundle that carries `/propose`, and surfaces `workaholify`'s own
+`../bootstrap/` reference as unresolved. `workaholic:drive` records the same restraint for its
+own cross-skill reader, and `verify.mjs` is what catches a regression: **measured** here, the
+invocation form broke six bundles with thirty unresolved references. The run has already resolved
+`src`, so the bare path is unambiguous.
+
 - **`no_feedback_refs` is the answer to the lossy reader.** `attributed-work.sh` walks
   `strategy.feedback[] ∩ artifact.feedback[]` plus one hop through a mission and admits it
   cannot see everything. A strategy citing **no** record can never have anything attributed

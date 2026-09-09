@@ -72,6 +72,21 @@ emit() {
 
 SLUG=$(question_slug "$KEY")
 
+if git -C "$ROOT" rev-parse --git-common-dir >/dev/null 2>&1; then
+    registry=$( (cd "$ROOT" && sh "$SCRIPT_DIR/../../runtime/scripts/state.sh" read --scope instance --id questions) 2>/dev/null || printf '{}')
+    if ! printf '%s' "$registry" | jq -e '.status == "ok"' >/dev/null 2>&1; then
+        COORDINATE_REASON=registry_unreadable; emit unreadable
+    fi
+    subject=$(printf '%s' "$registry" | jq -c --arg key "$KEY" '.data.record.data.questions[$key] // {}')
+    COORDINATE=$(printf '%s' "$subject" | jq -r '.coordinate // empty')
+    [ -z "$COORDINATE" ] || COORDINATE_REASON=''
+    case "$(printf '%s' "$subject" | jq -r '.state // empty')" in
+      asked) emit asked "$(printf '%s' "$subject" | jq -r '.asked_at // empty')";;
+      answered) emit answered "" "$(printf '%s' "$subject" | jq -r '.answered_at // empty')" "$(printf '%s' "$subject" | jq -c '.answer')";;
+      retired) emit retired;;
+    esac
+fi
+
 read_step() { sh "$LOG_READ" --root "$ROOT" --step "$1" 2>/dev/null || true; }
 
 asked_out=$(read_step "human-checkin-ask-${SLUG}")

@@ -5,6 +5,9 @@ transport_parse_request_arg "$@"
 
 route=$(jq -c --arg op "$TRANSPORT_OPERATION" '.input.binding.routes[]? | select(.transport=="qfs" and .described==true and (.operations|index($op)))' "$TRANSPORT_REQUEST_FILE" | head -1)
 [ -n "$route" ] || { transport_result deferred qfs_operation_unavailable "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
+if [ "$(printf '%s' "$route" | jq -r '.dialect // empty')" = pipe-sql ]; then
+  exec sh "$(dirname -- "$0")/qfs-native.sh" --request "$TRANSPORT_REQUEST_FILE"
+fi
 QFS_BIN=${WORKAHOLIC_QFS_BIN:-qfs}
 command -v "$QFS_BIN" >/dev/null 2>&1 || { transport_result deferred qfs_unavailable "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
 
@@ -87,7 +90,7 @@ data=$(printf '%s' "$raw" | jq -c --arg workspace "$workspace" --arg channel "$c
   elif ($op|startswith("read_")) or $op=="search_exact" then
     {workspace:$workspace,channel:$channel,messages:(.messages // .rows // []),next_cursor:(.next_cursor//null),has_more:(.has_more//false),observed_at:(.observed_at//null)}
   else
-    {workspace:$workspace,channel:$channel,ts:(.ts//.message.ts//null),thread_ts:(.thread_ts//.message.thread_ts//null),sender_id:(.sender_id//null),confirmed_by:(.confirmed_by//"qfs_response"),delivered:(.ok//true)}
+    {workspace:$workspace,channel:$channel,ts:(.ts//.message.ts//null),thread_ts:(.thread_ts//.message.thread_ts//null),sender_id:(.sender_id//null),confirmed_by:(.confirmed_by//"qfs_response"),delivered:(.ok != false)}
   end' 2>/dev/null) || { transport_result error qfs_response_unparseable "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
 case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction)
   [ "$(printf '%s' "$data" | jq -r .delivered)" = true ] || { transport_result deferred qfs_post_refused "$TRANSPORT_REQUEST_ID" "$data"; exit 0; };; esac

@@ -120,5 +120,14 @@ and a bare number are read; a preview whose count no reading can find stays `qfs
 the honest word for *the preview did not say what was affected*, and only a preview positively
 stating an affected row may commit. A committed write without a Slack timestamp remains an unknown
 effect requiring reconciliation. Generic `service_rejected` does not establish missing scope.
-Thread discovery, reaction maps, ambiguous root maps and sender verification remain explicit
-capability limitations; a successful channel read does not certify any of them.
+
+**Thread discovery on this dialect is proved, never assumed — in either direction.** The
+collection `list_thread_changes` queries is described and the driver's own `verbs.select` is the
+proof: only then is the operation advertised and the `thread_discovery_unavailable` limitation
+dropped, and the adapter's arm is reachable only through that advertisement. An unproved route
+declares the limitation carrying the reason the describe gave (`thread_collection_verified`,
+`thread_discovery_reason`: `threads_not_selectable` / `threads_not_described`), so a provider
+that has no such collection is named rather than guessed at. Measured 2026-09-09 on
+`/slack-cc01-qmu/qmu/C0BLL9J7FMY`: the channel node advertises only `messages` and `files`, so
+the limitation stands there. Reaction maps, ambiguous root maps and sender verification remain
+explicit capability limitations; a successful channel read does not certify any of them.

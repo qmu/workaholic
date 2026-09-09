@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-09T13:09:12+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -104,3 +105,61 @@ that never runs.
   unmade rather than claiming it.
 - Faster polling after activity is the existing policy and is not re-specified here. This ticket is
   the discovery the policy waits on.
+
+## Final Report
+
+Development completed as planned. The end-to-end verification the ticket names is **unmade on
+this provider, and the describe says why** — which is the outcome step 2 provides for.
+
+**Reproduced and localized first.** The declared native route was asked for
+`list_thread_changes` through `adapters/qfs.sh` with the route the real describe returns, and
+answered `qfs_operation_unavailable` — the route gate at the top of `qfs-native.sh`, not a query
+that failed: the operation is not in the described `operations`, so no query was ever composed.
+
+**What the provider actually offers** (`qfs describe … --json`, 2026-09-09, read-only):
+
+- `/slack-cc01-qmu/qmu/C0BLL9J7FMY` advertises exactly two children: `messages` and `files`.
+- `/slack-cc01-qmu/qmu/C0BLL9J7FMY/threads` describes as a placeholder — every verb `false`,
+  one `value: Json` column — beside `.../messages`, which describes `select: true, insert: true`
+  with the real `ts, user, text, thread_ts, subtype` schema.
+
+So the thread collection is **not there** on this provider, and per step 2 that is the honest end
+of the ticket for it: the limitation stays declared.
+
+**What changed is that the limitation is now PROVED rather than hard-coded, in both directions.**
+`describe-native-qfs.sh` describes `<base>/threads` and reads the driver's own `verbs.select` as
+the proof: only then does it advertise `list_thread_changes` and drop
+`thread_discovery_unavailable`. An unproved route declares the limitation carrying the reason the
+describe gave — `thread_collection_verified: false`, `thread_discovery_reason:
+threads_not_selectable` / `threads_not_described`. Re-run against the real route after the change,
+`operations` and `limitations` are byte-identical to before, now with the evidence beside them.
+
+`qfs-native.sh` gains the `list_thread_changes` arm the proof enables — the same bounded overlap
+window (`where last_reply_ts >= cursor - overlap`), the caller's own `limit`, and the shape
+`adapters/qfs.sh` returns, so no consumer learns which adapter answered. It is reachable only
+through the advertisement, so a provider without the collection still refuses
+`qfs_operation_unavailable` rather than querying a node that is not there. The **channel** cursor
+is untouched: the channel delta owns it.
+
+`observe-channel.sh` and `coverage.threads.status` are unchanged — `covered` still only when the
+operation ran, `partial` with its reason otherwise, and a truncated fan-out still `truncated:
+true`. A successful channel delta is still never presented as thread monitoring.
+
+**Acceptance, honestly:** the first, third and fourth criteria hold. The second — a reply under a
+root older than the channel-history window discovered end to end — is **not verified here and is
+not claimed**: this provider has no thread collection to discover from, which the describe now
+records on every observation.
+
+### Discovered Insights
+
+- **Insight**: `qfs describe` answers for a path that is not a node, returning a generic
+  placeholder (`verbs` all `false`, one `value: Json` column) rather than failing.
+  **Context**: a describe that *succeeded* is therefore not proof that a collection exists — the
+  proof is the driver's own `verbs`, which is why the gate reads `verbs.select == true` and not
+  the exit status. The channel node's `children` list is the corroborating read.
+- **Insight**: hard-coding a capability limitation and hard-coding a capability are the same
+  mistake pointing in opposite directions.
+  **Context**: `thread_discovery_unavailable` was a constant, so a provider that grew the
+  collection could never be discovered; advertising unconditionally would have promised an
+  operation the adapter refuses. Deriving both from one describe removes both failure modes and
+  costs one provider call per route description.

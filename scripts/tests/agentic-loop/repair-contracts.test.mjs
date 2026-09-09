@@ -146,6 +146,76 @@ console.log(process.env.TEST_PREVIEW);
   assert.deepEqual(attempt({committed:true,preview:{rows,total_affected:{exact:1}}}),{reason:'qfs_preview_refused',committed:false});
   assert.deepEqual(attempt({committed:false,preview:{total_affected:{exact:1}}}),{reason:'qfs_preview_refused',committed:false});
 });
+test('native thread discovery is advertised only on the describe that proved the collection',t=>{
+  // A described capability that is not there is worse than a declared limitation, and a
+  // hard-coded limitation makes a provider that CAN answer unreachable forever. So the
+  // collection `list_thread_changes` queries is described and `verbs.select` is the proof.
+  // Measured 2026-09-09 on /slack-cc01-qmu/qmu/C0BLL9J7FMY: the channel node advertises only
+  // `messages` and `files`, and `<base>/threads` describes with every verb false — the
+  // limitation stands there, now carrying the reason the describe gave.
+  const {dir}=fixture(t),qfs=join(dir,'qfs');
+  const describer=threads=>{
+    writeFileSync(qfs,`#!/usr/bin/env node
+const a=process.argv.slice(2);
+if(a[0]==='describe'){
+  if(a[1].endsWith('/threads')){${threads==='absent'?'process.exit(3);':`console.log(JSON.stringify({path:a[1],verbs:{select:${threads==='proved'}},children:[]}));`}process.exit();}
+  console.log(JSON.stringify({path:a[1],verbs:{select:true},children:a[1]==='/slack-clauyo/qmu'?[{segment:'private-channels',path:a[1]+'/private-channels'}]:[]}));process.exit();}
+if(a[1].includes('private-channels'))console.log(JSON.stringify({rows:[{id:'C123',name:'dev-test'}]}));
+else if(a[1].startsWith('/sys/drivers'))console.log(JSON.stringify({rows:[{name:'/slack/{ws}/{channel}/messages/{ts}/replies',body:'chat.postMessage thread_ts'}]}));
+else console.log(JSON.stringify({rows:[{ts:'1.0',user:'U1'}]}));
+`,{mode:0o755});
+    const r=spawnSync('sh',[join(skills,'transport/scripts/describe-native-qfs.sh'),'/slack-clauyo','qmu','dev-test','clauyo'],
+      {cwd:dir,encoding:'utf8',env:{...process.env,WORKAHOLIC_QFS_BIN:qfs}});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout).observations[0];
+  };
+  const proved=describer('proved');
+  assert.equal(proved.thread_collection_verified,true);
+  assert.equal(proved.thread_discovery_reason,'');
+  assert.ok(proved.operations.includes('list_thread_changes'));
+  assert.equal(proved.limitations.includes('thread_discovery_unavailable'),false);
+  for(const [shape,reason] of [['unselectable','threads_not_selectable'],['absent','threads_not_described']]) {
+    const denied=describer(shape);
+    assert.equal(denied.thread_collection_verified,false,shape);
+    assert.equal(denied.thread_discovery_reason,reason);
+    assert.equal(denied.operations.includes('list_thread_changes'),false,shape);
+    assert.ok(denied.limitations.includes('thread_discovery_unavailable'),shape);
+  }
+});
+test('the native list_thread_changes arm is bounded, shaped like its sibling, and gated',t=>{
+  const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
+  writeFileSync(qfs,`#!/usr/bin/env node
+const fs=require('fs'),a=process.argv.slice(2);fs.appendFileSync(process.env.TEST_CALLS,JSON.stringify(a)+'\\n');
+console.log(JSON.stringify({rows:[{thread_ts:'799.0',last_reply_ts:'801.5',reply_count:2},{ts:'700.0'},{last_reply_ts:'650.0'}]}));
+`,{mode:0o755});
+  const route=operations=>({workspace:'qmu',channel_id:'C123',
+    routes:[{transport:'qfs',described:true,dialect:'pipe-sql',mount:'/slack-clauyo',operations,thread_map_verified:true}]});
+  const ask=binding=>{
+    writeFileSync(calls,'');
+    const file=join(dir,'request.json');
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:'ltc',repo_root:dir,instance_id:'test',
+      operation:'list_thread_changes',input:{binding,cursor:'800.000000',overlap_seconds:30,limit:3}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/adapters/qfs.sh'),'--request',file],
+      {cwd:dir,encoding:'utf8',env:{...process.env,WORKAHOLIC_QFS_BIN:qfs,TEST_CALLS:calls}});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);
+  };
+  // A route the describe did not prove refuses; nothing is queried at all.
+  const gated=ask(route(['read_channel_delta','read_thread','post_reply']));
+  assert.equal(gated.reason,'qfs_operation_unavailable');
+  assert.equal(readFileSync(calls,'utf8'),'');
+  // A proved route asks the THREADS collection inside the same bounded overlap window, and
+  // never the channel: `where last_reply_ts >= cursor - overlap`, with the caller's own limit.
+  const answered=ask(route(['read_channel_delta','list_thread_changes']));
+  assert.equal(answered.status,'ok',JSON.stringify(answered));
+  assert.equal(JSON.parse(readFileSync(calls,'utf8').trim())[1],
+    "/slack-clauyo/qmu/C123/threads |> where last_reply_ts >= '770.000000' |> select thread_ts, last_reply_ts, reply_count |> limit 3");
+  // The shape `adapters/qfs.sh` returns, so no consumer learns which adapter answered: a row
+  // with no thread coordinate at all is dropped, `ts` stands in where the columns are named
+  // differently, and a full page reports has_more rather than silence.
+  assert.deepEqual(answered.data.threads,[{thread_ts:'799.0',last_reply_ts:'801.5',reply_count:2},
+    {thread_ts:'700.0',last_reply_ts:'700.0',reply_count:null}]);
+  assert.equal(answered.data.next_cursor,'801.5');
+  assert.equal(answered.data.has_more,true);
+});
 test('native QFS discovery reads private channels and does not invent a sender or ambiguous write map',t=>{
   const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
   writeFileSync(qfs,`#!/usr/bin/env node

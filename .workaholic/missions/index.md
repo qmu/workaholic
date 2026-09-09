@@ -4,7 +4,6 @@
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [let-the-loop-grow-a-mission-without-handing-it-back-to-a-person](active/let-the-loop-grow-a-mission-without-handing-it-back-to-a-person/mission.md) - Let the loop grow a mission without handing it back to a person
-* [make-the-declared-slack-route-speak-be-seen-and-be-named](active/make-the-declared-slack-route-speak-be-seen-and-be-named/mission.md) - Make the declared Slack route speak, be seen and be named
 * [report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word](active/report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word/mission.md) - Report a native tick from reconciled evidence, not from a worker's word
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
@@ -80,6 +79,7 @@
 * [make-the-branch-story-concise-by-default](archive/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
 * [make-the-codex-work-entrypoint-self-contained](archive/make-the-codex-work-entrypoint-self-contained/mission.md) - Make the Codex work entrypoint self-contained
+* [make-the-declared-slack-route-speak-be-seen-and-be-named](archive/make-the-declared-slack-route-speak-be-seen-and-be-named/mission.md) - Make the declared Slack route speak, be seen and be named
 * [make-the-draft-release-note-an-agent-s-release-plan](archive/make-the-draft-release-note-an-agent-s-release-plan/mission.md) - Make the draft release note an agent's release plan
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 * [make-the-maintenance-tick-s-channel-presence-help-the-work-along](archive/make-the-maintenance-tick-s-channel-presence-help-the-work-along/mission.md) - Make the maintenance tick's channel presence help the work along

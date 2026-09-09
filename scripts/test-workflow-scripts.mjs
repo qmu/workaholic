@@ -40066,6 +40066,58 @@ function testPersistLogRefusesTheLog() {
 // every reader reported healthy over them — measured on a consuming repository as twelve days of
 // silent hourly accumulation. The step raises a finding and moves nothing; the mover it was
 // written against was deleted with the log branch on 2026-09-03.
+// ---------- the tick report names its destination (2026-09-09) ----------
+// The report contract asked for "the declared binding this tick resolved", which a session can
+// satisfy with `ok:true / declared:true / conflicts:[]` — reporting that *a* binding resolved
+// rather than WHICH. Measured on a consuming repository: roughly fifty consecutive ticks called
+// the reader as `… | jq -c '{ok,declared,conflicts,reason}'`, a projection that drops `binding`,
+// so the channel name never entered the session's context from the authoritative source; asked
+// later where its reports went, the session answered with a channel it had never read.
+// It is a reporting obligation, not a gate, so what is mechanical about it is that BOTH report
+// contracts carry ONE wording and that no call site in the tree projects `binding` away.
+T("both tick report contracts name the destination, in one wording", testReportNamesDestination);
+function testReportNamesDestination() {
+  const surfaces = [
+    ["plugins/workaholic/commands/infinite-development.md", "the coordinator's report contract"],
+    ["plugins/workaholic/skills/work/SKILL.md", "the sibling report contract"],
+  ];
+  // Collapsed, because both are wrapped prose and a line break is not a different rule.
+  const WORDING = "Name the destination: the workspace and channel it resolved, and `channel_id` "
+    + "when the declaration carries one, taken from the reader's own `binding` and never from "
+    + "memory, a directory name or a repository name — a report that names no destination is "
+    + "**non-conformant on its face**, and an undeclared repository names the environment "
+    + "fallback it used instead.";
+  for (const [path, what] of surfaces) {
+    const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
+    assertTrue(`${what} carries the destination wording verbatim`, flat.includes(WORDING), path);
+  }
+  // The degraded answers keep their own words: naming a destination must not replace them.
+  for (const [path, what] of surfaces) {
+    const body = readFileSync(join(REPO_ROOT, path), "utf8");
+    assertTrue(`${what} keeps binding_contradictory`, body.includes("binding_contradictory"), path);
+    assertTrue(`${what} keeps binding_incomplete`, body.includes("binding_incomplete"), path);
+  }
+  // AND NOTHING PROJECTS `binding` AWAY. The measured cause was a projection at the call site,
+  // which no rule in a report contract can reach — so the tree is checked for one.
+  const offenders = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) { if (e.name !== "node_modules" && e.name !== ".git") walk(full); continue; }
+      if (!/\.(md|sh|mjs)$/.test(e.name)) continue;
+      const body = readFileSync(full, "utf8");
+      for (const line of body.split("\n")) {
+        if (!line.includes("read-declared-binding.sh")) continue;
+        if (!/\|\s*jq/.test(line)) continue;
+        if (/\bbinding\b/.test(line)) continue;
+        offenders.push(`${full.slice(REPO_ROOT.length + 1)}: ${line.trim()}`);
+      }
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic"));
+  assertEq("no call site projects the reader's output without keeping `binding`", offenders, []);
+}
+
 T("open-log names a tick log tracked on the base", testOpenLogNamesTrackedLog);
 function testOpenLogNamesTrackedLog() {
   const script = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-open-log.sh");

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-09T13:09:12+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -91,3 +92,52 @@ never read — plausible, and wrong.
   or degraded, which is an ordinary and supported state.
 - Naming the destination is not proof of delivery. Keep it separate from `preferred_route_verified`
   and from the per-effect route reporting.
+
+## Final Report
+
+Development completed as planned.
+
+**Localized first.** Both report contracts were read and what each asked for today was recorded,
+so the change is an addition to a named gap rather than a restatement:
+
+- `commands/infinite-development.md` asked for *the declared binding this tick resolved, and any
+  `binding_contradictory` / `binding_incomplete` / `binding_unreadable:<source>` reading* —
+  satisfiable by `ok:true / declared:true / conflicts:[]`, which says *a* binding resolved rather
+  than **which**.
+- `skills/work/SKILL.md` asked that *startup names the declared binding it resolved, whether the
+  channel and sender were verified, and any `binding_contradictory` / `binding_incomplete`
+  reading* — the same gap, one surface over.
+
+**The obligation now names the destination**, in **one wording carried verbatim by both**: the
+workspace and channel it resolved, and `channel_id` when the declaration carries one, taken from
+the reader's own `binding` and never from memory, a directory name or a repository name; a report
+that names no destination is **non-conformant on its face**; an undeclared repository names the
+environment fallback it used instead. Nothing new is checked at run time — this is a reporting
+obligation, not a gate, and a tick whose binding is undeclared or degraded is unaffected.
+
+**The degraded answers are untouched**: `binding_contradictory`, `binding_incomplete`,
+`binding_unreadable:<source>` and an ordinary `declared: false` each keep their own reading, and
+the pin asserts the first two survive on both surfaces so naming a destination cannot quietly
+replace them.
+
+**The measured cause was a projection at the call site, which no report contract can reach**, so
+two things guard it: the command now says to read the reader's output whole and why, and the pin
+walks the plugin tree for a `read-declared-binding.sh` call piped into `jq` without `binding`.
+This tree has none today — the command's own call is bare — so the check records that fact rather
+than repairing one.
+
+`node scripts/test-workflow-scripts.mjs "name the destination"` covers the wording on both
+surfaces, the surviving degraded words, and the projection walk.
+
+### Discovered Insights
+
+- **Insight**: the defect was not in the reader, the contract's subject, or any script — it was
+  that a *projection at a call site* decided what entered the session's context, and a report
+  contract is written about the report rather than about the read that feeds it.
+  **Context**: this is why the repair has two halves that look unrelated: a wording in the two
+  contracts, and a tree walk for the projection. Either alone leaves the measured failure
+  reachable.
+- **Insight**: a report obligation phrased as *name the thing you resolved* is satisfiable by a
+  status envelope; only naming the **fields** closes it.
+  **Context**: the same shape recurs wherever a contract says "report X" and X has both an
+  envelope and a payload — the envelope is always the cheaper thing to print.

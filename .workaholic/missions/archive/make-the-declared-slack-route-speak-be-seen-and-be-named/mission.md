@@ -2,7 +2,7 @@
 type: Mission
 title: Make the declared Slack route speak, be seen and be named
 slug: make-the-declared-slack-route-speak-be-seen-and-be-named
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-09T13:08:24+09:00
 author: a@qmu.jp
@@ -46,3 +46,5 @@ older root is discovered, and the tick names where it posted.
 - 2026-09-09 — ticket archived — 20260909130912-commit-a-post-on-a-correct-qfs-preview.md
 - 2026-09-09 — ticket archived — 20260909130912-discover-thread-replies-on-the-native-qfs-route.md
 - 2026-09-09 — ticket archived — 20260909130912-refuse-a-post-that-cannot-speak-as-the-sender.md
+- 2026-09-09 — ticket archived — 20260909130912-name-the-destination-in-the-tick-s-report.md
+- 2026-09-09 — mission achieved — mission.md

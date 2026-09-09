@@ -714,4 +714,8 @@
 * [Relatedness remains a semantic judgement](20260908155352-relatedness-remains-a-semantic-judgement.md)
 * [Clear the residue the base already holds instead of stalling the loop forever](20260908175556-clear-the-residue-the-base-already-holds-instead-of-stalling-the-loop-forever.md)
 * [Distinguish an attribution ruling from a routine feedback append](20260908190817-distinguish-an-attribution-ruling-from-a-routine-feedback-append.md)
+* [Name the destination in the binding report instead of a boolean](20260909090459-name-the-destination-in-the-binding-report-instead-of-a-boolean.md)
+* [One jq typo silences every Slack reply the loop owes](20260909091200-one-jq-typo-silences-every-slack-reply-the-loop-owes.md)
+* [Refuse a post that cannot speak as the declared sender](20260909104345-refuse-a-post-that-cannot-speak-as-the-declared-sender.md)
+* [Repair the native work loop's control, delivery and truthful reporting](20260909125918-repair-the-native-work-loop-s-control-delivery-and-truthful-reporting.md)
 <!-- okf:generated:end -->

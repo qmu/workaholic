@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 2.6
 feedback: [20260909130802-detect-replies-in-recent-ongoing-slack-threads.md, 20260909091200-one-jq-typo-silences-every-slack-reply-the-loop-owes.md, 20260909104345-refuse-a-post-that-cannot-speak-as-the-declared-sender.md, 20260909090459-name-the-destination-in-the-binding-report-instead-of-a-boolean.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -49,3 +49,4 @@ older root is discovered, and the tick names where it posted.
 - 2026-09-09 — ticket archived — 20260909130912-name-the-destination-in-the-tick-s-report.md
 - 2026-09-09 — mission achieved — mission.md
 - 2026-09-09 — story — work-20260909-175052.md
+- 2026-09-09 — run recorded (+2.6h) — implement-t16

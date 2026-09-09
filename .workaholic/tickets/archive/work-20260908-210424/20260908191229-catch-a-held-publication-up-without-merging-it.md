@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T19:12:29+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -96,3 +97,54 @@ up to the base and pushes it, and stops there — the merge stays the operator's
 - Whether this is a flag on `settle-stranded-publication.sh` or a sibling act is an
   implementation choice; what must not happen is one act whose merge is conditional on a word,
   because that is how a held publication gets merged by accident.
+
+## Final Report
+
+**The base landed this while the branch was driving it.** This run re-derived every acceptance
+criterion and the Gate against the merged tree rather than re-implementing them; its own parallel
+act is stashed on the claim worktree, not merged.
+
+The base took the ticket's Considerations seriously and answered them in the shape the ticket
+preferred: **preparation and delivery are two files, not one act with a conditional merge.**
+`prepare-publication.sh` holds everything up to and including the push and contains **no merge
+call site at all**; `settle-stranded-publication.sh` is a 51-line wrapper that runs the
+preparation and only then delivers. `catch-up-operator-publication.sh` is a five-line entry point
+that execs the preparation with `--catchup-only`, which swaps the reader to
+`list-operator-facing-pulls.sh` and pins `delivery` to `not_attempted: operator_facing` before
+anything else runs. There is no word a degraded read could flip to turn a catch-up into a merge,
+because the merge is in a different file.
+
+Criterion by criterion:
+
+- **A held publication with a resolvable class is pushed current and not merged.** The operator
+  arm re-proves ownership (`gh api user` against the row's author) and an empty review list, then
+  catches up through `catchup-main.sh --resolve-mechanical` — never a second merge engine —
+  regenerates, validates and pushes. It also forces `NEEDS_CATCHUP=true` in operator mode, because
+  a conflict-free merge is not proof the base is already included: a clean-but-behind publication
+  must still be brought forward.
+- **The report carries the catch-up outcome and `delivery: not_attempted: operator_facing`
+  separately.** They are two fields and the delivery one is set before the first refusal can fire,
+  so every path reports it.
+- **Every refusal is by its own word, with nothing pushed and no worktree left behind.**
+  `publication_not_owned`, `reviewed_or_reviews_unreadable`, `not_a_work_branch`,
+  `has_claim_commit`, `content_conflict`, `scan_held:<tier>`, `validation_failed:<check>`,
+  `push_failed`, and the teardown only keeps a worktree that holds an unpushed merge.
+- **Gate — no merge call site anywhere in the act, and no second merge engine.** Both hold, and
+  the base pins the first from the outside rather than by reading its own source: the suite's
+  stub records every provider call and asserts the operator act made none containing `/merge`.
+
+### Discovered Insights
+
+- **Insight**: The reviews check runs **twice** — once before any work and once immediately
+  before the push — because validation can take minutes and a branch can gain a review inside
+  that window. A single up-front check would push over an approval that arrived while the suite
+  was running.
+  **Context**: This is the one bound where re-deriving at the moment of the act is not enough:
+  the act itself is long, so the proof has to be re-taken at its end as well as at its start.
+- **Insight**: Reading the ticket's `verification_handoff:` axis correctly here mattered more
+  than it looks — all three of this mission's tickets declared nothing, so the unit took its
+  ordinary route even though its work turned out to be already done. Nothing in the claim
+  protocol could see that: `superseded` is derived from **archived tickets**, and these were
+  never archived, so the survey went on offering the unit as `heartbeat_lapsed`.
+  **Context**: The gap is real but the fix is not a *has this already been done* test — that is
+  a reading about behaviour, which `CLAUDE.md`'s planning section refuses by name.

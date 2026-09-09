@@ -4,6 +4,7 @@
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [let-the-loop-grow-a-mission-without-handing-it-back-to-a-person](active/let-the-loop-grow-a-mission-without-handing-it-back-to-a-person/mission.md) - Let the loop grow a mission without handing it back to a person
+* [make-the-declared-slack-route-speak-be-seen-and-be-named](active/make-the-declared-slack-route-speak-be-seen-and-be-named/mission.md) - Make the declared Slack route speak, be seen and be named
 * [report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word](active/report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word/mission.md) - Report a native tick from reconciled evidence, not from a worker's word
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
@@ -56,6 +57,7 @@
 * [land-the-loop-s-own-work-when-the-base-moves-under-it](archive/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it
 * [leave-only-live-work-in-the-unmerged-branch-list](archive/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
 * [let-an-answer-in-the-thread-turn-back-into-the-loop-s-work](archive/let-an-answer-in-the-thread-turn-back-into-the-loop-s-work/mission.md) - Let an answer in the thread turn back into the loop's work
+* [let-the-loop-grow-a-mission-without-handing-it-back-to-a-person](archive/let-the-loop-grow-a-mission-without-handing-it-back-to-a-person/mission.md) - Let the loop grow a mission without handing it back to a person
 * [let-the-operator-revise-a-live-direction-through-the-loop](archive/let-the-operator-revise-a-live-direction-through-the-loop/mission.md) - Let the operator revise a live direction through the loop
 * [let-the-tick-add-to-a-standing-thread-instead-of-restating-itself](archive/let-the-tick-add-to-a-standing-thread-instead-of-restating-itself/mission.md) - Let the tick add to a standing thread instead of restating itself
 * [let-the-tick-s-own-findings-become-the-loop-s-work](archive/let-the-tick-s-own-findings-become-the-loop-s-work/mission.md) - Let the tick's own findings become the loop's work

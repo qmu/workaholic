@@ -25095,6 +25095,31 @@ function testPublishTreePrRulingExemption() {
   assertEq("an ordinary mission edit still merges",
     [rolled.ok, rolled.merged, rolled.merge_reason], [true, true, "merged"]);
 
+  // 3b. AND A `/specificate` EXTENSION OF AN EXISTING MISSION MERGES (2026-09-08, mission
+  //     `let-the-loop-grow-a-mission-without-handing-it-back-to-a-person`). It moves the same
+  //     `feedback:` line a ruling does, so until the mission arm asked what ELSE the
+  //     publication carried, the loop was punished for growing a mission and rewarded for
+  //     fragmenting the work: measured, #1097 and #1094 held five hours and conflicted while
+  //     #1112, minting a mission, landed in four minutes. The end-to-end row is here rather
+  //     than only over the normalised stream because the SEAM'S OWN ADAPTER has to carry the
+  //     added lines for the term to see them at all.
+  const grown = publishSeededArtifact({
+    seed: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") },
+    write: {
+      ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md, 20260908000000-d.md"),
+      ".workaholic/feedbacks/20260908000000-d.md": "---\ntype: Feedback\n---\n\nd\n",
+      ".workaholic/tickets/todo/20260908000000-t.md": "---\nmission: m2\n---\n\n# T\n",
+    },
+    paths: [
+      ".workaholic/missions/active/m2/mission.md",
+      ".workaholic/feedbacks/20260908000000-d.md",
+      ".workaholic/tickets/todo/20260908000000-t.md",
+    ],
+    title: "Grow mission m2 with the new ask",
+  });
+  assertEq("growing an existing mission is ordinary routine work and merges",
+    [grown.ok, grown.merged, grown.merge_reason], [true, true, "merged"]);
+
   // 4. THE BREAKER: the refusal is SEAM-DERIVED, never caller-supplied, and it is its own word
   //    rather than a widened `strategy_touching` — the two ask for different operator acts.
   const src = readFileSync(SCRIPTS.publishTreePr, "utf8")
@@ -38210,6 +38235,40 @@ esac
       classify("M\t.claude/git-identities\t0\n"), "ruling_touching");
     assertEq("an EXISTING mission whose feedback line moves is the operator's",
       classify("M\t.workaholic/missions/active/m/mission.md\t1\n"), "ruling_touching");
+    // AN ATTRIBUTION RULING AND A `/specificate` EXTENSION MOVE THE SAME LINE (2026-09-08,
+    // mission `let-the-loop-grow-a-mission-without-handing-it-back-to-a-person`). Their per-line
+    // diffs are identical, so the rule cannot tell them apart from the mission row alone: the
+    // FOURTH field decides, and `publication-shape.sh` is the one thing that computes it.
+    // Measured 2026-09-08: PR #1097 and #1094 were held `ruling_touching` for five hours and
+    // conflicted with `main` — one losing its target mission to the archive while it waited —
+    // while #1112, MINTING a mission, landed in four minutes. The loop was punished for growing
+    // a mission and rewarded for fragmenting the work.
+    //
+    // THESE ROWS FEED THE RULE DIRECTLY, which is what makes them worth having beside the
+    // adapter's own: the term is one `awk` comparison, and a row that only went through the
+    // adapter could not tell a rule that ignores the field from one that reads it.
+    assertEq("a ruling that also regenerates the OKF indexes is still the operator's",
+      classify("M\t.workaholic/missions/active/m/mission.md\t1\t\n"
+        + "M\t.workaholic/index.md\t0\t\nM\t.workaholic/missions/index.md\t0\t\n"),
+      "ruling_touching");
+    assertEq("a /specificate EXTENSION of that same mission is ordinary routine work",
+      classify("M\t.workaholic/missions/active/m/mission.md\t1\textension\n"
+        + "A\t.workaholic/tickets/todo/2026-t.md\t0\t\n"
+        + "A\t.workaholic/feedbacks/2026-f.md\t0\t\n"
+        + "M\t.workaholic/feedbacks/index.md\t0\t\nM\t.workaholic/index.md\t0\t\n"),
+      "");
+    // AN ABSENT FOURTH FIELD IS NOT AN EXTENSION, which is the safe direction and the one a
+    // caller predating the field depends on: the publication stays the operator's.
+    assertEq("a stream carrying no fourth field at all is still the operator's",
+      classify("M\t.workaholic/missions/active/m/mission.md\t1\n"), "ruling_touching");
+    assertEq("the identity mapping stays UNCONDITIONAL — an extension never buys it back",
+      classify("M\t.claude/git-identities\t0\t\n"
+        + "M\t.workaholic/missions/active/m/mission.md\t1\textension\n"),
+      "ruling_touching");
+    assertEq("and a strategy still outranks an extension",
+      classify("M\t.workaholic/strategies/d.md\t0\t\n"
+        + "M\t.workaholic/missions/active/m/mission.md\t1\textension\n"),
+      "strategy_touching");
     assertEq("a BRAND-NEW mission is an ordinary proposal — the shape test's whole point",
       classify("A\t.workaholic/missions/active/m/mission.md\t1\n"), "");
     assertEq("and an existing mission whose feedback line does not move is ordinary too",

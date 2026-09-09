@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260909-200531
 ---
 
 # Report a native tick from reconciled evidence, not from a worker's word

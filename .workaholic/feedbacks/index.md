@@ -721,4 +721,5 @@
 * [Discover existing QFS mounts and private channels before stopping work](20260909130625-discover-existing-qfs-mounts-and-private-channels-before-stopping-work.md)
 * [Detect replies in recent ongoing Slack threads](20260909130802-detect-replies-in-recent-ongoing-slack-threads.md)
 * [QFS hides a rejected write's own error and a renamed mount cannot call its procedures](20260909162831-qfs-hides-a-rejected-write-s-own-error-and-a-renamed-mount-cannot-call-its-procedures.md)
+* [The tick's finding brake is starved by duplicate issues for one standing condition](20260909171204-the-tick-s-finding-brake-is-starved-by-duplicate-issues-for-one-standing-condition.md)
 <!-- okf:generated:end -->

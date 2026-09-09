@@ -60,7 +60,21 @@ case "$TRANSPORT_OPERATION" in
     if ! qfs_call run "$query" --json > "$tmp/preview" 2> "$tmp/error"; then
       transport_result deferred qfs_preview_failed "$TRANSPORT_REQUEST_ID" "$(error_data)"; exit 0
     fi
-    jq -e '.committed == false and (.preview.rows|type)=="array" and .total_affected > 0' "$tmp/preview" >/dev/null 2>&1 || {
+    # READ THE COUNT WHERE THE PROVIDER ANSWERS IT. QFS answers the affected count nested at
+    # `.preview.total_affected` as `{"exact": N}`; the top-level `.total_affected` this guard
+    # used to read is `null` there, and `null > 0` is `false` in jq — so a CORRECT preview
+    # refused every post and the commit below was unreachable. Both nestings and a bare number
+    # are tolerated rather than one guess being swapped for another; the first reading that
+    # yields a number wins, and a shape NO reading can find stays `qfs_preview_refused`, the
+    # honest word for "the preview did not say what was affected". The `committed` and
+    # `preview.rows` terms are unchanged: only a preview that positively states an affected
+    # row may commit.
+    jq -e '.committed == false and (.preview.rows|type)=="array"
+           and ([ (.preview.total_affected.exact? // empty),
+                  (.preview.total_affected? // empty),
+                  (.total_affected.exact? // empty),
+                  (.total_affected? // empty) ]
+                | map(select(type == "number")) | first // 0) > 0' "$tmp/preview" >/dev/null 2>&1 || {
       transport_result deferred qfs_preview_refused "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
     if ! qfs_call run "$query" --json --commit > "$tmp/raw" 2> "$tmp/error"; then
       transport_result deferred qfs_connector_failure "$TRANSPORT_REQUEST_ID" "$(error_data)"; exit 0

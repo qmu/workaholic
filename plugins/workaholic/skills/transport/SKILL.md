@@ -113,7 +113,12 @@ exits 2, and an internal script failure exits 1.
 Discovery accepts `connect --list` TSV and `describe` path/children/verbs responses, including
 `/slack-<account>` mounts. The native adapter normalizes `ts,user` into message identifiers and
 senders, reads replies at `messages/<ts>/replies`, and uses verified INSERT maps with QFS default
-preview (not a `--preview` flag). A committed write without a Slack timestamp remains an unknown
+preview (not a `--preview` flag). **The affected count is read where the provider answers it** —
+QFS nests it at `.preview.total_affected` as `{"exact": N}`, and reading only the top-level
+`.total_affected` made every correct preview refuse, because `null > 0` is false. Both nestings
+and a bare number are read; a preview whose count no reading can find stays `qfs_preview_refused`,
+the honest word for *the preview did not say what was affected*, and only a preview positively
+stating an affected row may commit. A committed write without a Slack timestamp remains an unknown
 effect requiring reconciliation. Generic `service_rejected` does not establish missing scope.
 Thread discovery, reaction maps, ambiguous root maps and sender verification remain explicit
 capability limitations; a successful channel read does not certify any of them.

@@ -105,6 +105,47 @@ else console.log(JSON.stringify({rows:[{ts:'100.123456',user:'U1',text:'hello',t
   assert.equal(observed[1][1],"insert into /slack-clauyo/qmu/C123/messages/100.123456/replies values ('hello')");
   assert.equal(observed[1].includes('--commit'),false);assert.equal(observed[2].includes('--commit'),true);
 });
+test('a correct QFS preview commits and a preview stating no affected row still refuses',t=>{
+  // The provider answers the affected count NESTED at `.preview.total_affected` as {"exact":N}.
+  // The guard read the top-level `.total_affected`, which is null there, and `null > 0` is false
+  // in jq — so a CORRECT preview refused every post and the commit was unreachable. The fixture
+  // above stubs the FLAT shape, which is why it passed throughout. Measured on this repository's
+  // own declared route (`.workaholic/feedbacks/20260909162831-…`): the preview is correct and
+  // complete on both bound accounts, `total_affected: {"exact": 1}`, one INSERT row.
+  const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
+  writeFileSync(qfs,`#!/usr/bin/env node
+const fs=require('fs'),a=process.argv.slice(2);fs.appendFileSync(process.env.TEST_CALLS,JSON.stringify(a)+'\\n');
+if(a.includes('--commit')){console.log(JSON.stringify({committed:true}));process.exit();}
+console.log(process.env.TEST_PREVIEW);
+`,{mode:0o755});
+  const binding={workspace:'qmu',channel_id:'C123',routes:[{transport:'qfs',described:true,dialect:'pipe-sql',mount:'/slack-clauyo',operations:['post_reply'],thread_map_verified:true}]};
+  const attempt=preview=>{
+    writeFileSync(calls,'');
+    const file=join(dir,'request.json');
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:'preview-shape',repo_root:dir,instance_id:'test',
+      operation:'post_reply',input:{binding,text:'hello',thread_ts:'100.123456'}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/adapters/qfs.sh'),'--request',file],
+      {cwd:dir,encoding:'utf8',env:{...process.env,WORKAHOLIC_QFS_BIN:qfs,TEST_CALLS:calls,TEST_PREVIEW:JSON.stringify(preview)}});
+    assert.equal(r.status,0,r.stderr);
+    return {reason:JSON.parse(r.stdout).reason,committed:readFileSync(calls,'utf8').includes('--commit')};
+  };
+  const rows=[{text:'hello'}];
+  // The shape the route actually answers with must reach the commit.
+  assert.deepEqual(attempt({committed:false,preview:{rows,total_affected:{exact:1}},irreversible:false}),
+    {reason:'qfs_receipt_unavailable',committed:true});
+  // A bare number in either position is read the same way; the flat shape is unchanged.
+  assert.deepEqual(attempt({committed:false,preview:{rows,total_affected:2}}),{reason:'qfs_receipt_unavailable',committed:true});
+  assert.deepEqual(attempt({committed:false,preview:{rows},total_affected:1}),{reason:'qfs_receipt_unavailable',committed:true});
+  // Only a preview that POSITIVELY states an affected row may commit: zero, absent, and a count
+  // no reading can find each still refuse and write nothing.
+  for(const preview of [{committed:false,preview:{rows:[],total_affected:{exact:0}}},
+                        {committed:false,preview:{rows}},
+                        {committed:false,preview:{rows,total_affected:'lots'}}])
+    assert.deepEqual(attempt(preview),{reason:'qfs_preview_refused',committed:false},JSON.stringify(preview));
+  // The `committed` and `preview.rows` terms are untouched by the repair.
+  assert.deepEqual(attempt({committed:true,preview:{rows,total_affected:{exact:1}}}),{reason:'qfs_preview_refused',committed:false});
+  assert.deepEqual(attempt({committed:false,preview:{total_affected:{exact:1}}}),{reason:'qfs_preview_refused',committed:false});
+});
 test('native QFS discovery reads private channels and does not invent a sender or ambiguous write map',t=>{
   const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
   writeFileSync(qfs,`#!/usr/bin/env node

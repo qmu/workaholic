@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-09T13:09:12+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -98,3 +99,62 @@ the connector — which is how the loop came to speak as a person.
   fixture into the declared channel.
 - This ticket does not touch the fallback ordering. That a refused preview licenses the connector
   is `perform.sh`'s typed contract and is a sibling ticket's subject.
+
+## Final Report
+
+Development completed as planned, with one verification unmade and named.
+
+The guard at `adapters/qfs-native.sh` now reads the affected count where the provider answers
+it — `.preview.total_affected.exact`, `.preview.total_affected`, `.total_affected.exact` or
+`.total_affected`, first numeric reading wins — and refuses when no reading finds one. The
+`committed == false` and `(.preview.rows|type)=="array"` terms are byte-identical.
+
+**Reproduction: the live preview capture was REFUSED in this container.** Step 1 asked for a real
+preview body from the declared route. `qfs run "insert into /slack-cc01-qmu/qmu/C0BLL9J7FMY/messages
+values (…)" --json` (a PREVIEW — `qfs run --help`: *PREVIEW by default*, nothing applied without
+`--commit`) was denied by the harness permission classifier, and the run did not work around it.
+The documented cred-free alternative (a write-plan PREVIEW on an unmounted path) does not hold on
+this binary: `insert into /mail/drafts …` answers `unrouted_path` (exit 3), and `qfs connect --list`
+holds only Slack mounts, so no harmless driver was available to preview against.
+
+What was established instead, without the capture:
+
+- Two independent measured records of the shape, one of them against **this repository's own
+  declared channel**: `.workaholic/feedbacks/20260909162831-…` states the preview is correct and
+  complete on both bound accounts (`/slack-cc01-qmu`, `/slack-cdx01-qmu`) inserting into
+  `<mount>/qmu/C0BLL9J7FMY/messages` — `total_affected: {"exact": 1}`, one INSERT row,
+  `irreversible: false` — and only `--commit` fails.
+- The guard's verdict per shape, run directly against reconstructed bodies (old vs new):
+
+  | preview body | old | new |
+  | --- | --- | --- |
+  | `preview.total_affected = {"exact":1}` | refuse | **commit** |
+  | `preview.total_affected = 2` | refuse | commit |
+  | top-level `total_affected = 1` (the existing fixture's shape) | commit | commit |
+  | `preview.total_affected = {"exact":0}` | refuse | refuse |
+  | count absent | refuse | refuse |
+  | `total_affected = "lots"` | refuse | refuse |
+  | `committed: true` | refuse | refuse |
+  | no `preview.rows` | refuse | refuse |
+
+- The repair is shape-tolerant by construction, so it does not rest on which record is right: a
+  shape no reading can read stays `qfs_preview_refused`.
+
+Step 6, `adapters/qfs.sh`'s sibling guard: **reported, not changed.** It guards a different
+dialect's `--preview` response on `.ok != false` and never reads a count at all, so the nested
+shape does not defeat it. It is left exactly as it is.
+
+### Discovered Insights
+
+- **Insight**: the existing hermetic fixture for this adapter stubbed the *flat* preview shape
+  (`total_affected: 1` at the top level), which is why a suite of 6989 rows passed throughout a
+  defect that refused every real post.
+  **Context**: a stub that encodes what the code expects rather than what the provider answers
+  cannot catch a reading error. The new rows assert commit-versus-refusal per shape, including
+  the nested one the provider actually sends.
+- **Insight**: `{"exact":1} > 0` is **true** in jq — objects sort above numbers — so a guard
+  reading `.total_affected > 0` against a body that nested the count at the *top* level would
+  have accepted a preview it never understood.
+  **Context**: the sibling adapter's header already records that a jq truthiness mistake reads as
+  an acceptance; this is the same trap one field over, and it is why the new reading selects on
+  `type == "number"` rather than comparing whatever it finds.

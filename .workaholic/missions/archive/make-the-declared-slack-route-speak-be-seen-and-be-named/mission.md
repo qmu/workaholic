@@ -48,3 +48,4 @@ older root is discovered, and the tick names where it posted.
 - 2026-09-09 — ticket archived — 20260909130912-refuse-a-post-that-cannot-speak-as-the-sender.md
 - 2026-09-09 — ticket archived — 20260909130912-name-the-destination-in-the-tick-s-report.md
 - 2026-09-09 — mission achieved — mission.md
+- 2026-09-09 — story — work-20260909-175052.md

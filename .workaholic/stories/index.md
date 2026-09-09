@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260909-175052](work-20260909-175052.md) - Make the declared Slack route commit a correct preview, prove thread discovery, refuse a post it cannot speak for, and name its destination.
 * [Release Claude Code loop repairs as 1.0.343](work-20260909-024221.md) - Release Claude Code loop repairs with mission-independent release eligibility and verified artifacts.
 * [work-20260908-192225](work-20260908-192225.md) - Clear residue the base provably already holds so a tick reaches its survey, and make a coordinator-level stop reach the channel instead of nobody.
 * [work-20260908-175401](work-20260908-175401.md) - A human decision becomes an explicit loop state — judged for maturity before it may ask, asked once to the responsible person, and read back as evidence before the next tick reports no_evolutionary_move.

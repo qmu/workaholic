@@ -24802,8 +24802,11 @@ function testRefusalCapability() {
   // BOUND 1 — THE AUTHORIZED ROUTE IS NAMED FOR EXACTLY ONE INPUT. This is `rules/shell.md`'s
   // one qualification expressed as a derivation instead of a sentence, and it is what makes the
   // retry's precondition a reading rather than a judgement.
+  // It names the ROUTE, not the tool: no script may call an MCP tool, so a script spelling one
+  // would read as though it did — the tool is named by `rules/shell.md` and the command bodies,
+  // which are the callers that can actually reach it.
   assertEq("session_type_cannot_merge on REST names the one authorized retry",
-    classify("session_type_cannot_merge").authorized_route, "mcp__github__merge_pull_request");
+    classify("session_type_cannot_merge").authorized_route, "github_connector");
   assertEq("and reports the retry as authorized",
     classify("session_type_cannot_merge").retry_authorized, true);
 
@@ -24880,6 +24883,137 @@ function testRefusalCapability() {
   // The classification MOVES NO TOKEN — it describes a refusal the outcome already reported.
   assertTrue("failure-contract.md states the classification moves no token",
     /moves no token/.test(contract), "the no-token reading is missing");
+}
+
+// ---------- loops/reconcile-completion.sh: a completion claim is read (2026-09-09) ----------
+// The tick's report is assembled from each worker's own `executed`/`outcome`/`reason`, and
+// nothing between the worker and the report asked the tree whether that was true. Measured
+// 2026-09-08: a session called implementation complete with ZERO merges, six queued tickets and
+// two unreconciled pull requests, and read its own runner's claims as another loop's.
+//
+// Every row hands the reader its two expensive inputs as files, which is both how the tick uses
+// it (paying for no second walk) and what makes the reader hermetic here: no ref is walked, no
+// network is reached, and the fixture is the claim oracle's and the survey's own output shapes.
+T("loops reconcile-completion: a completion claim is reconciled, never relayed",
+  testReconcileCompletion);
+function testReconcileCompletion() {
+  const A = mkdtempSync(join(tmpdir(), "wh-reconcile-completion-"));
+  const script = join(REPO_ROOT,
+    "plugins/workaholic/skills/loops/scripts/reconcile-completion.sh");
+  const survey = (over = {}) => JSON.stringify({
+    current: true, shallow: false, backlog_error: "", owner_unresolved: false,
+    placeholder_identity: false, backlog_size: 0, ...over,
+  });
+  const oracle = (claims, over = {}) =>
+    JSON.stringify({ fetched: true, shallow: false, claims, ...over });
+  const reconcile = (surveyJson, oracleJson, units = []) => {
+    writeFileSync(join(A, "survey.json"), surveyJson);
+    writeFileSync(join(A, "claims.json"), oracleJson);
+    const args = units.map((u) => `--unit ${JSON.stringify(u)}`).join(" ");
+    return JSON.parse(run(A,
+      `WORKAHOLIC_CLAIM_IDENTITY=me@example.com sh '${script}' --root '${A}'`
+      + ` --plan-units '${join(A, "survey.json")}' --claims '${join(A, "claims.json")}' ${args}`
+    ).stdout);
+  };
+
+  // ROW 1 — THE MEASURED CASE: the worker said done and NOTHING merged. The unit's claim is
+  // still standing with no merge outcome recorded, so its delivery effect is `pending`; the
+  // queue still holds work. A relayed report says complete; the reconciliation says false and
+  // names all three counts.
+  const standing = [{ unit: "u1", branch: "work-1", author: "me@example.com", merge_outcome: "" }];
+  let r = reconcile(survey({ backlog_size: 6 }), oracle(standing), ["u1"]);
+  assertEq("a worker's word does not make a tick complete", r.complete, false);
+  assertEq("...and the unit's delivery is pending, not merged", r.units[0].effect, "pending");
+  assertEq("...and nothing counts as merged", r.merged, 0);
+  assertEq("...and the queue's own count is reported", r.queued, 6);
+
+  // AND WHOSE THE CLAIMS ARE IS PART OF THE ANSWER — the measured session read its own runner's
+  // claims as another loop's, a mistake only a reading that never names the owner can make.
+  assertEq("standing claims are counted", r.standing_claims, 1);
+  assertEq("and this identity's are counted separately", r.standing_claims_mine, 1);
+  const foreign = reconcile(survey(), oracle(
+    [{ unit: "u9", branch: "work-9", author: "someone@else.example", merge_outcome: "" }]));
+  assertEq("a colleague's claim is standing", foreign.standing_claims, 1);
+  assertEq("and is not counted as this identity's", foreign.standing_claims_mine, 0);
+
+  // ROW 2 — A MERGE RELEASES A CLAIM, which is the protocol's own proof that delivery landed.
+  // With the unit gone from the oracle, an empty queue and no standing claim of ours, and only
+  // then, the claim is `true`.
+  r = reconcile(survey({ backlog_size: 0 }), oracle([]), ["u1"]);
+  assertEq("a released claim is merged evidence", r.units[0].effect, "taken");
+  assertEq("and it is counted", r.merged, 1);
+  assertEq("all four terms hold, so the claim is true", r.complete, true);
+
+  // A RECORDED REFUSAL IS CARRIED VERBATIM and is not a merge.
+  r = reconcile(survey(), oracle([{ unit: "u1", branch: "work-1", author: "me@example.com",
+    merge_outcome: "merge_refused: session_type_cannot_merge" }]), ["u1"]);
+  assertEq("a refused merge is not merged", r.merged, 0);
+  assertTrue("and the refusal word is carried, never translated",
+    r.units[0].effect.startsWith("refused:")
+      && r.units[0].effect.includes("session_type_cannot_merge"), r.units[0].effect);
+  assertEq("and the tick is not complete", r.complete, false);
+
+  // ROW 3 — AN UNREADABLE ORACLE IS NULL, NEVER ZERO, AND NEVER COMPLETE. Rendering "I could
+  // not look" as "nothing is outstanding" is the exact failure that makes a completion claim
+  // wrong and confident, so `complete` goes null rather than false and every count follows.
+  r = reconcile(survey({ backlog_size: 0 }), oracle([], { fetched: false }));
+  assertEq("an unfetched oracle is not an empty one", r.standing_claims, null);
+  assertEq("and this identity's count is null too", r.standing_claims_mine, null);
+  assertEq("and the tick's completion is unknown, not false", r.complete, null);
+  assertEq("and the reading says it is degraded", r.readable, false);
+  assertEq("naming the source and the reason", r.degraded[0].source, "list-claims");
+  assertEq("...by its own word", r.degraded[0].reason, "origin_unreachable");
+  assertEq("a truncated history is named too",
+    reconcile(survey(), oracle([], { shallow: true })).degraded[0].reason, "shallow_history");
+
+  // A SURVEY THAT FORBIDS `ok` HAS ESTABLISHED NO EMPTY QUEUE, so its count is not usable here
+  // either — the survey's own five facts, read rather than re-derived.
+  for (const over of [{ current: false }, { shallow: true }, { backlog_error: "boom" },
+    { owner_unresolved: true }, { placeholder_identity: true }]) {
+    const d = reconcile(survey({ backlog_size: 0, ...over }), oracle([]));
+    assertEq(`a survey with ${Object.keys(over)[0]} yields no queue count`, d.queued, null);
+    assertEq(`...and no completion verdict`, d.complete, null);
+  }
+
+  // `readable` IS ABSENT ON A COMPLETED READING (the `merge_policy`/`status:` convention), so a
+  // consumer tests `readable == false` and never `readable // true`.
+  r = reconcile(survey(), oracle([]));
+  assertEq("a completed reading carries no readable field", r.readable, undefined);
+  assertEq("and no degradations", r.degraded.length, 0);
+
+  // IT IS NOT A SECOND ORACLE, AND A CLOSED FEEDBACK ISSUE IS NOT EVIDENCE. A proposal pull
+  // request closes an inbound issue before any implementation exists, so no issue source may
+  // reach this reading — and the way to keep that true is that the script reads none.
+  const src = readFileSync(script, "utf8");
+  const code = src.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  for (const forbidden of ["gh-rest.sh", "list-inbound-issues.sh", "gh api", "worker-result"]) {
+    assertTrue(`reconcile-completion.sh reaches no ${forbidden}`, !code.includes(forbidden),
+      forbidden);
+  }
+  for (const composed of ["act-effect.sh", "list-claims.sh", "plan-units.sh"]) {
+    assertTrue(`and composes ${composed}`, code.includes(composed), composed);
+  }
+  assertTrue("and walks no ref of its own", !/git (for-each-ref|ls-remote|rev-list)/.test(code),
+    "a second walker appeared");
+
+  // AND THE TICK'S REPORT CONTRACT REQUIRES THE COUNTS. Prose, because the report is the
+  // agent's; what is checkable is that a claim naming none is visibly wrong.
+  const tick = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+  assertTrue("the tick contract composes the reconciliation",
+    tick.includes("reconcile-completion.sh"), "the reader is not named");
+  for (const count of ["merged", "standing_claims", "queued"]) {
+    assertTrue(`the tick contract names the \`${count}\` count`, tick.includes(count), count);
+  }
+  assertTrue("a completion claim naming no counts is non-conformant",
+    /non-conformant on its face/.test(tick), "the enforcement is missing");
+  const flat = tick.replace(/\s+/g, " ");
+  assertTrue("a closed feedback issue is not evidence of completion",
+    /closed inbound feedback issue|closed feedback issue/.test(flat), "the issue rule is missing");
+  assertTrue("a degraded source is never reported as complete",
+    /never zero and never complete|complete: null/.test(flat), "the degradation rule is missing");
+  assertTrue("a merge is not a deployment",
+    /merge is not a deployment/.test(flat), "the deployment separation is missing");
 }
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------

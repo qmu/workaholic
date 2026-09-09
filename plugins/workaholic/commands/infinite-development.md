@@ -302,6 +302,7 @@ Return one short Japanese block:
 - total live workers, the configured worker limit, and roles still due but held for capacity;
 - the latest progress reading and its observation time;
 - each completed worker's `executed`, `outcome`, and `reason`;
+- **the reconciled counts a completion claim rests on** — see below;
 - where this report is delivered.
 
 If this tick ends having spawned no runner because something it needed was degraded — an
@@ -313,6 +314,31 @@ an ordinary idle tick and posts nothing.
 Say `idle` alone when nothing happened. Claim completion only from merged work, an empty queue,
 and reconciled pull requests. Then end this tick without polling, waiting for workers, or
 summarizing work whose result has not arrived.
+
+**A completion claim is reconciled, never relayed, and it names the counts it rests on.** The
+report above is assembled from each worker's own `executed` / `outcome` / `reason`; nothing
+between a worker and this report asked the tree whether that was true. Measured 2026-09-08: this
+tick called implementation complete with **zero merges, six queued tickets and two unreconciled
+pull requests**, and read its own runner's claims as another loop's. So before claiming
+completion, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/loops/scripts/reconcile-completion.sh
+[--claims <file>] [--plan-units <file>] --unit <id>…` over the units **this tick** claims to have
+delivered, handing it the claim and survey readings already made rather than paying for them
+twice, and report its `merged`, `standing_claims` (with `standing_claims_mine` — whose they are
+is part of the answer), `queued` and per-unit `effect`. **A completion claim naming none of these
+is non-conformant on its face.**
+
+It is not a second oracle: every number comes from `act-effect.sh`, `list-claims.sh` and
+`plan-units.sh`. **A worker's own report is not evidence of completion, and neither is a closed
+inbound feedback issue** — a *proposal* pull request closes one before any implementation exists,
+so neither is read here and neither may stand in for these counts. **A degraded source is
+`complete: null` with null counts and its reason in `degraded[]`, never zero and never
+complete**: report the reading as degraded by its reason, exactly as an unreadable base colour is
+never reported as green.
+
+**A merge is not a deployment, and completing the queue is not confirming a target.** The
+reconciliation says nothing about any deployment; a pending or failed deployment stays its own
+visible state in this report, and a failed deployed migration remains a failed deployment even
+where the pull request merged and local checks passed.
 
 Base CI health is detection and attribution, not automatic repair. A red reading earns the
 existing alert, and failed delivery is reported in this chat; it does not prove anyone was

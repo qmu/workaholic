@@ -2,7 +2,7 @@
 # Did the act this loop took actually take effect? ONE reader, for both acts.
 #
 # Usage: act-effect.sh retirement <unit>
-#        act-effect.sh delivery   <unit>
+#        act-effect.sh delivery   <unit> [--claims FILE]
 # Output: {"ok": bool, "act": "...", "unit": "...", "effect": "...", "source": "...", "reason": ""}
 #         `effect` is one of `taken` | `refused:<word>` | `pending` | `unavailable` | `unreadable`.
 #         Always exit 0.
@@ -53,6 +53,8 @@ LISTER="${SCRIPT_DIR}/list-claims.sh"
 
 ACT="${1:-}"
 UNIT="${2:-}"
+CLAIMS_FILE=""
+[ "${3:-}" = --claims ] && CLAIMS_FILE="${4:-}"
 
 emit() {
     printf '{"ok": %s, "act": "%s", "unit": "%s", "effect": "%s", "source": "%s", "reason": "%s"}\n' \
@@ -82,8 +84,20 @@ fi
 # row as `merge_outcome`, read by `lib/claims.sh` off the branch story blob the scan fetched, so
 # composing the row costs no call this reader would not otherwise make and cannot disagree with
 # the run that made the attempt.
-[ -f "$LISTER" ] || emit false unreadable list-claims.sh no_reader
-claims=$(sh "$LISTER" 2>/dev/null || true)
+# `--claims` HANDS IN A READING THE CALLER ALREADY MADE (2026-09-09, mission
+# `report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`) — the hand-back
+# shape `direction-state.sh --emit-survey` already uses. Reconciling a tick's units asks this
+# question once per unit, and without it each answer re-ran the oracle: N units, N+1 scans and
+# N+1 fetches of one fact that cannot have changed between them. It is the SAME reader's output,
+# so no second derivation exists and every degradation below still applies to it verbatim; an
+# unreadable file is `unreadable`, never an empty claim table.
+if [ -n "$CLAIMS_FILE" ]; then
+    claims=$(cat "$CLAIMS_FILE" 2>/dev/null || true)
+    [ -n "$claims" ] || emit false unreadable list-claims.sh handed_reading_unreadable
+else
+    [ -f "$LISTER" ] || emit false unreadable list-claims.sh no_reader
+    claims=$(sh "$LISTER" 2>/dev/null || true)
+fi
 printf '%s' "$claims" | jq -e . >/dev/null 2>&1 || emit false unreadable list-claims.sh claims_unparseable
 [ "$(printf '%s' "$claims" | jq -r '.fetched // false')" = "true" ] \
     || emit false unreadable list-claims.sh origin_unreachable

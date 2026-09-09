@@ -38,10 +38,11 @@ queue; a failed or pending deployment stays visible.
 ## Acceptance
 
 - [x] A delivery refusal names which capability refused, and an authorized route is used. (#20260909130138-name-which-capability-refused-a-delivery-and-use-an-authorized-route.md)
-- [ ] A completion claim is reconciled against merge state, claims and the queue before it is made. (#20260909130138-reconcile-a-completion-claim-against-merges-claims-and-the-queue.md)
+- [x] A completion claim is reconciled against merge state, claims and the queue before it is made. (#20260909130138-reconcile-a-completion-claim-against-merges-claims-and-the-queue.md)
 - [ ] A constraint tightened over persisted data is verified against legacy rows. (#20260909130138-verify-a-constraint-tightening-migration-against-legacy-rows.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-09 — ticket archived — 20260909130138-name-which-capability-refused-a-delivery-and-use-an-authorized-route.md
+- 2026-09-09 — ticket archived — 20260909130138-reconcile-a-completion-claim-against-merges-claims-and-the-queue.md

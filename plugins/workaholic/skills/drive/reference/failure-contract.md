@@ -100,8 +100,10 @@ the classification moves no token — a `merge_refused` withholds `ok` exactly a
 
 **`authorized_route` is narrow by construction, and that is what keeps item 5 true.** It is
 non-empty for exactly one input, `session_type_cannot_merge` on `github_rest`, naming
-`mcp__github__merge_pull_request` — `rules/shell.md`'s *one qualification*, cited and not
-widened. A `not_permitted` refusal can therefore never produce one, so an authorization denial
+`github_connector` — the ROUTE, never the tool, because no script may call an MCP tool and one
+that spelled a tool name would read as though it did; the tool is
+`mcp__github__merge_pull_request`, named by `rules/shell.md` and the two command bodies that can
+actually reach it. `rules/shell.md`'s *one qualification*, cited and not widened. A `not_permitted` refusal can therefore never produce one, so an authorization denial
 cannot be routed around by an alternate command spelling, a parent delegation or a second
 account; and the connector's own refusal (`route: github_connector`) produces none either, which
 is *one attempt, one tool* expressed as arithmetic instead of as a sentence.

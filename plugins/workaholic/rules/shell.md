@@ -289,10 +289,12 @@ the unit was finished, green, and waiting on a human who was never told.
 **The precondition is now READ, and the qualification is not widened** (2026-09-09, mission
 `report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`).
 `branching/scripts/refusal-capability.sh <word> [route]` answers which capability refused a
-delivery and whether an authorized route was left untried, and it names
-`mcp__github__merge_pull_request` for **exactly one input** — `session_type_cannot_merge` arriving
-on `github_rest`. Every other word, the connector's own refusal included, answers an empty
-`authorized_route`. So this ruling's three bounds — one named tool, one named precondition, one
+delivery and whether an authorized route was left untried, and it names the route
+`github_connector` for **exactly one input** — `session_type_cannot_merge` arriving on
+`github_rest`. It names the ROUTE and never the tool: no script may call an MCP tool, so a script
+spelling `mcp__github__merge_pull_request` would read as though it did, and the tool stays named
+here and in the two command bodies that can reach it. Every other word, the connector's own
+refusal included, answers an empty `authorized_route`. So this ruling's three bounds — one named tool, one named precondition, one
 act — are derived rather than restated, and an **authorization denial** (`merge_forbidden`, class
 `not_permitted`) provably carries no alternate route: it stays a refusal, and no alternate command
 spelling, parent delegation or second account is used to get past it. The classification and its

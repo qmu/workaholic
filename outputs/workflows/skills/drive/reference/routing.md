@@ -181,7 +181,7 @@ not write a second story generator.
   untouched.
 
   **`authorized_route` is where step 1's precondition now comes from, and it is not widened.** The
-  reader names `mcp__github__merge_pull_request` for exactly one input — `session_type_cannot_merge`
+  reader names `github_connector` for exactly one input — `session_type_cannot_merge`
   arriving on `github_rest` — so the retry's own refusal (`route: github_connector`) carries none,
   which is step 2's *one attempt, one tool* as arithmetic rather than as a sentence. **A
   `not_permitted` refusal never carries one**: an authorization denial stays a refusal, and no

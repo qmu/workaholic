@@ -48,8 +48,10 @@
 #
 # `authorized_route` IS THE WHOLE OF ITEM 4, AND IT IS DELIBERATELY NARROW. It is non-empty for
 # exactly one input — `session_type_cannot_merge` arriving on `github_rest` — and names
-# `mcp__github__merge_pull_request`, which is `rules/shell.md`'s *one qualification* verbatim and
-# is not widened here. Two bounds fall out of the derivation rather than being restated in prose:
+# `github_connector`, which is `rules/shell.md`'s *one qualification* as a route rather than as a
+# tool: the connector TOOL is named by the callers that can actually reach it (`rules/shell.md`
+# and the two command bodies), because no script may call an MCP tool and a script that spelled
+# one would read as though it did. Two bounds fall out of the derivation rather than prose:
 #
 #   * A `not_permitted` refusal NEVER carries one. An authorization denial stays a refusal; no
 #     alternate spelling, no parent delegation, no second account. The ask was explicit that
@@ -87,7 +89,7 @@ esac
 
 authorized_route=""
 if [ "$reason" = session_type_cannot_merge ] && [ "$route" = github_rest ]; then
-    authorized_route=mcp__github__merge_pull_request
+    authorized_route=github_connector
 fi
 
 jq -cn --arg reason "$reason" --arg capability "$capability" --arg route "$route" \

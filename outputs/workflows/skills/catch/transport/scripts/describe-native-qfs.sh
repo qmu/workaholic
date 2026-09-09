@@ -40,11 +40,32 @@ run_qfs run "$base/messages |> select ts, user |> limit 1" --json > "$tmp/probe"
   printf '{"ok":false,"reason":"channel_unreadable","observations":[]}\n'; exit 0; }
 jq -e '(.rows|type)=="array"' "$tmp/probe" >/dev/null 2>&1 || {
   printf '{"ok":false,"reason":"channel_response_unreadable","observations":[]}\n'; exit 0; }
+# THREAD DISCOVERY IS PROVED, NEVER ASSUMED — and never merely assumed ABSENT either. Slack
+# channel history does not carry a reply under an older root, so `list_thread_changes` is the
+# only way such a reply is ever seen; advertising it on a route that cannot answer it is worse
+# than declaring the limitation, and hard-coding the limitation makes a route that CAN answer it
+# unreachable forever. So the collection the operation queries is described, and the driver's own
+# `verbs.select` is the proof. Measured 2026-09-09 on `/slack-cc01-qmu/qmu/C0BLL9J7FMY`: the
+# channel node advertises exactly two children (`messages`, `files`) and `<base>/threads`
+# describes as a placeholder with every verb `false` and one `value: Json` column — so the
+# limitation stands here, now with the describe that proved it, named in `thread_discovery_reason`.
+# Cost: one extra describe per route description, on the mount already being described.
+threads_proved=false
+threads_reason=threads_not_described
+if run_qfs describe "$base/threads" --json > "$tmp/threads" 2>/dev/null; then
+  if jq -e '.verbs.select == true' "$tmp/threads" >/dev/null 2>&1; then
+    threads_proved=true; threads_reason=''
+  else
+    threads_reason=threads_not_selectable
+  fi
+fi
+
 # Inspect map bodies, not INSERT in describe: procedures can expose several maps with
 # the same target, which is not proof that a text INSERT selects chat.postMessage.
 run_qfs describe /sys/drivers --json >/dev/null 2>&1 || true
 run_qfs run "/sys/drivers |> where kind == 'map' AND name LIKE '/slack/%' |> select name, body" --json > "$tmp/maps" 2>/dev/null || printf '{"rows":[]}' > "$tmp/maps"
 jq -cn --arg mount "$mount" --arg workspace "$workspace" --arg channel "$channel" --arg cid "$cid" --arg account "$account" \
+  --argjson threads "$threads_proved" --arg threads_reason "$threads_reason" \
   --slurpfile maps "$tmp/maps" --slurpfile schema "$tmp/messages" '
   def maps_for($path): [$maps[0].rows[]? | select(.name == $path)];
   maps_for("/slack/{ws}/{channel}/messages") as $root |
@@ -54,7 +75,11 @@ jq -cn --arg mount "$mount" --arg workspace "$workspace" --arg channel "$channel
   {ok:true,observations:[{available:true,transport:"qfs",dialect:"pipe-sql",described:true,
     mount:$mount,workspace:$workspace,channel:$channel,channel_id:$cid,account:$account,
     sender_id:null,sender_verified:false,channel_verified:true,map_verified:$post,
-    thread_map_verified:$thread,operations:(["read_channel_delta","read_thread","search_exact"]+
+    thread_map_verified:$thread,thread_collection_verified:$threads,
+    thread_discovery_reason:$threads_reason,
+    operations:(["read_channel_delta","read_thread","search_exact"]+
+      (if $threads then ["list_thread_changes"] else [] end)+
       (if $post then ["post_root"] else [] end)+(if $thread then ["post_reply"] else [] end)),
-    limitations:(["sender_unverified","thread_discovery_unavailable","reaction_map_unverified"]+
+    limitations:(["sender_unverified"]+
+      (if $threads then [] else ["thread_discovery_unavailable"] end)+["reaction_map_unverified"]+
       (if $post then [] else ["root_map_unverified_or_ambiguous"] end))}]}'

@@ -45,14 +45,20 @@ esac
 
 required_sender=""
 case "$TRANSPORT_OPERATION" in post_root|post_reply|add_reaction)
-  required_sender=$(jq -r '.input.expected_sender_id // .input.binding.sender_id // empty' "$TRANSPORT_REQUEST_FILE")
-  if [ -n "$required_sender" ] && ! jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" \
-      '.input.binding.routes[]?|select((.operations|index($op)) and (.sender_id//"")==$sender)' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1; then
-    actual=$(jq -c --arg op "$TRANSPORT_OPERATION" '[.input.binding.routes[]?|select(.operations|index($op))|.sender_id//null]|unique' "$TRANSPORT_REQUEST_FILE")
-    transport_result deferred sender_mismatch "$TRANSPORT_REQUEST_ID" "$(jq -cn --arg expected "$required_sender" --argjson actual "$actual" '{expected_sender_id:$expected,actual_sender_ids:$actual}')"
-    exit 0
-  fi;;
+  required_sender=$(jq -r '.input.expected_sender_id // .input.binding.sender_id // empty' "$TRANSPORT_REQUEST_FILE");;
 esac
+# A DECLARED sender is a term of the binding, not a preference: a write that cannot be proved to
+# speak as it must be refused rather than delivered under whatever identity a fallback happens to
+# carry. Measured in one channel: 94 messages from a person's account, 3 from a bot, 0 from the
+# declared sender. The refusal is made BELOW, once the outbox exists, so it is a delivery status
+# an operator can see and reconcile rather than an early exit that recorded nothing. A binding
+# declaring NO sender is untouched here — the advisory `unverifiable_sender` names that
+# repository, and stopping such a loop is not this rule's job.
+sender_proved() {
+  [ -n "$required_sender" ] || return 0
+  jq -e --arg op "$TRANSPORT_OPERATION" --arg sender "$required_sender" \
+    '.input.binding.routes[]?|select((.operations|index($op)) and (.sender_id//"")==$sender)' "$TRANSPORT_REQUEST_FILE" >/dev/null 2>&1
+}
 
 # Candidate filtering and ranking are one operation. The route whose sender was
 # checked is therefore always the route that executes, regardless of input order.
@@ -255,6 +261,20 @@ else
     transition_outbox sending
 fi
 
+# The write's identity is settled before a route is chosen, and the refusal is RECORDED: the
+# outbox goes `refused`, so a later identical request answers `delivery_refused` rather than
+# trying again, and the result carries the typed reason with `route: null` and
+# `preferred_route_verified: false` — an unavailable identity is visible rather than inferred
+# from a channel's message counts. Nothing was sent, under any account.
+if ! sender_proved; then
+    actual=$(jq -c --arg op "$TRANSPORT_OPERATION" '[.input.binding.routes[]?|select(.operations|index($op))|.sender_id//null]|unique' "$TRANSPORT_REQUEST_FILE")
+    [ "$TRANSPORT_OPERATION" = reconcile_send ] || transition_outbox refused
+    transport_result deferred sender_mismatch "$TRANSPORT_REQUEST_ID" \
+      "$(jq -cn --arg expected "$required_sender" --argjson actual "$actual" \
+         '{expected_sender_id:$expected,actual_sender_ids:$actual,route:null,degraded:false,
+           degraded_from:null,degradation_reason:null,preferred_route_verified:false}')"
+    exit 0
+fi
 route=$(choose_route)
 if [ "$route" != qfs ] && prefers_qfs; then DEGRADED_FROM=qfs; DEGRADATION_REASON=$(undescribed_reason); fi
 select_adapter() {

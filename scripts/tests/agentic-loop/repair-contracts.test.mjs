@@ -105,6 +105,176 @@ else console.log(JSON.stringify({rows:[{ts:'100.123456',user:'U1',text:'hello',t
   assert.equal(observed[1][1],"insert into /slack-clauyo/qmu/C123/messages/100.123456/replies values ('hello')");
   assert.equal(observed[1].includes('--commit'),false);assert.equal(observed[2].includes('--commit'),true);
 });
+test('a correct QFS preview commits and a preview stating no affected row still refuses',t=>{
+  // The provider answers the affected count NESTED at `.preview.total_affected` as {"exact":N}.
+  // The guard read the top-level `.total_affected`, which is null there, and `null > 0` is false
+  // in jq — so a CORRECT preview refused every post and the commit was unreachable. The fixture
+  // above stubs the FLAT shape, which is why it passed throughout. Measured on this repository's
+  // own declared route (`.workaholic/feedbacks/20260909162831-…`): the preview is correct and
+  // complete on both bound accounts, `total_affected: {"exact": 1}`, one INSERT row.
+  const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
+  writeFileSync(qfs,`#!/usr/bin/env node
+const fs=require('fs'),a=process.argv.slice(2);fs.appendFileSync(process.env.TEST_CALLS,JSON.stringify(a)+'\\n');
+if(a.includes('--commit')){console.log(JSON.stringify({committed:true}));process.exit();}
+console.log(process.env.TEST_PREVIEW);
+`,{mode:0o755});
+  const binding={workspace:'qmu',channel_id:'C123',routes:[{transport:'qfs',described:true,dialect:'pipe-sql',mount:'/slack-clauyo',operations:['post_reply'],thread_map_verified:true}]};
+  const attempt=preview=>{
+    writeFileSync(calls,'');
+    const file=join(dir,'request.json');
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:'preview-shape',repo_root:dir,instance_id:'test',
+      operation:'post_reply',input:{binding,text:'hello',thread_ts:'100.123456'}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/adapters/qfs.sh'),'--request',file],
+      {cwd:dir,encoding:'utf8',env:{...process.env,WORKAHOLIC_QFS_BIN:qfs,TEST_CALLS:calls,TEST_PREVIEW:JSON.stringify(preview)}});
+    assert.equal(r.status,0,r.stderr);
+    return {reason:JSON.parse(r.stdout).reason,committed:readFileSync(calls,'utf8').includes('--commit')};
+  };
+  const rows=[{text:'hello'}];
+  // The shape the route actually answers with must reach the commit.
+  assert.deepEqual(attempt({committed:false,preview:{rows,total_affected:{exact:1}},irreversible:false}),
+    {reason:'qfs_receipt_unavailable',committed:true});
+  // A bare number in either position is read the same way; the flat shape is unchanged.
+  assert.deepEqual(attempt({committed:false,preview:{rows,total_affected:2}}),{reason:'qfs_receipt_unavailable',committed:true});
+  assert.deepEqual(attempt({committed:false,preview:{rows},total_affected:1}),{reason:'qfs_receipt_unavailable',committed:true});
+  // Only a preview that POSITIVELY states an affected row may commit: zero, absent, and a count
+  // no reading can find each still refuse and write nothing.
+  for(const preview of [{committed:false,preview:{rows:[],total_affected:{exact:0}}},
+                        {committed:false,preview:{rows}},
+                        {committed:false,preview:{rows,total_affected:'lots'}}])
+    assert.deepEqual(attempt(preview),{reason:'qfs_preview_refused',committed:false},JSON.stringify(preview));
+  // The `committed` and `preview.rows` terms are untouched by the repair.
+  assert.deepEqual(attempt({committed:true,preview:{rows,total_affected:{exact:1}}}),{reason:'qfs_preview_refused',committed:false});
+  assert.deepEqual(attempt({committed:false,preview:{total_affected:{exact:1}}}),{reason:'qfs_preview_refused',committed:false});
+});
+test('native thread discovery is advertised only on the describe that proved the collection',t=>{
+  // A described capability that is not there is worse than a declared limitation, and a
+  // hard-coded limitation makes a provider that CAN answer unreachable forever. So the
+  // collection `list_thread_changes` queries is described and `verbs.select` is the proof.
+  // Measured 2026-09-09 on /slack-cc01-qmu/qmu/C0BLL9J7FMY: the channel node advertises only
+  // `messages` and `files`, and `<base>/threads` describes with every verb false — the
+  // limitation stands there, now carrying the reason the describe gave.
+  const {dir}=fixture(t),qfs=join(dir,'qfs');
+  const describer=threads=>{
+    writeFileSync(qfs,`#!/usr/bin/env node
+const a=process.argv.slice(2);
+if(a[0]==='describe'){
+  if(a[1].endsWith('/threads')){${threads==='absent'?'process.exit(3);':`console.log(JSON.stringify({path:a[1],verbs:{select:${threads==='proved'}},children:[]}));`}process.exit();}
+  console.log(JSON.stringify({path:a[1],verbs:{select:true},children:a[1]==='/slack-clauyo/qmu'?[{segment:'private-channels',path:a[1]+'/private-channels'}]:[]}));process.exit();}
+if(a[1].includes('private-channels'))console.log(JSON.stringify({rows:[{id:'C123',name:'dev-test'}]}));
+else if(a[1].startsWith('/sys/drivers'))console.log(JSON.stringify({rows:[{name:'/slack/{ws}/{channel}/messages/{ts}/replies',body:'chat.postMessage thread_ts'}]}));
+else console.log(JSON.stringify({rows:[{ts:'1.0',user:'U1'}]}));
+`,{mode:0o755});
+    const r=spawnSync('sh',[join(skills,'transport/scripts/describe-native-qfs.sh'),'/slack-clauyo','qmu','dev-test','clauyo'],
+      {cwd:dir,encoding:'utf8',env:{...process.env,WORKAHOLIC_QFS_BIN:qfs}});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout).observations[0];
+  };
+  const proved=describer('proved');
+  assert.equal(proved.thread_collection_verified,true);
+  assert.equal(proved.thread_discovery_reason,'');
+  assert.ok(proved.operations.includes('list_thread_changes'));
+  assert.equal(proved.limitations.includes('thread_discovery_unavailable'),false);
+  for(const [shape,reason] of [['unselectable','threads_not_selectable'],['absent','threads_not_described']]) {
+    const denied=describer(shape);
+    assert.equal(denied.thread_collection_verified,false,shape);
+    assert.equal(denied.thread_discovery_reason,reason);
+    assert.equal(denied.operations.includes('list_thread_changes'),false,shape);
+    assert.ok(denied.limitations.includes('thread_discovery_unavailable'),shape);
+  }
+});
+test('the native list_thread_changes arm is bounded, shaped like its sibling, and gated',t=>{
+  const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
+  writeFileSync(qfs,`#!/usr/bin/env node
+const fs=require('fs'),a=process.argv.slice(2);fs.appendFileSync(process.env.TEST_CALLS,JSON.stringify(a)+'\\n');
+console.log(JSON.stringify({rows:[{thread_ts:'799.0',last_reply_ts:'801.5',reply_count:2},{ts:'700.0'},{last_reply_ts:'650.0'}]}));
+`,{mode:0o755});
+  const route=operations=>({workspace:'qmu',channel_id:'C123',
+    routes:[{transport:'qfs',described:true,dialect:'pipe-sql',mount:'/slack-clauyo',operations,thread_map_verified:true}]});
+  const ask=binding=>{
+    writeFileSync(calls,'');
+    const file=join(dir,'request.json');
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:'ltc',repo_root:dir,instance_id:'test',
+      operation:'list_thread_changes',input:{binding,cursor:'800.000000',overlap_seconds:30,limit:3}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/adapters/qfs.sh'),'--request',file],
+      {cwd:dir,encoding:'utf8',env:{...process.env,WORKAHOLIC_QFS_BIN:qfs,TEST_CALLS:calls}});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);
+  };
+  // A route the describe did not prove refuses; nothing is queried at all.
+  const gated=ask(route(['read_channel_delta','read_thread','post_reply']));
+  assert.equal(gated.reason,'qfs_operation_unavailable');
+  assert.equal(readFileSync(calls,'utf8'),'');
+  // A proved route asks the THREADS collection inside the same bounded overlap window, and
+  // never the channel: `where last_reply_ts >= cursor - overlap`, with the caller's own limit.
+  const answered=ask(route(['read_channel_delta','list_thread_changes']));
+  assert.equal(answered.status,'ok',JSON.stringify(answered));
+  assert.equal(JSON.parse(readFileSync(calls,'utf8').trim())[1],
+    "/slack-clauyo/qmu/C123/threads |> where last_reply_ts >= '770.000000' |> select thread_ts, last_reply_ts, reply_count |> limit 3");
+  // The shape `adapters/qfs.sh` returns, so no consumer learns which adapter answered: a row
+  // with no thread coordinate at all is dropped, `ts` stands in where the columns are named
+  // differently, and a full page reports has_more rather than silence.
+  assert.deepEqual(answered.data.threads,[{thread_ts:'799.0',last_reply_ts:'801.5',reply_count:2},
+    {thread_ts:'700.0',last_reply_ts:'700.0',reply_count:null}]);
+  assert.equal(answered.data.next_cursor,'801.5');
+  assert.equal(answered.data.has_more,true);
+});
+test('a declared sender no route can prove is its own refusal, not an unreachable channel',t=>{
+  // `target_unverified` means NOTHING reaches this channel. A route that reaches it and cannot
+  // prove who would speak is a different fact needing a different fix, and it must be refused
+  // without the caller opting in — the `require_verified_sender` seam served only a caller that
+  // asked, so the loop's own write path never reached it and the fallback posted as a person.
+  const {dir}=fixture(t);
+  const observations=[{available:true,transport:'qfs',described:true,mount:'/slack-x',account:'bot',
+      workspace:'qmu',channel:'dev',channel_id:'C1',sender_id:null,operations:['post_root']},
+    {available:true,transport:'connector',account:'person',workspace:'qmu',channel:'dev',
+      channel_id:'C1',sender_id:'UPERSON',operations:['post_root']}];
+  const resolve=target=>{
+    const file=join(dir,'resolve.json');
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:'r',operation:'discover',
+      repo_root:dir,instance_id:'test',input:{target,observations}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/resolve-target.sh'),'--request',file],{cwd:dir,encoding:'utf8'});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);
+  };
+  const unprovable=resolve({workspace:'qmu',channel:'dev',sender_id:'U9'});
+  assert.equal(unprovable.reason,'sender_unverified');
+  assert.equal(unprovable.data.expected_sender_id,'U9');
+  assert.deepEqual(unprovable.data.accounts,['bot','person']);
+  // A channel nothing reaches keeps the word that means exactly that.
+  assert.equal(resolve({workspace:'qmu',channel:'nowhere',sender_id:'U9'}).reason,'target_unverified');
+  // A route that DOES carry the declared sender resolves, and says the sender was verified.
+  const proved=resolve({workspace:'qmu',channel:'dev',sender_id:'UPERSON'});
+  assert.equal(proved.status,'ok',JSON.stringify(proved));
+  assert.equal(proved.data.binding.sender_id,'UPERSON');
+  assert.equal(proved.data.binding.sender_verified,true);
+});
+test('a write that cannot speak as the declared sender is refused, recorded and reported',t=>{
+  // Measured in one channel: 94 messages from the operator's own account, 3 from a bot, and 0
+  // from the declared sender. The refusal existed and recorded nothing — it exited before the
+  // outbox — so an unavailable identity could only be inferred from message counts.
+  const {dir}=fixture(t);
+  const send=(id,binding)=>{
+    const file=join(dir,`${id}.json`);
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:id,binding_id:'b1',
+      operation:'post_root',repo_root:dir,instance_id:'test',
+      input:{now:'2026-09-09T00:00:00Z',text:'hi',binding:{workspace:'qmu',channel:'dev',channel_id:'C1',
+        routes:[{transport:'connector',operations:['post_root'],sender_id:'UPERSON',described:true}],thread_map:{},...binding}}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/perform.sh'),'--request',file],{cwd:dir,encoding:'utf8'});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);
+  };
+  const refused=send('w1',{sender_id:'U9'});
+  assert.equal(refused.reason,'sender_mismatch');
+  assert.deepEqual(refused.data.actual_sender_ids,['UPERSON']);
+  // Reported with its route and typed reason: no route carried it and none was verified.
+  assert.equal(refused.data.route,null);
+  assert.equal(refused.data.preferred_route_verified,false);
+  // Recorded as a delivery status: the outbox holds it, so a repeat does not try again.
+  const outbox=spawnSync('find',[dir,'-path','*outbox*','-name','w1.json'],{encoding:'utf8'}).stdout.trim();
+  assert.ok(outbox,'the refused write is recorded in the outbox');
+  assert.equal(JSON.parse(readFileSync(outbox,'utf8')).data.state,'refused');
+  assert.equal(send('w1',{sender_id:'U9'}).reason,'delivery_refused');
+  // A route that proves the declared sender still delivers, and a binding declaring NO sender
+  // behaves exactly as before — the advisory `unverifiable_sender` names that repository.
+  assert.equal(send('w2',{sender_id:'UPERSON'}).status,'needs_parent');
+  assert.equal(send('w3',{}).status,'needs_parent');
+});
 test('native QFS discovery reads private channels and does not invent a sender or ambiguous write map',t=>{
   const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
   writeFileSync(qfs,`#!/usr/bin/env node

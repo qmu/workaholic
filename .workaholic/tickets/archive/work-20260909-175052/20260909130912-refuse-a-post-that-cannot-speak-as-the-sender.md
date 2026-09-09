@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-09T13:09:12+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -102,3 +103,63 @@ Success through a different identity does not satisfy a request that named one.
   reason the two are ordered; drive that one first.
 - Do not switch accounts to make a sender effective. That is the failure being repaired, and the
   standing rule already forbids it.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced and localized first, exactly as step 1 asks.** One post was taken through
+`resolve-target.sh` → `perform.sh` on this repository's own declared binding, and both sender
+checks were established as *not reached* rather than assumed so:
+
+- `read-declared-binding.sh --root .` answers `sender_id: null` for `AGENTS.md`, and
+  `check-slack-binding.sh` reports `unverifiable_sender`. So `required_sender` is empty at every
+  seam and **nothing is compared** — the state the ask measured as 94 messages from a person's
+  account, 3 from a bot, 0 from the declared sender.
+- With a sender declared and a route that cannot prove it, `resolve-target.sh` answered
+  **`target_unverified`** — *nothing reaches this channel* — while a route did reach it and could
+  not prove who would speak. The `sender_unverified` seam was not reached because the caller had
+  not passed `require_verified_sender`.
+- `perform.sh` did refuse `sender_mismatch`, and **recorded nothing**: the refusal exited before
+  the outbox existed, and the result carried no `route`, no `degraded_from` and no
+  `preferred_route_verified`. An unavailable identity was inferable only from message counts.
+
+**The rule, stated in one place** (`transport/SKILL.md`): a declared sender is a term of the
+binding, and a write that cannot be proved to speak as it is refused rather than delivered under
+another identity.
+
+- `resolve-target.sh`: a target declaring `sender_id` that matches a route on everything **but**
+  that sender is refused `sender_unverified`, naming the accounts and the senders actually
+  offered — **without the caller opting in**. `target_unverified` keeps its meaning exactly: a
+  channel nothing reaches still reads that way, verified by its own row.
+- `perform.sh`: the identity is settled **before a route is chosen**, so no fallback can carry the
+  write; the refusal transitions the outbox to `refused`, so a repeat answers `delivery_refused`
+  rather than trying again; and the result carries the typed reason with `route: null` and
+  `preferred_route_verified: false`.
+- The destination and expected sender still ride any fallback verbatim — `connector_handoff` and
+  `next_route` are untouched, and `next_route` already filters candidates by the required sender.
+- **A binding declaring no `sender_id` is byte-identical**, which is this repository. The advisory
+  `unverifiable_sender` already names it, and step 3 forbids turning an undeclared sender into a
+  stopped loop. No account was switched to make a sender effective.
+
+Verified per shape: declared sender proved → delivers; declared sender unprovable → refused,
+recorded, reported, idempotent on repeat; no declared sender → unchanged.
+
+### Discovered Insights
+
+- **Insight**: the sender machinery was complete at three seams — `perform.sh`'s pre-flight,
+  `slack-token.sh`'s response check and `accept-observation.sh` — and every one of them is inert
+  when neither `expected_sender_id` nor `binding.sender_id` is set.
+  **Context**: three independent checks all keyed on one optional field is a single point of
+  failure wearing a belt and braces. What was missing was never a fourth check; it was that the
+  field is optional and the refusal, when it fired, left no trace.
+- **Insight**: `sender_verified` is derived at resolution as `sender_id != ""`, not carried per
+  route.
+  **Context**: so "proved to speak as the sender" means *a route named that sender id*, and an
+  `account` label is deliberately never promoted into one. A future stricter proof would have to
+  add a per-route field rather than tighten a comparison.
+- **Insight**: a refusal that exits before the outbox is created is invisible to reconciliation
+  by construction.
+  **Context**: the outbox is what makes a delivery outcome durable and idempotent, so any refusal
+  an operator is expected to *see* has to be made after the record exists — which is why this one
+  moved rather than gained a new word.

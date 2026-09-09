@@ -73,7 +73,12 @@ Observe both inputs before deciding the next observation:
 
 Report the route each Slack effect actually took. Startup names the declared binding it
 resolved, whether the channel and sender were verified, and any `binding_contradictory` /
-`binding_incomplete` reading; each effect names its `route` and, when it left the preferred one,
+`binding_incomplete` reading. Name the destination: the
+workspace and channel it resolved, and `channel_id` when the declaration carries one, taken
+from the reader's own `binding` and never from memory, a directory name or a repository name —
+a report that names no destination is **non-conformant on its face**, and an undeclared
+repository names the environment fallback it used instead.
+Each effect names its `route` and, when it left the preferred one,
 `degraded_from` and the typed `degradation_reason`. A connector or token success is a **degraded
 success** — it proves delivery and never that the preferred route is configured — and reporting
 it as an ordinary one is how a repository runs for weeks on a route nobody chose.

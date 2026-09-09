@@ -53,6 +53,19 @@ means *a route reaches it and cannot do what was declared*. `require_verified_se
 `sender_unverified` rather than letting a profile label stand in for an identity Slack proved.
 The canonical binding carries `channel_verified`, `sender_verified` and `declared_digest`.
 
+**A declared sender is a term of the binding, and a write that cannot be proved to speak as it
+is refused rather than delivered under another identity.** The refusal needs no caller opt-in:
+a target that declares `sender_id` and matches a route on everything **but** that sender is
+refused `sender_unverified` — *a route reaches this channel and cannot prove who would speak* —
+where it used to be conflated with `target_unverified`. On the write path the same term is
+settled before any route is chosen, and the refusal is **recorded**: the outbox goes `refused`
+so a repeat answers `delivery_refused`, and the result carries `sender_mismatch` with
+`route: null` and `preferred_route_verified: false`, so an unavailable identity is visible
+rather than inferred from a channel's message counts. Measured in one channel: 94 messages from
+the operator's own account, 3 from a bot, and **0** from the declared sender. **A binding that
+declares no `sender_id` is unchanged** — the advisory `unverifiable_sender` names that
+repository, and never posting is not this rule's remedy for it.
+
 ## Discovering thread replies
 
 Slack channel history does not carry a reply under an older root, so `read_channel_delta` can
@@ -113,7 +126,21 @@ exits 2, and an internal script failure exits 1.
 Discovery accepts `connect --list` TSV and `describe` path/children/verbs responses, including
 `/slack-<account>` mounts. The native adapter normalizes `ts,user` into message identifiers and
 senders, reads replies at `messages/<ts>/replies`, and uses verified INSERT maps with QFS default
-preview (not a `--preview` flag). A committed write without a Slack timestamp remains an unknown
+preview (not a `--preview` flag). **The affected count is read where the provider answers it** —
+QFS nests it at `.preview.total_affected` as `{"exact": N}`, and reading only the top-level
+`.total_affected` made every correct preview refuse, because `null > 0` is false. Both nestings
+and a bare number are read; a preview whose count no reading can find stays `qfs_preview_refused`,
+the honest word for *the preview did not say what was affected*, and only a preview positively
+stating an affected row may commit. A committed write without a Slack timestamp remains an unknown
 effect requiring reconciliation. Generic `service_rejected` does not establish missing scope.
-Thread discovery, reaction maps, ambiguous root maps and sender verification remain explicit
-capability limitations; a successful channel read does not certify any of them.
+
+**Thread discovery on this dialect is proved, never assumed — in either direction.** The
+collection `list_thread_changes` queries is described and the driver's own `verbs.select` is the
+proof: only then is the operation advertised and the `thread_discovery_unavailable` limitation
+dropped, and the adapter's arm is reachable only through that advertisement. An unproved route
+declares the limitation carrying the reason the describe gave (`thread_collection_verified`,
+`thread_discovery_reason`: `threads_not_selectable` / `threads_not_described`), so a provider
+that has no such collection is named rather than guessed at. Measured 2026-09-09 on
+`/slack-cc01-qmu/qmu/C0BLL9J7FMY`: the channel node advertises only `messages` and `files`, so
+the limitation stands there. Reaction maps, ambiguous root maps and sender verification remain
+explicit capability limitations; a successful channel read does not certify any of them.

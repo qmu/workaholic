@@ -50,6 +50,8 @@ tick is already executing that unreviewed plugin behavior. Do not block, modify,
 
 Read the repository's declared Slack binding **before** any Slack selection, read, or write:
 `bash ${CLAUDE_PLUGIN_ROOT}/skills/transport/scripts/read-declared-binding.sh --root .`.
+Read its output whole: a projection that drops `binding` keeps the workspace and channel out of
+this tick's context entirely, which is how a session comes to answer where it posts from memory.
 A declaration is the destination; the environment variables below are the fallback for a
 repository that declares nothing (`declared: false`, an ordinary answer). Report
 `binding_contradictory`, `binding_incomplete`, or `binding_unreadable:<source>` and select no
@@ -265,7 +267,11 @@ Return one short Japanese block:
 
 - dirty checkout, only when dirty;
 - the declared binding this tick resolved, and any `binding_contradictory`,
-  `binding_incomplete` or `binding_unreadable:<source>` reading;
+  `binding_incomplete` or `binding_unreadable:<source>` reading. Name the destination: the
+  workspace and channel it resolved, and `channel_id` when the declaration carries one, taken
+  from the reader's own `binding` and never from memory, a directory name or a repository name —
+  a report that names no destination is **non-conformant on its face**, and an undeclared
+  repository names the environment fallback it used instead.
 - thread coverage: `covered`, or `partial` with its reason;
 - each Slack action or named degradation, naming the `route` it took and — when it left the
   declared one — `degraded_from` and the typed `degradation_reason`. A connector or token

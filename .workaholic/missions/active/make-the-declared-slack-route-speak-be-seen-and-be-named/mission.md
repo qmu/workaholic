@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260909-175052
 ---
 
 # Make the declared Slack route speak, be seen and be named

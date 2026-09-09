@@ -166,6 +166,27 @@ not write a second story generator.
      successful connector merge would name a failure that did not happen; reporting only the REST
      one after a failed retry hides that the retry was made.
 
+  **And every refused delivery names WHICH capability refused it, and on which route** (2026-09-09,
+  mission `report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`). One refused
+  REST call had been reported as a statement about the whole session — measured 2026-09-08, two
+  native runners stopping on `merge_refused: session_type_cannot_merge` after which an
+  operator-authorized squash merge succeeded on the same pull request. The class is **read, never
+  spelled**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/refusal-capability.sh <word>
+  [route]` answers `capability` — `no_capability` (the tool or route is absent here; a different
+  caller merges this unchanged) / `call_errored` (nothing was established) / `not_permitted` (an
+  authorization denial) / `none` (no capability refused it — GitHub declined on the pull request's
+  own state) — beside `route` and `authorized_route`. Report it as `merge_refused: <word>
+  (<capability> on <route>)`. It **adds a classification and renames nothing**: `<word>` is
+  `merge-reason.sh`'s, unchanged in derivation and format, and the outcome table above is
+  untouched.
+
+  **`authorized_route` is where step 1's precondition now comes from, and it is not widened.** The
+  reader names `mcp__github__merge_pull_request` for exactly one input — `session_type_cannot_merge`
+  arriving on `github_rest` — so the retry's own refusal (`route: github_connector`) carries none,
+  which is step 2's *one attempt, one tool* as arithmetic rather than as a sentence. **A
+  `not_permitted` refusal never carries one**: an authorization denial stays a refusal, and no
+  alternate command spelling, parent delegation or second account is used to get past it.
+
   **A LATER run re-attempts a unit an earlier one could not deliver** (2026-08-27, mission
   `deliver-and-retire-what-the-loop-already-proved-finished`). Everything above covers the run
   that made the attempt. Nothing covered the hour after: `plan-units.sh` excluded the unit

@@ -36,6 +36,24 @@ Prefer `drive/scripts/deliver-unit.sh <unit>` for reported units; a direct ship 
 `ship/scripts/merge-pr.sh <pr-number> [base-branch]` from the PR's worktree. The second argument
 is a branch name, never a head SHA. Re-read checks after catch-up changes the head.
 
+**A refused delivery names which capability refused it, and an authorized route that exists is
+used.** This tick merges for itself through the two scripts above, so `commands/implement.md`'s
+connector-retry step — which a `[Implement]` worker reaches by executing that body — was never on
+this path at all: measured 2026-09-08, two runners stopped on `merge_refused:
+session_type_cannot_merge` and an operator-authorized squash merge then succeeded on the same
+pull request. Read the class rather than spelling it: `bash
+${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/refusal-capability.sh <refusal-word> <route>`
+answers `capability` (`no_capability` / `call_errored` / `not_permitted` / `none`), `route` and
+`authorized_route`. Report every refused delivery as `merge_refused: <word> (<capability> on
+<route>)` — **one refused call is never reported as this session having no delivery**. Where
+`authorized_route` is non-empty, take it: `mcp__github__merge_pull_request`, **at most once**, on
+that one word and no other, and report **both** outcomes by name — `merged`, or the pull request
+left open with the REST refusal and the connector's own. Naming a `session_type_cannot_merge` and
+reporting no retry outcome is non-conformant on its face. **An authorization denial stays a
+refusal**: a `not_permitted` class carries no authorized route, and no alternate command spelling,
+parent delegation or second account is used to get past it. Reads, writes and pull-request
+creation stay REST (`rules/shell.md`, *The one qualification*).
+
 ## Observe
 
 **Native parent / same-chat tick, before other work:** read `runtime/reference/native-loop.md`

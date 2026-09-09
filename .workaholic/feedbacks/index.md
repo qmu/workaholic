@@ -722,4 +722,5 @@
 * [Detect replies in recent ongoing Slack threads](20260909130802-detect-replies-in-recent-ongoing-slack-threads.md)
 * [QFS hides a rejected write's own error and a renamed mount cannot call its procedures](20260909162831-qfs-hides-a-rejected-write-s-own-error-and-a-renamed-mount-cannot-call-its-procedures.md)
 * [The tick's finding brake is starved by duplicate issues for one standing condition](20260909171204-the-tick-s-finding-brake-is-starved-by-duplicate-issues-for-one-standing-condition.md)
+* [reconcile-questions retires a live question because the registry records human-checkin as every question's owning step](20260909181740-reconcile-questions-retires-a-live-question-because-the-registry-records-human-checkin-as-every-question-s-owning-step.md)
 <!-- okf:generated:end -->

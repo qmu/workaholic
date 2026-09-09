@@ -286,6 +286,19 @@ proposals stay open. An open pull request with an honest reason is a recoverable
 was not obviously worse. What decided it is that the honest reason had nobody to reach —
 the unit was finished, green, and waiting on a human who was never told.
 
+**The precondition is now READ, and the qualification is not widened** (2026-09-09, mission
+`report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`).
+`branching/scripts/refusal-capability.sh <word> [route]` answers which capability refused a
+delivery and whether an authorized route was left untried, and it names
+`mcp__github__merge_pull_request` for **exactly one input** — `session_type_cannot_merge` arriving
+on `github_rest`. Every other word, the connector's own refusal included, answers an empty
+`authorized_route`. So this ruling's three bounds — one named tool, one named precondition, one
+act — are derived rather than restated, and an **authorization denial** (`merge_forbidden`, class
+`not_permitted`) provably carries no alternate route: it stays a refusal, and no alternate command
+spelling, parent delegation or second account is used to get past it. The classification and its
+consumers are `drive/reference/failure-contract.md`, *A refused delivery names which capability
+refused it*; nothing about what may be retried moved.
+
 This is a **conversion, not a fallback**. A REST-after-GraphQL ladder would keep two
 behaviours to reason about and still fail whenever the 403 arrived in a shape the ladder
 did not expect. One always-available transport cannot drift.

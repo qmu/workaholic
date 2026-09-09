@@ -236,6 +236,8 @@ const SCRIPTS = {
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
   mergeReason: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/merge-reason.sh"),
+  refusalCapability:
+    join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/refusal-capability.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
   renderTickPost: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/render-tick-post.sh"),
   proposeSurvey: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"),
@@ -24751,6 +24753,133 @@ function testMergeReason() {
   assertTrue("backlog_all_excluded still moves no token",
     /`backlog_all_excluded`[\s\S]{0,400}?moves no token|moves no token/.test(driveSkill),
     "the no-token reading was disturbed");
+}
+
+// ---------- branching/refusal-capability.sh: WHICH capability refused (2026-09-09) ----------
+// `merge-reason.sh` answers WHAT the refusal was. This answers what that refusal says about the
+// SESSION — a different question, and folding the two together is exactly how one refused REST
+// call became a statement about the whole session. Measured 2026-09-08 on a native `/work` tick:
+// two runners stopped on `merge_refused: session_type_cannot_merge`, after which an
+// operator-authorized squash merge succeeded on the same pull request.
+//
+// One row per class, plus the two bounds that are the whole reason the reader is narrow: an
+// authorization denial can never produce an alternate route, and the connector's own refusal
+// cannot produce a second attempt.
+T("branching refusal-capability: a refused delivery names which capability refused it",
+  testRefusalCapability);
+function testRefusalCapability() {
+  const classify = (word, route) => JSON.parse(run(REPO_ROOT,
+    `sh '${SCRIPTS.refusalCapability}' ${JSON.stringify(word)}`
+      + (route ? ` ${JSON.stringify(route)}` : "")).stdout.trim());
+
+  // ONE ROW PER CLASS. Each is a different next action, which is why they are four words.
+  const cases = [
+    // The route is absent HERE; a different caller merges this pull request unchanged.
+    ["session_type_cannot_merge", "no_capability"],
+    ["gh_unavailable", "no_capability"],
+    // An authorization denial — a person changes something outside the pull request.
+    ["merge_forbidden", "not_permitted"],
+    // Nothing was established.
+    ["merge_failed", "call_errored"],
+    ["rest_unreachable", "call_errored"],
+    // NO capability refused it: GitHub declined on the pull request's own state. Forcing these
+    // into one of the three would report a conflict as "this session cannot deliver", which is
+    // the very error the classification exists to stop — so the named empty is a row of its own.
+    ["merge_not_allowed", "none"],
+    ["head_moved", "none"],
+  ];
+  for (const [word, want] of cases) {
+    assertEq(`${word} is ${want}`, classify(word).capability, want);
+    assertEq(`${word} names the route it was refused on`, classify(word).route, "github_rest");
+  }
+
+  // AN UNKNOWN WORD IS `unclassified`, NEVER A GUESS. A silently mis-binned refusal is worse
+  // than an unclassified one: the report would name a capability nothing established.
+  assertEq("an unrecognised word is unclassified", classify("something_new").capability,
+    "unclassified");
+  assertEq("and so is an empty one", classify("").capability, "unclassified");
+
+  // BOUND 1 — THE AUTHORIZED ROUTE IS NAMED FOR EXACTLY ONE INPUT. This is `rules/shell.md`'s
+  // one qualification expressed as a derivation instead of a sentence, and it is what makes the
+  // retry's precondition a reading rather than a judgement.
+  assertEq("session_type_cannot_merge on REST names the one authorized retry",
+    classify("session_type_cannot_merge").authorized_route, "mcp__github__merge_pull_request");
+  assertEq("and reports the retry as authorized",
+    classify("session_type_cannot_merge").retry_authorized, true);
+
+  // BOUND 2 — AN AUTHORIZATION DENIAL IS STILL A REFUSAL. The ask was explicit that alternate
+  // spellings, parent delegation and second accounts must not become a way around a permission
+  // refusal; the way to keep that true is that the reader licensing a retry cannot produce one.
+  for (const [word, cls] of cases) {
+    if (cls === "not_permitted") {
+      assertEq(`${word} carries no alternate route`, classify(word).authorized_route, "");
+      assertEq(`${word} is not retry-authorized`, classify(word).retry_authorized, false);
+    }
+  }
+  // No word other than the one above ever carries an authorized route.
+  const carriers = cases.map(([w]) => w).concat(["something_new"])
+    .filter((w) => classify(w).authorized_route !== "");
+  assertEq("exactly one refusal word licenses a retry", carriers.join(","),
+    "session_type_cannot_merge");
+
+  // BOUND 3 — ONE ATTEMPT, ONE TOOL. The connector's own refusal licenses nothing, so the
+  // "at most once" bound holds by arithmetic rather than by the agent remembering it.
+  assertEq("the connector's own refusal licenses no second attempt",
+    classify("session_type_cannot_merge", "github_connector").authorized_route, "");
+
+  // EVERY WORD `merge-reason.sh` EMITS IS CLASSIFIED HERE. A literal-text check cannot see an
+  // omission, and an omission is the defect: a new rung that nothing classifies would report as
+  // `unclassified` in a live run, which is honest but useless. The word list is derived from
+  // that script's own source so the two cannot drift.
+  const ladder = readFileSync(SCRIPTS.mergeReason, "utf8");
+  const emitted = [...ladder.matchAll(/printf '([a-z_]+)\\n'/g)].map((m) => m[1]);
+  assertTrue("merge-reason.sh's rungs were readable", emitted.length >= 5, String(emitted));
+  const unclassified = emitted.filter((w) => classify(w).capability === "unclassified");
+  assertEq("every merge-reason.sh rung is classified", unclassified.join(","), "");
+
+  // AND `merge-pull.sh` READS IT RATHER THAN SPELLING IT. Until 2026-09-09 it rendered a literal
+  // `retry_authorized:false` on every refusal it classified — including the one refusal
+  // `rules/shell.md` authorizes a retry for — so the field said the opposite of the rule.
+  const mergePull = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-pull.sh"), "utf8");
+  assertTrue("merge-pull.sh composes refusal-capability.sh",
+    /refusal-capability\.sh/.test(mergePull), "the composer is not read");
+  // Comments are stripped first: the header records the defect by quoting the literal it
+  // removed, and a check that cannot tell the record from the code would forbid the record.
+  const mergePullCode = mergePull.split("\n")
+    .filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("merge-pull.sh keeps no literal retry_authorized verdict",
+    !/retry_authorized:(true|false)/.test(mergePullCode), "a literal verdict survives");
+
+  // AND BOTH DELIVERY PATHS CARRY THE RETRY. The `[Implement]` worker reaches it by executing
+  // `commands/implement.md`; the native coordinator merges for ITSELF through `deliver-unit.sh`
+  // and `merge-pr.sh`, so it never reached that body — which is the measured half of the gap.
+  // Prose, because no script may call an MCP tool; what is checkable is that each body names the
+  // tool, the precondition and the bound.
+  for (const body of ["commands/implement.md", "commands/infinite-development.md"]) {
+    const text = readFileSync(join(REPO_ROOT, "plugins/workaholic", body), "utf8");
+    assertTrue(`${body} reads the capability rather than spelling it`,
+      text.includes("refusal-capability.sh"), body);
+    assertTrue(`${body} names the one tool the retry may use`,
+      text.includes("mcp__github__merge_pull_request"), body);
+    assertTrue(`${body} states the retry's precondition`,
+      text.includes("session_type_cannot_merge"), body);
+    assertTrue(`${body} bounds the retry to one attempt`,
+      /at most once|one attempt/.test(text), body);
+    assertTrue(`${body} keeps an authorization denial a refusal`,
+      /not_permitted/.test(text) && /denial/.test(text), body);
+  }
+
+  // AND THE CONTRACT DEFINES THE WORDS WHERE THE REPORT IS DEFINED, so a reader can render any
+  // refusal without opening the script.
+  const contract = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/reference/failure-contract.md"), "utf8");
+  for (const cls of ["no_capability", "call_errored", "not_permitted", "unclassified"]) {
+    assertTrue(`failure-contract.md names the \`${cls}\` class`, contract.includes(cls), cls);
+  }
+  // The classification MOVES NO TOKEN — it describes a refusal the outcome already reported.
+  assertTrue("failure-contract.md states the classification moves no token",
+    /moves no token/.test(contract), "the no-token reading is missing");
 }
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------

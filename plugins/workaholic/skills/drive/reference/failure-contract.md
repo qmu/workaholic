@@ -70,6 +70,47 @@ error.
 - **NEVER** auto-move a ticket to icebox, auto-abandon it, or run destructive git
   (`git restore .` / `git clean` / `git reset --hard` / `git stash drop`). Those need a human.
 
+## A refused delivery names which capability refused it
+
+**One refused call is never a statement about the session** (2026-09-09, mission
+`report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`). Measured 2026-09-08 on
+a native `/work` tick: two runners stopped on `merge_refused: session_type_cannot_merge`, and an
+operator-authorized squash merge then succeeded on the same pull request. The refusal word says
+*what happened*; it did not say *what that means about what this session can do*, and one call's
+answer was read as the whole session's.
+
+`branching/scripts/refusal-capability.sh <word> [route]` is the **one derivation** of that second
+question — a pure function over two strings, beside `merge-reason.sh`, which keeps owning the
+word itself. Four values, four different next actions:
+
+| `capability` | What refused | What follows |
+| ------------ | ------------ | ------------ |
+| `no_capability` | the tool or route is absent **here** | a different caller merges this pull request unchanged; take `authorized_route` when the reading names one |
+| `call_errored` | transport, 5xx, an unreadable response | nothing was established — look again |
+| `not_permitted` | an authorization denial | a person changes something outside the pull request. **Nothing routes around this** |
+| `none` | **no capability refused it** — GitHub declined on the pull request's own state (a conflict, a required check, a moved head) | act on the pull request, not on the transport |
+
+An unrecognised word answers `unclassified` rather than a guess, and
+`scripts/test-workflow-scripts.mjs` fails when `merge-reason.sh` emits a word this reader leaves
+unclassified — a new refusal is classified on purpose or not at all.
+
+**Report it beside the outcome, never instead of it**: `merge_refused: <word> (<capability> on
+<route>)`. The three outcomes in [routing.md](routing.md) are untouched, nothing is renamed, and
+the classification moves no token — a `merge_refused` withholds `ok` exactly as it did.
+
+**`authorized_route` is narrow by construction, and that is what keeps item 5 true.** It is
+non-empty for exactly one input, `session_type_cannot_merge` on `github_rest`, naming
+`mcp__github__merge_pull_request` — `rules/shell.md`'s *one qualification*, cited and not
+widened. A `not_permitted` refusal can therefore never produce one, so an authorization denial
+cannot be routed around by an alternate command spelling, a parent delegation or a second
+account; and the connector's own refusal (`route: github_connector`) produces none either, which
+is *one attempt, one tool* expressed as arithmetic instead of as a sentence.
+
+**Both delivery paths carry it.** A `[Implement]` worker reaches the retry by executing
+`commands/implement.md`; the native `/work` coordinator merges for itself through
+`drive/scripts/deliver-unit.sh` and `ship/scripts/merge-pr.sh` and reached that body never — so
+`commands/infinite-development.md` carries the same numbered step, on the same bounds.
+
 ## An unqueued problem becomes a ticket
 
 When the run meets a problem the queue does not cover — a defect found while implementing, a

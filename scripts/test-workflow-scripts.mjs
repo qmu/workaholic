@@ -25016,6 +25016,69 @@ function testReconcileCompletion() {
     /merge is not a deployment/.test(flat), "the deployment separation is missing");
 }
 
+// ---------- the legacy-row rule, and where it is NOT written (2026-09-09) ----------
+// A stricter CHECK constraint passed local tests against an EMPTY database, failed the
+// existing-row copy in a production rebuild migration, and the deployment failure was reported
+// as a healthy completion. The rule is prose — no hook can tell a legacy fixture from a
+// fresh-schema one, and this repository will not invent a cross-repository check for a consuming
+// application's data — so what is checkable is that the three surfaces carry it and that the
+// mirrored policy pages were left alone.
+T("the legacy-row rule is stated where this repository owns it", testLegacyRowRule);
+function testLegacyRowRule() {
+  const read = (p) => readFileSync(join(REPO_ROOT, p), "utf8").replace(/\s+/g, " ");
+
+  // 1. THE RULE'S HOME is `rules/general.md`, whose `paths: '**/*'` reaches every session —
+  // rather than a policy page, for the reason asserted below.
+  const rules = read("plugins/workaholic/rules/general.md");
+  assertTrue("rules/general.md carries the legacy-row rule",
+    /tightened constraint over persisted data is verified against legacy rows/.test(rules),
+    "the rule is not in its stated home");
+  assertTrue("and says a fresh-schema pass is not that evidence",
+    /fresh-schema pass is not/.test(rules), "the negative half is missing");
+  assertTrue("and names it a writing rule rather than a machine gate",
+    /not a machine gate/.test(rules), "the enforcement claim is missing");
+
+  // 2. THE TICKET FORMAT ASKS FOR IT, which is the seam where evidence is requested.
+  const format = read("plugins/workaholic/skills/create-ticket/reference/ticket-format.md");
+  assertTrue("the ticket format asks for the legacy fixture",
+    /legacy fixture/.test(format), "the fixture is not asked for");
+  assertTrue("and for the upgrade run against it",
+    /upgrade run/.test(format), "the upgrade run is not asked for");
+  assertTrue("and cites the rule's home rather than restating it",
+    /rules\/general\.md/.test(format), "the citation is missing");
+
+  // 3. `ship` KEEPS A FAILED OR PENDING DEPLOYMENT ITS OWN STATE. The measured failure was a
+  // failed migration reported as a healthy completion because the pull request had merged.
+  const ship = read("plugins/workaholic/skills/ship/SKILL.md");
+  assertTrue("ship states a failed or pending deployment is its own state",
+    /failed or pending deployment is its own state/i.test(ship), "the section is missing");
+  assertTrue("and that a failed deployed migration stays a failed deployment",
+    /failed deployed migration remains a failed deployment/.test(ship), "the rule is missing");
+  assertTrue("and that not_run is not a soft pass",
+    /not a soft pass/.test(ship), "not_run could still read as a pass");
+
+  // 4. AND THE MIRRORED POLICY PAGES ARE NOT EDITED FOR IT. They are English hard copies whose
+  // source of truth is qmu.co.jp, refreshed by an upstream `standards-sync/*` pull request, and
+  // a prior mission put editing them out of scope by name — so a local edit would be silently
+  // reverted and the rule would read satisfied while quietly ceasing to be true. That is the
+  // exact failure shape this mission is about, which is why the absence is pinned rather than
+  // left to a later reader's judgement.
+  for (const page of [
+    "plugins/workaholic/skills/implementation/policies/persistence.md",
+    "plugins/workaholic/skills/implementation/policies/test.md",
+    "plugins/workaholic/skills/operation/policies/ci-cd.md",
+  ]) {
+    const text = readFileSync(join(REPO_ROOT, page), "utf8");
+    assertTrue(`${page} keeps its canonical source link`,
+      /^source: https:\/\/qmu\.co\.jp\//m.test(text), page);
+    assertTrue(`${page} carries no locally-authored legacy-row rule`,
+      !/legacy fixture|legacy rows/i.test(text), page);
+  }
+  assertTrue("and rules/general.md records why they were left alone",
+    /standards-sync|source of truth is qmu\.co\.jp|silently reverted/.test(rules),
+    "the reason for not editing the mirrors is not recorded");
+}
+
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------
 // The project standard: every workaholic artifact reaches the base through a MERGED
 // pull request, because the merge is the event that can be announced. J1's

@@ -119,6 +119,31 @@ Runs **only** on a developer's instruction naming a target, and never in the sam
 - **D2. Confirm**: execute the target's `## Confirmation` / `## Verify` and capture the observed result. A failing result is a **failed deployment** — record it and promote nothing.
 - **D3. Record**: `record-evidence.sh "<branch>" "<target>" "<method>" "<result>" "<status>" "<note-path>"` with the honest status — `pass`, `fail`, `not_run` (the environment cannot execute the declared method), or `bypassed`. It writes the story's `## Deployment Evidence` and the note's append-only `## Deployment Verification` from one call, so the plan and its answer sit in the same document.
 
+### A failed or pending deployment is its own state
+
+**A merge is not a deployment, and a deployment that failed is not a completion** (2026-09-09,
+mission `report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`). This is stated
+here rather than added as a gate, because the four statuses above already carry it — what was
+missing was the sentence saying they may never be collapsed. **Measured**: a schema migration
+failed on the existing rows in a production rebuild, and the run reported a healthy completion,
+because the pull request had merged and the local checks had passed.
+
+- **`fail` and `not_run` stay visible wherever the ship's outcome is reported**, and neither is
+  ever rendered as `pass` or omitted. A **failed deployed migration remains a failed deployment**
+  even where the pull request merged, the local suite was green and the queue drained.
+- **`not_run` is not a soft pass.** The environment could not execute the declared method, so
+  nothing about the target was established — the reading's absence, never its success.
+- **A merged pull request establishes nothing about any target.** §5-5 already says the merge
+  grants no authorization to start a deployment; it equally grants no *evidence* that one
+  happened. `/implement`'s and `/infinite-development`'s completion claims are reconciled against
+  merges, claims and the queue (`loops/scripts/reconcile-completion.sh`) and say nothing about a
+  deployment for exactly this reason.
+- **No new gate is added.** D2 already records a failing result as a failed deployment and
+  promotes nothing, and §6's promotion already refuses to skip its confirmation. The rule this
+  section adds is about the *report*: an unobserved or failed outcome is named, never inferred
+  into a healthy one (`plugins/workaholic/rules/general.md`, *A tightened constraint over
+  persisted data is verified against legacy rows*, whose delivery half this is).
+
 ## 6. Release Promotion — the `release/*` staging tier
 
 **A separate, explicitly-invoked phase over the base. Never a step of §5**, and `/drive` neither cuts nor confirms a release branch — if it were per-unit, every `auto` unit would open a release window. §5 lands one unit on the base; promotion takes the units already landed there to production. Mechanics, record schemas, and refusal envelopes: [`reference/release-tier.md`](reference/release-tier.md).

@@ -35,10 +35,11 @@ never costs it its home.
 
 ## Acceptance
 
-- [ ] The one rule tells an attribution ruling from a routine feedback append, and both readings of it stay identical. (#20260908191229-tell-an-attribution-ruling-from-a-routine-feedback-append.md)
+- [x] The one rule tells an attribution ruling from a routine feedback append, and both readings of it stay identical. (#20260908191229-tell-an-attribution-ruling-from-a-routine-feedback-append.md)
 - [ ] A held operator-facing publication the base has moved under is named, with its mergeability. (#20260908191229-name-the-held-publications-the-base-has-moved-under.md)
 - [ ] Such a publication is caught up and pushed without being merged; the merge stays the operator's. (#20260908191229-catch-a-held-publication-up-without-merging-it.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-09 — ticket archived — 20260908191229-tell-an-attribution-ruling-from-a-routine-feedback-append.md

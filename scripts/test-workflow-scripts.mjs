@@ -24787,6 +24787,31 @@ function testPublishTreePrRulingExemption() {
   assertEq("an ordinary mission edit still merges",
     [rolled.ok, rolled.merged, rolled.merge_reason], [true, true, "merged"]);
 
+  // 3b. AND A `/specificate` EXTENSION OF AN EXISTING MISSION MERGES (2026-09-08, mission
+  //     `let-the-loop-grow-a-mission-without-handing-it-back-to-a-person`). It moves the same
+  //     `feedback:` line a ruling does, so until the mission arm asked what ELSE the
+  //     publication carried, the loop was punished for growing a mission and rewarded for
+  //     fragmenting the work: measured, #1097 and #1094 held five hours and conflicted while
+  //     #1112, minting a mission, landed in four minutes. The end-to-end row is here rather
+  //     than only over the normalised stream because the SEAM'S OWN ADAPTER has to carry the
+  //     added lines for the term to see them at all.
+  const grown = publishSeededArtifact({
+    seed: { ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md") },
+    write: {
+      ".workaholic/missions/active/m2/mission.md": mission("20260101000000-b.md, 20260908000000-d.md"),
+      ".workaholic/feedbacks/20260908000000-d.md": "---\ntype: Feedback\n---\n\nd\n",
+      ".workaholic/tickets/todo/20260908000000-t.md": "---\nmission: m2\n---\n\n# T\n",
+    },
+    paths: [
+      ".workaholic/missions/active/m2/mission.md",
+      ".workaholic/feedbacks/20260908000000-d.md",
+      ".workaholic/tickets/todo/20260908000000-t.md",
+    ],
+    title: "Grow mission m2 with the new ask",
+  });
+  assertEq("growing an existing mission is ordinary routine work and merges",
+    [grown.ok, grown.merged, grown.merge_reason], [true, true, "merged"]);
+
   // 4. THE BREAKER: the refusal is SEAM-DERIVED, never caller-supplied, and it is its own word
   //    rather than a widened `strategy_touching` — the two ask for different operator acts.
   const src = readFileSync(SCRIPTS.publishTreePr, "utf8")
@@ -37863,6 +37888,29 @@ esac
       classify("M\t.claude/git-identities\t0\n"), "ruling_touching");
     assertEq("an EXISTING mission whose feedback line moves is the operator's",
       classify("M\t.workaholic/missions/active/m/mission.md\t1\n"), "ruling_touching");
+    // AN ATTRIBUTION RULING AND A `/specificate` EXTENSION MOVE THE SAME LINE (2026-09-08,
+    // mission `let-the-loop-grow-a-mission-without-handing-it-back-to-a-person`). The per-line
+    // diffs are identical, so the mission arm asks what ELSE the publication carried: a ruling
+    // adds no file anywhere (`carry-attribution.sh` stages the one path), while an extension
+    // always adds at least the feedback record it wrote. Measured 2026-09-08: PR #1097 and
+    // #1094 held five hours and conflicted while #1112, MINTING a mission, landed in four
+    // minutes — the loop punished for growing a mission rather than fragmenting the work.
+    assertEq("a ruling that also regenerates the OKF indexes is still the operator's",
+      classify("M\t.workaholic/missions/active/m/mission.md\t1\n"
+        + "M\t.workaholic/index.md\t0\nM\t.workaholic/missions/index.md\t0\n"),
+      "ruling_touching");
+    assertEq("a /specificate EXTENSION of that same mission is ordinary routine work",
+      classify("M\t.workaholic/missions/active/m/mission.md\t1\n"
+        + "A\t.workaholic/tickets/todo/2026-t.md\t0\n"
+        + "A\t.workaholic/feedbacks/2026-f.md\t0\n"
+        + "M\t.workaholic/feedbacks/index.md\t0\nM\t.workaholic/index.md\t0\n"),
+      "");
+    assertEq("the identity mapping stays UNCONDITIONAL — added artifacts never buy it back",
+      classify("M\t.claude/git-identities\t0\nA\t.workaholic/tickets/todo/2026-t.md\t0\n"),
+      "ruling_touching");
+    assertEq("and an unrelated MODIFIED file leaves the ruling the operator's — the safe side",
+      classify("M\t.workaholic/missions/active/m/mission.md\t1\nM\tdocs/x.md\t0\n"),
+      "ruling_touching");
     assertEq("a BRAND-NEW mission is an ordinary proposal — the shape test's whole point",
       classify("A\t.workaholic/missions/active/m/mission.md\t1\n"), "");
     assertEq("and an existing mission whose feedback line does not move is ordinary too",

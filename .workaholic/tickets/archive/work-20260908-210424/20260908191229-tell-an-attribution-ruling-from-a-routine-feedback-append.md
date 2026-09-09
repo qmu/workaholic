@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T19:12:29+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -104,3 +105,27 @@ hours and conflicted; PR #1112, minting, landed in four minutes.
   candidate set for free. That is intended and is the second half of the ask.
 - The generated-index exception must be stated by path, not inferred: a ruling's write
   regenerates the OKF indexes, so those paths cannot be treated as "other work".
+
+## Final Report
+
+Development completed as planned. The mission arm of `publication_refusal_word()` now asks what
+else the publication carried: an `M` on an existing mission whose `feedback:` line moves is the
+operator's ruling only when no artifact was **added** beside it. The term is derived from what
+each act writes — `carry-attribution.sh` stages one path and adds nothing, while `/specificate`
+growing a mission always adds at least the feedback record it just wrote — and the generated OKF
+indexes are exempt **by path** (`.workaholic/index.md`, `.workaholic/<area>/index.md`), never by
+inference. `strategy_touching` still outranks and `.claude/git-identities` stays unconditional.
+
+### Discovered Insights
+
+- **Insight**: The two invariants the rule's header names are enforced by `awk` control flow, not
+  by ordering alone — `strategy` and the identity-mapping arm each `exit` in the `END` block, so
+  the new `mission_ruling && !added_artifact` term can only ever *narrow* the third arm and can
+  never take a publication away from the two stronger words.
+  **Context**: A later reader adding a fourth arm must keep it below those exits, or the
+  seam and the reader will disagree about the same publication.
+- **Insight**: The suite needed a row at **both** levels. The normalised-stream rows prove the
+  rule; the end-to-end `publishSeededArtifact` row proves the seam's own adapter actually carries
+  the added lines into the stream — without it the term could be correct and unreachable.
+  **Context**: `publication-refusal.sh` is sourced by three consumers, each with its own adapter;
+  a rule row alone cannot tell whether an adapter feeds it the whole publication.

@@ -216,6 +216,65 @@ console.log(JSON.stringify({rows:[{thread_ts:'799.0',last_reply_ts:'801.5',reply
   assert.equal(answered.data.next_cursor,'801.5');
   assert.equal(answered.data.has_more,true);
 });
+test('a declared sender no route can prove is its own refusal, not an unreachable channel',t=>{
+  // `target_unverified` means NOTHING reaches this channel. A route that reaches it and cannot
+  // prove who would speak is a different fact needing a different fix, and it must be refused
+  // without the caller opting in — the `require_verified_sender` seam served only a caller that
+  // asked, so the loop's own write path never reached it and the fallback posted as a person.
+  const {dir}=fixture(t);
+  const observations=[{available:true,transport:'qfs',described:true,mount:'/slack-x',account:'bot',
+      workspace:'qmu',channel:'dev',channel_id:'C1',sender_id:null,operations:['post_root']},
+    {available:true,transport:'connector',account:'person',workspace:'qmu',channel:'dev',
+      channel_id:'C1',sender_id:'UPERSON',operations:['post_root']}];
+  const resolve=target=>{
+    const file=join(dir,'resolve.json');
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:'r',operation:'discover',
+      repo_root:dir,instance_id:'test',input:{target,observations}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/resolve-target.sh'),'--request',file],{cwd:dir,encoding:'utf8'});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);
+  };
+  const unprovable=resolve({workspace:'qmu',channel:'dev',sender_id:'U9'});
+  assert.equal(unprovable.reason,'sender_unverified');
+  assert.equal(unprovable.data.expected_sender_id,'U9');
+  assert.deepEqual(unprovable.data.accounts,['bot','person']);
+  // A channel nothing reaches keeps the word that means exactly that.
+  assert.equal(resolve({workspace:'qmu',channel:'nowhere',sender_id:'U9'}).reason,'target_unverified');
+  // A route that DOES carry the declared sender resolves, and says the sender was verified.
+  const proved=resolve({workspace:'qmu',channel:'dev',sender_id:'UPERSON'});
+  assert.equal(proved.status,'ok',JSON.stringify(proved));
+  assert.equal(proved.data.binding.sender_id,'UPERSON');
+  assert.equal(proved.data.binding.sender_verified,true);
+});
+test('a write that cannot speak as the declared sender is refused, recorded and reported',t=>{
+  // Measured in one channel: 94 messages from the operator's own account, 3 from a bot, and 0
+  // from the declared sender. The refusal existed and recorded nothing — it exited before the
+  // outbox — so an unavailable identity could only be inferred from message counts.
+  const {dir}=fixture(t);
+  const send=(id,binding)=>{
+    const file=join(dir,`${id}.json`);
+    writeFileSync(file,JSON.stringify({protocol:'workaholic.transport/v1',request_id:id,binding_id:'b1',
+      operation:'post_root',repo_root:dir,instance_id:'test',
+      input:{now:'2026-09-09T00:00:00Z',text:'hi',binding:{workspace:'qmu',channel:'dev',channel_id:'C1',
+        routes:[{transport:'connector',operations:['post_root'],sender_id:'UPERSON',described:true}],thread_map:{},...binding}}}));
+    const r=spawnSync('sh',[join(skills,'transport/scripts/perform.sh'),'--request',file],{cwd:dir,encoding:'utf8'});
+    assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout);
+  };
+  const refused=send('w1',{sender_id:'U9'});
+  assert.equal(refused.reason,'sender_mismatch');
+  assert.deepEqual(refused.data.actual_sender_ids,['UPERSON']);
+  // Reported with its route and typed reason: no route carried it and none was verified.
+  assert.equal(refused.data.route,null);
+  assert.equal(refused.data.preferred_route_verified,false);
+  // Recorded as a delivery status: the outbox holds it, so a repeat does not try again.
+  const outbox=spawnSync('find',[dir,'-path','*outbox*','-name','w1.json'],{encoding:'utf8'}).stdout.trim();
+  assert.ok(outbox,'the refused write is recorded in the outbox');
+  assert.equal(JSON.parse(readFileSync(outbox,'utf8')).data.state,'refused');
+  assert.equal(send('w1',{sender_id:'U9'}).reason,'delivery_refused');
+  // A route that proves the declared sender still delivers, and a binding declaring NO sender
+  // behaves exactly as before — the advisory `unverifiable_sender` names that repository.
+  assert.equal(send('w2',{sender_id:'UPERSON'}).status,'needs_parent');
+  assert.equal(send('w3',{}).status,'needs_parent');
+});
 test('native QFS discovery reads private channels and does not invent a sender or ambiguous write map',t=>{
   const {dir}=fixture(t),qfs=join(dir,'qfs'),calls=join(dir,'calls');
   writeFileSync(qfs,`#!/usr/bin/env node

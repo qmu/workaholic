@@ -21,11 +21,30 @@ resolution=$(jq -c '
     select((($t.mount // null)==null) or .mount==$t.mount)] as $matches |
   {matches:$matches,
    workspaces:([$matches[].workspace // empty]|unique),
-   public_misses:[$in.observations[]|select(.visibility=="public_miss")]}
+   public_misses:[$in.observations[]|select(.visibility=="public_miss")],
+   sender_blind:[$in.observations[] |
+     select(.available==true) |
+     select((.workspace // null) == ($t.workspace // null) or (($t.workspace // null)==null)) |
+     select((.channel==$t.channel) or (.channel_id==$t.channel)) |
+     select((($t.account // null)==null) or .account==$t.account) |
+     select((($t.mount // null)==null) or .mount==$t.mount)]}
 ' "$TRANSPORT_REQUEST_FILE")
 count=$(printf '%s' "$resolution" | jq '.matches|length')
 workspaces=$(printf '%s' "$resolution" | jq '.workspaces|length')
 if [ "$count" -eq 0 ]; then
+    # A DECLARED sender that no described route can prove is not "nothing reaches this channel".
+    # A route does reach it and cannot prove who would speak, which is a different fact needing a
+    # different fix, and it is refused WITHOUT the caller opting in: the seam below served only a
+    # caller that asked, so the loop's own write path never reached it and a fallback then posted
+    # under whatever identity it carried. `target_unverified` keeps its meaning exactly.
+    if [ -n "$(jq -r '.input.target.sender_id // empty' "$TRANSPORT_REQUEST_FILE")" ] &&
+       [ "$(printf '%s' "$resolution" | jq '.sender_blind|length')" -gt 0 ]; then
+        transport_result deferred sender_unverified "$TRANSPORT_REQUEST_ID" \
+          "$(printf '%s' "$resolution" | jq -c --arg expected "$(jq -r '.input.target.sender_id' "$TRANSPORT_REQUEST_FILE")" \
+             '{expected_sender_id:$expected,accounts:([.sender_blind[].account//null]|unique),
+               offered_sender_ids:([.sender_blind[].sender_id//null]|unique)}')"
+        exit 0
+    fi
     transport_result deferred target_unverified "$TRANSPORT_REQUEST_ID" "$(printf '%s' "$resolution" | jq '{public_misses:(.public_misses|length)}')"
     exit 0
 fi

@@ -53,6 +53,19 @@ means *a route reaches it and cannot do what was declared*. `require_verified_se
 `sender_unverified` rather than letting a profile label stand in for an identity Slack proved.
 The canonical binding carries `channel_verified`, `sender_verified` and `declared_digest`.
 
+**A declared sender is a term of the binding, and a write that cannot be proved to speak as it
+is refused rather than delivered under another identity.** The refusal needs no caller opt-in:
+a target that declares `sender_id` and matches a route on everything **but** that sender is
+refused `sender_unverified` — *a route reaches this channel and cannot prove who would speak* —
+where it used to be conflated with `target_unverified`. On the write path the same term is
+settled before any route is chosen, and the refusal is **recorded**: the outbox goes `refused`
+so a repeat answers `delivery_refused`, and the result carries `sender_mismatch` with
+`route: null` and `preferred_route_verified: false`, so an unavailable identity is visible
+rather than inferred from a channel's message counts. Measured in one channel: 94 messages from
+the operator's own account, 3 from a bot, and **0** from the declared sender. **A binding that
+declares no `sender_id` is unchanged** — the advisory `unverifiable_sender` names that
+repository, and never posting is not this rule's remedy for it.
+
 ## Discovering thread replies
 
 Slack channel history does not carry a reply under an older root, so `read_channel_delta` can

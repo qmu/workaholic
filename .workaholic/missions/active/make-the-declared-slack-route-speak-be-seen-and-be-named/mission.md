@@ -38,10 +38,11 @@ older root is discovered, and the tick names where it posted.
 
 - [x] A correct provider preview commits; the guard reads the count where the provider answers it. (#20260909130912-commit-a-post-on-a-correct-qfs-preview.md)
 - [x] A new reply under an older root is discovered on the declared route, or the gap is named. (#20260909130912-discover-thread-replies-on-the-native-qfs-route.md)
-- [ ] A post that cannot speak as the declared sender is refused, not sent as a person. (#20260909130912-refuse-a-post-that-cannot-speak-as-the-sender.md)
+- [x] A post that cannot speak as the declared sender is refused, not sent as a person. (#20260909130912-refuse-a-post-that-cannot-speak-as-the-sender.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-09 — ticket archived — 20260909130912-commit-a-post-on-a-correct-qfs-preview.md
 - 2026-09-09 — ticket archived — 20260909130912-discover-thread-replies-on-the-native-qfs-route.md
+- 2026-09-09 — ticket archived — 20260909130912-refuse-a-post-that-cannot-speak-as-the-sender.md

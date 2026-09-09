@@ -718,4 +718,5 @@
 * [One jq typo silences every Slack reply the loop owes](20260909091200-one-jq-typo-silences-every-slack-reply-the-loop-owes.md)
 * [Refuse a post that cannot speak as the declared sender](20260909104345-refuse-a-post-that-cannot-speak-as-the-declared-sender.md)
 * [Repair the native work loop's control, delivery and truthful reporting](20260909125918-repair-the-native-work-loop-s-control-delivery-and-truthful-reporting.md)
+* [Discover existing QFS mounts and private channels before stopping work](20260909130625-discover-existing-qfs-mounts-and-private-channels-before-stopping-work.md)
 <!-- okf:generated:end -->

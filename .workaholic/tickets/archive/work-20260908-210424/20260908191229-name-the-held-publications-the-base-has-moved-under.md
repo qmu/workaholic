@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T19:12:29+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -88,3 +89,49 @@ waited. This ticket makes the decay visible; it merges nothing and moves no memb
 - The temptation is to widen `list-stranded-publications.sh` instead. That reader feeds a merging
   act, and merging a held publication discharges the operator's ruling — refuse it by name.
 - The reading is evidence, never a verdict: nothing may gate, hold or close a publication on it.
+
+## Final Report
+
+**The base landed this while the branch was driving it**, through the publication refactor that
+also produced `prepare-publication.sh`. This run re-derived every acceptance criterion against
+the merged tree rather than re-implementing them; its own parallel implementation is stashed on
+the claim worktree, not merged.
+
+What the base has, checked criterion by criterion:
+
+- **Every operator-facing row carries a `mergeability` class composed from
+  `claim-mergeability.sh`.** `list-operator-facing-pulls.sh` reads each selected pull request's
+  detail once for `head.ref`/`base.ref`, calls `claim-mergeability.sh origin/<head> origin/<base>`
+  and folds `mergeability`, `mergeability_reason`, `already_current`, `conflicted_files`,
+  `mergeability_content_files` and `age_hours` onto the row. No second derivation: the class and
+  the age both come from the one script each, and the header states the added per-row cost as
+  one detail read plus one local reading, inside the existing limit.
+- **An unreadable reading is `unanswerable` with its reason and never `clean`.** The fold is
+  `(.class // "unanswerable")` with `(.reason // "unreadable")`, so a mergeability call that
+  produced nothing at all still lands as the fourth value rather than the first.
+- **The refusal words, the membership and every consumer's exclusions are unchanged.** The rule
+  is untouched here; `list-stranded-publications.sh`'s term 3 still excludes whatever this reader
+  names, and `step-operator-pulls.sh` gained the class on its question without gaining a
+  candidate or losing one.
+
+**The Gate as written did not survive contact with its own mission, and that is recorded rather
+than glossed.** It says *no act reads the new field* — and the very next ticket requires the act
+to take a candidate whose class is `mechanical` or `content`, which is reading it.
+`prepare-publication.sh` reads `.mergeability` and `.already_current` off the row. The later
+ticket wins, on the ask's own terms; what survives of the Gate is the half that still holds and
+is checked: there is **no second derivation** of the class anywhere.
+
+### Discovered Insights
+
+- **Insight**: The reader stayed honest about degradation by tightening rather than loosening —
+  it now refuses the whole read (`files_unreadable`, `files_truncated`, `shape_unreadable`) where
+  it used to `continue` past a pull request it could not shape. A silently skipped pull request
+  is indistinguishable from one that is not the operator's, which is the opposite of what
+  `ok: false carries no pull list` exists to guarantee.
+  **Context**: The `continue` was the older, quieter bug; naming the class made it visible.
+- **Insight**: `already_current` is carried onto the row beside the class because *clean* and
+  *contains the base* are different facts, and only the second means a writer must touch no ref.
+  The act relies on exactly that distinction — a clean-but-behind publication is caught up rather
+  than reported already current.
+  **Context**: The base's own suite row `clean-but-behind is caught up, not falsely called
+  already current` is the one that fails if the two are ever collapsed.

@@ -2,7 +2,7 @@
 type: Mission
 title: Let the loop grow a mission without handing it back to a person
 slug: let-the-loop-grow-a-mission-without-handing-it-back-to-a-person
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-08T19:11:34+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260908-210424
 ---
 
 # Let the loop grow a mission without handing it back to a person
@@ -34,10 +35,14 @@ never costs it its home.
 
 ## Acceptance
 
-- [ ] The one rule tells an attribution ruling from a routine feedback append, and both readings of it stay identical. (#20260908191229-tell-an-attribution-ruling-from-a-routine-feedback-append.md)
-- [ ] A held operator-facing publication the base has moved under is named, with its mergeability. (#20260908191229-name-the-held-publications-the-base-has-moved-under.md)
-- [ ] Such a publication is caught up and pushed without being merged; the merge stays the operator's. (#20260908191229-catch-a-held-publication-up-without-merging-it.md)
+- [x] The one rule tells an attribution ruling from a routine feedback append, and both readings of it stay identical. (#20260908191229-tell-an-attribution-ruling-from-a-routine-feedback-append.md)
+- [x] A held operator-facing publication the base has moved under is named, with its mergeability. (#20260908191229-name-the-held-publications-the-base-has-moved-under.md)
+- [x] Such a publication is caught up and pushed without being merged; the merge stays the operator's. (#20260908191229-catch-a-held-publication-up-without-merging-it.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-09 — ticket archived — 20260908191229-tell-an-attribution-ruling-from-a-routine-feedback-append.md
+- 2026-09-09 — ticket archived — 20260908191229-name-the-held-publications-the-base-has-moved-under.md
+- 2026-09-09 — ticket archived — 20260908191229-catch-a-held-publication-up-without-merging-it.md
+- 2026-09-09 — mission achieved — mission.md

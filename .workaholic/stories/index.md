@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [Release Claude Code loop repairs as 1.0.343](work-20260909-024221.md) - Release Claude Code loop repairs with mission-independent release eligibility and verified artifacts.
+* [work-20260908-210424](work-20260908-210424.md) - Close the held-publication mission by verifying the base's own implementation and pinning the refusal rule's extension field
 * [work-20260908-192225](work-20260908-192225.md) - Clear residue the base provably already holds so a tick reaches its survey, and make a coordinator-level stop reach the channel instead of nobody.
 * [work-20260908-175401](work-20260908-175401.md) - A human decision becomes an explicit loop state — judged for maturity before it may ask, asked once to the responsible person, and read back as evidence before the next tick reports no_evolutionary_move.
 * [work-20260908-175301](work-20260908-175301.md) - Make the repository's declared Slack binding the startup authority, verify the QFS route it names, discover replies buried in existing threads, and permit a fallback only on a typed failure.

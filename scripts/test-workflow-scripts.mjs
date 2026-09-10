@@ -40606,6 +40606,26 @@ function testAuthorizationRefusalNeverFallsBack() {
     /`qfs_preview_refused` keeps the operation on the declared route/.test(claude), "CLAUDE.md");
   assertTrue("...on the repository's own not_permitted doctrine",
     /authorization denial stays a refusal/.test(claude), "the doctrine is not cited");
+
+  // 3. THE COMMENT ABOVE THE WRITE GUARD. The same defect reappeared one layer down (2026-09-10,
+  //    ticket `20260910143000`): the write path's comment named authorization among the classes
+  //    an operation leaves on, two lines above the guard that maps it to `none`. A reader who
+  //    opened `perform.sh` TO SETTLE THE QUESTION got the wrong answer. Naming a set the function
+  //    already derives is what produced it, so what is pinned is that this comment CITES the one
+  //    derivation and enumerates no class of its own — not a corrected list, which would be the
+  //    same defect waiting to drift again.
+  const lines = perform.split("\n");
+  const guard = lines.findIndex((l) => /^if\s.*qfs_fallback_class.*!=\s*none/.test(l));
+  assertTrue("the write path's fallback guard is where this row expects it",
+    guard > 0, "the guard moved; re-anchor this assertion rather than deleting it");
+  const block = [];
+  for (let i = guard - 1; i >= 0 && /^\s*#/.test(lines[i]); i -= 1) block.unshift(lines[i]);
+  const comment = block.join(" ");
+  assertTrue("the write guard's comment cites the one derivation",
+    /qfs_fallback_class/.test(comment), "the comment names no derivation");
+  assertTrue("...and enumerates no class of its own",
+    !/\b(authorization|availability|capability|reachability)\b/iu.test(comment),
+    "a class list returned above the write guard");
 }
 
 T("open-log names a tick log tracked on the base", testOpenLogNamesTrackedLog);

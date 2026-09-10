@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-10T14:30:00+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -86,3 +87,36 @@ six lines above it, and naming a set in two places is what produced this defect.
 
 - A reader settling the question from `perform.sh` alone reaches the same answer as one reading
   `CLAUDE.md`: an authorization refusal is typed, and it does not fall back.
+
+## Final Report
+
+Development completed as planned.
+
+The write path's comment named `capability, authorization, availability` as the classes on which an
+operation leaves the preferred route, two lines above a guard that maps the authorization word to
+`none`. Rather than correct the list, the comment now cites `qfs_fallback_class()` — the one
+derivation — and enumerates nothing, which is the smaller repair the ticket's Considerations
+preferred and the one a later edit cannot drift out of step with. The mapping function's own header
+gained CLAUDE.md's *typed is not the same as fallback-permitting* distinction, so a reader settling
+the question from `perform.sh` alone reaches the answer CLAUDE.md gives. No mapping, consumer or
+guard moved: every changed line in `perform.sh` is a comment line.
+
+### Discovered Insights
+
+- **Insight**: the suite row that owns this rule strips comment lines before asserting on the
+  mapping — *"a sentence about the class cannot stand in for the mapping itself"* — which is exactly
+  why the identical defect could sit in a comment two lines above the guard while every assertion
+  passed.
+  **Context**: the repair adds assertions that read the comment block *immediately above the write
+  guard* as a subject of its own, rather than relaxing the mechanical check. They pin that the
+  comment cites the derivation and names no class, and were verified to bite: run against
+  `origin/main`'s copy of the file they answer `cites derivation: false, enumerates a class: true`.
+
+- **Insight**: `qfs_fallback_class()` admits `qfs_preview_failed` (reachability), so the neighbouring
+  `read_fallback_class` comment's *"a READ may also leave on a reachability failure; a WRITE may
+  NOT"* is true only of `qfs_connector_failure` — the one word that function adds, which its own next
+  sentence names.
+  **Context**: step 3 asked for a sweep of the read path's comments for the same grouping. This one
+  reads correctly with the sentence that follows it and is identical in meaning to CLAUDE.md's own
+  paragraph, so correcting it here alone would have put the two surfaces out of step — the drift this
+  ticket exists to end. Left as it stands, deliberately, and recorded here rather than acted on.

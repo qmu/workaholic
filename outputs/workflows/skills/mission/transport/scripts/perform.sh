@@ -68,9 +68,13 @@ has_route() {
 }
 
 # ---- Typed fallback -----------------------------------------------------------------------
-# An operation leaves the preferred route ONLY on a named failure of one of four kinds. Every
-# other failure keeps the operation where it was declared: an untyped switch is how a route
-# nobody configured starts carrying the loop's traffic while every report says it succeeded.
+# An operation leaves the preferred route ONLY on a named failure, and this case is the one
+# derivation of which. Every other failure keeps the operation where it was declared: an untyped
+# switch is how a route nobody configured starts carrying the loop's traffic while every report
+# says it succeeded. TYPED IS NOT THE SAME AS FALLBACK-PERMITTING, and exactly one of the four
+# classes is not: `qfs_preview_refused` is typed and answers `none`, because an authorization
+# denial stays a refusal and no alternate route, alternate spelling, parent delegation or second
+# account is used to get past one (`branching/scripts/refusal-capability.sh`'s `not_permitted`).
 qfs_fallback_class() {
   case "$1" in
     qfs_unavailable) echo availability ;;
@@ -302,9 +306,12 @@ adapter_code=0
 result=$("$adapter" --request "$TRANSPORT_REQUEST_FILE") || adapter_code=$?
 [ "$adapter_code" -eq 0 ] || { printf '%s\n' "$result"; exit "$adapter_code"; }
 status=$(printf '%s' "$result" | jq -r .status); reason=$(printf '%s' "$result" | jq -r .reason)
-# A WRITE leaves the preferred route only on a failure that happened BEFORE the provider was
-# asked to commit — capability, authorization, availability. The outbox stays `sending`
-# because nothing was accepted, so the fallback is a first attempt rather than a resend.
+# A WRITE leaves the preferred route only on a failure `qfs_fallback_class` admits — that
+# function is the one derivation, and naming its classes over again here is exactly what let
+# this comment drift out of step with the guard on the next line. What the comment is FOR is the
+# distinction it draws: every class that function admits failed BEFORE the provider was asked to
+# commit, so the outbox stays `sending`, nothing was accepted, and the fallback is a first
+# attempt rather than a resend.
 if [ "$status" != ok ] && [ "$route" = qfs ] && [ "$(qfs_fallback_class "$reason")" != none ]; then
   fallback=$(next_route)
   if [ -n "$fallback" ] && [ "$fallback" != qfs ]; then

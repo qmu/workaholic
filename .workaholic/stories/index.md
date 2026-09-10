@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260910-133027](work-20260910-133027.md) - Pins the machine-load rounding contract against a fixture and corrects CLAUDE.md so an authorization refusal is named as a typed failure that never falls back.
 * [work-20260910-125058](work-20260910-125058.md) - Verify the declared Slack binding and typed QFS fallback against the tree, and record where CLAUDE.md disagrees with the fallback classifier.
 * [work-20260909-200531](work-20260909-200531.md)
 * [work-20260909-175052](work-20260909-175052.md) - Make the declared Slack route commit a correct preview, prove thread discovery, refuse a post it cannot speak for, and name its destination.

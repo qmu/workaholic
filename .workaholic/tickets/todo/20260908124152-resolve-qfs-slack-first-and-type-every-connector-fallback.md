@@ -6,6 +6,7 @@ depends_on:
 mission: make-slack-intake-incremental-across-messages-threads-and-mentions
 merge_policy:
 verification_handoff: 
+claim: work-20260910-125058
 ---
 
 # Resolve QFS Slack first and type every connector fallback

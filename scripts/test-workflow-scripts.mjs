@@ -23581,6 +23581,14 @@ function testReadMachineLoad() {
     assertEq("the core count matches nproc", r.cores, cores);
     assertTrue("load1 is a number", typeof r.load1 === "number", JSON.stringify(r));
     assertTrue("live load_per_core is numeric", typeof r.load_per_core === "number", JSON.stringify(r));
+    //    THE DERIVED VALUE IS PINNED AGAINST A FIXTURE, NEVER AGAINST THE LIVE READING. It used
+    //    to recompute the expectation as `Number((r.load1 / cores).toFixed(2))` and compare it to
+    //    what the script produced with awk's `%.2f`; the two round a binary-inexact half in
+    //    opposite directions, so the row failed only at certain live loads. Measured 2026-09-08
+    //    on a 4-core machine at `load1 = 2.51`: the script answered `0.62` and the assertion
+    //    expected `0.63`. The producer's header names awk's rounding as the contract, so the
+    //    expectation is read from the installed awk — not from JavaScript, and not from whatever
+    //    /proc/loadavg happens to say while the suite runs.
     const bin = join(tmp, "bin"); mkdirSync(bin);
     writeFileSync(join(bin, "nproc"), "#!/bin/sh\nprintf '4\\n'\n"); chmodSync(join(bin, "nproc"), 0o755);
     const fixed = join(tmp, "loadavg"); writeFileSync(fixed, "2.51 0 0 1/1 1\n");

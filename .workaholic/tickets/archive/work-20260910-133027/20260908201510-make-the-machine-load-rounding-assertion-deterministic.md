@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-08T20:15:10+09:00
+status: done
 author: a@qmu.jp
 assignees: 
 depends_on:
@@ -85,3 +86,48 @@ differently. Pinning the contract is the smaller change and the honest one.
 - `node scripts/test-workflow-scripts.mjs` reports 0 failed, and no row in it reads
   `/proc/loadavg` for a value it then asserts an exact expectation about.
 
+
+## Final Report
+
+Development completed — **and the substance of the repair was already on the base when this
+ticket was driven**, so this drive verified each acceptance criterion against the tree, added the
+one thing that was missing, and re-ran the verification the ticket names.
+
+**Criterion 1 — the derived-value assertion runs against a fixture and does not depend on the
+machine's live load.** `scripts/test-workflow-scripts.mjs`'s `read-machine-load.sh` block no
+longer recomputes the expectation from the live reading: the `Number((r.load1 / cores).toFixed(2))`
+comparison the ticket measured is gone. What remains over `/proc/loadavg` is exactly the set of
+properties that are genuinely about this machine — the core count matches `nproc`, `load1` is a
+number, `load_per_core` is a number, a completed read carries no `readable` key — and none of
+them asserts an exact derived value. The derived value is pinned by a separate reading with
+`nproc` shimmed to `4` through `PATH` and `WORKAHOLIC_LOADAVG_PATH` pointed at a `2.51` fixture,
+which is the ticket's own measured boundary case.
+
+**Criterion 2 — the rounding contract is named in the producer's own header.**
+`plugins/workaholic/skills/loops/scripts/read-machine-load.sh` states it beside the output shape:
+*load_per_core uses the installed awk printf("%.2f") rounding contract. Consumers must not
+substitute JavaScript toFixed at binary half-way values.* The fixture assertion reads its
+expectation from the installed `awk` rather than from JavaScript, so it pins the stated rule
+rather than one implementation's arithmetic — which also keeps the row honest across awk
+implementations, where a hard-coded literal would not be.
+
+**What this drive added.** The fixture row carried no explanation, so a later reader had nothing
+telling them why the expectation is not recomputed in JavaScript and could have simplified it
+back. A comment above it now names the measured divergence (2026-09-08, 4 cores, `load1 = 2.51`,
+script `0.62` against an expected `0.63`) and says where the contract is stated. Behaviour is
+unchanged: no assertion moved and `read-machine-load.sh` is byte-identical.
+
+**Verification.** `node scripts/test-workflow-scripts.mjs` reports **7125 passed, 0 failed**,
+three times: once on the base before any edit, once under synthetic load (six busy loops on this
+4-core machine, `/proc/loadavg` peaking at **8.43** during the run — well past the `2.51` region
+where the old assertion diverged), and once after the comment was added. The reader itself was
+run three times against the `2.51` fixture with `nproc` shimmed to `4` and answered
+`load_per_core: 0.63` every time. On *this* machine's awk, `%.2f` and JavaScript's `toFixed(2)`
+happen to agree at that value — which is precisely why pinning against the installed awk rather
+than a literal is the right shape: the divergence the ticket measured is an awk-implementation
+property, and a literal expectation would have moved the failure to a different machine instead
+of removing it.
+
+**Where the substance came from.** The assertion change and the header sentence landed in
+`895538f06` (*Preserve question state and allocate cohesive work*, PR #1129, 2026-09-09), a day
+after this ticket was written and before it was ever claimed. Nothing was implemented twice.

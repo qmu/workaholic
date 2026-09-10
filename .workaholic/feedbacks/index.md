@@ -731,4 +731,7 @@
 * [Ten of the operator's own FB issues can never be ingested because they carry no assignee](20260909222316-ten-of-the-operator-s-own-fb-issues-can-never-be-ingested-because-they-carry-no-assignee.md)
 * [The filed-records dedup reads a stale worktree, so a landed record reads unlanded](20260909222511-the-filed-records-dedup-reads-a-stale-worktree-so-a-landed-record-reads-unlanded.md)
 * [The check-in reports a gate-cleared question as question_identity_unavailable](20260910121912-the-check-in-reports-a-gate-cleared-question-as-question-identity-unavailable.md)
+* [Support low-context Codex workers without stalling work ticks](20260910131134-support-low-context-codex-workers-without-stalling-work-ticks.md)
+* [The CI retirement turn shifts a unit-less candidate's fields, so it can never retire one](20260910131705-the-ci-retirement-turn-shifts-a-unit-less-candidate-s-fields-so-it-can-never-retire-one.md)
+* [Archiving a mission leaves its active index entry, so the base index lists it twice](20260910131957-archiving-a-mission-leaves-its-active-index-entry-so-the-base-index-lists-it-twice.md)
 <!-- okf:generated:end -->

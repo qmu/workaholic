@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260909-200531](work-20260909-200531.md)
 * [work-20260909-175052](work-20260909-175052.md) - Make the declared Slack route commit a correct preview, prove thread discovery, refuse a post it cannot speak for, and name its destination.
 * [Release Claude Code loop repairs as 1.0.343](work-20260909-024221.md) - Release Claude Code loop repairs with mission-independent release eligibility and verified artifacts.
 * [work-20260908-210424](work-20260908-210424.md) - Close the held-publication mission by verifying the base's own implementation and pinning the refusal rule's extension field

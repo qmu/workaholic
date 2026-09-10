@@ -126,6 +126,31 @@ How the outcome's quality is assured, captured from the developer in Workflow §
 
 - <e.g. the suite is green, posix-lint conforming, verified live in-session>
 
+### A change that tightens a constraint over persisted data names its legacy fixture
+
+**A fresh-schema pass is not evidence for an upgrade** (2026-09-09, mission
+`report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`). Measured: a stricter
+`CHECK` constraint passed local tests against an **empty** database, then failed the existing-row
+copy in a production rebuild migration — and the deployment failure was reported as a healthy
+completion. Creating a schema and migrating one are different operations, and only the second is
+the one production performs.
+
+So when a ticket's change **tightens** what already-stored data must satisfy — a new or narrowed
+`CHECK`, a `NOT NULL` on an existing column, a new `UNIQUE`, a foreign key over existing rows, a
+narrowed enum or type — its **Verification method** names two things: the **representative legacy
+fixture** (a dataset shaped like the rows production actually holds, including the ones the new
+constraint would reject) and the **upgrade run** exercised against it. Naming a test suite that
+builds its schema fresh does not satisfy this, and neither does a passing local run whose database
+was empty.
+
+**It is a writing requirement, not a machine gate** — no hook can tell a fresh-schema fixture from
+a legacy one, and `validate-ticket.sh` checks the section's presence and never its quality
+(above). The rule's home is `plugins/workaholic/rules/general.md`, *A tightened constraint over
+persisted data is verified against legacy rows*; this is where it is asked for. **The data
+conversion itself belongs to the consuming application** — Workaholic owns that the evidence is
+requested here and that the delivery outcome is observed rather than assumed
+(`workaholic:ship`).
+
 ## Patches
 
 <Optional unified diffs — omit if no concrete code changes can be specified>

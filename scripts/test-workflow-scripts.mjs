@@ -236,6 +236,8 @@ const SCRIPTS = {
   publishTreeCommit: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"),
   publishTreePr: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh"),
   mergeReason: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/merge-reason.sh"),
+  refusalCapability:
+    join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/refusal-capability.sh"),
   listRoutineTemplates: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/list-routine-templates.sh"),
   renderTickPost: join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/render-tick-post.sh"),
   proposeSurvey: join(REPO_ROOT, "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"),
@@ -24751,6 +24753,392 @@ function testMergeReason() {
   assertTrue("backlog_all_excluded still moves no token",
     /`backlog_all_excluded`[\s\S]{0,400}?moves no token|moves no token/.test(driveSkill),
     "the no-token reading was disturbed");
+}
+
+// ---------- branching/refusal-capability.sh: WHICH capability refused (2026-09-09) ----------
+// `merge-reason.sh` answers WHAT the refusal was. This answers what that refusal says about the
+// SESSION — a different question, and folding the two together is exactly how one refused REST
+// call became a statement about the whole session. Measured 2026-09-08 on a native `/work` tick:
+// two runners stopped on `merge_refused: session_type_cannot_merge`, after which an
+// operator-authorized squash merge succeeded on the same pull request.
+//
+// One row per class, plus the two bounds that are the whole reason the reader is narrow: an
+// authorization denial can never produce an alternate route, and the connector's own refusal
+// cannot produce a second attempt.
+T("branching refusal-capability: a refused delivery names which capability refused it",
+  testRefusalCapability);
+function testRefusalCapability() {
+  const classify = (word, route) => JSON.parse(run(REPO_ROOT,
+    `sh '${SCRIPTS.refusalCapability}' ${JSON.stringify(word)}`
+      + (route ? ` ${JSON.stringify(route)}` : "")).stdout.trim());
+
+  // ONE ROW PER CLASS. Each is a different next action, which is why they are four words.
+  const cases = [
+    // The route is absent HERE; a different caller merges this pull request unchanged.
+    ["session_type_cannot_merge", "no_capability"],
+    ["gh_unavailable", "no_capability"],
+    // An authorization denial — a person changes something outside the pull request.
+    ["merge_forbidden", "not_permitted"],
+    // Nothing was established.
+    ["merge_failed", "call_errored"],
+    ["rest_unreachable", "call_errored"],
+    // NO capability refused it: GitHub declined on the pull request's own state. Forcing these
+    // into one of the three would report a conflict as "this session cannot deliver", which is
+    // the very error the classification exists to stop — so the named empty is a row of its own.
+    ["merge_not_allowed", "none"],
+    ["head_moved", "none"],
+  ];
+  for (const [word, want] of cases) {
+    assertEq(`${word} is ${want}`, classify(word).capability, want);
+    assertEq(`${word} names the route it was refused on`, classify(word).route, "github_rest");
+  }
+
+  // AN UNKNOWN WORD IS `unclassified`, NEVER A GUESS. A silently mis-binned refusal is worse
+  // than an unclassified one: the report would name a capability nothing established.
+  assertEq("an unrecognised word is unclassified", classify("something_new").capability,
+    "unclassified");
+  assertEq("and so is an empty one", classify("").capability, "unclassified");
+
+  // BOUND 1 — THE AUTHORIZED ROUTE IS NAMED FOR EXACTLY ONE INPUT. This is `rules/shell.md`'s
+  // one qualification expressed as a derivation instead of a sentence, and it is what makes the
+  // retry's precondition a reading rather than a judgement.
+  // It names the ROUTE, not the tool: no script may call an MCP tool, so a script spelling one
+  // would read as though it did — the tool is named by `rules/shell.md` and the command bodies,
+  // which are the callers that can actually reach it.
+  assertEq("session_type_cannot_merge on REST names the one authorized retry",
+    classify("session_type_cannot_merge").authorized_route, "github_connector");
+  assertEq("and reports the retry as authorized",
+    classify("session_type_cannot_merge").retry_authorized, true);
+
+  // BOUND 2 — AN AUTHORIZATION DENIAL IS STILL A REFUSAL. The ask was explicit that alternate
+  // spellings, parent delegation and second accounts must not become a way around a permission
+  // refusal; the way to keep that true is that the reader licensing a retry cannot produce one.
+  for (const [word, cls] of cases) {
+    if (cls === "not_permitted") {
+      assertEq(`${word} carries no alternate route`, classify(word).authorized_route, "");
+      assertEq(`${word} is not retry-authorized`, classify(word).retry_authorized, false);
+    }
+  }
+  // No word other than the one above ever carries an authorized route.
+  const carriers = cases.map(([w]) => w).concat(["something_new"])
+    .filter((w) => classify(w).authorized_route !== "");
+  assertEq("exactly one refusal word licenses a retry", carriers.join(","),
+    "session_type_cannot_merge");
+
+  // BOUND 3 — ONE ATTEMPT, ONE TOOL. The connector's own refusal licenses nothing, so the
+  // "at most once" bound holds by arithmetic rather than by the agent remembering it.
+  assertEq("the connector's own refusal licenses no second attempt",
+    classify("session_type_cannot_merge", "github_connector").authorized_route, "");
+
+  // EVERY WORD `merge-reason.sh` EMITS IS CLASSIFIED HERE. A literal-text check cannot see an
+  // omission, and an omission is the defect: a new rung that nothing classifies would report as
+  // `unclassified` in a live run, which is honest but useless. The word list is derived from
+  // that script's own source so the two cannot drift.
+  const ladder = readFileSync(SCRIPTS.mergeReason, "utf8");
+  const emitted = [...ladder.matchAll(/printf '([a-z_]+)\\n'/g)].map((m) => m[1]);
+  assertTrue("merge-reason.sh's rungs were readable", emitted.length >= 5, String(emitted));
+  const unclassified = emitted.filter((w) => classify(w).capability === "unclassified");
+  assertEq("every merge-reason.sh rung is classified", unclassified.join(","), "");
+
+  // AND `merge-pull.sh` READS IT RATHER THAN SPELLING IT. Until 2026-09-09 it rendered a literal
+  // `retry_authorized:false` on every refusal it classified — including the one refusal
+  // `rules/shell.md` authorizes a retry for — so the field said the opposite of the rule.
+  const mergePull = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/gather/scripts/merge-pull.sh"), "utf8");
+  assertTrue("merge-pull.sh composes refusal-capability.sh",
+    /refusal-capability\.sh/.test(mergePull), "the composer is not read");
+  // Comments are stripped first: the header records the defect by quoting the literal it
+  // removed, and a check that cannot tell the record from the code would forbid the record.
+  const mergePullCode = mergePull.split("\n")
+    .filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("merge-pull.sh keeps no literal retry_authorized verdict",
+    !/retry_authorized:(true|false)/.test(mergePullCode), "a literal verdict survives");
+
+  // AND BOTH DELIVERY PATHS CARRY THE RETRY. The `[Implement]` worker reaches it by executing
+  // `commands/implement.md`; the native coordinator merges for ITSELF through `deliver-unit.sh`
+  // and `merge-pr.sh`, so it never reached that body — which is the measured half of the gap.
+  // Prose, because no script may call an MCP tool; what is checkable is that each body names the
+  // tool, the precondition and the bound.
+  for (const body of ["commands/implement.md", "commands/infinite-development.md"]) {
+    const text = readFileSync(join(REPO_ROOT, "plugins/workaholic", body), "utf8");
+    assertTrue(`${body} reads the capability rather than spelling it`,
+      text.includes("refusal-capability.sh"), body);
+    assertTrue(`${body} names the one tool the retry may use`,
+      text.includes("mcp__github__merge_pull_request"), body);
+    assertTrue(`${body} states the retry's precondition`,
+      text.includes("session_type_cannot_merge"), body);
+    assertTrue(`${body} bounds the retry to one attempt`,
+      /at most once|one attempt/.test(text), body);
+    assertTrue(`${body} keeps an authorization denial a refusal`,
+      /not_permitted/.test(text) && /denial/.test(text), body);
+  }
+
+  // AND THE CONTRACT DEFINES THE WORDS WHERE THE REPORT IS DEFINED, so a reader can render any
+  // refusal without opening the script.
+  const contract = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/drive/reference/failure-contract.md"), "utf8");
+  for (const cls of ["no_capability", "call_errored", "not_permitted", "unclassified"]) {
+    assertTrue(`failure-contract.md names the \`${cls}\` class`, contract.includes(cls), cls);
+  }
+  // The classification MOVES NO TOKEN — it describes a refusal the outcome already reported.
+  assertTrue("failure-contract.md states the classification moves no token",
+    /moves no token/.test(contract), "the no-token reading is missing");
+}
+
+// ---------- loops/reconcile-completion.sh: a completion claim is read (2026-09-09) ----------
+// The tick's report is assembled from each worker's own `executed`/`outcome`/`reason`, and
+// nothing between the worker and the report asked the tree whether that was true. Measured
+// 2026-09-08: a session called implementation complete with ZERO merges, six queued tickets and
+// two unreconciled pull requests, and read its own runner's claims as another loop's.
+//
+// Every row hands the reader its two expensive inputs as files, which is both how the tick uses
+// it (paying for no second walk) and what makes the reader hermetic here: no ref is walked, no
+// network is reached, and the fixture is the claim oracle's and the survey's own output shapes.
+T("loops reconcile-completion: a completion claim is reconciled, never relayed",
+  testReconcileCompletion);
+function testReconcileCompletion() {
+  const A = mkdtempSync(join(tmpdir(), "wh-reconcile-completion-"));
+  const script = join(REPO_ROOT,
+    "plugins/workaholic/skills/loops/scripts/reconcile-completion.sh");
+  const survey = (over = {}) => JSON.stringify({
+    current: true, shallow: false, backlog_error: "", owner_unresolved: false,
+    placeholder_identity: false, backlog_size: 0, ...over,
+  });
+  const oracle = (claims, over = {}) =>
+    JSON.stringify({ fetched: true, shallow: false, claims, ...over });
+  const reconcile = (surveyJson, oracleJson, units = []) => {
+    writeFileSync(join(A, "survey.json"), surveyJson);
+    writeFileSync(join(A, "claims.json"), oracleJson);
+    const args = units.map((u) => `--unit ${JSON.stringify(u)}`).join(" ");
+    return JSON.parse(run(A,
+      `WORKAHOLIC_CLAIM_IDENTITY=me@example.com sh '${script}' --root '${A}'`
+      + ` --plan-units '${join(A, "survey.json")}' --claims '${join(A, "claims.json")}' ${args}`
+    ).stdout);
+  };
+
+  // ROW 1 — THE MEASURED CASE: the worker said done and NOTHING merged. The unit's claim is
+  // still standing with no merge outcome recorded, so its delivery effect is `pending`; the
+  // queue still holds work. A relayed report says complete; the reconciliation says false and
+  // names all three counts.
+  const standing = [{ unit: "u1", branch: "work-1", author: "me@example.com", merge_outcome: "" }];
+  let r = reconcile(survey({ backlog_size: 6 }), oracle(standing), ["u1"]);
+  assertEq("a worker's word does not make a tick complete", r.complete, false);
+  assertEq("...and the unit's delivery is pending, not merged", r.units[0].effect, "pending");
+  assertEq("...and nothing counts as merged", r.merged, 0);
+  assertEq("...and the queue's own count is reported", r.queued, 6);
+
+  // AND WHOSE THE CLAIMS ARE IS PART OF THE ANSWER — the measured session read its own runner's
+  // claims as another loop's, a mistake only a reading that never names the owner can make.
+  assertEq("standing claims are counted", r.standing_claims, 1);
+  assertEq("and this identity's are counted separately", r.standing_claims_mine, 1);
+  const foreign = reconcile(survey(), oracle(
+    [{ unit: "u9", branch: "work-9", author: "someone@else.example", merge_outcome: "" }]));
+  assertEq("a colleague's claim is standing", foreign.standing_claims, 1);
+  assertEq("and is not counted as this identity's", foreign.standing_claims_mine, 0);
+
+  // ROW 2 — A MERGE RELEASES A CLAIM, which is the protocol's own proof that delivery landed.
+  // With the unit gone from the oracle, an empty queue and no standing claim of ours, and only
+  // then, the claim is `true`.
+  r = reconcile(survey({ backlog_size: 0 }), oracle([]), ["u1"]);
+  assertEq("a released claim is merged evidence", r.units[0].effect, "taken");
+  assertEq("and it is counted", r.merged, 1);
+  assertEq("all four terms hold, so the claim is true", r.complete, true);
+
+  // A RECORDED REFUSAL IS CARRIED VERBATIM and is not a merge.
+  r = reconcile(survey(), oracle([{ unit: "u1", branch: "work-1", author: "me@example.com",
+    merge_outcome: "merge_refused: session_type_cannot_merge" }]), ["u1"]);
+  assertEq("a refused merge is not merged", r.merged, 0);
+  assertTrue("and the refusal word is carried, never translated",
+    r.units[0].effect.startsWith("refused:")
+      && r.units[0].effect.includes("session_type_cannot_merge"), r.units[0].effect);
+  assertEq("and the tick is not complete", r.complete, false);
+
+  // ROW 3 — AN UNREADABLE ORACLE IS NULL, NEVER ZERO, AND NEVER COMPLETE. Rendering "I could
+  // not look" as "nothing is outstanding" is the exact failure that makes a completion claim
+  // wrong and confident, so `complete` goes null rather than false and every count follows.
+  r = reconcile(survey({ backlog_size: 0 }), oracle([], { fetched: false }));
+  assertEq("an unfetched oracle is not an empty one", r.standing_claims, null);
+  assertEq("and this identity's count is null too", r.standing_claims_mine, null);
+  assertEq("and the tick's completion is unknown, not false", r.complete, null);
+  assertEq("and the reading says it is degraded", r.readable, false);
+  assertEq("naming the source and the reason", r.degraded[0].source, "list-claims");
+  assertEq("...by its own word", r.degraded[0].reason, "origin_unreachable");
+  assertEq("a truncated history is named too",
+    reconcile(survey(), oracle([], { shallow: true })).degraded[0].reason, "shallow_history");
+
+  // A SURVEY THAT FORBIDS `ok` HAS ESTABLISHED NO EMPTY QUEUE, so its count is not usable here
+  // either — the survey's own five facts, read rather than re-derived.
+  for (const over of [{ current: false }, { shallow: true }, { backlog_error: "boom" },
+    { owner_unresolved: true }, { placeholder_identity: true }]) {
+    const d = reconcile(survey({ backlog_size: 0, ...over }), oracle([]));
+    assertEq(`a survey with ${Object.keys(over)[0]} yields no queue count`, d.queued, null);
+    assertEq(`...and no completion verdict`, d.complete, null);
+  }
+
+  // `readable` IS ABSENT ON A COMPLETED READING (the `merge_policy`/`status:` convention), so a
+  // consumer tests `readable == false` and never `readable // true`.
+  r = reconcile(survey(), oracle([]));
+  assertEq("a completed reading carries no readable field", r.readable, undefined);
+  assertEq("and no degradations", r.degraded.length, 0);
+
+  // IT IS NOT A SECOND ORACLE, AND A CLOSED FEEDBACK ISSUE IS NOT EVIDENCE. A proposal pull
+  // request closes an inbound issue before any implementation exists, so no issue source may
+  // reach this reading — and the way to keep that true is that the script reads none.
+  const src = readFileSync(script, "utf8");
+  const code = src.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  for (const forbidden of ["gh-rest.sh", "list-inbound-issues.sh", "gh api", "worker-result"]) {
+    assertTrue(`reconcile-completion.sh reaches no ${forbidden}`, !code.includes(forbidden),
+      forbidden);
+  }
+  for (const composed of ["act-effect.sh", "list-claims.sh", "plan-units.sh"]) {
+    assertTrue(`and composes ${composed}`, code.includes(composed), composed);
+  }
+  assertTrue("and walks no ref of its own", !/git (for-each-ref|ls-remote|rev-list)/.test(code),
+    "a second walker appeared");
+
+  // AND THE TICK'S REPORT CONTRACT REQUIRES THE COUNTS. Prose, because the report is the
+  // agent's; what is checkable is that a claim naming none is visibly wrong.
+  const tick = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+  assertTrue("the tick contract composes the reconciliation",
+    tick.includes("reconcile-completion.sh"), "the reader is not named");
+  for (const count of ["merged", "standing_claims", "queued"]) {
+    assertTrue(`the tick contract names the \`${count}\` count`, tick.includes(count), count);
+  }
+  assertTrue("a completion claim naming no counts is non-conformant",
+    /non-conformant on its face/.test(tick), "the enforcement is missing");
+  const flat = tick.replace(/\s+/g, " ");
+  assertTrue("a closed feedback issue is not evidence of completion",
+    /closed inbound feedback issue|closed feedback issue/.test(flat), "the issue rule is missing");
+  assertTrue("a degraded source is never reported as complete",
+    /never zero and never complete|complete: null/.test(flat), "the degradation rule is missing");
+  assertTrue("a merge is not a deployment",
+    /merge is not a deployment/.test(flat), "the deployment separation is missing");
+}
+
+// ---------- drive/act-effect.sh: the separator is absorbed, the word never is (2026-09-10) ----
+// `act-effect.sh` documents its delivery answer as `taken` / `refused:<word>` / `pending` /
+// `unavailable` / `unreadable`, and its own header says each act's word is carried VERBATIM. The
+// strip was `refused:${outcome#merge_refused:}` while every current writer records the spaced
+// form — `retry-undelivered.sh`, `catch-up-claim.sh` and `settle-stranded-publication.sh` all
+// build `merge_refused: <word>`, which `workaholic:drive` §6 states as the outcome format — so
+// the reader emitted `refused: <word>`, a string its own documented shape does not have and no
+// consumer matching that shape can find. Both spellings exist in this tree (older records and
+// the drill's own fixture carry the unspaced one), so the reader tolerates both and emits one.
+//
+// Hermetic by the reader's own `--claims FILE`: the claim oracle's output is handed in, so no
+// ref is walked and no network is reached.
+T("drive act-effect: the recorded separator is absorbed, the word never is", testActEffectShape);
+function testActEffectShape() {
+  const A = mkdtempSync(join(tmpdir(), "wh-act-effect-shape-"));
+  const script = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/act-effect.sh");
+  const ask = (merge_outcome) => {
+    const file = join(A, `claims-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(file, JSON.stringify({ fetched: true, shallow: false, claims: [
+      { unit: "u1", branch: "work-1", author: "me@example.com", merge_outcome }] }));
+    const r = run(A, `${POSIX_SH} ${script} delivery u1 --claims ${file}`);
+    return JSON.parse(r.stdout);
+  };
+
+  // THE WRITTEN FORMS, one row each. The word itself is byte-identical across both.
+  assertEq("the spaced form every current writer records emits the documented shape",
+    ask("merge_refused: session_type_cannot_merge").effect,
+    "refused:session_type_cannot_merge");
+  assertEq("and the unspaced form older records carry emits the same shape",
+    ask("merge_refused:session_type_cannot_merge").effect,
+    "refused:session_type_cannot_merge");
+
+  // NO WORD IS RENAMED, DROPPED OR NORMALISED BEYOND THE SEPARATOR — a word this reader has
+  // never seen is carried through exactly as the writer spelled it.
+  for (const word of ["checks_pending", "checks_red", "merge_not_allowed", "head_moved",
+    "merge_effect_unknown", "a_word_no_script_prints_yet"]) {
+    assertEq(`\`${word}\` is carried verbatim`,
+      ask(`merge_refused: ${word}`).effect, `refused:${word}`);
+  }
+
+  // A SEPARATOR WITH NO WORD AFTER IT is `unstated`, the answer the bare form already gets —
+  // never a bare `refused:` and never a `refused: ` with the space still on it.
+  assertEq("a bare merge_refused is unstated", ask("merge_refused").effect, "refused:unstated");
+  assertEq("and so is a separator with nothing after it",
+    ask("merge_refused: ").effect, "refused:unstated");
+
+  // THE OTHER ANSWERS ARE UNTOUCHED.
+  assertEq("no recorded attempt is pending", ask("").effect, "pending");
+  assertEq("and an outcome this reader cannot classify stays unreadable",
+    ask("delivered_somehow").effect, "unreadable");
+
+  // AND EVERY EMITTED DELIVERY ANSWER MATCHES THE HEADER'S OWN SHAPE — the property the drift
+  // broke, asserted against the shape rather than against the rows above.
+  for (const outcome of ["merge_refused: checks_pending", "merge_refused:checks_pending",
+    "merge_refused", "", "delivered_somehow"]) {
+    const effect = ask(outcome).effect;
+    assertTrue(`\`${outcome}\` emits a documented shape`,
+      /^(taken|pending|unavailable|unreadable|refused:[^\s:][^\s]*)$/.test(effect), effect);
+  }
+  cleanup(A);
+}
+
+// ---------- the legacy-row rule, and where it is NOT written (2026-09-09) ----------
+// A stricter CHECK constraint passed local tests against an EMPTY database, failed the
+// existing-row copy in a production rebuild migration, and the deployment failure was reported
+// as a healthy completion. The rule is prose — no hook can tell a legacy fixture from a
+// fresh-schema one, and this repository will not invent a cross-repository check for a consuming
+// application's data — so what is checkable is that the three surfaces carry it and that the
+// mirrored policy pages were left alone.
+T("the legacy-row rule is stated where this repository owns it", testLegacyRowRule);
+function testLegacyRowRule() {
+  const read = (p) => readFileSync(join(REPO_ROOT, p), "utf8").replace(/\s+/g, " ");
+
+  // 1. THE RULE'S HOME is `rules/general.md`, whose `paths: '**/*'` reaches every session —
+  // rather than a policy page, for the reason asserted below.
+  const rules = read("plugins/workaholic/rules/general.md");
+  assertTrue("rules/general.md carries the legacy-row rule",
+    /tightened constraint over persisted data is verified against legacy rows/.test(rules),
+    "the rule is not in its stated home");
+  assertTrue("and says a fresh-schema pass is not that evidence",
+    /fresh-schema pass is not/.test(rules), "the negative half is missing");
+  assertTrue("and names it a writing rule rather than a machine gate",
+    /not a machine gate/.test(rules), "the enforcement claim is missing");
+
+  // 2. THE TICKET FORMAT ASKS FOR IT, which is the seam where evidence is requested.
+  const format = read("plugins/workaholic/skills/create-ticket/reference/ticket-format.md");
+  assertTrue("the ticket format asks for the legacy fixture",
+    /legacy fixture/.test(format), "the fixture is not asked for");
+  assertTrue("and for the upgrade run against it",
+    /upgrade run/.test(format), "the upgrade run is not asked for");
+  assertTrue("and cites the rule's home rather than restating it",
+    /rules\/general\.md/.test(format), "the citation is missing");
+
+  // 3. `ship` KEEPS A FAILED OR PENDING DEPLOYMENT ITS OWN STATE. The measured failure was a
+  // failed migration reported as a healthy completion because the pull request had merged.
+  const ship = read("plugins/workaholic/skills/ship/SKILL.md");
+  assertTrue("ship states a failed or pending deployment is its own state",
+    /failed or pending deployment is its own state/i.test(ship), "the section is missing");
+  assertTrue("and that a failed deployed migration stays a failed deployment",
+    /failed deployed migration remains a failed deployment/.test(ship), "the rule is missing");
+  assertTrue("and that not_run is not a soft pass",
+    /not a soft pass/.test(ship), "not_run could still read as a pass");
+
+  // 4. AND THE MIRRORED POLICY PAGES ARE NOT EDITED FOR IT. They are English hard copies whose
+  // source of truth is qmu.co.jp, refreshed by an upstream `standards-sync/*` pull request, and
+  // a prior mission put editing them out of scope by name — so a local edit would be silently
+  // reverted and the rule would read satisfied while quietly ceasing to be true. That is the
+  // exact failure shape this mission is about, which is why the absence is pinned rather than
+  // left to a later reader's judgement.
+  for (const page of [
+    "plugins/workaholic/skills/implementation/policies/persistence.md",
+    "plugins/workaholic/skills/implementation/policies/test.md",
+    "plugins/workaholic/skills/operation/policies/ci-cd.md",
+  ]) {
+    const text = readFileSync(join(REPO_ROOT, page), "utf8");
+    assertTrue(`${page} keeps its canonical source link`,
+      /^source: https:\/\/qmu\.co\.jp\//m.test(text), page);
+    assertTrue(`${page} carries no locally-authored legacy-row rule`,
+      !/legacy fixture|legacy rows/i.test(text), page);
+  }
+  assertTrue("and rules/general.md records why they were left alone",
+    /standards-sync|source of truth is qmu\.co\.jp|silently reverted/.test(rules),
+    "the reason for not editing the mirrors is not recorded");
 }
 
 // ---------- branching/publish-tree-pr.sh + propose's widened batch (J4) ----------

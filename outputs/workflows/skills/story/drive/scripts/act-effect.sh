@@ -2,7 +2,7 @@
 # Did the act this loop took actually take effect? ONE reader, for both acts.
 #
 # Usage: act-effect.sh retirement <unit>
-#        act-effect.sh delivery   <unit>
+#        act-effect.sh delivery   <unit> [--claims FILE]
 # Output: {"ok": bool, "act": "...", "unit": "...", "effect": "...", "source": "...", "reason": ""}
 #         `effect` is one of `taken` | `refused:<word>` | `pending` | `unavailable` | `unreadable`.
 #         Always exit 0.
@@ -53,6 +53,8 @@ LISTER="${SCRIPT_DIR}/list-claims.sh"
 
 ACT="${1:-}"
 UNIT="${2:-}"
+CLAIMS_FILE=""
+[ "${3:-}" = --claims ] && CLAIMS_FILE="${4:-}"
 
 emit() {
     printf '{"ok": %s, "act": "%s", "unit": "%s", "effect": "%s", "source": "%s", "reason": "%s"}\n' \
@@ -82,8 +84,20 @@ fi
 # row as `merge_outcome`, read by `lib/claims.sh` off the branch story blob the scan fetched, so
 # composing the row costs no call this reader would not otherwise make and cannot disagree with
 # the run that made the attempt.
-[ -f "$LISTER" ] || emit false unreadable list-claims.sh no_reader
-claims=$(sh "$LISTER" 2>/dev/null || true)
+# `--claims` HANDS IN A READING THE CALLER ALREADY MADE (2026-09-09, mission
+# `report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`) — the hand-back
+# shape `direction-state.sh --emit-survey` already uses. Reconciling a tick's units asks this
+# question once per unit, and without it each answer re-ran the oracle: N units, N+1 scans and
+# N+1 fetches of one fact that cannot have changed between them. It is the SAME reader's output,
+# so no second derivation exists and every degradation below still applies to it verbatim; an
+# unreadable file is `unreadable`, never an empty claim table.
+if [ -n "$CLAIMS_FILE" ]; then
+    claims=$(cat "$CLAIMS_FILE" 2>/dev/null || true)
+    [ -n "$claims" ] || emit false unreadable list-claims.sh handed_reading_unreadable
+else
+    [ -f "$LISTER" ] || emit false unreadable list-claims.sh no_reader
+    claims=$(sh "$LISTER" 2>/dev/null || true)
+fi
 printf '%s' "$claims" | jq -e . >/dev/null 2>&1 || emit false unreadable list-claims.sh claims_unparseable
 [ "$(printf '%s' "$claims" | jq -r '.fetched // false')" = "true" ] \
     || emit false unreadable list-claims.sh origin_unreachable
@@ -98,9 +112,30 @@ row=$(printf '%s' "$claims" | jq -c --arg u "$UNIT" \
 [ -n "$row" ] || emit true taken list-claims.sh claim_released
 
 outcome=$(printf '%s' "$row" | jq -r '.merge_outcome // ""')
+
+# THE SEPARATOR IS TOLERATED IN BOTH FORMS; THE WORD IS NEVER TOUCHED (2026-09-10, ticket
+# `20260909204500`). Two spellings are written in this tree — `merge_refused: <word>`, which is
+# `../SKILL.md` §6's documented outcome and what every current writer emits
+# (`retry-undelivered.sh`, `catch-up-claim.sh`, `settle-stranded-publication.sh`), and
+# `merge_refused:<word>`, which older records and fixtures carry. Stripping the prefix alone
+# left the space on the front of the answer, so this reader emitted `refused: <word>` while its
+# own header above documents `refused:<word>` — a consumer matching the documented shape found a
+# string no reader prints. Only the separator is absorbed: the word itself is carried verbatim,
+# which is what *each act's word is carried verbatim* means one paragraph up. A separator with no
+# word after it is `unstated`, the answer the bare `merge_refused` form already gets.
 case "$outcome" in
     # The word the run that made the attempt wrote, carried through with no translation.
-    merge_refused:*) emit true "refused:${outcome#merge_refused:}" list-claims.sh "" ;;
+    merge_refused:*)
+        _word=${outcome#merge_refused:}
+        _tab=$(printf '\t')
+        while :; do
+            case "$_word" in
+                ' '*|"$_tab"*) _word=${_word#?} ;;
+                *) break ;;
+            esac
+        done
+        [ -n "$_word" ] || _word=unstated
+        emit true "refused:${_word}" list-claims.sh "" ;;
     merge_refused) emit true "refused:unstated" list-claims.sh "" ;;
     "") emit true pending list-claims.sh no_attempt_recorded ;;
     *) emit true unreadable list-claims.sh "unrecognised_outcome" ;;

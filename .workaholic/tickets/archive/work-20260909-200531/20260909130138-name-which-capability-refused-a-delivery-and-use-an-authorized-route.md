@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-09T13:01:38+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -100,3 +101,52 @@ around a permission refusal: an actual authorization denial stays respected and 
   correct and only the reporting was wrong. That is a valid outcome.
 - Do not widen `rules/shell.md`'s one qualification. The connector retry stays a second attempt
   behind REST for one refusal, never a general fallback.
+
+## Final Report
+
+Development completed as planned.
+
+Step 1 was reproduced by reading the tree rather than by trusting the retrospective, and it
+settled the Considerations' open question in both directions. The retrospective's claim that the
+native path never reaches the connector retry is **half right**: an `[Implement]` worker reaches
+it, because its prompt executes `commands/implement.md` end to end and that body carries the
+numbered step. The **coordinator** does not — `commands/infinite-development.md` itself recommends
+merging through `drive/scripts/deliver-unit.sh` and `ship/scripts/merge-pr.sh`, both of which end
+at `gather/scripts/merge-pull.sh`, and that command body carried no retry step at all. A second,
+independent defect was found beside it: `merge-pull.sh` rendered a **literal**
+`retry_authorized:false` on every refusal it classified, including `session_type_cannot_merge` —
+the one refusal `rules/shell.md` authorizes a retry for. Nothing read the field (`grep` over
+`plugins/` and `scripts/` finds exactly the one producing line), so nothing behaved on it; what it
+did was state the opposite of the rule to any caller that wanted an honest answer.
+
+Steps 2-5 landed as one derivation, `branching/scripts/refusal-capability.sh`, beside
+`merge-reason.sh` and for its stated reason — a pure function over two strings, so every rung runs
+in the hermetic suite instead of being asserted by reading the source. The existing words are
+untouched and nothing is renamed; the classification rides beside them.
+
+### Discovered Insights
+
+- **Insight**: The three classes the ticket named do not cover `merge_not_allowed` (405) or
+  `head_moved` (409), and forcing them into one would have been the very defect being fixed.
+  **Context**: On those two the route worked, the identity was permitted and the call did not
+  error — GitHub evaluated the merge and declined it on the pull request's own state. They are
+  classified `none`, the repository's own named-empty convention, which reads as *no capability
+  refused this* rather than as an unclassified gap. Reporting a conflict as `no_capability` would
+  say *this session cannot deliver* about a session that can.
+
+- **Insight**: `authorized_route` makes three prose bounds arithmetic, which is why the reader
+  takes the route as an argument rather than assuming REST.
+  **Context**: It is non-empty for exactly `session_type_cannot_merge` on `github_rest`. So the
+  retry's precondition is a reading rather than a judgement; the *one attempt, one tool* bound
+  holds because the connector's own refusal (`route: github_connector`) licenses nothing; and an
+  authorization denial provably carries no alternate route, which is the ask's explicit
+  requirement that alternate spellings and parent delegation must not become a way around a
+  permission refusal. None of the three had to be restated as a sentence an agent must remember.
+
+- **Insight**: A pure-function reader is the only shape in which this could be tested at all.
+  **Context**: `merge-reason.sh`'s header already records why the ladder was extracted — inline,
+  the only way to exercise a rung was to make a real merge fail. The same constraint applies with
+  more force here, since the classes exist precisely for refusals a hermetic suite may never
+  provoke. The suite now derives `merge-reason.sh`'s rung list from that script's own source and
+  fails when any rung is left unclassified, which catches an *omission* — the defect a
+  literal-text check cannot see.

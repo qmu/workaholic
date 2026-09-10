@@ -2,20 +2,21 @@
 type: Mission
 title: Report a native tick from reconciled evidence, not from a worker's word
 slug: report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-09T13:00:46+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.5
 feedback: [20260909125918-repair-the-native-work-loop-s-control-delivery-and-truthful-reporting.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260909-200531
 ---
 
 # Report a native tick from reconciled evidence, not from a worker's word
@@ -36,10 +37,18 @@ queue; a failed or pending deployment stays visible.
 
 ## Acceptance
 
-- [ ] A delivery refusal names which capability refused, and an authorized route is used. (#20260909130138-name-which-capability-refused-a-delivery-and-use-an-authorized-route.md)
-- [ ] A completion claim is reconciled against merge state, claims and the queue before it is made. (#20260909130138-reconcile-a-completion-claim-against-merges-claims-and-the-queue.md)
-- [ ] A constraint tightened over persisted data is verified against legacy rows. (#20260909130138-verify-a-constraint-tightening-migration-against-legacy-rows.md)
+- [x] A delivery refusal names which capability refused, and an authorized route is used. (#20260909130138-name-which-capability-refused-a-delivery-and-use-an-authorized-route.md)
+- [x] A completion claim is reconciled against merge state, claims and the queue before it is made. (#20260909130138-reconcile-a-completion-claim-against-merges-claims-and-the-queue.md)
+- [x] A constraint tightened over persisted data is verified against legacy rows. (#20260909130138-verify-a-constraint-tightening-migration-against-legacy-rows.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-09 — ticket archived — 20260909130138-name-which-capability-refused-a-delivery-and-use-an-authorized-route.md
+- 2026-09-09 — ticket archived — 20260909130138-reconcile-a-completion-claim-against-merges-claims-and-the-queue.md
+- 2026-09-09 — ticket archived — 20260909130138-verify-a-constraint-tightening-migration-against-legacy-rows.md
+- 2026-09-09 — Reported — work-20260909-200531.md
+- 2026-09-09 — run recorded (+1.1h) — implement-t29
+- 2026-09-10 — ticket archived — 20260909204500-emit-act-effect-s-refused-word-in-its-documented-shape.md
+- 2026-09-10 — mission achieved — mission.md
+- 2026-09-10 — run recorded (+0.4h) — implement-t51

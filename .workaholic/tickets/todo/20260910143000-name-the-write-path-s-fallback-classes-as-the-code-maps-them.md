@@ -6,6 +6,7 @@ depends_on:
 feedback: 20260908123552-slack-bot, 20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback
 merge_policy:
 verification_handoff: 
+claim: work-20260910-150318
 ---
 
 # Name the write path's fallback classes as the code maps them

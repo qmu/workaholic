@@ -6,6 +6,7 @@ depends_on:
 feedback: 20260908123552-slack-bot, 20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback
 merge_policy:
 verification_handoff: 
+claim: work-20260910-133027
 ---
 
 # Say that an authorization refusal never falls back

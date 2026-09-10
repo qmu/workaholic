@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260908123559-discover-new-human-replies-inside-existing-slack-threads.md, 20260908123606-honor-repository-declared-qfs-slack-bindings-before-connector-fallback.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260910-133027
 ---
 
 # Make the machine-load rounding assertion deterministic

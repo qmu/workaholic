@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 1.1
+actual_hours: 1.5
 feedback: [20260909125918-repair-the-native-work-loop-s-control-delivery-and-truthful-reporting.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -51,3 +51,4 @@ queue; a failed or pending deployment stays visible.
 - 2026-09-09 — run recorded (+1.1h) — implement-t29
 - 2026-09-10 — ticket archived — 20260909204500-emit-act-effect-s-refused-word-in-its-documented-shape.md
 - 2026-09-10 — mission achieved — mission.md
+- 2026-09-10 — run recorded (+0.4h) — implement-t51

@@ -342,7 +342,15 @@ organized as an Open Knowledge Format bundle. Enter any area through its index.
 "
 for area in tickets moderations stories missions feedbacks strategies deployments release-notes releases terms trips; do
   dir="$ROOT/$area"
-  [ -d "$dir" ] || continue
+  # moderations/ is git-ignored (rules/workaholic.md, the second OKF exception), so its presence on
+  # disk is untracked state: a checkout that has run /moderate holds it and a fresh clone or claim
+  # worktree does not. Gating its line on `-d` made this generated, committed index depend on that
+  # state, so the two kinds of checkout could never agree and sync-main.sh refused dirty_workspace
+  # forever after any regeneration (measured 2026-09-09: three consecutive implement runs stopped
+  # at §1 with the tree byte-identical after the one sanctioned clear). The line is emitted
+  # unconditionally: it names the directory, links nothing, and the design it documents does not
+  # change with whether this particular checkout has written a log yet.
+  [ "$area" = moderations ] || [ -d "$dir" ] || continue
   case "$area" in
     tickets)       root_body="$root_body* [tickets/](tickets/) - implementation tickets (two states: todo / archive; the outcome is the status: field)
 " ;;

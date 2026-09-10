@@ -40573,6 +40573,41 @@ function testReportNamesDestination() {
   assertEq("no call site projects the reader's output without keeping `binding`", offenders, []);
 }
 
+// A TYPED FAILURE AND A FALLBACK-PERMITTING ONE ARE NOT THE SAME SET (2026-09-10, ticket
+// `20260910040721`). `CLAUDE.md` named four typed classes and then said every OTHER failure
+// keeps the operation where it was declared, which reads as *all four permit a fallback* —
+// while `qfs_fallback_class()` maps the authorization class to `none` and both consumers stay
+// put. The behaviour was right and the prose was wrong, and a reader implementing a new adapter
+// from the paragraph alone would have let an authorization refusal fall through to the
+// connector, which is precisely the traffic the typed-fallback rule exists to stop. Nothing
+// mechanical could see the disagreement, so the two are pinned against each other here: the
+// code by what it maps, the prose by the distinction it must draw.
+T("an authorization refusal is typed and never falls back", testAuthorizationRefusalNeverFallsBack);
+function testAuthorizationRefusalNeverFallsBack() {
+  const perform = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/transport/scripts/perform.sh"), "utf8");
+
+  // 1. THE CODE. One derivation, and it maps the authorization word to `none`. Comments are
+  //    stripped so a sentence about the class cannot stand in for the mapping itself.
+  const mech = perform.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  assertTrue("qfs_fallback_class maps qfs_preview_refused to none",
+    /qfs_preview_refused\)\s*echo\s+none\s*;;/.test(mech), "the mapping moved");
+  // ...and the read path composes that one derivation rather than carrying a second rule.
+  assertTrue("read_fallback_class defers to qfs_fallback_class",
+    /read_fallback_class\(\)[\s\S]{0,200}qfs_fallback_class/.test(mech), "a second rule appeared");
+
+  // 2. THE PROSE. `CLAUDE.md` must draw the distinction, not just list the four words. It is
+  //    checked on meaning-bearing tokens rather than a whole sentence: this paragraph is
+  //    wrapped prose that a later edit may rewrap, and the rule is the distinction.
+  const claude = readFileSync(join(REPO_ROOT, "CLAUDE.md"), "utf8").replace(/\s+/gu, " ");
+  assertTrue("CLAUDE.md separates typed from fallback-permitting",
+    /Typed is not the same as fallback-permitting/.test(claude), "the distinction is not drawn");
+  assertTrue("...and names the authorization class as the one that stays",
+    /`qfs_preview_refused` keeps the operation on the declared route/.test(claude), "CLAUDE.md");
+  assertTrue("...on the repository's own not_permitted doctrine",
+    /authorization denial stays a refusal/.test(claude), "the doctrine is not cited");
+}
+
 T("open-log names a tick log tracked on the base", testOpenLogNamesTrackedLog);
 function testOpenLogNamesTrackedLog() {
   const script = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-open-log.sh");

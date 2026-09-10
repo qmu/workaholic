@@ -730,4 +730,5 @@
 * [Verify the QFS root map by matching, not by counting, and emit add_reaction](20260909222245-verify-the-qfs-root-map-by-matching-not-by-counting-and-emit-add-reaction.md)
 * [Ten of the operator's own FB issues can never be ingested because they carry no assignee](20260909222316-ten-of-the-operator-s-own-fb-issues-can-never-be-ingested-because-they-carry-no-assignee.md)
 * [The filed-records dedup reads a stale worktree, so a landed record reads unlanded](20260909222511-the-filed-records-dedup-reads-a-stale-worktree-so-a-landed-record-reads-unlanded.md)
+* [The check-in reports a gate-cleared question as question_identity_unavailable](20260910121912-the-check-in-reports-a-gate-cleared-question-as-question-identity-unavailable.md)
 <!-- okf:generated:end -->

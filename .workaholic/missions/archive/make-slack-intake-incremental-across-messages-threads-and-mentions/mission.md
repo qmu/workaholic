@@ -43,3 +43,6 @@ Each tick reads only new relevant activity, continues conversations after an unm
 - 2026-09-08 — ticket archived — 20260908123811-share-intake-cursors-and-deduplicate-every-loop-consumer.md
 - 2026-09-08 — ticket archived — 20260908123811-verify-thread-replies-and-report-unreadable-slack-coverage.md
 - 2026-09-08 — mission achieved — mission.md
+- 2026-09-10 — ticket archived — 20260908124152-declare-and-audit-a-repository-local-slack-transport-binding.md
+- 2026-09-10 — ticket archived — 20260908124152-resolve-qfs-slack-first-and-type-every-connector-fallback.md
+- 2026-09-10 — story — work-20260910-125058.md

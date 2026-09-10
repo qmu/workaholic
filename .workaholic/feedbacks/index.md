@@ -723,4 +723,11 @@
 * [QFS hides a rejected write's own error and a renamed mount cannot call its procedures](20260909162831-qfs-hides-a-rejected-write-s-own-error-and-a-renamed-mount-cannot-call-its-procedures.md)
 * [The tick's finding brake is starved by duplicate issues for one standing condition](20260909171204-the-tick-s-finding-brake-is-starved-by-duplicate-issues-for-one-standing-condition.md)
 * [reconcile-questions retires a live question because the registry records human-checkin as every question's owning step](20260909181740-reconcile-questions-retires-a-live-question-because-the-registry-records-human-checkin-as-every-question-s-owning-step.md)
+* [A proved residue clear restores to HEAD while its proof is against the base, and the index generator re-creates the residue](20260909202359-a-proved-residue-clear-restores-to-head-while-its-proof-is-against-the-base-and-the-index-generator-re-creates-the-residue.md)
+* [question-liveness retires an escalation key its owning step can never name as a string node](20260909202412-question-liveness-retires-an-escalation-key-its-owning-step-can-never-name-as-a-string-node.md)
+* [The record publication seam carries a feedback record to main without refreshing the area index](20260909202703-the-record-publication-seam-carries-a-feedback-record-to-main-without-refreshing-the-area-index.md)
+* [A retired question can never be revived, so every wrongly retired key is silenced permanently](20260909212341-a-retired-question-can-never-be-revived-so-every-wrongly-retired-key-is-silenced-permanently.md)
+* [Verify the QFS root map by matching, not by counting, and emit add_reaction](20260909222245-verify-the-qfs-root-map-by-matching-not-by-counting-and-emit-add-reaction.md)
+* [Ten of the operator's own FB issues can never be ingested because they carry no assignee](20260909222316-ten-of-the-operator-s-own-fb-issues-can-never-be-ingested-because-they-carry-no-assignee.md)
+* [The filed-records dedup reads a stale worktree, so a landed record reads unlanded](20260909222511-the-filed-records-dedup-reads-a-stale-worktree-so-a-landed-record-reads-unlanded.md)
 <!-- okf:generated:end -->

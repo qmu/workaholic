@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-09T20:45:00+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -74,3 +75,29 @@ avoid.
   documented outcome format and is written into branch stories that already exist.
 - This is cosmetic today. If it is judged not worth doing, the honest alternative is to correct
   `act-effect.sh`'s header to document what it emits — not to leave the two disagreeing.
+
+## Final Report
+
+Development completed as planned.
+
+`act-effect.sh`'s delivery arm now absorbs the separator and carries the word untouched: both
+`merge_refused: <word>` (what every current writer records — `retry-undelivered.sh`,
+`catch-up-claim.sh`, `settle-stranded-publication.sh`) and `merge_refused:<word>` (older records
+and the drill's own fixture) emit the header's documented `refused:<word>`. No writer moved, no
+refusal word was renamed, and `unstated`, `pending` and `unreadable` are exactly what they were.
+Seventeen hermetic rows in `test-workflow-scripts.mjs` pin one row per written form, one per
+carried word, and a shape assertion over every delivery answer.
+
+### Discovered Insights
+
+- **Insight**: The reader's own header was the specification the code failed, and nothing
+  compared the two — `reference/claims.md` line 592 documents `refused:<word>` and the strip
+  produced something else for a year of records.
+  **Context**: Where a script's header is the contract, a shape assertion over the emitted value
+  is worth more than a row per case: the row-per-case rows would all have been written against
+  the buggy output by anyone reading the code rather than the header.
+
+- **Insight**: `--claims FILE` makes this reader testable with no repository at all — the claim
+  oracle's output is the only input the delivery arm has.
+  **Context**: The hand-back flag was added for an N+1 cost, and it doubles as the seam that
+  keeps a reader composing `list-claims.sh` hermetic in the suite.

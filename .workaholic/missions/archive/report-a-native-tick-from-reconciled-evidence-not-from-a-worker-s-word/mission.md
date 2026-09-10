@@ -2,7 +2,7 @@
 type: Mission
 title: Report a native tick from reconciled evidence, not from a worker's word
 slug: report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-09T13:00:46+09:00
 author: a@qmu.jp
@@ -49,3 +49,5 @@ queue; a failed or pending deployment stays visible.
 - 2026-09-09 — ticket archived — 20260909130138-verify-a-constraint-tightening-migration-against-legacy-rows.md
 - 2026-09-09 — Reported — work-20260909-200531.md
 - 2026-09-09 — run recorded (+1.1h) — implement-t29
+- 2026-09-10 — ticket archived — 20260909204500-emit-act-effect-s-refused-word-in-its-documented-shape.md
+- 2026-09-10 — mission achieved — mission.md

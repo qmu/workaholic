@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word](active/report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word/mission.md) - Report a native tick from reconciled evidence, not from a worker's word
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 
@@ -121,6 +120,7 @@
 * [rename-the-routine-pair-and-add-a-per-user-updater](archive/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies
 * [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](archive/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
+* [report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word](archive/report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word/mission.md) - Report a native tick from reconciled evidence, not from a worker's word
 * [report-each-tick-in-the-originating-codex-chat](archive/report-each-tick-in-the-originating-codex-chat/mission.md) - Report each tick in the originating Codex chat
 * [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
 * [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](archive/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it

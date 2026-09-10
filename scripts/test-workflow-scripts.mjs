@@ -25016,6 +25016,68 @@ function testReconcileCompletion() {
     /merge is not a deployment/.test(flat), "the deployment separation is missing");
 }
 
+// ---------- drive/act-effect.sh: the separator is absorbed, the word never is (2026-09-10) ----
+// `act-effect.sh` documents its delivery answer as `taken` / `refused:<word>` / `pending` /
+// `unavailable` / `unreadable`, and its own header says each act's word is carried VERBATIM. The
+// strip was `refused:${outcome#merge_refused:}` while every current writer records the spaced
+// form — `retry-undelivered.sh`, `catch-up-claim.sh` and `settle-stranded-publication.sh` all
+// build `merge_refused: <word>`, which `workaholic:drive` §6 states as the outcome format — so
+// the reader emitted `refused: <word>`, a string its own documented shape does not have and no
+// consumer matching that shape can find. Both spellings exist in this tree (older records and
+// the drill's own fixture carry the unspaced one), so the reader tolerates both and emits one.
+//
+// Hermetic by the reader's own `--claims FILE`: the claim oracle's output is handed in, so no
+// ref is walked and no network is reached.
+T("drive act-effect: the recorded separator is absorbed, the word never is", testActEffectShape);
+function testActEffectShape() {
+  const A = mkdtempSync(join(tmpdir(), "wh-act-effect-shape-"));
+  const script = join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/act-effect.sh");
+  const ask = (merge_outcome) => {
+    const file = join(A, `claims-${Math.random().toString(36).slice(2)}.json`);
+    writeFileSync(file, JSON.stringify({ fetched: true, shallow: false, claims: [
+      { unit: "u1", branch: "work-1", author: "me@example.com", merge_outcome }] }));
+    const r = run(A, `${POSIX_SH} ${script} delivery u1 --claims ${file}`);
+    return JSON.parse(r.stdout);
+  };
+
+  // THE WRITTEN FORMS, one row each. The word itself is byte-identical across both.
+  assertEq("the spaced form every current writer records emits the documented shape",
+    ask("merge_refused: session_type_cannot_merge").effect,
+    "refused:session_type_cannot_merge");
+  assertEq("and the unspaced form older records carry emits the same shape",
+    ask("merge_refused:session_type_cannot_merge").effect,
+    "refused:session_type_cannot_merge");
+
+  // NO WORD IS RENAMED, DROPPED OR NORMALISED BEYOND THE SEPARATOR — a word this reader has
+  // never seen is carried through exactly as the writer spelled it.
+  for (const word of ["checks_pending", "checks_red", "merge_not_allowed", "head_moved",
+    "merge_effect_unknown", "a_word_no_script_prints_yet"]) {
+    assertEq(`\`${word}\` is carried verbatim`,
+      ask(`merge_refused: ${word}`).effect, `refused:${word}`);
+  }
+
+  // A SEPARATOR WITH NO WORD AFTER IT is `unstated`, the answer the bare form already gets —
+  // never a bare `refused:` and never a `refused: ` with the space still on it.
+  assertEq("a bare merge_refused is unstated", ask("merge_refused").effect, "refused:unstated");
+  assertEq("and so is a separator with nothing after it",
+    ask("merge_refused: ").effect, "refused:unstated");
+
+  // THE OTHER ANSWERS ARE UNTOUCHED.
+  assertEq("no recorded attempt is pending", ask("").effect, "pending");
+  assertEq("and an outcome this reader cannot classify stays unreadable",
+    ask("delivered_somehow").effect, "unreadable");
+
+  // AND EVERY EMITTED DELIVERY ANSWER MATCHES THE HEADER'S OWN SHAPE — the property the drift
+  // broke, asserted against the shape rather than against the rows above.
+  for (const outcome of ["merge_refused: checks_pending", "merge_refused:checks_pending",
+    "merge_refused", "", "delivered_somehow"]) {
+    const effect = ask(outcome).effect;
+    assertTrue(`\`${outcome}\` emits a documented shape`,
+      /^(taken|pending|unavailable|unreadable|refused:[^\s:][^\s]*)$/.test(effect), effect);
+  }
+  cleanup(A);
+}
+
 // ---------- the legacy-row rule, and where it is NOT written (2026-09-09) ----------
 // A stricter CHECK constraint passed local tests against an EMPTY database, failed the
 // existing-row copy in a production rebuild migration, and the deployment failure was reported

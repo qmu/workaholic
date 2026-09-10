@@ -112,9 +112,30 @@ row=$(printf '%s' "$claims" | jq -c --arg u "$UNIT" \
 [ -n "$row" ] || emit true taken list-claims.sh claim_released
 
 outcome=$(printf '%s' "$row" | jq -r '.merge_outcome // ""')
+
+# THE SEPARATOR IS TOLERATED IN BOTH FORMS; THE WORD IS NEVER TOUCHED (2026-09-10, ticket
+# `20260909204500`). Two spellings are written in this tree — `merge_refused: <word>`, which is
+# `../SKILL.md` §6's documented outcome and what every current writer emits
+# (`retry-undelivered.sh`, `catch-up-claim.sh`, `settle-stranded-publication.sh`), and
+# `merge_refused:<word>`, which older records and fixtures carry. Stripping the prefix alone
+# left the space on the front of the answer, so this reader emitted `refused: <word>` while its
+# own header above documents `refused:<word>` — a consumer matching the documented shape found a
+# string no reader prints. Only the separator is absorbed: the word itself is carried verbatim,
+# which is what *each act's word is carried verbatim* means one paragraph up. A separator with no
+# word after it is `unstated`, the answer the bare `merge_refused` form already gets.
 case "$outcome" in
     # The word the run that made the attempt wrote, carried through with no translation.
-    merge_refused:*) emit true "refused:${outcome#merge_refused:}" list-claims.sh "" ;;
+    merge_refused:*)
+        _word=${outcome#merge_refused:}
+        _tab=$(printf '\t')
+        while :; do
+            case "$_word" in
+                ' '*|"$_tab"*) _word=${_word#?} ;;
+                *) break ;;
+            esac
+        done
+        [ -n "$_word" ] || _word=unstated
+        emit true "refused:${_word}" list-claims.sh "" ;;
     merge_refused) emit true "refused:unstated" list-claims.sh "" ;;
     "") emit true pending list-claims.sh no_attempt_recorded ;;
     *) emit true unreadable list-claims.sh "unrecognised_outcome" ;;

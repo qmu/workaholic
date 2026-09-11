@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260911142410-resume-the-native-work-loop-after-ordinary-mid-loop-comments.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260911-143422
 ---
 
 # Resume the native work loop after ordinary mid-loop comments

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-11T18:04:01+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -110,3 +111,20 @@ classification; this ticket is the second half the operator named.
 - The reducer must not grow a fourth control mode; `resumed` is derived from `control` and the recorded continuation, never stored as a mode (`plugins/workaholic/skills/runtime/scripts/lib/coordinator.jq`)
 - A same-chat scheduled tick on Claude Code is the host's clock; the contract reads its identifier and next due time, it never creates one (`plugins/workaholic/skills/work/SKILL.md` lines 30-47)
 - Reporter-proposed mechanism recorded as a hypothesis, not as the design: *return to an interruptible parent or establish a same-chat scheduled continuation* — step 1 decides which of the two the native host can actually prove
+
+## Final Report
+
+Development completed as planned.
+
+Measured before the change (step 1): `final-response-contract.sh` fed routine facts with no
+continuation answered `path: resume, final_response: false` and nothing about what carries the
+loop; `coordinator.sh` fed `start` then `tick` answered `control: running` with data keys
+`anchor, cancel_children, cancel_schedule, cancelled, completed, completion_log, control, due,
+live` and no liveness term. The operator's session was the third reading.
+
+### Discovered Insights
+
+- **Insight**: `resumed` is derived at every event from `control` and the recorded continuation, never stored, so a state written before this change (no `continuation` key) reads `continuation_unproved` with no migration.
+  **Context**: the reducer's tail derivation is the one place liveness is computed; a mode would have been a second store of the same fact.
+- **Insight**: the review-handoff path takes no continuation because a held loop is waiting on a person, so the `hold` itself is what carries it; the contract refuses `continuation_unproved` only on the `resume` path, after every other refusal, so existing refusal rows keep their names.
+  **Context**: ordering the new refusal last keeps `anchor_moved` / `hold_not_persisted` / `question_mismatch` byte-identical for facts that name no continuation.

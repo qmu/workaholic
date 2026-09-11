@@ -161,7 +161,8 @@ fi
 # branch, so there is nothing to be non-fast-forward against. (publish-tree-commit.sh
 # needs the retry because it pushes onto a shared base another runner may have
 # advanced.) Reconciling with the base is the pull request's job.
-if git -C "$publish_path" push --quiet origin "${PUBLISH_BRANCH}:refs/heads/${work_branch}" >&2; then
+. "${SCRIPT_DIR}/lib/base-ref-gate.sh"
+if base_ref_gate push "${PUBLISH_BRANCH}:refs/heads/${work_branch}" && git -C "$publish_path" push --quiet origin "${PUBLISH_BRANCH}:refs/heads/${work_branch}" >&2; then
   :
 else
   printf '{"ok": false, "reason": "push_failed", "branch": "%s", "sha": "%s", "path": "%s", "detail": "the commit is intact in the publish tree"}\n' \

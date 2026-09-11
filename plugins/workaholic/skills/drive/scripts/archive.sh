@@ -486,7 +486,8 @@ COMMIT_HASH=$(git rev-parse --short HEAD)
 # must not be lost or treated as an error if the push fails. A failed push is reported
 # loudly (not silently swallowed) but never fails the archive -- the next heartbeat or
 # commit will carry it forward regardless.
-if git push --quiet origin "$BRANCH" >/dev/null 2>&1; then
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
+if base_ref_gate push "$BRANCH" && git push --quiet origin "$BRANCH" >/dev/null 2>&1; then
     PUSH_STATUS="pushed"
 else
     PUSH_STATUS="! could not push claim branch ${BRANCH}"

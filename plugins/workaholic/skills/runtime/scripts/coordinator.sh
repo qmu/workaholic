@@ -46,6 +46,9 @@ if [ -f "$WORK/result" ] && [ "$(jq -r .reason "$WORK/result")" = revision_confl
 # a crash after state persistence; log-append is idempotent per completion tick + receipt.
 log='null'
 if [ "$(jq -r .event "$INPUT")" = finish ]; then
+    # The finish-log seam names its role for the base-ref gate (2026-09-11, issue #1151).
+    : "${WORKAHOLIC_ROLE:=finish-log}"
+    export WORKAHOLIC_ROLE
     id=$(jq -r .id "$INPUT")
     jq --arg id "$id" '.state.workers[$id] | select(.state == "completed")' "$WORK/plan" > "$WORK/worker"
     if [ -s "$WORK/worker" ]; then

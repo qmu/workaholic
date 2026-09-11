@@ -76,6 +76,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 
 cmd="${1:-}"
 [ -n "$cmd" ] || { printf '{"arbitrated": false, "state": "unavailable", "reason": "no_command", "refs": [], "held_by_ref": "", "stale_lock": false}\n'; exit 0; }
@@ -83,6 +84,7 @@ shift 2>/dev/null || true
 
 _delete_owned() { # $1 ref, $2 observed object id
     _do_ref=$1 _do_sha=$2
+    base_ref_gate push ":${_do_ref}" || return 1
     git push --force-with-lease="${_do_ref}:${_do_sha}" origin ":${_do_ref}" >/dev/null 2>&1 || return 1
     [ -z "$(git ls-remote origin "$_do_ref" 2>/dev/null)" ]
 }
@@ -197,7 +199,7 @@ if [ "$cmd" = "reap" ]; then
         # "I could not sweep the one thing there was", and the mission behind the lock was
         # refused `claim_race_lost` once an hour, forever. Reporting the refusal is what makes
         # the sweep's own failure legible; it is still never a hard stop.
-        if ! push_err=$(git push --force-with-lease="${r}:${sha}" origin ":${r}" 2>&1); then
+        if ! base_ref_gate push ":${r}" || ! push_err=$(git push --force-with-lease="${r}:${sha}" origin ":${r}" 2>&1); then
             unreapable="${unreapable}${r}|push_refused|$(
                 printf '%s' "$push_err" | tr '\n\t' '  ' \
                     | sed 's/[^A-Za-z0-9 ._:/-]/ /g; s/  */ /g' | cut -c1-120
@@ -233,7 +235,7 @@ wanted=$(printf '%s' "$wanted" | grep . || printf '')
 if [ "$cmd" = "release" ]; then
     released=""
     for r in $wanted; do
-        git push origin ":${r}" >/dev/null 2>&1 || true
+        base_ref_gate push ":${r}" && git push origin ":${r}" >/dev/null 2>&1 || true
         released="${released}${r}
 "
     done
@@ -262,7 +264,8 @@ _unwind() {
 }
 
 for r in $wanted; do
-    _out=$(git push --force-with-lease="${r}:" origin "${_uniq}:${r}" 2>&1) && {
+    base_ref_gate push "${_uniq}:${r}" || _out="refused:${BASE_REF_GATE_REASON}"
+    [ "$BASE_REF_GATE_VERDICT" = allowed ] && _out=$(git push --force-with-lease="${r}:" origin "${_uniq}:${r}" 2>&1) && {
         won="${won}${r}
 "
         continue

@@ -13,6 +13,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/lib/base-ref-gate.sh"
 READER="${SCRIPT_DIR}/list-stranded-publications.sh"
 GATHER="${SCRIPT_DIR}/../../gather/scripts"
 CATCHUP="${SCRIPT_DIR}/../../ship/scripts/catchup-main.sh"
@@ -258,7 +259,7 @@ if [ "$NEEDS_CATCHUP" = true ]; then
         reviews=$(sh "$GATHER/gh-rest.sh" api "repos/$slug/pulls/$NUMBER/reviews?per_page=100" 2>/dev/null || printf 'null')
         printf '%s' "$reviews" | jq -e 'type=="array" and length==0' >/dev/null 2>&1 || refuse reviewed_or_reviews_unreadable
     fi
-    git -C "$WORKTREE" push --quiet origin "HEAD:refs/heads/${BRANCH}" >/dev/null 2>&1 \
+    { base_ref_gate push "HEAD:refs/heads/${BRANCH}" && git -C "$WORKTREE" push --quiet origin "HEAD:refs/heads/${BRANCH}" >/dev/null 2>&1; } \
         || refuse push_failed
     PUSHED=true
 fi

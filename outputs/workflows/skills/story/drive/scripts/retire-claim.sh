@@ -107,6 +107,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
@@ -232,7 +233,7 @@ fi
 # --- Act 2: delete the remote branch -----------------------------------------------------
 if ! git rev-parse --verify --quiet "refs/remotes/origin/${BRANCH}" >/dev/null 2>&1; then
     REMOTE_STATE="already_gone"
-elif git push --quiet origin --delete "$BRANCH" >/dev/null 2>&1; then
+elif base_ref_gate push ":${BRANCH}" && git push --quiet origin --delete "$BRANCH" >/dev/null 2>&1; then
     REMOTE_STATE="deleted"
 else
     # MEASURED, NOT ASSUMED (2026-08-27, mission `finish-the-retirement-the-loop-cannot-complete`;

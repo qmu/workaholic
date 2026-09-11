@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-11T18:04:03+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -86,3 +87,25 @@ took *the other road* to `main`, and that road is the one the operator measured.
 - A record pull request that auto-merges is still a squash merge through `merge-method.sh` and `merge-commit-body.sh`; do not spell either at the new call site (`plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh`)
 - Two concurrent ticks writing different records must both land, as they do today; the pull-request seam's non-fast-forward retry covers it once, and a second refusal is `unlanded`, reported by name (`plugins/workaholic/skills/moderate/scripts/persist-log.sh` lines 216-222)
 - `land-unit.sh` names the `push origin <branch>:<base>` idiom for a **reviewed** branch; it is a merge of reviewed work, not an unattended write, and is out of this ticket's scope (`plugins/workaholic/skills/drive/scripts/land-unit.sh` lines 45-60)
+
+## Final Report
+
+Development completed as planned.
+
+Measured before the change (step 1, `git log --first-parent --format='%ad %s' --date=short
+origin/main`, 1450 first-parent commits): `Log the * tick` 219 commits, 2026-08-27..2026-08-31,
+history the log's retirement already ended; `Record the tick's feedback findings` 17 commits,
+2026-09-06..2026-09-11 (`persist-log.sh --record` through `publish-tree-commit.sh`); `Add
+deferred concerns from PR #…` 2 commits, 2026-09-08 (`extract-deferred-concerns.sh` through
+the same seam, plus a bare `git commit` whenever it stood on the base). The 335 the operator
+counted is the sum of the historical log commits and the live writers; only the last two were
+live.
+
+### Discovered Insights
+
+- **Insight**: the pull-request road needs a dedup the direct road never did — a record can sit on an unmerged `work-*` branch before it reaches the base, so both writers now read `/specificate`'s `lib/unmerged-branches.sh` (persist-log answers `unlanded` / `publication_open`; the extractor hands the inner run the concern ids already on an open publication) so no second pull request is opened for one record.
+  **Context**: the walk over-reads on every ambiguity by design, which is the safe direction for a dedup and why one walker is shared rather than copied.
+- **Insight**: `publish-tree-commit.sh` was kept rather than deleted — three suite contracts (J1, J2, close-reachability) and a mission fixture are written against it — with its header stating it has no unattended caller; the next ticket's gate is what keeps a routine off it.
+  **Context**: retiring it would have meant rewriting the publish-tree contracts for a road no unattended path takes; the honest split is a header statement plus a gate.
+- **Insight**: the ephemeral state (`state.sh` records, the transport inbox and outbox) lives under the git directory itself, so it is out of git by construction, not by `.gitignore`; only `.workaholic/moderations/` and `.codex-loop/` need the ignore file.
+  **Context**: the test proves both halves on a fresh checkout carrying this repository's `.gitignore`.

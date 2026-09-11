@@ -51,9 +51,15 @@ For every returned `needs_agent` item, read **that step's section** in
 After acting, record the actual result through `log-append.sh` under `<step>-filed` or
 `<step>-refused`. A probe and its effect are separate facts, not overwriteable entries.
 
-Carry each created feedback record's exact path with `persist-log.sh --record <path>`.
-An unlanded record is not filed merely because the log says so. Never sweep unrelated staged
-files into that publication. GitHub operations use `gather/scripts/gh-rest.sh` over REST.
+Carry each created feedback record's exact path with `persist-log.sh --record <path>`. The
+records travel behind a `[Record]` pull request the seam opens and merges when the release scan
+passes (`publish-tree-pr.sh`, `WORKAHOLIC_AUTO_MERGE=1`), never as a direct commit to the base:
+`carried` means the pull request merged, and a record left on an open one is `unlanded` with
+the seam's `merge_reason` — or `publication_open` when an earlier tick's branch already carries
+it, so no second pull request is opened. Report the `publication` block (branch, `pr_url`,
+`merged`, `merge_reason`) beside the per-record states. An unlanded record is not filed merely
+because the log says so. Never sweep unrelated staged files into that publication. GitHub
+operations use `gather/scripts/gh-rest.sh` over REST.
 
 ## Questions and answers
 

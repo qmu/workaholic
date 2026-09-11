@@ -84,7 +84,7 @@ Full contracts — arguments, JSON envelopes, refusal reasons, and each rule's m
 | `commit-release-note.sh "<branch>"` | Commits + pushes the release note; a failed push is a pre-merge hard stop (`release_note_not_on_remote`) |
 | `merge-pr.sh "<pr-number>" [<base>]` | Merges; exit status reflects the merge only; read `commit_hash_source`/`on_base` before tagging |
 | `publish-release.sh "<branch>" "<commit>" "<tag>" "<notes-file>"` | GitHub Release; defers to CI (`ci_publishes`); idempotent |
-| `extract-deferred-concerns.sh "<branch>" "<pr>" "<url>" [<base>]` | Persists the story's Concerns into the feedback stream, append-only by `concern_id`; report `extracted`, `pushed`, `destination` |
+| `extract-deferred-concerns.sh "<branch>" "<pr>" "<url>" [<base>]` | Persists the story's Concerns into the feedback stream, append-only by `concern_id`, behind a `[Record]` pull request; report `extracted`, `pushed`, `destination`, `publication.merged` / `merge_reason` |
 
 ## 3. Workspace Guard
 
@@ -108,7 +108,7 @@ Ship the current branch's PR. **The flow's outcome is a drafted plan and a merge
 4. **Commit the merge artifacts** (pre-merge): `commit-release-note.sh` — a failed push is a pre-merge hard stop — then update the PR body (`story/scripts/create-or-update.sh`) so reviewers see the plan before the merge.
 5. **Merge PR**: `merge-pr.sh`. On failure, inform and stop. Read `commit_hash_source` before using `commit_hash`; the post-merge base checkout is best-effort and never load-bearing (`checked_out` is a reported field, not a gate). The merge is **not** a deployment and grants no authorization to start one.
 6. **Publish GitHub Release** (post-merge): `publish-release.sh` — defers to a CI release workflow; refuses to tag on `on_base: false` or `commit_hash_source: "branch_head"`.
-7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/story`'s judge and `/specificate`).
+7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. The records travel behind a `[Record]` pull request (`publish-tree-pr.sh`, `WORKAHOLIC_AUTO_MERGE=1`), never as a direct commit to the base (2026-09-11). Report `extracted`, `pushed` (the publication branch is on origin; best-effort by design, so read it), `destination`, and `publication` — `merged` says whether the base has the records and `merge_reason` names why a pull request was left open (a record not yet merged is invisible to `/story`'s judge and `/specificate` until it lands).
 8. **Summarize**: catch-up, scan result (with any recorded override), **the drafted plan and whether it changed**, merge status, release note, GitHub Release, concern extraction count with its `destination`, and `checked_out`/`checkout_reason` when the base was not checked out.
 
 ### 5-D. The instructed deployment

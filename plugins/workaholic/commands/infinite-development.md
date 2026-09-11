@@ -62,6 +62,9 @@ with `{"event":"tick","now":<epoch-seconds>}`. Handle the live conversation firs
 `hold`, explicit resumption is `resume`, and stop is `stop`, with `explicit:true`. If `held`,
 capture terminal child results silently and end this timer tick without observation, dispatch
 or reports. If `stopped`, cancel the schedule and stop its named children. Keep the same anchor.
+Read `resumed` beside `control`: a tick whose reading is `resumed: false` reports its
+`resumed_reason` and re-establishes the continuation through `continued` before it may call
+the loop resumed.
 
 A routine interruption — an ordinary question, correction or follow-up — is handled in
 commentary and the coordinator returns to the same loop: the same instance ID, the same
@@ -74,6 +77,16 @@ The final response is reserved for exactly three events: an explicit stop, a nam
 to continue, and a review-required handoff. When the run is unsure, the interruption is
 routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
 turn.
+
+A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
+(`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and
+proves it through the same reader: `final-response-contract.sh` refuses `continuation_unproved`
+for a routine turn that names none, and the coordinator's `resumed` is `true` only while
+`control` is `running` **and** a recorded continuation's `next_due` has not passed
+(`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control mode). `running`
+alone is never a resumed loop; a report that calls the loop resumed while `resumed` is `false` is
+non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
+never a sentence in the report.
 
 Read `git status --porcelain` once. Report a dirty checkout and its file count because this
 tick is already executing that unreviewed plugin behavior. Do not block, modify, or commit it.
@@ -120,6 +133,13 @@ New human Slack activity — top-level **or** a discovered thread reply — or a
 feedback issue resets adaptive observation to the short interval. A successful quiet observation advances the idle backoff. If either configured
 source is unreadable, preserve the quiet streak and use provider retry. A new feedback issue
 makes propose-then-specificate due on this tick.
+
+An unproved or unreadable observation is **unread, never quiet**: it advances no cursor,
+records `unproved_since` on the binding record (the stored cursor, or the read's own time when
+none exists), and keeps retrying on the failure streak's own deadline, independent of the work
+cadence; the next proved read overlaps the whole unproved interval (`overlap_seconds` is the
+greater of 300 and `now − unproved_since`), and only that read's cursor-advancing capture clears
+the mark. A report that calls an unproved read quiet is non-conformant on its face.
 
 `formation_pending: true` is the intake/implementation ownership boundary. Dispatch
 propose-then-specificate for the whole oldest-first page and allocate **zero new implement

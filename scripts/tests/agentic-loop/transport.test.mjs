@@ -407,6 +407,62 @@ test("P5 a reply under an older root is discovered, classified in context, and n
   assert.ok(result.json.data.unreadable.includes("operation_unavailable"), "and the reason is named, not implied");
 });
 
+// An unproved observation is UNREAD, never quiet (2026-09-11, issue #1151): a human root posted
+// while the provider was unreachable, with no permalink pasted anywhere, is captured by the next
+// proved read; the unproved read advances no cursor and records since when the channel is unread.
+test("P5 a human root posted during an unproved observation is captured on the next proved read, with no permalink", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const queries = join(dir, "queries"); const mode = join(dir, "mode");
+  writeFileSync(qfs, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${queries}'\ncase "$1 $2" in\n  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","sender_id":"BOT","operations":["read_channel_delta"],"channels":[{"name":"dev-x","id":"C1"}]}'; exit 0 ;;\nesac\ncase "$(cat '${mode}')" in\n  fail) printf 'provider unreachable\\n' >&2; exit 1 ;;\n  first) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","sender_id":"HUMAN","text":"hello"}],"has_more":false}' ;;\n  later) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","sender_id":"HUMAN","text":"hello"},{"id":"h1","ts":"850.0","sender_id":"HUMAN","text":"posted during the outage"}],"has_more":false}' ;;\nesac\n`);
+  spawnSync("chmod", ["+x", qfs]);
+  writeFileSync(join(dir, "AGENTS.md"), ["```workaholic-slack-binding", "workspace: qmu", "channel: dev-x", "mount: /slack/qmu",
+    "sender_id: BOT", "operations: read_channel_delta", "```", ""].join("\n"));
+  const env = { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}` };
+  const observe = now => run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", now], { cwd: dir, env });
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  const meta = () => {
+    const file = spawnSync("find", [join(dir, common, "workaholic/runtime/v1/bindings"), "-name", "meta.json"], { encoding: "utf8" }).stdout.trim();
+    return JSON.parse(readFileSync(file, "utf8")).data;
+  };
+  // 1. A proved read stores the cursor and no mark.
+  writeFileSync(mode, "first");
+  let result = observe("2026-09-08T00:00:00Z");
+  assert.equal(result.json.data.observation_proved, true, result.stderr);
+  assert.deepEqual(result.json.data.new_input_ids, ["m1"]);
+  assert.equal(result.json.data.overlap_seconds, 300); assert.equal(result.json.data.cursor_advanced, true);
+  assert.equal(meta().cursor, "801.0"); assert.equal(meta().unproved_since, undefined);
+  // 2. The provider becomes unreachable while a human posts. The read is unproved: the cursor is
+  //    byte-identical, the record carries `unproved_since` (the stored cursor), and nothing is quiet.
+  writeFileSync(mode, "fail");
+  result = observe("2026-09-08T00:01:00Z");
+  assert.equal(result.json.data.observation_proved, false);
+  assert.deepEqual(result.json.data.unreadable, ["qfs_connector_failure"]);
+  assert.equal(result.json.data.cursor_advanced, false);
+  assert.equal(result.json.data.unproved_since, 801, "the mark is the stored cursor");
+  assert.equal(meta().cursor, "801.0", "an unproved read never advances the cursor");
+  assert.equal(meta().unproved_since, 801);
+  // A second unproved read keeps the earlier mark rather than moving it forward.
+  result = observe("2026-09-08T00:01:30Z");
+  assert.equal(result.json.data.unproved_since, 801); assert.equal(meta().unproved_since, 801);
+  // 3. The next proved read overlaps the whole unproved interval: its `since` is at or before the
+  //    mark, the root posted during the outage is new input, the capture clears the mark in the
+  //    same write that advances the cursor, and no permalink appears anywhere in this fixture.
+  writeFileSync(mode, "later");
+  result = observe("2026-09-08T00:02:00Z");
+  assert.equal(result.json.data.observation_proved, true, result.stderr);
+  assert.deepEqual(result.json.data.new_input_ids, ["h1"], "the root posted during the outage is captured");
+  assert.ok(result.json.data.overlap_seconds >= 300, "the overlap is never below the standing 300");
+  assert.ok(Number(result.json.data.window_since) <= 801, `since ${result.json.data.window_since} reaches the mark`);
+  assert.equal(result.json.data.covered_unproved_since, 801);
+  const proved = readFileSync(queries, "utf8").trim().split("\n").filter(q => q.includes("/messages")).pop();
+  assert.match(proved, /after 0\.000000|after [0-7]\d\d\.\d+/, "the proved query asks from at or before the mark");
+  assert.equal(meta().cursor, "850.0"); assert.equal(meta().unproved_since, undefined, "only the cursor-advancing capture clears the mark");
+  assert.ok(!readFileSync(qfs, "utf8").includes("permalink"), "no permalink was supplied anywhere");
+  // A read after a lapse that is still shorter than 300 seconds keeps the standing overlap.
+  result = observe("2026-09-08T00:02:30Z");
+  assert.equal(result.json.data.overlap_seconds, 300);
+});
+
 test("P3 a fallback needs a typed failure, keeps the destination, and never certifies the route", () => {
   const dir = repo();
   const qfsRoute = ops => ({ transport: "qfs", mount: "/slack/qmu", operations: ops, described: true });

@@ -73,7 +73,8 @@ if ! git branch "$BRANCH" "$SHA" >/dev/null 2>&1; then
   fail branch_creation_failed
 fi
 
-if ! git push --quiet origin "refs/heads/${BRANCH}:refs/heads/${BRANCH}" >/dev/null 2>&1; then
+. "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib/base-ref-gate.sh"
+if ! base_ref_gate push "refs/heads/${BRANCH}:refs/heads/${BRANCH}" || ! git push --quiet origin "refs/heads/${BRANCH}:refs/heads/${BRANCH}" >/dev/null 2>&1; then
   # Roll the local ref back: a branch only this machine can see would read as a live
   # release window to this runner and to nobody else.
   git branch -D "$BRANCH" >/dev/null 2>&1 || true

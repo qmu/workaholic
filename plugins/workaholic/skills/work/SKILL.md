@@ -35,8 +35,10 @@ handles `hold`, `resume`, `stop`, reservations and terminal results. Persist hol
 you will wait. Timer events cannot resume. On stop cancel the schedule and stop named children.
 Record each confirmed native cancellation with `cancelled`; it is not a role completion.
 
-State the selected clock, where reports appear, and any missing continuation mechanism. An
-explicit interval selects fixed observation. Without one, use adaptive observation:
+State the selected clock, where reports appear, and the continuation it proves — its `kind`
+(`interruptible_parent` or `same_chat_schedule`) and `id`, recorded through the coordinator's
+`start` event. A missing continuation mechanism is a refusal to say *resumed*, never a sentence
+in the report. An explicit interval selects fixed observation. Without one, use adaptive observation:
 
 - activity: 30 seconds;
 - successive quiet observations: 60, 120, 240, 480, then 900 seconds;
@@ -88,6 +90,13 @@ human Slack root or reply, or any new assigned feedback issue, is activity. Bot-
 messages do not reset the interval. A new feedback issue makes propose-then-specificate due
 immediately. Work, exploration, maintenance, and provider retry deadlines stay independent.
 
+An unproved or unreadable observation is **unread, never quiet**: it advances no cursor,
+records `unproved_since` on the binding record (the stored cursor, or the read's own time when
+none exists), and keeps retrying on the failure streak's own deadline, independent of the work
+cadence; the next proved read overlaps the whole unproved interval (`overlap_seconds` is the
+greater of 300 and `now − unproved_since`), and only that read's cursor-advancing capture clears
+the mark. A report that calls an unproved read quiet is non-conformant on its face.
+
 Use `runtime/scripts/plan-poll.sh` for the pure cadence transition. Persist its
 `next_state` only after inbox capture; after a crash, an early duplicate read is safer than
 advancing past uncaptured input. Sleep until the earliest work, observation, or retry
@@ -138,6 +147,16 @@ The final response is reserved for exactly three events: an explicit stop, a nam
 to continue, and a review-required handoff. When the run is unsure, the interruption is
 routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
 turn.
+
+A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
+(`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and
+proves it through the same reader: `final-response-contract.sh` refuses `continuation_unproved`
+for a routine turn that names none, and the coordinator's `resumed` is `true` only while
+`control` is `running` **and** a recorded continuation's `next_due` has not passed
+(`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control mode). `running`
+alone is never a resumed loop; a report that calls the loop resumed while `resumed` is `false` is
+non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
+never a sentence in the report.
 
 The criterion is a judgement the run writes out, not a detector: *does the human need to read
 this before work may continue?* A decision the loop cannot take on its own (a fork that reaches

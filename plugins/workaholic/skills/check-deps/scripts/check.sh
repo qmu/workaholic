@@ -9,7 +9,7 @@
 #   - version          the loaded plugin version, so a stale install is visible
 #   - checkout_version the version THIS CHECKOUT wants ("" when not determinable)
 #   - version_drift    true when both are known and differ
-#   - guards_present   whether the three PreToolUse Bash guards are registered
+#   - guards_present   whether the four PreToolUse Bash guards are registered
 #   - missing_guards   any expected guard not found in the loaded hooks.json
 #
 # WHY version ALONE WAS NOT ENOUGH (2026-08-04). The loaded version was already
@@ -237,8 +237,8 @@ if [ "$loaded_root_source" = "none" ] && [ "$claude_session_detected" = true ] &
   unbound_in_claude_session=true
 fi
 
-# Assert the three PreToolUse Bash guards are registered in the loaded hooks.json.
-expected="guard-ticket-structure.sh guard-git-commit.sh guard-git-branch.sh"
+# Assert the four PreToolUse Bash guards are registered in the loaded hooks.json.
+expected="guard-ticket-structure.sh guard-git-commit.sh guard-git-branch.sh guard-git-push.sh"
 missing=""
 if [ -f "$hooks" ]; then
   registered=$(jq -r '[.hooks.PreToolUse[]?.hooks[]?.command] | join("\n")' "$hooks" 2>/dev/null || printf '')

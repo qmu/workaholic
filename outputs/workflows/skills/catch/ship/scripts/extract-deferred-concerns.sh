@@ -47,11 +47,21 @@
 # push had worked; the destination was wrong. `pushed` alone is not an actionable signal,
 # which is why `destination` now rides beside it.
 #
-# When this runs somewhere other than the base, the extraction happens inside a PUBLISH
-# TREE (a checkout of origin/<base>; workaholic:branching) and is pushed from there --
+# The extraction happens inside a PUBLISH TREE (a checkout of origin/<base>;
+# workaholic:branching) whatever branch this runs from, and is published from there --
 # the same route a source uses to publish an artifact from any checkout. That also makes
 # the dedup scan read the base's records rather than the branch's, which is the correct
 # set to dedup against.
+#
+# THE RECORDS TRAVEL BEHIND A PULL REQUEST, NEVER AS A DIRECT COMMIT TO THE BASE (2026-09-11,
+# issue #1151, the operator's rule verbatim: *runtime cadence logs and unattended maintenance
+# records must not update the base branch directly … route durable repository artifacts
+# through a claim or publish branch and pull request with the normal checks*). Measured on
+# `origin/main`: two `Add deferred concerns from PR #…` commits on 2026-09-08 through the
+# direct seam. The batch now goes through `publish-tree-pr.sh` under `WORKAHOLIC_AUTO_MERGE=1`
+# with a `[Record]` title, and the bare `git commit` this script made when it happened to be
+# standing on the base is gone with the on-base path: `pushed` means the branch is on origin,
+# and `publication.merged` / `publication.merge_reason` say whether the base has it.
 
 set -eu
 
@@ -80,13 +90,16 @@ if [ ! -f "$story_file" ]; then
 fi
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-. "${SCRIPT_DIR}/lib/push-outcome.sh"
+# THE ROLE THIS PATH RUNS UNDER (2026-09-11, issue #1151): the base-ref gate reads
+# `WORKAHOLIC_ROLE`, and an unattended path names itself at its own entry rather than trusting a
+# caller to compose an assignment prefix. An already-set role (a dispatch's) is kept.
+: "${WORKAHOLIC_ROLE:=ship}"
+export WORKAHOLIC_ROLE
 
-# --- Route to the base when we are not on it ------------------------------------------
+# --- Route through the publish tree, whatever branch this stands on --------------------
 # WH_EDC_IN_PUBLISH_TREE marks the re-entered run so this never recurses. The re-entry
 # carries an ABSOLUTE story path, because the story lives in the caller's checkout.
-current_branch=$(git branch --show-current 2>/dev/null || true)
-if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [ -z "${NO_COMMIT:-}" ]; then
+if [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [ -z "${NO_COMMIT:-}" ]; then
   story_abs=$(CDPATH= cd -- "$(dirname -- "$story_file")" && pwd)/$(basename -- "$story_file")
   open_out=$(sh "${SCRIPT_DIR}/../../branching/scripts/open-publish-tree.sh" "$base" 2>/dev/null || true)
   publish_path=$(printf '%s' "$open_out" | sed -n 's/.*"path": *"\([^"]*\)".*/\1/p')
@@ -100,9 +113,23 @@ if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [
   # only `pushed`/`push_error` are rewritten here (a second destination key would be
   # duplicate JSON -- tolerated by parsers, sloppy from a script whose point is honest
   # reporting).
+  # A CONCERN ALREADY ON AN OPEN PUBLICATION IS NOT EMITTED AGAIN. The pull-request road means a
+  # record can sit on a `work-*` branch before it reaches the base, and the inner run's dedup
+  # reads the base's records only; without this a second ship of the same concern would open a
+  # second pull request for it. The walk is `/specificate`'s own (`lib/unmerged-branches.sh`),
+  # git-native, over-reading on every ambiguity -- the safe direction for a dedup.
+  known_ids=$(mktemp)
+  git fetch --quiet origin '+refs/heads/work-*:refs/remotes/origin/work-*' >/dev/null 2>&1 || true
+  UNMERGED_BRANCHES_LABEL=extract-deferred-concerns
+  . "${SCRIPT_DIR}/../../specificate/scripts/lib/unmerged-branches.sh"
+  unmerged_branches_added_paths "origin/${base}" .workaholic/feedbacks 2>/dev/null | while IFS="$(printf '\t')" read -r _ref _path; do
+    [ -n "$_path" ] || continue
+    git show "${_ref}:${_path}" 2>/dev/null | sed -n 's/^concern_id:[ \t]*//p' | sed 's/[ \t]*$//'
+  done | grep . > "$known_ids" 2>/dev/null || : > "$known_ids"
   # Extract INSIDE the publish tree (NO_COMMIT: the publish seam owns the commit), then
-  # publish the whole batch to the base in one commit and tear the tree down.
-  inner=$( cd "$publish_path" && NO_COMMIT=1 WH_EDC_IN_PUBLISH_TREE=1 sh "$0" "$branch" "$pr_number" "$pr_url" "$base" "$story_abs" )
+  # publish the whole batch behind one pull request and tear the tree down.
+  inner=$( cd "$publish_path" && NO_COMMIT=1 WH_EDC_IN_PUBLISH_TREE=1 WH_EDC_KNOWN_IDS_FILE="$known_ids" sh "$0" "$branch" "$pr_number" "$pr_url" "$base" "$story_abs" )
+  rm -f "$known_ids"
   created=$(printf '%s' "$inner" | sed -n 's/.*"created":\([0-9][0-9]*\).*/\1/p')
   [ -n "$created" ] || created=0
   if [ "$created" -eq 0 ]; then
@@ -110,20 +137,43 @@ if [ "$current_branch" != "$base" ] && [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [
     printf '%s\n' "$inner"
     exit 0
   fi
-  pub=$(sh "${SCRIPT_DIR}/../../branching/scripts/publish-tree-commit.sh" \
+  # The pull-request seam merges behind the release scan (WORKAHOLIC_AUTO_MERGE=1); the merge
+  # method and squash body are its own derivations and nothing is spelled here.
+  pub=$(WORKAHOLIC_PUBLISH_BASE="$base" WORKAHOLIC_AUTO_MERGE=1 \
+    WORKAHOLIC_PR_TITLE="[Record] Deferred concerns from PR #${pr_number}" \
+    sh "${SCRIPT_DIR}/../../branching/scripts/publish-tree-pr.sh" \
     "Add deferred concerns from PR #${pr_number}" \
-    "The just-merged story's section-6 concerns become kind: concern feedback records; the open set is computed from records on the base, so they are published there rather than to whatever branch the ship ran from" \
+    "The just-merged story's section-6 concerns become kind: concern feedback records; the open set is computed from records on the base, so they reach it through this pull request rather than as a direct commit from whatever branch the ship ran from" \
     "None -- knowledge records" "None" "None" \
-    "list-open-concerns.sh sees them from a fresh clone of the base" \
+    "list-open-concerns.sh sees them from a fresh clone of the base once this merges" \
     .workaholic/ 2>/dev/null || true)
   ok=$(printf '%s' "$pub" | sed -n 's/.*"ok": *\([a-z]*\).*/\1/p')
+  merged=$(printf '%s' "$pub" | sed -n 's/.*"merged": *\([a-z]*\).*/\1/p')
+  [ "$merged" = true ] || merged=false
+  pbranch=$(printf '%s' "$pub" | sed -n 's/.*"branch": *"\([^"]*\)".*/\1/p')
+  purl=$(printf '%s' "$pub" | sed -n 's/.*"pr_url": *"\([^"]*\)".*/\1/p')
   if [ "$ok" = "true" ]; then
-    sh "${SCRIPT_DIR}/../../branching/scripts/close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
-    printf '%s\n' "$inner" | sed 's/"pushed":false,"push_error":"[^"]*"/"pushed":true,"push_error":""/'
+    preason=$(printf '%s' "$pub" | sed -n 's/.*"merge_reason": *"\([^"]*\)".*/\1/p')
   else
-    perr=$(printf '%s' "$pub" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
-    [ -n "$perr" ] || perr="publish_failed"
-    printf '%s\n' "$inner" | sed "s/\"push_error\":\"[^\"]*\"/\"push_error\":\"${perr}\"/"
+    preason=$(printf '%s' "$pub" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
+  fi
+  [ -n "$preason" ] || preason="publish_failed"
+  publication=$(printf '"publication":{"branch":"%s","pr_url":"%s","merged":%s,"merge_reason":"%s"}' \
+    "$pbranch" "$purl" "$merged" "$preason")
+  if [ "$ok" = "true" ]; then
+    # `pushed` says the branch is on origin; whether the BASE has the records is
+    # `publication.merged`, and a pull request left open names why.
+    sh "${SCRIPT_DIR}/../../branching/scripts/close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
+    printf '%s\n' "$inner" | sed 's/"pushed":false,"push_error":"[^"]*"/"pushed":true,"push_error":""/' \
+      | sed "s|\"destination\":\"${base}\"|\"destination\":\"${base}\",${publication}|"
+  else
+    # ok:false with a branch is still pushed (`pr_failed`, `no_gh`): the record is on the
+    # remote branch and recoverable; open the pull request by hand rather than re-publishing.
+    # The tree is torn down only then -- `close-publish-tree.sh` refuses an unpushed commit.
+    _pushed=false; [ -n "$pbranch" ] && _pushed=true
+    [ "$_pushed" != true ] || sh "${SCRIPT_DIR}/../../branching/scripts/close-publish-tree.sh" "$base" >/dev/null 2>&1 || true
+    printf '%s\n' "$inner" | sed "s/\"pushed\":false,\"push_error\":\"[^\"]*\"/\"pushed\":${_pushed},\"push_error\":\"${preason}\"/" \
+      | sed "s|\"destination\":\"${base}\"|\"destination\":\"${base}\",${publication}|"
   fi
   exit 0
 fi
@@ -242,8 +292,15 @@ def concern_id_for(title):
 
 
 # Index every concern_id already in the stream (open, closed, superseded alike):
-# the stream is append-only, so an existing id is never touched again here.
+# the stream is append-only, so an existing id is never touched again here. The outer run
+# hands in the ids already on an OPEN publication (WH_EDC_KNOWN_IDS_FILE), one per line.
 existing_ids = set()
+known_file = os.environ.get('WH_EDC_KNOWN_IDS_FILE', '')
+if known_file and os.path.isfile(known_file):
+    with open(known_file, encoding='utf-8', errors='replace') as h:
+        for line in h:
+            if line.strip():
+                existing_ids.add(line.strip())
 for p in glob.glob('.workaholic/feedbacks/*.md'):
     base = os.path.basename(p)
     if base in ('README.md', 'index.md'):
@@ -359,18 +416,11 @@ if [ -n "$story_missions" ]; then
   done
 fi
 
+# THIS RUN NEVER COMMITS. The outer run above owns the publication (the publish tree, the
+# pull-request seam) and rewrites `pushed` / `push_error` on the way out; a `NO_COMMIT=1`
+# caller reads the records from the working tree. The bare `git commit` that used to live
+# here landed on the base directly whenever the script happened to stand on it.
 pushed=false
 push_error="not_attempted"
-
-if [ -z "${NO_COMMIT:-}" ]; then
-  sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
-  git add .workaholic/feedbacks/ .workaholic/missions/ >/dev/null 2>&1 || git add .workaholic/feedbacks/ >/dev/null
-  git commit -m "Add deferred concerns from PR #${pr_number}" >/dev/null
-  # Non-fatal by design (the PR has already merged), but never silent: the
-  # outcome rides out in the JSON. See lib/push-outcome.sh.
-  push_and_report
-  pushed="$PUSH_OK"
-  push_error="$PUSH_ERROR"
-fi
 
 echo "{\"status\":\"ok\",\"created\":${count_created},\"updated\":0,\"extracted\":${count_created},\"story_only\":0,\"pushed\":${pushed},\"push_error\":\"${push_error}\",\"destination\":\"${base}\",\"fallback_ids\":${fallback_json},\"files\":${created_json}}"

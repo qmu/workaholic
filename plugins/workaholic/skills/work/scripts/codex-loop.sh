@@ -847,7 +847,16 @@ plan_tick() {
         printf '%s' "$_pt_after" | jq -c .data.next_state >"${_pt_poll_state}.tmp.$$" && mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
         _pt_next=$(printf '%s' "$_pt_after" | jq -r '.data.next_due')
         if [ "$_pt_activity" != true ] && [ "${WORK_DUE:-true}" != true ]; then
-            jq -cn --argjson next "$_pt_next" '{protocol:"workaholic.runtime/v1",status:"ok",data:{actions:[{action:"wait",reason:"observed_quiet"}],next_due:$next}}'
+            # The wait's word is plan-poll's own, never this file's: an unproved observation is
+            # `observation_unreadable` on the failure streak's retry deadline (2026-09-11, issue
+            # #1151) -- unread, never quiet -- and only a proved, activity-free read is
+            # `observed_quiet`. Calling an unreadable source quiet is how a human root sat unread.
+            _pt_reason=$(printf '%s' "$_pt_after" | jq -r '.data.reason // "observation_unreadable"' 2>/dev/null || printf observation_unreadable)
+            case "$_pt_reason" in quiet) _pt_wait=observed_quiet ;; *) _pt_wait=$_pt_reason ;; esac
+            _pt_unreadable=$(printf '%s' "$_pt_slack" | jq -c '.unreadable // []' 2>/dev/null || printf '[]')
+            _pt_unproved_since=$(printf '%s' "$_pt_slack" | jq -c '.unproved_since // null' 2>/dev/null || printf null)
+            jq -cn --argjson next "$_pt_next" --arg wait "$_pt_wait" --argjson unreadable "$_pt_unreadable" --argjson since "$_pt_unproved_since" \
+              '{protocol:"workaholic.runtime/v1",status:"ok",data:{actions:[{action:"wait",reason:$wait,unreadable:$unreadable,unproved_since:$since}],next_due:$next}}'
             rm -rf "$_pt_dir"; return 0
         fi
     fi
@@ -875,8 +884,12 @@ run_tick() {
         _next_epoch=$(printf '%s' "$_plan" | jq -r '.data.next_due // empty')
         [ -n "$_next_epoch" ] || _next_epoch=$(next_boundary "$_finished_epoch")
         _next_due=$(iso_from_epoch "$_next_epoch")
-        write_status sleeping idle "" "$_stamp" "$_started" "$_finished" "" "" parent_not_needed "$_next_due"
-        printf 'codex tick: outcome=idle next_due=%s\n' "$_next_due"
+        # The wait's reason is recorded, so `--status` can tell an unread channel from a quiet
+        # one: `observed_quiet` / `observation_cached` are ordinary; `observation_unreadable`
+        # names a source that was not read and is retrying on its own deadline.
+        _wait_reason=$(printf '%s' "$_plan" | jq -r '.data.actions[0].reason // ""' 2>/dev/null || printf '')
+        write_status sleeping idle "$_wait_reason" "$_stamp" "$_started" "$_finished" "" "" parent_not_needed "$_next_due"
+        printf 'codex tick: outcome=idle reason=%s next_due=%s\n' "$_wait_reason" "$_next_due"
         CURRENT_TICK=""
         return 0
     fi

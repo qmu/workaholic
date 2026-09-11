@@ -12,8 +12,20 @@ SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$2; shift 2; NOW=""
 while [ $# -gt 0 ]; do case "$1" in --now) NOW=${2:-}; shift 2;; *) runtime_usage "invalid observe-channel argument";; esac; done
 [ -n "$NOW" ] || NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+NOW_EPOCH=$(date -u -d "$NOW" +%s 2>/dev/null || date -u +%s)
+case "$NOW_EPOCH" in ''|*[!0-9]*) NOW_EPOCH=$(date -u +%s) ;; esac
 
-empty() { runtime_json_result ok "$1" observe-channel "$(jq -cn --arg reason "$1" '{observation_proved:false,new_input_ids:[],known_thread_changes:[],has_more:null,unreadable:[$reason]}')"; }
+# An unproved observation is UNREAD, never quiet (2026-09-11, issue #1151): it advances no
+# cursor, and `unproved_since` is written onto the binding record beside the cursor -- the
+# stored cursor, or this read's own time when none exists -- so the next proved read can
+# overlap the whole interval that was never read and a report can say since when. `empty`
+# takes the value that stood (or was just written) so the refusal carries it; a refusal
+# before the binding is resolved carries null, because no record can be addressed yet, and
+# every binding's cursor is untouched by it anyway.
+empty() {
+  runtime_json_result ok "$1" observe-channel "$(jq -cn --arg reason "$1" --argjson since "${2:-null}" \
+    '{observation_proved:false,new_input_ids:[],known_thread_changes:[],has_more:null,unreadable:[$reason],unproved_since:$since,cursor_advanced:false}')"
+}
 
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
@@ -71,14 +83,46 @@ if [ "$(printf '%s' "$meta" | jq -r .data.found)" != true ]; then
   meta=$(call read --scope binding --id "$binding_id")
 fi
 cursor=$(printf '%s' "$meta" | jq -c '.data.record.data.cursor // null')
-jq -cn --arg root "$ROOT" --arg bid "$binding_id" --argjson binding "$binding" --argjson cursor "$cursor" '{protocol:"workaholic.transport/v1",request_id:"loop-observe-read",operation:"read_channel_delta",repo_root:$root,instance_id:"loop-observer",binding_id:$bid,input:{binding:$binding,cursor:$cursor,overlap_seconds:300}}' >"$tmp/read.json"
+unproved_since=$(printf '%s' "$meta" | jq -c '.data.record.data.unproved_since // null')
+
+# ---- The unproved interval is overlapped, never skipped -----------------------------------
+# `overlap_seconds` is the greater of the standing 300 and `now - unproved_since`, so a read
+# after an outage re-reads the whole interval once (bounded by the provider's page; `has_more`
+# carries the same `since` forward). `window_since` is the numeric lower bound this read
+# actually asked for, handed to the capture so it can clear the mark only when the proved
+# window reached it.
+OVERLAP=300
+if [ "$unproved_since" != null ]; then
+  OVERLAP=$(awk -v now="$NOW_EPOCH" -v since="$unproved_since" 'BEGIN { span = now - since; if (span < 300) span = 300; printf "%d", span }')
+fi
+window_since=null
+if [ "$cursor" != null ]; then
+  window_since=$(awk -v cursor="$(printf '%s' "$cursor" | jq -r .)" -v overlap="$OVERLAP" 'BEGIN { value = cursor - overlap; if (value < 0) value = 0; printf "%.6f", value }')
+fi
+
+# Write `unproved_since` once, keeping an earlier value; never the cursor. A failed mark is
+# named in the refusal rather than hidden, and a refusal writes nothing else.
+mark_unproved() {
+  _mu_meta=$(call read --scope binding --id "$binding_id")
+  _mu_since=$(printf '%s' "$_mu_meta" | jq -c '.data.record.data.unproved_since // null')
+  if [ "$_mu_since" != null ]; then printf '%s' "$_mu_since"; return 0; fi
+  if [ "$cursor" != null ]; then _mu_since=$(printf '%s' "$cursor" | jq -r .); else _mu_since=$NOW_EPOCH; fi
+  _mu_rev=$(printf '%s' "$_mu_meta" | jq -r '.data.record.revision')
+  printf '%s' "$_mu_meta" | jq -c --arg now "$NOW" --argjson since "$_mu_since" \
+    '{updated_at:$now,data:(.data.record.data + {unproved_since:$since})}' >"$tmp/mark.json"
+  _mu_written=$(call update --scope binding --id "$binding_id" --expected-revision "$_mu_rev" --input "$tmp/mark.json" 2>/dev/null || printf '{"status":"error"}')
+  if [ "$(printf '%s' "$_mu_written" | jq -r .status)" = ok ]; then printf '%s' "$_mu_since"; else printf 'null'; fi
+}
+
+jq -cn --arg root "$ROOT" --arg bid "$binding_id" --argjson binding "$binding" --argjson cursor "$cursor" --argjson overlap "$OVERLAP" '{protocol:"workaholic.transport/v1",request_id:"loop-observe-read",operation:"read_channel_delta",repo_root:$root,instance_id:"loop-observer",binding_id:$bid,input:{binding:$binding,cursor:$cursor,overlap_seconds:$overlap}}' >"$tmp/read.json"
 read_result=$("$SCRIPT_DIR/perform.sh" --request "$tmp/read.json")
-[ "$(printf '%s' "$read_result" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$read_result" | jq -r .reason)"; exit 0; }
+[ "$(printf '%s' "$read_result" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$read_result" | jq -r .reason)" "$(mark_unproved)"; exit 0; }
 next=$(printf '%s' "$read_result" | jq -c --argjson old "$cursor" '.data.next_cursor // ([.data.messages[]?.ts] | max) // $old')
-jq -cn --arg root "$ROOT" --arg bid "$binding_id" --arg now "$NOW" --argjson messages "$(printf '%s' "$read_result" | jq -c .data.messages)" --argjson next "$next" '{repo_root:$root,binding_id:$bid,now:$now,messages:$messages,next_cursor:$next}' >"$tmp/capture.json"
+jq -cn --arg root "$ROOT" --arg bid "$binding_id" --arg now "$NOW" --argjson messages "$(printf '%s' "$read_result" | jq -c .data.messages)" --argjson next "$next" --argjson window "$window_since" '{repo_root:$root,binding_id:$bid,now:$now,messages:$messages,next_cursor:$next,window_since:$window}' >"$tmp/capture.json"
 captured=$("$SCRIPT_DIR/capture-inbox.sh" --request "$tmp/capture.json")
-[ "$(printf '%s' "$captured" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$captured" | jq -r .reason)"; exit 0; }
+[ "$(printf '%s' "$captured" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$captured" | jq -r .reason)" "$(mark_unproved)"; exit 0; }
 new_ids=$(printf '%s' "$captured" | jq -c '.data.new_input_ids // []')
+covered_unproved=$(printf '%s' "$captured" | jq -c '.data.cleared_unproved_since // null')
 
 # ---- Thread discovery -------------------------------------------------------------------
 # A reply under an OLDER root never appears in the channel delta — Slack's channel history
@@ -92,8 +136,8 @@ THREAD_STATUS=partial
 THREAD_REASON=thread_discovery_not_attempted
 THREAD_TRUNCATED=false
 : >"$tmp/replies"
-jq -cn --arg root "$ROOT" --arg bid "$binding_id" --argjson binding "$binding" --argjson cursor "$cursor" --argjson limit "$FANOUT" \
-  '{protocol:"workaholic.transport/v1",request_id:"loop-observe-threads",operation:"list_thread_changes",repo_root:$root,instance_id:"loop-observer",binding_id:$bid,input:{binding:$binding,cursor:$cursor,overlap_seconds:300,limit:$limit}}' >"$tmp/threads.json"
+jq -cn --arg root "$ROOT" --arg bid "$binding_id" --argjson binding "$binding" --argjson cursor "$cursor" --argjson limit "$FANOUT" --argjson overlap "$OVERLAP" \
+  '{protocol:"workaholic.transport/v1",request_id:"loop-observe-threads",operation:"list_thread_changes",repo_root:$root,instance_id:"loop-observer",binding_id:$bid,input:{binding:$binding,cursor:$cursor,overlap_seconds:$overlap,limit:$limit}}' >"$tmp/threads.json"
 threads_result=$("$SCRIPT_DIR/perform.sh" --request "$tmp/threads.json" 2>/dev/null || printf '')
 THREAD_CALLS=$((THREAD_CALLS + 1))
 if ! printf '%s' "$threads_result" | jq -e '.status == "ok"' >/dev/null 2>&1; then
@@ -164,6 +208,7 @@ else
 fi
 THREAD_REPLIES=$(jq -sc '.' "$tmp/replies" 2>/dev/null || printf '[]')
 data=$(printf '%s' "$read_result" | jq -c --arg bot "$BOT" --argjson new "$new_ids" --argjson binding "$binding" \
+  --argjson overlap "$OVERLAP" --argjson window "$window_since" --argjson covered "$covered_unproved" \
   --argjson describe_calls "$DESCRIBE_CALLS" --argjson thread_calls "$THREAD_CALLS" \
   --arg thread_status "$THREAD_STATUS" --arg thread_reason "$THREAD_REASON" \
   --argjson thread_truncated "$THREAD_TRUNCATED" --argjson thread_replies "$THREAD_REPLIES" '
@@ -188,6 +233,7 @@ data=$(printf '%s' "$read_result" | jq -c --arg bot "$BOT" --argjson new "$new_i
      | . + {complete:(.top_level.status == "covered" and .threads.status == "covered" and .mentions.status != "unreadable" and ($thread_truncated | not))}),
    calls:{describe:$describe_calls,read_channel_delta:1,capture:1,threads:$thread_calls,total:($describe_calls + 2 + $thread_calls)},
    has_more:(.data.has_more//false),
+   overlap_seconds:$overlap,window_since:$window,covered_unproved_since:$covered,cursor_advanced:true,
    unreadable:(([if $bot=="" then "sender_identity_unverified" else empty end]
                 + [if ($binding.channel_verified//false) then empty else "channel_membership_unverified" end]
                 + [if $thread_reason == "" then empty else $thread_reason end])),

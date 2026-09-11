@@ -90,6 +90,13 @@ human Slack root or reply, or any new assigned feedback issue, is activity. Bot-
 messages do not reset the interval. A new feedback issue makes propose-then-specificate due
 immediately. Work, exploration, maintenance, and provider retry deadlines stay independent.
 
+An unproved or unreadable observation is **unread, never quiet**: it advances no cursor,
+records `unproved_since` on the binding record (the stored cursor, or the read's own time when
+none exists), and keeps retrying on the failure streak's own deadline, independent of the work
+cadence; the next proved read overlaps the whole unproved interval (`overlap_seconds` is the
+greater of 300 and `now − unproved_since`), and only that read's cursor-advancing capture clears
+the mark. A report that calls an unproved read quiet is non-conformant on its face.
+
 Use `runtime/scripts/plan-poll.sh` for the pure cadence transition. Persist its
 `next_state` only after inbox capture; after a crash, an early duplicate read is safer than
 advancing past uncaptured input. Sleep until the earliest work, observation, or retry

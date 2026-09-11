@@ -81,6 +81,22 @@ is `truncated: true`, never silence. `coverage.threads.status` is **`covered` on
 discovery operation ran**, and `partial` with its reason otherwise. Never replace the bounded
 delta with a full-channel or every-thread scan; partial provider coverage stays explicit.
 
+## The binding record and the unproved interval
+
+`observe-channel.sh` keeps one runtime record per resolved binding (`runtime/scripts/state.sh`,
+scope `binding`): `cursor`, the newest coordinate a **proved** read captured, advanced only by
+`capture-inbox.sh` after every message of the page survived; and **`unproved_since`**, the
+coordinate from which the channel has not been read. An unproved read — a refused route, a
+provider failure, a capture that did not complete — writes `unproved_since` once (the stored
+cursor, or the read's own time when no cursor exists; an earlier value is kept) and never the
+cursor. Every later read derives `overlap_seconds` as the greater of the standing 300 and
+`now − unproved_since`, on the channel delta and the thread discovery alike, so the interval
+that was never read is re-read once; `capture-inbox.sh` clears the mark only inside the same
+revision-checked write that advances the cursor, and only when the request's `window_since`
+(the lower bound the read actually asked for) reached it. The observer reports
+`observation_proved`, `unproved_since`, `overlap_seconds`, `window_since` and
+`cursor_advanced`, so a tick can say *unread since* rather than *quiet*.
+
 ## Typed fallback and revalidation
 
 For each operation, prefer a QFS route only when its map was actually described. An operation

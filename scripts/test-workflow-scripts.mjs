@@ -40777,6 +40777,47 @@ function testFinalResponseContract() {
   } finally { cleanup(dir); }
 }
 
+// ---- AN UNPROVED OBSERVATION IS UNREAD, NEVER QUIET, IN ONE WORDING (2026-09-11, issue #1151).
+// After a manual resumption the adapter answered `observation_proved: false` with an unreadable
+// source while a human root already existed, and the session called the channel quiet. The
+// classification had two homes -- the Codex clock's own `observed_quiet`, written whatever
+// `proved` said, and the agent's reading of the tick ceiling -- so the rule is one wording on the
+// two surfaces the tick reads, the clock takes the planner's word instead of spelling its own,
+// and the observer records since when the channel is unread (behaviour: transport.test.mjs and
+// polling-cost.test.mjs).
+T("an unproved observation is unread, never quiet, in one wording", testUnprovedIsUnread);
+function testUnprovedIsUnread() {
+  const surfaces = [
+    ["plugins/workaholic/skills/work/SKILL.md", "the work skill"],
+    ["plugins/workaholic/commands/infinite-development.md", "the tick ceiling"],
+  ];
+  const WORDING = "An unproved or unreadable observation is **unread, never quiet**: it advances no "
+    + "cursor, records `unproved_since` on the binding record (the stored cursor, or the read's own "
+    + "time when none exists), and keeps retrying on the failure streak's own deadline, independent "
+    + "of the work cadence; the next proved read overlaps the whole unproved interval "
+    + "(`overlap_seconds` is the greater of 300 and `now − unproved_since`), and only that read's "
+    + "cursor-advancing capture clears the mark. A report that calls an unproved read quiet is "
+    + "non-conformant on its face.";
+  for (const [path, what] of surfaces) {
+    const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
+    assertTrue(`${what} carries the unread wording verbatim`, flat.includes(WORDING), path);
+  }
+  // The Codex clock spells no wait word of its own: `observed_quiet` is reachable only by
+  // mapping the planner's `quiet`, so an unproved read can never be reported quiet there.
+  const clock = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/codex-loop.sh"), "utf8")
+    .split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("the clock carries no literal observed_quiet wait",
+    !/reason:"observed_quiet"/.test(clock), "codex-loop.sh spells the wait word again");
+  assertTrue("the clock maps the planner's own quiet onto observed_quiet",
+    /quiet\) _pt_wait=observed_quiet/.test(clock), "the mapping from plan-poll's reason is gone");
+  assertTrue("and records the wait's reason in the tick status",
+    /write_status sleeping idle "\$_wait_reason"/.test(clock), "the idle status drops the reason");
+  // The transport skill describes the record the mark lives in.
+  const transport = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/transport/SKILL.md"), "utf8");
+  assertTrue("the transport skill describes unproved_since on the binding record",
+    /unproved_since/.test(transport) && /## The binding record and the unproved interval/.test(transport), "record description missing");
+}
+
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).
 // `T()` only REGISTERS; the loop below runs what is registered by the time it is reached.
 // Four tests had been appended BELOW it and therefore never ran once -- no pass, no failure,

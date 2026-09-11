@@ -134,6 +134,13 @@ feedback issue resets adaptive observation to the short interval. A successful q
 source is unreadable, preserve the quiet streak and use provider retry. A new feedback issue
 makes propose-then-specificate due on this tick.
 
+An unproved or unreadable observation is **unread, never quiet**: it advances no cursor,
+records `unproved_since` on the binding record (the stored cursor, or the read's own time when
+none exists), and keeps retrying on the failure streak's own deadline, independent of the work
+cadence; the next proved read overlaps the whole unproved interval (`overlap_seconds` is the
+greater of 300 and `now − unproved_since`), and only that read's cursor-advancing capture clears
+the mark. A report that calls an unproved read quiet is non-conformant on its face.
+
 `formation_pending: true` is the intake/implementation ownership boundary. Dispatch
 propose-then-specificate for the whole oldest-first page and allocate **zero new implement
 runners on this tick**. This is derived from unsettled issues and proposal branches by the

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-11T18:04:02+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -112,3 +113,26 @@ days; none of them touched what happens to the interval when a read is unproved.
 - The overlap must stay bounded: a read after a long outage re-reads the whole unproved interval once, and `has_more` paging must carry the same `since` until the interval is covered (`plugins/workaholic/skills/transport/scripts/adapters/qfs.sh` lines 30-40)
 - `capture-inbox.sh`'s revision-checked write is the only place the cursor and `unproved_since` may change together; two writers of one record would race (`plugins/workaholic/skills/transport/scripts/capture-inbox.sh` lines 50-53)
 - Reporter-proposed mechanism recorded as a hypothesis: *a later direct read must overlap the unproved interval* — step 1 decides whether the gap is the missing overlap, the `observed_quiet` word, or the agent's reading of a proved-but-degraded result
+
+## Final Report
+
+Development completed as planned.
+
+Measured before the change (step 1, hermetic fixture with a stub adapter): a proved read stored
+cursor `801.0`; the next read, with the provider unreachable, answered `observation_proved:
+false` / `unreadable: ["qfs_connector_failure"]` with no record of when the channel became
+unread, and the binding record's cursor stayed `801.0` byte-identical; the following proved
+read asked `after 501.000000` (cursor − 300) and returned the human root posted at `850.0`. So
+the channel-delta interval was already preserved by the cursor's own construction (the
+missing-overlap hypothesis is falsified for that path), `plan-poll.sh` already answered
+`observation_unreadable` with the quiet streak preserved, and the live defects were the word —
+`codex-loop.sh` reported `observed_quiet` for the observation-only wait whatever `proved` said,
+and the agent-level tick read the same shape — and the absence of any stated *since when*. The
+operator's session is the fourth reading.
+
+### Discovered Insights
+
+- **Insight**: `unproved_since` cannot be recorded for a refusal raised before the binding resolves (a contradictory declaration, a describe or resolve refusal), because the binding record is keyed on the resolved binding's hash; such a refusal carries `unproved_since: null`, and every binding's cursor is untouched by it anyway.
+  **Context**: the measured `operations_unsatisfied` case is one of these — the report layer treats any unproved read as unread regardless, which is what the pinned wording says.
+- **Insight**: the wait word in the Codex clock is now a mapping from `plan-poll.sh`'s own reason, so the two readers cannot disagree; the reason is recorded in the tick status file, which is what lets `--status` tell an unread channel from a quiet one.
+  **Context**: a source-level pin (`quiet) _pt_wait=observed_quiet`) plus a supervisor fixture that drives two ticks with a failing provider is what proves it.

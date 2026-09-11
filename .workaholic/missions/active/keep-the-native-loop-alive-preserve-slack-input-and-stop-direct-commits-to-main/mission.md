@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260911-181606
 ---
 
 # Keep the native loop alive, preserve Slack input, and stop direct commits to main

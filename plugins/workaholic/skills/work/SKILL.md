@@ -124,9 +124,29 @@ Every worker returns the supplied result schema:
 Process exit, execution, work completion, and notification delivery are separate facts.
 Missing or malformed results are unreadable, never successful.
 
-Under a native parent, ordinary ticks and user steering use commentary. A final response is
-reserved for an explicit stop or a named inability to continue. A correction does not reset
-the startup anchor. On stop, name still-running roles and child identifiers.
+Under a native parent, ordinary ticks and user steering use commentary. A correction does not
+reset the startup anchor. On stop, name still-running roles and child identifiers.
+
+A routine interruption — an ordinary question, correction or follow-up — is handled in
+commentary and the coordinator returns to the same loop: the same instance ID, the same
+startup anchor, the same schedule, no second `start` event and no final response. A
+review-required handoff — the final comment carries information the human genuinely needs to
+review before work may continue — persists `hold` (`explicit:true`) first, then asks exactly
+「ループを再開してよろしいですか？」 as the final response's own text, never through
+`AskUserQuestion`, and stays held until the human's explicit `resume`; time never resumes it.
+The final response is reserved for exactly three events: an explicit stop, a named inability
+to continue, and a review-required handoff. When the run is unsure, the interruption is
+routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
+turn.
+
+The criterion is a judgement the run writes out, not a detector: *does the human need to read
+this before work may continue?* A decision the loop cannot take on its own (a fork that reaches
+the operator's ruling), a result that contradicts what the human just asked for, or a refusal
+that stops the work is review-required. An ordinary answer, a confirmation, or a status the
+human did not ask to gate on is routine. A needless stop is the failure #1126 measured (nine
+unattended ticks lost to a wait); a needless resume is corrected by the human's next message,
+which is itself an ordinary interruption. A routine interruption under a standing hold is
+answered in commentary and the hold stands — an ordinary question never resumes a hold.
 
 Connector-less nested Codex runs may use the documented relay only when a connector-owning
 parent is explicitly waiting. Otherwise report `no_slack_transport`.

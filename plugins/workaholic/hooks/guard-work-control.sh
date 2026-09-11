@@ -1,6 +1,9 @@
 #!/bin/sh -eu
 # Native Claude Code backstop: a held/stopped coordinator cannot launch another worker.
 # No registered /work instance means an ordinary interactive session and is unaffected.
+# AskUserQuestion is refused while a native loop is registered, so a review-required handoff
+# (work/scripts/final-response-contract.sh) is never posed through that tool: it persists
+# `hold` first and asks 「ループを再開してよろしいですか？」 as the final response's own text.
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 command -v jq >/dev/null 2>&1 || exit 0
 input=$(cat)

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-11T14:25:19+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -188,3 +189,33 @@ one criterion that separates it from a handoff that must wait.
 - Only the native-parent branch has this failure; under an external clock or a scheduled task
   a final response is correct and the clock re-invokes the tick. Keep the wording per branch as
   the 2026-09-06 ticket did.
+
+## Final Report
+
+Development completed as planned.
+
+Step 1 (diagnosis first) found the **first** case: the contract was silent on the ordinary
+path. `skills/work/SKILL.md` reserved the final response for two events and said a correction
+does not reset the anchor; `commands/infinite-development.md` said a mid-loop question
+preserves the objective and anchor; `native-loop.md` said an ordinary question is answered
+without discarding it. No sentence on any of the three said *return to the same instance, same
+anchor, no second `start`, no final response*, and none named the review-required handoff or
+the criterion. The reducer (`coordinator.jq`) already carries `anchor` from `start` and
+answers `already_started` to a second start, so no reducer change was needed — the two paths
+are stated on the surfaces and pinned by tests, and the reader owns only the facts.
+
+### Discovered Insights
+
+- **Insight**: `guard-work-control.sh` refuses `AskUserQuestion` while a native loop is
+  registered, so the review-required question can only be the final response's own text
+  after `hold` is persisted; a reader that answers `path: review_handoff` with
+  `final_response: true` is the contract's way of making that the only shape.
+  **Context**: anyone routing the handoff through the tool would hit the guard's
+  `unattended_question` refusal mid-run; the header of the guard and the CLAUDE.md hooks
+  entry now say so beside the refusal.
+- **Insight**: a routine comment under a standing hold answers `path: resume` with
+  `control: held` and `hold_stands: true` — the reader carries the coordinator's mode through
+  and never changes it, so the ordinary path cannot become a way to resume a hold.
+  **Context**: the #1126 rule (time never resumes a hold) is byte-identical in
+  `native-loop.md`'s table and is pinned by the suite; the routine path adds a second thing
+  that never resumes it, an ordinary question.

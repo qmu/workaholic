@@ -53,6 +53,8 @@ docs/                    # Documentation; VitePress site (.vitepress/ + articles
 - `guard-work-control.sh` (PreToolUse Agent|Task|AskUserQuestion) — only for a registered native
   `/work` session: reject dispatch while held/stopped, require a reserved receipt in the child
   prompt, and reject unattended interactive questions. The native session ID keys the record.
+  A review-required handoff is therefore never an `AskUserQuestion`: it persists `hold` and asks
+  「ループを再開してよろしいですか？」 as the final response's own text (`work/scripts/final-response-contract.sh`).
 
 - `validate-ticket.sh` (PostToolUse Write|Edit) — ticket floor on the `todo/` queue only: frontmatter, location, mandatory `## Policies`/`## Quality Gate`, resolvable `mission:` relation.
 - `validate-mission.sh` (PostToolUse) — Experience/≥1-acceptance floor on any mission under `missions/active/`; archive never retro-blocked.
@@ -73,6 +75,11 @@ The native `/work` coordinator caps workers across roles at `WORKAHOLIC_MAX_WORK
 than an empty queue. The coordinator command itself carries the unattended decision and
 evidence-before-diagnosis rules. Confirmed native child cancellation releases its receipt without
 claiming role completion or advancing cadence; an unconfirmed stop keeps the receipt live.
+A native parent's final response is reserved for exactly three events — an explicit stop, a
+named inability to continue, and a review-required handoff (a persisted `hold`, then exactly
+「ループを再開してよろしいですか？」, held until an explicit `resume`); every other mid-loop
+comment is handled in commentary and the coordinator returns to the same instance and startup
+anchor with no second `start` (`work/scripts/final-response-contract.sh` owns the facts).
 For agent-composed gated writes, read the gate in one tool call
 before constructing the merge, push or deletion in another; exit zero is not a passing JSON
 gate. Internally gated delivery scripts retain their check-and-act flow. The implement command

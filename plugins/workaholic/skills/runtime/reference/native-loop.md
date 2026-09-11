@@ -44,6 +44,30 @@ inventory grants no free slots. A stopped instance requires a new explicit `/wor
 native session; never invent another instance ID inside the stopped Claude session to evade its hook.
 Render role results, never raw monitor/control tags.
 
+A routine interruption — an ordinary question, correction or follow-up — is handled in
+commentary and the coordinator returns to the same loop: the same instance ID, the same
+startup anchor, the same schedule, no second `start` event and no final response. A
+review-required handoff — the final comment carries information the human genuinely needs to
+review before work may continue — persists `hold` (`explicit:true`) first, then asks exactly
+「ループを再開してよろしいですか？」 as the final response's own text, never through
+`AskUserQuestion`, and stays held until the human's explicit `resume`; time never resumes it.
+The final response is reserved for exactly three events: an explicit stop, a named inability
+to continue, and a review-required handoff. When the run is unsure, the interruption is
+routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
+turn.
+
+The criterion is a judgement the run writes out, not a detector: *does the human need to read
+this before work may continue?* A decision the loop cannot take on its own (a fork that reaches
+the operator's ruling), a result that contradicts what the human just asked for, or a refusal
+that stops the work is review-required. An ordinary answer, a confirmation, or a status the
+human did not ask to gate on is routine. A needless stop is the failure #1126 measured (nine
+unattended ticks lost to a wait); a needless resume is corrected by the human's next message,
+which is itself an ordinary interruption. A routine interruption under a standing hold is
+answered in commentary and the hold stands — an ordinary question never resumes a hold.
+The reducer needs no fourth mode: the handoff is the existing `hold`, and the human's answer
+is the existing explicit `resume`; `anchor` is set once at `start` and carried, so neither
+path emits a second `start`.
+
 After stopping a child successfully, record `cancelled` even if it has no role result. A failed
 stop or unreadable outcome leaves the child live pending reconciliation. A later valid terminal
 result may still be recorded with `finish`; malformed late results never reopen a cancelled slot.

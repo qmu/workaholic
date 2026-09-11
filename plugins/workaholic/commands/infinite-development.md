@@ -63,6 +63,18 @@ with `{"event":"tick","now":<epoch-seconds>}`. Handle the live conversation firs
 capture terminal child results silently and end this timer tick without observation, dispatch
 or reports. If `stopped`, cancel the schedule and stop its named children. Keep the same anchor.
 
+A routine interruption — an ordinary question, correction or follow-up — is handled in
+commentary and the coordinator returns to the same loop: the same instance ID, the same
+startup anchor, the same schedule, no second `start` event and no final response. A
+review-required handoff — the final comment carries information the human genuinely needs to
+review before work may continue — persists `hold` (`explicit:true`) first, then asks exactly
+「ループを再開してよろしいですか？」 as the final response's own text, never through
+`AskUserQuestion`, and stays held until the human's explicit `resume`; time never resumes it.
+The final response is reserved for exactly three events: an explicit stop, a named inability
+to continue, and a review-required handoff. When the run is unsure, the interruption is
+routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
+turn.
+
 Read `git status --porcelain` once. Report a dirty checkout and its file count because this
 tick is already executing that unreviewed plugin behavior. Do not block, modify, or commit it.
 

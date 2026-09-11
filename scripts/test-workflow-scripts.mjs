@@ -11884,18 +11884,29 @@ function testAllowEmptyIsActuallyEmpty() {
   } finally { cleanup(dir); }
 }
 
-// The script runs post-merge (main is checked out), so its concern commit lands
-// on local main; it must PUSH so local main stays level with origin/main instead
-// of one commit ahead. Mirrors commit-release-note.sh's commit-and-push pattern.
+// The records travel behind a `[Record]` pull request, never as a direct commit to the base
+// (2026-09-11, issue #1151). The script used to commit on whatever branch it stood on and push --
+// measured as two `Add deferred concerns from PR #…` first-parent commits on `main` -- so what is
+// pinned now is that NEITHER the clone's `main` NOR `origin/main` gains a commit, that the records
+// ride a `work-*` branch on origin, and that the seam's own merge answer is reported beside `pushed`.
 const STORY_WITH_CONCERN =
   "---\nbranch: work-x\n---\n## 6. Concerns\n\n### Some real concern\n\n- **Severity:** moderate\n- **Description:** desc\n- **How to Fix:** fix\n\n## 7. Next\n";
 
 T("ship/extract-deferred-concerns.sh push", testExtractDeferredConcernsPush);
 function testExtractDeferredConcernsPush() {
-  // With a reachable origin: the concern commit is pushed, so origin/main == main.
-  const origin = mkdtempSync(join(tmpdir(), "wh-origin-"));
-  const clone = mkdtempSync(join(tmpdir(), "wh-clone-"));
-  try {
+  // A gh stub answering the REST create and the REST merge; it merges nothing, which is exactly
+  // what lets the test prove that origin/main is untouched by this script.
+  const stubDir = mkdtempSync(join(tmpdir(), "wh-edc-gh-"));
+  writeFileSync(join(stubDir, "gh"),
+    "#!/bin/sh\n" +
+    "case \"$1 $2\" in \"api user\") printf 'tester\\n'; exit 0 ;; esac\n" +
+    "case \"$*\" in\n" +
+    "  *pulls*POST*) cat >/dev/null; echo '{\"html_url\":\"https://example.invalid/pull/7\",\"number\":7}'; exit 0 ;;\n" +
+    "  *merge*) echo '{\"merged\":true}'; exit 0 ;;\n" +
+    "esac\necho ''\n");
+  chmodSync(join(stubDir, "gh"), 0o755);
+  const withStub = { env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` } };
+  const seedOrigin = (origin) => {
     execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: origin });
     const seed = mkdtempSync(join(tmpdir(), "wh-seed-"));
     execSync(`git clone -q ${origin} .`, { cwd: seed });
@@ -11904,92 +11915,88 @@ function testExtractDeferredConcernsPush() {
     writeFileSync(join(seed, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
     execSync(`git add -A && git commit -q -m story && git push -q origin main`, { cwd: seed });
     rmSync(seed, { recursive: true, force: true });
-
-    // Clone (main tracks origin/main), then run the script WITHOUT NO_COMMIT so it
-    // commits AND pushes — the post-merge situation the script must handle.
+  };
+  const cloneOf = (origin) => {
+    const clone = mkdtempSync(join(tmpdir(), "wh-clone-"));
     execSync(`git clone -q ${origin} .`, { cwd: clone });
     execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: clone });
-    const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`).stdout);
-    assertEq("extract-deferred-concerns extracts the concern (push scenario)", r.extracted, 1);
-    const local = execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim();
-    const remote = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
-    assertEq("extract-deferred-concerns pushes the commit (origin/main == main)", remote, local);
-    assertEq("extract-deferred-concerns reports pushed:true on success", r.pushed, true);
-    assertEq("extract-deferred-concerns reports no push_error on success", r.push_error, "");
-  } finally { cleanup(origin); cleanup(clone); }
+    return clone;
+  };
 
-  // THE CASE THAT SHIPPED THE BUG: a REACHABLE remote that REJECTS the push. On PR #86
-  // the push silently did not happen and the script still printed status:ok, leaving main
-  // ahead of origin/main unnoticed. Nothing covered this — the success path and the
-  // no-remote path were both green throughout. The push must stay non-fatal (the PR has
-  // already merged) but must no longer claim success it did not have.
-  const rOrigin = mkdtempSync(join(tmpdir(), "wh-rorigin-"));
-  const rClone = mkdtempSync(join(tmpdir(), "wh-rclone-"));
+  // 1. A reachable origin and a pull-request route.
+  const origin = mkdtempSync(join(tmpdir(), "wh-origin-"));
+  let clone = "";
   try {
-    execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: rOrigin });
-    const seed = mkdtempSync(join(tmpdir(), "wh-rseed-"));
-    execSync(`git clone -q ${rOrigin} .`, { cwd: seed });
-    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: seed });
-    mkdirSync(join(seed, ".workaholic/stories"), { recursive: true });
-    writeFileSync(join(seed, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
-    execSync(`git add -A && git commit -q -m story && git push -q origin main`, { cwd: seed });
+    seedOrigin(origin); clone = cloneOf(origin);
+    const before = execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim();
+    const r = JSON.parse(run(clone, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`, withStub).stdout);
+    assertEq("extract-deferred-concerns extracts the concern (publication scenario)", r.extracted, 1);
+    assertEq("the publication branch is on origin", [r.pushed, r.push_error], [true, ""]);
+    assertEq("the seam's merge answer is reported beside pushed", [r.publication.merged, r.publication.merge_reason], [true, "merged"]);
+    assertTrue("the publication names its branch and pull request",
+      /^work-\d{8}-\d{6}$/.test(r.publication.branch) && r.publication.pr_url === "https://example.invalid/pull/7", JSON.stringify(r.publication));
+    // NO DIRECT COMMIT, ANYWHERE: the clone's main and origin/main are both the seed still.
+    assertEq("the clone's main gained no commit", execSync(`git rev-parse main`, { cwd: clone, encoding: "utf8" }).trim(), before);
+    execSync("git fetch -q origin", { cwd: clone });
+    assertEq("origin/main gained no commit", execSync(`git rev-parse origin/main`, { cwd: clone, encoding: "utf8" }).trim(), before);
+    const onBranch = execSync(`git ls-tree -r --name-only ${r.publication.branch}`, { cwd: origin, encoding: "utf8" });
+    assertTrue("the concern record rides the work-* branch", /\.workaholic\/feedbacks\/\d{14}-some-real-concern\.md/.test(onBranch), onBranch);
+    const onMain = execSync(`git ls-tree -r --name-only main`, { cwd: origin, encoding: "utf8" });
+    assertTrue("and is not on the base until the pull request merges", !/some-real-concern/.test(onMain), onMain);
+    assertTrue("no publish tree is left behind", !existsSync(join(clone, ".publish")));
+  } finally { cleanup(origin); if (clone) cleanup(clone); }
 
-    execSync(`git clone -q ${rOrigin} .`, { cwd: rClone });
-    execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: rClone });
+  // 2. A client that refuses to open the pull request: the branch is pushed, the refusal is
+  //    named, the tree is torn down -- and a direct commit to the base is never the fallback.
+  const o2 = mkdtempSync(join(tmpdir(), "wh-origin-"));
+  let c2 = "";
+  try {
+    seedOrigin(o2); c2 = cloneOf(o2);
+    const before = execSync(`git rev-parse origin/main`, { cwd: c2, encoding: "utf8" }).trim();
+    const refuse = mkdtempSync(join(tmpdir(), "wh-refuse-gh-"));
+    writeFileSync(join(refuse, "gh"), "#!/bin/sh\ncase \"$1 $2\" in \"api user\") printf 'tester\\n'; exit 0 ;; esac\ncat >/dev/null 2>&1; echo 'HTTP 403: refused' >&2; exit 1\n");
+    chmodSync(join(refuse, "gh"), 0o755);
+    const r = JSON.parse(run(c2, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`, { env: { ...process.env, PATH: `${refuse}:${process.env.PATH}` } }).stdout);
+    assertEq("a refused pull request leaves the branch pushed and names the refusal",
+      [r.extracted, r.pushed, r.push_error, r.publication.merged, r.publication.merge_reason], [1, true, "pr_failed", false, "pr_failed"]);
+    execSync("git fetch -q origin", { cwd: c2 });
+    assertEq("and origin/main is still the seed", execSync(`git rev-parse origin/main`, { cwd: c2, encoding: "utf8" }).trim(), before);
+    assertTrue("and the publish tree is torn down once the branch is on origin", !existsSync(join(c2, ".publish")));
+    cleanup(refuse);
+  } finally { cleanup(o2); if (c2) cleanup(c2); }
 
-    // Advance origin behind the clone's back -> the clone's push is now non-fast-forward.
-    writeFileSync(join(seed, "other.txt"), "moved on\n");
-    execSync(`git add -A && git commit -q -m other && git push -q origin main`, { cwd: seed });
-    rmSync(seed, { recursive: true, force: true });
-
-    const res = run(rClone, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
-    assertEq("extract-deferred-concerns exits 0 when the push is rejected", res.status, 0);
-    const j = JSON.parse(res.stdout);
-    assertEq("extract-deferred-concerns still extracts when the push is rejected", j.extracted, 1);
-    assertEq("extract-deferred-concerns reports pushed:false when rejected", j.pushed, false);
-    assertEq("extract-deferred-concerns names the rejection cause", j.push_error, "rejected_non_fast_forward");
-    // The divergence is real and now visible instead of silent.
-    const l = execSync(`git rev-parse main`, { cwd: rClone, encoding: "utf8" }).trim();
-    const rm = execSync(`git rev-parse origin/main`, { cwd: rClone, encoding: "utf8" }).trim();
-    assertTrue("rejected push leaves main ahead of origin/main (the reported state)", l !== rm, "should diverge");
-  } finally { cleanup(rOrigin); cleanup(rClone); }
-
-  // With NO reachable remote: the guarded push must no-op — exit 0, normal JSON,
-  // commit still made locally. A push failure must never fail the post-merge ship.
+  // 3. No remote at all: the publish tree refuses by name and nothing is committed locally --
+  //    a repository nobody else can see has no base to publish to.
   const noRemote = makeRepo("main");
   try {
     mkdirSync(join(noRemote, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(noRemote, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
     execSync(`git add -A && git commit -q -m story`, { cwd: noRemote });
     const res = run(noRemote, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
-    assertEq("extract-deferred-concerns exits 0 with no remote", res.status, 0);
     const j = JSON.parse(res.stdout);
-    assertEq("extract-deferred-concerns still extracts with no remote", j.extracted, 1);
-    assertEq("extract-deferred-concerns reports pushed:false with no remote", j.pushed, false);
-    assertEq("extract-deferred-concerns names the no-remote cause", j.push_error, "no_remote");
-    const subject = execSync(`git log -1 --pretty=%s`, { cwd: noRemote, encoding: "utf8" }).trim();
-    assertEq("extract-deferred-concerns committed locally with no remote", subject, "Add deferred concerns from PR #10");
+    assertEq("extract-deferred-concerns refuses without an origin", [res.status, j.reason, j.extracted, j.pushed], [1, "no_origin", 0, false]);
+    assertEq("and commits nothing locally", execSync(`git log -1 --pretty=%s`, { cwd: noRemote, encoding: "utf8" }).trim(), "story");
   } finally { cleanup(noRemote); }
 
-  // Today's observed case: a remote exists but the branch has NO upstream, so a bare
-  // `git push` cannot resolve a destination. This is what actually happened on PR #86.
+  // 4. A remote with no base on it yet: the publish tree cannot resolve origin/main, so the
+  //    refusal is the seam's own word and, again, nothing lands on the local branch.
   const noUp = mkdtempSync(join(tmpdir(), "wh-noup-"));
   try {
     const bare = mkdtempSync(join(tmpdir(), "wh-noupbare-"));
     execSync(`git -c init.defaultBranch=main init -q --bare`, { cwd: bare });
     execSync(`git -c init.defaultBranch=main init -q`, { cwd: noUp });
     execSync(`git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false`, { cwd: noUp });
-    execSync(`git remote add origin ${bare}`, { cwd: noUp });   // remote yes, upstream no
+    execSync(`git remote add origin ${bare}`, { cwd: noUp });   // remote yes, base no
     mkdirSync(join(noUp, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(noUp, ".workaholic/stories/work-x.md"), STORY_WITH_CONCERN);
     execSync(`git add -A && git commit -q -m story`, { cwd: noUp });
     const res = run(noUp, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 10 https://x/pr/10`);
-    assertEq("extract-deferred-concerns exits 0 with no upstream", res.status, 0);
     const j = JSON.parse(res.stdout);
-    assertEq("extract-deferred-concerns reports pushed:false with no upstream", j.pushed, false);
-    assertEq("extract-deferred-concerns names the no-upstream cause", j.push_error, "no_upstream");
+    assertEq("a base that cannot be resolved is refused by the publish tree's own word", [res.status, j.extracted, j.pushed], [1, 0, false]);
+    assertTrue("with a named reason", ["base_unresolved", "origin_unreachable", "no_origin"].includes(j.reason), JSON.stringify(j));
+    assertEq("and the local branch is untouched", execSync(`git log -1 --pretty=%s`, { cwd: noUp, encoding: "utf8" }).trim(), "story");
     cleanup(bare);
-  } finally { cleanup(noUp); }
+  } finally { cleanup(noUp); cleanup(stubDir); }
 }
 
 // ---------- ship/commit-release-note.sh: the push outcome decides the exit ----------
@@ -19655,12 +19662,18 @@ function testShipWorksFromAClaimWorktree() {
     assertEq("and names the destination it pushed to", r.destination, "main");
     assertEq("and reports the push honestly", r.pushed, true);
 
-    // The record is on the BASE, from a clone that did none of this.
+    // The record rides a `[Record]` publication branch on origin, from a clone that did none of
+    // this -- and NOT the base: since 2026-09-11 a record reaches the base only by a merged pull
+    // request (no `gh` here, so the branch is pushed and the pull request is named as not opened).
     execSync("git fetch -q origin", { cwd: A });
     const onBase = execSync("git ls-tree -r --name-only origin/main -- .workaholic/feedbacks", { cwd: A, encoding: "utf8" });
+    assertTrue("the concern record is not on the base before its pull request merges",
+      !/a-concern-that-must-reach-the/.test(onBase), onBase);
+    assertTrue("the extraction names its publication", /^work-\d{8}-\d{6}$/.test(r.publication.branch) && r.publication.merged === false, JSON.stringify(r.publication));
+    const onPublication = execSync(`git ls-tree -r --name-only origin/${r.publication.branch} -- .workaholic/feedbacks`, { cwd: A, encoding: "utf8" });
     // The slug rule truncates, so match the stable prefix rather than the full title.
-    assertTrue("the concern record is on the base branch",
-      /\.workaholic\/feedbacks\/\d+-a-concern-that-must-reach-the.*\.md/.test(onBase), onBase);
+    assertTrue("the concern record is on the publication branch",
+      /\.workaholic\/feedbacks\/\d+-a-concern-that-must-reach-the.*\.md/.test(onPublication), onPublication);
 
     // And NOT on the claim branch -- the destination was explicit, not inherited.
     const onBranch = execSync("git ls-tree -r --name-only origin/work-20260730-999999 -- .workaholic/feedbacks", { cwd: A, encoding: "utf8" });
@@ -19672,7 +19685,8 @@ function testShipWorksFromAClaimWorktree() {
       execSync("git status --porcelain", { cwd: wt, encoding: "utf8" }).trim(), "");
     assertTrue("and the publish tree is torn down", !existsSync(join(A, ".publish")));
 
-    // Idempotent: a second run finds the id already present on the base and creates none.
+    // Idempotent: a second run finds the id already on an OPEN publication and creates none --
+    // the dedup reads the unmerged branches, not only the base, so no second pull request opens.
     const again = JSON.parse(run(wt, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-20260730-999999 42 https://example.com/pr/42 main`).stdout);
     assertEq("a known concern_id is never re-emitted", again.created, 0);
     assertEq("and the destination is still reported", again.destination, "main");
@@ -19681,7 +19695,9 @@ function testShipWorksFromAClaimWorktree() {
   }
 }
 
-// On the base itself, the direct path is unchanged -- no publish tree involved.
+// On the base itself the road is the same publish tree and pull request (2026-09-11): the script
+// used to commit on the base checkout it stood on and push, which is exactly the direct base
+// write the operator measured. Now the local base gains no commit either.
 T("ship: extraction on the base stays direct", testShipExtractionOnBaseIsDirect);
 function testShipExtractionOnBaseIsDirect() {
   const { origin, A } = makePublishFixture();
@@ -19689,11 +19705,14 @@ function testShipExtractionOnBaseIsDirect() {
     mkdirSync(join(A, ".workaholic/stories"), { recursive: true });
     writeFileSync(join(A, ".workaholic/stories/work-20260730-888888.md"),
       `---\ntype: Story\nbranch: work-20260730-888888\ntickets_completed: 0\nmission: []\ntickets: []\n---\n\n## 6. Concerns\n\n### A concern extracted on the base\n\n- **Severity:** low\n- **Description:** the direct path stays direct\n- **How to Fix:** nothing\n\n## 7. Successful Development Patterns\n\nNone\n`);
-    execSync("git add -A && git commit -q -m 'Add a story on the base'", { cwd: A });
+    execSync("git add -A && git commit -q -m 'Add a story on the base' && git push -q origin main", { cwd: A });
+    const before = execSync("git rev-parse main", { cwd: A, encoding: "utf8" }).trim();
     const r = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-20260730-888888 43 https://example.com/pr/43 main`).stdout);
     assertEq("extraction on the base creates the record", r.created, 1);
     assertEq("and reports the base as its destination", r.destination, "main");
-    assertTrue("no publish tree was opened for the direct path", !existsSync(join(A, ".publish")));
+    assertEq("and the local base gained no commit", execSync("git rev-parse main", { cwd: A, encoding: "utf8" }).trim(), before);
+    assertTrue("and the record rides a publication branch", /^work-\d{8}-\d{6}$/.test(r.publication.branch), JSON.stringify(r.publication));
+    assertTrue("the publish tree is torn down after the publication", !existsSync(join(A, ".publish")));
   } finally {
     for (const d of [origin, A]) rmSync(d, { recursive: true, force: true });
   }
@@ -29910,9 +29929,12 @@ function testCommitRefusesSplitRename() {
 // ---------- moderate: the tick's records reach the base, and a claim is not a fact ----------
 // (2026-08-23) `create.sh` stages a record and stops, and a routine's container is discarded,
 // so a finding was reported filed and then lost — and the next tick read the `-filed` line,
-// concluded it was captured, and did not re-derive it. Pinned: the record lands on the log's
-// own commit with no branch, an unrelated staged file does NOT ride, and an unlanded record
-// reads as not filed.
+// concluded it was captured, and did not re-derive it. Pinned: the record travels named one by
+// one, an unrelated staged file does NOT ride, and an unlanded record reads as not filed.
+// SINCE 2026-09-11 (issue #1151) THE ROAD IS A PULL REQUEST, never a direct commit to the base:
+// the record rides a `work-*` branch, `carried` means the seam merged it, a pull request left
+// open is `unlanded` with the seam's own word, and a record already on an open publication is
+// not published twice.
 T("moderate: the tick's records reach the base", testTickRecordsReachTheBase);
 function testTickRecordsReachTheBase() {
   const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
@@ -29922,43 +29944,76 @@ function testTickRecordsReachTheBase() {
   const base = mkdtempSync(join(tmpdir(), "wh-rec-"));
   const origin = join(base, "origin.git");
   const c = join(base, "c");
+  // A gh stub: the create answers; the merge answers per the mode file, and never merges
+  // anything, so a "merged" answer leaves origin/main untouched by construction.
+  const stubDir = join(base, "stub"); mkdirSync(stubDir);
+  const mergeMode = join(base, "merge-mode"); writeFileSync(mergeMode, "ok");
+  writeFileSync(join(stubDir, "gh"),
+    "#!/bin/sh\n" +
+    "case \"$1 $2\" in \"api user\") printf 'tester\\n'; exit 0 ;; esac\n" +
+    "case \"$*\" in\n" +
+    "  *pulls*POST*) cat >/dev/null; echo '{\"html_url\":\"https://example.invalid/pull/9\",\"number\":9}'; exit 0 ;;\n" +
+    `  *merge*) if [ "$(cat '${mergeMode}')" = ok ]; then echo '{"merged":true}'; exit 0; else echo '{"message":"Base branch was modified"}' >&2; exit 1; fi ;;\n` +
+    "esac\necho ''\n");
+  chmodSync(join(stubDir, "gh"), 0o755);
+  const env = { ...process.env, PATH: `${stubDir}:${process.env.PATH}` };
   execSync(`git init -q --bare ${origin}`);
   execSync(`git clone -q ${origin} ${c}`, { stdio: "ignore" });
   execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: c });
   const rec = ".workaholic/feedbacks/20260823100000-t.md";
+  const rec2 = ".workaholic/feedbacks/20260823100002-u.md";
+  const originRefs = () => execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" }).trim().split(/\n/).sort();
   try {
     mkdirSync(join(c, ".workaholic/feedbacks"), { recursive: true });
     mkdirSync(join(c, ".workaholic/moderations"), { recursive: true });
     writeFileSync(join(c, "README.md"), "# seed\n");
     execSync("git add -A && git commit -q -m seed && git branch -M main && git push -q -u origin main", { cwd: c });
+    const seedSha = execSync("git rev-parse main", { cwd: c, encoding: "utf8" }).trim();
 
     writeFileSync(join(c, ".workaholic/moderations/2026-08-23.md"), "## 20260823-100000\n\n- `open-log`: ok — opened\n");
     writeFileSync(join(c, rec), "---\ntype: Feedback\n---\n\n# t\n");
-    // An unrelated staged file must NOT ride an unattended commit to the base.
+    // An unrelated staged file must NOT ride an unattended publication.
     writeFileSync(join(c, "unrelated.txt"), "not the tick's\n");
     execSync("git add unrelated.txt", { cwd: c });
 
-    const j = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8" }));
-    assertEq("the persist reports the record carried",
-      [j.persisted, j.records[0].path, j.records[0].state], [true, rec, "carried"]);
-    const onBase = execSync(`git -C ${origin} ls-tree -r --name-only main`, { encoding: "utf8" });
-    assertTrue("the record is on the base", onBase.includes(rec), onBase);
-    assertTrue("and the unrelated staged file is not", !onBase.includes("unrelated.txt"), onBase);
-    // NO WORK BRANCH, NO CLAIM, NO PULL REQUEST — and since 2026-09-03, NO LOG BRANCH EITHER.
-    // This seam used to create one; that strategy is retired and must not come back, so the base
-    // is now the only ref a persist may leave behind.
-    const refsOnOrigin = execSync(`git -C ${origin} for-each-ref --format='%(refname:short)' refs/heads`, { encoding: "utf8" })
-      .trim().split(/\n/).sort();
-    assertEq("the base, and nothing else", refsOnOrigin, ["main"]);
-    assertTrue("no claim-vocabulary branch was created",
-      !refsOnOrigin.some((r) => /^work-/.test(r) || /^release\//.test(r)), refsOnOrigin.join(","));
+    const j = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8", env }));
+    assertEq("the persist reports the record carried behind a merged pull request",
+      [j.persisted, j.status, j.records[0].path, j.records[0].state, j.publication.merged, j.publication.merge_reason],
+      [true, "filed", rec, "carried", true, "merged"]);
+    assertTrue("the publication names its branch and pull request",
+      /^work-\d{8}-\d{6}$/.test(j.publication.branch) && j.publication.pr_url === "https://example.invalid/pull/9", JSON.stringify(j.publication));
+    // NO DIRECT COMMIT TO THE BASE: origin/main is the seed still, and the record rides the branch.
+    assertEq("origin/main gained no commit", execSync(`git -C ${origin} rev-parse main`, { encoding: "utf8" }).trim(), seedSha);
+    const onBranch = execSync(`git -C ${origin} ls-tree -r --name-only ${j.publication.branch}`, { encoding: "utf8" });
+    assertTrue("the record is on the publication branch", onBranch.includes(rec), onBranch);
+    assertTrue("and the unrelated staged file is not", !onBranch.includes("unrelated.txt"), onBranch);
+    assertEq("the base plus exactly one publication branch, and nothing else", originRefs(), ["main", j.publication.branch].sort());
+    assertTrue("the publication branch carries no claim commit",
+      !/Claim /.test(execSync(`git -C ${origin} log --format=%s ${j.publication.branch}`, { encoding: "utf8" })), "a publication is not a claim");
 
+    // The merge lands it (simulated: the stub merges nothing, so the base is advanced by hand).
+    execSync(`git -C ${origin} update-ref refs/heads/main refs/heads/${j.publication.branch}`);
     // IMMUTABLE: a second run leaves it alone rather than rewriting it.
-    const again = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8" }));
+    const again = JSON.parse(execSync(`${PERSIST} --tick 20260823-100000 --root . --record ${rec}`, { cwd: c, encoding: "utf8", env }));
     assertEq("a record already on the base is left untouched", again.records[0].state, "already_on_base");
+    assertEq("and no publication was opened for it", again.publication, null);
     // A NAMED RECORD THAT IS NOT THERE IS REPORTED, NOT INVENTED.
-    const miss = JSON.parse(execSync(`${PERSIST} --tick 20260823-110000 --root . --record .workaholic/feedbacks/nope.md`, { cwd: c, encoding: "utf8" }));
+    const miss = JSON.parse(execSync(`${PERSIST} --tick 20260823-110000 --root . --record .workaholic/feedbacks/nope.md`, { cwd: c, encoding: "utf8", env }));
     assertEq("a missing record is named", miss.records[0].state, "missing");
+
+    // A PULL REQUEST LEFT OPEN IS `unlanded` WITH THE SEAM'S OWN WORD, and the record is not
+    // published a second time while its branch is still unmerged.
+    writeFileSync(mergeMode, "refuse");
+    writeFileSync(join(c, rec2), "---\ntype: Feedback\n---\n\n# u\n");
+    const open = JSON.parse(execSync(`${PERSIST} --tick 20260823-120000 --root . --record ${rec2}`, { cwd: c, encoding: "utf8", env }));
+    assertEq("a refused merge leaves the record unlanded, named by the seam's word",
+      [open.persisted, open.status, open.reason, open.records[0].state, open.publication.merged], [false, "degraded", "unlanded", "unlanded", false]);
+    assertTrue("with the merge reason on the record", typeof open.records[0].reason === "string" && open.records[0].reason.length > 0 && open.records[0].reason === open.publication.merge_reason, JSON.stringify(open));
+    const refsAfterOpen = originRefs();
+    const twice = JSON.parse(execSync(`${PERSIST} --tick 20260823-130000 --root . --record ${rec2}`, { cwd: c, encoding: "utf8", env }));
+    assertEq("a record already on an open publication is not published again",
+      [twice.records[0].state, twice.records[0].reason, twice.records[0].branch], ["unlanded", "publication_open", open.publication.branch]);
+    assertEq("and no second branch was created for it", originRefs(), refsAfterOpen);
 
     // A CLAIM IS NOT A FACT: the line names two records and only one is in the tree.
     execSync(`${APPEND} --root . --tick 20260823-100000 --step inbound-sweep-filed --status filed --summary "filed ${rec} and .workaholic/feedbacks/20260823100001-lost.md"`, { cwd: c, stdio: "ignore" });
@@ -40816,6 +40871,79 @@ function testUnprovedIsUnread() {
   const transport = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/transport/SKILL.md"), "utf8");
   assertTrue("the transport skill describes unproved_since on the binding record",
     /unproved_since/.test(transport) && /## The binding record and the unproved interval/.test(transport), "record description missing");
+}
+
+// ---- THE TICK'S DURABLE RECORDS TRAVEL BEHIND A PULL REQUEST (2026-09-11, issue #1151).
+// The operator measured the tick's bookkeeping landing on `main` as direct commits. Re-measured
+// on `origin/main` over the last 600 first-parent commits: the 219 `Log the * tick` commits are
+// 2026-08-27..31 history the log's retirement already ended; the live direct writers were
+// `persist-log.sh --record` (17 `Record the tick's feedback findings`, 2026-09-06..11) and
+// `extract-deferred-concerns.sh` (2 `Add deferred concerns from PR #…`, 2026-09-08), both through
+// `publish-tree-commit.sh`. Both now publish through the pull-request seam (behaviour: the two
+// fixtures above); pinned here is the ROAD, read off the code, and that every ephemeral loop
+// state stays out of git on a fresh checkout.
+T("the tick's records and the ship's concerns travel behind a pull request", testRecordsTravelBehindPullRequest);
+function testRecordsTravelBehindPullRequest() {
+  const writers = [
+    "plugins/workaholic/skills/moderate/scripts/persist-log.sh",
+    "plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh",
+  ];
+  for (const rel of writers) {
+    const code = readFileSync(join(REPO_ROOT, rel), "utf8")
+      .split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+    assertTrue(`${rel} publishes through the pull-request seam`, /publish-tree-pr\.sh/.test(code), rel);
+    assertTrue(`${rel} never calls the direct seam`, !/publish-tree-commit\.sh/.test(code), rel);
+    assertTrue(`${rel} makes no bare git commit`, !/(^|[;&|(]\s*)git (-C \S+ )?commit\b/m.test(code), rel);
+    assertTrue(`${rel} pushes nothing of its own`, !/push_and_report|(^|[;&|(]\s*)git (-C \S+ )?push\b/m.test(code), rel);
+    assertTrue(`${rel} lets the seam merge behind the scan`, /WORKAHOLIC_AUTO_MERGE=1/.test(code), rel);
+    assertTrue(`${rel} titles its pull request as a record`, /WORKAHOLIC_PR_TITLE="\[Record\]/.test(code), rel);
+  }
+  // The direct seam states, in its own header, that no unattended path calls it.
+  const direct = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"), "utf8");
+  assertTrue("publish-tree-commit.sh states it has no unattended caller",
+    /NO UNATTENDED PATH CALLS THIS SEAM/.test(direct), "the direct seam's header lost its statement");
+  // Every other reference to it in the plugin is a comment or a document, never an invocation.
+  const callers = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) { walk(full); continue; }
+      if (!/\.sh$/.test(e.name) || full.endsWith("publish-tree-commit.sh")) continue;
+      const code = readFileSync(full, "utf8").split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+      if (/publish-tree-commit\.sh/.test(code)) callers.push(full.slice(REPO_ROOT.length + 1));
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic"));
+  assertEq("no plugin script invokes the direct seam", callers, []);
+
+  // EPHEMERAL STATE STAYS OUT OF GIT on a fresh checkout carrying this repository's .gitignore:
+  // the tick log, the Codex clock's transcripts, and everything `state.sh` writes (the runtime
+  // records, the transport inbox and outbox), which live under the git directory itself.
+  const dir = mkdtempSync(join(tmpdir(), "wk-ephemeral-"));
+  try {
+    run(dir, "git init -q -b main && git config user.email t@example.com && git config user.name T");
+    copyFileSync(join(REPO_ROOT, ".gitignore"), join(dir, ".gitignore"));
+    run(dir, "git add .gitignore && git commit -q -m seed");
+    mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/moderations/2026-09-11.md"), "## tick\n");
+    mkdirSync(join(dir, ".codex-loop"), { recursive: true });
+    writeFileSync(join(dir, ".codex-loop/status.json"), "{}\n");
+    for (const path of [".workaholic/moderations/2026-09-11.md", ".codex-loop/status.json"]) {
+      assertEq(`${path} is git-ignored on a fresh checkout`, run(dir, `git check-ignore -q ${path}`).status, 0);
+    }
+    const state = join(REPO_ROOT, "plugins/workaholic/skills/runtime/scripts/state.sh");
+    const input = join(dir, "record.json");
+    writeFileSync(input, JSON.stringify({ updated_at: "2026-09-11T00:00:00Z", owner: null, data: { cursor: null } }));
+    for (const [scope, id] of [["binding", "b1"], ["instance", "i1"], ["publication", "p1"], ["snapshot", "s1"]]) {
+      const r = run(dir, `sh ${state} create --scope ${scope} --id ${id} --input ${input}`);
+      assertEq(`state.sh writes ${scope}/${id}/meta`, JSON.parse(r.stdout).status, "ok");
+    }
+    const common = run(dir, "git rev-parse --path-format=absolute --git-common-dir").stdout.trim();
+    assertTrue("the runtime state (records, inbox and outbox alike) lives under the git directory",
+      existsSync(join(common, "workaholic/runtime/v1/bindings/b1/meta.json")) && existsSync(join(common, "workaholic/runtime/v1/instances/i1/meta.json")), common);
+    rmSync(input);
+    assertEq("and none of it reaches git status", run(dir, "git status --porcelain --ignored=no").stdout.trim(), "");
+  } finally { cleanup(dir); }
 }
 
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).

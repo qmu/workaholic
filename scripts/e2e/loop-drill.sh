@@ -1491,6 +1491,50 @@ cmd_verify_log_off_base() {
     fi
     rm -rf "$_clean"
 
+    # 6. THE RECORDS' ROAD IS THE PULL-REQUEST SEAM (2026-09-11, issue #1151). The tick's feedback
+    # records and the ship's deferred concerns used to land on the base as direct commits through
+    # `publish-tree-commit.sh`; both writers now publish through `publish-tree-pr.sh`. Read off the
+    # code first, then proved against a throwaway origin: with a GitHub client that refuses, the
+    # branch is pushed, the pull request is not opened, the record is `unlanded` by name, and the
+    # base is byte-identical -- a direct commit is never the fallback.
+    _edc="${REPO_ROOT}/plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh"
+    _direct_callers=''
+    for _w in "$_persist" "$_edc"; do
+        if grep -v '^[[:space:]]*#' "$_w" | grep -q 'publish-tree-commit\.sh'; then
+            _direct_callers="${_direct_callers} $(basename "$_w")"
+        fi
+        if ! grep -v '^[[:space:]]*#' "$_w" | grep -q 'publish-tree-pr\.sh'; then
+            _direct_callers="${_direct_callers} $(basename "$_w"):no_pr_seam"
+        fi
+    done
+    if [ -z "$_direct_callers" ]; then
+        add_row "records_road_is_pull_request" true "both record writers publish through publish-tree-pr.sh and never the direct seam" load
+    else
+        add_row "records_road_is_pull_request" false "a record writer still reaches the direct seam:${_direct_callers}" load
+    fi
+    _rroot=$(mktemp -d); _rorigin="${_rroot}/origin.git"; _rclone="${_rroot}/c"; _rstub="${_rroot}/stub"
+    mkdir -p "$_rstub"
+    printf '#!/bin/sh\nexit 1\n' > "${_rstub}/gh"; chmod +x "${_rstub}/gh"
+    git init -q --bare "$_rorigin" >/dev/null 2>&1
+    git clone -q "$_rorigin" "$_rclone" >/dev/null 2>&1
+    git -C "$_rclone" config user.email t@e; git -C "$_rclone" config user.name t
+    mkdir -p "${_rclone}/.workaholic/feedbacks"; printf '# seed\n' > "${_rclone}/README.md"
+    (git -C "$_rclone" add -A && git -C "$_rclone" commit -q -m seed && git -C "$_rclone" branch -M main \
+        && git -C "$_rclone" push -q -u origin main) >/dev/null 2>&1
+    _rseed=$(git -C "$_rorigin" rev-parse main 2>/dev/null || printf '')
+    printf -- '---\ntype: Feedback\n---\n\n# r\n' > "${_rclone}/.workaholic/feedbacks/20260911000000-r.md"
+    _rout=$(PATH="${_rstub}:${PATH}" sh "$_persist" --tick 20260911-000000 --root "$_rclone" \
+        --record .workaholic/feedbacks/20260911000000-r.md 2>&1 || true)
+    _rmain=$(git -C "$_rorigin" rev-parse main 2>/dev/null || printf '')
+    _rbranches=$(git -C "$_rorigin" for-each-ref --format='%(refname:short)' 'refs/heads/work-*' 2>/dev/null | grep -c '' || true)
+    if [ -n "$_rseed" ] && [ "$_rmain" = "$_rseed" ] && [ "$_rbranches" = "1" ] \
+        && printf '%s' "$_rout" | grep -q '"state": "unlanded", "reason": "pr_failed"'; then
+        add_row "records_never_land_directly" true "with no pull request the record is unlanded by name on a work-* branch and the base is byte-identical" load
+    else
+        add_row "records_never_land_directly" false "the record's road reached the base directly or was not named: main=${_rmain} seed=${_rseed} branches=${_rbranches} $(one_line "$_rout")" load
+    fi
+    rm -rf "$_rroot"
+
     if [ "$LOAD_FAILED" -gt 0 ]; then
         emit_verdict "log-off-base" 0 "fail" 1
     fi

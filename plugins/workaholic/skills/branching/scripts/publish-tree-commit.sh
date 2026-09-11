@@ -21,6 +21,17 @@
 # lands the COMMIT on the base; no `publish-main` ref is ever created on origin,
 # so the claim scan (which enumerates unmerged origin branches) never sees it.
 #
+# NO UNATTENDED PATH CALLS THIS SEAM (2026-09-11, issue #1151). Its two remaining
+# callers -- `moderate/scripts/persist-log.sh --record` and
+# `ship/scripts/extract-deferred-concerns.sh` -- moved onto `publish-tree-pr.sh`, so a
+# feedback record and a deferred concern now reach the base through a merged pull
+# request with the normal checks, never as a direct commit. What may still use it: an
+# ATTENDED developer's own publication (no `WORKAHOLIC_ROLE` set) and the hermetic suite's
+# fixtures, which need a one-commit road onto a throwaway base. It is kept rather than
+# deleted because the suite's publish-tree contracts are written against it; the
+# base-ref gate (`branching/scripts/lib/base-ref-gate.sh`) refuses its push under every
+# unattended role, so keeping it opens no road back to `main` for a routine.
+#
 # NON-FAST-FORWARD IS EXPECTED, NOT EXCEPTIONAL. Another session or a cron tick
 # may push between the open and this call, so a rejection is re-fetched, rebased,
 # and retried ONCE. The bound is deliberate: an unbounded retry loop would hide

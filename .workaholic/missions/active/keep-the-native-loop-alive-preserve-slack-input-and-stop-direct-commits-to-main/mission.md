@@ -44,3 +44,4 @@ durable artifacts travel on a branch behind a pull request.
 ## Changelog
 - 2026-09-11 — ticket archived — 20260911180401-prove-a-continuation-before-a-mid-loop-turn-ends.md
 - 2026-09-11 — ticket archived — 20260911180402-treat-an-unproved-slack-observation-as-unread-not-quiet.md
+- 2026-09-11 — ticket archived — 20260911180403-route-the-tick-s-durable-records-through-a-pull-request.md

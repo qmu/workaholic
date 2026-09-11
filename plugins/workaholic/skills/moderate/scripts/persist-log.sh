@@ -7,11 +7,29 @@
 #
 # Output: one JSON line
 #   {"persisted": true|false, "status": "filed|ok|skipped|degraded", "reason": "<stable>",
-#    "summary": "<one line>", "records": [{"path": "<rel>", "state": "<state>"}]}
+#    "summary": "<one line>", "records": [{"path": "<rel>", "state": "<state>"}],
+#    "publication": null | {"branch": "work-…", "pr_url": "<url>", "merged": true|false,
+#                           "merge_reason": "<seam's word>"}}
 #
 # Record states: carried | already_on_base | missing | unreadable | unlanded.
-# Stable reasons: persisted | no_records | not_a_repo | root_not_repo_root | bad_tick |
+#   carried          the record is on the base: its pull request opened and the seam merged it
+#   already_on_base  the base already holds it (immutable; success, not a conflict)
+#   unlanded         not on the base -- carries `reason`: the seam's own word (`merge_not_allowed`,
+#                    `scan_finding`, `no_gh`, `pr_failed`, `push_failed`, …), or
+#                    `publication_open` when an unmerged `work-*` branch already carries the
+#                    record, so no second pull request is opened for it
+# Stable reasons: persisted | unlanded | no_records | not_a_repo | root_not_repo_root | bad_tick |
 #                 log_destination_is_base.
+#
+# THE RECORDS TRAVEL BEHIND A PULL REQUEST, NEVER AS A DIRECT COMMIT TO THE BASE (2026-09-11,
+# issue #1151, the operator's rule verbatim: *runtime cadence logs and unattended maintenance
+# records must not update the base branch directly … route durable repository artifacts through
+# a claim or publish branch and pull request with the normal checks*). Measured on `origin/main`
+# over the last 600 first-parent commits: 17 `Record the tick's feedback findings` commits
+# (2026-09-06 to 2026-09-11) landed through `publish-tree-commit.sh`, the direct seam. They now go
+# through `publish-tree-pr.sh` under `WORKAHOLIC_AUTO_MERGE=1` with a `[Record]` title: the
+# seam opens the pull request and merges it when the release scan passes, so `carried` still
+# means *on the base* and a pull request left open is `unlanded` with the seam's reason.
 #
 # ==========================================================================================
 # THE LOG BRANCH IS RETIRED AND MUST NOT BE REINTRODUCED (2026-09-03, the developer's
@@ -79,10 +97,11 @@ json_escape() {
     printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+PUBLICATION_JSON=null
 report() {
     # $1 persisted  $2 status  $3 reason  $4 summary
-    printf '{"persisted": %s, "status": "%s", "reason": "%s", "summary": "%s", "records": [%s]}\n' \
-        "$1" "$2" "$3" "$(json_escape "$4")" "${RECORDS_JSON:-}"
+    printf '{"persisted": %s, "status": "%s", "reason": "%s", "summary": "%s", "records": [%s], "publication": %s}\n' \
+        "$1" "$2" "$3" "$(json_escape "$4")" "${RECORDS_JSON:-}" "${PUBLICATION_JSON:-null}"
     exit 0
 }
 
@@ -174,6 +193,16 @@ if [ -n "$RECORDS" ]; then
     case "$rec_open" in
         *'"ok": true'*)
             rec_path="${repo_root}/.publish"
+            # A RECORD ALREADY ON AN UNMERGED PUBLICATION IS NOT PUBLISHED AGAIN. The pull-request
+            # road means a record can sit on a `work-*` branch for a while before it reaches the
+            # base, and a second tick naming the same path would open a second pull request for
+            # it. The walk is `/specificate`'s own (`lib/unmerged-branches.sh`): git-native, one
+            # fetch of the `work-*` heads, over-reading on every ambiguity, which is the safe
+            # direction for a dedup.
+            (cd "$repo_root" && git fetch --quiet origin '+refs/heads/work-*:refs/remotes/origin/work-*' 2>/dev/null) || true
+            UNMERGED_BRANCHES_LABEL=persist-log
+            . "${SCRIPT_DIR}/../../specificate/scripts/lib/unmerged-branches.sh"
+            (cd "$repo_root" && unmerged_branches_added_paths "origin/${BASE}" .workaholic/feedbacks 2>/dev/null) > "$WORK/on-branch" || : > "$WORK/on-branch"
             while IFS= read -r rel; do
                 [ -n "$rel" ] || continue
                 src="${root_abs}/${rel}"
@@ -185,6 +214,12 @@ if [ -n "$RECORDS" ]; then
                 fi
                 if [ -f "$dst" ]; then
                     RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "already_on_base"}' "$(json_escape "$rel")")"
+                    _rsep=', '
+                    continue
+                fi
+                _open_ref=$(awk -F'\t' -v p="$rel" '$2 == p { print $1; exit }' "$WORK/on-branch" 2>/dev/null || printf '')
+                if [ -n "$_open_ref" ]; then
+                    RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "unlanded", "reason": "publication_open", "branch": "%s"}' "$(json_escape "$rel")" "$(json_escape "${_open_ref#refs/remotes/origin/}")")"
                     _rsep=', '
                     continue
                 fi
@@ -201,21 +236,40 @@ if [ -n "$RECORDS" ]; then
             if [ -n "$RECORD_PATHS" ]; then
                 # THE BASE IS AN ENVIRONMENT VARIABLE ON THAT SCRIPT, not an argument, so this
                 # publication names its destination explicitly rather than inheriting a default.
-                rec_out=$(cd "$repo_root" && WORKAHOLIC_PUBLISH_BASE="$BASE" sh "${BRANCHING}/publish-tree-commit.sh" \
+                # THE ROAD IS THE PULL-REQUEST SEAM (2026-09-11): `WORKAHOLIC_AUTO_MERGE=1` lets the
+                # seam merge behind the release scan, and the `[Record]` title names the class on
+                # the pull-request list. The method and the squash body stay the seam's own
+                # derivations (`merge-method.sh`, `merge-commit-body.sh`); nothing is spelled here.
+                rec_out=$(cd "$repo_root" && WORKAHOLIC_PUBLISH_BASE="$BASE" WORKAHOLIC_AUTO_MERGE=1 \
+                    WORKAHOLIC_PR_TITLE="[Record] Feedback findings from tick ${TICK}" \
+                    sh "${BRANCHING}/publish-tree-pr.sh" \
                     "Record the tick's feedback findings" \
-                    "A finding the moderation tick wrote is staged by create.sh and stops there, so without this commit it is reported filed and never lands." \
-                    "The findings this tick filed are on ${BASE}, where /specificate's discovery and the attribution walk read them." \
+                    "A finding the moderation tick wrote is staged by create.sh and stops there, so without this publication it is reported filed and never lands." \
+                    "The findings this tick filed reach ${BASE} through this pull request, where /specificate's discovery and the attribution walk read them." \
                     "None" \
                     "None" \
-                    "Each record named one by one; a record already on the base is left untouched." \
+                    "Each record named one by one; a record already on the base or on an open publication is left untouched." \
                     $RECORD_PATHS 2>/dev/null || true)
-                case "$rec_out" in
-                    *'"ok": true'*) ;;
-                    *)
-                        # Reported per record rather than as a status of the whole call.
-                        RECORDS_JSON=$(printf '%s' "$RECORDS_JSON" | sed 's/"state": "carried"/"state": "unlanded"/g')
-                        ;;
-                esac
+                _pub_ok=$(printf '%s' "$rec_out" | sed -n 's/.*"ok": *\([a-z]*\).*/\1/p')
+                _pub_merged=$(printf '%s' "$rec_out" | sed -n 's/.*"merged": *\([a-z]*\).*/\1/p')
+                _pub_branch=$(printf '%s' "$rec_out" | sed -n 's/.*"branch": *"\([^"]*\)".*/\1/p')
+                _pub_url=$(printf '%s' "$rec_out" | sed -n 's/.*"pr_url": *"\([^"]*\)".*/\1/p')
+                if [ "$_pub_ok" = true ]; then
+                    _pub_reason=$(printf '%s' "$rec_out" | sed -n 's/.*"merge_reason": *"\([^"]*\)".*/\1/p')
+                else
+                    _pub_reason=$(printf '%s' "$rec_out" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
+                fi
+                [ -n "$_pub_reason" ] || _pub_reason=publish_failed
+                [ "$_pub_merged" = true ] || _pub_merged=false
+                PUBLICATION_JSON=$(printf '{"branch": "%s", "pr_url": "%s", "merged": %s, "merge_reason": "%s"}' \
+                    "$(json_escape "$_pub_branch")" "$(json_escape "$_pub_url")" "$_pub_merged" "$(json_escape "$_pub_reason")")
+                if [ "$_pub_ok" != true ] || [ "$_pub_merged" != true ]; then
+                    # Not on the base: reported per record rather than as a status of the whole
+                    # call, carrying the seam's own word. A pull request left open is `unlanded`
+                    # exactly as a refused push was, and the next tick's stranded-publication
+                    # act (or a person) lands it; this seam never retries on its own.
+                    RECORDS_JSON=$(printf '%s' "$RECORDS_JSON" | sed "s/\"state\": \"carried\"/\"state\": \"unlanded\", \"reason\": \"$(json_escape "$_pub_reason")\"/g")
+                fi
             fi
             (cd "$repo_root" && sh "${BRANCHING}/close-publish-tree.sh" "$BASE" >/dev/null 2>&1 || true)
             ;;
@@ -236,4 +290,11 @@ if [ -z "$RECORDS" ]; then
 fi
 
 _carried=$(printf '%s' "${RECORDS_JSON:-}" | grep -o '"state": "carried"' | wc -l | tr -d ' ')
-report true filed persisted "${_carried} record(s) carried to ${BASE}; the tick log stays in this checkout"
+_unlanded=$(printf '%s' "${RECORDS_JSON:-}" | grep -o '"state": "unlanded"' | wc -l | tr -d ' ')
+if [ "$_carried" -eq 0 ] && [ "$_unlanded" -gt 0 ]; then
+    # Nothing reached the base: a named degradation, never a quiet success. The records are
+    # pushed (or already on an open publication) and are landed by the pull request, not by
+    # this seam.
+    report false degraded unlanded "${_unlanded} record(s) published behind a pull request and not yet on ${BASE}; the tick log stays in this checkout"
+fi
+report true filed persisted "${_carried} record(s) carried to ${BASE} behind a merged pull request; the tick log stays in this checkout"

@@ -549,6 +549,9 @@ fi
 if [ -n "$DISPATCH_ROLE" ] || [ -n "$WORKER_ROLE" ]; then
     _role="${DISPATCH_ROLE}${WORKER_ROLE}"
     role_known "$_role" || { printf 'bad_role: %s (known: %s)\n' "$_role" "$ROLES" >&2; exit 2; }
+    # The dispatched worker runs under its role's name, which the base-ref gate reads
+    # (2026-09-11, issue #1151): nothing it composes may commit or push to the base.
+    WORKAHOLIC_ROLE="$_role"; export WORKAHOLIC_ROLE
     ROLE_BODY="${PLUGIN_ROOT}/commands/${_role}.md"
     [ -f "$ROLE_BODY" ] || {
         printf 'plugin_command_missing: %s\n' "$ROLE_BODY" >&2

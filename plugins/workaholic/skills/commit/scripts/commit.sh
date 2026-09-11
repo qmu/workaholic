@@ -200,6 +200,16 @@ if [ -z "$BRANCH" ]; then
     exit 1
 fi
 
+# THE BASE-REF GATE (2026-09-11, issue #1151): a commit on a checkout of the base under an
+# unattended role is refused before anything is staged, so the tree is byte-identical. A
+# developer's own checkout carries no role and is untouched (`allowed:attended`).
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
+if ! base_ref_gate commit "$BRANCH"; then
+    echo "Error: Cannot commit: refusing a commit on the base branch (${BRANCH}) under the unattended role '${WORKAHOLIC_ROLE:-}' (base_ref_write)."
+    echo "A base write is made only by a merge of a pull request; publish through publish-tree-pr.sh."
+    exit 1
+fi
+
 echo "==> Pre-commit check on branch: ${BRANCH}"
 
 # Stage files (unless --skip-staging).

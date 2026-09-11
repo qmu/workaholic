@@ -78,6 +78,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
@@ -264,6 +265,7 @@ unset GIT_INDEX_FILE
 commit=$(git commit-tree "$tree" -p "origin/${BRANCH}" -m "Record the merge outcome" 2>/dev/null || true)
 [ -n "$commit" ] || report true commit_tree_failed
 
+base_ref_gate push "${commit}:refs/heads/${BRANCH}" || report true push_failed
 git push --quiet origin "${commit}:refs/heads/${BRANCH}" >/dev/null 2>&1 || report true push_failed
 
 RECORDED=true

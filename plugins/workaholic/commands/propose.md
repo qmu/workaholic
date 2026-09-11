@@ -69,5 +69,12 @@ been standing. A degraded read is named as degraded, never as an empty one — a
 survey refused `attribution_unreadable` is named with that word and no other, because a report
 implying the tick judged what it could not read is the collapse the reading exists to end.
 
+**This run commits and pushes nothing to the base, and the gate that says so is read, never
+spelled** (2026-09-11, issue #1151). `open-proposal.sh` and `file-inbound-ask.sh` run no git write
+at all and name their role (`WORKAHOLIC_ROLE=propose`) at their own entry; every commit and push
+site in the plugin reads `branching/scripts/lib/base-ref-gate.sh`, which refuses
+`base_ref_write` under any unattended role, and `hooks/guard-git-push.sh` denies a composed
+`git push` that names the base. A base write is a merge of a pull request (`rules/shell.md`).
+
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or
 guess retired namespaces.

@@ -62,13 +62,34 @@ SLUG=""
 # site can report a degradation as a conforming repository by forgetting a flag.
 UNREAD_RESIDUE='{"readable": false, "reason": "not_read", "merged_undeleted": null, "sample": [], "command": ""}'
 
+# ADVISORIES NEVER MOVE THE STATE (2026-09-11, issue #1151). Whether the base branch is protected
+# on GitHub is the operator's setting: the base-ref gate (`branching/scripts/lib/base-ref-gate.sh`)
+# keeps this repository's own unattended writers off the base, and only branch protection keeps
+# every other client off it. It is read once, reported, and changed by nothing here.
+ADVISORIES='[]'
 emit() {
     _ok=true
     if [ "$1" = "unanswerable" ]; then _ok=false; fi
-    printf '{"ok": %s, "slug": "%s", "state": "%s", "reason": "%s", "settings": {"delete_branch_on_merge": %s}, "admin": %s, "problems": %s, "residue": %s}\n' \
+    printf '{"ok": %s, "slug": "%s", "state": "%s", "reason": "%s", "settings": {"delete_branch_on_merge": %s}, "admin": %s, "problems": %s, "residue": %s, "advisories": %s}\n' \
         "$_ok" "$SLUG" "$1" "${2:-}" "${4:-null}" "${5:-null}" "${3:-[]}" \
-        "${6:-$UNREAD_RESIDUE}"
+        "${6:-$UNREAD_RESIDUE}" "${ADVISORIES:-[]}"
     exit 0
+}
+
+# read_protection_advisory: one bounded REST read of the base branch's protection. A 404 is
+# "not protected" (GitHub's own answer for an unprotected branch); a 403 is "cannot read" (a
+# non-admin token); either way it is an advisory, never a problem, and never a change.
+read_protection_advisory() {
+    _base_branch="${WORKAHOLIC_PUBLISH_BASE:-main}"
+    if _prot=$(sh "$GH_REST" api "repos/${SLUG}/branches/${_base_branch}/protection" 2>&1); then
+        ADVISORIES='[]'
+    else
+        case "$_prot" in
+            *"Branch not protected"*|*"404"*)
+                ADVISORIES=$(jq -nc --arg b "$_base_branch" '[("base_branch_unprotected: " + $b + " has no branch protection on GitHub; the base-ref gate keeps this repository'"'"'s own unattended writers off it, and only branch protection keeps every other client off it -- the operator'"'"'s setting, changed by nothing here")]') ;;
+            *) ADVISORIES=$(jq -nc --arg b "$_base_branch" '[("base_branch_protection_unreadable: " + $b + "'"'"'s protection could not be read (a non-admin token answers 403); nothing is inferred from it")]') ;;
+        esac
+    fi
 }
 
 # The residue reading is local-only and never fatal: it is evidence for the setting, not the
@@ -131,6 +152,7 @@ dbom=$(printf '%s' "$body" | jq -r '.delete_branch_on_merge')
 admin=$(printf '%s' "$body" | jq -r 'if (.permissions.admin | type) == "boolean" then (.permissions.admin | tostring) else "null" end')
 
 residue=$(read_residue)
+read_protection_advisory
 
 if [ "$dbom" = "true" ]; then
     emit conforming "" '[]' true "$admin" "$residue"

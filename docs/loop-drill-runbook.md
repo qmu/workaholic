@@ -1808,6 +1808,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-log-off-base` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |
+| `verify-base-ref-gate` | `hermetic` | yes | `keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
 | `verify-stranded-claim-branch` | `hermetic` | yes | `prove-a-claim-branch-is-empty-before-deleting-it` |
 | `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |

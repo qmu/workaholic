@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main](active/keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main/mission.md) - Keep the native loop alive, preserve Slack input, and stop direct commits to main
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 
@@ -52,6 +51,7 @@
 * [give-the-tick-a-route-for-the-records-it-writes](archive/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [hand-off-the-members-that-declare-and-drive-the-rest](archive/hand-off-the-members-that-declare-and-drive-the-rest/mission.md) - Hand off the members that declare, and drive the rest
 * [keep-the-closing-link-readable-as-the-corpus-grows](archive/keep-the-closing-link-readable-as-the-corpus-grows/mission.md) - Keep the closing link readable as the corpus grows
+* [keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main](archive/keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main/mission.md) - Keep the native loop alive, preserve Slack input, and stop direct commits to main
 * [land-the-loop-s-own-work-when-the-base-moves-under-it](archive/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it
 * [leave-only-live-work-in-the-unmerged-branch-list](archive/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
 * [let-an-answer-in-the-thread-turn-back-into-the-loop-s-work](archive/let-an-answer-in-the-thread-turn-back-into-the-loop-s-work/mission.md) - Let an answer in the thread turn back into the loop's work

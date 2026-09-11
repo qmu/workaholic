@@ -2,7 +2,7 @@
 type: Mission
 title: Keep the native loop alive, preserve Slack input, and stop direct commits to main
 slug: keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-11T18:03:33+09:00
 author: a@qmu.jp
@@ -39,9 +39,11 @@ durable artifacts travel on a branch behind a pull request.
 
 - [x] A routine interruption returns to a proved continuation, and a `running` state without one is reported as not resumed (#20260911180401-prove-a-continuation-before-a-mid-loop-turn-ends.md)
 - [x] A human root posted during an unproved observation is captured on the next read without a pasted permalink, and no unproved read advances the cursor (#20260911180402-treat-an-unproved-slack-observation-as-unread-not-quiet.md)
-- [ ] A base-ref write gate refuses direct commits and pushes to `main` from the Propose, Moderate, notification and finish-log paths, pinned by tests (#20260911180404-gate-every-unattended-write-to-the-base-ref-and-pin-it.md)
+- [x] A base-ref write gate refuses direct commits and pushes to `main` from the Propose, Moderate, notification and finish-log paths, pinned by tests (#20260911180404-gate-every-unattended-write-to-the-base-ref-and-pin-it.md)
 
 ## Changelog
 - 2026-09-11 — ticket archived — 20260911180401-prove-a-continuation-before-a-mid-loop-turn-ends.md
 - 2026-09-11 — ticket archived — 20260911180402-treat-an-unproved-slack-observation-as-unread-not-quiet.md
 - 2026-09-11 — ticket archived — 20260911180403-route-the-tick-s-durable-records-through-a-pull-request.md
+- 2026-09-11 — ticket archived — 20260911180404-gate-every-unattended-write-to-the-base-ref-and-pin-it.md
+- 2026-09-11 — mission achieved — mission.md

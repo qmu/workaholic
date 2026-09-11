@@ -127,4 +127,12 @@ If the rendered post says not to post, post nothing at all — no root, no quest
 Adding that clause changes the question's **text** and nothing else: `already_asked` keys on the step id `lib/question-id.sh` derives from the key, never on the text, so no question is re-asked by it.
 
 
+**This tick commits and pushes nothing to the base, and the gate that says so is read, never
+spelled** (2026-09-11, issue #1151). `run.sh` and `persist-log.sh` name their role
+(`WORKAHOLIC_ROLE=moderate`) at their own entry; the records travel behind a `[Record]` pull
+request; every commit and push site in the plugin reads `branching/scripts/lib/base-ref-gate.sh`,
+which refuses `base_ref_write` under any unattended role, and `hooks/guard-git-push.sh` denies a
+composed `git push` that names the base. A base write is a merge of a pull request
+(`rules/shell.md`).
+
 Invoke skills by their loaded `workaholic:` namespace; never read global plugin installs or guess retired namespaces.

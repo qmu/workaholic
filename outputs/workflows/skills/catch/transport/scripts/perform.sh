@@ -1,5 +1,11 @@
 #!/bin/sh -eu
 
+# THE ROLE THIS PATH RUNS UNDER (2026-09-11, issue #1151): the base-ref gate reads
+# `WORKAHOLIC_ROLE`, and an unattended path names itself at its own entry rather than trusting a
+# caller to compose an assignment prefix. An already-set role (a dispatch's) is kept.
+: "${WORKAHOLIC_ROLE:=notify}"
+export WORKAHOLIC_ROLE
+
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/result.sh"
 transport_parse_request_arg "$@"

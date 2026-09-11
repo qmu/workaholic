@@ -98,6 +98,14 @@ if [ "$before_sha" = "$after_sha" ]; then
 fi
 
 # --- 2. Push the commit onto the base, with one rebase-and-retry -------------
+# THE BASE-REF GATE (2026-09-11, issue #1151): this seam's destination IS the base, so under
+# any unattended role it is refused by name with the commit left intact in the publish tree.
+. "${SCRIPT_DIR}/lib/base-ref-gate.sh"
+if ! base_ref_gate push "${PUBLISH_BRANCH}:${base}"; then
+  printf '{"ok": false, "reason": "base_ref_write", "role": "%s", "path": "%s", "detail": "a direct write to %s is refused under an unattended role; publish through publish-tree-pr.sh. The commit is intact in the publish tree"}\n' \
+    "${WORKAHOLIC_ROLE:-}" "$publish_path" "$base"
+  exit 0
+fi
 retried=false
 if git -C "$publish_path" push --quiet origin "${PUBLISH_BRANCH}:${base}" >&2; then
   :

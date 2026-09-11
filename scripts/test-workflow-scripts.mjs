@@ -185,6 +185,8 @@ const SCRIPTS = {
   resolveExportPath: join(REPO_ROOT, "plugins/workaholic/skills/explain/scripts/resolve-export-path.sh"),
   guardGitCommit: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-commit.sh"),
   guardGitBranch: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-branch.sh"),
+  guardGitPush: join(REPO_ROOT, "plugins/workaholic/hooks/guard-git-push.sh"),
+  baseRefGate: join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/lib/base-ref-gate.sh"),
   guardRepoConfinement: join(REPO_ROOT, "plugins/workaholic/hooks/guard-repo-confinement.sh"),
   resolveTarget: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/resolve-target.sh"),
   checkOutboundBody: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/check-outbound-body.sh"),
@@ -14987,9 +14989,9 @@ function testCheckDeps() {
       ] }] },
     }));
     const stale = JSON.parse(run(dir, `${POSIX_SH} ${join(scriptsDir, "check.sh")}`).stdout);
-    assertEq("check-deps surfaces stale version + missing guard",
+    assertEq("check-deps surfaces stale version + missing guards",
       { v: stale.version, g: stale.guards_present, m: stale.missing_guards },
-      { v: "9.9.9", g: false, m: ["guard-git-branch.sh"] });
+      { v: "9.9.9", g: false, m: ["guard-git-branch.sh", "guard-git-push.sh"] });
 
     // No manifest (the cross-agent bundle) -> degrades to {ok:true} only.
     const bare = join(dir, "bare/skills/check-deps/scripts");
@@ -15175,6 +15177,7 @@ function testCheckDepsRegistryDrift() {
           { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-ticket-structure.sh" },
           { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-commit.sh" },
           { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-branch.sh" },
+          { type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-push.sh" },
         ] }] },
       }));
       return root;
@@ -40944,6 +40947,184 @@ function testRecordsTravelBehindPullRequest() {
     rmSync(input);
     assertEq("and none of it reaches git status", run(dir, "git status --porcelain --ignored=no").stdout.trim(), "");
   } finally { cleanup(dir); }
+}
+
+// ---- A BASE WRITE IS A MERGE OF A PULL REQUEST, NEVER A PUSH (2026-09-11, issue #1151).
+// The operator's rule verbatim: *add a base-ref write gate and regression tests proving that
+// Propose, Moderate, notification, and finish-log paths cannot commit or push directly to
+// `main`*. One reader (`branching/scripts/lib/base-ref-gate.sh`), read by every commit and push
+// site; roles set at each unattended path's own entry; absent role means attended. Pinned: the
+// reader's own verdicts, the two seams that could reach the base refusing under a role with the
+// base byte-identical, the four named paths against a fake origin, the tree walk over every
+// `git push` site (naming what it cannot see), and the agent-level hook.
+T("the base-ref gate refuses every unattended write to the base, by its own word", testBaseRefGate);
+function testBaseRefGate() {
+  const GATE = `${POSIX_SH} ${SCRIPTS.baseRefGate}`;
+  const read = (args, env = {}) => JSON.parse(run(REPO_ROOT, `${GATE} ${args}`, { env: { ...process.env, WORKAHOLIC_ROLE: "", WORKAHOLIC_PUBLISH_BASE: "", ...env } }).stdout);
+  // 1. THE READER. Each verdict is its own word, and the role decides.
+  for (const role of ["propose", "moderate", "notify", "finish-log", "implement", "ship", "specificate", "anything-else"]) {
+    assertEq(`a commit on the base under ${role} is refused`, [read("--act commit --branch main", { WORKAHOLIC_ROLE: role }).verdict, read("--act commit --branch main", { WORKAHOLIC_ROLE: role }).reason], ["refused", "base_ref_write"]);
+    for (const ref of ["main", "refs/heads/main", "HEAD:main", "publish-main:main", "x:refs/heads/main", ":main", "+work-1:main"]) {
+      assertEq(`a push of ${ref} under ${role} is refused`, read(`--act push --ref ${ref}`, { WORKAHOLIC_ROLE: role }).reason, "base_ref_write");
+    }
+  }
+  assertEq("a commit on a work-* checkout under a role is allowed", read("--act commit --branch work-20260911-000000", { WORKAHOLIC_ROLE: "moderate" }).reason, "branch_commit");
+  assertEq("a push to a work-* branch under a role is allowed", read("--act push --ref publish-main:refs/heads/work-20260911-000000", { WORKAHOLIC_ROLE: "moderate" }).reason, "claim_branch");
+  assertEq("a push to a release branch under a role is allowed", read("--act push --ref refs/heads/release/20260911-000000:refs/heads/release/20260911-000000", { WORKAHOLIC_ROLE: "ship" }).reason, "claim_branch");
+  assertEq("a claim ref under a role is allowed", read("--act push --ref abc123:refs/claims/artifact/x", { WORKAHOLIC_ROLE: "implement" }).reason, "claim_ref");
+  assertEq("a claim-ref delete under a role is allowed", read("--act push --ref :refs/claims/liveness/work-1", { WORKAHOLIC_ROLE: "implement" }).reason, "claim_ref");
+  assertEq("no role is attended and allowed, base included", [read("--act push --ref main").verdict, read("--act push --ref main").reason], ["allowed", "attended"]);
+  assertEq("a reviewed merge is allowed by its own word", read("--act push --ref HEAD:refs/heads/main --reviewed-merge", { WORKAHOLIC_ROLE: "implement" }).reason, "reviewed_merge");
+  assertEq("the base is WORKAHOLIC_PUBLISH_BASE when declared", [read("--act push --ref trunk", { WORKAHOLIC_ROLE: "moderate", WORKAHOLIC_PUBLISH_BASE: "trunk" }).reason, read("--act push --ref main", { WORKAHOLIC_ROLE: "moderate", WORKAHOLIC_PUBLISH_BASE: "trunk" }).reason], ["base_ref_write", "branch_push"]);
+  assertEq("the reading carries its inputs", read("--act push --ref HEAD:main", { WORKAHOLIC_ROLE: "notify" }).role, "notify");
+
+  // 2. THE TWO SEAMS THAT COULD REACH THE BASE refuse under a role with the base byte-identical.
+  const { origin, A } = makePublishFixture();
+  const OPEN = `${POSIX_SH} ${SCRIPTS.openPublishTree}`;
+  const CLOSE = `${POSIX_SH} ${SCRIPTS.closePublishTree}`;
+  const DIRECT = `${POSIX_SH} ${SCRIPTS.publishTreeCommit}`;
+  const COMMIT = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/commit/scripts/commit.sh")}`;
+  try {
+    const seed = execSync("git rev-parse main", { cwd: origin, encoding: "utf8" }).trim();
+    // commit.sh on a checkout of the base under a role: refused before staging, tree untouched.
+    writeFileSync(join(A, "direct.txt"), "a routine wrote this\n");
+    const refused = run(A, `${COMMIT} "Add a direct file" "why" "None" "None" "None" "verify" direct.txt`, { env: { ...process.env, WORKAHOLIC_ROLE: "moderate" } });
+    assertEq("commit.sh refuses a commit on the base under a role", refused.status, 1);
+    assertTrue("by its own word", /base_ref_write/.test(refused.stdout + refused.stderr), refused.stdout);
+    assertEq("and nothing was staged or committed", [execSync("git status --porcelain", { cwd: A, encoding: "utf8" }).trim(), execSync("git rev-parse main", { cwd: A, encoding: "utf8" }).trim()], ["?? direct.txt", seed]);
+    rmSync(join(A, "direct.txt"));
+    // The same commit with no role is the developer's own and goes through.
+    execSync("git checkout -q -b work-20260911-120000", { cwd: A });
+    writeFileSync(join(A, "own.txt"), "the developer wrote this\n");
+    assertEq("commit.sh with no role is attended and commits", run(A, `${COMMIT} "Add an own file" "why" "None" "None" "None" "verify" own.txt`, { env: { ...process.env, WORKAHOLIC_ROLE: "" } }).status, 0);
+    execSync("git checkout -q main", { cwd: A });
+    // publish-tree-commit.sh under a role: refused by name, the commit intact in the tree, the base untouched.
+    run(A, OPEN);
+    writeFileSync(join(A, ".publish/via-direct.md"), "# direct\n");
+    const direct = JSON.parse(run(A, `${DIRECT} "Add artifact directly" "w" "None" "None" "None" "v" via-direct.md`, { env: { ...process.env, WORKAHOLIC_ROLE: "moderate" } }).stdout);
+    assertEq("publish-tree-commit.sh refuses the base under a role", [direct.ok, direct.reason, direct.role], [false, "base_ref_write", "moderate"]);
+    assertEq("origin/main is byte-identical", execSync("git rev-parse main", { cwd: origin, encoding: "utf8" }).trim(), seed);
+    assertTrue("the commit is intact in the publish tree", /Add artifact directly/.test(execSync("git log -1 --format=%s publish-main", { cwd: A, encoding: "utf8" })), "the publish commit is gone");
+    // With no role the same seam lands, exactly as before the gate existed -- the refused commit
+    // rides along, intact, exactly as a `diverged` publication's would.
+    writeFileSync(join(A, ".publish/via-attended.md"), "# attended\n");
+    const attended = JSON.parse(run(A, `${DIRECT} "Add artifact attended" "w" "None" "None" "None" "v" via-attended.md`, { env: { ...process.env, WORKAHOLIC_ROLE: "" } }).stdout);
+    assertEq("and with no role it lands as before", [attended.ok, attended.base], [true, "main"]);
+    assertTrue("carrying the refused commit with it", /Add artifact directly/.test(execSync("git log --format=%s main", { cwd: origin, encoding: "utf8" })), "the refused commit was lost");
+    run(A, CLOSE);
+  } finally { cleanup(origin); cleanup(A); }
+
+  // 3. THE FOUR NAMED PATHS, against a fake origin, each under its role: the origin's `main` and
+  //    the local `main` are byte-identical before and after.
+  const paths = mkdtempSync(join(tmpdir(), "wk-base-paths-"));
+  try {
+    const o = join(paths, "origin.git"); const c = join(paths, "c");
+    execSync(`git init -q --bare ${o}`); execSync(`git clone -q ${o} ${c}`, { stdio: "ignore" });
+    execSync("git config user.email t@example.com && git config user.name T && git config commit.gpgsign false", { cwd: c });
+    copyFileSync(join(REPO_ROOT, ".gitignore"), join(c, ".gitignore"));
+    mkdirSync(join(c, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(c, "README.md"), "# seed\n");
+    execSync("git add -A && git commit -q -m seed && git branch -M main && git push -q -u origin main", { cwd: c });
+    const seed = execSync("git rev-parse main", { cwd: c, encoding: "utf8" }).trim();
+    const still = (what) => {
+      execSync("git fetch -q origin", { cwd: c });
+      assertEq(`${what}: origin/main is byte-identical`, execSync("git rev-parse origin/main", { cwd: c, encoding: "utf8" }).trim(), seed);
+      assertEq(`${what}: local main gained no commit`, execSync("git rev-parse main", { cwd: c, encoding: "utf8" }).trim(), seed);
+      assertEq(`${what}: nothing tracked moved`, execSync("git status --porcelain --ignored=no", { cwd: c, encoding: "utf8" }).trim().split("\n").filter((l) => l && !/^\?\? (\.workaholic\/|request\.json|event\.json)/.test(l)).join("\n"), "");
+    };
+    const stub = join(paths, "stub"); mkdirSync(stub);
+    writeFileSync(join(stub, "gh"), "#!/bin/sh\nexit 1\n"); chmodSync(join(stub, "gh"), 0o755);
+    const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+    // Propose: the two entry scripts run no git write at all -- read off their code.
+    for (const rel of ["plugins/workaholic/skills/propose/scripts/open-proposal.sh", "plugins/workaholic/skills/propose/scripts/file-inbound-ask.sh"]) {
+      const code = readFileSync(join(REPO_ROOT, rel), "utf8").split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+      assertTrue(`${rel} runs no git write`, !/\bgit (-C \S+ )?(commit|push|add|update-ref|merge|rebase)\b/.test(code), rel);
+      assertTrue(`${rel} names its role at entry`, /WORKAHOLIC_ROLE:=propose/.test(code), rel);
+    }
+    // Moderate: the records writer, under its role, with the pull request refused -- the branch
+    // is pushed, nothing reaches the base.
+    writeFileSync(join(c, ".workaholic/feedbacks/20260911000000-p.md"), "---\ntype: Feedback\n---\n\n# p\n");
+    const persisted = JSON.parse(execSync(`${POSIX_SH} ${join(M, "persist-log.sh")} --tick 20260911-000000 --root . --record .workaholic/feedbacks/20260911000000-p.md`, { cwd: c, encoding: "utf8", env: { ...process.env, PATH: `${stub}:${process.env.PATH}` } }));
+    assertEq("moderate: the record is unlanded by name, never a direct commit", [persisted.records[0].state, persisted.records[0].reason], ["unlanded", "pr_failed"]);
+    still("moderate (persist-log.sh)");
+    const runCode = readFileSync(join(M, "run.sh"), "utf8").split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+    assertTrue("moderate: run.sh names its role and runs no git write", /WORKAHOLIC_ROLE:=moderate/.test(runCode) && !/\bgit (-C \S+ )?(commit|push)\b/.test(runCode), "run.sh");
+    // Notification: the legacy notifier with no token, and perform.sh writing an outbox record.
+    const notified = JSON.parse(run(c, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/specificate/scripts/notify-slack.sh")} "a line"`, { env: { ...process.env, SLACK_BOT_TOKEN: "", WORKAHOLIC_ROLE: "" } }).stdout);
+    assertEq("notification: the notifier without a token posts nothing", notified.notified, false);
+    still("notification (notify-slack.sh)");
+    const req = join(c, "request.json");
+    writeFileSync(req, JSON.stringify({ protocol: "workaholic.transport/v1", request_id: "gate-1", operation: "post_root", repo_root: c, instance_id: "fixture", binding_id: "binding-a",
+      input: { binding: { workspace: "A", channel: "same", channel_id: "C1", operations: ["post_root"], routes: [], thread_map: {} }, text: "message", now: "2026-09-11T00:00:00Z" } }));
+    const performed = run(c, `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/transport/scripts/perform.sh")} --request ${req}`, { env: { ...process.env, WORKAHOLIC_ROLE: "" } });
+    assertEq("notification: perform.sh answers a typed result", performed.status, 0, performed.stderr);
+    rmSync(req);
+    still("notification (perform.sh)");
+    // Finish-log: the tick log and the coordinator's finish.
+    execSync(`${POSIX_SH} ${join(M, "log-append.sh")} --tick 20260911-000000 --root . --step probe --status ok --summary "a line"`, { cwd: c, stdio: "ignore" });
+    const co = join(REPO_ROOT, "plugins/workaholic/skills/runtime/scripts/coordinator.sh");
+    const ev = (e) => { writeFileSync(join(c, "event.json"), JSON.stringify({ now: 2000000000, ...e })); return JSON.parse(execSync(`sh ${co} --instance gate-test --input event.json`, { cwd: c, encoding: "utf8" })); };
+    ev({ event: "start", session_id: "s" });
+    ev({ event: "reserve", id: "one", role: "implement", workers_readable: true, available_capacity: 2, formation_pending: false });
+    ev({ event: "started", id: "one", child_id: "child-one" });
+    const fin = ev({ event: "finish", id: "one", terminal: true, result: { executed: true, outcome: "ok", reason: "", report: "done" } });
+    assertEq("finish-log: the finish is recorded", fin.reason, "completed");
+    rmSync(join(c, "event.json"));
+    still("finish-log (log-append.sh, coordinator.sh finish)");
+    assertTrue("finish-log: the tick log stayed git-ignored", existsSync(join(c, ".workaholic/moderations")) && run(c, "git check-ignore -q .workaholic/moderations/x.md").status === 0, "moderations tracked");
+  } finally { cleanup(paths); }
+
+  // 4. THE TREE WALK: every script pushing anything reads the gate. A site reached only by a call
+  //    an agent composes at run time cannot be seen here -- that is the hook's half, below.
+  const exempt = {
+    "plugins/workaholic/skills/workaholify/scripts/check-repo-settings.sh": "prints a `git push --delete` command for the operator to run; executes nothing",
+  };
+  const unguarded = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name);
+      if (e.isDirectory()) { walk(full); continue; }
+      if (!e.name.endsWith(".sh")) continue;
+      const rel = full.slice(REPO_ROOT.length + 1);
+      const code = readFileSync(full, "utf8").split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+      if (!/\bgit (-C \S+ )?push\b/.test(code)) continue;
+      if (rel in exempt || rel.endsWith("lib/base-ref-gate.sh")) continue;
+      if (!/base-ref-gate\.sh|base_ref_gate push/.test(code)) unguarded.push(rel);
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic"));
+  assertEq("every git push site in the plugin reads the base-ref gate (agent-composed calls are the hook's half and cannot be walked)", unguarded, []);
+  for (const rel of Object.keys(exempt)) assertTrue(`the exemption ${rel} still exists`, existsSync(join(REPO_ROOT, rel)), rel);
+
+  // 5. THE HOOK denies a composed push naming the base and nothing else.
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  guard-git-push (jq not available)"); return; }
+  const invoke = (command) => {
+    const payload = JSON.stringify({ tool_input: { command } });
+    try { execSync(`${POSIX_SH} ${SCRIPTS.guardGitPush}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, WORKAHOLIC_PUBLISH_BASE: "" } }); return { status: 0, err: "" }; }
+    catch (e) { return { status: e.status ?? 1, err: e.stderr?.toString() || "" }; }
+  };
+  for (const cmd of ["git push origin main", "git push origin HEAD:main", "git push -f origin publish-main:main", "git push origin x:refs/heads/main",
+    "git push --delete origin main", "git push origin :main", "git -C /tmp/x push --quiet origin HEAD:refs/heads/main", "git fetch && git push origin main"]) {
+    assertEq(`guard-push denies: ${cmd}`, invoke(cmd).status, 2);
+  }
+  assertTrue("guard-push names the seam", /publish-tree-pr\.sh/.test(invoke("git push origin main").err), invoke("git push origin main").err.slice(0, 200));
+  for (const cmd of ["git push origin work-20260911-000000", "git push -u origin work-20260911-000000", "git push origin HEAD:refs/heads/work-20260911-000000",
+    "git push origin --delete work-20260911-000000", "git push origin abc:refs/claims/artifact/x", "git push", "git push origin", "git status", "git pull origin main",
+    "sh ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh main"]) {
+    assertEq(`guard-push allows: ${cmd}`, invoke(cmd).status, 0);
+  }
+  // The hook is registered beside its siblings and check-deps expects it.
+  const hooks = JSON.parse(readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/hooks.json"), "utf8"));
+  const bash = hooks.hooks.PreToolUse.find((h) => h.matcher === "Bash").hooks.map((h) => h.command);
+  assertTrue("guard-git-push.sh is registered for Bash", bash.includes("${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-push.sh"), bash.join(","));
+  assertTrue("check-deps expects the fourth guard", /guard-git-push\.sh/.test(readFileSync(SCRIPTS.checkDeps, "utf8")), "check.sh");
+  // The rule's prose home and the three surfaces that cite it.
+  assertTrue("rules/shell.md states the rule", /## A base write is a merge of a pull request, never a push/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/shell.md"), "utf8")), "rule missing");
+  for (const rel of ["plugins/workaholic/commands/propose.md", "plugins/workaholic/commands/moderate.md"]) {
+    assertTrue(`${rel} names the gate`, /base-ref-gate\.sh/.test(readFileSync(join(REPO_ROOT, rel), "utf8")), rel);
+  }
 }
 
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).

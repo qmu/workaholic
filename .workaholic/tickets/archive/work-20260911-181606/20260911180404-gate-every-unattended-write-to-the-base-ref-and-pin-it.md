@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-11T18:04:04+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on: [20260911180403-route-the-tick-s-durable-records-through-a-pull-request.md]
@@ -112,3 +113,34 @@ what has never existed is a reader that says so for the writers that carry no cl
 - A `PreToolUse` deny turns a prompt into a mid-run refusal; the hook here denies only a refspec that names the base, which no unattended command body composes, so it reaches no ordinary run (`plugins/workaholic/hooks/guard-git-commit.sh` is the pattern)
 - Branch protection on GitHub is the operator's act and is reported by `workaholify/scripts/check-repo-settings.sh`; this ticket adds an advisory finding there and never changes a repository setting
 - Reporter-proposed mechanism recorded as a hypothesis: *a base-ref write gate* — step 1's table decides whether one reader at the push seam is sufficient or whether `commit.sh` must refuse too
+
+## Final Report
+
+Development completed as planned.
+
+Step 1, the writer table — every `git commit` / `git push` in command position under
+`plugins/workaholic/`, classified before the gate was written:
+
+| Site | Class |
+| ---- | ----- |
+| `commit/scripts/commit.sh` (both commit paths) | the one commit writer; now refuses a base checkout under a role |
+| `drive/scripts/lib/claims.sh` liveness write/delete, `claim-arbitrate.sh` (4 pushes) | claim-ref writes (`refs/claims/*`) |
+| `drive/scripts/claim.sh` (2), `archive.sh`, `heartbeat.sh` (via the lib), `catch-up-claim.sh` (2), `retry-undelivered.sh`, `clear-unposted-line.sh`, `release-claim.sh`, `retire-claim.sh` (deletes), `land-unit.sh` (branch push, delete) | claim-branch writes |
+| `branching/scripts/publish-tree-pr.sh`, `prepare-publication.sh`, `publication.sh` (`--mode pr`), `cut-release-branch.sh` | publication / release-branch writes |
+| `moderate/scripts/persist-log.sh`, `ship/scripts/extract-deferred-concerns.sh` | pull-request writes since the previous ticket |
+| `drive/scripts/land-unit.sh` `push_land` | merge of a reviewed branch on a present developer's instruction (`allowed:reviewed_merge`) |
+| `branching/scripts/publish-tree-commit.sh`, `publication.sh` (`--mode direct`), `ship/scripts/lib/push-outcome.sh` (a bare `git push` to the upstream) | direct base writes — the three the gate refuses under any role |
+| `workaholify/scripts/check-repo-settings.sh` | prints a `git push --delete` command for the operator; executes nothing (the tree walk's one exemption) |
+
+The table decided the fork the ticket left open: one reader at the push seam is not enough,
+because `commit.sh` on a base checkout under a role is itself a base write the next push would
+carry, so `commit.sh` refuses too.
+
+### Discovered Insights
+
+- **Insight**: the role is set at each unattended path's own entry (`: "${WORKAHOLIC_ROLE:=<role>}"; export`), never by a composed assignment prefix — the allowlist covers `bash …` by prefix and an assignment prefix would not match it, which is the shape `rules/general.md` refuses for the same reason.
+  **Context**: a dispatched worker inherits the role from `codex-loop.sh --dispatch`; a native `[Implement]` worker composing `archive.sh` directly carries no role and writes to claim branches by construction.
+- **Insight**: a library sourced with `sh -c '. …'` has no `$0` of its own, so a cross-skill source inside `lib/claims.sh` or `lib/push-outcome.sh` cannot be written in the build-detectable form; the gate is resolved beside the library where a directory is known, and otherwise a fallback answers exactly what the gate would with no role (attended) and refuses `gate_unresolved` under any role, so an unresolved gate never widens a role's reach.
+  **Context**: the first draft died on `.: cannot open /../../../branching/…` in every fixture that sources the claims library directly.
+- **Insight**: the hook is a token match, not a parser — a base-naming push inside a quoted string is denied too, the conservative side for a guard whose job is one refspec; `--delete` is a mode flag, and the remote may follow it.
+  **Context**: `git push --delete origin main` and `git push origin --delete main` are both denied; the first draft consumed the remote as the deleted name.

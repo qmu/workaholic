@@ -65,6 +65,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
@@ -284,7 +285,7 @@ if [ "$kind" = "resume" ]; then
         "list-claims.sh reports this unit as claim_active again once the takeover is pushed" ) >&2 \
         || abort_resume "commit_failed" ', "branch": "'"${branch}"'"'
 
-    if git -C "$worktree_path" push --quiet origin "$branch" >&2; then
+    if base_ref_gate push "$branch" && git -C "$worktree_path" push --quiet origin "$branch" >&2; then
         :
     else
         # Rejected: someone else's takeover landed on this branch first. Nothing was
@@ -641,7 +642,7 @@ else
     abort_claim "commit_failed" ', "branch": "'"${branch}"'", "detail": "'"${commit_detail}"'"'
 fi
 
-if git -C "$worktree_path" push -u --quiet origin "$branch" >&2; then
+if base_ref_gate push "$branch" && git -C "$worktree_path" push -u --quiet origin "$branch" >&2; then
     # THE LOCK'S LIFETIME IS THE CLAIM ACT, NOT THE CLAIM (2026-09-02). §3b exists to close
     # ONE window: between a runner deciding to claim and its branch reaching the remote, the
     # oracle — which reads pushed `work-*` branches — cannot see it. The moment this push

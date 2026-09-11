@@ -1541,6 +1541,134 @@ cmd_verify_log_off_base() {
     emit_verdict "log-off-base" 0 "pass" 0
 }
 
+# ----------------------------------------------------------------- verify-base-ref-gate
+# Can an unattended path commit or push to the base? (2026-09-11, issue #1151.) One reader,
+# `branching/scripts/lib/base-ref-gate.sh`, read by every push site; roles set at each path's
+# own entry. Drilled here offline against a bare local origin: the reader's verdicts, the two
+# seams that could reach the base refusing under a role, the four named paths (Propose,
+# Moderate, notification, finish-log) leaving the base byte-identical, and the breaker -- a copy
+# of the reader with its refusal removed lets the direct seam land, so the reader is what refuses.
+#
+# Hermetic: throwaway repositories, no network, no `gh`, no credential.
+cmd_verify_base_ref_gate() {
+    _gate="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/lib/base-ref-gate.sh"
+    _direct="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/publish-tree-commit.sh"
+    _open="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/open-publish-tree.sh"
+    _close="${REPO_ROOT}/plugins/workaholic/skills/branching/scripts/close-publish-tree.sh"
+    _commit="${REPO_ROOT}/plugins/workaholic/skills/commit/scripts/commit.sh"
+    _persist="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/persist-log.sh"
+    _append="${REPO_ROOT}/plugins/workaholic/skills/moderate/scripts/log-append.sh"
+    _coord="${REPO_ROOT}/plugins/workaholic/skills/runtime/scripts/coordinator.sh"
+    _notify="${REPO_ROOT}/plugins/workaholic/skills/specificate/scripts/notify-slack.sh"
+    for _f in "$_gate" "$_direct" "$_open" "$_close" "$_commit" "$_persist" "$_append" "$_coord" "$_notify"; do
+        [ -f "$_f" ] || emit_err "gate_scripts_unreadable" 4 "${_f} is not present in this checkout"
+    done
+
+    # 1. THE READER'S VERDICTS, one word each.
+    _bad=''
+    for _role in propose moderate notify finish-log; do
+        _v=$(WORKAHOLIC_ROLE="$_role" sh "$_gate" --act push --ref HEAD:main 2>/dev/null | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+        [ "$_v" = base_ref_write ] || _bad="${_bad} push:${_role}=${_v}"
+        _v=$(WORKAHOLIC_ROLE="$_role" sh "$_gate" --act commit --branch main 2>/dev/null | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+        [ "$_v" = base_ref_write ] || _bad="${_bad} commit:${_role}=${_v}"
+    done
+    _v=$(WORKAHOLIC_ROLE=moderate sh "$_gate" --act push --ref publish-main:refs/heads/work-20260911-000000 2>/dev/null | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+    [ "$_v" = claim_branch ] || _bad="${_bad} work-branch=${_v}"
+    _v=$(WORKAHOLIC_ROLE= sh "$_gate" --act push --ref main 2>/dev/null | sed -n 's/.*"reason": "\([^"]*\)".*/\1/p')
+    [ "$_v" = attended ] || _bad="${_bad} attended=${_v}"
+    if [ -z "$_bad" ]; then
+        add_row "gate_verdicts" true "the reader refuses the base under every named role and allows a work-* branch and an attended checkout" load
+    else
+        add_row "gate_verdicts" false "the reader's verdicts moved:${_bad}" load
+    fi
+
+    # 2. THE SEAMS. A fake origin with a seeded main; the direct seam and commit.sh refuse under a role.
+    _root=$(mktemp -d); _origin="${_root}/origin.git"; _clone="${_root}/c"; _stub="${_root}/stub"
+    mkdir -p "$_stub"; printf '#!/bin/sh\nexit 1\n' > "${_stub}/gh"; chmod +x "${_stub}/gh"
+    git init -q --bare "$_origin" >/dev/null 2>&1
+    git clone -q "$_origin" "$_clone" >/dev/null 2>&1
+    git -C "$_clone" config user.email t@e; git -C "$_clone" config user.name t
+    cp "${REPO_ROOT}/.gitignore" "${_clone}/.gitignore"
+    mkdir -p "${_clone}/.workaholic/feedbacks"; printf '# seed\n' > "${_clone}/README.md"
+    (git -C "$_clone" add -A && git -C "$_clone" commit -q -m seed && git -C "$_clone" branch -M main \
+        && git -C "$_clone" push -q -u origin main) >/dev/null 2>&1
+    _seed=$(git -C "$_origin" rev-parse main 2>/dev/null || printf '')
+    (cd "$_clone" && sh "$_open" main) >/dev/null 2>&1
+    printf '# direct\n' > "${_clone}/.publish/direct.md"
+    _dout=$(cd "$_clone" && WORKAHOLIC_ROLE=moderate sh "$_direct" "Add a direct artifact" w None None None v direct.md 2>/dev/null || true)
+    _dmain=$(git -C "$_origin" rev-parse main 2>/dev/null || printf '')
+    if printf '%s' "$_dout" | grep -q '"reason": "base_ref_write"' && [ "$_dmain" = "$_seed" ]; then
+        add_row "gate_direct_seam_refused" true "publish-tree-commit.sh under a role refuses base_ref_write and the base is byte-identical" load
+    else
+        add_row "gate_direct_seam_refused" false "the direct seam reached the base or was not refused by name: $(one_line "$_dout")" load
+    fi
+    printf 'x\n' > "${_clone}/direct.txt"
+    _cout=$(cd "$_clone" && WORKAHOLIC_ROLE=moderate sh "$_commit" "Add a direct file" w None None None v direct.txt 2>&1 || true)
+    _cmain=$(git -C "$_clone" rev-parse main 2>/dev/null || printf '')
+    if printf '%s' "$_cout" | grep -q 'base_ref_write' && [ "$_cmain" = "$_seed" ]; then
+        add_row "gate_commit_refused" true "commit.sh on a base checkout under a role refuses base_ref_write with nothing committed" load
+    else
+        add_row "gate_commit_refused" false "commit.sh committed on the base under a role: $(one_line "$_cout")" load
+    fi
+    rm -f "${_clone}/direct.txt"
+
+    # 3. THE FOUR NAMED PATHS leave the base byte-identical. Propose is read off the code (it runs
+    #    no git write); Moderate, notification and finish-log run against the fake origin.
+    _pbad=''
+    for _p in propose/scripts/open-proposal.sh propose/scripts/file-inbound-ask.sh; do
+        if grep -v '^[[:space:]]*#' "${REPO_ROOT}/plugins/workaholic/skills/${_p}" | grep -qE 'git (-C [^ ]+ )?(commit|push|add|update-ref)'; then
+            _pbad="${_pbad} ${_p}"
+        fi
+    done
+    printf -- '---\ntype: Feedback\n---\n\n# g\n' > "${_clone}/.workaholic/feedbacks/20260911000001-g.md"
+    PATH="${_stub}:${PATH}" sh "$_persist" --tick 20260911-000001 --root "$_clone" --record .workaholic/feedbacks/20260911000001-g.md >/dev/null 2>&1 || true
+    (cd "$_clone" && SLACK_BOT_TOKEN= sh "$_notify" "a line") >/dev/null 2>&1 || true
+    sh "$_append" --tick 20260911-000001 --root "$_clone" --step probe --status ok --summary "a line" >/dev/null 2>&1 || true
+    printf '{"event":"start","session_id":"s","now":2000000000}' > "${_clone}/ev.json"
+    (cd "$_clone" && sh "$_coord" --instance drill --input ev.json) >/dev/null 2>&1 || true
+    printf '{"event":"reserve","id":"one","role":"implement","workers_readable":true,"available_capacity":2,"formation_pending":false,"now":2000000000}' > "${_clone}/ev.json"
+    (cd "$_clone" && sh "$_coord" --instance drill --input ev.json) >/dev/null 2>&1 || true
+    printf '{"event":"started","id":"one","child_id":"c1","now":2000000000}' > "${_clone}/ev.json"
+    (cd "$_clone" && sh "$_coord" --instance drill --input ev.json) >/dev/null 2>&1 || true
+    printf '{"event":"finish","id":"one","terminal":true,"result":{"executed":true,"outcome":"ok","reason":"","report":"d"},"now":2000000000}' > "${_clone}/ev.json"
+    (cd "$_clone" && sh "$_coord" --instance drill --input ev.json) >/dev/null 2>&1 || true
+    rm -f "${_clone}/ev.json"
+    _pmain=$(git -C "$_origin" rev-parse main 2>/dev/null || printf '')
+    _lmain=$(git -C "$_clone" rev-parse main 2>/dev/null || printf '')
+    if [ -z "$_pbad" ] && [ "$_pmain" = "$_seed" ] && [ "$_lmain" = "$_seed" ]; then
+        add_row "gate_named_paths_keep_base" true "Propose runs no git write; Moderate, notification and finish-log left origin/main and local main byte-identical" load
+    else
+        add_row "gate_named_paths_keep_base" false "a named path moved the base or writes git: propose=${_pbad} origin=${_pmain} local=${_lmain} seed=${_seed}" load
+    fi
+
+    # 4. THE BREAKER. A copy of the plugin's branching and commit skills, with the reader's
+    #    refusal removed, must let the direct seam land under a role -- written against the
+    #    behaviour, so a reader that stops refusing cannot pass by printing the same fields. The
+    #    copy keeps the skills' relative layout so every `../../` path still resolves.
+    _bt="${_root}/broken/skills"
+    mkdir -p "$_bt"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/branching" "$_bt/"
+    cp -R "${REPO_ROOT}/plugins/workaholic/skills/commit" "$_bt/"
+    sed 's/BASE_REF_GATE_VERDICT=refused; BASE_REF_GATE_REASON=base_ref_write; return 1/BASE_REF_GATE_VERDICT=allowed; BASE_REF_GATE_REASON=broken; return 0/' \
+        "$_gate" > "${_bt}/branching/scripts/lib/base-ref-gate.sh"
+    (cd "$_clone" && sh "$_close" main; sh "$_open" main) >/dev/null 2>&1
+    printf '# direct\n' > "${_clone}/.publish/direct.md"
+    _bout=$(cd "$_clone" && WORKAHOLIC_ROLE=moderate sh "${_bt}/branching/scripts/publish-tree-commit.sh" "Add a direct artifact" w None None None v direct.md 2>/dev/null || true)
+    _bmain=$(git -C "$_origin" rev-parse main 2>/dev/null || printf '')
+    if [ "$_bmain" != "$_seed" ] || printf '%s' "$_bout" | grep -q '"ok": true'; then
+        add_row "gate_breaker" true "a copy of the reader with its refusal removed lets the direct seam land, so the reader is what refuses" breaker
+    else
+        add_row "gate_breaker" false "a copy with the refusal removed still refused -- this drill proves nothing: $(one_line "$_bout")" breaker
+    fi
+    (cd "$_clone" && sh "$_close" main) >/dev/null 2>&1 || true
+    rm -rf "$_root"
+
+    if [ "$LOAD_FAILED" -gt 0 ]; then
+        emit_verdict "base-ref-gate" 0 "fail" 1
+    fi
+    emit_verdict "base-ref-gate" 0 "pass" 0
+}
+
 # ----------------------------------------------------------------- verify-checkout-residue
 # Does a tick get past residue the base provably already holds — and refuse everything else?
 # (2026-09-08, mission `clear-the-residue-the-base-already-holds-and-never-stop-silently`.)
@@ -8072,7 +8200,7 @@ cmd_verify_all() {
 . "${SCRIPT_DIR}/drills/verify-retired-claim.sh"
 . "${SCRIPT_DIR}/drills/verify-retirement-candidates.sh"
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-codex-clock [--json]|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-announced-asks [--json]|verify-runner-advance [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-codex-clock [--json]|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-announced-asks [--json]|verify-runner-advance [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]|verify-base-ref-gate [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -8111,6 +8239,7 @@ case "$CMD" in
     verify-standup) cmd_verify_standup "$@" ;;
     verify-moderate) cmd_verify_moderate "$@" ;;
     verify-log-off-base) cmd_verify_log_off_base "$@" ;;
+    verify-base-ref-gate) cmd_verify_base_ref_gate "$@" ;;
     verify-checkout-residue) cmd_verify_checkout_residue "$@" ;;
     verify-propose) cmd_verify_propose "$@" ;;
     verify-direction-health) cmd_verify_direction_health "$@" ;;

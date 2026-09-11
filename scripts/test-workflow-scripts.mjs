@@ -40663,6 +40663,95 @@ function testOpenLogNamesTrackedLog() {
   } finally { cleanup(bare); }
 }
 
+// ---- THE FINAL RESPONSE IS RESERVED FOR THREE EVENTS, IN ONE WORDING (2026-09-11, issue #1147).
+// The contract said most of it and the loop still ended: a final response was reserved for a
+// stop or a named inability to continue, a correction did not reset the anchor, an ordinary
+// question was answered without discarding it -- and nothing said the ordinary path is a RESUME
+// of the same instance, nor named the third event (a review-required handoff), nor the criterion
+// that tells the two apart. So a session answering a comment with a final response violated no
+// sentence it could point to. The two paths are one wording on the three surfaces that carry the
+// contract, the criterion rides the two that explain it, the guard says where the question may
+// NOT be posed, and the reader refuses each bound by name with nothing written.
+T("the final-response contract names three events and two paths in one wording",
+  testFinalResponseContract);
+function testFinalResponseContract() {
+  const surfaces = [
+    ["plugins/workaholic/skills/work/SKILL.md", "the work skill"],
+    ["plugins/workaholic/commands/infinite-development.md", "the tick ceiling"],
+    ["plugins/workaholic/skills/runtime/reference/native-loop.md", "the native-loop protocol"],
+  ];
+  const WORDING = "A routine interruption — an ordinary question, correction or follow-up — is handled "
+    + "in commentary and the coordinator returns to the same loop: the same instance ID, the same "
+    + "startup anchor, the same schedule, no second `start` event and no final response. A "
+    + "review-required handoff — the final comment carries information the human genuinely needs "
+    + "to review before work may continue — persists `hold` (`explicit:true`) first, then asks "
+    + "exactly 「ループを再開してよろしいですか？」 as the final response's own text, never through "
+    + "`AskUserQuestion`, and stays held until the human's explicit `resume`; time never resumes it. "
+    + "The final response is reserved for exactly three events: an explicit stop, a named inability "
+    + "to continue, and a review-required handoff. When the run is unsure, the interruption is "
+    + "routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of "
+    + "the turn.";
+  const CRITERION = "The criterion is a judgement the run writes out, not a detector: *does the human "
+    + "need to read this before work may continue?*";
+  for (const [path, what] of surfaces) {
+    const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
+    assertTrue(`${what} carries the two-path wording verbatim`, flat.includes(WORDING), path);
+  }
+  for (const path of ["plugins/workaholic/skills/work/SKILL.md",
+    "plugins/workaholic/skills/runtime/reference/native-loop.md"]) {
+    const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
+    assertTrue(`${path} states the criterion and its routine default`,
+      flat.includes(CRITERION) && flat.includes("an ordinary question never resumes a hold"), path);
+  }
+  // The old two-event sentence is gone from the surface that carried it: two counts of the
+  // same events on one page is the drift the one wording exists to prevent.
+  const work = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8");
+  assertTrue("the work skill no longer reserves the final response for two events only",
+    !/reserved for an explicit stop or a named inability to continue\./.test(work), "stale sentence");
+  // The #1126 hold rule is byte-identical where the reducer's table states it.
+  const native = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/runtime/reference/native-loop.md"), "utf8");
+  assertTrue("native-loop keeps the hold rule byte-identical",
+    native.includes("| `resume` | `explicit:true` | Resume only on the human's instruction; time never resumes it. |"),
+    "the #1126 row moved");
+  // The guard names where the handoff question is NOT posed, beside the refusal it enforces.
+  const guard = readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/guard-work-control.sh"), "utf8");
+  assertTrue("the guard states the handoff never goes through AskUserQuestion",
+    /final-response-contract\.sh/.test(guard) && /ループを再開してよろしいですか？/u.test(guard)
+    && /deny unattended_question/.test(guard), "guard header or refusal moved");
+  // The reader exists, is a pure read, and refuses each bound by its own name.
+  const reader = join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/final-response-contract.sh");
+  assertTrue("the contract reader ships", existsSync(reader), reader);
+  const dir = mkdtempSync(join(tmpdir(), "wk-final-response-"));
+  try {
+    const ask = (value) => {
+      const p = join(dir, "facts.json"); writeFileSync(p, JSON.stringify(value));
+      try {
+        const stdout = execFileSync("sh", [reader, "--input", p],
+          { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+        return { status: 0, out: JSON.parse(stdout) };
+      } catch (e) { return { status: e.status, out: JSON.parse(String(e.stdout)) }; }
+    };
+    const q = "ループを再開してよろしいですか？";
+    const routine = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10 });
+    assertEq("a routine interruption resumes with no final response",
+      [routine.status, routine.out.path, routine.out.final_response, routine.out.second_start],
+      [0, "resume", false, false]);
+    const handoff = ask({ interruption_kind: "review_required", instance_id: "s", anchor: 10, hold_persisted: true, question: q });
+    assertEq("a review-required handoff is a final response with the one question, held",
+      [handoff.status, handoff.out.path, handoff.out.final_response, handoff.out.question, handoff.out.control],
+      [0, "review_handoff", true, q, "held"]);
+    for (const [reason, value] of [
+      ["hold_not_persisted", { interruption_kind: "review_required", instance_id: "s", anchor: 10, question: q }],
+      ["question_mismatch", { interruption_kind: "review_required", instance_id: "s", anchor: 10, hold_persisted: true, question: "続けますか？" }],
+      ["anchor_moved", { interruption_kind: "routine", instance_id: "s", anchor: 10, continue_on: { instance_id: "s", anchor: 11 } }],
+    ]) {
+      const r = ask(value);
+      assertEq(`the reader refuses ${reason} by name with exit 2`, [r.status, r.out.ok, r.out.reason], [2, false, reason]);
+    }
+    assertEq("a refusal writes nothing beside the facts it read", readdirSync(dir), ["facts.json"]);
+  } finally { cleanup(dir); }
+}
+
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).
 // `T()` only REGISTERS; the loop below runs what is registered by the time it is reached.
 // Four tests had been appended BELOW it and therefore never ran once -- no pass, no failure,

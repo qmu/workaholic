@@ -80,6 +80,11 @@ named inability to continue, and a review-required handoff (a persisted `hold`, 
 「ループを再開してよろしいですか？」, held until an explicit `resume`); every other mid-loop
 comment is handled in commentary and the coordinator returns to the same instance and startup
 anchor with no second `start` (`work/scripts/final-response-contract.sh` owns the facts).
+A routine turn returns to a **proved continuation** — an interruptible parent or a same-chat
+scheduled tick, named by `kind` and `id`, refused `continuation_unproved` by the contract when
+absent — and the coordinator derives `resumed` at every event (`control == running` **and** a
+recorded continuation whose `next_due` has not passed; otherwise `continuation_unproved`,
+`continuation_lapsed` or the control mode); `running` alone is never reported as resumed.
 For agent-composed gated writes, read the gate in one tool call
 before constructing the merge, push or deletion in another; exit zero is not a passing JSON
 gate. Internally gated delivery scripts retain their check-and-act flow. The implement command

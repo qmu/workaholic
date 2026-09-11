@@ -40693,10 +40693,28 @@ function testFinalResponseContract() {
     + "the turn.";
   const CRITERION = "The criterion is a judgement the run writes out, not a detector: *does the human "
     + "need to read this before work may continue?*";
+  // The continuation is a FACT the reader proves, not a sentence the run writes (2026-09-11,
+  // issue #1151): a session said it had returned to the loop, ended its turn, and the record
+  // still read `running`. One wording on the same three surfaces; the reader and the reducer
+  // below carry the behaviour it names.
+  const CONTINUATION = "A turn that handled a mid-loop comment names the continuation it returns to — its "
+    + "`kind` (`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response "
+    + "ends, and proves it through the same reader: `final-response-contract.sh` refuses "
+    + "`continuation_unproved` for a routine turn that names none, and the coordinator's `resumed` "
+    + "is `true` only while `control` is `running` **and** a recorded continuation's `next_due` has "
+    + "not passed (`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control "
+    + "mode). `running` alone is never a resumed loop; a report that calls the loop resumed while "
+    + "`resumed` is `false` is non-conformant on its face, and a missing continuation mechanism is a "
+    + "refusal to say *resumed*, never a sentence in the report.";
   for (const [path, what] of surfaces) {
     const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
     assertTrue(`${what} carries the two-path wording verbatim`, flat.includes(WORDING), path);
+    assertTrue(`${what} carries the continuation wording verbatim`, flat.includes(CONTINUATION), path);
   }
+  // The sentence that let a report name a missing mechanism and still call the loop resumed is gone.
+  assertTrue("the work skill no longer reports a missing continuation mechanism as a sentence",
+    !readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8")
+      .includes("and any missing continuation mechanism."), "stale sentence");
   for (const path of ["plugins/workaholic/skills/work/SKILL.md",
     "plugins/workaholic/skills/runtime/reference/native-loop.md"]) {
     const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
@@ -40732,14 +40750,21 @@ function testFinalResponseContract() {
       } catch (e) { return { status: e.status, out: JSON.parse(String(e.stdout)) }; }
     };
     const q = "ループを再開してよろしいですか？";
-    const routine = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10 });
-    assertEq("a routine interruption resumes with no final response",
-      [routine.status, routine.out.path, routine.out.final_response, routine.out.second_start],
-      [0, "resume", false, false]);
+    const continuation = { kind: "same_chat_schedule", id: "sched-1", next_due: 99 };
+    const routine = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation });
+    assertEq("a routine interruption resumes with no final response, echoing its continuation",
+      [routine.status, routine.out.path, routine.out.final_response, routine.out.second_start, routine.out.continuation],
+      [0, "resume", false, false, continuation]);
+    const unproved = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10 });
+    assertEq("a routine turn naming no continuation is refused continuation_unproved",
+      [unproved.status, unproved.out.ok, unproved.out.reason], [2, false, "continuation_unproved"]);
+    const outside = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation: { kind: "cron", id: "x", next_due: 1 } });
+    assertEq("a continuation kind outside the closed set is invalid_facts",
+      [outside.status, outside.out.reason], [2, "invalid_facts"]);
     const handoff = ask({ interruption_kind: "review_required", instance_id: "s", anchor: 10, hold_persisted: true, question: q });
-    assertEq("a review-required handoff is a final response with the one question, held",
-      [handoff.status, handoff.out.path, handoff.out.final_response, handoff.out.question, handoff.out.control],
-      [0, "review_handoff", true, q, "held"]);
+    assertEq("a review-required handoff is a final response with the one question, held, and needs no continuation",
+      [handoff.status, handoff.out.path, handoff.out.final_response, handoff.out.question, handoff.out.control, handoff.out.continuation],
+      [0, "review_handoff", true, q, "held", null]);
     for (const [reason, value] of [
       ["hold_not_persisted", { interruption_kind: "review_required", instance_id: "s", anchor: 10, question: q }],
       ["question_mismatch", { interruption_kind: "review_required", instance_id: "s", anchor: 10, hold_persisted: true, question: "続けますか？" }],

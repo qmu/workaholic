@@ -80,6 +80,9 @@ test('native receipts make duplicates, missing results, capacity and compaction 
 // gains no mode and no second `start`.
 const contract = join(root, 'plugins/workaholic/skills/work/scripts/final-response-contract.sh');
 const QUESTION = 'ループを再開してよろしいですか？';
+// A continuation is what carries the loop after the turn ends (issue #1151): the routine path
+// is `resume` only when one is named and proved; a held loop needs none.
+const CONTINUATION = { kind: 'same_chat_schedule', id: 'sched-1', next_due: 2000009000 };
 function facts(dir, value) {
   const path = join(dir, 'facts.json'); writeFileSync(path, JSON.stringify(value));
   const r = spawnSync('sh', [contract, '--input', path], { cwd: dir, encoding: 'utf8' });
@@ -95,11 +98,12 @@ test('a routine mid-loop comment resumes the same instance and anchor with no fi
   run({ event: 'started', id: 'one', child_id: 'child-one' });
   const before = run({ event: 'tick', now: 2000000300 });
   assert.equal(before.data.control, 'running');
-  const routine = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: before.data.anchor });
+  const routine = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: before.data.anchor, continuation: CONTINUATION });
   assert.equal(routine.status, 0, JSON.stringify(routine.out));
   assert.equal(routine.out.path, 'resume'); assert.equal(routine.out.final_response, false);
   assert.equal(routine.out.question, null); assert.equal(routine.out.second_start, false);
   assert.equal(routine.out.control, 'running'); assert.equal(routine.out.hold_stands, false);
+  assert.deepEqual(routine.out.continuation, CONTINUATION, 'the continuation the turn returns to is echoed');
   // The loop the turn returns to is the same one: no second start, same anchor, still running.
   const again = run({ event: 'start', session_id: 'session', now: 2000000600 });
   assert.equal(again.reason, 'already_started'); assert.equal(again.data.anchor, 2000000000);
@@ -108,7 +112,7 @@ test('a routine mid-loop comment resumes the same instance and anchor with no fi
   assert.deepEqual(after.data.live.map(w => w.child_id), ['child-one'], 'the same children are carried');
   // A routine comment under a standing hold is answered and the hold stands; it resumes nothing.
   run({ event: 'hold', explicit: true, now: 2000001000 });
-  const underHold = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000, control: 'held' });
+  const underHold = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000, control: 'held', continuation: CONTINUATION });
   assert.equal(underHold.status, 0); assert.equal(underHold.out.path, 'resume');
   assert.equal(underHold.out.final_response, false); assert.equal(underHold.out.hold_stands, true);
   assert.equal(run({ event: 'tick', now: 2000001300 }).data.control, 'held', 'an ordinary question never resumes a hold');
@@ -123,6 +127,8 @@ test('a review-required handoff persists hold, asks exactly one question and wai
     ['question_mismatch', { interruption_kind: 'review_required', instance_id: 'native-test', anchor: 2000000000, hold_persisted: true, question: '続けますか？' }],
     ['question_mismatch', { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000, question: QUESTION }],
     ['anchor_moved', { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000, continue_on: { instance_id: 'native-test', anchor: 2000000600 } }],
+    ['continuation_unproved', { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000 }],
+    ['invalid_facts', { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000, continuation: { kind: 'cron', id: 'x', next_due: 1 } }],
     ['anchor_moved', { interruption_kind: 'review_required', instance_id: 'native-test', anchor: 2000000000, hold_persisted: true, question: QUESTION, continue_on: { instance_id: 'other', anchor: 2000000000 } }],
     ['invalid_facts', { interruption_kind: 'stop', instance_id: 'native-test', anchor: 2000000000 }],
   ]) {
@@ -137,6 +143,7 @@ test('a review-required handoff persists hold, asks exactly one question and wai
   assert.equal(handoff.out.path, 'review_handoff'); assert.equal(handoff.out.final_response, true);
   assert.equal(handoff.out.question, QUESTION); assert.equal(handoff.out.control, 'held');
   assert.equal(handoff.out.second_start, false);
+  assert.equal(handoff.out.continuation, null, 'a held loop waits on a person and needs no continuation');
   // Nine timer ticks do not resume it; the human's explicit resume does, on the same anchor.
   for (let tick = 0; tick < 9; tick++) {
     const r = run({ event: 'tick', now: 2000000300 + tick * 300 });
@@ -146,6 +153,43 @@ test('a review-required handoff persists hold, asks exactly one question and wai
   const resumed = run({ event: 'resume', explicit: true, now: 2000004000 });
   assert.equal(resumed.data.control, 'running'); assert.equal(resumed.data.anchor, 2000000000);
   assert.equal(run({ event: 'start', session_id: 'session', now: 2000004300 }).reason, 'already_started');
+});
+// `running` is a control mode; resumed is that mode PLUS a live continuation (issue #1151).
+test('a running coordinator is resumed only under a live continuation, never on its mode alone', t => {
+  const run = fixture(t);
+  const started = run({ event: 'start', session_id: 'session' });
+  assert.equal(started.data.control, 'running');
+  assert.equal(started.data.resumed, false); assert.equal(started.data.resumed_reason, 'continuation_unproved');
+  const bare = run({ event: 'tick', now: 2000000300 });
+  assert.equal(bare.data.control, 'running', 'the mode is running');
+  assert.equal(bare.data.resumed, false, 'running alone is never resumed');
+  assert.equal(bare.data.resumed_reason, 'continuation_unproved'); assert.equal(bare.data.continuation, null);
+  // A continuation whose next_due is ahead makes the loop resumed; one that has passed lapses it.
+  const continued = run({ event: 'continued', continuation: { kind: 'same_chat_schedule', id: 'sched-1', next_due: 2000000900 }, now: 2000000600 });
+  assert.equal(continued.reason, 'continued'); assert.equal(continued.data.resumed, true);
+  const live = run({ event: 'tick', now: 2000000700 });
+  assert.equal(live.data.resumed, true); assert.equal(live.data.resumed_reason, '');
+  assert.deepEqual(live.data.continuation, { kind: 'same_chat_schedule', id: 'sched-1', next_due: 2000000900 });
+  const lapsed = run({ event: 'tick', now: 2000001000 });
+  assert.equal(lapsed.data.control, 'running'); assert.equal(lapsed.data.resumed, false);
+  assert.equal(lapsed.data.resumed_reason, 'continuation_lapsed');
+  // A held loop is never resumed, whatever continuation it carries; resume may carry a fresh one.
+  const held = run({ event: 'hold', explicit: true, now: 2000001100 });
+  assert.equal(held.data.resumed, false); assert.equal(held.data.resumed_reason, 'held');
+  const resumed = run({ event: 'resume', explicit: true, continuation: { kind: 'interruptible_parent', id: 'session', next_due: 2000009000 }, now: 2000001200 });
+  assert.equal(resumed.data.resumed, true); assert.equal(resumed.data.continuation.kind, 'interruptible_parent');
+  assert.equal(resumed.data.anchor, 2000000000, 'no second start');
+  // The kind is a closed set: the reducer refuses anything else as invalid input, writing nothing.
+  const input = join(run.dir, 'event.json');
+  writeFileSync(input, JSON.stringify({ event: 'continued', continuation: { kind: 'cron', id: 'x', next_due: 1 }, now: 2000001300 }));
+  const bad = spawnSync('sh', [script, '--instance', 'native-test', '--input', input], { cwd: run.dir, encoding: 'utf8' });
+  assert.equal(JSON.parse(bad.stdout).reason, 'invalid_input');
+  assert.deepEqual(run({ event: 'tick', now: 2000001400 }).data.continuation.kind, 'interruptible_parent', 'a refused continuation writes nothing');
+  // The review-handoff path still needs no continuation (the hold is what waits on the person).
+  run({ event: 'hold', explicit: true, now: 2000001500 });
+  const handoff = facts(run.dir, { interruption_kind: 'review_required', instance_id: 'native-test', anchor: 2000000000, hold_persisted: true, question: QUESTION });
+  assert.equal(handoff.status, 0); assert.equal(handoff.out.path, 'review_handoff');
+  assert.equal(run({ event: 'stop', explicit: true, now: 2000001600 }).data.resumed_reason, 'stopped');
 });
 test('Claude PreToolUse enforces persisted hold and requires a dispatch receipt',t=>{
   const run=fixture(t);

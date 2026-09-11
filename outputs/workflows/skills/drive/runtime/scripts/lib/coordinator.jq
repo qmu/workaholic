@@ -3,6 +3,13 @@ def integer: type == "number" and floor == . and . >= 0;
 def fail($why): error($why);
 def active: .state == "reserved" or .state == "launching" or .state == "running" or .state == "unknown";
 def roles: ["implement", "propose", "moderate"];
+# A continuation is what carries the loop after a turn ends (2026-09-11, issue #1151): the
+# interruptible parent the turn returns to, or the same-chat schedule that fires the next tick.
+# It is recorded at `start`, `resume` or `continued` and read at every event as `resumed`:
+# `control == running` alone is never a resumed loop.
+def valid_continuation:
+  type == "object" and (.kind == "interruptible_parent" or .kind == "same_chat_schedule") and
+  (.id|type == "string" and length > 0) and (.next_due|integer);
 def valid_result:
   type == "object" and (.executed|type == "boolean") and
   (.outcome|type == "string" and length > 0) and (.reason|type == "string") and
@@ -16,14 +23,22 @@ if ($e.now|integer|not) then fail("now must be epoch seconds") else . end |
 if $e.event == "start" then
   if $s != null then {state:$s,changed:false,reason:"already_started"}
   elif ($e.session_id|type != "string" or length == 0) then fail("session_id required")
+  elif $e.continuation != null and ($e.continuation|valid_continuation|not) then fail("invalid continuation")
   else {state:{mode:"running",anchor:$e.now,session_id:$e.session_id,workers:{},
-    max_workers:($e.max_workers // 2),fanout:($e.fanout // 1)},changed:true,reason:"started"} end
+    max_workers:($e.max_workers // 2),fanout:($e.fanout // 1),
+    continuation:($e.continuation // null)},changed:true,reason:"started"} end
 elif $s == null then fail("instance not started")
 elif $e.event == "hold" or $e.event == "resume" or $e.event == "stop" then
   if $e.explicit != true then fail("control requires explicit human instruction")
   elif $s.mode == "stopped" then {state:$s,changed:false,reason:"stopped"}
-  else {state:($s | .mode=(if $e.event == "hold" then "held" elif $e.event == "stop" then "stopped" else "running" end)),
+  elif $e.event == "resume" and $e.continuation != null and ($e.continuation|valid_continuation|not) then fail("invalid continuation")
+  else {state:($s | .mode=(if $e.event == "hold" then "held" elif $e.event == "stop" then "stopped" else "running" end)
+    | if $e.event == "resume" and $e.continuation != null then .continuation=$e.continuation else . end),
     changed:true,reason:$e.event} end
+elif $e.event == "continued" then
+  if ($e.continuation|valid_continuation|not) then fail("continuation required")
+  elif $s.mode == "stopped" then {state:$s,changed:false,reason:"stopped"}
+  else {state:($s|.continuation=$e.continuation),changed:true,reason:"continued"} end
 elif $e.event == "reserve" then
   if $s.mode != "running" then {state:$s,changed:false,reason:$s.mode}
   elif (($e.id|type) != "string" or ($e.id|test("^[A-Za-z0-9][A-Za-z0-9._-]*$")|not)) then fail("invalid receipt id")
@@ -79,7 +94,13 @@ if (.state.max_workers|integer|not) or .state.max_workers < 1 or
    (.state.fanout|integer|not) or .state.fanout < 1 then fail("worker limits must be positive integers") else . end |
 .state as $next |
 ($next|finish_times) as $finished |
+($next.continuation // null) as $continuation |
+(if $next.mode != "running" then $next.mode
+ elif $continuation == null then "continuation_unproved"
+ elif $continuation.next_due < $e.now then "continuation_lapsed"
+ else "" end) as $not_resumed |
 . + {control:$next.mode,anchor:$next.anchor,
+  resumed:($not_resumed == ""),resumed_reason:$not_resumed,continuation:$continuation,
   cancel_schedule:($next.mode == "stopped"),
   cancel_children:(if $next.mode == "stopped" then [$next.workers[]|select(active)|{id,child_id}] else [] end),
   completed:(if $next.mode == "held" then [] else [$next.workers[]|select(.state == "completed" and .reported != true)] end),

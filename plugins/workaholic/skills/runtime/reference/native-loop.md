@@ -14,10 +14,11 @@ the Claude hook is not a claim of host-independent enforcement.
 
 | Event | Other fields | Host action |
 | --- | --- | --- |
-| `start` | `session_id`; optional positive `max_workers` (2), `fanout` (1) | Keep the instance ID across compaction and scheduled ticks; start one clock. |
-| `tick` | none | Read `control,live,completed,due` before observing or dispatching. |
+| `start` | `session_id`; optional positive `max_workers` (2), `fanout` (1); optional `continuation` | Keep the instance ID across compaction and scheduled ticks; start one clock and record it as the continuation. |
+| `tick` | none | Read `control,resumed,live,completed,due` before observing or dispatching; `resumed` is `true` only under a live continuation. |
 | `hold` | `explicit:true` | Acknowledge once; suppress timer reports and new work; preserve schedule and anchor. |
 | `resume` | `explicit:true` | Resume only on the human's instruction; time never resumes it. |
+| `continued` | `continuation` | Re-establish the continuation a turn returns to (an interruptible parent or a same-chat schedule); never a second `start`. |
 | `stop` | `explicit:true` | Cancel schedule and stop the exact `cancel_children` identifiers; preserve code and claims; report cancellation failures. |
 | `cancelled` | `id,child_id,confirmed:true` | Record only a successful native stop result for this exact child. Cancellation releases its slot without claiming execution, completion or advancing role cadence. |
 | `reserve` | `id,role,workers_readable,available_capacity,formation_pending`; optional `target` | Launch only on `reason:reserved`; the receipt already owns its slot. |
@@ -33,6 +34,15 @@ conflicting results are reported. Finish also writes `loop-finish-<role>-<receip
 `log-append.sh`; replay repairs a missing log write. Cadence reads receipts, so log failure cannot
 turn every role due. Reservations use revision-checked atomic updates, including hold races.
 `due` is oldest first; apply formation, claimable work, load and capacity before reserving.
+
+`continuation` is `{kind:"interruptible_parent"|"same_chat_schedule",id,next_due}` — the parent's
+own interruptible wait or the same-chat schedule that fires the next tick, its identifier, and the
+epoch seconds it next fires. `start`, `resume` and `continued` record it (`kind` is a closed set;
+anything else is refused as invalid input). Every result carries **`resumed`**, derived and never
+stored: `true` only when `control` is `running` **and** the recorded continuation's `next_due` is
+not in the past; otherwise `false` with `resumed_reason` `continuation_unproved` (none recorded),
+`continuation_lapsed` (its `next_due` has passed) or the control mode (`held`, `stopped`). There
+is no fourth control mode; `running` alone is never `resumed`.
 
 The **live conversation is the first inbound source**, ahead of Slack and GitHub. Interpret
 “wait”, “let me send feedback first” and equivalent requests as hold. An ordinary question is
@@ -55,6 +65,16 @@ The final response is reserved for exactly three events: an explicit stop, a nam
 to continue, and a review-required handoff. When the run is unsure, the interruption is
 routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
 turn.
+
+A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
+(`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and
+proves it through the same reader: `final-response-contract.sh` refuses `continuation_unproved`
+for a routine turn that names none, and the coordinator's `resumed` is `true` only while
+`control` is `running` **and** a recorded continuation's `next_due` has not passed
+(`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control mode). `running`
+alone is never a resumed loop; a report that calls the loop resumed while `resumed` is `false` is
+non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
+never a sentence in the report.
 
 The criterion is a judgement the run writes out, not a detector: *does the human need to read
 this before work may continue?* A decision the loop cannot take on its own (a fork that reaches

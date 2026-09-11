@@ -62,6 +62,9 @@ with `{"event":"tick","now":<epoch-seconds>}`. Handle the live conversation firs
 `hold`, explicit resumption is `resume`, and stop is `stop`, with `explicit:true`. If `held`,
 capture terminal child results silently and end this timer tick without observation, dispatch
 or reports. If `stopped`, cancel the schedule and stop its named children. Keep the same anchor.
+Read `resumed` beside `control`: a tick whose reading is `resumed: false` reports its
+`resumed_reason` and re-establishes the continuation through `continued` before it may call
+the loop resumed.
 
 A routine interruption — an ordinary question, correction or follow-up — is handled in
 commentary and the coordinator returns to the same loop: the same instance ID, the same
@@ -74,6 +77,16 @@ The final response is reserved for exactly three events: an explicit stop, a nam
 to continue, and a review-required handoff. When the run is unsure, the interruption is
 routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
 turn.
+
+A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
+(`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and
+proves it through the same reader: `final-response-contract.sh` refuses `continuation_unproved`
+for a routine turn that names none, and the coordinator's `resumed` is `true` only while
+`control` is `running` **and** a recorded continuation's `next_due` has not passed
+(`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control mode). `running`
+alone is never a resumed loop; a report that calls the loop resumed while `resumed` is `false` is
+non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
+never a sentence in the report.
 
 Read `git status --porcelain` once. Report a dirty checkout and its file count because this
 tick is already executing that unreviewed plugin behavior. Do not block, modify, or commit it.

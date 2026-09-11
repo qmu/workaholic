@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260911-143422](work-20260911-143422.md) - State the native /work loop's final-response contract as three events and two paths — a routine comment resumes the same instance and anchor, a review-required handoff holds and asks exactly one question — with a facts reader and tests for both.
 * [work-20260910-150318](work-20260910-150318.md) - Point perform.sh's write-path comment at the one fallback derivation instead of naming its classes, and pin that in the suite row that owns the rule.
 * [work-20260910-133027](work-20260910-133027.md) - Pins the machine-load rounding contract against a fixture and corrects CLAUDE.md so an authorization refusal is named as a typed failure that never falls back.
 * [work-20260910-125058](work-20260910-125058.md) - Verify the declared Slack binding and typed QFS fallback against the tree, and record where CLAUDE.md disagrees with the fallback classifier.

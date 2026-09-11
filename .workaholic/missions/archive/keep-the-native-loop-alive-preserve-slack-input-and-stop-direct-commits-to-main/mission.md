@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.5
 feedback: [20260911180039-keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -47,3 +47,5 @@ durable artifacts travel on a branch behind a pull request.
 - 2026-09-11 — ticket archived — 20260911180403-route-the-tick-s-durable-records-through-a-pull-request.md
 - 2026-09-11 — ticket archived — 20260911180404-gate-every-unattended-write-to-the-base-ref-and-pin-it.md
 - 2026-09-11 — mission achieved — mission.md
+- 2026-09-11 — run recorded (+1.5h) — implement-t280-20260911
+- 2026-09-11 — story reported — work-20260911-181606.md

@@ -734,4 +734,8 @@
 * [Support low-context Codex workers without stalling work ticks](20260910131134-support-low-context-codex-workers-without-stalling-work-ticks.md)
 * [The CI retirement turn shifts a unit-less candidate's fields, so it can never retire one](20260910131705-the-ci-retirement-turn-shifts-a-unit-less-candidate-s-fields-so-it-can-never-retire-one.md)
 * [Archiving a mission leaves its active index entry, so the base index lists it twice](20260910131957-archiving-a-mission-leaves-its-active-index-entry-so-the-base-index-lists-it-twice.md)
+* [Reconcile all accepted human requests before sending completion mentions](20260910164918-reconcile-all-accepted-human-requests-before-sending-completion-mentions.md)
+* [The day-root lookup searches a token the root is forbidden to carry](20260910183401-the-day-root-lookup-searches-a-token-the-root-is-forbidden-to-carry.md)
+* [The declared Slack binding cannot read its own channel once two QFS mounts reach it](20260911021557-the-declared-slack-binding-cannot-read-its-own-channel-once-two-qfs-mounts-reach-it.md)
+* [Resume the native work loop after ordinary mid-loop comments](20260911142410-resume-the-native-work-loop-after-ordinary-mid-loop-comments.md)
 <!-- okf:generated:end -->

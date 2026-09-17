@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917122859-reconcile-accepted-scope-across-blocked-implementation-prs.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260918-035851
 ---
 
 # Reconcile accepted scope across blocked implementation PRs

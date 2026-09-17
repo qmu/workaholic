@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917141206-the-work-loop-must-not-stop-at-an-unapproved-merge-handoff.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260918-035851
 ---
 
 # Keep the work loop running across unapproved merge handoffs

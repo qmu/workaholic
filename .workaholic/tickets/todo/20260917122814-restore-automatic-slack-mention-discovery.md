@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917122803-restore-automatic-slack-mention-discovery.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260918-035851
 ---
 
 # Restore automatic Slack mention discovery

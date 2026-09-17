@@ -6,6 +6,38 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 const root = resolve(import.meta.dirname, '../../..');
 const script = join(root, 'plugins/workaholic/skills/runtime/scripts/coordinator.sh');
+const reconcile = join(root, 'plugins/workaholic/skills/runtime/scripts/reconcile-turn.sh');
+
+test('turn reconciliation adopts live work, holds person waits, and owns every action', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'wh-reconcile-'));
+  t.after(() => rmSync(dir, { recursive:true, force:true }));
+  const input = join(dir, 'facts.json');
+  writeFileSync(input, JSON.stringify({
+    receipts: [
+      {id:'older', role:'implement', state:'running', reserved_at:1, target:{tickets:['a']}},
+      {id:'duplicate', role:'implement', state:'running', reserved_at:2, target:{tickets:['a']}},
+      {id:'moderator', role:'moderate', state:'running', reserved_at:3, target:{tickets:[]}},
+    ],
+    claims: [
+      {unit:'live-unit', tickets:['a'], branch:'work-a', worktree:'/tmp/a'},
+      {unit:'human-unit', tickets:['b'], awaiting_person:true, branch:'work-b'},
+    ],
+    answered_handoffs: [],
+    needs_agent: [{key:'ask-one', role:'moderate'}, {key:'ask-two', role:'propose'}],
+  }));
+  const result = spawnSync('sh', [reconcile, '--input', input], {encoding:'utf8'});
+  assert.equal(result.status, 0, result.stderr);
+  const out = JSON.parse(result.stdout);
+  assert.deepEqual(out.claims[0], {
+    unit:'live-unit', action:'adopt', owner:'older', worktree:'/tmp/a', branch:'work-a',
+    losers:['duplicate'], reason:'live_owner',
+  });
+  assert.equal(out.claims[1].action, 'wait_for_person');
+  assert.deepEqual(out.actions[0], {key:'ask-one', action:'dispatch_to_live', owner:'moderator', receipt:null});
+  assert.equal(out.actions[1].receipt, 'follow-up:ask-two');
+  assert.deepEqual(out.unowned_actions, []);
+  assert.equal(out.cadence_ready, true);
+});
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'wh-native-'));
   t.after(() => rmSync(dir, { recursive:true, force:true }));

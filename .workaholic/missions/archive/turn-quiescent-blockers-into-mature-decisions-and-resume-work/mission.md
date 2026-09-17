@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours: 0.4
+actual_hours: 1.2
 feedback: [20260908123159-make-quiescent-loops-surface-decision-ready-blockers-and-reopen-after-answers.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -45,3 +45,4 @@ A quiescent strategy no longer ends in a worker-only explanation. Premature ques
 - 2026-09-08 — run recorded (+0.4h) — implement-20260908-1144Z
 - 2026-09-18 — ticket archived — 20260908190000-reconcile-the-survey-s-observing-refusal-with-its-ladder.md
 - 2026-09-18 — mission achieved — mission.md
+- 2026-09-18 — run recorded (+0.8h) — implement-20260918-0500Z

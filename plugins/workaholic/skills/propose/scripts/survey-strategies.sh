@@ -45,12 +45,23 @@
 # every one of them computed from state the repository already holds, none of them a call
 # the running session can make differently:
 #
+# THE LADDER'S WORDS ARE DOCUMENTED HERE AND NOWHERE ELSE, one row per rung, in ladder
+# order, between the two sentinel lines below. `scripts/test-workflow-scripts.mjs` extracts
+# that block and compares it with the `refusal:` expression's own `then "<word>"` set, failing
+# when the two differ — so a rung and the prose describing it cannot drift apart again
+# (2026-09-18, ticket `20260908190000`). A rung added below is added here in the same change,
+# and the sentinels are spelled nowhere else so the extraction cannot land on a mention of
+# itself.
+#
+#   BEGIN DOCUMENTED REFUSAL WORDS
+#   attribution_unreadable  the attribution walk did not complete, so no gate beneath this
+#                     one can be read. First in the ladder: a gate that cannot be read is
+#                     not a gate (see the paragraph above this table).
 #   not_active        `status` is not `active`. A closed direction is not pursued.
 #   not_mine          the running identity is not among `assignees`. The ask is "the user's
 #                     OWN assigned strategies"; a strategy is the one artifact where empty
 #                     `assignees` is a refusal rather than team ownership, so `unowned`
 #                     cannot occur and `other`/`unresolved` are both refusals here.
-# Stage is a hypothesis lens, not an observing refusal: 観察中 may originate observation work.
 #   past_target_date  the date has passed. A dated direction that ran out of date is the
 #                     operator's to re-date or close; proposing into it forever is the
 #                     runaway this gate exists to stop.
@@ -67,6 +78,19 @@
 #                     TIME" -- see below.
 #   open_proposal     an open issue already carries this strategy's marker: the last
 #                     proposal has not been ingested yet.
+#   wip_limit         the repository already carries `WORKAHOLIC_WIP_LIMIT` active missions
+#                     with queued work. LAST in the ladder on purpose — see the rung itself.
+#   END DOCUMENTED REFUSAL WORDS
+#
+# THERE IS NO `observing` RUNG, AND THE STAGE IS NOT A GATE (2026-09-18, ticket
+# `20260908190000-reconcile-the-survey-s-observing-refusal-with-its-ladder`). The `observing`
+# refusal introduced with the declared stage on 2026-08-29 was retired the same week: 観察中
+# says which kind of learning a direction needs, not that it needs none, so it stays eligible
+# and only leads the SORT below (`workaholic:propose`, *観察中 permits observation work*;
+# `commands/propose.md`). This ladder has never emitted the word since, and the header used
+# to describe the retired gate anyway — the prose was the defect, not the code, and the fork
+# not taken is stated rather than implied: restoring the rung would silence origination for
+# every 観察中 direction, a behaviour change nothing in the evidence asks for.
 #
 # `no_citing_artifacts` IS NOT A REFUSAL, and the distinction is the one most likely to be
 # got wrong by a later reader. A brand-new strategy cites feedback but nothing cites it

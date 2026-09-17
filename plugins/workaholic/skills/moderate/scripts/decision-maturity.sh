@@ -41,6 +41,17 @@
 # reporting it as `defer` would send a reader to wait for work on a direction nobody is
 # pursuing.
 #
+# THE 観察中 TERM IS READ OFF THE ROW, NEVER OFF ANOTHER SCRIPT'S REFUSAL WORD (2026-09-08;
+# stated here 2026-09-18, ticket `20260908190000`). `retire`'s third premise is the DECLARED
+# stage — `stage_declared == true` and `stage == "観察中"` — and not `survey-strategies.sh`'s
+# refusal. The first draft of this ladder keyed that rung on `reason == "observing"` and was
+# dead code: that refusal was retired the week the stage shipped, 観察中 is eligible for
+# origination, and the ladder one layer over emits no such word (`workaholic:propose`, *観察中
+# permits observation work*). The dependency is deliberately on the OPERATOR'S OWN WORD rather
+# than on another script's vocabulary: a refusal word is a decision that script may revise
+# for reasons of its own, while the declared stage is the fact this reader is actually about —
+# so this rung holds whatever `/propose` decides to gate on next.
+#
 # THE RESIDUE TERM IS DELIBERATELY ABSENT, and that absence is load-bearing. `quiescent` is
 # already false when the residue read is degraded (`survey-strategies.sh`, the `quiescent`
 # block), and `dormant` deliberately is NOT — *claiming a direction has ARRIVED on a blind

@@ -4,7 +4,6 @@
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
-* [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 
 ## archive
 
@@ -153,5 +152,6 @@
 * [take-the-moderation-tick-s-log-off-main](archive/take-the-moderation-tick-s-log-off-main/mission.md) - Take the moderation tick's log off main
 * [tell-a-merged-claim-from-a-live-one-at-both-grains](archive/tell-a-merged-claim-from-a-live-one-at-both-grains/mission.md) - Tell a merged claim from a live one at both grains
 * [tell-an-unanswered-question-from-an-answered-one](archive/tell-an-unanswered-question-from-an-answered-one/mission.md) - Tell an unanswered question from an answered one
+* [turn-quiescent-blockers-into-mature-decisions-and-resume-work](archive/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 * [turn-the-loop-at-mission-granularity](archive/turn-the-loop-at-mission-granularity/mission.md) - Turn the loop at mission granularity
 * [warn-a-direction-before-its-date-silences-the-loop](archive/warn-a-direction-before-its-date-silences-the-loop/mission.md) - Warn a direction before its date silences the loop

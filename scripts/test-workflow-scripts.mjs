@@ -8861,6 +8861,52 @@ function testProposeObservingGate() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the ladder and its documented words cannot drift apart (2026-09-18) ----------
+// Ticket `20260908190000-reconcile-the-survey-s-observing-refusal-with-its-ladder`: the
+// header documented an `observing` refusal the ladder does not emit — retired the week the
+// declared stage shipped — and the first draft of `decision-maturity.sh` keyed a rung on that
+// word and was dead code. The conclusion taken was that the refusal is retired and the PROSE
+// was the defect, so what is pinned here is the AGREEMENT between two machine-consumed token
+// sets, never either list's wording: the delimited word block in the survey's own header, the
+// `then "<word>"` arms of its `refusal:` expression, and the words its one consumer compares
+// `$reason` against.
+T("propose: the refusal ladder agrees with its documented words", testProposeLadderWords);
+function testProposeLadderWords() {
+  const src = readFileSync(SCRIPTS.proposeSurvey, "utf8");
+  const lines = src.split("\n");
+  const start = lines.findIndex((l) => l.includes("BEGIN DOCUMENTED REFUSAL WORDS"));
+  const end = lines.findIndex((l) => l.includes("END DOCUMENTED REFUSAL WORDS"));
+  assertTrue("the documented word block is delimited at both ends",
+    start >= 0 && end > start, `start=${start} end=${end}`);
+  const documented = lines.slice(start + 1, end)
+    .map((l) => (/^#   ([a-z_]+) {2,}/.exec(l) || [])[1]).filter(Boolean);
+
+  // The ladder is the `refusal:` expression and nothing above it: the `quiescent` block's own
+  // arms answer a different question, and its comments name words no rung emits.
+  const from = src.indexOf("| . + {refusal:");
+  assertTrue("the refusal expression is found", from > 0, String(from));
+  const emitted = src.slice(from, src.indexOf('else "" end)}', from))
+    .split("\n").filter((l) => !l.trim().startsWith("#"))
+    .flatMap((l) => [...l.matchAll(/then "([a-z_]+)"/g)].map((m) => m[1]));
+  assertTrue("the ladder emits rungs at all", emitted.length > 0, String(emitted.length));
+  assertEq("every rung the ladder emits is documented, and every documented word is a rung",
+    [...new Set(emitted)].sort().join(","), [...new Set(documented)].sort().join(","));
+
+  // No consumer keys on a refusal word the ladder does not produce. `decision-maturity.sh` is
+  // the one script that compares the survey's `reason` against literals, and the rung this
+  // ticket came from was exactly such a comparison against a word the ladder had stopped
+  // emitting.
+  const consumer = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/decision-maturity.sh"), "utf8")
+    .split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+  const keyed = [...new Set([...consumer.matchAll(/\$reason [!=]= "([a-z_]+)"/g)].map((m) => m[1]))];
+  assertTrue("the consumer keys on some refusal word", keyed.length > 0, String(keyed.length));
+  for (const word of keyed) {
+    assertTrue(`decision-maturity.sh keys on \`${word}\`, which the ladder emits`,
+      emitted.includes(word), JSON.stringify({ word, emitted: [...new Set(emitted)] }));
+  }
+}
+
 T("propose: the gates that replace the dropped judgment bar", testProposeGates);
 function testProposeGates() {
   const dir = makeRepo("main");

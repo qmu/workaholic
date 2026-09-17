@@ -752,4 +752,9 @@
 * [Restore automatic Slack mention discovery](20260917122925-restore-automatic-slack-mention-discovery.md)
 * [Reconcile accepted scope across blocked implementation PRs](20260917122933-reconcile-accepted-scope-across-blocked-implementation-prs.md)
 * [部分カバレッジ時に新しいSlackスレッドを見落とさない](20260917123442-slack.md)
+* [The work loop must not stop at an unapproved merge handoff](20260917141206-the-work-loop-must-not-stop-at-an-unapproved-merge-handoff.md)
+* [2026-09-17 04:25 UTC の moderation root を Slack に配信できませんでした](20260917142407-2026-09-17-04-25-utc-moderation-root-slack.md)
+* [The work loop must not stop at an unapproved merge handoff](20260917142419-the-work-loop-must-not-stop-at-an-unapproved-merge-handoff.md)
+* [2026-09-17 05:08 UTC の moderation root を Slack に配信できませんでした](20260917150637-2026-09-17-05-08-utc-moderation-root-slack.md)
+* [2026-09-17 05:59 UTC の moderation root を Slack に配信できませんでした](20260917154802-2026-09-17-05-59-utc-moderation-root-slack.md)
 <!-- okf:generated:end -->

@@ -107,4 +107,5 @@
 * [Make Slack acknowledgements informative without notification noise](work-20260908-140833.md)
 * [Make agentic-loop validation finite and truthful](work-20260908-150309.md)
 * [Release Claude Code loop repairs as 1.0.343](work-20260909-024221.md)
+* [Make feedback publication race-safe](work-20260917-131433.md)
 <!-- okf:generated:end -->

@@ -1527,8 +1527,9 @@ cmd_verify_log_off_base() {
         --record .workaholic/feedbacks/20260911000000-r.md 2>&1 || true)
     _rmain=$(git -C "$_rorigin" rev-parse main 2>/dev/null || printf '')
     _rbranches=$(git -C "$_rorigin" for-each-ref --format='%(refname:short)' 'refs/heads/work-*' 2>/dev/null | grep -c '' || true)
+    _rrecord=$(printf '%s' "$_rout" | jq -r 'select(type == "object") | .records[0] // {} | [.state // "", .reason // ""] | @tsv' 2>/dev/null || printf '')
     if [ -n "$_rseed" ] && [ "$_rmain" = "$_rseed" ] && [ "$_rbranches" = "1" ] \
-        && printf '%s' "$_rout" | grep -q '"state": "unlanded", "reason": "pr_failed"'; then
+        && [ "$_rrecord" = "unlanded${TAB}pr_failed" ]; then
         add_row "records_never_land_directly" true "with no pull request the record is unlanded by name on a work-* branch and the base is byte-identical" load
     else
         add_row "records_never_land_directly" false "the record's road reached the base directly or was not named: main=${_rmain} seed=${_rseed} branches=${_rbranches} $(one_line "$_rout")" load

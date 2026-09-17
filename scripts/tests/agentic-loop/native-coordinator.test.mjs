@@ -74,6 +74,22 @@ test('native receipts make duplicates, missing results, capacity and compaction 
   assert.equal(run({event:'tick',now:2000000300}).data.due.some(x=>x.role==='implement'),true);
   assert.equal(run({event:'stop',explicit:true}).data.cancel_children.length,1);
 });
+test('a task review waits on its own thread while observation and independent work continue', t => {
+  const run=fixture(t); run({event:'start',session_id:'session',continuation:CONTINUATION}); run(reserve);
+  run({event:'started',id:'one',child_id:'child-one'});
+  const waiting=run({event:'await_review',id:'one',thread_id:'171.200'});
+  assert.equal(waiting.data.control,'running'); assert.equal(waiting.data.waiting_review[0].id,'one');
+  assert.deepEqual(waiting.data.live,[],'only the dependent worker waits');
+  assert.equal(run({...reserve,id:'two'}).reason,'reserved','independent implementation remains eligible');
+  const routed=facts(run.dir,{interruption_kind:'task_review',instance_id:'native-test',anchor:2000000000,continuation:CONTINUATION});
+  assert.equal(routed.status,0); assert.equal(routed.out.path,'task_wait');
+  assert.equal(routed.out.final_response,false); assert.equal(routed.out.control,'running');
+  assert.equal(run({event:'review_resolved',id:'one',thread_id:'wrong',reply_id:'r0'}).reason,'wrong_thread');
+  const resolved=run({event:'review_resolved',id:'one',thread_id:'171.200',reply_id:'r1'});
+  assert.equal(resolved.reason,'review_resolved');
+  assert.equal(resolved.data.anchor,2000000000); assert.equal(resolved.data.live[0].state,'reserved');
+  assert.deepEqual(resolved.data.waiting_review,[]);
+});
 // The final-response contract (2026-09-11, issue #1147): a routine mid-loop comment returns to
 // the SAME loop, and only a review-required handoff ends the turn -- on a persisted hold, with
 // exactly one question, held until an explicit resume. The reader owns the facts; the reducer

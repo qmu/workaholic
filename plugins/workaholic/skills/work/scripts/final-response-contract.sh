@@ -10,7 +10,7 @@
 # that judgement hold. It writes nothing, ever; a refusal is stdout JSON and exit 2.
 #
 # Facts:
-#   interruption_kind  "routine" | "review_required"                          (required)
+#   interruption_kind  "routine" | "task_review" | "review_required"          (required)
 #   instance_id        the loop's own instance ID, set once at `start`         (required)
 #   anchor             the loop's startup anchor, epoch seconds                (required)
 #   control            the coordinator's current mode, "running" | "held"    (default running)
@@ -73,7 +73,7 @@ done
 
 if ! jq -e '
   type == "object" and
-  (.interruption_kind == "routine" or .interruption_kind == "review_required") and
+  (.interruption_kind == "routine" or .interruption_kind == "task_review" or .interruption_kind == "review_required") and
   (.instance_id | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]*$")) and
   (.anchor | type == "number" and floor == . and . >= 0) and
   ((.control == null) or .control == "running" or .control == "held") and
@@ -99,6 +99,8 @@ reason=$(jq -r --arg q "$QUESTION" '
   (.question // "") as $question |
   if .continue_on != null and
      (.continue_on.instance_id != .instance_id or .continue_on.anchor != .anchor) then "anchor_moved"
+  elif .interruption_kind == "task_review" and $control == "held" then "task_wait_is_not_global_hold"
+  elif .interruption_kind == "task_review" and .continuation == null then "continuation_unproved"
   elif .interruption_kind == "review_required" and ($held | not) then "hold_not_persisted"
   elif .interruption_kind == "review_required" and $question != $q then "question_mismatch"
   elif .interruption_kind == "routine" and $question != "" then "question_mismatch"
@@ -117,6 +119,10 @@ jq -c --arg q "$QUESTION" '
   if .interruption_kind == "review_required" then
     {ok:true, path:"review_handoff", final_response:true, question:$q,
      instance_id:.instance_id, anchor:.anchor, control:"held", hold_stands:true,
+     second_start:false, continuation:$continuation, reason:""}
+  elif .interruption_kind == "task_review" then
+    {ok:true, path:"task_wait", final_response:false, question:null,
+     instance_id:.instance_id, anchor:.anchor, control:"running", hold_stands:false,
      second_start:false, continuation:$continuation, reason:""}
   else
     {ok:true, path:"resume", final_response:false, question:null,

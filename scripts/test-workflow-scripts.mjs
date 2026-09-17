@@ -30062,6 +30062,21 @@ function testTickRecordsReachTheBase() {
       [twice.records[0].state, twice.records[0].reason, twice.records[0].branch], ["unlanded", "publication_open", open.publication.branch]);
     assertEq("and no second branch was created for it", originRefs(), refsAfterOpen);
 
+    // The pre-open read is not a lock: another publisher may appear after it and win the same
+    // timestamped branch. Pin the second observation beside both failure paths so a collision
+    // cannot erase the durable publication_open fact, while an unmatched refusal keeps the
+    // opening seam's own reason.
+    const persistSource = readFileSync(join(M, "persist-log.sh"), "utf8");
+    assertTrue("a publish branch collision refreshes the publication map before reporting",
+      /\[ "\$_pub_reason" = branch_collision \][\s\S]*?refresh_open_publications[\s\S]*?publication_open/.test(persistSource),
+      "the post-publication collision read is missing");
+    assertTrue("an open failure refreshes the publication map before reporting",
+      /_open_reason=publish_tree_unavailable[\s\S]*?refresh_open_publications[\s\S]*?_open_ref=/.test(persistSource),
+      "the post-open failure read is missing");
+    assertTrue("an unmatched open failure keeps its original reason",
+      /"reason": "%s"[^\n]*json_escape "\$_open_reason"/.test(persistSource),
+      "the open failure was collapsed into a collision");
+
     // A CLAIM IS NOT A FACT: the line names two records and only one is in the tree.
     execSync(`${APPEND} --root . --tick 20260823-100000 --step inbound-sweep-filed --status filed --summary "filed ${rec} and .workaholic/feedbacks/20260823100001-lost.md"`, { cwd: c, stdio: "ignore" });
     const f = JSON.parse(execSync(`${FILED} --root . --step inbound-sweep`, { cwd: c, encoding: "utf8" }));

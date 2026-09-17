@@ -195,6 +195,14 @@ if [ -n "$RECORDS" ]; then
         printf '%s\n' "$_r"
     done > "$WORK/records" 2>/dev/null || : > "$WORK/records"
 
+    # Discover an earlier open publication before minting another timestamped branch. A second
+    # invocation can land in the same second as the first; opening first then reports
+    # branch_collision and hides the stronger fact that this exact record is already carried.
+    (cd "$repo_root" && git fetch --quiet origin '+refs/heads/work-*:refs/remotes/origin/work-*' 2>/dev/null) || true
+    UNMERGED_BRANCHES_LABEL=persist-log
+    . "${SCRIPT_DIR}/../../specificate/scripts/lib/unmerged-branches.sh"
+    (cd "$repo_root" && unmerged_branches_added_paths "origin/${BASE}" .workaholic/feedbacks 2>/dev/null) > "$WORK/on-branch" || : > "$WORK/on-branch"
+
     rec_open=$(cd "$repo_root" && sh "${BRANCHING}/open-publish-tree.sh" "$BASE" 2>/dev/null || true)
     case "$rec_open" in
         *'"ok": true'*)
@@ -205,10 +213,6 @@ if [ -n "$RECORDS" ]; then
             # it. The walk is `/specificate`'s own (`lib/unmerged-branches.sh`): git-native, one
             # fetch of the `work-*` heads, over-reading on every ambiguity, which is the safe
             # direction for a dedup.
-            (cd "$repo_root" && git fetch --quiet origin '+refs/heads/work-*:refs/remotes/origin/work-*' 2>/dev/null) || true
-            UNMERGED_BRANCHES_LABEL=persist-log
-            . "${SCRIPT_DIR}/../../specificate/scripts/lib/unmerged-branches.sh"
-            (cd "$repo_root" && unmerged_branches_added_paths "origin/${BASE}" .workaholic/feedbacks 2>/dev/null) > "$WORK/on-branch" || : > "$WORK/on-branch"
             while IFS= read -r rel; do
                 [ -n "$rel" ] || continue
                 src="${root_abs}/${rel}"
@@ -281,9 +285,16 @@ if [ -n "$RECORDS" ]; then
             ;;
         *)
             RECORDS_JSON=$(printf '%s' "$RECORDS_JSON")
+            _open_reason=$(printf '%s' "$rec_open" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
+            [ -n "$_open_reason" ] || _open_reason=publish_tree_unavailable
             while IFS= read -r rel; do
                 [ -n "$rel" ] || continue
-                RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "unlanded"}' "$(json_escape "$rel")")"
+                _open_ref=$(awk -F'\t' -v p="$rel" '$2 == p { print $1; exit }' "$WORK/on-branch" 2>/dev/null || printf '')
+                if [ -n "$_open_ref" ]; then
+                    RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "unlanded", "reason": "publication_open", "branch": "%s"}' "$(json_escape "$rel")" "$(json_escape "${_open_ref#refs/remotes/origin/}")")"
+                else
+                    RECORDS_JSON="${RECORDS_JSON}${_rsep}$(printf '{"path": "%s", "state": "unlanded", "reason": "%s"}' "$(json_escape "$rel")" "$(json_escape "$_open_reason")")"
+                fi
                 _rsep=', '
             done < "$WORK/records"
             ;;

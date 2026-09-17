@@ -197,8 +197,10 @@ test('legacy notify-slack: text/thread validation and missing-token result', (t)
 
 test('legacy feedback CLI: subject option preserves positional refusal contract', (t) => {
   const f = fixture(t);
-  assert.deepEqual(json(f.sh('feedback/scripts/create.sh', ['Title', 'instruction', 'development'], 'Body'), 1), { created: false, reason: 'no_subject' });
-  assert.deepEqual(json(f.sh('feedback/scripts/create.sh', ['--subject', 'invalid:x', 'Title', 'instruction', 'development'], 'Body'), 1), { created: false, reason: 'bad_subject_kind' });
+  // Both refusals happen before create.sh reads stdin. Supplying input here races a short-lived
+  // shell under a busy CI runner and can make spawnSync report EPIPE instead of the contract.
+  assert.deepEqual(json(f.sh('feedback/scripts/create.sh', ['Title', 'instruction', 'development']), 1), { created: false, reason: 'no_subject' });
+  assert.deepEqual(json(f.sh('feedback/scripts/create.sh', ['--subject', 'invalid:x', 'Title', 'instruction', 'development']), 1), { created: false, reason: 'bad_subject_kind' });
 });
 
 test('legacy strategy survey: positional window/root with supplied proposal reading', (t) => {

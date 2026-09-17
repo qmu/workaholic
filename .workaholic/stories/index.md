@@ -3,7 +3,6 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
-* [work-20260908-175401](work-20260908-175401.md) - A human decision becomes an explicit loop state — judged for maturity before it may ask, asked once to the responsible person, and read back as evidence before the next tick reports no_evolutionary_move.
 * [work-20260917-184248](work-20260917-184248.md) - Select merge gates by branch role and classify held pull requests
 * [work-20260917-182253](work-20260917-182253.md) - Reconcile live claims and own every action before cadence
 * [work-20260917-135216](work-20260917-135216.md) - task review 中も coordinator observation と独立 work を継続するようにした。

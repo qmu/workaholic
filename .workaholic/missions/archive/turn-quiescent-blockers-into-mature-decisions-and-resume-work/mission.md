@@ -2,7 +2,7 @@
 type: Mission
 title: Turn quiescent blockers into mature decisions and resume work
 slug: turn-quiescent-blockers-into-mature-decisions-and-resume-work
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-08T12:32:56+09:00
 author: a@qmu.jp
@@ -43,3 +43,5 @@ A quiescent strategy no longer ends in a worker-only explanation. Premature ques
 - 2026-09-08 — ticket archived — 20260908123303-re-evaluate-quiescent-strategies-after-answers-arrive.md
 - 2026-09-08 — story written — work-20260908-175401.md
 - 2026-09-08 — run recorded (+0.4h) — implement-20260908-1144Z
+- 2026-09-18 — ticket archived — 20260908190000-reconcile-the-survey-s-observing-refusal-with-its-ladder.md
+- 2026-09-18 — mission achieved — mission.md

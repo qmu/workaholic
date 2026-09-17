@@ -69,12 +69,14 @@ dated line to `## Schedule` saying what moved, so the artifact carries its own h
 proposal now, so among eligible directions it **sorts first** in `/propose`'s survey — an order,
 never a gate, with the existing late-first and nearest-date terms unchanged beneath it.
 
-**The stage's other consequence is 観察中's**: `/propose` is refused
-`observing` and originates nothing for that direction (`workaholic:propose`). It stops
-**origination only** — inbound work still reaches a settled direction through `/specificate`
-unchanged — and it is the **first declared gate** on a list of derived ones, which is what makes
-it admissible where a derived silence was refused: a machine's guess must not silence the one
-routine that originates work, and the operator's own word is not a guess.
+**観察中 is a lens, and it is not a gate** (2026-09-18, ticket `20260908190000`). It was
+briefly one: the declared stage shipped on 2026-08-29 with an `observing` refusal in
+`/propose`'s ladder, and that refusal was retired the same week — 観察中 says which kind of
+learning a direction needs, not that it needs none, so such a direction stays eligible and the
+stage only leads the survey's **sort** (`workaholic:propose`, *観察中 permits observation
+work*). Inbound work reaches a settled direction through `/specificate` unchanged, as it always
+did. **No stage is a gate anywhere**: the whole layer's readings gate origination, and the one
+word the operator wrote down informs the hypothesis instead of silencing it.
 
 **The stage is DECLARED; the lifecycle state is DERIVED, and neither becomes the other**
 (2026-08-29, mission `make-a-direction-s-lifecycle-a-declared-stage`). Every other reading in

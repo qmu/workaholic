@@ -47,6 +47,7 @@
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 GH_REST="${SCRIPT_DIR}/../../gather/scripts/gh-rest.sh"
 READ_CHECKS="${SCRIPT_DIR}/read-base-checks.sh"
+MERGE_GATE_POLICY="${SCRIPT_DIR}/../../branching/scripts/merge-gate-policy.sh"
 
 PR="${1:-}"
 EXPECTED_HEAD="${2:-}"
@@ -54,7 +55,7 @@ EXPECTED_HEAD="${2:-}"
 # $1 gate, $2 reason, $3 state, $4 failing (JSON array), $5 head
 emit() {
     _ok=true
-    case "${1:-}:${2:-}" in pass:|pass:no_checks|pass:gate_disabled) ;; *) _ok=false ;; esac
+    case "${1:-}:${2:-}" in pass:|pass:no_checks|pass:gate_disabled|pass:development_main_local_proof) ;; *) _ok=false ;; esac
     printf '{"ok": %s, "pr": "%s", "head": "%s", "gate": "%s", "reason": "%s", "state": "%s", "failing": %s}\n' \
         "$_ok" "$PR" "${5:-}" "$1" "${2:-}" "${3:-unread}" "${4:-[]}"
     exit 0
@@ -83,6 +84,18 @@ pr_body=$(sh "$GH_REST" api "repos/${slug}/pulls/${PR}" 2>/dev/null || true)
 head=$(printf '%s' "$pr_body" | jq -r '.head.sha // empty' 2>/dev/null || true)
 [ -n "$head" ] || emit defer unreadable:head_unresolved
 [ -z "$EXPECTED_HEAD" ] || [ "$head" = "$EXPECTED_HEAD" ] || emit refuse head_changed unread "[]" "$head"
+
+# Development main is continuously integrated from locally proved units. Remote checks are
+# post-merge detection there; release promotion keeps the full remote-CI gate. An unreadable or
+# unknown role takes the strict direction and falls through to the existing remote check reader.
+base=$(printf '%s' "$pr_body" | jq -r '.base.ref // empty' 2>/dev/null || true)
+if [ -f "$MERGE_GATE_POLICY" ]; then
+    policy=$(sh "$MERGE_GATE_POLICY" "$base" 2>/dev/null || true)
+    required=$(printf '%s' "$policy" | jq -r 'if has("remote_checks_required") then .remote_checks_required else true end' 2>/dev/null || printf true)
+    if [ "$required" = false ]; then
+        emit pass development_main_local_proof development "[]" "$head"
+    fi
+fi
 
 checks=$(sh "$READ_CHECKS" "$head" 2>/dev/null || true)
 state=$(printf '%s' "$checks" | jq -r '.state // empty' 2>/dev/null || true)

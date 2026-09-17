@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260917-182253
 ---
 
 # Reconcile waiting work without repeated machine claims

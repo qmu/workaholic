@@ -744,5 +744,12 @@
 * [Prevent false resumed-loop reports and keep the native parent alive after steering](20260917122606-prevent-false-resumed-loop-reports-and-keep-the-native-parent-alive-after-steering.md)
 * [Keep Slack observation running while a work item awaits human review](20260917122710-keep-slack-observation-running-while-a-work-item-awaits-human-review.md)
 * [Restore automatic Slack mention discovery](20260917122803-restore-automatic-slack-mention-discovery.md)
+* [Discover Codex plugin caches before selecting an older registry install](20260917122839-discover-codex-plugin-caches-before-selecting-an-older-registry-install.md)
+* [Preserve capture failure reasons in observe-channel](20260917122847-preserve-capture-failure-reasons-in-observe-channel.md)
+* [Prevent false resumed-loop reports and keep the native parent alive after steering](20260917122854-prevent-false-resumed-loop-reports-and-keep-the-native-parent-alive-after-steering.md)
 * [Reconcile accepted scope across blocked implementation PRs](20260917122859-reconcile-accepted-scope-across-blocked-implementation-prs.md)
+* [Keep Slack observation running while a work item awaits human review](20260917122915-keep-slack-observation-running-while-a-work-item-awaits-human-review.md)
+* [Restore automatic Slack mention discovery](20260917122925-restore-automatic-slack-mention-discovery.md)
+* [Reconcile accepted scope across blocked implementation PRs](20260917122933-reconcile-accepted-scope-across-blocked-implementation-prs.md)
+* [部分カバレッジ時に新しいSlackスレッドを見落とさない](20260917123442-slack.md)
 <!-- okf:generated:end -->

@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260918-081459](work-20260918-081459.md) - A check-in question is retired only on a step's positive statement that it resolved the premise, and the rows the old rule already extinguished are reinstated.
 * [work-20260918-055949](work-20260918-055949.md) - Key the inbox dedup on the provider id and the sender so a thread_broadcast message is captured once, and make the refusal that stops the binding cursor name its own cause.
 * [work-20260918-035851](work-20260918-035851.md) - Drain the Slack channel, discover what is outside the read window, refuse to call a partly-read channel quiet, keep the loop running on somebody else's merge, and read one request across all its pull requests
 * [work-20260917-190823](work-20260917-190823.md) - Gate Slack incident retirement on declared live proof

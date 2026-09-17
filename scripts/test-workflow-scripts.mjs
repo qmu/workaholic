@@ -39754,6 +39754,48 @@ function testHeldPullRequestVerdict() {
   } finally { cleanup(dir); }
 }
 
+T("Slack incident retirement requires declared live round-trip proof",
+  testSlackLiveProofGate);
+function testSlackLiveProofGate() {
+  const dir = makeRepo("main");
+  try {
+    writeFileSync(join(dir, "AGENTS.md"), `\`\`\`workaholic-slack-binding
+workspace: qmu
+channel: dev-workaholic
+sender_id: U123
+operations: read_channel_delta, read_thread, list_thread_changes, post_root, post_reply, add_reaction
+\`\`\`\n`);
+    const script = join(REPO_ROOT,
+      "plugins/workaholic/skills/transport/scripts/verify-live-proof.sh");
+    const preflight = JSON.parse(run(dir, `${POSIX_SH} ${script} --root ${dir}`).stdout);
+    assertEq("configuration alone cannot retire incidents", preflight.closure_eligible, false);
+    assertEq("and asks for live evidence", preflight.reason, "live_evidence_required");
+
+    const digest = JSON.parse(run(dir,
+      `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/transport/scripts/read-declared-binding.sh")} --root ${dir}`).stdout).declared_digest;
+    const evidence = join(dir, "proof.json");
+    writeFileSync(evidence, JSON.stringify({declared_digest: digest, workspace: "qmu",
+      channel: "dev-workaholic", sender_id: "U123",
+      operations: Object.fromEntries(["read_channel_delta", "read_thread", "list_thread_changes",
+        "post_root", "post_reply", "add_reaction"].map((op) => [op, { proved: true }])),
+      round_trip: {root_ts: "1.1", reply_ts: "1.2", reaction_seen: true,
+        channel_delta_seen: true, thread_change_seen: true, thread_reply_seen: true}}));
+    const proved = JSON.parse(run(dir,
+      `${POSIX_SH} ${script} --root ${dir} --evidence ${evidence}`).stdout);
+    assertEq("complete matching live evidence permits closure", proved.closure_eligible, true);
+    assertEq("and leaves no incident unresolved", proved.incidents_unresolved, 0);
+
+    const incomplete = JSON.parse(readFileSync(evidence, "utf8"));
+    incomplete.round_trip.reaction_seen = false;
+    writeFileSync(evidence, JSON.stringify(incomplete));
+    const refused = JSON.parse(run(dir,
+      `${POSIX_SH} ${script} --root ${dir} --evidence ${evidence}`).stdout);
+    assertEq("one missing live operation keeps all incidents open", refused.closure_eligible, false);
+    assertEq("by the round-trip reason", refused.reason, "round_trip_unproved");
+    assertEq("all eleven remain unresolved", refused.incidents_unresolved, 11);
+  } finally { cleanup(dir); }
+}
+
 T("the pre-merge check gate defers unreadable evidence and refuses red or pending checks",
   testBranchChecksGate);
 function testBranchChecksGate() {

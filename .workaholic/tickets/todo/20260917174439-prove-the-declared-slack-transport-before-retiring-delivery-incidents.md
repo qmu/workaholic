@@ -47,3 +47,7 @@ Give the repeated Slack delivery incidents (#806, #939, #1095, #1101, #1106, #11
 ## Considerations
 
 The code portion is claimable now, but live acceptance is a handoff because this repository deliberately declares no verified sender. Do not provision, rotate, or expose a credential from this ticket.
+
+## Progress Report
+
+Added a binding-locked live-proof validator that keeps all eleven incidents unresolved unless every declared operation, the verified sender, and the root/reply/reaction readback are present in one matching evidence document. The current repository preflight returns `unverifiable_sender` and `incidents_unresolved: 11`, consistent with `AGENTS.md`; no Slack write was attempted. Operator handoff: add the verified `sender_id`, use the declared connector to perform the bounded root/reply/reaction and readbacks, save the typed evidence, then run `sh plugins/workaholic/skills/transport/scripts/verify-live-proof.sh --root . --evidence <proof.json>` and proceed only when `closure_eligible: true`.

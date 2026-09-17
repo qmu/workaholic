@@ -30050,6 +30050,10 @@ function testTickRecordsReachTheBase() {
 
     // A PULL REQUEST LEFT OPEN IS `unlanded` WITH THE SEAM'S OWN WORD, and the record is not
     // published a second time while its branch is still unmerged.
+    // The first record's publication branch is deliberately retained. Step beyond its
+    // second-derived name so this row deterministically exercises merge refusal, not an
+    // unrelated branch collision with the earlier record.
+    tickSecond();
     writeFileSync(mergeMode, "refuse");
     writeFileSync(join(c, rec2), "---\ntype: Feedback\n---\n\n# u\n");
     const open = JSON.parse(execSync(`${PERSIST} --tick 20260823-120000 --root . --record ${rec2}`, { cwd: c, encoding: "utf8", env }));

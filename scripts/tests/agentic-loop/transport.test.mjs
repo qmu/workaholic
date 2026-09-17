@@ -260,11 +260,19 @@ test("P5 production observer reads an overlap-safe QFS delta, deduplicates it, a
   assert.deepEqual(result.json.data.new_input_ids, ["m1"]);
   assert.deepEqual(result.json.data.known_thread_changes.map(x => x.thread_ts), ["799.0"]);
   assert.deepEqual(result.json.data.mentions.map(x => x.id), ["m1"]);
+  assert.deepEqual(result.json.data.mentions.map(x => x.source), ["channel_delta"], "this mount cannot search");
   // Undeclared: the observer must find the mount before it can describe it — enumerate,
   // fall back to the aggregate describe, then describe the mount, plus the read and the
   // capture. A repository that declares its mount pays one describe (the test below).
-  assert.equal(result.json.data.calls.total, 7);
+  // The eighth call is the mention search (2026-09-17, ticket `20260917122814`): one bounded
+  // `search_exact` per tick, the stated cost of reaching a mention OUTSIDE the delta window.
+  // This mount advertises no such operation, so the transport refuses it and says so.
+  assert.equal(result.json.data.calls.total, 8);
   assert.equal(result.json.data.calls.describe, 4);
+  assert.equal(result.json.data.calls.mentions, 1);
+  assert.equal(result.json.data.coverage.mentions.searched, false);
+  assert.equal(result.json.data.coverage.mentions.reason, "operation_unavailable");
+  assert.equal(result.json.data.coverage.mentions.exhaustive, false, "a search is never a completeness claim");
   // This mount offers no thread discovery, so thread coverage is PARTIAL and says why —
   // the reading that used to be reported as covered because the channel delta had run.
   assert.equal(result.json.data.coverage.threads.status, "partial");
@@ -625,4 +633,162 @@ test("P3 connector unavailability and legacy channel ambiguity remain named", ()
   const bindings = request(dir, [{ binding_id: "a", workspace: "A", channel: "same" }, { binding_id: "b", workspace: "B", channel: "same" }], "bindings.json");
   result = run(join(scripts, "relay-v1.sh"), ["envelope", envelope, "--bindings", bindings], { cwd: dir });
   assert.equal(result.json.reason, "ambiguous_target", result.stderr);
+});
+
+// A partly-read channel is INCOMPLETE, never quiet (2026-09-17, ticket `20260917123453`). The
+// reproduction is the measured pair: `list_thread_changes` refused while the channel delta
+// answered `has_more: true`, so one page was read, the rest was called "later", and the only
+// threads anybody could read were the ones already known — which was none.
+test("P5 an unread delta page and refused thread discovery are drained, remembered, and never called quiet", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const queries = join(dir, "queries");
+  // Page 1 says `has_more: true`; page 2, asked from the advanced cursor, carries the tail and an
+  // explicit permalink to an OLDER root. `read_thread` works; `list_thread_changes` is not a
+  // described operation — this repository's own measured channel node.
+  writeFileSync(qfs, `#!/bin/sh
+printf '%s\\n' "$*" >> '${queries}'
+case "$1 $2" in
+  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","sender_id":"BOT","operations":["read_channel_delta","read_thread"],"channels":[{"name":"dev-x","id":"C1"}]}'; exit 0 ;;
+esac
+case "$*" in
+  *"/threads |> select thread_ts"*) printf 'no such collection\\n' >&2; exit 1 ;;
+  *"/threads/1726500000.000700/messages"*) printf '%s\\n' '{"rows":[{"id":"root","ts":"1726500000.000700","sender_id":"HUMAN","text":"an older ask"},{"id":"r9","ts":"1726500099.000000","thread_ts":"1726500000.000700","sender_id":"HUMAN","text":"still waiting"}]}' ;;
+  *"/threads/"*) printf '%s\\n' '{"rows":[]}' ;;
+  *"after 801."*) printf '%s\\n' '{"rows":[{"id":"m2","ts":"802.0","sender_id":"HUMAN","text":"see https://qmu.slack.com/archives/C1/p1726500000000700"}],"has_more":false}' ;;
+  *) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","sender_id":"HUMAN","text":"first page"}],"has_more":true}' ;;
+esac
+`);
+  spawnSync("chmod", ["+x", qfs]);
+  writeFileSync(join(dir, "AGENTS.md"), ["```workaholic-slack-binding", "workspace: qmu", "channel: dev-x", "mount: /slack/qmu",
+    "sender_id: BOT", "operations: read_channel_delta, read_thread", "```", ""].join("\n"));
+  const env = { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}` };
+  const result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-17T00:00:00Z"], { cwd: dir, env });
+  const data = result.json.data;
+  assert.equal(data.observation_proved, true, result.stderr);
+
+  // 1. The delta was drained inside ONE call: page 2 was asked for from page 1's advanced
+  //    cursor, both pages' human messages are new input, and `has_more` is false because the
+  //    tail said so rather than because nobody looked.
+  assert.equal(data.coverage.top_level.pages_read, 2, "both pages were read inside one call");
+  assert.deepEqual(data.new_input_ids, ["m1", "m2"], "the second page is not left for the next tick");
+  assert.equal(data.has_more, false);
+  assert.equal(data.coverage.top_level.status, "covered");
+  const asked = readFileSync(queries, "utf8").split("\n").filter(q => q.includes("/C1/messages |>"));
+  assert.equal(asked.length, 2, `one query per page: ${asked.join(" | ")}`);
+  assert.ok(/after 801\.0+$/.test(asked[1].replace(/ --json$/, "")), `page 2 asks from the advanced cursor: ${asked[1]}`);
+
+  // 2. The watch set remembers the delta's own roots AND the thread an explicit permalink named,
+  //    and it is durable — stored on the binding record beside the cursor.
+  assert.equal(data.watch_set.written, true, "the set was stored");
+  assert.deepEqual(data.watch_set.threads, ["801.0", "802.0", "1726500000.000700"], "roots and the permalink's own thread, in coordinate order");
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  const metaFile = spawnSync("find", [join(dir, common, "workaholic/runtime/v1/bindings"), "-name", "meta.json"], { encoding: "utf8" }).stdout.trim();
+  const stored = JSON.parse(readFileSync(metaFile, "utf8")).data;
+  assert.deepEqual(stored.watch_threads.map(t => t.thread_ts), ["801.0", "802.0", "1726500000.000700"], "it survives the tick");
+
+  // 3. Discovery refused, so the FALLBACK read what was discovered — including the reply under
+  //    the older root, which no channel delta can carry. Coverage stays partial with the
+  //    discovery's own reason untouched: a fallback is evidence, never proof of coverage.
+  assert.equal(data.coverage.threads.status, "partial");
+  assert.equal(data.coverage.threads.reason, "operation_unavailable", "the discovery's own reason is not overwritten by the fallback");
+  assert.equal(data.coverage.threads.source, "watch_set_fallback");
+  assert.equal(data.coverage.threads.discovered, false);
+  assert.ok(data.watch_set.fallback_read > 0, "the fallback read the watched threads");
+  assert.ok(data.thread_replies.some(r => r.id === "r9"), `the reply under the older root was read: ${JSON.stringify(data.thread_replies)}`);
+
+  // 4. And the reading refuses to be called settled while a term stands.
+  assert.equal(data.observation_settled, false);
+  assert.ok(data.unsettled.includes("thread_coverage_partial"), JSON.stringify(data.unsettled));
+  assert.ok(data.unreadable.includes("operation_unavailable"), JSON.stringify(data.unreadable));
+});
+
+// The page budget is a bound, not a claim: a budget spent leaves `has_more` standing with its own
+// reason, so nothing reads a cut walk as a drained one.
+test("P5 an exhausted page budget keeps has_more standing with its own reason", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const seq = join(dir, "seq"); writeFileSync(seq, "0");
+  // Every page says `has_more: true`, so only the budget can end the walk.
+  writeFileSync(qfs, `#!/bin/sh
+case "$1 $2" in
+  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","sender_id":"BOT","operations":["read_channel_delta"],"channels":[{"name":"dev-x","id":"C1"}]}'; exit 0 ;;
+esac
+n=$(cat '${seq}'); n=$((n + 1)); printf '%s' "$n" > '${seq}'
+printf '{"rows":[{"id":"m%s","ts":"80%s.0","sender_id":"HUMAN","text":"page %s"}],"has_more":true}\\n' "$n" "$n" "$n"
+`);
+  spawnSync("chmod", ["+x", qfs]);
+  writeFileSync(join(dir, "AGENTS.md"), ["```workaholic-slack-binding", "workspace: qmu", "channel: dev-x", "mount: /slack/qmu",
+    "sender_id: BOT", "operations: read_channel_delta", "```", ""].join("\n"));
+  const result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-17T00:00:00Z"],
+    { cwd: dir, env: { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_CHANNEL_PAGES: "2" } });
+  const data = result.json.data;
+  assert.equal(data.observation_proved, true, result.stderr);
+  assert.equal(data.coverage.top_level.pages_read, 2, "the budget, not the provider, ended the walk");
+  assert.equal(data.coverage.top_level.status, "partial");
+  assert.equal(data.coverage.top_level.reason, "channel_pages_exhausted");
+  assert.equal(data.has_more, true);
+  assert.equal(data.observation_settled, false);
+  assert.ok(data.unsettled.includes("channel_delta_incomplete"), JSON.stringify(data.unsettled));
+});
+
+// A mention OUTSIDE the read window is discovered, tracked at once, and deduplicated
+// (2026-09-17, ticket `20260917122814`). The reproduction is the measured miss: the mention
+// reading was a text test over the channel delta alone, so a mention in a reply under an older
+// root — which channel history never carries — was invisible until somebody pasted a link, and
+// nothing registered the thread either, so the next tick looked past it too.
+test("P5 a mention outside the read window is discovered, tracked at once, and never read twice", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const queries = join(dir, "queries");
+  // The channel delta carries one unrelated top-level message and NOT the mention. The mention
+  // lives in a reply under an older root, which only the search can reach. `list_thread_changes`
+  // is described, and it names that same thread — so the dedup has a repeat to drop.
+  writeFileSync(qfs, `#!/bin/sh
+printf '%s\\n' "$*" >> '${queries}'
+case "$1 $2" in
+  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","sender_id":"BOT","operations":["read_channel_delta","read_thread","search_exact","list_thread_changes"],"channels":[{"name":"dev-x","id":"C1"}]}'; exit 0 ;;
+esac
+case "$*" in
+  *"where text"*) printf '%s\\n' '{"rows":[{"id":"mention","ts":"1726400099.000000","thread_ts":"1726400000.000100","sender_id":"HUMAN","text":"hey <@BOT> can you look"}]}' ;;
+  *"/threads |> select thread_ts"*) printf '%s\\n' '{"rows":[{"thread_ts":"1726400000.000100","last_reply_ts":"1726400099.000000","reply_count":1}],"has_more":false}' ;;
+  *"/threads/1726400000.000100/messages"*) printf '%s\\n' '{"rows":[{"id":"1726400000.000100","ts":"1726400000.000100","sender_id":"HUMAN","text":"an old thread"},{"id":"mention","ts":"1726400099.000000","thread_ts":"1726400000.000100","sender_id":"HUMAN","text":"hey <@BOT> can you look"}]}' ;;
+  *"/threads/"*) printf '%s\\n' '{"rows":[]}' ;;
+  *) printf '%s\\n' '{"rows":[{"id":"m1","ts":"1726500000.000000","sender_id":"HUMAN","text":"unrelated"}],"has_more":false}' ;;
+esac
+`);
+  spawnSync("chmod", ["+x", qfs]);
+  writeFileSync(join(dir, "AGENTS.md"), ["```workaholic-slack-binding", "workspace: qmu", "channel: dev-x", "mount: /slack/qmu",
+    "sender_id: BOT", "operations: read_channel_delta, read_thread, search_exact, list_thread_changes", "```", ""].join("\n"));
+  const env = { WORKAHOLIC_QFS_BIN: qfs, PATH: `${bin}:${process.env.PATH}` };
+  const first = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-17T00:00:00Z"], { cwd: dir, env });
+  const data = first.json.data;
+  assert.equal(data.observation_proved, true, first.stderr);
+
+  // 1. Found with no pre-registration: the delta never carried it, the search did.
+  assert.deepEqual(data.mentions.map(m => m.id).sort(), ["mention"], JSON.stringify(data.mentions));
+  assert.equal(data.mentions[0].source, "mention_search");
+  assert.equal(data.coverage.mentions.searched, true);
+  assert.equal(data.coverage.mentions.discovered, 1);
+  assert.equal(data.coverage.mentions.exhaustive, false, "zero rows would certify nothing either");
+
+  // 2. Tracked at once — the mention's own thread is read on THIS tick, not the next, and the
+  //    reply is classified in the context of its root.
+  assert.equal(data.coverage.mentions.tracked, 1);
+  const reply = data.thread_replies.find(r => r.id === "mention");
+  assert.ok(reply, `the mention was read in its thread: ${JSON.stringify(data.thread_replies)}`);
+  assert.equal(reply.thread_ts, "1726400000.000100");
+  assert.equal(reply.root_shape, "human_root");
+  assert.equal(reply.route, "needs_judgement");
+
+  // 3. Read once, not twice. The discovery arm names the same thread, and the dedup drops it —
+  //    a second read could only return duplicates, at the price of a provider call.
+  const threadReads = readFileSync(queries, "utf8").split("\n").filter(q => q.includes("/threads/1726400000.000100/"));
+  assert.equal(threadReads.length, 1, `one read per thread per tick: ${threadReads.join(" | ")}`);
+  assert.deepEqual(data.thread_replies.filter(r => r.id === "mention").length, 1, "and one reply entry");
+
+  // 4. The thread joined the durable watch set, so the ordinary cadence keeps it.
+  assert.ok(data.watch_set.threads.includes("1726400000.000100"), JSON.stringify(data.watch_set));
+
+  // 5. The next tick re-reads the thread and the message is a duplicate, not new input.
+  const second = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-17T00:01:00Z"], { cwd: dir, env });
+  assert.deepEqual(second.json.data.new_input_ids, [], "the delta page is already captured");
+  assert.deepEqual(second.json.data.thread_replies, [], "and the mention is not delivered twice");
 });

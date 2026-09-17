@@ -105,3 +105,24 @@ test('P5 inbox cursor advances only after durable deduplicated captures', t => {
   const inbox=JSON.parse(run(['sh',state,'read','--scope','binding','--id','b','--record',`inbox/${messageKey}`],{cwd:dir}).stdout); assert.equal(inbox.data.record.data.message.text,'hello');
   assert.equal(inbox.data.record.data.provider_id,'m1');
 });
+
+// A PROVED observation whose coverage is unfinished is `observation_incomplete`, never `quiet`
+// (2026-09-17, ticket `20260917123453`) — and it changes the WORD, never the interval: a standing
+// limitation such as a route that will never carry thread discovery would otherwise shorten the
+// interval forever, which is a spin rather than a repair.
+test('P5 an unsettled observation is incomplete rather than quiet, at the same interval', () => {
+  const script=join(skills,'runtime/scripts/plan-poll.sh');
+  const polling={mode:'fixed',interval_seconds:300,conversation_seconds:30,idle_seconds:300,max_seconds:900};
+  const settled=invoke(script,{now_epoch:1000,polling,state:{},observed:{proved:true,activity:false}}).data;
+  assert.equal(settled.reason,'quiet','absent means settled');
+  const unsettled=invoke(script,{now_epoch:1000,polling,state:{},observed:{proved:true,activity:false,settled:false}}).data;
+  assert.equal(unsettled.reason,'observation_incomplete');
+  assert.equal(unsettled.next_due,settled.next_due,'the word moves and the cadence does not');
+  assert.equal(unsettled.next_state.quiet_streak,settled.next_state.quiet_streak,'the backoff is untouched');
+  // Activity outranks it: a tick with new input is reported as activity whatever remains unread.
+  assert.equal(invoke(script,{now_epoch:1000,polling,state:{},observed:{proved:true,activity:true,settled:false}}).data.reason,'activity');
+  // An unproved read is still `observation_unreadable` — unread outranks incomplete.
+  assert.equal(invoke(script,{now_epoch:1000,polling,state:{},observed:{proved:false,activity:false,settled:false}}).data.reason,'observation_unreadable');
+  // And an unread page still forces an immediate re-poll, which is where the cadence term lives.
+  assert.equal(invoke(script,{now_epoch:1000,polling,state:{},observed:{proved:true,activity:false,settled:false,has_more:true}}).data.next_due,1000);
+});

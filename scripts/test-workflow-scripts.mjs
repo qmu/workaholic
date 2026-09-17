@@ -22668,7 +22668,7 @@ function testPartialHandoffConsumers() {
   // assertion below reads out of the document rather than from this list.
   const accounted = new Set(["step-handoff-units.sh", "step-stalled-units.sh", "plan-units.sh",
     "claim.sh", "list-claims.sh", "lib/claims.sh", "declared-handoff-detail.sh",
-    "list-catchable-claims.sh", "catch-up-claim.sh"]);
+    "list-catchable-claims.sh", "catch-up-claim.sh", "held-pull-branches.sh"]);
   const reads = [];
   for (const dir of ["plugins/workaholic/skills/drive/scripts",
     "plugins/workaholic/skills/moderate/scripts"]) {

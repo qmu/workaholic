@@ -741,4 +741,5 @@
 * [Keep the native loop alive, preserve Slack input, and stop direct commits to main](20260911180039-keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main.md)
 * [Discover Codex plugin caches before selecting an older registry install](20260917122237-discover-codex-plugin-caches-before-selecting-an-older-registry-install.md)
 * [Preserve capture failure reasons in observe-channel](20260917122500-preserve-capture-failure-reasons-in-observe-channel.md)
+* [Prevent false resumed-loop reports and keep the native parent alive after steering](20260917122606-prevent-false-resumed-loop-reports-and-keep-the-native-parent-alive-after-steering.md)
 <!-- okf:generated:end -->

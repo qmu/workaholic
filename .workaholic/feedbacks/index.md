@@ -739,4 +739,5 @@
 * [The declared Slack binding cannot read its own channel once two QFS mounts reach it](20260911021557-the-declared-slack-binding-cannot-read-its-own-channel-once-two-qfs-mounts-reach-it.md)
 * [Resume the native work loop after ordinary mid-loop comments](20260911142410-resume-the-native-work-loop-after-ordinary-mid-loop-comments.md)
 * [Keep the native loop alive, preserve Slack input, and stop direct commits to main](20260911180039-keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main.md)
+* [Discover Codex plugin caches before selecting an older registry install](20260917122237-discover-codex-plugin-caches-before-selecting-an-older-registry-install.md)
 <!-- okf:generated:end -->

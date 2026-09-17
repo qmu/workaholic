@@ -762,4 +762,5 @@
 * [Stop re-claiming units that await a person](20260917173545-stop-re-claiming-units-that-await-a-person.md)
 * [Reconcile historical loop state without coordinator handwork](20260917173553-reconcile-historical-loop-state-without-coordinator-handwork.md)
 * [開発中のmainとrelease branchでCI merge gateを分ける](20260917173839-main-release-branch-ci-merge-gate.md)
+* [Channel observation aborts silently on a thread_ts mismatch](20260918054606-channel-observation-aborts-silently-on-a-thread-ts-mismatch.md)
 <!-- okf:generated:end -->

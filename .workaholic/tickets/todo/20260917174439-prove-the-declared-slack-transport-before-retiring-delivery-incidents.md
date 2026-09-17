@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260901002017-the-moderation-tick-has-no-slack-transport-that-reaches-the-loop-s-channel.md, 20260909222245-verify-the-qfs-root-map-by-matching-not-by-counting-and-emit-add-reaction.md]
 merge_policy:
 verification_handoff: a verified Slack sender plus declared read_channel_delta, read_thread, list_thread_changes, post_root, post_reply, and add_reaction capabilities are not available in the unattended environment
+claim: work-20260917-190823
 ---
 
 # Prove the declared Slack transport before retiring delivery incidents

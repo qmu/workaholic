@@ -201,10 +201,13 @@ if [ -n "$RECORDS" ]; then
     # Refresh the base together with every publication head. A refspec-limited fetch of only
     # `work-*` leaves origin/main stale in a long-lived checkout; the shared walker then compares
     # the publication against yesterday's base and can miss the exact record we are deduping.
-    (cd "$repo_root" && git fetch --quiet origin 2>/dev/null) || true
     UNMERGED_BRANCHES_LABEL=persist-log
     . "${SCRIPT_DIR}/../../specificate/scripts/lib/unmerged-branches.sh"
-    (cd "$repo_root" && unmerged_branches_added_paths "origin/${BASE}" .workaholic/feedbacks 2>/dev/null) > "$WORK/on-branch" || : > "$WORK/on-branch"
+    refresh_open_publications() {
+        (cd "$repo_root" && git fetch --quiet origin 2>/dev/null) || true
+        (cd "$repo_root" && unmerged_branches_added_paths "origin/${BASE}" .workaholic/feedbacks 2>/dev/null) > "$WORK/on-branch" || : > "$WORK/on-branch"
+    }
+    refresh_open_publications
 
     rec_open=$(cd "$repo_root" && sh "${BRANCHING}/open-publish-tree.sh" "$BASE" 2>/dev/null || true)
     case "$rec_open" in
@@ -274,6 +277,30 @@ if [ -n "$RECORDS" ]; then
                 fi
                 [ -n "$_pub_reason" ] || _pub_reason=publish_failed
                 [ "$_pub_merged" = true ] || _pub_merged=false
+
+                # A same-second publisher can win after the pre-open observation but before this
+                # publication allocates its work-* branch. On branch_collision, observe again:
+                # the durable branch is the stronger fact, and the record must point to it rather
+                # than asking a later tick to mint yet another branch. Other publication failures
+                # keep their own reason unchanged.
+                if [ "$_pub_ok" != true ] && [ "$_pub_reason" = branch_collision ]; then
+                    refresh_open_publications
+                    _prior_records=$RECORDS_JSON
+                    RECORDS_JSON=''
+                    _rsep=''
+                    while IFS= read -r rel; do
+                        [ -n "$rel" ] || continue
+                        _prior=$(printf '[%s]' "$_prior_records" | jq -c --arg p "$rel" '.[] | select(.path == $p)' 2>/dev/null | head -n 1)
+                        _open_ref=$(awk -F'\t' -v p="$rel" '$2 == p { print $1; exit }' "$WORK/on-branch" 2>/dev/null || printf '')
+                        if [ -n "$_open_ref" ] && printf '%s' "$_prior" | jq -e '.state == "carried"' >/dev/null 2>&1; then
+                            _prior=$(printf '{"path": "%s", "state": "unlanded", "reason": "publication_open", "branch": "%s"}' "$(json_escape "$rel")" "$(json_escape "${_open_ref#refs/remotes/origin/}")")
+                        fi
+                        [ -n "$_prior" ] || _prior=$(printf '{"path": "%s", "state": "unlanded", "reason": "%s"}' "$(json_escape "$rel")" "$(json_escape "$_pub_reason")")
+                        RECORDS_JSON="${RECORDS_JSON}${_rsep}${_prior}"
+                        _rsep=', '
+                    done < "$WORK/records"
+                fi
+
                 PUBLICATION_JSON=$(printf '{"branch": "%s", "pr_url": "%s", "merged": %s, "merge_reason": "%s"}' \
                     "$(json_escape "$_pub_branch")" "$(json_escape "$_pub_url")" "$_pub_merged" "$(json_escape "$_pub_reason")")
                 if [ "$_pub_ok" != true ] || [ "$_pub_merged" != true ]; then
@@ -290,6 +317,10 @@ if [ -n "$RECORDS" ]; then
             RECORDS_JSON=$(printf '%s' "$RECORDS_JSON")
             _open_reason=$(printf '%s' "$rec_open" | sed -n 's/.*"reason": *"\([^"]*\)".*/\1/p')
             [ -n "$_open_reason" ] || _open_reason=publish_tree_unavailable
+            # The first observation may have raced the publisher whose branch made this open
+            # fail. Rebuild the map after the failure; if the record is now visible, name that
+            # branch. With no match, the original open failure remains the truthful reason.
+            refresh_open_publications
             while IFS= read -r rel; do
                 [ -n "$rel" ] || continue
                 _open_ref=$(awk -F'\t' -v p="$rel" '$2 == p { print $1; exit }' "$WORK/on-branch" 2>/dev/null || printf '')

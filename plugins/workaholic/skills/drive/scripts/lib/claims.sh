@@ -236,6 +236,26 @@ if [ -z "$CLAIMS_LIB_DIR" ]; then
     done
     unset _cl_cand
 fi
+# Every push this library makes reads the base-ref gate first (2026-09-11): the liveness
+# carrier and its delete land on `refs/claims/*`, which the gate allows by name. The gate is
+# resolved beside this library; a sourcer with no resolvable library directory (a `sh -c '. …'`
+# fixture) gets a fallback that answers exactly what the gate would with no role -- attended --
+# and REFUSES `gate_unresolved` under any role, so an unresolved gate never widens a role's reach.
+_cl_gate=''
+for _cl_gate_cand in "${CLAIMS_LIB_DIR:-/nonexistent}/../../../branching/scripts/lib/base-ref-gate.sh"; do
+    if [ -f "$_cl_gate_cand" ]; then _cl_gate=$_cl_gate_cand; break; fi
+done
+if [ -n "$_cl_gate" ]; then
+    . "$_cl_gate"
+else
+    base_ref_gate() {
+        BASE_REF_GATE_ACT=${1:-}; BASE_REF_GATE_DESTINATION=${2:-}
+        BASE_REF_GATE_ROLE=${WORKAHOLIC_ROLE:-}; BASE_REF_GATE_BASE=${WORKAHOLIC_PUBLISH_BASE:-main}
+        if [ -z "$BASE_REF_GATE_ROLE" ]; then BASE_REF_GATE_VERDICT=allowed; BASE_REF_GATE_REASON=attended; return 0; fi
+        BASE_REF_GATE_VERDICT=refused; BASE_REF_GATE_REASON=gate_unresolved; return 1
+    }
+fi
+unset _cl_gate _cl_gate_cand
 
 claims_fetch() {
     if ! git config --get remote.origin.url >/dev/null 2>&1; then
@@ -322,7 +342,8 @@ claims_liveness_write() {
             printf 'carrier_object_failed'
             return 0
         }
-    if git push --quiet --force-with-lease="${_clw_ref}:${_clw_old}" origin \
+    if base_ref_gate push "${_clw_oid}:${_clw_ref}" \
+        && git push --quiet --force-with-lease="${_clw_ref}:${_clw_old}" origin \
         "${_clw_oid}:${_clw_ref}" >/dev/null 2>&1; then
         git update-ref "$(claims_liveness_tracking_ref "$_clw_branch")" "$_clw_oid" >/dev/null 2>&1 || true
         printf ''
@@ -351,7 +372,8 @@ claims_liveness_delete() {
         printf 'carrier_unit_mismatch'
         return 0
     }
-    if git push --quiet --force-with-lease="${_cld_ref}:${_cld_old}" origin ":${_cld_ref}" >/dev/null 2>&1; then
+    if base_ref_gate push ":${_cld_ref}" \
+        && git push --quiet --force-with-lease="${_cld_ref}:${_cld_old}" origin ":${_cld_ref}" >/dev/null 2>&1; then
         git update-ref -d "$(claims_liveness_tracking_ref "$_cld_branch")" "$_cld_old" >/dev/null 2>&1 || true
         printf ''
     else

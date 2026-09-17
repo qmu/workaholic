@@ -135,7 +135,7 @@ degraded() {
 # ═══ THE ROW ═══════════════════════════════════════════════════════════════════════════
 # One row, from the survey the caller supplied or from the survey this script runs. Both
 # lists are searched: a REFUSED row is the one that matters most here, because the states
-# this reader exists to judge (`not_active`, `observing`, `no_feedback_refs`, `work_waiting`,
+# this reader exists to judge (`not_active`, `no_feedback_refs`, `work_waiting`,
 # `open_proposal`) are refusals by construction, and a consumer reading only `eligible[]`
 # would find nothing for exactly the direction it is asking about.
 if [ -n "$SURVEY_FILE" ]; then
@@ -216,6 +216,26 @@ if [ -f "$LOG_READ" ]; then
     fi
 fi
 
+# Prefer durable full keys; grouped direction membership survives log retention here.
+if git -C "$ROOT" rev-parse --git-common-dir >/dev/null 2>&1; then
+    registry=$( (cd "$ROOT" && sh "$SCRIPT_DIR/../../runtime/scripts/state.sh" read --scope instance --id questions) 2>/dev/null || printf '{}')
+    if [ "$(printf '%s' "$registry" | jq -r .status)" != ok ]; then
+        answer_state=unreadable
+    else
+        durable=$(printf '%s' "$registry" | jq -c --arg slug "$SLUG" '
+          [.data.record.data.questions[]? | select(.state=="answered") |
+            select(.key|startswith("direction-")) |
+            select(.key|split(":")|.[1:]|join(":")|split("+")|index($slug))] |
+          sort_by(.answered_at) | last // empty')
+        if [ -n "$durable" ]; then
+            answer_state=answered
+            answer=$(printf '%s' "$durable" | jq -r .answer)
+            answer_key=$(printf '%s' "$durable" | jq -r .key)
+            answered_tick=$(printf '%s' "$durable" | jq -r .answered_at)
+        fi
+    fi
+fi
+
 # The answer's own words carry whatever a person typed, so it is fed in as an argument
 # rather than interpolated into the program.
 printf '%s' "$row" | jq -c \
@@ -236,8 +256,8 @@ printf '%s' "$row" | jq -c \
        elif ($r.dormant // false) then "dormant"
        else "" end) as $blocker
     # THE STAGE IS READ OFF THE ROW, NOT OFF ANOTHER SCRIPT'"'"'S REFUSAL WORD (2026-09-08).
-    # `survey-strategies.sh`'"'"'s header still describes an `observing` refusal, and its
-    # ladder no longer emits one — `観察中` now permits observation work and guides the
+    # `survey-strategies.sh` does not emit an `observing` refusal:
+    # `観察中` permits observation work and guides the
     # hypothesis instead of refusing it (`commands/propose.md`). That is the right rule for
     # ORIGINATION and says nothing about whether the operator may be asked what comes next:
     # they declared the direction settled, so asking them to file its next move asserts a

@@ -66,6 +66,12 @@
 
 set -eu
 
+# THE ROLE THIS PATH RUNS UNDER (2026-09-11, issue #1151): the base-ref gate reads
+# `WORKAHOLIC_ROLE`, and an unattended path names itself at its own entry rather than trusting a
+# caller to compose an assignment prefix. An already-set role (a dispatch's) is kept.
+: "${WORKAHOLIC_ROLE:=propose}"
+export WORKAHOLIC_ROLE
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 OPEN_ISSUE="${SCRIPT_DIR}/../../feedback/scripts/open-issue.sh"
 ASK_FEEDBACK_LINE="${SCRIPT_DIR}/../../feedback/scripts/ask-feedback-line.sh"

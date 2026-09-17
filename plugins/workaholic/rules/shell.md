@@ -218,6 +218,46 @@ a person*, which names the two sections above as cases of its allowlist axis. Th
 their **shape** — a rule about what a run composes at run time, holdable by nothing in this tree —
 and not their subject: nothing here waits, and the failure is precisely that the run carries on.
 
+## A base write is a merge of a pull request, never a push
+
+**The base branch is written only by merging a pull request** (2026-09-11, mission
+`keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main`, the operator's
+rule verbatim: *runtime cadence logs and unattended maintenance records must not update the base
+branch directly … add a base-ref write gate and regression tests proving that Propose, Moderate,
+notification, and finish-log paths cannot commit or push directly to `main`*). Measured before it:
+17 `Record the tick's feedback findings` and 2 `Add deferred concerns from PR #…` first-parent
+commits on `main`, every one a direct push through the publish tree's direct seam.
+
+**The one reader is `skills/branching/scripts/lib/base-ref-gate.sh`**, sourced by every commit
+and push site in the plugin and executable for a reading. It takes the act (`commit` / `push`),
+the checkout branch or the refspec, the base (`WORKAHOLIC_PUBLISH_BASE`, default `main`) and the
+role (`WORKAHOLIC_ROLE`), and answers `allowed:<why>` or `refused:base_ref_write`. **Absent role
+means attended** — a developer's own checkout is byte-identical to before the gate existed — and
+the roles are set at each unattended path's own entry (`moderate/scripts/run.sh`,
+`persist-log.sh`, `propose/scripts/open-proposal.sh`, `file-inbound-ask.sh`,
+`transport/scripts/perform.sh`, `specificate/scripts/notify-slack.sh`,
+`moderate/scripts/log-append.sh`, the coordinator's `finish`, the ship's concern extractor, and
+`codex-loop.sh --dispatch <role>`), never by a caller composing an assignment prefix, which the
+allowlist could not name. A claim branch, a `work-*` publication, `release/*` and `refs/claims/*`
+are allowed by name; `land-unit.sh`'s fast-forward of a **reviewed** branch on a present
+developer's instruction reads the gate with `reviewed` and is `allowed:reviewed_merge`; the REST
+merge is not a push and needs no gate.
+
+**The agent-level half is `hooks/guard-git-push.sh`**, a `PreToolUse` Bash guard that denies a
+composed `git push` whose refspec names the base (`main`, `HEAD:main`, `x:refs/heads/main`,
+`--delete main`) and nothing else. It is a literal-name match that no unattended command body
+composes, so an ordinary run never meets it — the deny is for the violation, not for pushing.
+There is no env-var toggle.
+
+**What it does not do**: it is not GitHub branch protection, which is the operator's setting and
+is reported as an advisory by `workaholify/scripts/check-repo-settings.sh`; it never changes a
+repository setting. The tick's records and the ship's deferred concerns travel behind a `[Record]`
+pull request (`publish-tree-pr.sh`), and `publish-tree-commit.sh` — the direct seam — has no
+unattended caller and refuses `base_ref_write` under any role. Drilled offline by
+`scripts/e2e/loop-drill.sh verify-base-ref-gate`; pinned by `test-workflow-scripts.mjs`, whose
+tree walk fails when a `git push` site reads no gate and names what it cannot see — a call an
+agent composes at run time, which is the hook's half.
+
 ## Reaching GitHub: REST only, never GraphQL
 
 Every workflow script talks to GitHub through **one transport**,
@@ -285,6 +325,21 @@ one silent one, and nothing has to be believed in advance.
 proposals stay open. An open pull request with an honest reason is a recoverable state, and that
 was not obviously worse. What decided it is that the honest reason had nobody to reach —
 the unit was finished, green, and waiting on a human who was never told.
+
+**The precondition is now READ, and the qualification is not widened** (2026-09-09, mission
+`report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`).
+`branching/scripts/refusal-capability.sh <word> [route]` answers which capability refused a
+delivery and whether an authorized route was left untried, and it names the route
+`github_connector` for **exactly one input** — `session_type_cannot_merge` arriving on
+`github_rest`. It names the ROUTE and never the tool: no script may call an MCP tool, so a script
+spelling `mcp__github__merge_pull_request` would read as though it did, and the tool stays named
+here and in the two command bodies that can reach it. Every other word, the connector's own
+refusal included, answers an empty `authorized_route`. So this ruling's three bounds — one named tool, one named precondition, one
+act — are derived rather than restated, and an **authorization denial** (`merge_forbidden`, class
+`not_permitted`) provably carries no alternate route: it stays a refusal, and no alternate command
+spelling, parent delegation or second account is used to get past it. The classification and its
+consumers are `drive/reference/failure-contract.md`, *A refused delivery names which capability
+refused it*; nothing about what may be retried moved.
 
 This is a **conversion, not a fallback**. A REST-after-GraphQL ladder would keep two
 behaviours to reason about and still fail whenever the 403 arrived in a shape the ladder

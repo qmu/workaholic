@@ -109,8 +109,10 @@ STRANDED="${SCRIPT_DIR}/../../branching/scripts/list-stranded-publications.sh"
 
 SURVEY=""
 RECOVERY=""
+PARTITIONS=""
 while [ $# -gt 0 ]; do
     case "$1" in
+        --partitions) PARTITIONS="${2:-}"; shift 2 ;;
         --survey) SURVEY="${2:-}"; shift 2 ;;
         --recovery) RECOVERY="${2:-}"; shift 2 ;;
         *) shift ;;
@@ -201,13 +203,27 @@ if [ "$union_count" -gt 0 ] || [ "$stranded_count" -gt 0 ]; then
     recovery_units=1
 fi
 
+partition_count=null
+if [ -n "$PARTITIONS" ]; then
+    # The host decides relatedness before spawning; this reader only validates coverage.
+    part_input=$(mktemp)
+    trap 'rm -f "$part_input"' EXIT HUP INT TERM
+    jq -n --argjson survey "$raw" --slurpfile partition "$PARTITIONS" \
+      '{backlog:$survey.backlog,groups:$partition[0].groups}' > "$part_input" 2>/dev/null \
+      || emit_unreadable partition_unreadable
+    partition=$(sh "$SCRIPT_DIR/partition-backlog.sh" --input "$part_input" 2>/dev/null) \
+      || emit_unreadable partition_invalid
+    partition_count=$(printf '%s' "$partition" | jq -r .backlog_units)
+fi
+
 printf '%s' "$raw" | jq -c \
+    --argjson partition_count "$partition_count" \
     --argjson recovery "$recovery_units" \
     --argjson undelivered "$undelivered_count" \
     --argjson catchable "$catchable_count" \
     --argjson stranded "$stranded_count" '
     (.missions | length) as $m
-    | (if ((.backlog | length) > 0) then 1 else 0 end) as $b
+    | ($partition_count // (if ((.backlog | length) > 0) then 1 else 0 end)) as $b
     | ([.resumable[]? | select(.resume_reason == "heartbeat_lapsed" or .resume_reason == "report_incomplete")] | length) as $r
     | {claimable: ($m + $b + $r + $recovery), missions: $m, backlog_units: $b, resumable: $r,
        recovery_units: $recovery, undelivered: $undelivered, catchable: $catchable, stranded: $stranded}' 2>/dev/null \

@@ -36,6 +36,12 @@
 
 set -eu
 
+# THE ROLE THIS PATH RUNS UNDER (2026-09-11, issue #1151): the base-ref gate reads
+# `WORKAHOLIC_ROLE`, and an unattended path names itself at its own entry rather than trusting a
+# caller to compose an assignment prefix. An already-set role (a dispatch's) is kept.
+: "${WORKAHOLIC_ROLE:=notify}"
+export WORKAHOLIC_ROLE
+
 THREAD_TS=""
 THREAD_TS_GIVEN=0
 while [ $# -gt 0 ]; do

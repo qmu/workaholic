@@ -4,6 +4,25 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260908-175401](work-20260908-175401.md) - A human decision becomes an explicit loop state — judged for maturity before it may ask, asked once to the responsible person, and read back as evidence before the next tick reports no_evolutionary_move.
+* [work-20260917-184248](work-20260917-184248.md) - Select merge gates by branch role and classify held pull requests
+* [work-20260917-182253](work-20260917-182253.md) - Reconcile live claims and own every action before cadence
+* [work-20260917-135216](work-20260917-135216.md) - task review 中も coordinator observation と独立 work を継続するようにした。
+* [work-20260917-134100](work-20260917-134100.md) - paused host で同じ native parent が観測と child result 回収を継続する契約を追加した。
+* [work-20260917-132446](work-20260917-132446.md) - observe-channel が capture failure の理由と retryable cursor を保持するようにした。
+* [work-20260917-131433](work-20260917-131433.md)
+* [work-20260917-124009](work-20260917-124009.md) - Codex と Claude の plugin cache を共通の version 選択へ統合した。
+* [work-20260911-181606](work-20260911-181606.md) - Prove a native loop's continuation before a turn ends, treat an unproved Slack observation as unread, and route the tick's records behind a pull request with a base-ref gate that keeps every unattended writer off main.
+* [work-20260911-143422](work-20260911-143422.md) - State the native /work loop's final-response contract as three events and two paths — a routine comment resumes the same instance and anchor, a review-required handoff holds and asks exactly one question — with a facts reader and tests for both.
+* [work-20260910-150318](work-20260910-150318.md) - Point perform.sh's write-path comment at the one fallback derivation instead of naming its classes, and pin that in the suite row that owns the rule.
+* [work-20260910-133027](work-20260910-133027.md) - Pins the machine-load rounding contract against a fixture and corrects CLAUDE.md so an authorization refusal is named as a typed failure that never falls back.
+* [work-20260910-125058](work-20260910-125058.md) - Verify the declared Slack binding and typed QFS fallback against the tree, and record where CLAUDE.md disagrees with the fallback classifier.
+* [work-20260909-200531](work-20260909-200531.md)
+* [work-20260909-175052](work-20260909-175052.md) - Make the declared Slack route commit a correct preview, prove thread discovery, refuse a post it cannot speak for, and name its destination.
+* [Release Claude Code loop repairs as 1.0.343](work-20260909-024221.md) - Release Claude Code loop repairs with mission-independent release eligibility and verified artifacts.
+* [work-20260908-210424](work-20260908-210424.md) - Close the held-publication mission by verifying the base's own implementation and pinning the refusal rule's extension field
+* [work-20260908-192225](work-20260908-192225.md) - Clear residue the base provably already holds so a tick reaches its survey, and make a coordinator-level stop reach the channel instead of nobody.
+* [work-20260908-175401](work-20260908-175401.md) - A human decision becomes an explicit loop state — judged for maturity before it may ask, asked once to the responsible person, and read back as evidence before the next tick reports no_evolutionary_move.
+* [work-20260908-175301](work-20260908-175301.md) - Make the repository's declared Slack binding the startup authority, verify the QFS route it names, discover replies buried in existing threads, and permit a fallback only on a typed failure.
 * [Make agentic-loop validation finite and truthful](work-20260908-150309.md) - Agentic-loop validation now models distinct activity and fails within explicit process and CI bounds.
 * [Make Slack acknowledgements useful without adding noise](work-20260908-140833.md) - Slack receipts now group related asks while preserving truthful facts and per-message state.
 * [work-20260908-130859](work-20260908-130859.md) - 関連するフィードバックを一つのミッションにまとめ、完遂時だけ一度リリースする境界を復元しました。

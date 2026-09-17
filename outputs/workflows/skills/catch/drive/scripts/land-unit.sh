@@ -77,6 +77,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
@@ -215,7 +216,10 @@ esac
 # The branch tip already contains origin/<base>, so this is a fast-forward. A rejection
 # means the base moved between the catch-up and now: re-catch-up and retry once.
 retried=false
-push_land() { git -C "$worktree_path" push --quiet origin "HEAD:refs/heads/${base}" >/dev/null 2>&1; }
+# The one push in the plugin whose destination IS the base: a fast-forward of a REVIEWED
+# branch on a present developer's instruction (`headless_context` is refused first), so the
+# gate is read with `reviewed` and answers `allowed:reviewed_merge`.
+push_land() { base_ref_gate push "HEAD:refs/heads/${base}" reviewed && git -C "$worktree_path" push --quiet origin "HEAD:refs/heads/${base}" >/dev/null 2>&1; }
 
 if ! push_land; then
     retried=true
@@ -233,7 +237,7 @@ sha="$(git -C "$worktree_path" rev-parse --short HEAD)"
 
 # Keep the claim branch's own remote ref consistent with what landed, so a reader that
 # sees it before the delete below reports a MERGED claim rather than a divergent one.
-git -C "$worktree_path" push --quiet origin HEAD >/dev/null 2>&1 || true
+base_ref_gate push "HEAD:refs/heads/${branch}" && git -C "$worktree_path" push --quiet origin HEAD >/dev/null 2>&1 || true
 
 # --- 6. The land released the claim; now tear the claim's housing down --------------
 # Everything below is bookkeeping AFTER an irreversible success. None of it may turn a
@@ -246,7 +250,7 @@ esac
 
 remote_deleted=false
 if git rev-parse --verify --quiet "refs/remotes/origin/${branch}" >/dev/null 2>&1; then
-    if git push --quiet origin --delete "$branch" >/dev/null 2>&1; then
+    if base_ref_gate push ":${branch}" && git push --quiet origin --delete "$branch" >/dev/null 2>&1; then
         remote_deleted=true
     fi
 fi

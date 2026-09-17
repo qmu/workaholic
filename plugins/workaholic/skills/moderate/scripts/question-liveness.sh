@@ -92,7 +92,7 @@ esac
 # as an exact string anywhere in that payload, because each step names its candidates in its
 # own shape and this script deliberately learns none of them — what it needs is only whether
 # the step raised this subject again.
-if printf '%s' "$ROW" | jq -e --arg k "$KEY" '(.needs_agent // []) | tostring | contains($k)' >/dev/null 2>&1; then
+if printf '%s' "$ROW" | jq -e --arg k "$KEY" 'any((.needs_agent // []) | .. | strings; . == $k)' >/dev/null 2>&1; then
     emit live
 fi
 

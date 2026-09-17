@@ -140,6 +140,7 @@ if ! sh "${SCRIPT_DIR}/../../commit/scripts/commit.sh" --skip-staging \
   fail commit_failed
 fi
 
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 . "${SCRIPT_DIR}/lib/push-outcome.sh"
 push_and_report
 

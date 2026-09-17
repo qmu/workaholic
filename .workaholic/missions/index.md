@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](active/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [turn-quiescent-blockers-into-mature-decisions-and-resume-work](active/turn-quiescent-blockers-into-mature-decisions-and-resume-work/mission.md) - Turn quiescent blockers into mature decisions and resume work
 
@@ -21,6 +20,7 @@
 * [auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split](archive/auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split/mission.md) - Auto-merge propose and implement PRs under a dev/release branch split
 * [carry-claim-liveness-off-the-review-branch](archive/carry-claim-liveness-off-the-review-branch/mission.md) - Carry claim liveness off the review branch
 * [catch-a-reported-claim-up-before-its-conflict-hardens](archive/catch-a-reported-claim-up-before-its-conflict-hardens/mission.md) - Catch a reported claim up before its conflict hardens
+* [clear-the-residue-the-base-already-holds-and-never-stop-silently](archive/clear-the-residue-the-base-already-holds-and-never-stop-silently/mission.md) - Clear the residue the base already holds, and never stop silently
 * [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [close-the-units-the-loop-already-finished](archive/close-the-units-the-loop-already-finished/mission.md) - Close the units the loop already finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state
@@ -51,9 +51,11 @@
 * [give-the-tick-a-route-for-the-records-it-writes](archive/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [hand-off-the-members-that-declare-and-drive-the-rest](archive/hand-off-the-members-that-declare-and-drive-the-rest/mission.md) - Hand off the members that declare, and drive the rest
 * [keep-the-closing-link-readable-as-the-corpus-grows](archive/keep-the-closing-link-readable-as-the-corpus-grows/mission.md) - Keep the closing link readable as the corpus grows
+* [keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main](archive/keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main/mission.md) - Keep the native loop alive, preserve Slack input, and stop direct commits to main
 * [land-the-loop-s-own-work-when-the-base-moves-under-it](archive/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it
 * [leave-only-live-work-in-the-unmerged-branch-list](archive/leave-only-live-work-in-the-unmerged-branch-list/mission.md) - Leave only live work in the unmerged-branch list
 * [let-an-answer-in-the-thread-turn-back-into-the-loop-s-work](archive/let-an-answer-in-the-thread-turn-back-into-the-loop-s-work/mission.md) - Let an answer in the thread turn back into the loop's work
+* [let-the-loop-grow-a-mission-without-handing-it-back-to-a-person](archive/let-the-loop-grow-a-mission-without-handing-it-back-to-a-person/mission.md) - Let the loop grow a mission without handing it back to a person
 * [let-the-operator-revise-a-live-direction-through-the-loop](archive/let-the-operator-revise-a-live-direction-through-the-loop/mission.md) - Let the operator revise a live direction through the loop
 * [let-the-tick-add-to-a-standing-thread-instead-of-restating-itself](archive/let-the-tick-add-to-a-standing-thread-instead-of-restating-itself/mission.md) - Let the tick add to a standing thread instead of restating itself
 * [let-the-tick-s-own-findings-become-the-loop-s-work](archive/let-the-tick-s-own-findings-become-the-loop-s-work/mission.md) - Let the tick's own findings become the loop's work
@@ -72,10 +74,12 @@
 * [make-routine-notifications-one-semantic-story](archive/make-routine-notifications-one-semantic-story/mission.md) - Make routine notifications one semantic story
 * [make-scheduled-routines-a-configurable-inspectable-part-of-a-repository](archive/make-scheduled-routines-a-configurable-inspectable-part-of-a-repository/mission.md) - Make scheduled routines a configurable, inspectable part of a repository
 * [make-slack-acknowledgements-informative-without-becoming-notification-noise](archive/make-slack-acknowledgements-informative-without-becoming-notification-noise/mission.md) - Make Slack acknowledgements informative without becoming notification noise
+* [make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage](archive/make-slack-intake-honor-its-declared-binding-and-complete-thread-coverage/mission.md) - Make Slack intake honor its declared binding and complete thread coverage
 * [make-slack-intake-incremental-across-messages-threads-and-mentions](archive/make-slack-intake-incremental-across-messages-threads-and-mentions/mission.md) - Make Slack intake incremental across messages, threads, and mentions
 * [make-the-branch-story-concise-by-default](archive/make-the-branch-story-concise-by-default/mission.md) - Make the branch story concise by default
 * [make-the-branch-story-measurably-shorter](archive/make-the-branch-story-measurably-shorter/mission.md) - Make the branch story measurably shorter
 * [make-the-codex-work-entrypoint-self-contained](archive/make-the-codex-work-entrypoint-self-contained/mission.md) - Make the Codex work entrypoint self-contained
+* [make-the-declared-slack-route-speak-be-seen-and-be-named](archive/make-the-declared-slack-route-speak-be-seen-and-be-named/mission.md) - Make the declared Slack route speak, be seen and be named
 * [make-the-draft-release-note-an-agent-s-release-plan](archive/make-the-draft-release-note-an-agent-s-release-plan/mission.md) - Make the draft release note an agent's release plan
 * [make-the-feedback-loop-actually-propose](archive/make-the-feedback-loop-actually-propose/mission.md) - Make the feedback loop actually propose
 * [make-the-maintenance-tick-s-channel-presence-help-the-work-along](archive/make-the-maintenance-tick-s-channel-presence-help-the-work-along/mission.md) - Make the maintenance tick's channel presence help the work along
@@ -105,6 +109,7 @@
 * [read-the-base-s-colour-past-a-bookkeeping-tip](archive/read-the-base-s-colour-past-a-bookkeeping-tip/mission.md) - Read the base's colour past a bookkeeping tip
 * [read-whether-the-base-survived-what-the-loop-merged](archive/read-whether-the-base-survived-what-the-loop-merged/mission.md) - Read whether the base survived what the loop merged
 * [reconcile-a-stale-thread-with-the-unit-s-real-state](archive/reconcile-a-stale-thread-with-the-unit-s-real-state/mission.md) - Reconcile a stale thread with the unit's real state
+* [reconcile-waiting-work-without-repeated-machine-claims](archive/reconcile-waiting-work-without-repeated-machine-claims/mission.md) - Reconcile waiting work without repeated machine claims
 * [recover-the-codex-loop-from-a-retired-plugin-path-and-refuse-a-false-healthy-status](archive/recover-the-codex-loop-from-a-retired-plugin-path-and-refuse-a-false-healthy-status/mission.md) - Recover the Codex loop from a retired plugin path and refuse a false healthy status
 * [reduce-loop-cost-and-adapt-observation-cadence](archive/reduce-loop-cost-and-adapt-observation-cadence/mission.md) - Reduce loop cost and adapt observation cadence
 * [reduce-the-loop-to-two-routines-and-one-behaviour-per-command](archive/reduce-the-loop-to-two-routines-and-one-behaviour-per-command/mission.md) - Reduce the loop to two routines and one behaviour per command
@@ -117,6 +122,7 @@
 * [rename-the-routine-pair-and-add-a-per-user-updater](archive/rename-the-routine-pair-and-add-a-per-user-updater/mission.md) - Rename the routine pair and add a per-user updater
 * [reorganize-missions-under-strategies](archive/reorganize-missions-under-strategies/mission.md) - Reorganize missions under strategies
 * [repair-a-mechanically-resolvable-conflict-instead-of-reporting-it](archive/repair-a-mechanically-resolvable-conflict-instead-of-reporting-it/mission.md) - Repair a mechanically resolvable conflict instead of reporting it
+* [report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word](archive/report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word/mission.md) - Report a native tick from reconciled evidence, not from a worker's word
 * [report-each-tick-in-the-originating-codex-chat](archive/report-each-tick-in-the-originating-codex-chat/mission.md) - Report each tick in the originating Codex chat
 * [report-where-the-work-stands-not-only-what-is-wrong](archive/report-where-the-work-stands-not-only-what-is-wrong/mission.md) - Report where the work stands, not only what is wrong
 * [resolve-a-conflicted-pull-request-in-the-tick-not-report-it](archive/resolve-a-conflicted-pull-request-in-the-tick-not-report-it/mission.md) - Resolve a conflicted pull request in the tick, not report it

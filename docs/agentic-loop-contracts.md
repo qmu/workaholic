@@ -4,6 +4,21 @@ The redesign's [H4 compatibility table](./agentic-loop-redesign.md#handoff-compa
 
 ## Offline contract fixtures
 
+The Claude Code [2026-09-08 session report](../LOOP-SESSION-REPORT-20260908.md) exposed
+coordinator failures that script-level contracts alone did not prevent. The command ceiling now
+carries unattended decisions, evidence before diagnosis, unknown-versus-empty readings, and
+gate-before-write ordering. Implement names the pre-ticket heartbeat at its entry point.
+Native worker capacity is bounded across roles (`WORKAHOLIC_MAX_WORKERS`, default 2); deferred
+roles remain due. The bound is local to that coordinator, not a machine-wide process census.
+
+`coordinator-allocation.test.mjs` exercises `loops/scripts/allocate-implement.sh` against the
+recorded 21 unreadable observations, valid empty/nonempty offers, malformed counts, formation
+holds and exhausted capacity. It also pins the correction's presence in Claude's command
+ceilings. These are offline regressions, not evidence that a new live Claude session obeyed
+the prose. Actual Slack access still depends on the connected identity's channel membership;
+an inaccessible channel remains unreadable. Base-health alerts do not automatically queue CI
+repair work; a diagnosed ask follows the existing specification path.
+
 Run `node --test scripts/tests/agentic-loop/legacy-contracts.test.mjs`. The initial P1 run on 2026-09-08 passed **20 tests, zero failures, zero skips**. The tests execute the production shell readers in disposable directories and Git repositories. They remove ambient `WORKAHOLIC_*`, Git configuration and provider credential variables, supply fake failing `gh`, `qfs`, AI CLIs and HTTP/SSH transports, and allow only Git's local-file protocol. An attempted fake transport call fails the fixture even if a script suppresses its error. None starts a live worker or posts a message. Claims use fixed commit dates and a fixed age-reading clock.
 
 | Interface | Direct fixture and frozen observations | Broader existing smoke coverage |

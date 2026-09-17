@@ -67,20 +67,22 @@ fi
 
 TRANSPORT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/../../transport/scripts" && pwd)
 TMPDIR_CHECK=$(mktemp -d); trap 'rm -rf "$TMPDIR_CHECK"' EXIT HUP INT TERM
-DESCRIBED=$(qfs describe /slack --json 2>&1 || true)
-if ! printf '%s' "$DESCRIBED" | jq -e . >/dev/null 2>&1; then
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+# The declared binding names the mount; only an undeclared repository enumerates. Describing
+# the literal path `/slack` was this script's own version of the same guess `describe-qfs.sh`
+# exists to end — a named mount answered nothing there, and the probe reported the channel
+# unverified while the route was one path segment away.
+DECLARED=$(sh "$TRANSPORT_DIR/read-declared-binding.sh" --root "$REPO_ROOT" 2>/dev/null || printf '{}')
+printf '%s' "$DECLARED" | jq -e . >/dev/null 2>&1 || DECLARED='{}'
+MOUNT=$(printf '%s' "$DECLARED" | jq -r '.binding.mount // empty')
+set -- --workspace "$WORKSPACE" --channel "$CHANNEL"
+if [ -n "$MOUNT" ]; then set -- "$@" --mount "$MOUNT"; fi
+DESCRIBED=$(sh "$TRANSPORT_DIR/describe-qfs.sh" "$@" 2>&1 || true)
+if ! printf '%s' "$DESCRIBED" | jq -e '.ok == true' >/dev/null 2>&1; then
   OUT=$DESCRIBED
 else
-  # Only mounts returned by the live describe may become QFS routes. Flexible
-  # field aliases cover qfs versions without inventing a registry entry.
-  observations=$(printf '%s' "$DESCRIBED" | jq -c --arg workspace "$WORKSPACE" --arg channel "$CHANNEL" '
-    [(.mounts // .connections // .data // .items // [])[] |
-      {transport:"qfs",available:true,described:true,
-       mount:(.mount // .path // null),account:(.account // .name // null),
-       workspace:(.workspace // .workspace_name // .name // null),channel:$channel,
-       operations:(.operations // .read_map // ["read_channel_delta"])} |
-      select(.mount!=null) | select($workspace=="" or .workspace==$workspace)]')
-  jq -cn --arg root "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" --arg workspace "$WORKSPACE" --arg channel "$CHANNEL" --argjson observations "$observations" \
+  observations=$(printf '%s' "$DESCRIBED" | jq -c '.observations')
+  jq -cn --arg root "$REPO_ROOT" --arg workspace "$WORKSPACE" --arg channel "$CHANNEL" --argjson observations "$observations" \
     '{protocol:"workaholic.transport/v1",request_id:"channel-probe-resolve",operation:"discover",repo_root:$root,instance_id:"channel-probe",input:{target:{workspace:$workspace,channel:$channel},observations:$observations}}' >"$TMPDIR_CHECK/resolve.json"
   RESOLVED=$("$TRANSPORT_DIR/resolve-target.sh" --request "$TMPDIR_CHECK/resolve.json")
   if [ "$(printf '%s' "$RESOLVED" | jq -r .status)" != ok ]; then
@@ -94,7 +96,7 @@ else
 fi
 
 case "$OUT" in
-  *slack_missing_scope*|*slack_channel_name_not_found*)
+  *missing_scope*|*slack_channel_name_not_found*)
     # NEITHER OF THESE MEANS "THE CHANNEL DOES NOT EXIST", and treating them that way was
     # this script's own bug -- caught on 2026-08-01 against `dev-workaholic`, a channel the
     # routines demonstrably post to, which this reported as `exists: false`.
@@ -123,7 +125,7 @@ esac
 
 # Any other error is an unrecognised failure, and an unrecognised failure is not a verdict.
 case "$OUT" in
-  *'"status":"error"'*|*'"status":"deferred"'*|*'"error"'*)
+  *'"status":"error"'*|*'"status":"deferred"'*|*'"error"'*|*'"ok":false'*)
     printf '{"channel": "%s", "checked": false, "reason": "probe_failed", "detail": "the read failed for a reason this script does not recognise; treat the channel as unverified"}\n' "$CHANNEL"
     exit 0
     ;;

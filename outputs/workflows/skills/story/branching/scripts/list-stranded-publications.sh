@@ -200,16 +200,10 @@ while IFS="$TAB" read -r number url title created author head; do
         "repos/${slug}/pulls/${number}/files?per_page=100" 2>/dev/null || printf '')"
     [ -n "$files" ] || continue
     printf '%s' "$files" | jq -e . >/dev/null 2>&1 || continue
-    stream="$(printf '%s' "$files" | jq -r '
-        .[]? |
-        ((.status // "") | if . == "added" then "A"
-                           elif . == "modified" then "M"
-                           elif . == "removed" then "D"
-                           elif . == "renamed" then "R"
-                           elif . == "copied" then "C"
-                           else "?" end) as $st
-        | (if ((.patch // "") | test("(^|\n)[+-]feedback:")) then "1" else "0" end) as $moved
-        | [$st, .filename, $moved] | @tsv' 2>/dev/null || printf '')"
+    shape_input=$(mktemp)
+    printf '%s' "$files" > "$shape_input"
+    stream=$(sh "$SCRIPT_DIR/publication-shape.sh" --input "$shape_input" 2>/dev/null || printf '')
+    rm -f "$shape_input"
     word="$(printf '%s\n' "$stream" | publication_refusal_word)"
     [ -z "$word" ] || continue
 

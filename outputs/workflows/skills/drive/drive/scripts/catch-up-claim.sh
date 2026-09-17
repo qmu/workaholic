@@ -92,6 +92,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 CLAIMS_LIB_DIR="${SCRIPT_DIR}/lib"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
@@ -415,7 +416,7 @@ fi
 VALIDATED=true
 
 # --- Push. Never a force, never an amend, never a rebase -----------------------------
-git -C "$WORKTREE" push --quiet origin "HEAD:refs/heads/${BRANCH}" >/dev/null 2>&1 \
+{ base_ref_gate push "HEAD:refs/heads/${BRANCH}" && git -C "$WORKTREE" push --quiet origin "HEAD:refs/heads/${BRANCH}" >/dev/null 2>&1; } \
     || refuse push_failed
 PUSHED=true
 
@@ -502,7 +503,7 @@ if [ "$gate_word" != pass ]; then
         git -C "$WORKTREE" add ".workaholic/stories/${BRANCH}.md" >/dev/null 2>&1 || true
         if ! git -C "$WORKTREE" diff --cached --quiet; then
             git -C "$WORKTREE" commit -m "Record waiting delivery" >/dev/null 2>&1 || true
-            git -C "$WORKTREE" push --quiet origin "$BRANCH" >/dev/null 2>&1 || true
+            base_ref_gate push "$BRANCH" && git -C "$WORKTREE" push --quiet origin "$BRANCH" >/dev/null 2>&1 || true
         fi
     fi
     report caught_up ""

@@ -1,5 +1,9 @@
 # Loop Drill Runbook
 
+The dispatcher and shared helpers remain in `scripts/e2e/loop-drill.sh`. Larger verification
+groups are sourced from `scripts/e2e/drills/`, one command per module. Modules share the same
+runtime and repository root; the dispatcher remains the command inventory and public entrypoint.
+
 How to exercise the propose–implement loop **on demand** instead of waiting for its
 hourly ticks: seed an ask, fire each routine by hand, and read a machine verdict per
 stage. One command owns the mechanics — `scripts/e2e/loop-drill.sh` — and this document
@@ -1804,6 +1808,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-cadence-lapse` | `hermetic` | yes | `notice-a-periodic-artifact-that-stopped-being-produced` |
 | `verify-blocked-tick` | `hermetic` | yes | `stop-an-unattended-tick-from-waiting-on-a-person` |
 | `verify-log-off-base` | `hermetic` | yes | `take-the-moderation-tick-s-log-off-main` |
+| `verify-base-ref-gate` | `hermetic` | yes | `keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main` |
 | `verify-stranded-publication` | `hermetic` | yes | `repair-a-mechanically-resolvable-conflict-instead-of-reporting-it` |
 | `verify-stranded-claim-branch` | `hermetic` | yes | `prove-a-claim-branch-is-empty-before-deleting-it` |
 | `verify-retirement-candidates` | `hermetic` | yes | `leave-only-live-work-in-the-unmerged-branch-list` |
@@ -1813,6 +1818,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-runner-advance` | `hermetic` | yes | `see-a-frozen-runner-and-give-back-its-slot` |
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 | `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
+| `verify-checkout-residue` | `hermetic` | yes | `clear-the-residue-the-base-already-holds-and-never-stop-silently` |
 
 **`verify-codex-clock` proves recovery after the installed launch tree disappears** (2026-09-07,
 ticket `20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path`). A real

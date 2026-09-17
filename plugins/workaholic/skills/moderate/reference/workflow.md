@@ -1039,40 +1039,17 @@ questions under it.
    a repository event and asks nobody for anything, and the mention belongs on the question, which
    now sits in the same thread.
 
-**The root rides the connector; a question whose mention resolves to the poster rides the bot**
-(2026-08-31, mission `notify-the-person-a-directed-question-addresses`). This question is the
-one shape whose entire purpose is to reach a named person, and it is why the `🙋` line keeps
-its `<@U…>` unconditionally where every other shape dropped one. In the single-developer
-configuration — the normal one — that token resolves to the account the post is made as, and
-**Slack notifies nobody of their own message**: the loop's blockers reached the operator only
-when they happened to reread the channel. The carrier rule is `workaholic:notify`'s
-(*Which transport carries which shape, and why*) and is not restated here; what this step owes
-it is the mechanics:
+**Root and replies use the resolved transport binding.** Pass the confirmed root's channel and
+timestamp to `transport/scripts/perform.sh` as `post_reply`; a permitted token adapter can carry
+that coordinate as `--thread-ts`. Never switch sender to make a mention effective. Record the
+actual sender and receipt, and report an ineffective or unresolved mention separately.
+Only a confirmed post reaches `--record-ask`. A refused or unknown send remains pending, never
+asked; do not retry it through another tool to bypass permission. The question key, liveness,
+answer, caps and quiet-hours gates are independent of the route. Current lifecycle:
+[question-lifecycle.md](question-lifecycle.md).
 
-- **The root is always the connector's.** It is a top-level post, it needs no mention, and the
-  connector is the transport this tick already holds. Nothing about step 1 or 2 moves.
-- **The coordinate is already in hand and no query is added.** The connector returns the root's
-  `(channel, ts)` when it posts it — the same fact `--record-ask` has recorded per question
-  since 2026-08-28, which is what proves the timestamp is an *input* here and never a lookup.
-  Hand that `ts` to `notify-slack.sh --thread-ts <ts>` and the bot's reply lands **inside the
-  tick root's thread**, so the two speech acts stay told apart by position exactly as they are
-  now. The two-query lookup bound is untouched: no search happens on this path at all.
-- **With no bot token, post through the connector exactly as today.** `notify-slack.sh` answers
-  `no_token` and exits 0; the question is still asked, still gated, still recorded. This is a
-  fallback, never a drop.
-- **Report the carrying surface per question** in the step's own log line — `bot`, `connector`,
-  or the transport's own refusal word (`no_token`, `no_channel`, `slack_<error>`, …) — so a
-  question that reached nobody is never recorded as one that did. A refusal is reported, never
-  retried: the bot must be a member of the channel and `WORKAHOLIC_SLACK_CHANNEL` must name the
-  channel the root was posted in, and both are **provisioning** rather than code.
-- **The gate does not move, and that is checkable**: `ask-question.sh` is byte-identical, so the
-  key, `already_asked`, `answered`, the per-tick cap, the day cap, the quiet hours, the
-  working-day hold and the one bounded re-ask are exactly what they were. The question's wording
-  does not move either — only the account that speaks it.
-
-The cost is stated rather than absorbed: a person's own thread now carries one bot reply per
-question, changing the thread's author mix. That is the intended trade — a reply nobody is
-notified of is worth less than one that reaches them.
+An ineffective mention remains visible as a delivery limitation. Changing the speaking account
+requires an explicit binding decision, not an automatic notification repair.
 
 **Every root names the steps that could not read** (2026-08-31, mission
 `name-the-steps-a-tick-could-not-read`). `run.sh` classifies every step
@@ -1151,7 +1128,7 @@ consumers — and hands the digest to the agent to render at the **top of the Mo
 the developer's specified form: numbered strategies, bold title on its own line, **each
 strategy's missions nested under it with acceptance done/total and queued count**, headline is
 `commit_count`, honesty line naming tickets, **the total queued** and the window. The render is logged
-(`strategy-digest-rendered:<jst-day>`) so a second morning render is impossible; before 09:00 the
+(`strategy-digest-rendered-<jst-day>`, status `filed`, only after confirmed delivery) so a second morning render is impossible; before 09:00 the
 step reports `before_morning`; a no-op digest (`no_strategies` / `no_activity`) rides nothing; an
 unreadable digest is `digest_unreadable`, named rather than rendered as a quiet morning.
 
@@ -2906,6 +2883,12 @@ unchanged.
 
 ## 22. `question-answers` — the answer a person wrote in a question's own thread
 
+The current lifecycle is [question-lifecycle.md](question-lifecycle.md): the registry preserves
+full keys and answers beyond log retention, and `reconcile-questions.sh` also accepts explicitly
+verified associations from outside the original thread or the live conversation. This step is
+the original-thread candidate reader, not the only answer intake path. Reconcile premises and
+answers before asking; an unresolved legacy hash is visible but never re-asked under a guessed key.
+
 ```bash
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-question-answers.sh --tick <id> [--root <repo-root>]
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/ask-question.sh --record-ask --tick <id> --key <key> [--log-step <step>] [--coordinate <channel>:<ts>]
@@ -3208,6 +3191,11 @@ anywhere but its own tick-log line. Every value it composes is a **judgement**
 every un-acted one to the check-in as a question addressed to the operator, keyed
 `operator-pull:<number>` so one pull request costs exactly one question however many ticks see
 it. It **asks and nothing else**.
+
+Each question carries the publication's age and `mergeability`, including its reason and
+`mergeability_content_files`. Name both in the question: waiting cleanly and accumulating
+conflicts are different facts. `unanswerable` is unreadable, never `clean`. The step performs no
+catch-up; the implementation role owns the separate non-delivering operator-publication act.
 
 **Why it exists** (2026-08-29, mission `follow-the-pull-requests-the-loop-opens-for-a-person`).
 The seam refuses to merge a ruling or a strategy publication precisely because *merging is the

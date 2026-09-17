@@ -58,4 +58,18 @@ if [ "$(printf '%s' "$after" | jq -r '.merged // false' 2>/dev/null || true)" = 
   jq -cn --arg expected "$expected" --arg actual "$after_head" '{status:"refused",reason:"head_changed",expected_sha:$expected,actual_sha:$actual,reconciled:true}'
   exit 0
 fi
-jq -cn --arg expected "$expected" '{status:"unknown",reason:"merge_effect_unconfirmed",expected_sha:$expected}'
+refusal=$(printf '%s' "$response" | sh "$SCRIPT_DIR/../../branching/scripts/merge-reason.sh")
+case "$refusal" in
+  session_type_cannot_merge|merge_forbidden|merge_not_allowed|head_moved)
+    # WHICH capability refused, and whether an authorized route was left untried, are READ and
+    # never spelled here (`branching/scripts/refusal-capability.sh`). Until 2026-09-09 this
+    # rendered a literal `retry_authorized:false` on every one of these four words — including
+    # `session_type_cannot_merge`, the one refusal `rules/shell.md` authorizes a retry for — so
+    # the field said the opposite of the rule to any caller that read it.
+    capability=$(sh "$SCRIPT_DIR/../../branching/scripts/refusal-capability.sh" "$refusal" github_rest)
+    jq -cn --arg expected "$expected" --argjson c "$capability" \
+      '{status:"refused",reason:$c.reason,expected_sha:$expected,route:$c.route,
+        capability:$c.capability,authorized_route:$c.authorized_route,
+        retry_authorized:$c.retry_authorized}' ;;
+  *) jq -cn --arg expected "$expected" '{status:"unknown",reason:"merge_effect_unconfirmed",expected_sha:$expected}' ;;
+esac

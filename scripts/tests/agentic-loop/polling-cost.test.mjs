@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -39,6 +39,42 @@ test('P5 cold quiet, fixed mode, due checks, and provider retry are explicit', (
   r=invoke(script,{now_epoch:60,polling:{mode:'adaptive'},state:{next_observation_epoch:60}}).data; assert.equal(r.reason,'observation_due'); assert.equal(r.observe,true);
   r=invoke(script,{now_epoch:100,polling:{mode:'adaptive',conversation_seconds:30,max_seconds:900},state:{},observed:{proved:false,retry_after_epoch:177}}).data;
   assert.equal(r.next_due,177); assert.equal(r.next_state.quiet_streak,undefined);
+});
+
+// An unproved observation is `observation_unreadable`, never quiet (2026-09-11, issue #1151):
+// the planner keeps the quiet streak, sets its own retry deadline, and the Codex clock's
+// observation-only wait carries that word into its status rather than `observed_quiet`.
+test('P5 an unproved observation is unreadable, not quiet, in the planner and in the Codex clock', t => {
+  const script=join(skills,'runtime/scripts/plan-poll.sh');
+  const polling={mode:'adaptive',conversation_seconds:30,idle_seconds:300,max_seconds:900};
+  const quiet={quiet_streak:3,current_interval_seconds:240,next_observation_epoch:100};
+  let r=invoke(script,{now_epoch:100,polling,state:quiet,observed:{proved:false,activity:false}}).data;
+  assert.equal(r.reason,'observation_unreadable'); assert.equal(r.next_state.quiet_streak,3,'the quiet streak is preserved');
+  assert.equal(r.next_state.failure_streak,1); assert.equal(r.next_due,130,'the retry is the failure streak\'s own deadline');
+  r=invoke(script,{now_epoch:100,polling,state:quiet,observed:{proved:true,activity:false}}).data;
+  assert.equal(r.reason,'quiet');
+  // The Codex clock: the first tick's observation is unproved and the work clock is due, so the
+  // worker runs; the second tick is observation-only, still unproved, and its recorded wait says
+  // `observation_unreadable` -- the word the planner answered -- never `observed_quiet`.
+  const root=mkdtempSync(join(tmpdir(),'workaholic-unread-')); t.after(()=>rmSync(root,{recursive:true,force:true}));
+  run(['git','init','-q','-b','main',root]); run(['git','-C',root,'config','user.name','T']); run(['git','-C',root,'config','user.email','t@example.com']);
+  writeFileSync(join(root,'seed'),'seed\n'); run(['git','-C',root,'add','seed']); run(['git','-C',root,'commit','-qm','seed']);
+  mkdirSync(join(root,'.workaholic')); run(['git','-C',root,'remote','add','origin','https://github.com/acme/repo.git']);
+  const bin=join(root,'bin'); mkdirSync(bin); const now=join(root,'now'); const sleeps=join(root,'sleeps'); writeFileSync(now,'2000000000');
+  writeFileSync(join(bin,'date'),`#!/bin/sh\n[ "$*" != '-u +%s' ] || { cat '${now}'; exit; }\nexec /bin/date "$@"\n`);
+  writeFileSync(join(bin,'sleep'),`#!/bin/sh\nv=$(cat '${now}'); printf '%s' $((v+$1)) >'${now}'\nn=0; [ ! -f '${sleeps}' ] || n=$(cat '${sleeps}'); n=$((n+1)); printf '%s' "$n" >'${sleeps}'\n[ "$n" -lt 2 ] || kill -TERM "$PPID"\n`);
+  writeFileSync(join(bin,'qfs'),`#!/bin/sh\ncase "$1" in describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"qmu","operations":["read_channel_delta"]}]}' ;; *) printf 'provider unreachable\\n' >&2; exit 1 ;; esac\n`);
+  writeFileSync(join(bin,'gh'),'#!/bin/sh\n[ "$2" != user ] || printf me\n');
+  writeFileSync(join(bin,'codex'),`#!/bin/sh\nout=""; while [ $# -gt 0 ]; do case "$1" in --output-last-message) out=$2; shift 2;; *) shift;; esac; done\nprintf '%s' '{"executed":true,"outcome":"ok","reason":"","report":"done"}' >"$out"\n`);
+  for (const f of ['date','sleep','qfs','gh','codex']) chmodSync(join(bin,f),0o755);
+  const legacy=join(skills,'work/scripts/codex-loop.sh'); const log=join(root,'loop-state');
+  const result=run(['sh',legacy,'--log',log],{cwd:root,timeout:20000,env:{...process.env,PATH:`${bin}:${process.env.PATH}`,WORKAHOLIC_INBOUND_SLACK_CHANNEL:'same'}});
+  assert.equal(result.error,undefined,`supervisor exceeded its fixture bound: ${result.error?.message}`);
+  const status=JSON.parse(readFileSync(join(log,'status.json'),'utf8'));
+  assert.equal(status.state,'sleeping'); assert.equal(status.outcome,'idle');
+  assert.equal(status.blocked_reason,'observation_unreadable',JSON.stringify(status));
+  assert.doesNotMatch(result.stdout,/observed_quiet/,'an unproved observation is never reported quiet');
+  assert.match(result.stdout,/outcome=idle reason=observation_unreadable/);
 });
 
 test('P5 maintenance cadence state selects no unchanged step twice inside its hour', t => {

@@ -11,6 +11,10 @@ jq -c '
   | ((.state.maintenance_due // false) or ((.state.maintenance_due_at? // "9999") <= .now)) as $maintenance_due
   | if (.state.stop_requested // false) then
     {actions:[action("stop";"stop_requested";null)],next_due:null,reasons:["stop_requested"]}
+  elif .state.mode == "held" or .state.coordinator.mode == "held" then
+    {actions:[action("wait";"human_hold";null)],next_due:null,reasons:["human_hold"]}
+  elif .state.mode == "stopped" or .state.coordinator.mode == "stopped" then
+    {actions:[action("stop";"stop_requested";null)],next_due:null,reasons:["stop_requested"]}
   elif ((.state.results_incomplete // [])|length)>0 or ((.state.results_unknown // [])|length)>0 then
     {actions:[action("reconcile_result";"result_incomplete_or_unknown";((.state.results_incomplete // []) + (.state.results_unknown // [])))],next_due:null,reasons:["result_incomplete_or_unknown"]}
   elif ((.snapshot.communication.new_input_ids // [])|length)>0 then

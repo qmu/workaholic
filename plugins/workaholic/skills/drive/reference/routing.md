@@ -166,6 +166,27 @@ not write a second story generator.
      successful connector merge would name a failure that did not happen; reporting only the REST
      one after a failed retry hides that the retry was made.
 
+  **And every refused delivery names WHICH capability refused it, and on which route** (2026-09-09,
+  mission `report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`). One refused
+  REST call had been reported as a statement about the whole session — measured 2026-09-08, two
+  native runners stopping on `merge_refused: session_type_cannot_merge` after which an
+  operator-authorized squash merge succeeded on the same pull request. The class is **read, never
+  spelled**: `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/refusal-capability.sh <word>
+  [route]` answers `capability` — `no_capability` (the tool or route is absent here; a different
+  caller merges this unchanged) / `call_errored` (nothing was established) / `not_permitted` (an
+  authorization denial) / `none` (no capability refused it — GitHub declined on the pull request's
+  own state) — beside `route` and `authorized_route`. Report it as `merge_refused: <word>
+  (<capability> on <route>)`. It **adds a classification and renames nothing**: `<word>` is
+  `merge-reason.sh`'s, unchanged in derivation and format, and the outcome table above is
+  untouched.
+
+  **`authorized_route` is where step 1's precondition now comes from, and it is not widened.** The
+  reader names `github_connector` for exactly one input — `session_type_cannot_merge`
+  arriving on `github_rest` — so the retry's own refusal (`route: github_connector`) carries none,
+  which is step 2's *one attempt, one tool* as arithmetic rather than as a sentence. **A
+  `not_permitted` refusal never carries one**: an authorization denial stays a refusal, and no
+  alternate command spelling, parent delegation or second account is used to get past it.
+
   **A LATER run re-attempts a unit an earlier one could not deliver** (2026-08-27, mission
   `deliver-and-retire-what-the-loop-already-proved-finished`). Everything above covers the run
   that made the attempt. Nothing covered the hour after: `plan-units.sh` excluded the unit
@@ -557,9 +578,9 @@ moments.
 - **And a `🟡 Handoff` line names its carrying surface and its mention outcome beside that**
   (2026-08-31, mission `notify-the-person-a-directed-question-addresses`), because it is the one
   finish shape whose whole purpose is to reach a person. Two facts, never blended into one:
-  **which account spoke** — `bot` (the tokened transport, because the addressee resolved to the
-  posting identity) or `connector` (every other case, including no bot token, which is the
-  fallback and not a failure) — and **whom it named**: the resolved address, or
+  **which account spoke** — the verified sender on the resolved QFS, connector or permitted
+  token route, never a sender inferred from a profile or switched to make a mention work —
+  and **whom it named**: the resolved address, or
   `mention_unresolved: <address>` when `identity.sh` could not resolve it and the token was
   therefore **omitted rather than guessed**. A line that named nobody and a line that reached its
   person must not read alike, which is precisely how three units sat waiting on operator input

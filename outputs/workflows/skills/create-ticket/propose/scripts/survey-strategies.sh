@@ -50,22 +50,7 @@
 #                     OWN assigned strategies"; a strategy is the one artifact where empty
 #                     `assignees` is a refusal rather than team ownership, so `unowned`
 #                     cannot occur and `other`/`unresolved` are both refusals here.
-#   observing         the operator DECLARED this direction 観察中 — settled, the loop
-#                     reactive only. It is the FIRST DECLARED gate on this list, and that is
-#                     exactly what makes it safe: every other gate is derived, and a derived
-#                     silence was refused by name (`pace` gates nothing, because a machine's
-#                     guess must not silence the one routine that originates work). The
-#                     operator's own word is not a guess.
-#                     PLACED AFTER `not_active` AND `not_mine`: a closed or foreign direction
-#                     is not this repository's question at all, and answering `observing` for
-#                     one would send a reader to the wrong fact. PLACED BEFORE
-#                     `past_target_date`: an observing direction that is also overdue should
-#                     read as observing, because that is the fact a person acts on, and
-#                     lateness on a settled direction is not a failure.
-#                     IT STOPS ORIGINATION AND NOTHING ELSE. An inbound ask — a swept channel
-#                     message, an issue somebody files, an error reported — still becomes an
-#                     `[FB]` issue, still reaches `/specificate`, and still lands as work
-#                     carrying this direction's refs. That asymmetry is the whole stage.
+# Stage is a hypothesis lens, not an observing refusal: 観察中 may originate observation work.
 #   past_target_date  the date has passed. A dated direction that ran out of date is the
 #                     operator's to re-date or close; proposing into it forever is the
 #                     runaway this gate exists to stop.
@@ -322,8 +307,7 @@ RESIDUE="$(printf '%s' "$RESIDUE" | jq -c '{readable: (.readable // false),
 # failed read would silently stop the loop, which is a worse outcome than one extra mission.
 #
 # IT HOLDS ORIGINATION ONLY. Inbound work is judged and emitted by `/specificate` regardless,
-# exactly as the `観察中` stage gates origination and nothing else — a limit that swallowed the
-# operator's own instructions on a busy day would be a defect, not a brake.
+# so a limit cannot swallow the operator's own instructions on a busy day.
 WIP_LIMIT="${WORKAHOLIC_WIP_LIMIT:-}"
 WIP_COUNT=null
 WIP_READABLE=true
@@ -595,7 +579,7 @@ jq -sc \
           # Schedule (a stage move, a new milestone), which makes `landed`-vs-waiting read
           # differently and lifts the gate through the artifact rather than through a word.
           # Inbound work still reaches an arrived direction — this refuses ORIGINATION only,
-          # exactly as `observing` does. A degraded residue read still makes `quiescent`
+          # while observation work remains eligible. A degraded residue read still makes `quiescent`
           # false, which now errs toward proposing; that is inherited, named here, and
           # accepted — refusing all origination on any unreadable walk trades one silence
           # for another.
@@ -682,7 +666,7 @@ jq -sc \
   # dismissed: work that cannot be cut over yet is the riskiest, so 進行中 might deserve
   # attention first. It lost because a blend has to put its PROPOSING energy where proposals
   # land, and a direction still building is advanced by the work already queued against it.
-  # 観察中 never reaches this sort at all — it is refused `observing` one step above.
+  # 観察中 remains eligible for observation work and participates in the sort.
   #
   # IT IS A SORT AND NOT A GATE, which is what makes it cheap and reversible. `refused[]`,
   # every gate, the membership of `eligible[]` and `selected[]` and every reading are

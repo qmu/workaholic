@@ -14,6 +14,15 @@ The command chooses neither a mode nor a second default of its own.
 a second loop would spawn a second `implement` against the same claim protocol, and the
 listing is the only record either of them reads.
 
+**The native session's continuation is named, not assumed** (2026-09-11, issue #1151). On
+Claude Code the continuation `start` records is the same-chat scheduled tick the `loop` skill
+created (`kind: same_chat_schedule`, `id` that schedule's own identifier, `next_due` its next
+fire), or — where this turn stays the native parent and waits interruptibly — the parent's own
+wait (`kind: interruptible_parent`, `id` the native session ID). Before any turn ends, the
+coordinator re-derives it through `work/scripts/final-response-contract.sh`: a routine turn
+naming none is refused `continuation_unproved` and does not end, and a `running` record whose
+`resumed` reads `false` is reported as not resumed, never as the loop continuing.
+
 To stop it, the developer stops the loop the `loop` skill created; `/work` does not take a
 stop argument, because a command whose behaviour depends on the first word of its argument is
 the shape this repository refuses (`rules/general.md`, *One behaviour per command*).

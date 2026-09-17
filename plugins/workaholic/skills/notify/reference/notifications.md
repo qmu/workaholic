@@ -10,17 +10,15 @@ A **command** names its postable events and defers the line formats here. This f
 
 ### A post never mentions the identity it is posted as
 
-**A self-mention notifies nobody, so it is not a mention — it is decoration** (2026-08-23, the developer's instruction). Every routine post reaches Slack **as the developer's own account** (connector primary, or the tokened fallback bound to the same person), so a `<@U…>` resolving to that same account produces no notification, no badge and no unread: Slack does not notify you of your own message. The attribution line `by [web routine](<session URL>) of <@U…>` had carried that token on every `🔵 Proposed` and `🟢 Implemented` since the shapes were written, and `🟡 Handoff <@U…>` named the runner the same way. All three drop it. **The session URL stays** — it is the whole point of the line, and the surface the developer opens to answer.
+Resolve the mention target and the actual posting identity independently. Never mention the
+identity you are posting as; keep the session URL in the attribution line. No profile name,
+missing bot token or connector label proves which account spoke.
 
-The rule generalises rather than enumerating three shapes: **resolve the mention target and the posting identity, and emit no `<@U…>` when they are the same.** Mentioning *someone else* is untouched and is exactly what a mention is for — which is why `🙋 <@U…>`, the maintenance tick's question, keeps its token unconditionally: it addresses a named assignee, it is the one post whose entire purpose is to reach a person, and a loop whose blockers reach nobody is the defect that produced issue #584. Nothing else in the catalog mentions anyone: the `📝 FB` description root, `🚀 Auto Merge`, `🔴 Blocked`, `⚪ Paused` and `📣 Standup` carry no token by their own prior rules, and this change does not give them one.
-
-**And a mention that resolves to the poster is repaired by changing the poster, not the mention** (2026-08-31, mission `notify-the-person-a-directed-question-addresses`). The rule above drops a self-resolving token because it notifies nobody — right for the shapes that *record* something, and no answer at all for the two whose purpose is to **reach** a person, which keep their token unconditionally and, in the single-developer configuration, page nobody with it. Those two — `🙋` and the `🟡 Handoff` ask — take the **bot identity** when the addressee resolves to the posting identity, so the same `<@U…>` becomes a real mention: a different account is speaking. Which transport carries which shape is stated **once**, in SKILL, *Which transport carries which shape, and why*, with the directed set enumerated there and nowhere else; this catalog names post **shapes** and never re-derives the carrier. Everything in the rule above is unchanged: a self-resolving token is still emitted by nothing, and no shape in this catalog gains one.
-
-The measured cost, stated rather than hidden: a reader can no longer tell from the finish line alone *which* account's routine posted it in a channel several people's routines post into. That was already only readable as the mention, which rendered as the reader's own name and read as self-addressed; the account is the message's own author, which Slack shows, and the run report names it in words.
-
-**A directed post carrying no mention token says so in its own line** — `(メンション先未解決: 誰にも通知していません)` — because a `🙋` or `🟡 Handoff` whose token was omitted reached the channel and paged nobody, and an unanswered thread must never be read as silence from the person. **With no `SLACK_BOT_TOKEN` this deployment's two-transport model is one transport**: every post is made as the operator's own account, so a directed shape whose addressee *is* that account loses its token by *Never mention the identity you are posting as* and provably reaches nobody.
-
-Measured 2026-09-02: three `🟡 Handoff` lines delivered, every one waiting on one person's act, none of them paging anyone. The clause is appended where the token would have been, so a line that *does* carry a token is byte-identical to what it always was.
+Directed questions and handoffs use the same binding-preserving transport contract as other
+posts. Do not switch accounts to turn a self-mention into a notification. If no effective mention
+can be resolved, omit the token and append `(メンション先未解決: 誰にも通知していません)`.
+Record the actual route and sender, delivery receipt and mention outcome separately. The transport
+selection rule lives in SKILL, *Which transport carries which shape, and why*.
 
 ### A refused call is not an absent surface
 
@@ -402,7 +400,7 @@ What retired the routine is the other half of the same rule. Its only possible h
 
 ### Precondition-stop — calm first, escalate on persistence
 
-A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `no_plugin_source`; `unbound_in_claude_session` and `loaded_version_behind_registry` left the class on 2026-08-12 by ceasing to be stops) posts calm rather than alarming, since the run stopped before it ever reached a unit:
+A **first** report of a signature in the precondition-stop class (SKILL, *Post shapes, mentions, and the red-alert dedup* — `no_plugin_source` and the coordinator's own pre-dispatch stop; `unbound_in_claude_session` and `loaded_version_behind_registry` left the class on 2026-08-12 by ceasing to be stops) posts calm rather than alarming, since the run stopped before it ever reached a unit:
 
 ```
 ⚪ Paused - `<signature>`
@@ -410,7 +408,7 @@ One sentence, max 25 words, what the run stopped on and that the next tick retri
 <session URL>
 ```
 
-This is a top-level root, not a threaded reply — it needs one to thread onto if the signature persists. **Escalation**: when the dedup's own recent-history read (~50 messages) finds the same signature already posted, this tick's report is the ordinary `🔴 Blocked` red alert instead of a second `⚪ Paused` — from there the standing cool-down and `↳ still failing` threaded-reply rules apply exactly as for any other red alert. A signature outside the precondition-stop class never posts `⚪ Paused`; it is a red alert from its first report, unchanged.
+This is a top-level root, not a threaded reply — it needs one to thread onto if the signature persists. **Escalation**: when the dedup's own recent-history read (~50 messages) finds the same signature already posted, this tick's report is the ordinary `🔴 Blocked` red alert instead of a second `⚪ Paused` — from there the standing cool-down and `↳ still failing` threaded-reply rules apply exactly as for any other red alert. A signature outside the precondition-stop class never posts `⚪ Paused`; it is a red alert from its first report, unchanged — **which is the whole of what membership decides**. The class governs severity, never whether a stop is announced, so a stop that reached nobody is never explained by this list being short (SKILL, *The class decides SEVERITY*).
 
 ## The session URL
 

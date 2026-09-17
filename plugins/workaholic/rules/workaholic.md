@@ -130,19 +130,19 @@ aimed at exactly those two.
 window. `WORKAHOLIC_WIP_LIMIT` holds **origination** only and says so, and a limit that swallowed
 the operator's own instructions on a busy day would be a worse defect than the one it cures.
 
-## The completed mission is the release boundary
+## Claims, missions and releases are separate boundaries
 
 Related asks may extend the same active mission while the experience and acceptance remain
 coherent. Intake closes only when the assigned issue page has no unsettled ask or capture-only
 proposal branch; until then the coordinator allocates no new implementation claim. This makes
 formation an observable state, not an arbitrary batching timer or ticket-count target.
 
-Once formed, one mission is one claim, branch, worktree, pull request and story. Tickets retain
-their own commits and Final Reports inside that unit; they do not become separate merge or
-release boundaries. Version allocation, release-note drafting, ship/delivery and release
-completion belong only to the archived `achieved`, fully accepted, queue-empty mission. The
-mechanical reader is `story/scripts/release-boundary.sh`; a loose ticket or unfinished mission
-may still merge through the ordinary PR path, but it cannot claim or mint a release.
+Claims group cohesive review units; a mission remains the planning context and may span several
+landed units and releases. Tickets retain their own commits and Final Reports. Version allocation,
+release-note drafting and ship use the selected committed change set, not mission completion.
+`story/scripts/release-boundary.sh` checks only that this range is readable and nonempty. Partial
+missions and loose tickets may release while remaining work stays open. A release is not evidence
+of production activation: target-specific deployment and confirmation determine that outcome.
 
 # Work Directory Structure
 
@@ -199,7 +199,7 @@ This artifact was retired on 2026-07-28 (decision B3) and re-introduced on 2026-
 
 **`deployments/` and `terms/` are the two hand-maintained areas that survived the 2026-08-13 reshape** (issue #436), and the price of surviving was a definition and an upkeep seam — the rows above are the definitions, and `story/scripts/area-freshness.sh` is the seam. It **reports, it never writes**: a deployment record describes a procedure a human authored, so a machine that rewrote it from a run would record what happened rather than what should happen, and a glossary a machine maintained would define the words it already uses. The seam emits two mechanical facts per record — how many days since its last commit, and whether it still names something this repository retired (a de-listed area, a retired plugin namespace) — and `/story` reads it beside `doc-drift.sh`. A record naming a thing that no longer exists is not "possibly stale"; it is wrong, and that is the signal worth having. `/ship` remains the only live *reader* of a deployment record and gates on its `## Confirmation`; it does not write one.
 
-**`moderations/` is the tree's second OKF exception, and the only one that is a log** (2026-08-17, issue #471). `tickets/` was carved out because the queue is not knowledge and its churn would own the indexes; a per-hour operations log is the same argument at machine scale — twenty-four entries a day would rewrite the bundle indexes every tick, and an index of machine logs is not knowledge. So entries carry **no `type:`**, the area has **no `index.md`**, and `okf/scripts/refresh-index.sh` names the directory from the bundle root without linking it — **the directory is git-ignored**, so a link would 404 for anyone reading the tree from git. The floor's value is that it has almost no exceptions: this is the second and it is named here, not inferred. **Retention is one file per UTC day and no machine pruning** — the day comes from the tick id, so a file is ~24 sections and a day's log is one path a human opens. Deleting an old file is the operator's act: an unattended run that pruned its own audit trail would be deciding what evidence of itself survives, and git history keeps a deleted file recoverable anyway. The area is registered **permissively** (the allowlist permits, it does not require), so a repository that never runs `/moderate` never grows the directory.
+**`moderations/` is the tree's second OKF exception, and the only one that is a log** (2026-08-17, issue #471). `tickets/` was carved out because the queue is not knowledge and its churn would own the indexes; a per-hour operations log is the same argument at machine scale — twenty-four entries a day would rewrite the bundle indexes every tick, and an index of machine logs is not knowledge. So entries carry **no `type:`**, the area has **no `index.md`**, and `okf/scripts/refresh-index.sh` names the directory from the bundle root without linking it — **the directory is git-ignored**, so a link would 404 for anyone reading the tree from git — and it names it **whether or not the directory exists on disk** (2026-09-10): the presence of a git-ignored directory is untracked state, and a generated, committed index that depended on it could never agree between a checkout that had run `/moderate` and a fresh clone or claim worktree, so `sync-main.sh` refused `dirty_workspace` after every regeneration. The floor's value is that it has almost no exceptions: this is the second and it is named here, not inferred. **Retention is one file per UTC day and no machine pruning** — the day comes from the tick id, so a file is ~24 sections and a day's log is one path a human opens. Deleting an old file is the operator's act: an unattended run that pruned its own audit trail would be deciding what evidence of itself survives, and git history keeps a deleted file recoverable anyway. The area is registered **permissively** (the allowlist permits, it does not require), so a repository that never runs `/moderate` never grows the directory.
 
 **The moderation log stays local.** `moderate/scripts/log-append.sh` is its only writer and the checkout is its persistence boundary. No moderation log is committed to `main`, a notes ref, or an orphan branch. `persist-log.sh --record` may still carry named feedback records because those are knowledge artifacts; it refuses a moderation-log destination. Reconstructable diagnostics may be size-rotated, while incomplete inbox, outbox, delivery, claim and publication records remain recoverable.
 

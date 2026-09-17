@@ -151,6 +151,17 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+if [ -n "$KEY" ] && git -C "$ROOT" rev-parse --git-common-dir >/dev/null 2>&1; then
+    registry_input=$(mktemp)
+    jq -cn --arg key "$KEY" --arg step "$ASKED_STEP" --arg coordinate "$COORDINATE" --arg subject "$TO" \
+      '{event:"register",key:$key,step:$step,subject:$subject}' > "$registry_input"
+    registry=$( (cd "$ROOT" && sh "$SCRIPT_DIR/question-registry.sh" --input "$registry_input") 2>/dev/null || printf '{}')
+    rm -f "$registry_input"
+    if ! printf '%s' "$registry" | jq -e '.status == "ok"' >/dev/null 2>&1; then
+      printf '{"ask":false,"recorded":false,"hold":true,"reason":"question_registry_unreadable"}\n'; exit 0
+    fi
+fi
+
 if [ "$RECORD_ASK" -eq 1 ]; then
     # --- The ledger half: record the ask, and where it was posted -------------
     # It returns BEFORE every gate below, so nothing about which questions are asked, how
@@ -174,6 +185,14 @@ if [ "$RECORD_ASK" -eq 1 ]; then
         *'"logged": true'*|*'"duplicate": true'*) ;;
         *) record_refuse log_refused ;;
     esac
+    if git -C "$ROOT" rev-parse --git-common-dir >/dev/null 2>&1; then
+        registry_input=$(mktemp)
+        jq -cn --arg key "$KEY" --arg now "$TICK" --arg coordinate "$COORDINATE" \
+          '{event:"asked",key:$key,now:$now,coordinate:$coordinate}' > "$registry_input"
+        registry=$( (cd "$ROOT" && sh "$SCRIPT_DIR/question-registry.sh" --input "$registry_input") 2>/dev/null || printf '{}')
+        rm -f "$registry_input"
+        printf '%s' "$registry" | jq -e '.status=="ok"' >/dev/null 2>&1 || record_refuse registry_refused
+    fi
     printf '{"recorded": true, "key": "%s", "log_step": "%s", "coordinate": "%s"}\n' \
         "$KEY" "$RECORD_STEP" "$COORDINATE"
     exit 0
@@ -284,6 +303,8 @@ LOG_STEP="human-checkin-ask-$(question_slug "$KEY")"
 if [ -f "$QUESTION_STATE" ]; then
     qs=$(sh "$QUESTION_STATE" --root "$ROOT" --key "$KEY" 2>/dev/null || true)
     case "$qs" in
+        *'"state": "retired"'*)
+            printf '{"ask":false,"reason":"premise_resolved","hold":false}\n'; exit 0 ;;
         *'"state": "answered"'*)
             printf '{"ask": false, "reason": "answered", "hold": false, "key": "%s", "answer": %s}\n' \
                 "$KEY" "$(printf '%s' "$qs" | jq -c '.answer' 2>/dev/null || printf '""')"
@@ -300,6 +321,7 @@ fi
 # caller that passes no `--run`/`--asked-step` gets `unknown` and the byte-identical
 # behaviour it had before.
 already=$(count_log_step "$LOG_STEP")
+if printf '%s' "${qs:-}" | jq -e '.state=="asked"' >/dev/null 2>&1; then already=1; fi
 if [ "$already" != "0" ]; then
     liveness=unknown
     if [ -n "$RUN_REPORT" ] && [ -n "$ASKED_STEP" ] && [ -f "$LIVENESS" ]; then

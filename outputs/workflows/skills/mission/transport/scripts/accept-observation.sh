@@ -18,6 +18,9 @@ printf '%s\n%s\n' "$expected" "$actual" | jq -s -e '.[0].workspace==.[1].workspa
 status=$(jq -r .status "$RESULT")
 case "$status" in absent) transport_result ok "" "$rid" '{"messages":[],"observed_absent":true}'; exit 0;; unavailable) transport_result deferred connector_unavailable "$rid" '{}'; exit 0;; error) transport_result deferred connector_failure "$rid" '{}'; exit 0;; esac
 case "$op" in
+  list_thread_changes)
+    data=$(jq -c '.data | {threads:(.threads//[]),next_cursor:(.next_cursor//null),has_more:(.has_more//false),observed_at:(.observed_at//null)}' "$RESULT")
+    ;;
   read_channel_delta|read_thread|search_exact)
     data=$(jq -c '.data | {messages:(.messages//[]),next_cursor:(.next_cursor//null),has_more:(.has_more//false),observed_at:(.observed_at//null)}' "$RESULT")
     ;;

@@ -53,6 +53,7 @@
 set -eu
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 . "${SCRIPT_DIR}/lib/claims.sh"
 
 unit="${1:-}"
@@ -123,7 +124,7 @@ fi
 remote_deleted=false
 if [ "$has_origin" = true ] && [ -n "$branch" ]; then
     if git rev-parse --verify --quiet "refs/remotes/origin/${branch}" >/dev/null 2>&1; then
-        git push --quiet origin --delete "$branch" >&2 || {
+        base_ref_gate push ":${branch}" && git push --quiet origin --delete "$branch" >&2 || {
             # HALF-RELEASED, and it says so. The worktree may already be gone above, so
             # the caller is told exactly what was done rather than left to infer it from
             # a bare `released: false`. The claim stays live on purpose (see the rulings

@@ -125,6 +125,11 @@ if [ "$ACTION" = publish ]; then
   remote=$(printf '%s' "$data" | jq -r .remote_branch); base=$(printf '%s' "$data" | jq -r .base)
   if [ "$MODE" = direct ]; then destination=$base; else destination=$remote; fi
   if [ "$(printf '%s' "$data" | jq -r '.pushed_sha // empty')" != "$sha" ]; then
+    . "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/lib/base-ref-gate.sh"
+    if ! base_ref_gate push "$sha:refs/heads/$destination"; then
+      data=$(printf '%s' "$data" | jq -c '.last_error="base_ref_write"'); publication_write_data "$record" "$data" "$now" >/dev/null
+      publication_result false base_ref_write "$(jq -cn --arg sha "$sha" --arg branch "$destination" --arg role "${WORKAHOLIC_ROLE:-}" '{sha:$sha,branch:$branch,role:$role}')"; exit 0
+    fi
     git -C "$PUBLICATION_PATH" push --quiet origin "$sha:refs/heads/$destination" || {
       data=$(printf '%s' "$data" | jq -c '.last_error="push_failed"'); publication_write_data "$record" "$data" "$now" >/dev/null
       publication_result false push_failed "$(jq -cn --arg sha "$sha" --arg branch "$destination" '{sha:$sha,branch:$branch}')"; exit 0

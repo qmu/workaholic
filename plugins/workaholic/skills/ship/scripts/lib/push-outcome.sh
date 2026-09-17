@@ -49,6 +49,26 @@ push_and_report() {
         return 0
     fi
 
+    # THE BASE-REF GATE (2026-09-11): a bare `git push` lands on the upstream, so the upstream
+    # is the destination the gate reads. Refused with nothing pushed, by its own word. The gate
+    # is sourced by the CALLER (`branching/scripts/lib/base-ref-gate.sh`, in the build-detectable
+    # form) before this library; a caller that did not gets the same fallback `lib/claims.sh`
+    # keeps -- attended is allowed, and any role is refused `gate_unresolved`.
+    _po_up=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || printf '')
+    _po_dst=${_po_up#*/}
+    if ! command -v base_ref_gate >/dev/null 2>&1; then
+        base_ref_gate() {
+            BASE_REF_GATE_ACT=${1:-}; BASE_REF_GATE_DESTINATION=${2:-}
+            BASE_REF_GATE_ROLE=${WORKAHOLIC_ROLE:-}; BASE_REF_GATE_BASE=${WORKAHOLIC_PUBLISH_BASE:-main}
+            if [ -z "$BASE_REF_GATE_ROLE" ]; then BASE_REF_GATE_VERDICT=allowed; BASE_REF_GATE_REASON=attended; return 0; fi
+            BASE_REF_GATE_VERDICT=refused; BASE_REF_GATE_REASON=gate_unresolved; return 1
+        }
+    fi
+    if ! base_ref_gate push "$_po_dst"; then
+        PUSH_ERROR="base_ref_write"
+        return 0
+    fi
+
     _po_out=$(git push 2>&1) && { PUSH_OK=true; return 0; }
 
     # Classify. Order matters: a rejected push also prints "error", so test the

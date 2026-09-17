@@ -60,7 +60,7 @@ publication_refusal_word() {
             if (path == "") next
             if (path ~ /^\.workaholic\/strategies\//) { strategy = 1 }
             if (path == ".claude/git-identities") { ruling = 1 }
-            if (status == "M" && path ~ /^\.workaholic\/missions\// && moved == "1") { ruling = 1 }
+            if (status == "M" && path ~ /^\.workaholic\/missions\// && moved == "1" && $4 != "extension") { ruling = 1 }
         }
         END {
             if (strategy) { print "strategy_touching"; exit }

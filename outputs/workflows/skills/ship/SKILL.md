@@ -10,10 +10,11 @@ allowed-tools: Bash, Read, Glob, Grep
 
 Standing rules, none optional:
 
-- **A ship is a completed mission boundary.** Before drafting a plan or allocating a version,
-  `story/scripts/release-boundary.sh` must report `eligible: true`. Any other result stops ship
-  as `not_release_boundary:<reason>`; proposal and loose-ticket PRs use drive's ordinary merge
-  path and do not create release notes, tags, deliveries, or outward release completion.
+- **A release names a change set, not a completed mission.** Before drafting a plan or allocating
+  a version, `story/scripts/release-boundary.sh` checks that the committed range is readable and
+  nonempty. Partial missions, loose tickets and multiple missions are permitted. Keep remaining
+  work open; readiness is established by branch checks, safety and the target's confirmation,
+  never by closing planning records. Publishing a version does not imply production activation.
 - **A deployment is instructed, never inferred.** No invocation of `/ship` deploys on its own, and no unattended caller can reach the deploy step at all (§0). Merging is not an instruction to deploy; neither is `merge_policy: auto`.
 - **Catching up with `main` is mandatory**, and reconciling with `main` is standard ship behavior — never an optional "your call". A branch behind `main` either reverts merged work or silently no-ops the release (a deploy-on-merge release is idempotent, so a colliding version ships nothing). A `mechanical` conflict — the version/lockstep manifests or regenerated `outputs/` — is reconciled as routine; only a genuinely ambiguous `content` conflict halts for a human.
 - **Version-collision guard**: confirm the branch's target version is greater than `main`'s and not an already-published tag; re-bump past a collision as part of reconciliation.
@@ -80,7 +81,7 @@ Full contracts — arguments, JSON envelopes, refusal reasons, and each rule's m
 | `commit-release-note.sh "<branch>"` | Commits + pushes the release note; a failed push is a pre-merge hard stop (`release_note_not_on_remote`) |
 | `merge-pr.sh "<pr-number>" [<base>]` | Merges; exit status reflects the merge only; read `commit_hash_source`/`on_base` before tagging |
 | `publish-release.sh "<branch>" "<commit>" "<tag>" "<notes-file>"` | GitHub Release; defers to CI (`ci_publishes`); idempotent |
-| `extract-deferred-concerns.sh "<branch>" "<pr>" "<url>" [<base>]` | Persists the story's Concerns into the feedback stream, append-only by `concern_id`; report `extracted`, `pushed`, `destination` |
+| `extract-deferred-concerns.sh "<branch>" "<pr>" "<url>" [<base>]` | Persists the story's Concerns into the feedback stream, append-only by `concern_id`, behind a `[Record]` pull request; report `extracted`, `pushed`, `destination`, `publication.merged` / `merge_reason` |
 
 ## 3. Workspace Guard
 
@@ -104,7 +105,7 @@ Ship the current branch's PR. **The flow's outcome is a drafted plan and a merge
 4. **Commit the merge artifacts** (pre-merge): `commit-release-note.sh` — a failed push is a pre-merge hard stop — then update the PR body (`story/scripts/create-or-update.sh`) so reviewers see the plan before the merge.
 5. **Merge PR**: `merge-pr.sh`. On failure, inform and stop. Read `commit_hash_source` before using `commit_hash`; the post-merge base checkout is best-effort and never load-bearing (`checked_out` is a reported field, not a gate). The merge is **not** a deployment and grants no authorization to start one.
 6. **Publish GitHub Release** (post-merge): `publish-release.sh` — defers to a CI release workflow; refuses to tag on `on_base: false` or `commit_hash_source: "branch_head"`.
-7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. Report `extracted`, `pushed` (best-effort by design, so read it — on `false`, a `git push` is outstanding) and `destination` (a record pushed off-base is invisible to `/story`'s judge and `/specificate`).
+7. **Extract deferred concerns** (post-merge): `extract-deferred-concerns.sh`, passing the base explicitly. The records travel behind a `[Record]` pull request (`publish-tree-pr.sh`, `WORKAHOLIC_AUTO_MERGE=1`), never as a direct commit to the base (2026-09-11). Report `extracted`, `pushed` (the publication branch is on origin; best-effort by design, so read it), `destination`, and `publication` — `merged` says whether the base has the records and `merge_reason` names why a pull request was left open (a record not yet merged is invisible to `/story`'s judge and `/specificate` until it lands).
 8. **Summarize**: catch-up, scan result (with any recorded override), **the drafted plan and whether it changed**, merge status, release note, GitHub Release, concern extraction count with its `destination`, and `checked_out`/`checkout_reason` when the base was not checked out.
 
 ### 5-D. The instructed deployment
@@ -114,6 +115,31 @@ Runs **only** on a developer's instruction naming a target, and never in the sam
 - **D1. Deploy**: run the capability check (advisory), display the target's `## Procedure` / `## Deploy`, confirm (§1-3), and execute.
 - **D2. Confirm**: execute the target's `## Confirmation` / `## Verify` and capture the observed result. A failing result is a **failed deployment** — record it and promote nothing.
 - **D3. Record**: `record-evidence.sh "<branch>" "<target>" "<method>" "<result>" "<status>" "<note-path>"` with the honest status — `pass`, `fail`, `not_run` (the environment cannot execute the declared method), or `bypassed`. It writes the story's `## Deployment Evidence` and the note's append-only `## Deployment Verification` from one call, so the plan and its answer sit in the same document.
+
+### A failed or pending deployment is its own state
+
+**A merge is not a deployment, and a deployment that failed is not a completion** (2026-09-09,
+mission `report-a-native-tick-from-reconciled-evidence-not-from-a-worker-s-word`). This is stated
+here rather than added as a gate, because the four statuses above already carry it — what was
+missing was the sentence saying they may never be collapsed. **Measured**: a schema migration
+failed on the existing rows in a production rebuild, and the run reported a healthy completion,
+because the pull request had merged and the local checks had passed.
+
+- **`fail` and `not_run` stay visible wherever the ship's outcome is reported**, and neither is
+  ever rendered as `pass` or omitted. A **failed deployed migration remains a failed deployment**
+  even where the pull request merged, the local suite was green and the queue drained.
+- **`not_run` is not a soft pass.** The environment could not execute the declared method, so
+  nothing about the target was established — the reading's absence, never its success.
+- **A merged pull request establishes nothing about any target.** §5-5 already says the merge
+  grants no authorization to start a deployment; it equally grants no *evidence* that one
+  happened. `/implement`'s and `/infinite-development`'s completion claims are reconciled against
+  merges, claims and the queue (`loops/scripts/reconcile-completion.sh`) and say nothing about a
+  deployment for exactly this reason.
+- **No new gate is added.** D2 already records a failing result as a failed deployment and
+  promotes nothing, and §6's promotion already refuses to skip its confirmation. The rule this
+  section adds is about the *report*: an unobserved or failed outcome is named, never inferred
+  into a healthy one (`plugins/workaholic/rules/general.md`, *A tightened constraint over
+  persisted data is verified against legacy rows*, whose delivery half this is).
 
 ## 6. Release Promotion — the `release/*` staging tier
 

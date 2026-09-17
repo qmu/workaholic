@@ -30,6 +30,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 
 LISTER="${SCRIPT_DIR}/list-claims.sh"
 RECORDER="${SCRIPT_DIR}/../../story/scripts/record-unposted-line.sh"
@@ -90,6 +91,7 @@ unset GIT_INDEX_FILE
 commit=$(git commit-tree "$tree" -p "origin/${BRANCH}" -m "Clear the carried finish line" 2>/dev/null || true)
 [ -n "$commit" ] || emit false commit_tree_failed
 
+base_ref_gate push "${commit}:refs/heads/${BRANCH}" || emit false push_failed
 git push --quiet origin "${commit}:refs/heads/${BRANCH}" >/dev/null 2>&1 || emit false push_failed
 
 emit true ""

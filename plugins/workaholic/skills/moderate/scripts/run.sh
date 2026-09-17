@@ -71,6 +71,12 @@
 
 set -eu
 
+# THE ROLE THIS PATH RUNS UNDER (2026-09-11, issue #1151): the base-ref gate reads
+# `WORKAHOLIC_ROLE`, and an unattended path names itself at its own entry rather than trusting a
+# caller to compose an assignment prefix. An already-set role (a dispatch's) is kept.
+: "${WORKAHOLIC_ROLE:=moderate}"
+export WORKAHOLIC_ROLE
+
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 LOG_APPEND="${SCRIPT_DIR}/log-append.sh"
 PERSIST_LOG="${SCRIPT_DIR}/persist-log.sh"
@@ -321,6 +327,28 @@ if [ -n "$PULLS_FILE" ]; then
         export WORKAHOLIC_TICK_PULLS_STATE="$PULLS_FILE"
     else
         rm -f "$PULLS_FILE"
+    fi
+fi
+
+# The held verdict is claim evidence, shared by both pull-request moderation steps. Resolve it
+# once beside the shared pull-state reading so the two consumers cannot disagree or fetch twice.
+HELD_PULLS_FILE=''
+CLAIMS_FILE=''
+if [ "$PULLS_WANTED" -eq 1 ]; then
+    HELD_PULLS_FILE=$(mktemp 2>/dev/null || printf '')
+    CLAIMS_FILE=$(mktemp 2>/dev/null || printf '')
+fi
+if [ -n "$HELD_PULLS_FILE" ] && [ -n "$CLAIMS_FILE" ]; then
+    trap 'rm -f "$JQERR_FILE" "$REPORTS_FILE" "$PULLS_FILE" "$HELD_PULLS_FILE" "$CLAIMS_FILE"' EXIT
+    if sh "${SCRIPT_DIR}/../../drive/scripts/list-claims.sh" > "$CLAIMS_FILE" 2>/dev/null \
+       && jq -e '.claims | type == "array"' "$CLAIMS_FILE" >/dev/null 2>&1; then
+        export WORKAHOLIC_TICK_CLAIMS="$CLAIMS_FILE"
+    fi
+    if sh "${SCRIPT_DIR}/held-pull-branches.sh" > "$HELD_PULLS_FILE" 2>/dev/null \
+       && grep -q '"readable":true' "$HELD_PULLS_FILE" 2>/dev/null; then
+        export WORKAHOLIC_TICK_HELD_PULLS="$HELD_PULLS_FILE"
+    else
+        rm -f "$HELD_PULLS_FILE"
     fi
 fi
 # Derived, not parsed back out of the writer: `log_step` runs in a command

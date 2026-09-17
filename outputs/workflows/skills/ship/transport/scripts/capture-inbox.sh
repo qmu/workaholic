@@ -1,6 +1,12 @@
 #!/bin/sh -eu
 # Persist every observed message before advancing the binding cursor.
 # Usage: capture-inbox.sh --request FILE
+#
+# The request may carry `window_since` (a number, or null for an unbounded read): the lower
+# bound the proved read actually asked for. This is the ONE place `unproved_since` is cleared
+# -- in the same revision-checked write that advances the cursor, and only when that window
+# reached the mark (`window_since` null or <= `unproved_since`). A request without the key
+# (a thread capture) carries the mark forward untouched. Two writers of one record would race.
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 [ "${1:-}" = --request ] || { printf '{"status":"error","reason":"request_required"}\n'; exit 2; }
 REQ=${2:-}; jq -e '(.repo_root|type=="string") and (.binding_id|type=="string") and (.messages|type=="array") and has("next_cursor") and (.now|type=="string")' "$REQ" >/dev/null 2>&1 || { printf '{"status":"error","reason":"invalid_request"}\n'; exit 2; }
@@ -47,13 +53,19 @@ jq -c '.messages[]' "$REQ" | while IFS= read -r message; do
   fi
 done
 pipe_status=$?; [ "$pipe_status" -eq 0 ] || { printf '{"status":"deferred","reason":"capture_incomplete"}\n'; exit 0; }
-rev=$(printf '%s' "$record" | jq -r .revision); data=$(printf '%s' "$record" | jq -c --argjson cursor "$(jq -c .next_cursor "$REQ")" '.data + {cursor:$cursor}')
+rev=$(printf '%s' "$record" | jq -r .revision)
+cleared=$(printf '%s' "$record" | jq -c --slurpfile req "$REQ" '
+  (.data.unproved_since // null) as $mark |
+  if ($req[0] | has("window_since")) and $mark != null and ($req[0].window_since == null or $req[0].window_since <= $mark)
+  then $mark else null end')
+data=$(printf '%s' "$record" | jq -c --argjson cursor "$(jq -c .next_cursor "$REQ")" --argjson cleared "$cleared" \
+  '.data + {cursor:$cursor} | if $cleared != null then del(.unproved_since) else . end')
 jq -cn --arg now "$now" --argjson data "$data" '{updated_at:$now,data:$data}' > "$tmp/meta.json"
 updated=$(call update --scope binding --id "$binding" --expected-revision "$rev" --input "$tmp/meta.json")
 [ "$(printf '%s' "$updated" | jq -r .status)" = ok ] || { printf '{"status":"deferred","reason":"cursor_conflict"}\n'; exit 0; }
 lease_revision=$(printf '%s' "$updated" | jq -r .data.record.revision)
 count=$(jq '.messages|length' "$REQ")
-jq -cn --argjson count "$count" --argjson cursor "$(jq -c .next_cursor "$REQ")" \
+jq -cn --argjson count "$count" --argjson cursor "$(jq -c .next_cursor "$REQ")" --argjson cleared "$cleared" \
   --argjson new "$(jq -Rsc 'split("\n")|map(select(length>0))' "$new_ids")" \
   --argjson duplicates "$(jq -Rsc 'split("\n")|map(select(length>0))' "$duplicate_ids")" \
-  '{status:"ok",reason:"",data:{captured:$count,new_input_ids:$new,duplicate_input_ids:$duplicates,cursor:$cursor}}'
+  '{status:"ok",reason:"",data:{captured:$count,new_input_ids:$new,duplicate_input_ids:$duplicates,cursor:$cursor,cleared_unproved_since:$cleared}}'

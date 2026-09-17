@@ -37,6 +37,7 @@ fi
 # Refresh the .workaholic OKF bundle indexes (stages them) so the new note is
 # reflected in the committed hierarchy (best-effort: never blocks the commit).
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+. "${SCRIPT_DIR}/../../branching/scripts/lib/base-ref-gate.sh"
 . "${SCRIPT_DIR}/lib/push-outcome.sh"
 sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 

@@ -12,6 +12,7 @@ Run one coordinator with two independent clocks:
   silence gradually lengthens it.
 
 The coordinator owns communication and never performs or waits for the dispatched work.
+The live conversation is the highest-priority input: a request to wait suspends dispatch.
 
 ## Start
 
@@ -22,12 +23,22 @@ Use the strongest mechanism this session actually has:
 2. Otherwise, if a same-chat scheduler is callable, schedule this tick in the local project.
 3. Otherwise run `scripts/codex-loop.sh`; use `--once` for cron or systemd.
 
-On Codex, prefer a Scheduled task attached to the current chat. Do not start `scripts/codex-loop.sh`
+If Codex cannot sustain the native parent in step 1, prefer a Scheduled task attached to the current chat. Do not start `scripts/codex-loop.sh`
 from that task because it would create a second clock. Codex CLI uses
 `scripts/codex-loop.sh` as its fallback.
 
-State the selected clock, where reports appear, and any missing continuation mechanism. An
-explicit interval selects fixed observation. Without one, use adaptive observation:
+For native parents and same-chat schedulers, read `runtime/reference/native-loop.md` and call
+`runtime/scripts/coordinator.sh --instance <session-id> --input <event.json>` with a `start`
+event before creating the clock. On Claude Code this must be the actual native session ID;
+every child prompt includes `workaholic-receipt:<id>` for the launch guard. Reuse the instance ID after compaction. The same entrypoint
+handles `hold`, `resume`, `stop`, reservations and terminal results. Persist hold before saying
+you will wait. Timer events cannot resume. On stop cancel the schedule and stop named children.
+Record each confirmed native cancellation with `cancelled`; it is not a role completion.
+
+State the selected clock, where reports appear, and the continuation it proves — its `kind`
+(`interruptible_parent` or `same_chat_schedule`) and `id`, recorded through the coordinator's
+`start` event. A missing continuation mechanism is a refusal to say *resumed*, never a sentence
+in the report. An explicit interval selects fixed observation. Without one, use adaptive observation:
 
 - activity: 30 seconds;
 - successive quiet observations: 60, 120, 240, 480, then 900 seconds;
@@ -58,14 +69,33 @@ without command dispatch, translate command names as follows:
 
 Observe both inputs before deciding the next observation:
 
-- Slack through the configured connector, capturing messages before advancing its cursor;
+- Slack through `transport/scripts/observe-channel.sh`, capturing messages before advancing its cursor;
 - `specificate/scripts/list-inbound-issues.sh`, which returns open feedback issues assigned
   to this identity and excludes already captured or self-originated issues.
+
+Report the route each Slack effect actually took. Startup names the declared binding it
+resolved, whether the channel and sender were verified, and any `binding_contradictory` /
+`binding_incomplete` reading. Name the destination: the
+workspace and channel it resolved, and `channel_id` when the declaration carries one, taken
+from the reader's own `binding` and never from memory, a directory name or a repository name —
+a report that names no destination is **non-conformant on its face**, and an undeclared
+repository names the environment fallback it used instead.
+Each effect names its `route` and, when it left the preferred one,
+`degraded_from` and the typed `degradation_reason`. A connector or token success is a **degraded
+success** — it proves delivery and never that the preferred route is configured — and reporting
+it as an ordinary one is how a repository runs for weeks on a route nobody chose.
 
 An observation is quiet only when every configured source was read successfully. Any new
 human Slack root or reply, or any new assigned feedback issue, is activity. Bot-authored
 messages do not reset the interval. A new feedback issue makes propose-then-specificate due
 immediately. Work, exploration, maintenance, and provider retry deadlines stay independent.
+
+An unproved or unreadable observation is **unread, never quiet**: it advances no cursor,
+records `unproved_since` on the binding record (the stored cursor, or the read's own time when
+none exists), and keeps retrying on the failure streak's own deadline, independent of the work
+cadence; the next proved read overlaps the whole unproved interval (`overlap_seconds` is the
+greater of 300 and `now − unproved_since`), and only that read's cursor-advancing capture clears
+the mark. A report that calls an unproved read quiet is non-conformant on its face.
 
 Use `runtime/scripts/plan-poll.sh` for the pure cadence transition. Persist its
 `next_state` only after inbox capture; after a crash, an early duplicate read is safer than
@@ -85,8 +115,13 @@ due immediately by the rule above.
 
 ## Children and reports
 
-Keep one child per role. Refuse a duplicate while that role is running. A completed child is
-reported once and released; after compaction, rediscover children before dispatching.
+Reserve a receipt through `coordinator.sh` before launching, then record `child_id` with `started`.
+Keep one child for propose/moderate and at most the configured implement fanout. Record each
+terminal result with `finish`, emit commentary once, then mark `reported`. After compaction,
+rediscover children. Idle without a readable result is `unknown`, never completed. Native
+cadence is derived from receipts, not remembered timestamps.
+For native children, also apply the tick's total `WORKAHOLIC_MAX_WORKERS` limit (default 2)
+across roles and reserve each launched slot immediately. Capacity-held roles remain due.
 
 Every worker returns the supplied result schema:
 
@@ -98,9 +133,50 @@ Every worker returns the supplied result schema:
 Process exit, execution, work completion, and notification delivery are separate facts.
 Missing or malformed results are unreadable, never successful.
 
-Under a native parent, ordinary ticks and user steering use commentary. A final response is
-reserved for an explicit stop or a named inability to continue. A correction does not reset
-the startup anchor. On stop, name still-running roles and child identifiers.
+Under a native parent, ordinary ticks and user steering use commentary. A correction does not
+reset the startup anchor. On stop, name still-running roles and child identifiers.
+
+A routine interruption — an ordinary question, correction or follow-up — is handled in
+commentary and the coordinator returns to the same loop: the same instance ID, the same
+startup anchor, the same schedule, no second `start` event and no final response. A
+review-required handoff — the final comment carries information the human genuinely needs to
+review before work may continue — persists `hold` (`explicit:true`) first, then asks exactly
+「ループを再開してよろしいですか？」 as the final response's own text, never through
+`AskUserQuestion`, and stays held until the human's explicit `resume`; time never resumes it.
+The final response is reserved for exactly three events: an explicit stop, a named inability
+to continue, and a review-required handoff. When the run is unsure, the interruption is
+routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
+turn.
+
+That path is only an operator-level stop. A single unit awaiting interpretation uses
+`task_review`: its receipt records the originating thread, the coordinator stays `running`,
+observation and unrelated work continue, and only a reply from that thread makes the receipt
+eligible again. Task review never emits `hold` or asks for a separate resume.
+
+A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
+(`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and
+proves it through the same reader: `final-response-contract.sh` refuses `continuation_unproved`
+for a routine turn that names none, and the coordinator's `resumed` is `true` only while
+`control` is `running` **and** a recorded continuation's `next_due` has not passed
+(`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control mode). `running`
+alone is never a resumed loop; a report that calls the loop resumed while `resumed` is `false` is
+non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
+never a sentence in the report.
+
+When the host goal is paused but native interruptible wait and child-result reads remain
+available, a named clock is not enough: the continuation must be the same
+`interruptible_parent`. The reader returns `next_action: wait_interruptibly` and
+`collect_results: true`; the parent answers steering in commentary, waits again, then consumes
+the child's terminal result without another user message. Worker liveness proves only the worker.
+
+The criterion is a judgement the run writes out, not a detector: *does the human need to read
+this before work may continue?* A decision the loop cannot take on its own (a fork that reaches
+the operator's ruling), a result that contradicts what the human just asked for, or a refusal
+that stops the work is review-required. An ordinary answer, a confirmation, or a status the
+human did not ask to gate on is routine. A needless stop is the failure #1126 measured (nine
+unattended ticks lost to a wait); a needless resume is corrected by the human's next message,
+which is itself an ordinary interruption. A routine interruption under a standing hold is
+answered in commentary and the hold stands — an ordinary question never resumes a hold.
 
 Connector-less nested Codex runs may use the documented relay only when a connector-owning
 parent is explicitly waiting. Otherwise report `no_slack_transport`.

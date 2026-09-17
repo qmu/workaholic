@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917122237-discover-codex-plugin-caches-before-selecting-an-older-registry-install.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260917-124009
 ---
 
 # Discover Codex plugin caches before selecting an older registry install

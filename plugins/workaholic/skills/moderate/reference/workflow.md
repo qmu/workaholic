@@ -742,6 +742,28 @@ the key's prefix: `stalled-unit:` is not the step id `stalled-units`, and a wron
 was never reached cannot report its finding, and treating that as `settled` re-creates the exact
 silence this exists to end.
 
+**And `settled` is load-bearing in the other direction: it is an absence, never a proof**
+(2026-09-18, ticket `20260918080734`). It is the right reading for this section's two consumers —
+the bounded re-ask below and the `✅ 解消を確認` confirmation — and it was also being read by
+`reconcile-questions.sh` as evidence that the premise had resolved, which wrote
+`evidence: {proved: true}` out of a reading nobody made. **Measured**: the escalation key
+`inbound-channel-unreadable:<channel>` is composed by the **agent** after `unanswered-asks` runs,
+so the step can never name it in `needs_agent` and it carries only as a substring of the
+escalation sentence; every question of that class was retired on the first tick that reconciled
+it — `never_asked` and `retired` in one reading, and permanently, since `register` and `asked` are
+both no-ops over a retired row — while the channel it named was measurably still unreadable.
+
+So `question-liveness.sh` answers an **additive** second field, `resolution`, from the closed set
+`proved | unwitnessed | unknown`: **`proved`** when the step's row names the key as an exact string
+in its own `resolved_keys` statement of what it resolved (and does not raise it); **`unwitnessed`**
+when the step ran `ok`/`filed` and neither raised the key nor named it resolved — the case the
+retirement used to call proof; **`unknown`** for every case `liveness` already answers `unknown`
+for. Only `proved` retires. **The three `liveness` words do not move and the exact-string match is
+not narrowed** — a key genuinely absent from `needs_agent` cannot be recovered by any matching
+rule, so narrowing it would move the defect to the next agent-composed key — and both consumers
+below behave byte-identically. **No step is required to emit `resolved_keys` by this change**:
+until one does, the reconciliation retires nothing, which is the honest side of the trade.
+
 **The shape, ruled: (a) re-ask on persistence, bounded — not (b) a standing outstanding line.** The
 ask named both and declined to recommend one. The one property both retired status roots lacked is
 being **addressed to a person**, and (b) — `N questions outstanding, oldest <age>` on the root —
@@ -2648,7 +2670,7 @@ decide something before any change is the right one*.
 | `drill-health` | `needs_ruling` | `base-health`'s row, for `base-health`'s reason: it composes the same check-run reader, so every value it carries is a judgement a re-run can turn green. The finding reaches the person who shipped the mechanism as that step's own keyed question, which is the delivery the mission asked for. |
 | `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
 | `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
-| `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. |
+| `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. **That key is the only route this reading has to a person, and it is composed by the agent after this step runs** — so the step never names it in `needs_agent` and it carries only as a substring of the escalation sentence. Until 2026-09-18 the reconciliation read that absence as proof the premise had resolved and retired the question on the first tick, permanently; only a **positive** `resolved_keys` reading retires now (the liveness section above), and this step is deliberately unmodified: enumerating the key as a candidate would have it claim a channel reading its own header says is the agent's half, and would fire the question every tick whatever the channel's state. |
 | `blocked-tick` | `needs_ruling` | The reading says a tick **stopped** and cannot say why — the record that would carry the reason is the one the stop prevented — so filing it as work would have the loop repairing a cause it never established (`cadence-lapse`'s row, for `cadence-lapse`'s reason). The repair is besides that routinely a person's: answering or removing a prompt, or reading the run in the session list. |
 | `cadence-lapse` | `needs_ruling` | The reading says an artifact **stopped** and cannot say **why** — a routine switched off, a credential that expired, a producer that moved, or a declaration that is now wrong — and which of those it is decides whether any change is the right one. `note-cadence` is the row worth arguing against and it loses on exactly that: it names one workflow **this repository owns and can fix**, while a declared cadence names an artifact whose producer the declaration does not identify. Filing it as work would have the loop repairing a cause it never established. |
 | `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |

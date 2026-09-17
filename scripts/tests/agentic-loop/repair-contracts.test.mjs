@@ -45,21 +45,98 @@ test('semantic backlog partitions fan out only disjoint, dependency-cohesive rev
 });
 test('question identity survives logs; verified outside-thread answer is not retired in same tick',t=>{
   const {call,dir}=fixture(t), registry='moderate/scripts/question-registry.sh';
-  for(const key of ['held:one','held:two']) assert.equal(call(registry,{event:'register',key,step:'direction-health',subject:'operator'}).json.status,'ok');
-  const run={steps:[{step:'direction-health',status:'ok',needs_agent:[]}]};
+  for(const key of ['held:one','held:two','held:four']) assert.equal(call(registry,{event:'register',key,step:'direction-health',subject:'operator'}).json.status,'ok');
+  // `held:four` is the one key the owning step POSITIVELY names as resolved. `held:two` is the
+  // row this assertion used to expect `retired` for: the step ran `ok` and simply never named
+  // it, which is an absence, not a proof (2026-09-18, ticket `20260918080734`).
+  const run={steps:[{step:'direction-health',status:'ok',needs_agent:[],resolved_keys:['held:four']}]};
   const result=call('moderate/scripts/reconcile-questions.sh',{tick:'20260908-230000',run,answers:[{key:'held:one',answer:'This is resolved.',source_ref:'session:human-42',subject_verified:true,relation_confirmed:true}]});
   assert.equal(result.json.status,'ok',result.stderr);
   const questions=call(registry,{event:'list'}).json.data.questions;
   assert.equal(questions.find(q=>q.key==='held:one').state,'answered');
   assert.equal(questions.find(q=>q.key==='held:one').source,'session:human-42');
-  assert.equal(questions.find(q=>q.key==='held:two').state,'retired');
-  for (const key of ['held:one','held:two']) call(registry,{event:'asked',key,now:'2026-09-09T00:00:00Z',coordinate:'C1:100.000001'});
-  assert.deepEqual(call(registry,{event:'list'}).json.data.questions.map(q=>q.state),['answered','retired']);
+  assert.equal(questions.find(q=>q.key==='held:two').state,'candidate');
+  assert.deepEqual(result.json.data.results.filter(r=>r.status==='not_retired'),
+    [{status:'not_retired',reason:'unwitnessed',key:'held:two'}]);
+  // Only the positively named key is retired, and its evidence describes a reading that was made.
+  assert.equal(questions.find(q=>q.key==='held:four').state,'retired');
+  assert.equal(questions.find(q=>q.key==='held:four').evidence.reason,'owning_step_reported_resolution');
+  // Answered and retired keys still cannot be re-asked; a candidate one can.
+  for (const key of ['held:one','held:two','held:four']) call(registry,{event:'asked',key,now:'2026-09-09T00:00:00Z',coordinate:'C1:100.000001'});
+  assert.deepEqual(call(registry,{event:'list'}).json.data.questions.map(q=>q.state),['answered','asked','retired']);
   const state=spawnSync('sh',[join(skills,'moderate/scripts/question-state.sh'),'--key','held:one'],{cwd:dir,encoding:'utf8'});
   assert.equal(JSON.parse(state.stdout).state,'answered');
   call(registry,{event:'register',key:'held:three',step:'missing'});
   call('moderate/scripts/reconcile-questions.sh',{tick:'20260908-230100',run,answers:[{key:'held:three',answer:'guess',source_ref:'thread:other',subject_verified:false,relation_confirmed:true}]});
   assert.equal(call(registry,{event:'list'}).json.data.questions.find(q=>q.key==='held:three').state,'candidate');
+});
+// A KEY THE AGENT COMPOSES AFTER THE STEP RAN IS NEVER WITNESSED BY IT, and the retirement used
+// to read that absence as proof. Measured on this repository: the only live question,
+// `inbound-channel-unreadable:dev-workaholic`, held `{"state":"retired","asked_tick":""}` — never
+// asked and never askable again — while the channel it named was still unreadable in that tick.
+// The registry is per-clone runtime state under the Git common directory, so no pull request can
+// carry a migration to it: the fixture is the row an OLDER version already wrote, planted on disk
+// before the new code runs. A registry created empty and then driven by this code proves nothing
+// about that row (`plugins/workaholic/rules/general.md`).
+test('a legacy row retired on an absence is reinstated once, and the repair touches nothing else',t=>{
+  const {call,dir}=fixture(t), registry='moderate/scripts/question-registry.sh';
+  const key='inbound-channel-unreadable:dev-workaholic';
+  const legacy={'inbound-channel-unreadable:dev-workaholic':{key,state:'retired',step:'unanswered-asks',subject:'a@qmu.jp',
+      evidence:{proved:true,step:'unanswered-asks',reason:'owning_step_resolved_premise'}},
+    'held:answered':{key:'held:answered',state:'answered',step:'direction-health',answer:'the person\'s own words',source:'session:h-1'},
+    'held:other-reason':{key:'held:other-reason',state:'retired',step:'direction-health',
+      evidence:{proved:true,step:'direction-health',reason:'owning_step_reported_resolution'}}};
+  const record=join(dir,'.git/workaholic/runtime/v1/instances/questions');
+  mkdirSync(record,{recursive:true});
+  writeFileSync(join(record,'meta.json'),JSON.stringify({schema_version:1,revision:7,owner:null,generation:1,
+    updated_at:'2026-09-17T23:00:00Z',data:{questions:legacy}}));
+  const rows=()=>Object.fromEntries(call(registry,{event:'list'}).json.data.questions.map(q=>[q.key,q]));
+  // The step ran `ok` and carries the key only INSIDE the escalation sentence — the real shape.
+  const run={steps:[{step:'unanswered-asks',status:'ok',
+    needs_agent:[{escalation:`ask ONE question keyed ${key} — the existing route`}]},
+    {step:'direction-health',status:'ok',needs_agent:[]}]};
+  const first=call('moderate/scripts/reconcile-questions.sh',{tick:'20260918-010000',run,answers:[]});
+  assert.equal(first.json.status,'ok',first.stderr);
+  assert.equal(rows()[key].state,'candidate');
+  assert.equal(rows()[key].evidence,undefined,'the manufactured evidence is dropped, not kept');
+  // Never `asked`: the asked-once ledger line must not be spent on a question nobody heard.
+  const state=spawnSync('sh',[join(skills,'moderate/scripts/question-state.sh'),'--key',key],{cwd:dir,encoding:'utf8'});
+  assert.equal(JSON.parse(state.stdout).state,'never_asked');
+  const ask=spawnSync('sh',[join(skills,'moderate/scripts/ask-question.sh'),'--tick','20260918-020000','--key',key,
+    '--root',dir,'--to','a@qmu.jp','--hour','10','--weekday','1'],{cwd:dir,encoding:'utf8'});
+  assert.equal(JSON.parse(ask.stdout).ask,true,'the route to a person is open again');
+  // The two rows the repair must not touch come out byte-identical to the legacy fixture.
+  for (const untouched of ['held:answered','held:other-reason'])
+    assert.deepEqual(rows()[untouched],legacy[untouched],untouched);
+  // Idempotent: a second run changes the record not at all, and says what it did not do.
+  const before=readFileSync(join(record,'meta.json'),'utf8');
+  const second=call('moderate/scripts/reconcile-questions.sh',{tick:'20260918-030000',run,answers:[]});
+  assert.equal(readFileSync(join(record,'meta.json'),'utf8'),before);
+  assert.deepEqual(second.json.data.results,[{status:'not_retired',reason:'unwitnessed',key}]);
+  // Each reinstate bound refuses by its own word with nothing written.
+  assert.equal(call(registry,{event:'reinstate',key:'held:answered'}).json.reason,'answered_row');
+  assert.equal(call(registry,{event:'reinstate',key:'held:other-reason'}).json.reason,'evidence_not_repairable');
+  assert.equal(call(registry,{event:'reinstate',key}).json.reason,'not_retired:candidate');
+  assert.equal(call(registry,{event:'reinstate',key:'held:absent'}).json.reason,'unknown_question');
+  assert.equal(readFileSync(join(record,'meta.json'),'utf8'),before);
+});
+// `liveness` is unchanged and `resolution` is additive: a degraded step proves nothing, and a
+// step that ran retires a key only when it names that key as resolved.
+test('the retirement reading is positive, and a step that could not report retires nothing',t=>{
+  const {dir}=fixture(t), file=join(dir,'run.json');
+  writeFileSync(file,JSON.stringify({steps:[
+    {step:'s1',status:'ok',resolved_keys:['resolved:one'],needs_agent:[{escalation:'keyed substring:two in a sentence'},{key:'raised:five'}]},
+    {step:'s2',status:'degraded',needs_agent:[]}]}));
+  const read=(key,step)=>JSON.parse(spawnSync('sh',[join(skills,'moderate/scripts/question-liveness.sh'),
+    '--key',key,'--step',step,'--run',file],{encoding:'utf8'}).stdout);
+  assert.deepEqual([read('resolved:one','s1').liveness,read('resolved:one','s1').resolution],['settled','proved']);
+  assert.deepEqual([read('substring:two','s1').liveness,read('substring:two','s1').resolution],['settled','unwitnessed']);
+  assert.deepEqual([read('silent:three','s1').liveness,read('silent:three','s1').resolution],['settled','unwitnessed']);
+  assert.deepEqual([read('degraded:four','s2').liveness,read('degraded:four','s2').resolution],['unknown','unknown']);
+  assert.deepEqual([read('absent:x','missing').liveness,read('absent:x','missing').resolution],['unknown','unknown']);
+  // A raised key stays `live` and is never `proved`, even where the step also names it resolved.
+  writeFileSync(file,JSON.stringify({steps:[{step:'s1',status:'ok',resolved_keys:['raised:five'],needs_agent:[{key:'raised:five'}]}]}));
+  assert.deepEqual([read('raised:five','s1').liveness,read('raised:five','s1').resolution],['live','unwitnessed']);
 });
 test('question liveness matches the full key, not a substring of another question',t=>{
   const {dir}=fixture(t), file=join(dir,'run.json');

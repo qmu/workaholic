@@ -38,6 +38,15 @@ bounded inbox. Each association carries the full question key, verified subject 
 coordinate. Ambiguous answers remain deferred. Read the registry for held keys; never invert or
 re-hash a log slug. Reconcile liveness before asking, not after posting a stale question.
 
+A question is retired **only on a positive reading** — the owning step's own `resolved_keys`
+naming the exact key (`question-liveness.sh`'s `resolution: proved`). A step that ran and simply
+did not raise the key is an **absence**, never a proof: it reads `unwitnessed`, retires nothing,
+and is reported `not_retired` with its reason, as a degraded or missing step's `unknown` is. No
+step emits `resolved_keys` yet, so the reconciliation currently retires nothing — an open
+question is visible and re-askable, an extinguished one is neither. The same call reinstates the
+rows the old rule already retired (`evidence.reason: owning_step_resolved_premise`) to
+`candidate`, never to `asked`, and reports each refused bound by name.
+
 The `question-answers` step names one thread per outstanding question, each on a coordinate it already holds: read exactly those threads, one read each, and never search Slack or read channel history for one. Record each person's answer through `record-answer.sh`, or name why you did not — a machine's own post is never an answer. React `:ballot_box_with_check:` on an answer message you actually recorded this tick, and post **no reply** for that event, in any thread — the outcome reply below is a different event, posted only once the loop has acted on the answer.
 
 When the tick's rendered post says to post, **resolve the day's standing root first** by the stateless exact-string lookup in `workaholic:notify`, searching the rendered `token` (`tick-day:<YYYYMMDD>`) and nothing else. It names the **day**, not the tick, so every speaking tick of one day resolves one thread.

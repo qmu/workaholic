@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-18T08:07:34+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -7,6 +8,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: [20260918074738-question-reconciliation-retires-the-unreadable-channel-escalation-before-it-is-ever-asked.md]
+claim: work-20260918-081459
 ---
 
 # Retire a check-in question only on a positive reading
@@ -267,3 +269,49 @@ carried the same assumption through.
   while line 86 emits a fifth, `retired`. Correct the header comment while in the file; it is a
   documentation slip, not part of this repair
   (`plugins/workaholic/skills/moderate/scripts/question-state.sh` lines 38-42, 86).
+
+## Final Report
+
+Development completed as planned.
+
+The defect was reproduced first, in a throwaway repository and against this checkout's live
+registry: a key carried only as a substring of `unanswered-asks`' escalation sentence, with the
+owning step `ok`, reached `state: retired` / `evidence.reason: owning_step_resolved_premise`,
+after which `question-state.sh` answered `retired` and `ask-question.sh` answered
+`premise_resolved` with `hold: false`. The live row was `{"state":"retired","asked_tick":""}` —
+never asked and never askable again — for `inbound-channel-unreadable:dev-workaholic`.
+
+`question-liveness.sh` gained one additive field, `resolution`
+(`proved | unwitnessed | unknown`), read off a step row's own `resolved_keys` with the same
+exact-string match `needs_agent` already uses. The three `liveness` words, that match, and both
+existing consumers (the bounded re-ask, the `✅ 解消を確認` confirmation) are byte-identical; a
+raised key is never `proved`, because a step contradicting itself should leave the question
+askable. `reconcile-questions.sh` retires only on `proved`, writes the new evidence word
+`owning_step_reported_resolution`, and appends `{"status":"not_retired","reason":"<resolution>",
+"key":"<key>"}` for every row it leaves alone, so no outcome is implied by silence. The residue
+the old rule already wrote is reinstated to `candidate` — never `asked` — in the same seam,
+through one bounded `reinstate` event on `question-registry.sh`, whose `retire` guard is
+untouched.
+
+### Discovered Insights
+
+- **Insight**: `question-registry.sh`'s single jq program can only refuse through `error()`,
+  which `runtime_usage` turns into an `invalid_input` error at exit 2 — usable for a malformed
+  call, but wrong for a bound that wants its own word and a zero exit. The `reinstate` bounds are
+  therefore evaluated in shell against the record already read, before any write is composed, and
+  answer `deferred` with `answered_row` / `evidence_not_repairable` / `not_retired:<state>` /
+  `unknown_question`.
+  **Context**: any future bounded event on this registry has the same shape available, and the
+  refusal leaves the record byte-identical because nothing is composed before the check.
+
+- **Insight**: the retirement is now unreachable in practice — no step emits `resolved_keys`, so
+  every key reads `unwitnessed` and nothing is retired.
+  **Context**: this is deliberate and stated in the prose. An open question is visible and
+  re-askable; an extinguished one is neither, and `register`/`asked` are both no-ops over a
+  retired row, so the old direction of error was permanent.
+
+- **Insight**: the registry lives at `.git/workaholic/runtime/v1/instances/questions/meta.json`,
+  per clone and uncommitted.
+  **Context**: no pull request can carry a migration to it, which is why the repair runs inside
+  the tick's own seam and why a fresh-registry test proves nothing about the upgrade — the
+  suite's new row plants the legacy record on disk before the new code runs.

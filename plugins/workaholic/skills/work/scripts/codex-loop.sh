@@ -842,24 +842,43 @@ plan_tick() {
         _pt_issue_sh="${SCRIPT_DIR}/../../specificate/scripts/list-inbound-issues.sh"
         [ ! -x "$_pt_issue_sh" ] || _pt_issues=$(cd "$REPO_ROOT" && sh "$_pt_issue_sh" 2>/dev/null || printf '{"ok":false,"issues":[],"reason":"issue_reader_failed"}')
         _pt_issue_activity=$(printf '%s' "$_pt_issues" | jq -r '(.issues // []) | length > 0')
-        _pt_activity=$(jq -cn --argjson slack "$_pt_slack" --argjson issues "$_pt_issues" '($slack.new_input_ids|length)>0 or ($issues.issues|length)>0')
+        # A human reply DISCOVERED in a thread is activity too (2026-09-17, ticket
+        # `20260917122814`). `new_input_ids` is the channel delta's own list and a reply under an
+        # older root never appears there -- Slack channel history does not carry it -- so a tick
+        # that found somebody answering a question the loop asked read `activity: false` and
+        # backed its interval off. A reaction is not activity; a message is.
+        _pt_activity=$(jq -cn --argjson slack "$_pt_slack" --argjson issues "$_pt_issues" '
+          ($slack.new_input_ids|length)>0
+          or ((($slack.thread_replies // []) | map(select(.route != "reaction_only")) | length) > 0)
+          or ($issues.issues|length)>0')
         _pt_proved=$(jq -cn --argjson slack "$_pt_slack" --argjson issues "$_pt_issues" '($slack.observation_proved==true) and ($issues.ok==true)')
         _pt_more=$(printf '%s' "$_pt_slack" | jq -r '.has_more // false')
-        jq -cn --argjson now "$_pt_epoch" --argjson polling "$_pt_polling" --argjson state "$_pt_state" --argjson proved "$_pt_proved" --argjson activity "$_pt_activity" --argjson more "$_pt_more" '{now_epoch:$now,polling:$polling,state:$state,observed:{proved:$proved,activity:$activity,has_more:$more}}' >"$_pt_dir/poll.json"
+        # `observation_settled` is the observation's OWN reading, never re-derived here: false
+        # while a delta page went unread, thread coverage is not `covered`, the fan-out cut the
+        # thread list, or the speaking account was never proved. It is read only on a proved
+        # read, because an unproved one is already `observation_unreadable` one branch up.
+        # Read with `has`, never `// true` (`rules/shell.md`, *`//` is not a default when
+        # `false` is a real answer*): otherwise every partly-read tick would report quiet.
+        _pt_settled=$(printf '%s' "$_pt_slack" | jq -c 'if has("observation_settled") then (.observation_settled == true) else true end')
+        jq -cn --argjson now "$_pt_epoch" --argjson polling "$_pt_polling" --argjson state "$_pt_state" --argjson proved "$_pt_proved" --argjson activity "$_pt_activity" --argjson more "$_pt_more" --argjson settled "$_pt_settled" '{now_epoch:$now,polling:$polling,state:$state,observed:{proved:$proved,activity:$activity,has_more:$more,settled:$settled}}' >"$_pt_dir/poll.json"
         _pt_after=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll.json" 2>/dev/null || printf '')
         printf '%s' "$_pt_after" | jq -c .data.next_state >"${_pt_poll_state}.tmp.$$" && mv "${_pt_poll_state}.tmp.$$" "$_pt_poll_state"
         _pt_next=$(printf '%s' "$_pt_after" | jq -r '.data.next_due')
         if [ "$_pt_activity" != true ] && [ "${WORK_DUE:-true}" != true ]; then
             # The wait's word is plan-poll's own, never this file's: an unproved observation is
             # `observation_unreadable` on the failure streak's retry deadline (2026-09-11, issue
-            # #1151) -- unread, never quiet -- and only a proved, activity-free read is
-            # `observed_quiet`. Calling an unreadable source quiet is how a human root sat unread.
+            # #1151) -- unread, never quiet -- `observation_incomplete` when the read was proved
+            # and something it needed was still unsettled (2026-09-17), and `observed_quiet` only
+            # for a proved, activity-free, SETTLED read. Calling an unreadable source quiet is how
+            # a human root sat unread; calling a partly-read one quiet is the same error one step
+            # further in, and both words carry `unsettled` so a reader sees which term held.
             _pt_reason=$(printf '%s' "$_pt_after" | jq -r '.data.reason // "observation_unreadable"' 2>/dev/null || printf observation_unreadable)
             case "$_pt_reason" in quiet) _pt_wait=observed_quiet ;; *) _pt_wait=$_pt_reason ;; esac
             _pt_unreadable=$(printf '%s' "$_pt_slack" | jq -c '.unreadable // []' 2>/dev/null || printf '[]')
+            _pt_unsettled=$(printf '%s' "$_pt_slack" | jq -c '.unsettled // []' 2>/dev/null || printf '[]')
             _pt_unproved_since=$(printf '%s' "$_pt_slack" | jq -c '.unproved_since // null' 2>/dev/null || printf null)
-            jq -cn --argjson next "$_pt_next" --arg wait "$_pt_wait" --argjson unreadable "$_pt_unreadable" --argjson since "$_pt_unproved_since" \
-              '{protocol:"workaholic.runtime/v1",status:"ok",data:{actions:[{action:"wait",reason:$wait,unreadable:$unreadable,unproved_since:$since}],next_due:$next}}'
+            jq -cn --argjson next "$_pt_next" --arg wait "$_pt_wait" --argjson unreadable "$_pt_unreadable" --argjson unsettled "$_pt_unsettled" --argjson since "$_pt_unproved_since" \
+              '{protocol:"workaholic.runtime/v1",status:"ok",data:{actions:[{action:"wait",reason:$wait,unreadable:$unreadable,unsettled:$unsettled,unproved_since:$since}],next_due:$next}}'
             rm -rf "$_pt_dir"; return 0
         fi
     fi
@@ -889,7 +908,10 @@ run_tick() {
         _next_due=$(iso_from_epoch "$_next_epoch")
         # The wait's reason is recorded, so `--status` can tell an unread channel from a quiet
         # one: `observed_quiet` / `observation_cached` are ordinary; `observation_unreadable`
-        # names a source that was not read and is retrying on its own deadline.
+        # names a source that was not read and is retrying on its own deadline;
+        # `observation_incomplete` names a source that WAS read and whose coverage of it is not
+        # finished (an unread delta page, thread discovery refused, a truncated fan-out, an
+        # unproved sender), which is the one word that must never be rounded up to quiet.
         _wait_reason=$(printf '%s' "$_plan" | jq -r '.data.actions[0].reason // ""' 2>/dev/null || printf '')
         write_status sleeping idle "$_wait_reason" "$_stamp" "$_started" "$_finished" "" "" parent_not_needed "$_next_due"
         printf 'codex tick: outcome=idle reason=%s next_due=%s\n' "$_wait_reason" "$_next_due"

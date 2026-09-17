@@ -1,5 +1,13 @@
 #!/bin/sh -eu
 # Pure transition for Slack/GitHub observation cadence. Observation is optional.
+#
+# `observed.settled` (2026-09-17) is the observation's own answer to *may this read be reported
+# as the channel having nothing new*. ABSENT MEANS SETTLED, the `merge_policy`/`status:`
+# convention, so a caller not yet passing it behaves byte-identically; `false` answers
+# `observation_incomplete` instead of `quiet`. It changes the WORD and never the interval: an
+# unread page already forces an immediate re-poll through `has_more`, and a standing limitation
+# such as a route that will never carry thread discovery would otherwise shorten the interval
+# forever, which is a spin rather than a repair.
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd); . "$SCRIPT_DIR/lib/result.sh"
 [ "${1:-}" = --input ] || runtime_usage "usage: plan-poll.sh --input FILE"
 INPUT=${2:-}; runtime_require_json_file "$INPUT"
@@ -29,7 +37,10 @@ jq -c '
          elif (.state.last_observed_epoch // null)==null then ([$idle,$max]|min)
          else ([((.state.current_interval_seconds // $fast)*2),$max]|min) end) as $interval
       | (if (.observed.has_more // false) then $i.now_epoch else ($i.now_epoch+$interval) end) as $due
-      | {observe:false,reason:(if $activity then "activity" else "quiet" end),next_due:$due,
+      # Read with `has`, never `// true`: `rules/shell.md`, *`//` is not a default when `false`
+      # is a real answer*. No apostrophes -- this program lives in a single-quoted shell string.
+      | ((.observed | has("settled")) and (.observed.settled != true)) as $unsettled
+      | {observe:false,reason:(if $activity then "activity" elif $unsettled then "observation_incomplete" else "quiet" end),next_due:$due,
          next_state:{last_observed_epoch:$i.now_epoch,last_activity_epoch:(if $activity then $i.now_epoch else (.state.last_activity_epoch // null) end),quiet_streak:(if $activity then 0 else ((.state.quiet_streak // 0)+1) end),current_interval_seconds:$interval,next_observation_epoch:$due,failure_streak:0,retry_after_epoch:null}}
     end
   | {protocol:"workaholic.runtime/v1",request_id:"plan-poll",status:"ok",reason:"",data:.}' "$INPUT" 2>/dev/null || runtime_usage "invalid poll values"

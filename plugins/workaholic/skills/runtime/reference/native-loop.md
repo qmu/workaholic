@@ -71,6 +71,26 @@ That path is only an operator-level stop. A single unit awaiting interpretation 
 observation and unrelated work continue, and only a reply from that thread makes the receipt
 eligible again. Task review never emits `hold` or asks for a separate resume.
 
+**A unit waiting on somebody else's merge is one of those task waits, and never a global hold**
+(2026-09-17, ticket `20260917141324`). Measured: a green pull request whose merge is another
+authority's act was classified `review_required` — the criterion below says *a refusal that stops
+the work is review-required*, and a refused merge reads exactly like one — so the parent persisted
+`hold`, asked the one question and ended, with independent runnable work queued behind it. **The
+refusal stops that unit, not the loop.** The facts carry it: `blocked_on` names the three per-unit
+blockers the loop actually has — **`merge_authority`** (green, and merging is somebody else's act),
+**`pull_request_review`** (a person is mid-review), **`verification_handoff`** (a declared
+verification cannot run here) — and `final-response-contract.sh` refuses
+**`unit_wait_is_not_global_hold`** for `review_required` beside any of them. The reader still reads
+no sentence and no refusal word; `blocked_on` is a judgement the run writes out, as
+`interruption_kind` already is, and it rides the `task_wait` answer beside `unit` so the receipt
+records which unit is waiting and on what.
+
+**And a task wait keeps the same parent observing.** `task_wait` answered `next_action: null` and
+`collect_results: false` whatever the host goal was, so a paused-goal parent with interruptible
+wait available was told nothing about continuing and ended — the other half of the same measured
+stop. Both paths now read the one `interruptible_parent` derivation, because a unit's wait is not
+a reason for the **loop** to stop observing or to stop dispatching what is due.
+
 A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
 (`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and
 proves it through the same reader: `final-response-contract.sh` refuses `continuation_unproved`

@@ -97,6 +97,62 @@ cadence; the next proved read overlaps the whole unproved interval (`overlap_sec
 greater of 300 and `now − unproved_since`), and only that read's cursor-advancing capture clears
 the mark. A report that calls an unproved read quiet is non-conformant on its face.
 
+**And a PROVED observation whose coverage is unfinished is incomplete, never quiet** (2026-09-17,
+ticket `20260917123453`). `observe-channel.sh` derives `observation_settled` once and names every
+term in `unsettled[]`: **`channel_delta_incomplete`** (`has_more` still true — a page budget was
+exhausted or a later page could not be read), **`thread_coverage_partial`** (the discovery
+operation refused, a thread read failed, or a reply could not be classified),
+**`thread_fanout_truncated`**, and **`sender_identity_unverified`**. While any of them stands the
+tick may **not** report the channel quiet, may **not** report that no new reply arrived, and may
+**not** report the channel as fully observed: `plan-poll.sh` answers **`observation_incomplete`**
+in place of `quiet`, `codex-loop.sh` records that word in the tick status beside `unsettled`, and a
+report that calls such a read quiet — or names the word and not the terms — is **non-conformant on
+its face**.
+
+It moves the **word and never the cadence**. An unread page already forces an immediate re-poll
+through `has_more`; a standing limitation such as a route that will never carry thread discovery
+would otherwise shorten the interval forever, which is a spin rather than a repair. `settled`
+**absent means settled** (the `merge_policy` convention), so a caller that does not pass it
+behaves exactly as it did before this existed.
+
+**A mention outside the read window is discovered, not waited for** (2026-09-17, ticket
+`20260917122814`). The mention reading was a text test over the channel delta and nothing else, so
+a mention on a root older than the window — or in a reply, which channel history never carries at
+all — was invisible until somebody pasted a link, and nothing registered the thread either, so the
+next tick looked past it too. `observe-channel.sh` now searches the channel's own history for the
+declared sender's mention token through the operation that already exists (`search_exact`), **one
+bounded call per tick**, joins every coordinate it finds to the watch set, and **reads each one
+immediately** (`WORKAHOLIC_MENTION_FANOUT`, default 3) — a mention is the one discovery that means
+a person is waiting. One thread is read **at most once per tick** whichever arm named it, so the
+mention arm and the discovery arm never spend two calls to deliver one reply. The search itself
+**captures nothing**: capture is per surface, and capturing here would make the thread read see its
+own message as a duplicate and drop the reply the arm exists to route. **A search is not an index**
+— `coverage.mentions` reports `searched`, `discovered`, `tracked` and `exhaustive: false`, never a
+completeness claim, because zero rows certify nothing. An absent `sender_id` leaves the arm unrun
+and the reading `unreadable`. **Cost, stated**: one transport call per tick.
+
+**And a human reply discovered in a thread is activity.** `new_input_ids` is the channel delta's
+own list, so a tick that found somebody answering the loop's own question read `activity: false`
+and backed its interval off. The cadence term reads the discovered replies too, a `reaction_only`
+one excluded.
+
+**The delta is drained inside the call, and what it discovers is remembered.** Reading one page
+and calling the rest *next tick* made the coverage claim false for as long as the channel was
+busy, so `observe-channel.sh` pages `read_channel_delta` until `has_more` is false or the
+`WORKAHOLIC_CHANNEL_PAGES` budget (default 5) is spent — each page captured before the next is
+asked for, so page N+1's lower bound is page N's own advanced cursor with **no** overlap, and the
+boundary message is dropped by the capture's existing provider-id dedup. `window_since` rides the
+first page only, because the capture is the one writer of the unproved mark. Every root the delta
+named and every explicit Slack permalink in a message's text go into a **durable, bounded watch
+set** (`watch_threads` on the binding record, newest `WORKAHOLIC_WATCH_SET_MAX`, default 50),
+written in one revision-checked update after the captures; a refused write is named
+`watch_set_unwritten` and stores nothing. When `list_thread_changes` refuses, **that set is what
+the fallback reads** — newest first, through the same one classifier, bounded by the same fan-out
+— rather than nothing at all, which is how a request under a freshly discovered root went
+unanswered for as long as the provider kept refusing. A fallback read is **evidence, never
+coverage**: `coverage.threads.status` stays `partial` with the discovery's own reason and
+`source` reads `watch_set_fallback`.
+
 Use `runtime/scripts/plan-poll.sh` for the pure cadence transition. Persist its
 `next_state` only after inbox capture; after a crash, an early duplicate read is safer than
 advancing past uncaptured input. Sleep until the earliest work, observation, or retry
@@ -152,6 +208,26 @@ That path is only an operator-level stop. A single unit awaiting interpretation 
 `task_review`: its receipt records the originating thread, the coordinator stays `running`,
 observation and unrelated work continue, and only a reply from that thread makes the receipt
 eligible again. Task review never emits `hold` or asks for a separate resume.
+
+**A unit waiting on somebody else's merge is one of those task waits, and never a global hold**
+(2026-09-17, ticket `20260917141324`). Measured: a green pull request whose merge is another
+authority's act was classified `review_required` — the criterion below says *a refusal that stops
+the work is review-required*, and a refused merge reads exactly like one — so the parent persisted
+`hold`, asked the one question and ended, with independent runnable work queued behind it. **The
+refusal stops that unit, not the loop.** The facts carry it: `blocked_on` names the three per-unit
+blockers the loop actually has — **`merge_authority`** (green, and merging is somebody else's act),
+**`pull_request_review`** (a person is mid-review), **`verification_handoff`** (a declared
+verification cannot run here) — and `final-response-contract.sh` refuses
+**`unit_wait_is_not_global_hold`** for `review_required` beside any of them. The reader still reads
+no sentence and no refusal word; `blocked_on` is a judgement the run writes out, as
+`interruption_kind` already is, and it rides the `task_wait` answer beside `unit` so the receipt
+records which unit is waiting and on what.
+
+**And a task wait keeps the same parent observing.** `task_wait` answered `next_action: null` and
+`collect_results: false` whatever the host goal was, so a paused-goal parent with interruptible
+wait available was told nothing about continuing and ended — the other half of the same measured
+stop. Both paths now read the one `interruptible_parent` derivation, because a unit's wait is not
+a reason for the **loop** to stop observing or to stop dispatching what is due.
 
 A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
 (`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and

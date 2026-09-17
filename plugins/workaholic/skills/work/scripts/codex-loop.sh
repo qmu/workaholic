@@ -857,8 +857,8 @@ plan_tick() {
         # while a delta page went unread, thread coverage is not `covered`, the fan-out cut the
         # thread list, or the speaking account was never proved. It is read only on a proved
         # read, because an unproved one is already `observation_unreadable` one branch up.
-        # NOT `// true`: jq's `//` treats `false` as empty, so the one value worth reading here
-        # would fall through to the default and every partly-read tick would report quiet.
+        # Read with `has`, never `// true` (`rules/shell.md`, *`//` is not a default when
+        # `false` is a real answer*): otherwise every partly-read tick would report quiet.
         _pt_settled=$(printf '%s' "$_pt_slack" | jq -c 'if has("observation_settled") then (.observation_settled == true) else true end')
         jq -cn --argjson now "$_pt_epoch" --argjson polling "$_pt_polling" --argjson state "$_pt_state" --argjson proved "$_pt_proved" --argjson activity "$_pt_activity" --argjson more "$_pt_more" --argjson settled "$_pt_settled" '{now_epoch:$now,polling:$polling,state:$state,observed:{proved:$proved,activity:$activity,has_more:$more,settled:$settled}}' >"$_pt_dir/poll.json"
         _pt_after=$(sh "$_pt_poll_sh" --input "$_pt_dir/poll.json" 2>/dev/null || printf '')

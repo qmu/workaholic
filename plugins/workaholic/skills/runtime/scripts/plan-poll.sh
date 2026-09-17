@@ -37,10 +37,8 @@ jq -c '
          elif (.state.last_observed_epoch // null)==null then ([$idle,$max]|min)
          else ([((.state.current_interval_seconds // $fast)*2),$max]|min) end) as $interval
       | (if (.observed.has_more // false) then $i.now_epoch else ($i.now_epoch+$interval) end) as $due
-      # NEVER `.observed.settled // true` here: jq treats `false` itself as empty, so the one
-      # value this term exists to read would fall through to the default. Same trap as the
-      # `.ok != false` guard in `adapters/qfs.sh` (`rules/shell.md`). No apostrophes: this
-      # program lives inside a single-quoted shell string.
+      # Read with `has`, never `// true`: `rules/shell.md`, *`//` is not a default when `false`
+      # is a real answer*. No apostrophes -- this program lives in a single-quoted shell string.
       | ((.observed | has("settled")) and (.observed.settled != true)) as $unsettled
       | {observe:false,reason:(if $activity then "activity" elif $unsettled then "observation_incomplete" else "quiet" end),next_due:$due,
          next_state:{last_observed_epoch:$i.now_epoch,last_activity_epoch:(if $activity then $i.now_epoch else (.state.last_activity_epoch // null) end),quiet_streak:(if $activity then 0 else ((.state.quiet_streak // 0)+1) end),current_interval_seconds:$interval,next_observation_epoch:$due,failure_streak:0,retry_after_epoch:null}}

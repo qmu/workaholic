@@ -253,7 +253,12 @@ Run
 For each readable item, reconcile its feedback, queued tickets, implementation PR and actual
 review surface. A timeline cross-reference or merged proposal is not implementation evidence.
 Pass the per-item facts through `work/scripts/feedback-outcome.sh --input <file>` before composing
-a finish line. Report every item, including queued, unverified and surface-mismatched work.
+a finish line, and through `work/scripts/delivery-ledger.sh --input <file>` where one item is
+answered by **several** pull requests: that reader composes the same one and folds the set with
+`every`, so a request with one merged part and two open ones can no longer read as finished. It
+answers `delivered`, the first `missing` stage, the bounded dependency-ordered `next[]`, one
+`blockers[]` entry per gate naming its whole affected scope, and the `independent[]` work that
+keeps going. Report every item, including queued, unverified and surface-mismatched work.
 Resolve the exact `fb:<stem>` thread. A complete lookup proving it missing earns the description
 root through the same durable transport, then the finish reply at its verified returned timestamp.
 An ambiguous, partial or failed lookup stays `thread_unresolved`; never silently discard it or

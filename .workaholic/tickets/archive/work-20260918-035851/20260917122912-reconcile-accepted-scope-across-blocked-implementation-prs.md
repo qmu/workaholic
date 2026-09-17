@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-17T12:29:12+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,42 @@ accepted request を implementation、merge、deploy、public verification ま�
 ## Considerations
 
 外部 CI gate の解除を自動で主張せず、公開済み証拠と local evidence を分ける。
+
+## Final Report
+
+Development completed as planned.
+
+`work/scripts/delivery-ledger.sh` answers the delivery state of an accepted request whose
+implementation is spread over several pull requests. It **composes** `feedback-outcome.sh` rather
+than restating it — that reader stays the one derivation of `state` / `notification` /
+`deployment` — and adds only what it cannot see: the arithmetic over the pull-request set (folded
+with `every`, never `any`), the first absent stage (`merge` → `deployment` →
+`public_verification`), a per-row `delivered` that conjoins the two readings so no call site has
+to, a bounded dependency-ordered `next[]`, one `blockers[]` entry per gate naming its whole
+affected scope, and the `independent[]` work that keeps going. It clears no gate and verifies
+nothing. Named at both reconciliation seams (`commands/implement.md`,
+`commands/infinite-development.md`).
+
+### Discovered Insights
+
+- **Insight**: `<array> | index(.)` does not test membership — the pipe rebinds `.` to the array,
+  so the expression asks whether the array contains itself. Every one of the four membership
+  tests in the first draft had it, and the symptom was a silently empty result in one place and
+  `Cannot index array with string "number"` in another.
+  **Context**: the working form binds the element first (`. as $d | any($set[]; . == $d)`). This
+  is worth knowing for any jq in this tree that filters one list against another.
+- **Insight**: `feedback-outcome.sh` answers a **bare** `{items:[…]}`, not the
+  `runtime_json_result` envelope its siblings in `runtime/scripts/` return.
+  **Context**: a composing caller that checks `.status == "ok"` therefore rejects every valid
+  answer. The scripts under `work/scripts/` are not uniform about the envelope.
+- **Insight**: jq's `//` treats `false` as empty, so `.public_verification // null` turns an
+  explicit *not verified* into *nobody looked*. This bit the same batch three times, in three
+  different scripts.
+  **Context**: any tri-state where `false` is a real answer needs `has("key")` or `!= true`. The
+  house comment for it already exists in `adapters/qfs.sh` beside `.ok != false`.
+- **Insight**: `state: implemented_and_verified` and `missing: deployment` are both correct and
+  together mean *not delivered* — the implementation reading is genuinely about the pull requests
+  and says nothing about the deployment.
+  **Context**: this is exactly the shape the ticket was written against, so the conjunction lives
+  in the reader as `delivered` rather than at each call site; a consumer reading one field would
+  report a failed deployment as a finished request.

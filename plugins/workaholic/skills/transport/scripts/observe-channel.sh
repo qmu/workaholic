@@ -227,8 +227,11 @@ covered_unproved=$COVERED_UNPROVED
 MENTION_FANOUT=${WORKAHOLIC_MENTION_FANOUT:-3}
 case "$MENTION_FANOUT" in ''|*[!0-9]*) MENTION_FANOUT=3 ;; esac
 MENTION_SEARCHED=false; MENTION_REASON=''; MENTION_CALLS=0; MENTION_FOUND='[]'
+# An absent sender leaves MENTION_REASON EMPTY on purpose: `sender_identity_unverified` is
+# already the first term of `unreadable[]` and the whole of `coverage.mentions`, and naming it
+# twice would print one fact twice in the list a reader scans for degradations.
 if [ -z "$BOT" ]; then
-  MENTION_REASON=sender_identity_unverified
+  :
 else
   jq -cn --arg root "$ROOT" --arg bid "$binding_id" --argjson binding "$binding" --arg query "<@$BOT>" \
     '{protocol:"workaholic.transport/v1",request_id:"loop-observe-mentions",operation:"search_exact",repo_root:$root,instance_id:"loop-observer",binding_id:$bid,input:{binding:$binding,query:$query,private_inclusive:true}}' >"$tmp/mentions.json"

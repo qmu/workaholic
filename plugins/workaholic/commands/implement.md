@@ -18,6 +18,16 @@ Before a completion summary, reconcile every source feedback item with its actua
 or package, verification evidence, remaining tickets, implementation PR and deployment outcome.
 Validate those facts with `work/scripts/feedback-outcome.sh`. A similar sibling UI, passing
 tests on another package, or a merged proposal does not satisfy the named review surface.
+
+**Where one accepted request is answered by SEVERAL pull requests, read the ledger rather than
+picking one of them** (2026-09-17, ticket `20260917122912`): `work/scripts/delivery-ledger.sh`
+composes that same reader over the whole pull-request set and answers per request — `delivered`
+(the whole of it merged, deployed and publicly verified), `missing` (the first absent stage:
+`merge`, `deployment`, `public_verification`), the merged/open/blocked partition, and a bounded
+`next[]` in dependency order, refusing `order_unresolved` or `depends_on_outside_item` rather than
+guessing. **One external gate is reported once with its whole affected scope** (`blockers[]`,
+naming every request and pull request it holds), and `independent[]` names the open work no gate
+holds — which keeps going. It clears no gate, merges nothing and verifies nothing.
 If persisted constraints tighten, test an upgrade with representative legacy rows as well as
 fresh schema creation. A failed deployed migration remains a failed deployment, even when the
 PR merged and local tests passed. Preserve the evidence in the unit report.

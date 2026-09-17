@@ -758,4 +758,8 @@
 * [2026-09-17 05:08 UTC の moderation root を Slack に配信できませんでした](20260917150637-2026-09-17-05-08-utc-moderation-root-slack.md)
 * [2026-09-17 05:59 UTC の moderation root を Slack に配信できませんでした](20260917154802-2026-09-17-05-59-utc-moderation-root-slack.md)
 * [開発中のmainとrelease branchでCI merge gateを分ける](20260917173839-main-release-branch-ci-merge-gate.md)
+* [/propose converges on silence](20260917173529-propose-converges-on-silence.md)
+* [The sweep receipt can be judged away](20260917173537-the-sweep-receipt-can-be-judged-away.md)
+* [Stop re-claiming units that await a person](20260917173545-stop-re-claiming-units-that-await-a-person.md)
+* [Reconcile historical loop state without coordinator handwork](20260917173553-reconcile-historical-loop-state-without-coordinator-handwork.md)
 <!-- okf:generated:end -->

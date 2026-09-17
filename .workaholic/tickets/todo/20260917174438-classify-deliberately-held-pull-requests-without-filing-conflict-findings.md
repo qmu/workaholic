@@ -45,3 +45,7 @@ Complete issue #1041's undelivered half: moderation must distinguish a broken pu
 ## Considerations
 
 This ticket closes only the reporting half of #1041. It must not merge a handoff PR or infer that a person answered.
+
+## Final Report
+
+Added a shared, per-tick cached held-branch reader backed by the claim oracle's `awaiting_verification` verdict. Both conflict and stuck-PR moderation steps now exclude those branches from repair findings and questions while reporting them as deliberately held; unreadable claim evidence excludes nothing. Focused held-state fixtures passed 5/5 and shell syntax checks passed.

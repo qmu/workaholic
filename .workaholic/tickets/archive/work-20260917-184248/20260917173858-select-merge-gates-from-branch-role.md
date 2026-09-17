@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-17T17:38:58+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -60,3 +61,7 @@ branch role または repository 設定から merge gate を機械的に選び�
 ## Considerations
 
 remote CI失敗はdevelopment merge後も検知・reconciliation対象として失わない。
+
+## Final Report
+
+Added one branch-role resolver and composed it at the pre-merge check seam. Pull requests targeting `main` now identify remote CI as post-merge detection after the unit's local proof, while `release/*` and unknown roles retain the strict remote-check gate. Focused role fixtures passed 6/6 and shell syntax checks passed.

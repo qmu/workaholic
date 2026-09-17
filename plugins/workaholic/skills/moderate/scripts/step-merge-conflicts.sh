@@ -80,6 +80,26 @@ case "$state" in
 esac
 
 conflicted=$(printf '%s' "$state" | awk '{ gsub(/}/, "}\n"); print }' | grep '"blocked_by": "conflict"' || true)
+# A handoff claim is deliberately held for a person, not broken. The shared reader is the one
+# authority for that distinction; unreadable evidence holds nothing and genuine conflicts stay.
+held_reader="${SCRIPT_DIR}/held-pull-branches.sh"
+held=''
+if [ -f "$held_reader" ]; then
+    held_state=$(sh "$held_reader" 2>/dev/null || true)
+    if printf '%s' "$held_state" | grep -q '"readable":true'; then
+        held=$(printf '%s' "$conflicted" | while IFS= read -r row; do
+            [ -n "$row" ] || continue
+            branch=$(printf '%s' "$row" | sed 's/.*"branch": "\([^"]*\)".*/\1/')
+            printf '%s' "$held_state" | jq -e --arg b "$branch" '.branches | index($b) != null' >/dev/null 2>&1 && printf '%s\n' "$row"
+        done)
+        conflicted=$(printf '%s' "$conflicted" | while IFS= read -r row; do
+            [ -n "$row" ] || continue
+            branch=$(printf '%s' "$row" | sed 's/.*"branch": "\([^"]*\)".*/\1/')
+            printf '%s' "$held_state" | jq -e --arg b "$branch" '.branches | index($b) != null' >/dev/null 2>&1 || printf '%s\n' "$row"
+        done)
+    fi
+fi
+held_count=$(printf '%s' "$held" | awk 'NF { n++ } END { print n + 0 }')
 count=$(printf '%s' "$conflicted" | awk 'NF { n++ } END { print n + 0 }')
 total=$(printf '%s' "$state" | sed 's/.*"total_open": //; s/,.*//')
 truncated=$(printf '%s' "$state" | sed 's/.*"truncated": //; s/,.*//')
@@ -146,8 +166,11 @@ if [ "$count" -eq 0 ]; then
     # A tick with neither conflicts nor uncomputed rows keeps today's wording byte-identically;
     # one with uncomputed rows never claims `none conflicted` about them.
     if [ "$uncomputed" -eq 0 ]; then
-        printf '{"step": "merge-conflicts", "status": "ok", "reason": "", "summary": "%s open pull request(s), none conflicted (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "uncomputed": 0}\n' \
-            "$total" "$LIMIT" "$truncated"
+        if [ "$held_count" -eq 0 ]; then
+            printf '{"step": "merge-conflicts", "status": "ok", "reason": "", "summary": "%s open pull request(s), none conflicted (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "held": 0, "uncomputed": 0}\n' "$total" "$LIMIT" "$truncated"
+        else
+            printf '{"step": "merge-conflicts", "status": "ok", "reason": "", "summary": "%s open pull request(s), none conflicted; %s deliberately held (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "held": %s, "uncomputed": 0}\n' "$total" "$held_count" "$LIMIT" "$truncated" "$held_count"
+        fi
     else
         printf '{"step": "merge-conflicts", "status": "ok", "reason": "mergeability_uncomputed", "summary": "%s open pull request(s), none read as conflicted, some not yet computed by GitHub (read cap %s, truncated: %s)", "needs_agent": [], "conflicted": [], "uncomputed": %s}\n' \
             "$total" "$LIMIT" "$truncated" "$uncomputed"

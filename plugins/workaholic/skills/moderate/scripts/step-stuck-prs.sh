@@ -125,6 +125,26 @@ all_rows=$(printf '%s' "$state" | awk '{ gsub(/}/, "}\n"); print }' | grep '"blo
 uncomputed=$(printf '%s' "$all_rows" | grep -c '"blocked_by": "unknown"' || true)
 case "$uncomputed" in '' | *[!0-9]*) uncomputed=0 ;; esac
 rows=$(printf '%s' "$all_rows" | grep -v '"blocked_by": "unknown"' || true)
+# Deliberately held handoff pull requests remain visible as waiting, but are not actionable
+# stuck findings and consume no question. Unreadable claim evidence excludes nothing.
+held_reader="${SCRIPT_DIR}/held-pull-branches.sh"
+held=''
+if [ -f "$held_reader" ]; then
+    held_state=$(sh "$held_reader" 2>/dev/null || true)
+    if printf '%s' "$held_state" | grep -q '"readable":true'; then
+        held=$(printf '%s' "$rows" | while IFS= read -r row; do
+            [ -n "$row" ] || continue
+            branch=$(printf '%s' "$row" | sed 's/.*"branch": "\([^"]*\)".*/\1/')
+            printf '%s' "$held_state" | jq -e --arg b "$branch" '.branches | index($b) != null' >/dev/null 2>&1 && printf '%s\n' "$row"
+        done)
+        rows=$(printf '%s' "$rows" | while IFS= read -r row; do
+            [ -n "$row" ] || continue
+            branch=$(printf '%s' "$row" | sed 's/.*"branch": "\([^"]*\)".*/\1/')
+            printf '%s' "$held_state" | jq -e --arg b "$branch" '.branches | index($b) != null' >/dev/null 2>&1 || printf '%s\n' "$row"
+        done)
+    fi
+fi
+held_count=$(printf '%s' "$held" | awk 'NF { n++ } END { print n + 0 }')
 count=$(printf '%s' "$rows" | awk 'NF { n++ } END { print n + 0 }')
 
 # THE COUNT IS KEPT, IN ITS OWN FIELD, AND DELIBERATELY NOT IN THE COMPARED SUMMARY. The
@@ -140,7 +160,11 @@ if [ "$count" -eq 0 ]; then
     # uncomputed rows never claims they are mergeable, and never reports `blocked`, because a
     # `blocked` row with no candidate renders an impairment line about a row nobody may act on.
     if [ "$uncomputed" -eq 0 ]; then
-        printf '{"step": "stuck-prs", "status": "ok", "reason": "", "summary": "nothing is stuck: every open pull request is mergeable", "headline": "", "needs_agent": [], "key": "", "uncomputed": 0}\n'
+        if [ "$held_count" -eq 0 ]; then
+            printf '{"step": "stuck-prs", "status": "ok", "reason": "", "summary": "nothing is stuck: every open pull request is mergeable", "headline": "", "needs_agent": [], "key": "", "held": 0, "uncomputed": 0}\n'
+        else
+            printf '{"step": "stuck-prs", "status": "ok", "reason": "", "summary": "nothing is stuck: every actionable pull request is mergeable; %s deliberately held", "headline": "", "needs_agent": [], "key": "", "held": %s, "uncomputed": 0}\n' "$held_count" "$held_count"
+        fi
     else
         printf '{"step": "stuck-prs", "status": "ok", "reason": "mergeability_uncomputed", "summary": "nothing is stuck: no open pull request reads as blocked, some not yet computed by GitHub", "headline": "", "needs_agent": [], "key": "", "uncomputed": %s}\n' \
             "$uncomputed"

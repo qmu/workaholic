@@ -32,10 +32,11 @@ claim: work-20260917-182253
 ## Acceptance
 
 - [x] Reconciliation が live worktree、stacked inheritance、重複 runner を一意な active ownership に収束させる。 (#20260917173645-adopt-live-work-and-collapse-duplicate-claims.md)
-- [ ] unanswered `handoff-unit:` または awaiting-person state の unit は再claimされず、回答後だけ再び eligible になる。 (#20260917173645-hold-person-dependent-units-outside-the-machine-claim-pool.md)
+- [x] unanswered `handoff-unit:` または awaiting-person state の unit は再claimされず、回答後だけ再び eligible になる。 (#20260917173645-hold-person-dependent-units-outside-the-machine-claim-pool.md)
 - [ ] `needs_agent` action は同tickのdispatchまたは durable follow-up receiptのいずれかに必ず所有される。 (#20260917173645-own-every-reconciliation-action-before-returning-to-cadence.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-17 — ticket archived — 20260917173645-adopt-live-work-and-collapse-duplicate-claims.md
+- 2026-09-17 — ticket archived — 20260917173645-hold-person-dependent-units-outside-the-machine-claim-pool.md

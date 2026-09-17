@@ -22668,7 +22668,7 @@ function testPartialHandoffConsumers() {
   // assertion below reads out of the document rather than from this list.
   const accounted = new Set(["step-handoff-units.sh", "step-stalled-units.sh", "plan-units.sh",
     "claim.sh", "list-claims.sh", "lib/claims.sh", "declared-handoff-detail.sh",
-    "list-catchable-claims.sh", "catch-up-claim.sh"]);
+    "list-catchable-claims.sh", "catch-up-claim.sh", "held-pull-branches.sh"]);
   const reads = [];
   for (const dir of ["plugins/workaholic/skills/drive/scripts",
     "plugins/workaholic/skills/moderate/scripts"]) {
@@ -39704,6 +39704,56 @@ function testLayoutDoctorBelowFloorAdvisory() {
 // `an unreadable input never refuses` red; deleting the env arm turns `the gate can be
 // declared off` red; adding `checks_red` to the merge seams' composition without the reader
 // turns the claims.md table's own bidirectional pin red (above).
+T("merge gates are selected from the pull request base branch role",
+  testMergeGateBranchRole);
+function testMergeGateBranchRole() {
+  const resolver = join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/merge-gate-policy.sh");
+  const development = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${resolver} main`).stdout);
+  assertEq("development main uses local proof", development.role, "development");
+  assertEq("and remote CI is post-merge detection", development.remote_checks_required, false);
+
+  const release = JSON.parse(run(REPO_ROOT,
+    `${POSIX_SH} ${resolver} release/20260917-120000`).stdout);
+  assertEq("a release branch is the QA role", release.role, "release");
+  assertEq("and requires all remote checks", release.remote_checks_required, true);
+
+  const unknown = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${resolver} feature/example`).stdout);
+  assertEq("an unknown role takes the strict direction", unknown.remote_checks_required, true);
+
+  const checks = readFileSync(SCRIPTS.branchChecks, "utf8");
+  assertTrue("the acting gate composes the one role resolver",
+    checks.includes("merge-gate-policy.sh"), "branch-checks.sh re-derived branch roles");
+  assertTrue("and preserves the resolver's explicit false",
+    /has\("remote_checks_required"\)/.test(checks),
+    "jq // converted the development false into the strict default");
+}
+
+T("moderation shares the claim-derived held pull request verdict",
+  testHeldPullRequestVerdict);
+function testHeldPullRequestVerdict() {
+  const reader = join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/held-pull-branches.sh");
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-held-pulls-"));
+  try {
+    const cache = join(dir, "held.json");
+    writeFileSync(cache,
+      '{"readable":true,"reason":"","branches":["work-held"]}\n');
+    const out = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${reader}`, {
+      env: { ...process.env, WORKAHOLIC_TICK_HELD_PULLS: cache },
+    }).stdout);
+    assertEq("the shared reader preserves the held branch", out.branches.join(","), "work-held");
+    for (const rel of ["step-merge-conflicts.sh", "step-stuck-prs.sh"]) {
+      const body = readFileSync(join(REPO_ROOT,
+        `plugins/workaholic/skills/moderate/scripts/${rel}`), "utf8");
+      assertTrue(`${rel} composes the one held verdict`,
+        body.includes("held-pull-branches.sh"), `${rel} re-derived held state`);
+      assertTrue(`${rel} leaves unreadable evidence out of the held set`,
+        body.includes('"readable":true'), `${rel} treats an unreadable claim as held`);
+    }
+  } finally { cleanup(dir); }
+}
+
 T("the pre-merge check gate defers unreadable evidence and refuses red or pending checks",
   testBranchChecksGate);
 function testBranchChecksGate() {

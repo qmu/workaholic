@@ -39724,6 +39724,9 @@ function testMergeGateBranchRole() {
   const checks = readFileSync(SCRIPTS.branchChecks, "utf8");
   assertTrue("the acting gate composes the one role resolver",
     checks.includes("merge-gate-policy.sh"), "branch-checks.sh re-derived branch roles");
+  assertTrue("and preserves the resolver's explicit false",
+    /has\("remote_checks_required"\)/.test(checks),
+    "jq // converted the development false into the strict default");
 }
 
 T("moderation shares the claim-derived held pull request verdict",

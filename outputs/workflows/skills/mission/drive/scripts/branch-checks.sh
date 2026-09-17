@@ -91,7 +91,7 @@ head=$(printf '%s' "$pr_body" | jq -r '.head.sha // empty' 2>/dev/null || true)
 base=$(printf '%s' "$pr_body" | jq -r '.base.ref // empty' 2>/dev/null || true)
 if [ -f "$MERGE_GATE_POLICY" ]; then
     policy=$(sh "$MERGE_GATE_POLICY" "$base" 2>/dev/null || true)
-    required=$(printf '%s' "$policy" | jq -r '.remote_checks_required // true' 2>/dev/null || printf true)
+    required=$(printf '%s' "$policy" | jq -r 'if has("remote_checks_required") then .remote_checks_required else true end' 2>/dev/null || printf true)
     if [ "$required" = false ]; then
         emit pass development_main_local_proof development "[]" "$head"
     fi

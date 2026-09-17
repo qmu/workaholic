@@ -198,7 +198,10 @@ if [ -n "$RECORDS" ]; then
     # Discover an earlier open publication before minting another timestamped branch. A second
     # invocation can land in the same second as the first; opening first then reports
     # branch_collision and hides the stronger fact that this exact record is already carried.
-    (cd "$repo_root" && git fetch --quiet origin '+refs/heads/work-*:refs/remotes/origin/work-*' 2>/dev/null) || true
+    # Refresh the base together with every publication head. A refspec-limited fetch of only
+    # `work-*` leaves origin/main stale in a long-lived checkout; the shared walker then compares
+    # the publication against yesterday's base and can miss the exact record we are deduping.
+    (cd "$repo_root" && git fetch --quiet origin 2>/dev/null) || true
     UNMERGED_BRANCHES_LABEL=persist-log
     . "${SCRIPT_DIR}/../../specificate/scripts/lib/unmerged-branches.sh"
     (cd "$repo_root" && unmerged_branches_added_paths "origin/${BASE}" .workaholic/feedbacks 2>/dev/null) > "$WORK/on-branch" || : > "$WORK/on-branch"

@@ -308,7 +308,14 @@ if [ -n "$RECORDS" ]; then
                     # call, carrying the seam's own word. A pull request left open is `unlanded`
                     # exactly as a refused push was, and the next tick's stranded-publication
                     # act (or a person) lands it; this seam never retries on its own.
-                    RECORDS_JSON=$(printf '%s' "$RECORDS_JSON" | sed "s/\"state\": \"carried\"/\"state\": \"unlanded\", \"reason\": \"$(json_escape "$_pub_reason")\"/g")
+                    # RECORDS_JSON may contain both the spaced objects composed above and compact
+                    # objects returned by the collision reconciliation's jq read. Update the
+                    # value structurally; a whitespace-sensitive sed left compact `carried`
+                    # records looking persisted even though `merged` was false.
+                    _records_array=$(printf '[%s]' "$RECORDS_JSON" | jq -c --arg reason "$_pub_reason" \
+                        'map(if .state == "carried" then .state = "unlanded" | .reason = $reason else . end)')
+                    RECORDS_JSON=${_records_array#\[}
+                    RECORDS_JSON=${RECORDS_JSON%\]}
                 fi
             fi
             (cd "$repo_root" && sh "${BRANCHING}/close-publish-tree.sh" "$BASE" >/dev/null 2>&1 || true)
@@ -340,8 +347,8 @@ if [ -z "$RECORDS" ]; then
     report false skipped no_records "the tick named no records to carry; its log stays in this checkout, which is where it belongs"
 fi
 
-_carried=$(printf '%s' "${RECORDS_JSON:-}" | grep -o '"state": "carried"' | wc -l | tr -d ' ')
-_unlanded=$(printf '%s' "${RECORDS_JSON:-}" | grep -o '"state": "unlanded"' | wc -l | tr -d ' ')
+_carried=$(printf '[%s]' "${RECORDS_JSON:-}" | jq '[.[] | select(.state == "carried")] | length')
+_unlanded=$(printf '[%s]' "${RECORDS_JSON:-}" | jq '[.[] | select(.state == "unlanded")] | length')
 if [ "$_carried" -eq 0 ] && [ "$_unlanded" -gt 0 ]; then
     # Nothing reached the base: a named degradation, never a quiet success. The records are
     # pushed (or already on an open publication) and are landed by the pull request, not by

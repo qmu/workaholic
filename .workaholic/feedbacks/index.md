@@ -757,4 +757,5 @@
 * [The work loop must not stop at an unapproved merge handoff](20260917142419-the-work-loop-must-not-stop-at-an-unapproved-merge-handoff.md)
 * [2026-09-17 05:08 UTC の moderation root を Slack に配信できませんでした](20260917150637-2026-09-17-05-08-utc-moderation-root-slack.md)
 * [2026-09-17 05:59 UTC の moderation root を Slack に配信できませんでした](20260917154802-2026-09-17-05-59-utc-moderation-root-slack.md)
+* [開発中のmainとrelease branchでCI merge gateを分ける](20260917173839-main-release-branch-ci-merge-gate.md)
 <!-- okf:generated:end -->

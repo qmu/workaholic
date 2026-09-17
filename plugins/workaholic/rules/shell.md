@@ -41,6 +41,49 @@ case invisible until it was hunted down by hand.
   are counted and named, never silently skipped — so a program assembled from variables is worth
   avoiding where a `--arg` would do.
 
+## `//` is not a default when `false` is a real answer
+
+jq's `//` treats **`false` and `null` alike as empty**, so `X // true` answers `true` for a key
+that is explicitly `false`. Every absent-means-true reading in this repository is therefore
+written as a **test**, never as a default:
+
+```sh
+# WRONG — an explicit `false` reads as the default, which is the one value worth reading.
+jq '.observed.settled // true'
+# RIGHT — the absence and the value are distinguished.
+jq 'if (.observed | has("settled")) then .observed.settled == true else true end'
+jq '.ok != false'          # where absent and true are the same answer
+```
+
+This is the same rule the repository already states for its degradation readings — *`readable` is
+absent on a completed walk, so the test is `readable == false`, never `readable // true`, because
+jq treats `false` itself as empty* — generalised to every field that carries a real `false`:
+`settled`, `verified`, `merged`, `discovered`, `channel_verified`, a probe's verdict. The direction
+of the error is always the dangerous one: a `false` somebody wrote down is read as the optimistic
+default, so *not verified* becomes *nobody looked* and *partly read* becomes *quiet*.
+
+`adapters/qfs.sh` carries the canonical comment beside its own `.ok != false` guard, where a
+`{"ok": false}` preview once read as an acceptance. Nothing mechanical catches this — the program
+compiles and answers — so it is a writing and reviewing rule: when adding a boolean whose `false`
+means something, the reading is written with `has()` or `!= false` in the same change.
+
+## `<array> | index(.)` tests the array against itself
+
+A pipe rebinds `.`, so the membership test reads the array rather than the element:
+
+```sh
+# WRONG — inside `index(.)`, `.` is $known, not the element. Silently empty, or an error
+# about indexing an array with a string.
+jq '[.deps[] | select(($known | index(.)) == null)]'
+# RIGHT — bind the element, then ask.
+jq '[.deps[] | . as $d | select(any($known[]; . == $d) | not)]'
+```
+
+Bind before the pipe wherever one list is filtered against another. The failure is silent in the
+common case — an empty result reads as *nothing matched*, which is the answer the caller expects —
+so it is caught by a fixture that asserts a **non-empty** expected set, never by one that asserts
+an empty one.
+
 ## Enforcement
 
 This convention is machine-checked, so it cannot silently regress:

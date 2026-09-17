@@ -388,3 +388,100 @@ test('morning digest opens with zero questions independently of JSON spacing',t=
   });
   assert.equal(results[0].post,true,JSON.stringify(results[0]));assert.equal(results[1].post,true,JSON.stringify(results[1]));
 });
+
+// An accepted request spread over SEVERAL pull requests has one delivery state, and one shared
+// gate is one blocker with its whole scope (2026-09-17, ticket `20260917122912`).
+// `feedback-outcome.sh` reads one `implementation_pr`, so a caller had to pick one of three and
+// whichever it picked the answer was wrong: a request with one merged part and two open ones read
+// exactly like a finished one, and a gate holding all of them was named once per pull request
+// without ever naming what it held.
+test('a request spread over several pull requests is delivered only when all of it is', t => {
+  const {call} = fixture(t);
+  const base = {expected_surface:'/app', verified_surface:'/app', evidence:['probe'],
+    queue_readable:true, queued:0, deployment:'ok', public_verification:true,
+    thread:{status:'found', complete:true}};
+  const items = [
+    // Every part merged, deployed and publicly verified: delivered.
+    {...base, feedback:'whole.md', pull_requests:[{number:10,merged:true,verified:true},{number:11,merged:true,verified:true}]},
+    // One part merged, one held by a gate, one waiting on the held one. `every`, not `any`.
+    {...base, feedback:'partly.md', pull_requests:[
+      {number:20,merged:true,verified:true},
+      {number:21,merged:false,verified:false,blocker:'external_ci'},
+      {number:22,merged:false,verified:false,depends_on:[21]}]},
+    // A second request behind the SAME gate.
+    {...base, feedback:'sibling.md', pull_requests:[{number:30,merged:false,verified:false,blocker:'external_ci'}]},
+    // Every part merged and verified, and the deployment failed. Not delivered.
+    {...base, feedback:'deployfail.md', deployment:'fail', pull_requests:[{number:40,merged:true,verified:true}]},
+    // Merged and deployed, and the public verification has not happened.
+    {...base, feedback:'unverified.md', public_verification:false, pull_requests:[{number:50,merged:true,verified:true}]},
+    // A pull-request list nobody could read.
+    {...base, feedback:'unreadable.md'},
+  ];
+  const out = call('work/scripts/delivery-ledger.sh', {items}).json.data;
+  const row = f => out.ledger.find(l => l.feedback === f);
+
+  // 1. Delivery is the whole request, and PR creation is not completion — neither is a merge.
+  assert.equal(row('whole.md').delivered, true);
+  assert.equal(row('whole.md').missing, '');
+  assert.equal(row('partly.md').delivered, false, 'one merged part is not a delivered request');
+  assert.equal(row('partly.md').missing, 'merge');
+  assert.deepEqual(row('partly.md').pull_requests.merged, [20]);
+  assert.deepEqual(row('partly.md').pull_requests.open, [21, 22]);
+
+  // 2. The three stages are distinguished, never collapsed.
+  assert.equal(row('deployfail.md').missing, 'deployment');
+  assert.equal(row('deployfail.md').delivered, false, 'a failed deployment is not a delivery');
+  assert.equal(row('deployfail.md').state, 'implemented_and_verified',
+    'the implementation reading is unchanged — it is `delivered` that conjoins the stages');
+  assert.equal(row('unverified.md').missing, 'public_verification');
+  assert.equal(row('unverified.md').delivered, false);
+
+  // 3. One gate, one blocker, naming every request and pull request it holds.
+  assert.equal(out.blockers.length, 1, JSON.stringify(out.blockers));
+  assert.equal(out.blockers[0].blocker, 'external_ci');
+  assert.deepEqual(out.blockers[0].feedbacks, ['partly.md', 'sibling.md']);
+  assert.deepEqual(out.blockers[0].pull_requests, [21, 30]);
+  assert.equal(out.held_requests, 2);
+
+  // 4. Independent work is named so it keeps going while that gate stands.
+  assert.deepEqual(out.independent, [{feedback:'partly.md', number:22}]);
+
+  // 5. The integration offer is bounded and in dependency order: 22 depends on 21, so only 21
+  //    is offered until it merges.
+  assert.deepEqual(row('partly.md').next, [21]);
+
+  // 6. An unreadable pull-request list answers null counts and a null offer, never an empty
+  //    array — an empty array reads as nothing left to integrate, which is the opposite.
+  assert.equal(row('unreadable.md').readable, false);
+  assert.equal(row('unreadable.md').reason, 'pull_requests_unreadable');
+  assert.equal(row('unreadable.md').pull_requests.total, null);
+  assert.equal(row('unreadable.md').next, null);
+  assert.equal(out.delivered, 1, 'exactly one of six requests is delivered');
+});
+
+test('the integration order refuses a cycle and a dependency outside the request', t => {
+  const {call} = fixture(t);
+  const base = {expected_surface:'/app', verified_surface:'/app', evidence:['probe'],
+    queue_readable:true, queued:0, deployment:'ok', public_verification:true,
+    thread:{status:'found', complete:true}};
+  const out = call('work/scripts/delivery-ledger.sh', {items:[
+    {...base, feedback:'cycle.md', pull_requests:[
+      {number:60,merged:false,verified:false,depends_on:[61]},
+      {number:61,merged:false,verified:false,depends_on:[60]}]},
+    {...base, feedback:'outside.md', pull_requests:[
+      {number:70,merged:false,verified:false,depends_on:[999]}]},
+    {...base, feedback:'chain.md', pull_requests:[
+      {number:80,merged:true,verified:true},
+      {number:81,merged:false,verified:false,depends_on:[80]},
+      {number:82,merged:false,verified:false,depends_on:[81]}]},
+  ]}).json.data;
+  const row = f => out.ledger.find(l => l.feedback === f);
+  // A guessed order is worse than no offer: integrating out of order is what leaves a
+  // half-applied change on the base.
+  assert.equal(row('cycle.md').next, null);
+  assert.equal(row('cycle.md').next_reason, 'order_unresolved:60,61');
+  assert.equal(row('outside.md').next, null);
+  assert.equal(row('outside.md').next_reason, 'depends_on_outside_item:999');
+  // A settled chain offers only what is ready now — 82 waits for 81.
+  assert.deepEqual(row('chain.md').next, [81]);
+});

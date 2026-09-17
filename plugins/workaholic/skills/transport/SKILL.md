@@ -81,6 +81,64 @@ is `truncated: true`, never silence. `coverage.threads.status` is **`covered` on
 discovery operation ran**, and `partial` with its reason otherwise. Never replace the bounded
 delta with a full-channel or every-thread scan; partial provider coverage stays explicit.
 
+**Where the discovery operation refuses, the WATCH SET is read instead** (2026-09-17, ticket
+`20260917123453`). A route that does not carry `list_thread_changes` used to leave the fallback
+with nothing to read at all, so a reply under a root the loop had seen five minutes earlier went
+unanswered for as long as the provider kept refusing. Every root the channel delta names and
+every explicit Slack permalink in a message's text now joins a **durable, bounded** watch set —
+`watch_threads` on the binding record, newest `WORKAHOLIC_WATCH_SET_MAX` (default 50), one
+revision-checked write after the captures, `watch_set_unwritten` on a refusal — and the fallback
+reads it newest first through the same one classifier, bounded by the same fan-out. It is
+**evidence, never coverage**: the status stays `partial` with the **discovery's** own reason and
+`source: watch_set_fallback`, and the fallback's own failure rides `fallback_reason` beside it
+rather than overwriting a refusal that never happened.
+
+## Discovering mentions outside the read window
+
+The mention reading was a text test over the channel delta, so a mention on a root older than the
+window — or in a reply, which channel history never carries — could not be seen at all, and
+nothing registered the thread either, so the next tick looked past it too (2026-09-17, ticket
+`20260917122814`). `observe-channel.sh` searches the channel's own history for the declared
+sender's mention token through `search_exact`, **one bounded call per tick**, joins every
+coordinate it finds to the watch set, and **reads it immediately** (`WORKAHOLIC_MENTION_FANOUT`,
+default 3) — a mention is the one discovery that means a person is waiting.
+
+**One thread is read at most once per tick**, whichever arm named it: three arms can name one
+coordinate and a second read could only return duplicates. **The search captures nothing** —
+capture is per surface, and capturing there makes the thread read see its own message as a
+duplicate, so the classifier, which emits only new ids, drops the very reply the arm exists to
+route. **A search is not an index**: `coverage.mentions` reports `searched`, `discovered`,
+`tracked` and `exhaustive: false`, never a completeness claim, because zero rows certify nothing;
+an absent `sender_id` leaves the arm unrun and the reading `unreadable`.
+
+**`search_exact` is deliberately NOT added to a binding's declared `operations`.** A declared
+operation is a **required** one — `resolve-target.sh` refuses `operations_unsatisfied` when no
+route can satisfy it — so declaring it would make a route that cannot search fail the whole
+observation rather than lose one arm of it. Route selection reads what the describe advertised,
+not what the declaration requires, so the arm runs wherever the route carries it and is refused
+`operation_unavailable` where it does not. An operator who wants the search guaranteed declares
+it and accepts that refusal.
+
+## When an observation may be called quiet
+
+`observation_settled` is the one derivation of whether a read may be reported as the channel
+having nothing new. It is false while any of four terms stands, each named in `unsettled[]`:
+**`channel_delta_incomplete`** (`has_more` still true — a spent page budget, or a later page that
+could not be read), **`thread_coverage_partial`**, **`thread_fanout_truncated`**, and
+**`sender_identity_unverified`**. `plan-poll.sh` answers **`observation_incomplete`** in place of
+`quiet` while one stands; `settled` **absent means settled**, so a caller that does not pass it
+behaves exactly as before. It moves the **word and never the cadence** — an unread page already
+forces an immediate re-poll, and a standing limitation would otherwise shorten the interval
+forever, which is a spin rather than a repair.
+
+The channel delta is drained inside the one call to make the first term mean something:
+`read_channel_delta` is paged until `has_more` is false or `WORKAHOLIC_CHANNEL_PAGES` (default 5)
+is spent, each page captured before the next is asked for — so page N+1's lower bound is page N's
+own advanced cursor with **no** overlap, and the boundary message is dropped by the existing
+provider-id dedup. `window_since` rides the **first** page only, because the capture is the one
+writer of the unproved mark. A spent budget leaves `has_more` standing with
+`channel_pages_exhausted` rather than reading as a drained channel.
+
 ## The binding record and the unproved interval
 
 `observe-channel.sh` keeps one runtime record per resolved binding (`runtime/scripts/state.sh`,

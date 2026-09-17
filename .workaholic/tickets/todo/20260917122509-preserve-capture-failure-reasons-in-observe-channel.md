@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917122500-preserve-capture-failure-reasons-in-observe-channel.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260917-132446
 ---
 
 # Preserve capture failure reasons in observe-channel

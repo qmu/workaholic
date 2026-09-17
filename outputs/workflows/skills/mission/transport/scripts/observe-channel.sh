@@ -119,8 +119,16 @@ read_result=$("$SCRIPT_DIR/perform.sh" --request "$tmp/read.json")
 [ "$(printf '%s' "$read_result" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$read_result" | jq -r .reason)" "$(mark_unproved)"; exit 0; }
 next=$(printf '%s' "$read_result" | jq -c --argjson old "$cursor" '.data.next_cursor // ([.data.messages[]?.ts] | max) // $old')
 jq -cn --arg root "$ROOT" --arg bid "$binding_id" --arg now "$NOW" --argjson messages "$(printf '%s' "$read_result" | jq -c .data.messages)" --argjson next "$next" --argjson window "$window_since" '{repo_root:$root,binding_id:$bid,now:$now,messages:$messages,next_cursor:$next,window_since:$window}' >"$tmp/capture.json"
-captured=$("$SCRIPT_DIR/capture-inbox.sh" --request "$tmp/capture.json")
-[ "$(printf '%s' "$captured" | jq -r .status)" = ok ] || { empty "$(printf '%s' "$captured" | jq -r .reason)" "$(mark_unproved)"; exit 0; }
+captured=$("$SCRIPT_DIR/capture-inbox.sh" --request "$tmp/capture.json" 2>/dev/null || printf '')
+if ! printf '%s' "$captured" | jq -e '.status == "ok"' >/dev/null 2>&1; then
+  # Capture is the cursor-advancing seam. Its typed refusal must survive as the observation's
+  # own reason; malformed or empty output is itself a named refusal, never an empty unreadable
+  # entry. In every case `empty` keeps observation_proved false and leaves the cursor retryable.
+  capture_reason=$(printf '%s' "$captured" | jq -r '.reason // empty' 2>/dev/null || printf '')
+  [ -n "$capture_reason" ] || capture_reason=capture_unreadable
+  empty "$capture_reason" "$(mark_unproved)"
+  exit 0
+fi
 new_ids=$(printf '%s' "$captured" | jq -c '.data.new_input_ids // []')
 covered_unproved=$(printf '%s' "$captured" | jq -c '.data.cleared_unproved_since // null')
 

@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917173839-main-release-branch-ci-merge-gate.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260917-184248
 ---
 
 # Select merge gates from branch role

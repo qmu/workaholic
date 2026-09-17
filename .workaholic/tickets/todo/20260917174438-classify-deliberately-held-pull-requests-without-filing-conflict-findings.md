@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260907070904-keep-a-handoff-branch-mergeable-while-it-waits-for-the-person.md]
 merge_policy:
 verification_handoff:
+claim: work-20260917-184248
 ---
 
 # Classify deliberately held pull requests without filing conflict findings

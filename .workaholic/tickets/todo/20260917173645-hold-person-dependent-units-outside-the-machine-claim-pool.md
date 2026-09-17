@@ -56,3 +56,11 @@ verification_handoff:
 ## Considerations
 
 verification_handoff の存在だけでは初回 claim を拒否しない。
+
+## Final Report
+
+Development completed as planned.
+
+- Reconciliation emits `wait_for_person` only after the claim is durably marked `awaiting_person` and the keyed handoff remains unanswered.
+- Answered units re-enter the ordinary adoption/dispatch decision on the next reading.
+- Verified by the native coordinator suite (10/10 passing).

@@ -124,3 +124,11 @@ another supported route only when that route is already authorized.
 Implementation, merge, deployment and notification are separate outcomes. A closed feedback
 issue or merged proposal proves capture, not implementation. Reconcile the queue, claims and
 implementation PRs before claiming all work complete; retain deployment and delivery failures.
+
+Before returning to cadence, run `runtime/scripts/reconcile-turn.sh` over the current receipts,
+claims, unanswered handoffs, and moderation `needs_agent` rows. Its plan adopts an existing live
+owner and worktree, chooses the oldest receipt when duplicate runners overlap, keeps an
+`awaiting_person` unit outside dispatch until its keyed handoff is answered, and gives every
+agent action either a live owner or a durable `follow-up:<key>` receipt. A turn is cadence-ready
+only when no claim needs dispatch and no action is ownerless. Unreadable lineage never licenses
+cancellation: losers are told to wait and remain visible for the native parent to reconcile.

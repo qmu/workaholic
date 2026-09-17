@@ -56,3 +56,11 @@ moderation が列挙する `needs_agent` を同tick dispatch または durable f
 ## Considerations
 
 同じ action の receipt と live child を二重 owner にしない。
+
+## Final Report
+
+Development completed as planned.
+
+- Every moderation action is assigned either to one live role owner or a deterministic durable `follow-up:<key>` receipt.
+- The cadence-ready verdict refuses ownerless actions and keeps task-level person waits separate from the parent control mode.
+- Verified by the native coordinator suite (10/10 passing).

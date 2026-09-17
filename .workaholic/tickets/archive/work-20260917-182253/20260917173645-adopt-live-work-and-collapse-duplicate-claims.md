@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-17T17:36:45+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -56,3 +57,11 @@ verification_handoff:
 ## Considerations
 
 lineage が読めない場合は推測で worker を終了しない。
+
+## Final Report
+
+Development completed as planned.
+
+- Added a single turn reconciliation reader that adopts an existing live worktree and chooses one oldest live receipt as owner.
+- Duplicate runners are reported as losers to wait; unreadable lineage never authorizes cancellation.
+- Verified by the native coordinator suite (10/10 passing).

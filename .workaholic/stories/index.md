@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260917-134100](work-20260917-134100.md) - paused host で同じ native parent が観測と child result 回収を継続する契約を追加した。
 * [work-20260911-181606](work-20260911-181606.md) - Prove a native loop's continuation before a turn ends, treat an unproved Slack observation as unread, and route the tick's records behind a pull request with a base-ref gate that keeps every unattended writer off main.
 * [work-20260911-143422](work-20260911-143422.md) - State the native /work loop's final-response contract as three events and two paths — a routine comment resumes the same instance and anchor, a review-required handoff holds and asks exactly one question — with a facts reader and tests for both.
 * [work-20260910-150318](work-20260910-150318.md) - Point perform.sh's write-path comment at the one fallback derivation instead of naming its classes, and pin that in the suite row that owns the rule.

@@ -384,9 +384,16 @@ esac
     { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs } });
 
   assert.equal(result.json.status, "ok", result.stderr);
-  assert.equal(result.json.reason, "capture_unreadable", "an empty capture failure is named at the top level");
+  // THE WORD MOVED FROM THE SUBSTITUTION TO THE CAUSE (2026-09-18, ticket `20260918055010`).
+  // This fixture's row carries no `id` and no `ts`, which is the capture's
+  // `message_without_provider_id` refusal -- and it read `capture_unreadable` because that
+  // refusal was UNREACHABLE: `exit 9` inside a pipeline subshell failed the pipeline and
+  // `sh -eu` aborted the script before it could print, so this consumer's default stood in for a
+  // cause the capture already knew. The default is not removed -- it still guards output that is
+  // genuinely empty or malformed -- it just no longer answers for a named refusal.
+  assert.equal(result.json.reason, "capture_incomplete", "the capture's own typed word, not the default");
   assert.equal(result.json.data.observation_proved, false);
-  assert.deepEqual(result.json.data.unreadable, ["capture_unreadable"], "unreadable never contains an empty entry");
+  assert.deepEqual(result.json.data.unreadable, ["capture_incomplete"], "carried verbatim, never an empty entry");
   assert.equal(result.json.data.cursor_advanced, false);
   const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
   const meta = spawnSync("find", [join(dir, common, "workaholic/runtime/v1/bindings"), "-name", "meta.json"], { encoding: "utf8" }).stdout.trim();
@@ -791,4 +798,74 @@ esac
   const second = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-17T00:01:00Z"], { cwd: dir, env });
   assert.deepEqual(second.json.data.new_input_ids, [], "the delta page is already captured");
   assert.deepEqual(second.json.data.thread_replies, [], "and the mention is not delivered twice");
+});
+
+// A THREAD_BROADCAST MESSAGE IS CAPTURED ONCE, AND A STOPPED CURSOR REACHES ITS CONSUMER WITH A
+// NAMED CAUSE (2026-09-18, ticket `20260918055010`). The capture is the cursor-advancing seam,
+// and it compared the WHOLE stored `message` object: `thread_ts` is a per-operation RENDERING --
+// the same `thread_broadcast` message carries the root's ts through `read_thread` and `null`
+// through `read_channel_delta` -- so the second sighting took the duplicate branch's FAILURE
+// path. Under `sh -eu` that `exit 10` inside a pipeline subshell aborted the script before its
+// `capture_incomplete` line could print, so this consumer substituted `capture_unreadable` for a
+// cause the capture knew and the cursor stopped without saying why.
+//
+// Measured on the unfixed tree with this exact fixture: tick 2 answered
+// `observation_proved: false`, `unreadable: ["capture_unreadable"]`, `cursor_advanced: false`.
+test("P5 one thread_broadcast message is observed once and a refused capture names its own cause", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs"); const tick = join(dir, "tick");
+  // Tick 1 is the thread read's rendering, tick 2 the channel listing's rendering of the SAME
+  // message, tick 3 a genuinely different sender under that same provider id. Only `run` moves
+  // the counter -- the connection enumeration is a call too, and letting it consume a tick is
+  // how this fixture first failed to reach the defect at all.
+  writeFileSync(qfs, `#!/bin/sh
+case "$1" in
+  describe) printf '%s\\n' '{"mounts":[{"mount":"/slack/a","workspace":"A","account":"bot-a","sender_id":"BOT","operations":["read_channel_delta"]}]}' ; exit 0 ;;
+  run) ;;
+  *) printf '%s\\n' '{}' ; exit 0 ;;
+esac
+n=0; [ ! -f '${tick}' ] || n=$(cat '${tick}')
+n=$((n+1)); printf '%s' "$n" > '${tick}'
+case "$n" in
+  1) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","thread_ts":"799.0","sender_id":"HUMAN","text":"hi"}],"has_more":false}' ;;
+  2) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","thread_ts":null,"sender_id":"HUMAN","text":"hi"}],"has_more":false}' ;;
+  3) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","thread_ts":null,"sender_id":"SOMEONE_ELSE","text":"hi"}],"has_more":false}' ;;
+  *) printf '%s\\n' '{"rows":[{"id":"m1","ts":"801.0","thread_ts":null,"sender_id":"HUMAN","text":"hi"}],"has_more":false}' ;;
+esac
+`);
+  spawnSync("chmod", ["+x", qfs]);
+  const env = { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs,
+    WORKAHOLIC_SLACK_WORKSPACE: "A", WORKAHOLIC_INBOUND_SLACK_CHANNEL: "same", WORKAHOLIC_SLACK_BOT_USER_ID: "BOT" };
+  const observe = minute => run(join(scripts, "observe-channel.sh"),
+    ["--root", dir, "--now", `2026-09-18T00:0${minute}:00Z`], { cwd: dir, env });
+
+  let result = observe(0);
+  assert.equal(result.json.data.observation_proved, true, result.stderr);
+  assert.deepEqual(result.json.data.new_input_ids, ["m1"]);
+
+  // The rendering is not a new message and it is not a refusal either: the read is PROVED, the
+  // cursor advances, and no capture reason appears.
+  result = observe(1);
+  assert.equal(result.json.data.observation_proved, true, JSON.stringify(result.json));
+  assert.deepEqual(result.json.data.new_input_ids, []);
+  assert.equal(result.json.data.cursor_advanced, true);
+  assert.ok(!result.json.data.unreadable.includes("capture_unreadable"), "the substitution is gone");
+  assert.ok(!result.json.data.unreadable.includes("capture_incomplete"), "and nothing was refused");
+
+  // A GENUINE refusal reaches this consumer as the capture's OWN typed word, VERBATIM -- neither
+  // `""` nor the `capture_unreadable` default, which fires only when the capture said nothing.
+  result = observe(2);
+  assert.equal(result.json.data.observation_proved, false, JSON.stringify(result.json));
+  assert.deepEqual(result.json.data.unreadable, ["capture_incomplete"]);
+  assert.equal(result.json.data.cursor_advanced, false, "a refused capture advances no cursor");
+  assert.notEqual(result.json.data.unproved_since, null, "and the interval is marked");
+
+  // THE EFFECT THE DEFECT DENIED: a delta whose messages are ALL already captured completes,
+  // advances the cursor, and clears `unproved_since` -- the behaviour `capture-inbox.sh`'s own
+  // header states and the one a whole-object duplicate test made unreachable.
+  result = observe(3);
+  assert.equal(result.json.data.observation_proved, true, JSON.stringify(result.json));
+  assert.equal(result.json.data.cursor_advanced, true);
+  assert.equal(result.json.data.covered_unproved_since, 801,
+    "the capture cleared the mark in the same write, and says which mark it covered");
 });

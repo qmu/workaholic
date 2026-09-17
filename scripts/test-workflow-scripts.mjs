@@ -41328,6 +41328,117 @@ function testBaseRefGate() {
   }
 }
 
+
+// ---- A THREAD_BROADCAST MESSAGE IS CAPTURED ONCE, AND THE REFUSAL THAT STOPS THE CURSOR
+// NAMES ITSELF (2026-09-18, ticket `20260918055010`). Two defects, one seam. The duplicate test
+// compared the WHOLE stored `message` object, and `thread_ts` is a per-operation RENDERING --
+// measured, one `thread_broadcast` message carries the root's ts through `read_thread` and
+// `null` through `read_channel_delta` -- so the capture refused a message it had already stored
+// correctly. And the refusal was unreachable: the loop runs in a pipeline subshell, so its
+// `exit 10` failed the pipeline and `sh -eu` aborted the script before the `capture_incomplete`
+// line could print, leaving the consumer to substitute `capture_unreadable` for a cause the
+// capture knew. Measured on the unfixed tree: exit 10, EMPTY stdout, cursor held.
+//
+// Pinned here: the declared key accepts the rendering, the two genuine failures are typed and
+// reachable with the cursor held, and -- the Quality Gate's own term -- the UPGRADE PATH is
+// exercised against LEGACY ROWS planted on disk in the whole-object shape an older version
+// wrote, including the row the new key rejects.
+T("a thread_broadcast message is captured once and a stopped cursor names its cause", testCaptureDuplicateKey);
+function testCaptureDuplicateKey() {
+  const CAP = join(REPO_ROOT, "plugins/workaholic/skills/transport/scripts/capture-inbox.sh");
+  const STATE = join(REPO_ROOT, "plugins/workaholic/skills/runtime/scripts/state.sh");
+  const dir = makeRepo();
+  const BID = "binding-broadcast";
+  try {
+    writeFileSync(join(dir, "meta.json"), JSON.stringify({
+      updated_at: "2026-09-18T00:00:00Z", owner: null,
+      data: { lease_status: "released", target: {}, cursor: "1000.0" } }));
+    assertEq("the fixture binding is created",
+      JSON.parse(run(dir, `${POSIX_SH} ${STATE} create --scope binding --id ${BID} --input meta.json`).stdout).status, "ok");
+    const common = run(dir, "git rev-parse --git-common-dir").stdout.trim();
+    const inbox = join(dir, common, `workaholic/runtime/v1/bindings/${BID}/inbox`);
+    mkdirSync(inbox, { recursive: true });
+    const cursor = () => JSON.parse(run(dir, `${POSIX_SH} ${STATE} read --scope binding --id ${BID}`).stdout).data.record.data.cursor;
+    // A record an OLDER version wrote: on disk, in the whole-object shape, never through the
+    // leased writer -- which is what makes it a legacy row rather than a fresh-schema one.
+    const plant = (providerId, message) => {
+      // Derived with the same `sha256sum` the script uses, which pins the derivation too.
+      const id = run(dir, `printf %s '${providerId}' | sha256sum | cut -d' ' -f1`).stdout.trim();
+      writeFileSync(join(inbox, `${id}.json`), JSON.stringify({
+        schema_version: 1, revision: 1, owner: null, generation: 0,
+        updated_at: "2026-09-17T00:00:00Z",
+        data: { state: "captured", provider_id: providerId, message } }));
+    };
+    let n = 0;
+    const capture = (messages, nextCursor) => {
+      n += 1;
+      const file = `capture-${n}.json`;     // A RUN-UNIQUE name: `>` may not truncate.
+      writeFileSync(join(dir, file), JSON.stringify({
+        repo_root: dir, binding_id: BID, now: "2026-09-18T00:00:00Z", messages, next_cursor: nextCursor }));
+      const r = run(dir, `${CAP} --request ${file}`);
+      return { status: r.status, json: r.stdout.trim() ? JSON.parse(r.stdout) : null, stderr: r.stderr };
+    };
+
+    // 1. THE RENDERING IS NOT AN IDENTITY. The same message through both operations.
+    const thread = { id: "801.0", ts: "801.0", user: "U_H", sender_id: "U_H", text: "hi",
+      thread_ts: "799.0", subtype: "thread_broadcast" };
+    let r = capture([thread], "801.0");
+    assertEq("the thread read captures it", r.json.data.new_input_ids, ["801.0"]);
+    r = capture([{ ...thread, thread_ts: null }], "802.0");
+    // The defect was an ABORT with empty stdout, so name that before reading the answer.
+    assertTrue("the channel delta's capture answers at all", r.json !== null, `exit ${r.status}: ${r.stderr}`);
+    assertEq("the channel delta counts it a duplicate", r.json.status, "ok");
+    assertEq("and reports it under duplicate_input_ids", r.json.data.duplicate_input_ids, ["801.0"]);
+    assertEq("and the cursor advances", cursor(), "802.0");
+
+    // The OTHER route's field set (`qfs.sh` selects `edited_at` and no `user`/`subtype`) and an
+    // edited text are renderings too: neither is which message this is.
+    r = capture([{ id: "801.0", ts: "801.0", sender_id: "U_H", text: "hi (edited)",
+      thread_ts: "799.0", edited_at: "3001.0" }], "803.0");
+    assertEq("a per-route field set is still the same message", r.json.data.duplicate_input_ids, ["801.0"]);
+    assertEq("and that cursor advances too", cursor(), "803.0");
+
+    // 2. A GENUINE FAILURE IS TYPED, REACHABLE, AND HOLDS THE CURSOR. Under the defect this
+    // aborted with exit 10 and printed nothing at all.
+    r = capture([{ id: "801.0", ts: "801.0", sender_id: "U_OTHER", text: "hi", thread_ts: null }], "804.0");
+    assertEq("a different sender is refused, exit 0", r.status, 0);
+    assertEq("with the typed word", r.json.reason, "capture_incomplete");
+    assertEq("naming the cause", r.json.data.cause, "stored_message_key_mismatch");
+    assertEq("and the offending provider id", r.json.data.provider_id, "801.0");
+    assertEq("and the cursor is held", cursor(), "803.0");
+
+    r = capture([{ text: "no id at all", thread_ts: null }], "805.0");
+    assertEq("a message with no provider id is refused, exit 0", r.status, 0);
+    assertEq("with the same typed word", r.json.reason, "capture_incomplete");
+    assertEq("its own cause", r.json.data.cause, "message_without_provider_id");
+    assertEq("a null provider id rather than a guess", r.json.data.provider_id, null);
+    assertEq("and the cursor still held", cursor(), "803.0");
+
+    // 3. THE UPGRADE PATH, AGAINST LEGACY ROWS (`rules/general.md`, *A tightened constraint over
+    // persisted data is verified against legacy rows*). A fresh-schema pass is not evidence.
+    plant("5000.1", { id: "5000.1", ts: "5000.1", user: "U_H", sender_id: "U_H",
+      text: "legacy", thread_ts: "4999.1", subtype: "thread_broadcast" });
+    r = capture([{ id: "5000.1", ts: "5000.1", user: "U_H", sender_id: "U_H",
+      text: "legacy", thread_ts: null, subtype: "thread_broadcast" }], "5000.9");
+    assertEq("a legacy row is read by the new key", r.json.data.duplicate_input_ids, ["5000.1"]);
+    assertEq("and a legacy row advances the cursor", cursor(), "5000.9");
+
+    // THE ROW THE NEW KEY REJECTS: a stored message carrying NO sender term at all. No shipped
+    // adapter can write one -- `qfs.sh` has selected `sender_id` and `qfs-native.sh` has
+    // synthesised it from `.user` in every version in this file's history, and where a provider
+    // omits the column BOTH sides reduce to null and match -- so this row is synthetic, and what
+    // it proves is that the rejection is a NAMED refusal with the cursor held, never an abort.
+    plant("6000.1", { ts: "6000.1", text: "no sender term", thread_ts: "5999.1" });
+    r = capture([{ id: "6000.1", ts: "6000.1", user: "U_H", sender_id: "U_H",
+      text: "no sender term", thread_ts: null }], "6000.9");
+    assertEq("the rejected legacy row exits 0", r.status, 0);
+    assertEq("and names the typed word", r.json.reason, "capture_incomplete");
+    assertEq("and the row it could not key", r.json.data.provider_id, "6000.1");
+    assertEq("and holds the cursor", cursor(), "5000.9");
+
+  } finally { cleanup(dir); }
+}
+
 // ---- THE RUNNER IS THE LAST THING IN THIS FILE, AND THAT IS LOAD-BEARING (2026-09-03).
 // `T()` only REGISTERS; the loop below runs what is registered by the time it is reached.
 // Four tests had been appended BELOW it and therefore never ran once -- no pass, no failure,

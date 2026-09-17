@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-18T05:50:10+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -126,3 +127,110 @@ QFS route — is out of scope with its reasons named under Considerations.
   waits on an operator-provided route.
 - **No `verification_handoff` is declared.** The repair is provable with hermetic fixtures in this
   repository; no credential, device or third-party account is required, and the ask states none.
+
+## Final Report
+
+### What was measured before anything was designed (step 1)
+
+A hermetic fixture captured one provider id first from a `read_thread` result (`thread_ts: "1999.000001"`)
+and then from a `read_channel_delta` page (`thread_ts: null`). Both halves of the report reproduced,
+and they reproduce only when the shebang is honoured — invoking as `sh capture-inbox.sh` drops the
+`-eu` and hides the second half, which is how the first attempt at this measurement came out clean:
+
+| | call 1 (thread read) | call 2 (channel delta) |
+| --- | --- | --- |
+| exit status | 0 | **10** |
+| stdout | `status: ok`, `new_input_ids: ["2000.000001"]` | **empty** |
+| binding cursor | advanced to `2000.000001` | **held** at `2000.000001` |
+
+So the mismatch does take the duplicate branch's failure path, and no `capture_incomplete` line
+reaches stdout: the loop runs in a pipeline subshell, its `exit 10` fails the pipeline, and `sh -eu`
+aborts before `pipe_status=$?` is ever evaluated. End to end through the consumer, on the same
+fixture: `observation_proved: false`, `unreadable: ["capture_unreadable"]`, `cursor_advanced: false`,
+`unproved_since: 801` — the substituted word, not a cause.
+
+### The decision the measurement made (step 2)
+
+The reporter's two remedies are not equivalent and the measurement chose between them: **compare at
+the capture**, never normalise `thread_ts` at the adapter. Across both QFS adapters the *only* field
+that differs between two reads of one message is `thread_ts`, and normalising it would change what
+the classifier, the watch-set derivation and the mention arm all read.
+
+The key is **declared in the script's own header** rather than derived by subtraction, and it is
+`provider_id` + the sender (`sender_id // user`), each term read with a normalising default so a term
+neither side carries reduces to null on both. Excluded, each with its reason: `thread_ts`
+(per-operation — the defect), `user`/`subtype`/`edited_at` (per-route — `qfs-native.sh` selects the
+first two, `qfs.sh` the third), and `text` (mutable content; an edit changes what a message says, not
+which message it is). **Cost, stated**: the inbox keeps the text as first observed. That is right for
+an arrival record, and it is why an edited message no longer stalls the cursor either.
+
+The remaining error's direction is chosen, not defaulted: too narrow a key drops a different message
+under a reused provider id, too wide a key stalls the cursor forever on a re-read. Slack does not
+reuse `ts` within a channel and the record is scoped to one binding, so the narrow error is
+unreachable in practice while the wide one was measured hourly. A sender that does not match is still
+refused, by name.
+
+### The refusal is reachable and typed (steps 3-4)
+
+Every failing branch writes its cause to a file and leaves the loop with status 0, and the seam
+answers `status: deferred`, `reason: capture_incomplete`, `data: {cause, provider_id}` on stdout with
+exit 0. Five causes: `message_without_provider_id`, `record_write_unreadable`,
+`record_write_failed:<reason>`, `stored_record_unreadable`, `stored_message_key_mismatch` — plus
+`capture_walk_failed:<status>`, which closes the rest of the class: a command inside the loop that
+fails for a reason no branch names is now a typed refusal with the cursor held rather than an abort
+(`|| walk_status=$?`, never `|| true`, which would advance the cursor over a walk that stopped).
+Verified by injecting a failure into the loop body: `capture_walk_failed:1`, exit 0, cursor held.
+
+**The two consumer call sites in `observe-channel.sh` are byte-identical.** They already carried
+`.reason` verbatim (`.reason // empty` on the page arm, `.reason // "thread_capture_failed"` on the
+thread arm) and their non-empty defaults fire only on empty or malformed output — which is exactly
+what the abort produced. The repair is upstream of them, and end to end the consumer now reports
+`unreadable: ["capture_incomplete"]`.
+
+One existing test moved with it: `P5 a capture refusal keeps its typed reason and leaves the cursor
+retryable` was asserting `capture_unreadable` while its own fixture feeds a row with no `id` and no
+`ts` — the `message_without_provider_id` refusal. It was pinning the substitution. It now asserts the
+typed word; `observation_proved`, `cursor_advanced` and the retryable cursor are unchanged.
+
+### The effect the defect denied (step 5)
+
+A delta whose messages are all already captured completes, advances the cursor, and clears
+`unproved_since` in the same revision-checked write — `covered_unproved_since: 801` — asserted end to
+end on the tick after a refusal marked the interval. That clearing logic is byte-identical; what
+changed is that it is now reachable.
+
+### The Quality Gate's own terms
+
+- **No live Slack call and no provider credential.** Every proof is a fixture: a throwaway git repo
+  for the capture, and a stub `qfs` on `PATH` for the consumer.
+- **The upgrade path is exercised against legacy rows, not a fresh schema**
+  (`plugins/workaholic/rules/general.md`, *A tightened constraint over persisted data is verified
+  against legacy rows*). Records are **planted on disk** in the whole-object shape an older version
+  wrote — never through the leased writer, which is what makes them legacy rather than fresh-schema.
+  Two rows: one carrying a sender term, re-read with `thread_ts: null`, which the new key accepts and
+  whose cursor advances; and **the row the new key rejects** — a stored message carrying no sender
+  term at all — which is refused **by name with the cursor held**, not aborted.
+  **Whether such a row can exist was checked rather than assumed**: walking both adapters' full file
+  history, `qfs.sh` has selected `sender_id` and `qfs-native.sh` has synthesised it from `.user` in
+  every version, and where a provider omits the column both sides reduce to null and match. So the
+  rejected row is synthetic, and what it proves is that the rejection names itself.
+
+### Verification
+
+| Command | Result |
+| --- | --- |
+| `node scripts/test-workflow-scripts.mjs` | **7385 passed, 0 failed** (24 of them this ticket's new fixture) |
+| `node --test scripts/tests/agentic-loop/*.test.mjs` | **141 passed, 0 failed** |
+| `node scripts/build-plugins/build.mjs` + `verify.mjs` + `validate-metadata.mjs` | pass; bundle regenerated |
+| `bash plugins/workaholic/hooks/layout-doctor.sh .` | `conforming: true` (pre-existing advisories only) |
+
+The new fixture fails against the unfixed script — verified by checking out `origin/main`'s copy of
+`capture-inbox.sh` under the new test, which failed at the duplicate case with null stdout, exactly
+the abort.
+
+### Out of scope, as the ticket states
+
+The report's second cause (thread discovery on the native QFS route) is untouched:
+`describe-native-qfs.sh` proves `<base>/threads` through the driver's own `verbs.select`, this
+channel node advertises only `messages` and `files`, so `thread_discovery_unavailable` stands with
+the describe that proved it.

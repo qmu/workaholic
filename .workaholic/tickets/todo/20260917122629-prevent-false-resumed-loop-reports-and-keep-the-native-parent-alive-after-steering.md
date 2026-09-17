@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917122606-prevent-false-resumed-loop-reports-and-keep-the-native-parent-alive-after-steering.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260917-134100
 ---
 
 # Prevent false resumed-loop reports and keep the native parent alive after steering

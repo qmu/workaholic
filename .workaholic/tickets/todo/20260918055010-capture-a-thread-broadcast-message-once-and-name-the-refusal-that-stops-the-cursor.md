@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260918054606-channel-observation-aborts-silently-on-a-thread-ts-mismatch.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260918-055949
 ---
 
 # Capture a thread_broadcast message once and name the refusal that stops the cursor

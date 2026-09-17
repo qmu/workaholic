@@ -7,6 +7,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: [20260918074738-question-reconciliation-retires-the-unreadable-channel-escalation-before-it-is-ever-asked.md]
+claim: work-20260918-081459
 ---
 
 # Retire a check-in question only on a positive reading

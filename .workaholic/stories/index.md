@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260917-134100](work-20260917-134100.md) - paused host で同じ native parent が観測と child result 回収を継続する契約を追加した。
 * [work-20260917-132446](work-20260917-132446.md) - observe-channel が capture failure の理由と retryable cursor を保持するようにした。
 * [work-20260917-131433](work-20260917-131433.md)
 * [work-20260917-124009](work-20260917-124009.md) - Codex と Claude の plugin cache を共通の version 選択へ統合した。

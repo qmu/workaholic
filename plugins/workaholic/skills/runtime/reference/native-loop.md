@@ -61,14 +61,15 @@ review-required handoff — the final comment carries information the human genu
 review before work may continue — persists `hold` (`explicit:true`) first, then asks exactly
 「ループを再開してよろしいですか？」 as the final response's own text, never through
 `AskUserQuestion`, and stays held until the human's explicit `resume`; time never resumes it.
-That path is only an operator-level stop. A single unit awaiting interpretation uses
-`task_review`: its receipt records the originating thread, the coordinator stays `running`,
-observation and unrelated work continue, and only a reply from that thread makes the receipt
-eligible again. Task review never emits `hold` or asks for a separate resume.
 The final response is reserved for exactly three events: an explicit stop, a named inability
 to continue, and a review-required handoff. When the run is unsure, the interruption is
 routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
 turn.
+
+That path is only an operator-level stop. A single unit awaiting interpretation uses
+`task_review`: its receipt records the originating thread, the coordinator stays `running`,
+observation and unrelated work continue, and only a reply from that thread makes the receipt
+eligible again. Task review never emits `hold` or asks for a separate resume.
 
 A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
 (`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and

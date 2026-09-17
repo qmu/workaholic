@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260917-184248](work-20260917-184248.md) - Select merge gates by branch role and classify held pull requests
 * [work-20260917-182253](work-20260917-182253.md) - Reconcile live claims and own every action before cadence
 * [work-20260917-135216](work-20260917-135216.md) - task review 中も coordinator observation と独立 work を継続するようにした。
 * [work-20260917-134100](work-20260917-134100.md) - paused host で同じ native parent が観測と child result 回収を継続する契約を追加した。

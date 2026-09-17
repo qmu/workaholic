@@ -37,10 +37,13 @@
 #              NEWER checkout still wins -- that is what lets this repository develop its own
 #              plugin and run the result. MUTABLE: it is a git working tree, and the run's own
 #              freshen moves it. Absent in a consuming repository.
-#   registry - the installPath of the newest entry in the harness's installed_plugins.json.
+#   registry - the installPath of the newest entry in the Claude harness's installed_plugins.json.
 #              Requires no network: the cloud bootstrap has already downloaded it (that is what
 #              makes the binding "behind" in the first place), it just is not what got bound.
 #              IMMUTABLE: the cache stores one version-addressed directory per version.
+#   codex    - version-addressed Workaholic trees under Codex's plugin cache. Codex does not
+#              expose Claude's installed_plugins.json, so enumerate the cache layout itself.
+#              IMMUTABLE for the same reason as the Claude cache.
 #   clone    - $WORKAHOLIC_SRC_HOME (default ~/.workaholic-src), a plain git clone this script
 #              creates only when asked (--clone) and refreshes only when asked (--refresh).
 #              This is the consuming-repository path when the harness knows nothing usable.
@@ -134,6 +137,22 @@ project="${CLAUDE_PROJECT_DIR:-}"
 if [ -z "$project" ]; then
   project=$(git rev-parse --show-toplevel 2>/dev/null || printf '')
 fi
+
+# --- candidate: Codex cache ---------------------------------------------------------------
+# Codex stores versioned plugin bundles at
+#   <cache>/<publisher>/<plugin>/<version>/
+# Workaholic's publisher and plugin names are both `workaholic`. Consider every valid version
+# directory so the common chooser, rather than filesystem ordering, selects the newest one.
+codex_cache="${CODEX_PLUGIN_CACHE:-${HOME}/.codex/plugins/cache}"
+codex_paths=""
+for cand in "${codex_cache}"/workaholic/workaholic/*; do
+  [ -d "$cand" ] || continue
+  v=$(tree_version "$cand")
+  [ -n "$v" ] || continue
+  cand=$(abspath "$cand")
+  codex_paths="${codex_paths}${codex_paths:+
+}${cand}|${v}"
+done
 checkout_path=""
 checkout_version=""
 if [ -n "$project" ]; then
@@ -236,6 +255,14 @@ consider() {
 }
 consider checkout "$checkout_path" "$checkout_version"
 consider registry "$registry_path" "$registry_version"
+old_ifs=$IFS
+IFS='
+'
+for row in $codex_paths; do
+  [ -n "$row" ] || continue
+  consider codex "${row%|*}" "${row##*|}"
+done
+IFS=$old_ifs
 consider clone    "$clone_path"    "$clone_version"
 consider bound    "$bound_path"    "$bound_version"
 
@@ -260,6 +287,14 @@ add_candidate() {
 }
 add_candidate checkout "$checkout_path" "$checkout_version"
 add_candidate registry "$registry_path" "$registry_version"
+old_ifs=$IFS
+IFS='
+'
+for row in $codex_paths; do
+  [ -n "$row" ] || continue
+  add_candidate codex "${row%|*}" "${row##*|}"
+done
+IFS=$old_ifs
 add_candidate clone    "$clone_path"    "$clone_version"
 add_candidate bound    "$bound_path"    "$bound_version"
 

@@ -15052,6 +15052,49 @@ async function testPluginRootPathVsRead() {
 // code prevents, while reporting a version that was not the code it ran. The fix is a second
 // tie-break axis: on an EQUAL version prefer the immutable, version-addressed candidate.
 T("check-deps/plugin-src.sh: an equal version goes to the immutable tree, the call to the checkout", testPluginSrcTieBreak);
+T("check-deps/plugin-src.sh: a newer Codex cache beats an older Claude registry", testPluginSrcCodexCache);
+function testPluginSrcCodexCache() {
+  let hasJq = true;
+  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
+  if (!hasJq) { console.log("  skip  check-deps/plugin-src.sh Codex cache (jq not available)"); return; }
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-plugin-src-codex-"));
+  try {
+    const home = join(dir, "home");
+    const mkTree = (root, version) => {
+      mkdirSync(join(root, ".claude-plugin"), { recursive: true });
+      mkdirSync(join(root, "skills"), { recursive: true });
+      writeFileSync(join(root, ".claude-plugin/plugin.json"), JSON.stringify({ name: "workaholic", version }));
+    };
+    const claudeRoot = join(dir, "claude-cache/workaholic/workaholic/1.0.343");
+    const codexRoot = join(dir, "codex-cache/workaholic/workaholic/1.0.349");
+    mkTree(claudeRoot, "1.0.343");
+    mkTree(codexRoot, "1.0.349");
+    const registry = join(dir, "installed_plugins.json");
+    writeFileSync(registry, JSON.stringify({
+      version: 2,
+      plugins: { "workaholic@workaholic": [{ installPath: claudeRoot, version: "1.0.343" }] },
+    }));
+
+    const r = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.pluginSrc}`, {
+      env: {
+        ...process.env, HOME: home, CLAUDE_PROJECT_DIR: join(dir, "no-checkout"),
+        CLAUDE_PLUGIN_REGISTRY: registry, CLAUDE_PLUGIN_ROOT: "",
+        CLAUDE_PLUGIN_CACHE: join(dir, "claude-cache"),
+        CODEX_PLUGIN_CACHE: join(dir, "codex-cache"), WORKAHOLIC_SRC_HOME: join(dir, "no-clone"),
+      },
+    }).stdout);
+
+    assertEq("a newer Codex cache wins over an older Claude registry",
+      { src: r.src, source: r.source, version: r.version, immutable: r.src_immutable },
+      { src: codexRoot, source: "codex", version: "1.0.349", immutable: true });
+    assertEq("both host caches enter the common candidate set",
+      r.candidates.map((c) => [c.source, c.version]),
+      [["registry", "1.0.343"], ["codex", "1.0.349"]]);
+    assertEq("without an equal checkout the composed call uses the selected Codex tree",
+      { call_src: r.call_src, from: r.call_src_source }, { call_src: codexRoot, from: "codex" });
+  } finally { cleanup(dir); }
+}
 function testPluginSrcTieBreak() {
   let hasJq = true;
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
@@ -15096,6 +15139,7 @@ function testPluginSrcTieBreak() {
       env: {
         ...process.env, HOME: home, CLAUDE_PROJECT_DIR: repo, CLAUDE_PLUGIN_REGISTRY: registry,
         CLAUDE_PLUGIN_ROOT: "", CLAUDE_PLUGIN_CACHE: cachePrefix,
+        CODEX_PLUGIN_CACHE: join(dir, "no-codex-cache"),
       },
     }).stdout);
 

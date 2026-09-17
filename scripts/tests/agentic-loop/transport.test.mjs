@@ -360,6 +360,31 @@ test("P5 a declared binding costs one describe and a contradicted one reads noth
   assert.deepEqual(result.json.data.unreadable, ["binding_contradictory"], "two destinations is not a destination");
 });
 
+test("P5 a capture refusal keeps its typed reason and leaves the cursor retryable", () => {
+  const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
+  const qfs = join(bin, "qfs");
+  writeFileSync(qfs, `#!/bin/sh
+case "$1 $2" in
+  "describe /slack/qmu") printf '%s\\n' '{"mount":"/slack/qmu","workspace":"qmu","account":"bot-a","sender_id":"BOT","operations":["read_channel_delta"],"channels":[{"name":"dev-x","id":"C1"}]}' ;;
+  *) printf '%s\\n' '{"rows":[{"text":"missing provider identity"}],"has_more":false}' ;;
+esac
+`);
+  spawnSync("chmod", ["+x", qfs]);
+  writeFileSync(join(dir, "AGENTS.md"), ["```workaholic-slack-binding", "workspace: qmu", "channel: dev-x",
+    "mount: /slack/qmu", "sender_id: BOT", "operations: read_channel_delta", "```", ""].join("\n"));
+  const result = run(join(scripts, "observe-channel.sh"), ["--root", dir, "--now", "2026-09-08T00:00:00Z"],
+    { cwd: dir, env: { PATH: `${bin}:${process.env.PATH}`, WORKAHOLIC_QFS_BIN: qfs } });
+
+  assert.equal(result.json.status, "ok", result.stderr);
+  assert.equal(result.json.reason, "capture_unreadable", "an empty capture failure is named at the top level");
+  assert.equal(result.json.data.observation_proved, false);
+  assert.deepEqual(result.json.data.unreadable, ["capture_unreadable"], "unreadable never contains an empty entry");
+  assert.equal(result.json.data.cursor_advanced, false);
+  const common = spawnSync("git", ["-C", dir, "rev-parse", "--git-common-dir"], { encoding: "utf8" }).stdout.trim();
+  const meta = spawnSync("find", [join(dir, common, "workaholic/runtime/v1/bindings"), "-name", "meta.json"], { encoding: "utf8" }).stdout.trim();
+  assert.equal(JSON.parse(readFileSync(meta, "utf8")).data.cursor, null, "the failed page is retryable");
+});
+
 test("P5 a reply under an older root is discovered, classified in context, and never claimed without the discovery", () => {
   const dir = repo(); const bin = join(dir, "bin"); mkdirSync(bin);
   const qfs = join(bin, "qfs"); const queries = join(dir, "queries");

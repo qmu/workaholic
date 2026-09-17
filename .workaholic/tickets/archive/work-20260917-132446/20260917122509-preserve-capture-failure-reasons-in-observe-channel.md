@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-17T12:25:09+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -58,3 +59,12 @@ claim: work-20260917-132446
 ## Considerations
 
 read 自体の失敗と capture 後段の失敗を同じ reason に潰さない。
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: capture subprocess の非ゼロ終了は command substitution と `set -e` の組み合わせで observer 自体を中断し、capture が JSON refusal を返す経路より手前で診断を失わせる。
+  **Context**: cursor を進める境界では、子プロセスの終了状態と返却 JSON の両方を明示的に三値で扱う必要がある。

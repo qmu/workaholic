@@ -277,3 +277,74 @@ test('Claude PreToolUse enforces persisted hold and requires a dispatch receipt'
   run({event:'stop',explicit:true});assert.equal(guard('Agent','workaholic-receipt:one').status,2);
   assert.equal(guard('AskUserQuestion').status,0,'stopped sessions return to ordinary interaction');
 });
+
+// A unit waiting on somebody ELSE'S merge is a task wait and never a global hold (2026-09-17,
+// ticket `20260917141324`). Measured: a green pull request whose merge is another authority's act
+// was classified `review_required` — the criterion says *a refusal that stops the work is
+// review-required*, and a refused merge reads exactly like one — so the parent persisted `hold`,
+// asked the one question and ended, with independent runnable work queued behind it.
+test('an unapproved merge handoff is a per-unit wait that never ends the loop', t => {
+  const run = fixture(t); run({ event: 'start', session_id: 'session', continuation: CONTINUATION }); run(reserve);
+  run({ event: 'started', id: 'one', child_id: 'child-one' });
+  const anchor = 2000000000;
+
+  // 1. Naming a per-unit blocker beside `review_required` is refused, with nothing decided.
+  for (const blocked_on of ['merge_authority', 'pull_request_review', 'verification_handoff']) {
+    const refused = facts(run.dir, { interruption_kind: 'review_required', instance_id: 'native-test',
+      anchor, hold_persisted: true, question: QUESTION, blocked_on, unit: 'batch-1' });
+    assert.equal(refused.status, 2, blocked_on);
+    assert.equal(refused.out.reason, 'unit_wait_is_not_global_hold', blocked_on);
+    assert.equal(refused.out.ok, false);
+  }
+
+  // 2. The same wait routed as a task review continues the loop and records what is waiting.
+  const routed = facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test',
+    anchor, blocked_on: 'merge_authority', unit: 'batch-1', continuation: CONTINUATION });
+  assert.equal(routed.status, 0, JSON.stringify(routed.out));
+  assert.equal(routed.out.path, 'task_wait');
+  assert.equal(routed.out.final_response, false, 'the loop does not end on a blocked merge');
+  assert.equal(routed.out.control, 'running');
+  assert.equal(routed.out.hold_stands, false, 'no global hold is persisted');
+  assert.equal(routed.out.question, null, 'and nobody is asked to resume');
+  assert.equal(routed.out.blocked_on, 'merge_authority');
+  assert.equal(routed.out.unit, 'batch-1', 'the receipt records which unit waits');
+
+  // 3. And the same native parent keeps observing: a task wait reads the one
+  //    `interruptible_parent` derivation, which it used to ignore entirely.
+  const continuation = { kind: 'interruptible_parent', id: 'session', next_due: 2000009000 };
+  const paused = facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test', anchor,
+    blocked_on: 'merge_authority', unit: 'batch-1', host_goal: 'paused',
+    native_parent: { interruptible_wait: true, worker_results: true }, continuation });
+  assert.equal(paused.status, 0, JSON.stringify(paused.out));
+  assert.equal(paused.out.next_action, 'wait_interruptibly');
+  assert.equal(paused.out.collect_results, true);
+
+  // 4. The wait is PERSISTED at the task level — `await_review` on that receipt, never `hold` —
+  //    so the coordinator stays running, only the dependent worker waits, and independent work
+  //    is dispatchable again. This is the separation from the global hold and from a terminal
+  //    result: the receipt is neither completed nor cancelled, it is waiting on its own thread.
+  const waiting = run({ event: 'await_review', id: 'one', thread_id: '171.400' });
+  assert.equal(waiting.data.control, 'running');
+  assert.equal(waiting.data.waiting_review[0].id, 'one');
+  assert.deepEqual(waiting.data.live, [], 'only the blocked unit waits');
+  assert.deepEqual(waiting.data.completed, [], 'a blocked merge is not a completion');
+  assert.equal(run({ ...reserve, id: 'two' }).reason, 'reserved', 'independent work stays dispatchable');
+  assert.equal(run({ event: 'tick', now: 2000000300 }).data.control, 'running');
+
+  // 5. The final response stays reserved for the three events it always was. An explicit stop
+  //    and a review-required handoff naming NO per-unit blocker still end the turn.
+  const handoff = facts(run.dir, { interruption_kind: 'review_required', instance_id: 'native-test',
+    anchor, hold_persisted: true, question: QUESTION });
+  assert.equal(handoff.status, 0, JSON.stringify(handoff.out));
+  assert.equal(handoff.out.path, 'review_handoff');
+  assert.equal(handoff.out.final_response, true);
+  assert.equal(handoff.out.control, 'held');
+  assert.equal(handoff.out.blocked_on, null, 'an operator-level handoff names no unit blocker');
+  // A task wait under a standing hold is still a contradiction, unchanged.
+  assert.equal(facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test', anchor,
+    control: 'held', blocked_on: 'merge_authority', continuation: CONTINUATION }).out.reason,
+    'task_wait_is_not_global_hold');
+  // An unlisted blocker is not a fact this reader accepts.
+  assert.equal(facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test', anchor,
+    blocked_on: 'something_else', continuation: CONTINUATION }).out.reason, 'invalid_facts');
+});

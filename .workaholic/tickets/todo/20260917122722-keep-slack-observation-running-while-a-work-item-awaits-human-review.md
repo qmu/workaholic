@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260917122710-keep-slack-observation-running-while-a-work-item-awaits-human-review.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260917-135216
 ---
 
 # Keep Slack observation running while a work item awaits human review

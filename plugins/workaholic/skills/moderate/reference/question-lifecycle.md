@@ -7,8 +7,32 @@ slugs. Neither this registry nor the operational log is a remote cross-clone led
 1. `ask-question.sh --key KEY --asked-step STEP --to SUBJECT` registers the preimage before
    speaking/budget/dedup gates. Registration does not mean anyone was asked.
 2. `reconcile-questions.sh --input FILE` takes `{tick,run:{steps:[]},answers:[]}`. It retires a
-   candidate only when its owning step ran successfully without raising its exact key.
-   Missing, skipped or degraded steps cannot prove retirement.
+   candidate only on a **positive reading**: `question-liveness.sh`'s additive `resolution`
+   answers `proved` when the owning step's row names the key as an exact string in its own
+   `resolved_keys` statement of what it resolved. A step that ran and simply did not raise the
+   key reads `unwitnessed`, and missing, skipped or degraded steps read `unknown`; neither
+   retires anything, and each appends `{"status":"not_retired","reason":"<resolution>","key":…}`
+   so the outcome is stated rather than implied by silence. The retirement's evidence reads
+   `owning_step_reported_resolution`.
+   **`settled` is an absence, not a proof.** Until 2026-09-18 the loop retired on it and wrote
+   `proved: true` out of it, which is the shape `drive/reference/claims.md` forbids. The measured
+   victim was `inbound-channel-unreadable:<channel>`: the agent composes that key *after* the
+   step runs, so the step can never name it in `needs_agent`, and every such question was
+   extinguished on the first tick that reconciled it — `never_asked` and `retired` in one
+   reading — while the channel was still unreadable.
+   **No step is required to emit `resolved_keys` yet.** Until one does, the reconciliation
+   retires nothing. That is the honest side of the trade: an open question is visible and
+   re-askable, an extinguished one is neither.
+   **The residue that defect wrote is repaired in the same seam, first.** A row with
+   `state: retired` and `evidence.reason: owning_step_resolved_premise` is returned to
+   `candidate` with its evidence dropped, through `question-registry.sh`'s `reinstate` event.
+   It restores `candidate` and never `asked` — the question was never asked, and spending the
+   asked-once ledger line on a question nobody heard is the failure that gate exists to prevent.
+   Each bound refuses `deferred` with its own word and nothing written (`answered_row`,
+   `evidence_not_repairable`, `not_retired:<state>`, `unknown_question`), and it is idempotent:
+   no code path writes the old word from here on, so a second run finds nothing. It runs here
+   rather than as an operator's one-shot because the registry is per-clone runtime state under
+   the Git common directory — no pull request can carry a migration to it.
 3. An answer carries `{key,answer,source_ref,subject_verified:true,relation_confirmed:true}`.
    Assert those facts only after inspecting the source, author and relationship. Similar prose
    is not a match. `record-answer.sh` preserves the words and source in the registry and log.

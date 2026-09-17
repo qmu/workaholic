@@ -35,9 +35,13 @@
 # THE NEWEST COORDINATE WINS, and a re-ask counts: `human-checkin-reasked-<slug>` is a second
 # post in a second thread, and the person answers the one they can see.
 #
+# `retired` IS THE FIFTH STATE AND IS EMITTED FROM THE REGISTRY (documented 2026-09-18,
+# ticket `20260918080734`; the emit predates it). It says the owning step positively reported
+# the premise resolved, and `ask-question.sh` reads it as `premise_resolved` with no hold.
+#
 # Usage: question-state.sh --key <content-key> [--root <repo-root>]
 # Output: one JSON line
-#   {"state": "never_asked|asked|answered|unreadable", "key": "...", "slug": "...",
+#   {"state": "never_asked|asked|answered|retired|unreadable", "key": "...", "slug": "...",
 #    "asked_tick": "", "answered_tick": "", "answer": "",
 #    "coordinate": "", "coordinate_reason": ""}
 

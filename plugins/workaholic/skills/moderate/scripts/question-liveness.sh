@@ -31,14 +31,43 @@
 # re-create the exact silence this mission exists to end. `unknown` never collapses into
 # either other answer.
 #
+# `settled` IS AN ABSENCE, AND `resolution` IS THE POSITIVE READING BESIDE IT (2026-09-18,
+# ticket `20260918080734`). `settled` means the step ran and this key was not among the
+# strings it raised — which is the right reading for the two consumers it has (the bounded
+# re-ask, and the `✅ 解消を確認` confirmation), and is NOT evidence that the premise
+# resolved. `reconcile-questions.sh` read it as one and wrote `proved: true` out of it, which
+# is an absence of a reading presented as a proof (`drive/reference/claims.md`, *Proofs and
+# judgements*). Measured: `inbound-channel-unreadable:<channel>` is composed by the AGENT
+# after the step runs, so the owning step can never name it in `needs_agent` and it carries
+# only as a substring of the escalation sentence; every key of that class was retired on the
+# first tick that reconciled it, while the channel was measurably still unreadable —
+# `never_asked` and `retired` in one reading, permanently, because `register` and `asked` are
+# both no-ops over a retired row.
+#
+# SO `resolution` IS ADDITIVE AND `liveness` DOES NOT MOVE. The three liveness words, the
+# exact-string match and both existing consumers are byte-identical: a key genuinely absent
+# from `needs_agent` cannot be recovered by any matching rule, so narrowing the match would
+# move the defect to the next agent-composed key rather than remove it.
+#
+# A RAISED KEY IS NEVER `proved`. A step that still raises a subject and also names it
+# resolved is contradicting itself; raising wins, because the safe direction here is to leave
+# the question askable.
+#
 # Usage:
 #   question-liveness.sh --key <content-key> --step <owning-step-id> --run <path|->
 # Output: one JSON line
-#   {"liveness": "live|settled|unknown", "key": "...", "step": "...", "reason": ""}
+#   {"liveness": "live|settled|unknown", "resolution": "proved|unwitnessed|unknown",
+#    "key": "...", "step": "...", "reason": ""}
 #
 #   live     the owning step ran and raised this key again this tick
 #   settled  the owning step ran, reported ok, and did not raise it
 #   unknown  the step is absent from the run, degraded, blocked, or the run is unreadable
+#
+#   proved       the step's row names this key as an exact string in its own `resolved_keys`
+#                statement of what it resolved, and does not raise it
+#   unwitnessed  the step ran ok/filed and neither raised the key nor named it resolved —
+#                the case the retirement used to call proof
+#   unknown      every case `liveness` answers `unknown` for
 
 set -eu
 
@@ -57,9 +86,11 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+RESOLUTION=unknown
+
 emit() {
-    printf '{"liveness": "%s", "key": "%s", "step": "%s", "reason": "%s"}\n' \
-        "$1" "$KEY" "$STEP" "${2:-}"
+    printf '{"liveness": "%s", "resolution": "%s", "key": "%s", "step": "%s", "reason": "%s"}\n' \
+        "$1" "$RESOLUTION" "$KEY" "$STEP" "${2:-}"
     exit 0
 }
 
@@ -93,7 +124,19 @@ esac
 # own shape and this script deliberately learns none of them — what it needs is only whether
 # the step raised this subject again.
 if printf '%s' "$ROW" | jq -e --arg k "$KEY" 'any((.needs_agent // []) | .. | strings; . == $k)' >/dev/null 2>&1; then
+    RESOLUTION=unwitnessed
     emit live
+fi
+
+# `resolved_keys` is the step's own statement of what it RESOLVED, matched exactly as
+# `needs_agent` is matched above and learned no more deeply. No step is required to emit it:
+# until one does, the reading is `unwitnessed` everywhere and the retirement retires nothing,
+# which is the honest side of the trade — an open question is visible and re-askable, an
+# extinguished one is neither.
+if printf '%s' "$ROW" | jq -e --arg k "$KEY" 'any((.resolved_keys // []) | .. | strings; . == $k)' >/dev/null 2>&1; then
+    RESOLUTION=proved
+else
+    RESOLUTION=unwitnessed
 fi
 
 emit settled

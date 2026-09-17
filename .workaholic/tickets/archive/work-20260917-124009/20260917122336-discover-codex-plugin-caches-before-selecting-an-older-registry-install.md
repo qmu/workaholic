@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-17T12:23:36+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260917122237-discover-codex-plugin-caches-before-selecting-an-older-registry-install.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260917-124009
 ---
 
 # Discover Codex plugin caches before selecting an older registry install
@@ -58,3 +60,12 @@ Codex と Claude の双方にある versioned plugin cache を同じ候補集合
 ## Considerations
 
 Codex cache の探索を広げても、checkout 優先と実行可能な `call_src` の制約を崩さない。
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: Codex の Workaholic cache は Claude registry の JSON index を持たず、`<cache>/workaholic/workaholic/<version>` という version-addressed directory を直接列挙する必要がある。
+  **Context**: host ごとの発見方法だけを分け、version と immutable tie-break は既存の共通 chooser に通すことで選択規則の分岐を避けられる。

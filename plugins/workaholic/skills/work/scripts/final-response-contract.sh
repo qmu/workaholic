@@ -20,6 +20,10 @@
 #                        kind      "interruptible_parent" | "same_chat_schedule" (closed set)
 #                        id        the parent's or the schedule's own identifier
 #                        next_due  epoch seconds the continuation next fires
+#   host_goal          "active" | "paused" (default active)
+#   native_parent      {interruptible_wait,worker_results}; when the host goal is paused and
+#                      both are true, the routine path must return to an interruptible parent
+#                      rather than substituting worker liveness for observation
 #   hold_persisted     whether `hold` (explicit:true) is already persisted    (default false)
 #   question           the sentence the turn intends to ask, or null          (default null)
 #
@@ -40,6 +44,8 @@
 #   question         null, or the one sentence
 #   control          the mode the coordinator is left in: "running" or "held"
 #   continuation     the continuation the turn returns to, or null
+#   next_action      "wait_interruptibly" when the same native parent must observe again
+#   collect_results  whether that parent must consume child terminal results
 #
 # Why the continuation is a fact and not a sentence (2026-09-11, issue #1151): a native
 # session reported that it had returned to the loop, emitted a final response and stopped
@@ -79,6 +85,11 @@ if ! jq -e '
   ((.control == null) or .control == "running" or .control == "held") and
   ((.hold_persisted == null) or (.hold_persisted | type == "boolean")) and
   ((.question == null) or (.question | type == "string")) and
+  ((.host_goal == null) or .host_goal == "active" or .host_goal == "paused") and
+  ((.native_parent == null) or
+    ((.native_parent | type == "object") and
+     (.native_parent.interruptible_wait | type == "boolean") and
+     (.native_parent.worker_results | type == "boolean"))) and
   ((.continue_on == null) or
     ((.continue_on | type == "object") and
      (.continue_on.instance_id | type == "string") and
@@ -105,6 +116,9 @@ reason=$(jq -r --arg q "$QUESTION" '
   elif .interruption_kind == "review_required" and $question != $q then "question_mismatch"
   elif .interruption_kind == "routine" and $question != "" then "question_mismatch"
   elif .interruption_kind == "routine" and .continuation == null then "continuation_unproved"
+  elif .interruption_kind == "routine" and (.host_goal // "active") == "paused" and
+       (.native_parent.interruptible_wait // false) and (.native_parent.worker_results // false) and
+       .continuation.kind != "interruptible_parent" then "native_parent_not_continued"
   else "" end
 ' "$INPUT")
 
@@ -116,18 +130,25 @@ fi
 jq -c --arg q "$QUESTION" '
   (.control // "running") as $control |
   (.continuation // null) as $continuation |
+  (((.host_goal // "active") == "paused") and
+   (.native_parent.interruptible_wait // false) and
+   (.native_parent.worker_results // false)) as $native_continue |
   if .interruption_kind == "review_required" then
     {ok:true, path:"review_handoff", final_response:true, question:$q,
      instance_id:.instance_id, anchor:.anchor, control:"held", hold_stands:true,
-     second_start:false, continuation:$continuation, reason:""}
+     second_start:false, continuation:$continuation, next_action:null,
+     collect_results:false, reason:""}
   elif .interruption_kind == "task_review" then
     {ok:true, path:"task_wait", final_response:false, question:null,
      instance_id:.instance_id, anchor:.anchor, control:"running", hold_stands:false,
-     second_start:false, continuation:$continuation, reason:""}
+     second_start:false, continuation:$continuation, next_action:null,
+     collect_results:false, reason:""}
   else
     {ok:true, path:"resume", final_response:false, question:null,
      instance_id:.instance_id, anchor:.anchor, control:$control,
      hold_stands:($control == "held"), second_start:false,
-     continuation:$continuation, reason:""}
+     continuation:$continuation,
+     next_action:(if $native_continue then "wait_interruptibly" else null end),
+     collect_results:$native_continue, reason:""}
   end
 ' "$INPUT"

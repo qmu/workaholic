@@ -133,6 +133,25 @@ test('a routine mid-loop comment resumes the same instance and anchor with no fi
   assert.equal(underHold.out.final_response, false); assert.equal(underHold.out.hold_stands, true);
   assert.equal(run({ event: 'tick', now: 2000001300 }).data.control, 'held', 'an ordinary question never resumes a hold');
 });
+test('a paused host with native tools returns to the same interruptible parent and collects the child', t => {
+  const run = fixture(t); run({ event: 'start', session_id: 'session' }); run(reserve);
+  run({ event: 'started', id: 'one', child_id: 'child-one' });
+  const continuation = { kind: 'interruptible_parent', id: 'session', next_due: 2000009000 };
+  const value = { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000,
+    host_goal: 'paused', native_parent: { interruptible_wait: true, worker_results: true }, continuation };
+  const routed = facts(run.dir, value);
+  assert.equal(routed.status, 0, JSON.stringify(routed.out));
+  assert.equal(routed.out.final_response, false, 'steering is commentary, never a terminal response');
+  assert.equal(routed.out.next_action, 'wait_interruptibly');
+  assert.equal(routed.out.collect_results, true);
+  assert.deepEqual(routed.out.continuation, continuation);
+  const wrongClock = facts(run.dir, { ...value, continuation: CONTINUATION });
+  assert.equal(wrongClock.status, 2);
+  assert.equal(wrongClock.out.reason, 'native_parent_not_continued', 'a schedule does not prove this parent stayed alive');
+  run({ event: 'finish', id: 'one', terminal: true, result, now: 2000000300 });
+  assert.equal(run({ event: 'tick', now: 2000000301 }).data.completed[0].result.report,
+    'Work is awaiting checks.', 'the same coordinator observes the child terminal result');
+});
 test('a review-required handoff persists hold, asks exactly one question and waits for an explicit resume', t => {
   const run = fixture(t); run({ event: 'start', session_id: 'session' }); run(reserve);
   run({ event: 'started', id: 'one', child_id: 'child-one' });

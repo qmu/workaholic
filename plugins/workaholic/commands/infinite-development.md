@@ -93,6 +93,12 @@ alone is never a resumed loop; a report that calls the loop resumed while `resum
 non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
 never a sentence in the report.
 
+When the host goal is paused but native interruptible wait and child-result reads remain
+available, a named clock is not enough: the continuation must be the same
+`interruptible_parent`. The reader returns `next_action: wait_interruptibly` and
+`collect_results: true`; the parent answers steering in commentary, waits again, then consumes
+the child's terminal result without another user message. Worker liveness proves only the worker.
+
 Read `git status --porcelain` once. Report a dirty checkout and its file count because this
 tick is already executing that unreviewed plugin behavior. Do not block, modify, or commit it.
 

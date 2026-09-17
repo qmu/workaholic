@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-17T12:26:29+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -59,3 +60,12 @@ resume の報告を実際の native parent 継続証拠に結び付け、steerin
 ## Considerations
 
 既存 anchor と active work を維持し、duplicate loop や main 直書きを作らない。
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: worker liveness と schedule の存在は親が steering 後も観測を続ける証拠ではない。
+  **Context**: paused host で native wait が利用可能な場合、同じ `interruptible_parent` と次の wait/result collection を型付きで要求する必要がある。

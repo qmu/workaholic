@@ -4,6 +4,8 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260917-132446](work-20260917-132446.md) - observe-channel が capture failure の理由と retryable cursor を保持するようにした。
+* [work-20260917-131433](work-20260917-131433.md)
+* [work-20260917-124009](work-20260917-124009.md) - Codex と Claude の plugin cache を共通の version 選択へ統合した。
 * [work-20260911-181606](work-20260911-181606.md) - Prove a native loop's continuation before a turn ends, treat an unproved Slack observation as unread, and route the tick's records behind a pull request with a base-ref gate that keeps every unattended writer off main.
 * [work-20260911-143422](work-20260911-143422.md) - State the native /work loop's final-response contract as three events and two paths — a routine comment resumes the same instance and anchor, a review-required handoff holds and asks exactly one question — with a facts reader and tests for both.
 * [work-20260910-150318](work-20260910-150318.md) - Point perform.sh's write-path comment at the one fallback derivation instead of naming its classes, and pin that in the suite row that owns the rule.

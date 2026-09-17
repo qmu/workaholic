@@ -62,9 +62,20 @@ elif $e.event == "launch" then
   if $s.mode != "running" then {state:$s,changed:false,reason:$s.mode}
   elif $s.workers[$e.id].state != "reserved" then {state:$s,changed:false,reason:"receipt_not_reserved"}
   else {state:($s|.workers[$e.id].state="launching"),changed:true,reason:"launching"} end
-elif $e.event == "started" or $e.event == "finish" or $e.event == "reported" or $e.event == "unknown" or $e.event == "cancelled" then
+elif $e.event == "started" or $e.event == "finish" or $e.event == "reported" or $e.event == "unknown" or $e.event == "cancelled" or $e.event == "await_review" or $e.event == "review_resolved" then
   $s.workers[$e.id] as $w |
   if $w == null then fail("unknown receipt")
+  elif $e.event == "await_review" then
+    if ($e.thread_id|type != "string" or length == 0) then fail("thread_id required")
+    elif ($w|active|not) then {state:$s,changed:false,reason:"not_active"}
+    else {state:($s|.workers[$e.id] += {state:"awaiting_review",review_thread:$e.thread_id,
+      awaited_at:$e.now,child_id:null}),changed:true,reason:"awaiting_review"} end
+  elif $e.event == "review_resolved" then
+    if $w.state != "awaiting_review" then {state:$s,changed:false,reason:"not_awaiting_review"}
+    elif ($e.thread_id|type != "string" or $e.thread_id != $w.review_thread) then {state:$s,changed:false,reason:"wrong_thread"}
+    elif ($e.reply_id|type != "string" or length == 0) then fail("reply_id required")
+    else {state:($s|.workers[$e.id] += {state:"reserved",review_reply:$e.reply_id,
+      review_resolved_at:$e.now}),changed:true,reason:"review_resolved"} end
   elif $e.event == "cancelled" then
     if $e.confirmed != true or ($e.child_id|type != "string" or length == 0) or $e.child_id != $w.child_id then
       {state:$s,changed:false,reason:"cancellation_unverified"}
@@ -105,6 +116,7 @@ if (.state.max_workers|integer|not) or .state.max_workers < 1 or
   cancel_children:(if $next.mode == "stopped" then [$next.workers[]|select(active)|{id,child_id}] else [] end),
   completed:(if $next.mode == "held" then [] else [$next.workers[]|select(.state == "completed" and .reported != true)] end),
   live:[$next.workers[]|select(active)|{id,role,child_id,state,target}],
+  waiting_review:[$next.workers[]|select(.state == "awaiting_review")|{id,role,review_thread,awaited_at,target}],
   cancelled:[$next.workers[]|select(.state == "cancelled")|{id,role,child_id,cancelled_at}],
   due:(if $next.mode != "running" then [] else
     [roles[] as $role |

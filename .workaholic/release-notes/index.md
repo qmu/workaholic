@@ -111,4 +111,5 @@
 * [Make feedback publication race-safe](work-20260917-131433.md)
 * [Preserve capture failure reasons](work-20260917-132446.md)
 * [Keep the native parent observing](work-20260917-134100.md)
+* [Keep observation running during review](work-20260917-135216.md)
 <!-- okf:generated:end -->

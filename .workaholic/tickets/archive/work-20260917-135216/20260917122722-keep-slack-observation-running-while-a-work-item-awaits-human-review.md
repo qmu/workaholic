@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-17T12:27:22+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260917122710-keep-slack-observation-running-while-a-work-item-awaits-human-review.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260917-135216
 ---
 
 # Keep Slack observation running while a work item awaits human review
@@ -58,3 +60,12 @@ task 単位の review/dependency wait を global hold に昇格させず、Slack
 ## Considerations
 
 task wait の解除を coordinator 全体の resume と誤認しない。
+
+## Final Report
+
+Development completed as planned.
+
+### Discovered Insights
+
+- **Insight**: review wait を worker receipt の状態として持てば、global control を増やさず observation と独立 work を継続できる。
+  **Context**: 元 thread の ID を prerequisite の座標として保存し、その thread の reply だけで receipt を再び eligible にすることで誤解除も防げる。

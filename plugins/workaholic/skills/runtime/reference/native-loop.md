@@ -66,6 +66,11 @@ to continue, and a review-required handoff. When the run is unsure, the interrup
 routine. `work/scripts/final-response-contract.sh --input <facts.json>` owns the facts of the
 turn.
 
+That path is only an operator-level stop. A single unit awaiting interpretation uses
+`task_review`: its receipt records the originating thread, the coordinator stays `running`,
+observation and unrelated work continue, and only a reply from that thread makes the receipt
+eligible again. Task review never emits `hold` or asks for a separate resume.
+
 A turn that handled a mid-loop comment names the continuation it returns to — its `kind`
 (`interruptible_parent` or `same_chat_schedule`) and `id` — **before** the response ends, and
 proves it through the same reader: `final-response-contract.sh` refuses `continuation_unproved`

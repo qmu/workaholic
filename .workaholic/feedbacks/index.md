@@ -740,4 +740,5 @@
 * [Resume the native work loop after ordinary mid-loop comments](20260911142410-resume-the-native-work-loop-after-ordinary-mid-loop-comments.md)
 * [Keep the native loop alive, preserve Slack input, and stop direct commits to main](20260911180039-keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main.md)
 * [Discover Codex plugin caches before selecting an older registry install](20260917122237-discover-codex-plugin-caches-before-selecting-an-older-registry-install.md)
+* [Preserve capture failure reasons in observe-channel](20260917122500-preserve-capture-failure-reasons-in-observe-channel.md)
 <!-- okf:generated:end -->

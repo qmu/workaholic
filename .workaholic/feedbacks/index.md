@@ -744,4 +744,5 @@
 * [Prevent false resumed-loop reports and keep the native parent alive after steering](20260917122606-prevent-false-resumed-loop-reports-and-keep-the-native-parent-alive-after-steering.md)
 * [Keep Slack observation running while a work item awaits human review](20260917122710-keep-slack-observation-running-while-a-work-item-awaits-human-review.md)
 * [Restore automatic Slack mention discovery](20260917122803-restore-automatic-slack-mention-discovery.md)
+* [Reconcile accepted scope across blocked implementation PRs](20260917122859-reconcile-accepted-scope-across-blocked-implementation-prs.md)
 <!-- okf:generated:end -->

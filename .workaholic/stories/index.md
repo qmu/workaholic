@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260918-165448](work-20260918-165448.md) - Route land-unit.sh's scan reading through gate-decision.sh so an unread scan refuses instead of pushing the unit onto the base ref.
 * [work-20260918-163623](work-20260918-163623.md)
 * [work-20260918-152022](work-20260918-152022.md)
 * [work-20260918-132835](work-20260918-132835.md) - A raised check-in question now survives its step's window in the registry, and the left-to-a-person count names decisions rather than steps.

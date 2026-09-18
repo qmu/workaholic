@@ -42,6 +42,47 @@
 # they refuse unless `--override-scan` is passed; that flag is the developer's ruling and
 # is reported in the output so the override is never silent.
 #
+# AND AN UNREAD SCAN REFUSES; IT NEVER LANDS (2026-09-18, ticket `20260918164552`). Until
+# then this script carried its own copy of the tier reading -- a `case` over the scan's raw
+# text with two literal patterns and NO DEFAULT ARM -- so anything the two patterns did not
+# match left `scan_verdict="pass"`, `scan_findings=0`, and pushed the unit onto the base
+# ref. MEASURED at `fc5b42b94`, by running the block verbatim with the scan stubbed:
+#
+#   * a scan that exits 0 emitting nothing          -> LANDED, `pass`, 0 findings
+#   * `{"verdict":"block","findings":[{"severity":"hard",...}]}`, one byte of spacing away
+#     from what the producer emits today             -> LANDED, `pass`, 0 findings
+#   * a scan that exits non-zero (its own documented base-ref refusal)
+#                                                    -> `set -e` killed the script at the
+#     assignment, exit 1, NO JSON AT ALL -- and after section 3 had already merged
+#     origin/<base> into the worktree
+#   * a real block in today's spelling               -> refused correctly
+#
+# *Read nothing* and *read and found nothing* were byte-identical outputs. The reading is
+# now routed through `release-scan/scripts/gate-decision.sh` -- the ONE derivation of the
+# tier policy, which counts structurally and answers a third word, `refuse`, for every way
+# of arriving with no reading. Three guards, all refusals and none a skip: the two scripts
+# must be present, the scan's exit status is captured explicitly rather than left to
+# `set -e`, and an empty gate reading refuses. The `case` over the gate's answer puts the
+# refusal arm FIRST and ends in a mandatory `*)` that also refuses.
+#
+# `--override-scan` CANNOT RULE PAST AN UNREAD SCAN, and the arm ordering is how that is
+# enforced rather than a second condition: an override is a developer's ruling ABOUT
+# FINDINGS, and a refusal means there are no findings to rule on. (A refusal's `overridable`
+# and `override_only` are `null`, so it would reach the `*)` arm anyway -- but that safety is
+# incidental, and a later change setting `overridable: false` "for safety" on a refusal would
+# silently re-route it into `secret_finding`, reporting a credential nobody found.)
+#
+# The cost is stated: `jq` becomes a TRANSITIVE dependency, through the gate. That is the
+# correct direction -- an absent or broken `jq` answers `jq_unavailable`, which this script
+# turns into a refusal rather than the silent land it would be under a text read. This
+# script itself embeds no `jq`; it reads two fields off the gate's own single-`printf`
+# object, which is a fixed six-field shape from one line of one script -- not the producer's
+# variable findings array, which is the coupling that was removed.
+#
+# A scan that RAN behaves byte-identically to before. `/drive`'s `review`-route rule that
+# `override_only: true` proceeds without a ruling is deliberately NOT adopted here: widening
+# what reaches the base ref without a developer saying so is a different decision.
+#
 # HOW IT LANDS, and why not `git merge` on the local base. The branch is caught up with
 # origin/<base> IN ITS OWN WORKTREE (ship's catchup-main.sh, so the append-only
 # .workaholic/ resolution and the mechanical/content classification are inherited), and
@@ -70,7 +111,15 @@
 #   {"landed": false, "reason": "...", ...} for every refusal:
 #     headless_context, no_developer_instruction, not_claimed, worktree_missing,
 #     dirty_worktree, no_origin, origin_unreachable, catchup_conflict, secret_finding,
-#     scan_block, diverged
+#     scan_block, scan_unreadable, diverged
+#
+# `scan_verdict` appears ONLY in the success object and gains no third value: it stays
+# "pass" | "overridden", and a refusal never reaches the printf that renders it. A third
+# value could only ever mean *and the unit landed anyway*, which is the outcome the
+# `scan_unreadable` refusal removes. `scan_unreadable` is the existing word for *no reading
+# was made* (`catch-up-claim.sh`, `prepare-publication.sh`, `publish-tree-pr.sh`), and its
+# `detail` carries the gate's own `reason` so the caller learns WHICH WAY the reading failed
+# without re-running anything.
 #
 # Run it from the MAIN checkout: the teardown cannot remove the worktree you stand in.
 
@@ -189,26 +238,89 @@ case "$catchup_out" in
         ;;
 esac
 
-# --- 4. The safety gates, unchanged -----------------------------------------------
-scan_out=$( ( cd "$worktree_path" && sh "${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh" "origin/${base}" ) )
+# --- 4. The safety gates, read through the ONE derivation of the tier policy --------
+# Composed, never re-derived: `gate-decision.sh` owns the severity tiers and the third
+# word, `refuse`, that says no reading was made. See the header paragraph above for what
+# the inline copy this replaces did, and what was measured.
+SCAN="${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh"
+GATE="${SCRIPT_DIR}/../../release-scan/scripts/gate-decision.sh"
+
 scan_verdict="pass"
 scan_findings=0
-case "$scan_out" in
-    *'"verdict": "block"'*)
-        # The scan's finding objects are emitted without spaces after the colons
-        # (`"severity":"hard"`), unlike its top-level verdict. Match what it emits.
-        scan_findings=$(printf '%s' "$scan_out" | grep -o '"category":' | wc -l | tr -d ' ')
-        case "$scan_out" in
-            *'"severity":"hard"'*)
-                refuse "secret_finding" \
-                    "the branch-safety scan found a credential shape; this gate is not overridable. Nothing was landed."
+
+# A REFUSAL, NOT A SKIP. `catch-up-claim.sh` wraps its whole gate block in this same test
+# and PROCEEDS when either file is absent -- defensible there, where the next act is a
+# pull-request merge behind branch protection, and not defensible here, where the next act
+# is a fast-forward push onto the base ref.
+if [ ! -f "$SCAN" ] || [ ! -f "$GATE" ]; then
+    refuse "scan_unreadable" \
+        "the branch-safety scan or its gate is missing beside this script; nothing was judged and nothing was landed"
+fi
+
+# The status is captured EXPLICITLY rather than left to `set -e`: a non-zero scan (its own
+# documented `could not resolve a base ref` refusal, among others) used to abort the script
+# here with no JSON at all, after section 3 had already merged the base into the worktree.
+# POSIX also leaves latitude in how `set -e` treats an assignment from a command
+# substitution, so reading the status makes the behaviour the same under every shell.
+scan_status=0
+scan_out=$( ( cd "$worktree_path" && sh "$SCAN" "origin/${base}" 2>/dev/null ) ) || scan_status=$?
+if [ "$scan_status" -ne 0 ]; then
+    refuse "scan_unreadable" \
+        "the branch-safety scan exited ${scan_status}; nothing was judged and nothing was landed"
+fi
+
+gate=$(printf '%s' "$scan_out" | sh "$GATE" 2>/dev/null || printf '')
+if [ -z "$gate" ]; then
+    refuse "scan_unreadable" \
+        "the gate produced no reading of the branch-safety scan; nothing was landed"
+fi
+
+case "$gate" in
+    # ORDERED ABOVE EVERY BLOCK ARM AND ABOVE THE OVERRIDE, deliberately. The gate's third
+    # word is *no reading was made*, never a held finding, and `--override-scan` may not
+    # rule past it -- see the header. The gate's own `reason` rides into `detail`.
+    *'"decision": "refuse"'*)
+        gate_reason="unnamed"
+        case "$gate" in
+            *'"reason": "'*)
+                gate_reason=${gate#*'"reason": "'}
+                gate_reason=${gate_reason%%'"'*}
                 ;;
+            # A refusal with no reason word still refuses; `unnamed` is the honest detail.
+            *) ;;
+        esac
+        refuse "scan_unreadable" \
+            "the gate refused to read the branch-safety scan (${gate_reason}); re-run the scan. Nothing was landed, and --override-scan cannot rule past an unread scan."
+        ;;
+    *'"decision": "pass"'*) ;;
+    *'"overridable": false'*)
+        refuse "secret_finding" \
+            "the branch-safety scan found a credential shape; this gate is not overridable. Nothing was landed."
+        ;;
+    *'"decision": "block"'*)
+        # The gate counted the findings structurally; this reads that count off its own
+        # fixed six-field object rather than counting `"category":` across the producer's
+        # output, which was the second half of the same fragility.
+        case "$gate" in
+            *'"total": '[0-9]*)
+                scan_findings=${gate#*'"total": '}
+                scan_findings=${scan_findings%%[!0-9]*}
+                ;;
+            # A block whose count could not be read is still a block; the refusal below
+            # reports `0 finding(s)` rather than inventing a number, and nothing lands.
+            *) ;;
         esac
         if [ "$override_scan" != true ]; then
             refuse "scan_block" \
                 "the branch-safety scan blocked (${scan_findings} finding(s)); re-run with --override-scan to rule past it, or fix the branch"
         fi
         scan_verdict="overridden"
+        ;;
+    # MANDATORY. The absence of this arm was the defect: anything the patterns above did
+    # not match left `scan_verdict="pass"` and pushed the unit onto the base ref.
+    *)
+        refuse "scan_unreadable" \
+            "the gate answered a shape this script does not recognise; nothing was judged and nothing was landed"
         ;;
 esac
 

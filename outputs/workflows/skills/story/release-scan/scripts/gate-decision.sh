@@ -126,7 +126,7 @@
 # an input had been read at all.
 #
 # EXIT STATUS IS 0 IN EVERY CASE, including every refusal — this repository's refusal
-# convention, and both script consumers wrap the call in `|| printf ''`, so a non-zero exit
+# convention, and every script consumer wraps the call in `|| printf ''`, so a non-zero exit
 # would erase the reason word and land them on their generic empty-output path. The refusal
 # object is the only way the reason survives.
 #

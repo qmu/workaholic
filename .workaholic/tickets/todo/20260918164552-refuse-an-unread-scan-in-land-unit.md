@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260918-165448
 ---
 
 # Refuse an unread scan in land-unit.sh

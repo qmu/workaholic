@@ -89,7 +89,7 @@ not write a second story generator.
   `20260918150931`), carries `overridable`/`override_only` as `null` rather than `0`, and **merges
   nothing** — the pull request stays open, the claim stays standing, and the unit's merge outcome
   is `merge_refused: scan_unreadable`, the word the two script consumers already use. The remedy
-  is re-running the scan correctly; the `reason` (`no_input`, `unparseable_input`,
+  is re-running the scan correctly; the `reason` (`no_scan_input`, `unparseable_input`,
   `not_a_scan_verdict`, `finding_unclassified`, `bad_argument`, `jq_unavailable`) says which way
   it failed, and it is neither a secret nor an override (REST
   `PUT repos/{owner}/{repo}/pulls/{n}/merge` through `gather/scripts/gh-rest.sh` — never the

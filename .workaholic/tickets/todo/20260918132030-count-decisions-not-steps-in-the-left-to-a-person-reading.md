@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260918-132835
 ---
 
 # Count decisions, not steps, in the left-to-a-person reading

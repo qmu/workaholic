@@ -47,6 +47,40 @@ and resolves every such case toward `pass`. Two independent callers hit that in 
 wrong path, piped the resulting empty output in, and got `decision: "pass"` from no input at all —
 noticed only because the answer looked suspicious, not because the gate said anything.
 
+**The permissive default ships with a ready-made rationalisation, and that is the real hazard.**
+The near miss is recorded here because it is the strongest evidence this ticket has. The caller
+passed the file positionally. The file was correct:
+
+```
+{"verdict":"block","findings":[{"rule":"too-large-commit","severity":"override","file":"d0f29157f","line":0,"detail":null}]}
+```
+
+The gate answered `{"decision":"pass","overridable":true,"override_only":false,"hard":0,"confirm":0,"total":0}`,
+exit 0. It was noticed only because the same output block had already printed that file's
+`findings` through `jq`, so *one finding* and *`total: 0`* sat side by side — and then **a plausible
+explanation was immediately available**: *the `override` tier is neither `hard` nor `confirm`, so
+of course it does not appear in `total`*. Under that reading the run came close to merging on
+`decision: pass`; it stopped only because somebody read the script header and found the
+`Usage: scan-branch-safety.sh … | gate-decision.sh` stdin contract. Piped correctly, the same file
+answers `{"decision":"block","overridable":true,"override_only":true,"hard":0,"confirm":0,"total":1}`.
+**The merge outcome is identical; the recorded justification is not** — a false pass would have left
+a durable record saying the branch had zero findings when it had one. A silent wrong answer that
+supplies its own excuse is worse than one that looks wrong, which is why this is a defect in the
+gate and not a lesson for its callers.
+
+Two facts follow from that, and both are part of what must change:
+
+- **No field in the output says whether an input was read.** *Read nothing* and *read and found
+  nothing* are byte-identical, exit 0 in both. The assumption that `scan-branch-safety.sh` always
+  emits at least a `{"verdict":…}` object is embedded in the script in a way no caller can detect
+  when it breaks.
+- **Both entry doors land on the same false pass** — a positional argument, and a piped empty file
+  — which is why this is the gate's finding rather than either caller's mistake. `CLAUDE.md` names
+  the exact shape in the coordinator's own architecture rule: *"For agent-composed gated writes,
+  read the gate in one tool call before constructing the merge, push or deletion in another; **exit
+  zero is not a passing JSON gate.**"* The script hands its callers nothing to tell the difference
+  with.
+
 This is the repository's own doctrine pointed at one of its own gates. *An absence of a reading is
 never a proof* (`skills/drive/reference/claims.md`), and `commands/infinite-development.md:26`
 already states it to the coordinator that calls this script: *"Readability precedes counting. A
@@ -137,12 +171,23 @@ than in the consumers. The gate's *own* unread-input case was never covered.
     "hard": null, "confirm": null, "total": null}
    ```
 
-   The closed reason set, five words plus `jq_unavailable`: `no_input` (stdin empty or whitespace
-   only), `unparseable_input` (not JSON), `not_a_scan_verdict` (JSON whose `.findings` is not an
-   array), `finding_unclassified` (a `findings[]` element that is not an object, or whose
+   The closed reason set, five words plus `jq_unavailable`: **`no_scan_input`** (stdin empty or
+   whitespace only), `unparseable_input` (not JSON), `not_a_scan_verdict` (JSON whose `.findings`
+   is not an array), `finding_unclassified` (a `findings[]` element that is not an object, or whose
    `severity` is absent or outside the closed set `hard | confirm | override`), `bad_argument`,
    `jq_unavailable`. Exit 0 in every case — the repository's refusal convention, and a non-zero
    exit would be swallowed by the `|| printf ''` both script consumers already wrap the call in.
+
+   **The load-bearing requirement is the one the runner that hit this proposed**: read **one
+   parseable scan object from stdin**, and refuse when you cannot, instead of mapping `total: 0` to
+   `pass` before confirming an input existed. That single check closes **both** doors on its own —
+   a positional argument leaves stdin empty and therefore refuses as `no_scan_input` even with
+   step 2 removed — and it is adopted as stated, including its word. The four other reasons are
+   **diagnostic refinements over that one check, never the safety mechanism**: each names *why*
+   there was no usable reading, which is what turns a refusal a caller can act on out of one they
+   have to investigate. `bad_argument` earns its place by naming the mistake precisely — *your file
+   was never read* — where `no_scan_input` would leave a caller holding a correct file and no
+   explanation, which is exactly the position the near-miss caller was in.
 
    **Decided: a third word rather than resolving to `block`** — `block` means *findings were
    found*, and the consumers then read the severity counts to decide how hard to block. A `block`
@@ -213,8 +258,10 @@ than in the consumers. The gate's *own* unread-input case was never covered.
 
 **Acceptance criteria** — the checkable conditions that must hold:
 
-- `printf '' | sh gate-decision.sh` answers `decision: "refuse"`, `reason: "no_input"`, and `total: null`.
+- `printf '' | sh gate-decision.sh` answers `decision: "refuse"`, `reason: "no_scan_input"`, and `total: null`.
 - `sh gate-decision.sh <path> </dev/null` answers `decision: "refuse"`, `reason: "bad_argument"`, and reads neither the file nor stdin.
+- **The near-miss shape, both ways round, in one case**: the file `{"verdict":"block","findings":[{"rule":"too-large-commit","severity":"override","file":"d0f29157f","line":0,"detail":null}]}` passed **positionally** refuses, and the same bytes **piped** answer `decision: "block"`, `override_only: true`, `total: 1`. No input shape answers `pass` with that content by either route.
+- **`decision` alone tells *read nothing* from *read and found nothing*** — a refusal and a clean pass are never byte-identical, and no consumer has to compare counts to learn which it got.
 - `printf '%s' '{"verdict":"block","findings":[{"severity":"hard","rule":"secret"}]}' | sh gate-decision.sh` answers a non-`pass` decision (`refuse`/`finding_unclassified` under the closed-set rule of step 4) and **never** `decision: "pass"` beside `hard: 1`.
 - `printf 'not json' | sh gate-decision.sh` answers `reason: "unparseable_input"`; `{"verdict":"pass"}` with no `findings` key answers `reason: "not_a_scan_verdict"`.
 - A normal `scan-branch-safety.sh` output is unchanged in every existing respect: a clean branch is `pass` with `total: 0` and `override_only: false`; a `secret` branch is `block` with `overridable: false`; a `size`-only branch is `block` with `override_only: true`; a `leak` beside a `size` is not `override_only`. The end-to-end `scan | gate-decision` row on a real secret branch stays a non-overridable block.

@@ -70,6 +70,62 @@ test('question identity survives logs; verified outside-thread answer is not ret
   call('moderate/scripts/reconcile-questions.sh',{tick:'20260908-230100',run,answers:[{key:'held:three',answer:'guess',source_ref:'thread:other',subject_verified:false,relation_confirmed:true}]});
   assert.equal(call(registry,{event:'list'}).json.data.questions.find(q=>q.key==='held:three').state,'candidate');
 });
+// A RAISED QUESTION IS REGISTERED BY THE SEAM, NOT BY THE AGENT (2026-09-18, `20260918131255`).
+// Candidacy came from the producing step's own window and the arrears from per-key log lines the
+// agent wrote by hand, so a question whose step moved on, and for which no line was written, was
+// enumerated by no reader at all. The fixture is a LEGACY registry planted before this code runs
+// (`plugins/workaholic/rules/general.md`): `revision` past 1, no `first_seen`, a `step` naming a
+// step that never raised the key, and a row with no `key` field at all — the measured shape.
+test('every question key the run report carries is registered, under the step that raised it',t=>{
+  const {call,dir}=fixture(t), registry='moderate/scripts/question-registry.sh';
+  const regDir=join(dir,'.git/workaholic/runtime/v1/instances/questions');
+  mkdirSync(regDir,{recursive:true});
+  writeFileSync(join(regDir,'meta.json'),JSON.stringify({schema_version:1,revision:22,owner:null,
+    generation:1,updated_at:'2026-09-17T21:00:00Z',data:{questions:{
+      'blocked-tick:20260904-085918':{state:'candidate',step:'direction-health'},
+      'held:answered':{key:'held:answered',state:'answered',answer:'leave it',source:'session:h-1'},
+      'held:retired':{key:'held:retired',state:'retired',
+        evidence:{proved:true,step:'direction-health',reason:'owning_step_reported_resolution'}}}}})+'\n');
+  const rows=()=>JSON.parse(spawnSync('sh',[join(skills,'runtime/scripts/state.sh'),'read','--scope','instance','--id','questions'],{cwd:dir,encoding:'utf8'}).stdout).data.record;
+  const seeded=rows().data.questions;
+  const run={steps:[
+    {step:'blocked-tick',status:'ok',needs_agent:[{action:'ask',key:'blocked-tick:20260918-101010'}]},
+    // Nested, because each step names its candidates in its own shape.
+    {step:'operator-pulls',status:'ok',needs_agent:[{action:'ask',pulls:[{key:'operator-pull:1180'}]}]},
+    // Something to say and no `key` field: no row, and counted.
+    {step:'issue-triage',status:'ok',needs_agent:[{action:'triage',note:'21 open, 10 never ingested'}]},
+    {step:'stalled-units',status:'ok',needs_agent:[{action:'ask',key:'held:answered'}]},
+    {step:'direction-health',status:'ok',needs_agent:[{action:'ask',key:'held:retired'}]}]};
+  const first=call('moderate/scripts/reconcile-questions.sh',{tick:'20260918-140000',run,answers:[]});
+  assert.equal(first.json.status,'ok',first.stderr);
+  const reason=k=>first.json.data.results.find(r=>r.key===k&&r.reason!=='unwitnessed').reason;
+  assert.equal(reason('blocked-tick:20260918-101010'),'registered');
+  assert.equal(reason('operator-pull:1180'),'registered');
+  assert.equal(reason('held:answered'),'skipped:answered');
+  assert.equal(reason('held:retired'),'skipped:retired');
+  assert.equal(first.json.data.results.find(r=>r.step==='issue-triage').reason,'no_question_key');
+  // The step that RAISED it, never the step a legacy row happened to name.
+  assert.equal(rows().data.questions['blocked-tick:20260918-101010'].step,'blocked-tick');
+  assert.equal(rows().data.questions['operator-pull:1180'].step,'operator-pulls');
+  // No key is ever derived from a summary.
+  assert.ok(!JSON.stringify(rows().data.questions).includes('never ingested'));
+  // `first_seen` on creation only; a legacy row never gains one — `unknown` is its answer.
+  assert.match(rows().data.questions['blocked-tick:20260918-101010'].first_seen,/^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(rows().data.questions['blocked-tick:20260904-085918'].first_seen,undefined);
+  // An answered or retired row named by the report comes out byte-identical.
+  for (const k of ['held:answered','held:retired'])
+    assert.deepEqual(rows().data.questions[k],seeded[k]);
+  // The map key is the row's identity, so no outcome is reported for a question named "null".
+  assert.ok(!first.json.data.results.some(r=>r.key==='null'),JSON.stringify(first.json.data.results));
+  // A SECOND PASS CHANGES THE RECORD NOT AT ALL — revision included.
+  const before=JSON.stringify(rows());
+  const second=call('moderate/scripts/reconcile-questions.sh',{tick:'20260918-150000',run,answers:[]});
+  assert.equal(second.json.data.results.find(r=>r.key==='blocked-tick:20260918-101010'&&r.reason!=='unwitnessed').reason,'already_known');
+  assert.equal(JSON.stringify(rows()),before);
+  // And #1200's rule is untouched: a step that did not run retires nothing.
+  assert.equal(rows().data.questions['blocked-tick:20260904-085918'].state,'candidate');
+  assert.equal(call(registry,{event:'list'}).json.data.questions.find(q=>q.key==='blocked-tick:20260904-085918').key,'blocked-tick:20260904-085918');
+});
 // A KEY THE AGENT COMPOSES AFTER THE STEP RAN IS NEVER WITNESSED BY IT, and the retirement used
 // to read that absence as proof. Measured on this repository: the only live question,
 // `inbound-channel-unreadable:dev-workaholic`, held `{"state":"retired","asked_tick":""}` — never
@@ -112,7 +168,12 @@ test('a legacy row retired on an absence is reinstated once, and the repair touc
   const before=readFileSync(join(record,'meta.json'),'utf8');
   const second=call('moderate/scripts/reconcile-questions.sh',{tick:'20260918-030000',run,answers:[]});
   assert.equal(readFileSync(join(record,'meta.json'),'utf8'),before);
-  assert.deepEqual(second.json.data.results,[{status:'not_retired',reason:'unwitnessed',key}]);
+  // Filtered to the retirement's own rows: since 2026-09-18 the same seam also registers the
+  // run report's question keys, so it reports one row per step row beside these (here
+  // `no_question_key`, both steps raising nothing with a `key`). The reinstatement contract is
+  // what this row pins, and the sibling assertion above filters the same way.
+  assert.deepEqual(second.json.data.results.filter(r=>r.status==='not_retired'),
+    [{status:'not_retired',reason:'unwitnessed',key}]);
   // Each reinstate bound refuses by its own word with nothing written.
   assert.equal(call(registry,{event:'reinstate',key:'held:answered'}).json.reason,'answered_row');
   assert.equal(call(registry,{event:'reinstate',key:'held:other-reason'}).json.reason,'evidence_not_repairable');

@@ -79,7 +79,14 @@ EOF
     else
         add_row "findings_classified" false "expected retire-claims,inbound-sweep; got '$(_cands "$_free")' ($(one_line "$_free"))" load
     fi
-    case "$(one_line "$_free")" in
+    # SCOPED TO `needs_agent`, WHICH IS WHAT "REACHED THE FILING ACT" MEANS (2026-09-18, ticket
+    # `20260918132030`). This read the WHOLE step line for the step id, which was equivalent
+    # while `left` was a bare count — a non-repairable step's id appeared nowhere else in the
+    # output. It no longer is: `left_steps` now NAMES the rows left to a person, and
+    # `undrivable-units` is exactly such a row, so the coarse read called the repair a safety
+    # breach. Being named as left to a person is the OPPOSITE of being filed. The narrowed read
+    # is the one the hermetic suite already uses for this property.
+    case "$(_field "$_free" '.needs_agent')" in
         *undrivable-units*)
             add_row "findings_ruling_never_filed" false "a needs_ruling finding reached the filing act" load ;;
         *)

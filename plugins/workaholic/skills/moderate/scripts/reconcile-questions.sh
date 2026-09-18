@@ -23,6 +23,10 @@
 # never asked and never askable again — while the channel it named was measurably unreadable
 # in the same tick. `question-registry.sh`'s `reinstate` carries every bound; this walk only
 # enumerates the rows that defect wrote.
+#
+# AND THE REGISTRY IS MADE COMPLETE HERE, WITHOUT DEPENDING ON THE AGENT (2026-09-18, ticket
+# `20260918131255`) — the walk below the reinstatement, before any question is offered. The full
+# reasoning and the measurement are stated at that block.
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 . "$SCRIPT_DIR/../../runtime/scripts/lib/result.sh"
 [ "$#" -eq 2 ] && [ "$1" = --input ] || runtime_usage "usage: reconcile-questions.sh --input FILE"
@@ -40,6 +44,90 @@ while IFS= read -r row; do
   printf '%s' "$row" | jq -c '{event:"reinstate",key:.key}' > "$tmp/request"
   sh "$SCRIPT_DIR/question-registry.sh" --input "$tmp/request" >> "$tmp/results"
 done < "$tmp/residue"
+# --- REGISTER EVERY QUESTION KEY THE RUN REPORT CARRIES -------------------------------------
+# (2026-09-18, ticket `20260918131255`.) A question could be raised, held because nothing could
+# deliver it, and then VANISH — unasked, unanswered and reported nowhere. Candidacy was derived
+# per tick from the PRODUCING STEP'S OWN WINDOW, and the arrears that make a hold a delay rather
+# than a loss were enumerated from per-key `human-checkin-held-<slug>` log lines the AGENT wrote
+# by hand: a question whose step stopped offering it, and for which the agent wrote no per-key
+# line, was enumerated by no reader in the tick at all.
+#
+# MEASURED: on 2026-09-17 one `questions-held` line named four keys and promised that "every key
+# stays held and is offered again"; exactly ONE of the four got a per-key held line, and it is
+# the only one of the four still reachable. `blocked-tick:20260904-085918` had no registry row at
+# all — `ask-question.sh` registers before every gate, so an absent row means the gate was never
+# called for that key — and the hour after the log gained a second tick it left `blocked-tick`'s
+# candidate set for good, that step reading only *the tick before last* by a structural bound its
+# header defends and this change does not touch.
+#
+# SO THE REGISTRATION IS MECHANICAL AND LIVES HERE, in the seam that already walks the run report
+# once per tick. The refused alternative is a stricter instruction to the agent: that is what the
+# contract already said, and the measured tick wrote one line out of four — a rule an unattended
+# run can omit with nothing noticing is the failure this exists to remove.
+#
+# IT IS THE STEP ROW'S OWN ID THAT IS REGISTERED, which repairs the measured
+# `step: direction-health`-for-every-key rows as a by-product: `register` merges the provided
+# `step`, and the producing step is the one `question-liveness.sh` must read.
+#
+# NO KEY IS EVER GUESSED. Only the `key` field the steps already emit is read; a step row whose
+# `needs_agent` carries no `key` yields nothing and is COUNTED (`no_question_key`). A key is never
+# derived from a summary, a slug or a legacy log line.
+#
+# AN `answered` OR `retired` ROW IS NOT REGISTERED AT ALL, so it comes out byte-identical: the
+# skip is the caller's, because `register` merges `step` onto whatever row it finds and would
+# otherwise touch a row a person's own answer owns.
+printf '{"event":"list"}' > "$tmp/request"
+sh "$SCRIPT_DIR/question-registry.sh" --input "$tmp/request" > "$tmp/registry"
+[ "$(jq -r .status "$tmp/registry")" = ok ] || { cat "$tmp/registry"; exit 0; }
+jq -c '(.steps // [])[] | . as $row
+       | {step: ($row.step // ""),
+          keys: ([($row.needs_agent // []) | .. | objects | .key?
+                  | select(type == "string" and length > 0)] | unique)}' "$tmp/run" > "$tmp/raised"
+while IFS= read -r row; do
+  [ -n "$row" ] || continue
+  step=$(printf '%s' "$row" | jq -r '.step')
+  [ -n "$step" ] || continue
+  if [ "$(printf '%s' "$row" | jq -r '.keys | length')" = 0 ]; then
+    jq -cn --arg step "$step" '{status:"ok",reason:"no_question_key",step:$step}' >> "$tmp/results"
+    continue
+  fi
+  printf '%s' "$row" | jq -r '.keys[]' > "$tmp/rowkeys"
+  while IFS= read -r key; do
+    [ -n "$key" ] || continue
+    row=$(jq -c --arg key "$key" \
+      '[.data.questions[] | select(.key == $key)] | first // {}' "$tmp/registry")
+    state=$(printf '%s' "$row" | jq -r '.state // ""')
+    case "$state" in
+      answered|retired)
+        jq -cn --arg key "$key" --arg step "$step" --arg state "$state" \
+          '{status:"ok",reason:("skipped:" + $state),key:$key,step:$step}' >> "$tmp/results"
+        continue ;;
+    esac
+    # A WRITE ONLY WHERE ONE WOULD CHANGE SOMETHING. The cost this seam accepts is one
+    # revision-checked write per NEWLY SEEN key per tick; an unconditional `register` would spend
+    # one per raised key per tick forever, bumping the revision on a record whose questions are
+    # byte-identical and racing every other writer for nothing. The second condition is the step
+    # repair: a row recorded against a step that never raised it is what made
+    # `question-liveness.sh` answer about the wrong step, and it is corrected once and then never
+    # written again.
+    if [ -n "$state" ] && [ "$(printf '%s' "$row" | jq -r '.step // ""')" = "$step" ]; then
+      jq -cn --arg key "$key" --arg step "$step" \
+        '{status:"ok",reason:"already_known",key:$key,step:$step}' >> "$tmp/results"
+      continue
+    fi
+    jq -cn --arg key "$key" --arg step "$step" '{event:"register",key:$key,step:$step}' > "$tmp/request"
+    sh "$SCRIPT_DIR/question-registry.sh" --input "$tmp/request" > "$tmp/registered"
+    if [ "$(jq -r '.status' "$tmp/registered")" = ok ]; then
+      reason=registered
+      [ -z "$state" ] || reason=already_known
+      jq -cn --arg key "$key" --arg step "$step" --arg reason "$reason" \
+        '{status:"ok",reason:$reason,key:$key,step:$step}' >> "$tmp/results"
+    else
+      cat "$tmp/registered" >> "$tmp/results"
+    fi
+  done < "$tmp/rowkeys"
+done < "$tmp/raised"
+
 jq -c '.answers[]?' "$INPUT" > "$tmp/answers"
 while IFS= read -r answer; do
   if ! printf '%s' "$answer" | jq -e '.subject_verified == true and .relation_confirmed == true and

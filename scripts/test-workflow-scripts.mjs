@@ -31450,6 +31450,200 @@ function testProposeCheckIn() {
   }
 }
 
+// ---------- a raised question outlives its step's window (2026-09-18, `20260918131255`) ------
+//
+// THE DEFECT. `held is not dropped` rested on two things that could both be absent: candidacy
+// came from the PRODUCING STEP'S OWN WINDOW each tick, and the arrears were enumerated from
+// per-key `human-checkin-held-<slug>` lines the AGENT wrote by hand. A question whose step
+// stopped offering it, and for which no per-key line was written, was enumerated by NO reader in
+// the tick — `step-human-checkin.sh` read the registry only as a slug→key preimage resolver.
+// Measured on 2026-09-17: one aggregate `questions-held` line named four keys and promised each
+// would be offered again; exactly ONE got a per-key line, and it is the only one still reachable.
+//
+// THE FIXTURE IS A LEGACY REGISTRY, PLANTED BEFORE THE NEW CODE RUNS
+// (`plugins/workaholic/rules/general.md`, *A tightened constraint over persisted data is verified
+// against legacy rows*). The registry is clone-local runtime state under the Git common
+// directory, so NO pull request can carry a migration to it and every checkout meets this code
+// holding rows the old code wrote: `revision` well past 1, no `first_seen` anywhere, a `step`
+// naming a step that never raised the key, and — the measured shape — a row with no `key` field
+// at all. A registry created empty and then driven by the new code would prove none of that.
+T("moderate: a raised question outlives its step's window", testQuestionSurvivesStepWindow);
+function testQuestionSurvivesStepWindow() {
+  const repo = makeRepo();
+  const M = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+  const STEP = `${POSIX_SH} ${join(M, "step-human-checkin.sh")}`;
+  const RECONCILE = `${POSIX_SH} ${join(M, "reconcile-questions.sh")}`;
+  const STATE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/runtime/scripts/state.sh")}`;
+  const LOG = `${POSIX_SH} ${SCRIPTS.proposeLogAppend}`;
+  const slugOfKey = (k) => run(repo,
+    `${POSIX_SH} -c '. ${join(M, "lib/question-id.sh")}; question_slug "${k}"'`).stdout.trim();
+  const readRegistry = () => JSON.parse(
+    run(repo, `${STATE} read --scope instance --id questions`).stdout).data.record;
+  try {
+    mkdirSync(join(repo, ".workaholic"), { recursive: true });
+
+    // ---- THE LEGACY REGISTRY, exactly as the old code left it ----
+    const regDir = join(repo, ".git/workaholic/runtime/v1/instances/questions");
+    mkdirSync(regDir, { recursive: true });
+    writeFileSync(join(regDir, "meta.json"), JSON.stringify({
+      schema_version: 1, revision: 22, owner: null, generation: 1,
+      updated_at: "2026-09-17T21:00:00Z",
+      data: { questions: {
+        // The measured shape: no `key`, no `first_seen`, and a `step` that never raised it.
+        "blocked-tick:20260904-085918": { state: "candidate", step: "direction-health" },
+        // A candidate whose producing step DOES raise it this tick.
+        "operator-pull:1180": { key: "operator-pull:1180", state: "candidate", step: "direction-health" },
+        "stalled-unit:u": { key: "stalled-unit:u", state: "answered", answer: "leave it",
+                            source: "session", answered_at: "2026-09-10T00:00:00Z" },
+        "direction-dormant:old": { key: "direction-dormant:old", state: "retired",
+                                   evidence: { proved: true, step: "direction-health",
+                                               reason: "owning_step_reported_resolution" } },
+      } },
+    }) + "\n");
+    const seeded = readRegistry().data.questions;
+
+    // ---- AND THE THREE MEASURED LEGACY SLUGS, held before the registry existed ----
+    // No recoverable preimage, so NO KEY MAY BE FABRICATED for them, ever.
+    const orphanSlugs = ["direction-expiring-an-au-16258524",
+                         "stranded-unit-retire-a-c-731715597",
+                         "stuck-634714808-3638566254"];
+    for (const s of orphanSlugs) {
+      run(repo, `${LOG} --root . --tick 20260902-120000 --step human-checkin-held-${s} --status skipped --summary "held, no transport"`);
+    }
+
+    // ---- THE REGISTRATION CONTRACT ----
+    const report = {
+      tick: "20260918-140000",
+      run: { steps: [
+        { step: "blocked-tick", status: "ok", reason: "", summary: "a tick stopped",
+          needs_agent: [{ action: "ask", key: "blocked-tick:20260918-101010" }] },
+        // NESTED, because each step names its candidates in its own shape.
+        { step: "operator-pulls", status: "ok", reason: "", summary: "1 waiting",
+          needs_agent: [{ action: "ask", pulls: [{ key: "operator-pull:1180" }] }] },
+        // A step row with something to say and NO `key` field: no row, and counted.
+        { step: "issue-triage", status: "ok", reason: "", summary: "21 open",
+          needs_agent: [{ action: "triage", note: "21 open, 10 never ingested" }] },
+        // The `answered` and `retired` rows, named by the report.
+        { step: "stalled-units", status: "ok", reason: "", summary: "1 stalled",
+          needs_agent: [{ action: "ask", key: "stalled-unit:u" }] },
+        { step: "direction-health", status: "ok", reason: "", summary: "1 group",
+          needs_agent: [{ action: "ask", key: "direction-dormant:old" }] },
+      ] },
+      answers: [],
+    };
+    const reportPath = join(repo, "report.json");
+    writeFileSync(reportPath, JSON.stringify(report) + "\n");
+    const firstPass = JSON.parse(run(repo, `${RECONCILE} --input ${reportPath}`).stdout).data.results;
+    const reasonFor = (rs, k) => (rs.find((r) => r.key === k && r.reason !== "unwitnessed") || {}).reason;
+
+    assertEq("a key the report raises becomes a candidate row",
+      reasonFor(firstPass, "blocked-tick:20260918-101010"), "registered");
+    assertEq("and it is recorded against the step that RAISED it — not the step the legacy row named",
+      readRegistry().data.questions["blocked-tick:20260918-101010"].step, "blocked-tick");
+    assertEq("a nested key is found, because each step names its candidates in its own shape",
+      readRegistry().data.questions["operator-pull:1180"].step, "operator-pulls");
+    assertEq("a step row carrying no key field produces no row, and is counted",
+      (firstPass.find((r) => r.step === "issue-triage") || {}).reason, "no_question_key");
+    assertTrue("and no key is derived from its summary",
+      !JSON.stringify(readRegistry().data.questions).includes("never ingested"),
+      JSON.stringify(readRegistry().data.questions));
+    assertEq("an answered row named by the report is skipped by its own state",
+      reasonFor(firstPass, "stalled-unit:u"), "skipped:answered");
+    assertEq("and a retired one likewise", reasonFor(firstPass, "direction-dormant:old"), "skipped:retired");
+    assertEq("both come out byte-identical",
+      JSON.stringify([readRegistry().data.questions["stalled-unit:u"],
+                      readRegistry().data.questions["direction-dormant:old"]]),
+      JSON.stringify([seeded["stalled-unit:u"], seeded["direction-dormant:old"]]));
+
+    // `first_seen` IS WRITTEN ON CREATION ONLY, and a LEGACY row never gains one — `unknown` is
+    // its honest answer, never the tick's own day, which reads as *this just started*.
+    const born = readRegistry().data.questions["blocked-tick:20260918-101010"].first_seen;
+    assertTrue("a row created here carries a first_seen day", /^\d{4}-\d{2}-\d{2}$/.test(born), born);
+    assertEq("and a legacy row does not gain one",
+      readRegistry().data.questions["blocked-tick:20260904-085918"].first_seen, undefined);
+
+    // #1200's RULE, EXPLICITLY RE-ASSERTED: a step that did not run must never look like a step
+    // that resolved the key, so nothing the enumeration adds is retired by the same walk.
+    assertTrue("a step absent from the run retires nothing",
+      firstPass.some((r) => r.status === "not_retired"), JSON.stringify(firstPass));
+    assertTrue("and the legacy row whose step raised nothing is still a candidate",
+      readRegistry().data.questions["blocked-tick:20260904-085918"].state === "candidate",
+      JSON.stringify(readRegistry().data.questions["blocked-tick:20260904-085918"]));
+    assertTrue("its map key is its identity, so no outcome is reported for a question named \"null\"",
+      !firstPass.some((r) => r.key === "null"), JSON.stringify(firstPass));
+
+    // A SECOND PASS CHANGES THE RECORD NOT AT ALL.
+    const before = JSON.stringify(readRegistry());
+    const second = JSON.parse(run(repo, `${RECONCILE} --input ${reportPath}`).stdout).data.results;
+    assertEq("a re-run reports the key as already known",
+      reasonFor(second, "blocked-tick:20260918-101010"), "already_known");
+    assertEq("and the record is untouched — revision included", JSON.stringify(readRegistry()), before);
+    assertEq("and first_seen has not moved",
+      readRegistry().data.questions["blocked-tick:20260918-101010"].first_seen, born);
+
+    // ---- THE DRAIN: THE UNION, inside a quiet hour so nothing is asked ----
+    const q = JSON.parse(run(repo, `${STEP} --tick 20260918-230000 --root . --hour 23 --weekday 5`).stdout);
+    const byKey = (k) => q.held.find((h) => h.key === k);
+    assertEq("the registry row whose step is absent from the run is OFFERED",
+      byKey("blocked-tick:20260904-085918").source, "registry");
+    assertEq("with no first_seen to report, and never the tick's day",
+      byKey("blocked-tick:20260904-085918").first_seen, null);
+    assertEq("its gate word is the gate's own, verbatim — held, not dropped",
+      byKey("blocked-tick:20260904-085918").reason, "quiet_hours");
+    assertEq("the registry-only arrears are counted as such", q.arrears_registry_only, 3);
+    assertEq("and every arrear is in held_count", q.held_count, q.held.length);
+    assertTrue("an answered row is never offered", !byKey("stalled-unit:u"), JSON.stringify(q.held));
+    assertTrue("nor a retired one", !byKey("direction-dormant:old"), JSON.stringify(q.held));
+
+    // THE THREE UNRECOVERABLE SLUGS stay visible and UNIDENTIFIED.
+    for (const s of orphanSlugs) {
+      const row = q.held.find((h) => h.legacy_slug === s);
+      assertEq(`${s} is still offered from the log`, row.source, "log");
+      assertEq("and its identity is still unavailable", row.reason, "question_identity_unavailable");
+      assertEq("with no key fabricated for it", row.key, "");
+    }
+
+    // THE ORDER IS TOTAL: dated entries oldest-first, then the undated ones by key. The three
+    // log slugs are dated 2026-09-02 by their held day; `blocked-tick:20260918-101010` was
+    // CREATED by the reconcile above, so it carries today's `first_seen` and is dated too; the
+    // two LEGACY registry rows carry no `first_seen` at all and are the only undated ones.
+    assertEq("the three log slugs come first — dated 2026-09-02 by their held day",
+      q.held.slice(0, 3).map((h) => h.legacy_slug), orphanSlugs);
+    assertEq("then the key this run registered, dated today, so it sorts among the dated",
+      q.held[3].key, "blocked-tick:20260918-101010");
+    assertEq("then the undated LEGACY rows, by key",
+      q.held.slice(4).map((h) => h.key).join(","),
+      ["blocked-tick:20260904-085918", "operator-pull:1180"].join(","));
+    assertEq("and the legacy rows are exactly the undated registry-sourced ones",
+      q.held.filter((h) => h.source === "registry" && h.first_seen === null)
+        .map((h) => h.key).join(","),
+      ["blocked-tick:20260904-085918", "operator-pull:1180"].join(","));
+    assertEq("held_oldest_day reads the DATED entries only", q.held_oldest_day, "2026-09-02");
+    assertTrue("and a re-entered tick produces a byte-identical sequence",
+      JSON.stringify(JSON.parse(run(repo,
+        `${STEP} --tick 20260918-230000 --root . --hour 23 --weekday 5`).stdout).held)
+        === JSON.stringify(q.held), "the order moved between two identical readings");
+
+    // ---- ONE KEY IN BOTH READERS IS OFFERED ONCE, deduped on the CONTENT KEY ----
+    run(repo, `${LOG} --root . --tick 20260916-120000 --step human-checkin-held-${slugOfKey("operator-pull:1180")} --status skipped --summary "held operator-pull:1180"`);
+    const both = JSON.parse(run(repo, `${STEP} --tick 20260918-230000 --root . --hour 23 --weekday 5`).stdout);
+    assertEq("a key the log and the registry both carry appears once",
+      both.held.filter((h) => h.key === "operator-pull:1180").length, 1);
+    assertEq("and says both readers hold it",
+      both.held.find((h) => h.key === "operator-pull:1180").source, "both");
+    assertEq("its log arm no longer counts as registry-only", both.arrears_registry_only, 2);
+
+    // ---- AND THE ASK IS STILL THE RESOLUTION OF THE HOLD, on the registry arm too ----
+    run(repo, `${LOG} --root . --tick 20260918-233000 --step human-checkin-ask-${slugOfKey("blocked-tick:20260904-085918")} --status filed --summary "asked"`);
+    const asked = JSON.parse(run(repo, `${STEP} --tick 20260919-000000 --root . --hour 23 --weekday 5`).stdout);
+    assertTrue("an asked key drops out of the arrears",
+      !asked.held.some((h) => h.key === "blocked-tick:20260904-085918"),
+      JSON.stringify(asked.held));
+  } finally {
+    cleanup(repo);
+  }
+}
+
 // ---------- The day cap counts TODAY, not every day the log has ever held -------------
 // (2026-08-28, mission `deliver-what-the-loop-already-knows-to-the-person-who-can-act`)
 //
@@ -35613,8 +35807,25 @@ function testFindingToWorkGap() {
 // carrying its own list would prove only that the list matches itself.
 //
 // NO CLASSIFIER ANYWHERE. The table is the one home. A `classify.sh` — or a function in any
-// moderate script returning `repairable`/`needs_ruling` — would be the second derivation the
-// table exists to prevent, so the scripts are read with comments stripped and the words banned.
+// moderate script returning `repairable`/`needs_ruling`/`render` — would be the second derivation
+// the table exists to prevent, so the scripts are read with comments stripped and the words
+// banned.
+//
+// THREE WORDS SINCE 2026-09-18 (ticket `20260918132030`). `render` joined `repairable` and
+// `needs_ruling`, so the row regex below parses all three: it accepted two, and a `render` row
+// added without widening it would make this test report `strategy-digest` as UNCLASSIFIED rather
+// than quietly pass — loud, which is why the regex is named in that ticket's steps.
+//
+// THE SCRIPT-COPY BAN IS EXTENDED, NOT RELAXED, AND THE BOUNDARY IS TIGHTENED BY ONE CHARACTER.
+// `render` is an ordinary word in this tree — `render-tick-post.sh`,
+// `render_the_morning_digest_at_the_top_of_the_root`, `already_rendered` — and `\brender\b`
+// matches the first two, so a step id landing on such a line later would fail this row for a
+// reason that has nothing to do with a copied table. Measured over every moderate script at the
+// time of writing: no line false-positives today. So the word set is extended rather than moved
+// to the backticked token (which no shell script would ever write, and keying on it would make
+// the ban stop firing for the shape it guards), and `-` joins the word characters at both
+// boundaries, so only a STANDALONE `render` counts. That narrows the two existing words too, and
+// nothing in the tree relied on the wider match.
 //
 // Proved able to fail, each break turning exactly one row red:
 //
@@ -35622,6 +35833,7 @@ function testFindingToWorkGap() {
 //   a table row for a step STEPS does not name       -> `the table classifies no step id ...`
 //   the default sentence deleted from the header     -> `the table states its own default`
 //   a `classify()` added to a moderate script        -> `... carries no finding classifier`
+//   `strategy-digest` moved to render, regex not     -> `every step id ... is classified`
 T("moderate: repairable or needing a ruling, pinned against STEPS", testFindingClassification);
 function testFindingClassification() {
   const steps = moderateSteps();
@@ -35636,7 +35848,7 @@ function testFindingClassification() {
   const section = doc.slice(at, end > 0 ? end : undefined);
 
   const classified = new Map();
-  for (const m of section.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*(?:\*\*)?`(repairable|needs_ruling)`(?:\*\*)?\s*\|/gm)) {
+  for (const m of section.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*(?:\*\*)?`(repairable|needs_ruling|render)`(?:\*\*)?\s*\|/gm)) {
     assertTrue(`the table classifies ${m[1]} exactly once`, !classified.has(m[1]),
       "a second row for the same step is two rules for one fact");
     classified.set(m[1], m[2]);
@@ -35655,6 +35867,13 @@ function testFindingClassification() {
     /An unclassified step id is `needs_ruling`/.test(section),
     "the default sentence is gone, so a new step's silence is no longer explained");
 
+  // THE THIRD WORD IS EXERCISED RATHER THAN ASSUMED: a `render` row must actually parse out of
+  // the table, or the widened regex is proving nothing and `testFileFindingsStep`'s render rows
+  // would be asserting the `needs_ruling` default instead.
+  assertEq("strategy-digest is classified render, and it is the only row that moved",
+    [...classified.entries()].filter(([, c]) => c === "render").map(([s]) => s).join(","),
+    "strategy-digest");
+
   // NO SECOND DERIVATION, AND NO SECOND COPY. The table is the one home: the filing step READS
   // it (ticket 3 wires that), and no script anywhere restates which steps are repairable.
   // Comments are stripped first, so a script's own prose about the classification is not what
@@ -35666,7 +35885,7 @@ function testFindingClassification() {
   for (const f of readdirSync(MODERATE_SCRIPTS).filter((n) => n.endsWith(".sh"))) {
     for (const line of readFileSync(join(MODERATE_SCRIPTS, f), "utf8").split("\n")) {
       if (/^\s*#/.test(line)) continue;
-      if (!/\b(repairable|needs_ruling)\b/.test(line)) continue;
+      if (!/(?<![\w-])(repairable|needs_ruling|render)(?![\w-])/.test(line)) continue;
       assertTrue(`${f} carries no hand-copied classification row`,
         !steps.some((s) => line.includes(s)),
         `a step id classified inside a script is the second copy workflow.md exists to prevent: ${line.trim()}`);
@@ -35764,6 +35983,67 @@ function testFileFindingsStep() {
       /1 left to a person/.test(out.summary), out.summary);
     assertEq("the event is empty — nothing has been filed when run.sh reads this line",
       out.event, "");
+
+    // ---- `render`: NOT COUNTED WHEN IT REPORTS, COUNTED WHEN IT BREAKS (2026-09-18) ----
+    // A render owes nobody a decision, so its own output must not enter the left-to-a-person
+    // count; a render that FAILED is our own machinery failing, which is the loop's debt, so the
+    // exemption must not cover it. Both are asserted as behaviours over a real fixture rather
+    // than as shapes, because the classification is read out of the table at run time.
+    const renderReports = join(tmp, "render.json");
+    writeFileSync(renderReports, JSON.stringify({
+      steps: [
+        { step: "strategy-digest", status: "ok", reason: "", summary: "morning digest ready",
+          needs_agent: 0, logged: true, event: "morning digest ready for 1 strategy" },
+      ],
+    }) + "\n");
+    const rendered = JSON.parse(run(repo, `${POSIX_SH} ${STEP} --tick 20260918-040700 --root ${repo}`,
+      { env: { ...env, WORKAHOLIC_TICK_REPORTS: renderReports } }).stdout.trim());
+    assertEq("a render reporting ok with an event is not left to a person", rendered.left, 0);
+    assertEq("and it names no member", JSON.stringify(rendered.left_steps), "[]");
+    assertTrue("and it is not a filing candidate either",
+      !JSON.stringify(rendered.needs_agent).includes("strategy-digest"),
+      JSON.stringify(rendered.needs_agent));
+
+    const brokenRender = join(tmp, "render-degraded.json");
+    writeFileSync(brokenRender, JSON.stringify({
+      steps: [
+        { step: "strategy-digest", status: "degraded", reason: "digest_unreadable",
+          summary: "the board could not be read", needs_agent: 0, logged: true, event: "" },
+      ],
+    }) + "\n");
+    const broke = JSON.parse(run(repo, `${POSIX_SH} ${STEP} --tick 20260918-040700 --root ${repo}`,
+      { env: { ...env, WORKAHOLIC_TICK_REPORTS: brokenRender } }).stdout.trim());
+    assertEq("a DEGRADED render is counted, whatever its class", broke.left, 1);
+    assertEq("and it is named, with its own reason",
+      broke.left_steps.map((r) => `${r.step}:${r.status}:${r.reason}`).join(","),
+      "strategy-digest:degraded:digest_unreadable");
+
+    // ---- THE MEASURED HOUR: two decisions plus one render, answering 2 and naming both ----
+    // The 2026-09-18 04:07 tick, which reported `3 left to a person` and named none of them.
+    const measured = join(tmp, "measured.json");
+    writeFileSync(measured, JSON.stringify({
+      steps: [
+        { step: "issue-triage", status: "ok", reason: "", summary: "21 open, 10 never ingested",
+          needs_agent: 0, logged: true, event: "21 open issues, 10 never ingested" },
+        { step: "direction-health", status: "ok", reason: "", summary: "direction-arrived group",
+          needs_agent: 1, logged: true, event: "a direction reads arrived" },
+        { step: "strategy-digest", status: "ok", reason: "", summary: "morning digest ready",
+          needs_agent: 0, logged: true, event: "morning digest ready for 1 strategy" },
+      ],
+    }) + "\n");
+    const hour = JSON.parse(run(repo, `${POSIX_SH} ${STEP} --tick 20260918-040700 --root ${repo}`,
+      { env: { ...env, WORKAHOLIC_TICK_REPORTS: measured } }).stdout.trim());
+    assertEq("the measured hour is two decisions, not three things to answer", hour.left, 2);
+    assertEq("and its members are named, in the reports file's own order",
+      hour.left_steps.map((r) => r.step).join(","), "issue-triage,direction-health");
+    assertTrue("and the summary names them too",
+      /2 left to a person \(issue-triage, direction-health\)/.test(hour.summary), hour.summary);
+    // THE SUMMARY IS STABLE: two identical readings are byte-identical, so the root's
+    // hour-to-hour diff still suppresses an unchanged hour.
+    const again = JSON.parse(run(repo, `${POSIX_SH} ${STEP} --tick 20260918-051500 --root ${repo}`,
+      { env: { ...env, WORKAHOLIC_TICK_REPORTS: measured } }).stdout.trim());
+    assertEq("and it carries no clock, so it does not move between ticks",
+      again.summary, hour.summary);
 
     // ---- DEGRADATIONS, EACH BY ITS OWN NAME ----
     const bare = JSON.parse(run(repo, `${POSIX_SH} ${STEP} --tick 20260829-050000 --root ${repo}`,

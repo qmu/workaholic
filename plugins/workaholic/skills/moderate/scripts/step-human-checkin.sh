@@ -170,11 +170,23 @@
 # very first suite run was on a Saturday and reported `off_day` for every question the
 # tests expected to be asked. A gate that cannot be pinned is a gate nobody can test.
 #
+# AND THE ARREARS ARE THE UNION OF THE LOG AND THE REGISTRY (2026-09-18, ticket
+# `20260918131255`). HELD IS NOT DROPPED was enforced by per-key log lines the AGENT wrote, so a
+# question whose producing step stopped offering it, and for which no per-key line was written,
+# was enumerated by no reader in the tick — the registry was consulted here only to resolve a
+# slug back to its content key. The registry's own `candidate` and `asked` rows are now a
+# candidate source beside the log, deduped on the CONTENT KEY, each entry carrying `source`
+# (`log` | `registry` | `both`) and `first_seen` (a day, or `null` for a legacy row). The full
+# measurement is at the union block below. NO GATE, CAP, WINDOW OR REFUSAL WORD MOVED, and
+# `step-blocked-tick.sh`'s own window is deliberately not widened.
+#
 # Usage: step-human-checkin.sh --tick <id> --root <repo-root> [--hour <0-23>] [--weekday <1-7>]
 # Output: one JSON line
 #   {"step","status","reason","summary","event","needs_agent":[...],
-#    "held":[{"key":"<slug>","reason":"<the gate's own refusal word>"},...],
+#    "held":[{"key","legacy_slug","reason":"<the gate's own refusal word>",
+#             "source":"log|registry|both","first_seen":"YYYY-MM-DD"|null},...],
 #    "held_count":n,"held_oldest_day":"YYYY-MM-DD"|null,"held_days":n|null,
+#    "arrears_registry_only":n,
 #    "delivered":n,"candidates":n,"delivery":"<reason word>","quiet":bool}
 
 set -eu
@@ -272,7 +284,10 @@ fi
 if [ "$log_readable" != "true" ]; then
     heldquiet=false
     if [ "$quiet" = "true" ] || [ "$offday" = "true" ]; then heldquiet=true; fi
-    printf '{"step": "human-checkin", "status": "degraded", "reason": "%s", "summary": "the tick log could not be read (%s) — no delivery is claimed and nothing is asked", "event": "", "needs_agent": [], "held": [], "held_count": 0, "held_oldest_day": null, "held_days": null, "candidates": 0, "delivery": "unreadable", "quiet": %s}\n' \
+    # `arrears_registry_only` is NULL here, never `0`: the union was never walked, and a zero
+    # reads as *the registry held nothing* for a reading nobody made — this script's own rule for
+    # `held_oldest_day` and `held_days` one field over.
+    printf '{"step": "human-checkin", "status": "degraded", "reason": "%s", "summary": "the tick log could not be read (%s) — no delivery is claimed and nothing is asked", "event": "", "needs_agent": [], "held": [], "held_count": 0, "held_oldest_day": null, "held_days": null, "arrears_registry_only": null, "candidates": 0, "delivery": "unreadable", "quiet": %s}\n' \
         "$(json_escape "$log_reason")" "$(json_escape "$log_reason")" "$heldquiet"
     exit 0
 fi
@@ -283,6 +298,7 @@ held=''
 held_count=0
 held_ever=0
 held_oldest_day=''
+arrears_registry_only=0
 # What the gate said, across the held set: whether anything could be asked at all, and which
 # refusal it gave. Collected here rather than probed a second time below.
 gate_can_ask=false
@@ -291,6 +307,97 @@ gate_hold=false
 registry=$( (cd "$ROOT" && sh "$SCRIPT_DIR/../../runtime/scripts/state.sh" read --scope instance --id questions) 2>/dev/null || printf '{}')
 registry_keys=$(printf '%s' "$registry" | jq -r '.data.record.data.questions // {} | keys[]' 2>/dev/null || true)
 legacy_keys=$(printf '%s' "$held_rows" | jq -r '.entries[]? | .summary // "" | select(startswith("held ")) | ltrimstr("held ")' 2>/dev/null || true)
+
+# --- THE ARREARS ARE THE UNION OF THE LOG AND THE REGISTRY ----------------------------
+# (2026-09-18, ticket `20260918131255`.) A raised question could EVAPORATE: candidacy came from
+# the producing step's own window, and the arrears that make a hold a delay rather than a loss
+# came from `human-checkin-held-<slug>` lines the AGENT wrote by hand. So a question whose step
+# stopped offering it, and for which no per-key line was written, was enumerated by NO reader in
+# the tick — the registry was read here only as a slug→key preimage resolver, never as a source.
+#
+# MEASURED on 2026-09-17: one aggregate `questions-held` line named four keys and promised every
+# one of them would be offered again; exactly ONE got a per-key held line, and it is the only one
+# of the four still reachable. `blocked-tick:20260904-085918` left its step's window an hour
+# later and nothing anywhere reported the loss.
+#
+# THE AGGREGATE LINE STAYS, AND NOTHING DEPENDS ON IT. It is a good human record; what changed is
+# that the mechanism no longer rides it.
+#
+# `candidate` OR `asked`, and every existing exclusion holds unchanged: an `answered` or
+# `retired` row is never offered, a key with an `human-checkin-ask-*` line drops out (the ask is
+# the resolution of the hold), and the per-candidate `ask-question.sh` probe still supplies each
+# entry's refusal word VERBATIM. This step still orders and does not cap.
+registry_open=$(printf '%s' "$registry" | jq -r '
+  .data.record.data.questions // {} | to_entries
+  | map(select((.value.state // "candidate") == "candidate"
+               or (.value.state // "candidate") == "asked"))
+  | .[].key' 2>/dev/null || true)
+
+# THE ENTRIES ARE ORDERED OVER THE UNION, so they are collected with their sort key and sorted
+# once rather than appended in walk order. Group `0` is the dated entries, ordered on
+# `(day, tick, key)` exactly as before; group `1` is the undated ones, ordered on the key alone.
+# A LOG ENTRY KEEPS ITS HELD DAY as that date and a registry-only entry takes its `first_seen`,
+# which is what makes the log-derived set's order byte-identical to what it was: the held day IS
+# the first-seen reading on that side.
+tmpd=$(mktemp -d)
+trap 'rm -rf "$tmpd"' EXIT HUP INT TERM
+: > "$tmpd/entries"
+TAB=$(printf '\t')
+
+registry_state() {
+    printf '%s' "$registry" | jq -r --arg key "$1" \
+      '(.data.record.data.questions // {})[$key].state // ""' 2>/dev/null || printf ''
+}
+
+# `// ""` is safe here because `first_seen` is a day string or absent — there is no `false` to
+# swallow (`rules/shell.md`).
+registry_first_seen() {
+    printf '%s' "$registry" | jq -r --arg key "$1" \
+      '(.data.record.data.questions // {})[$key].first_seen // ""' 2>/dev/null || printf ''
+}
+
+# Ask the gate for this key's own refusal word, and fold it into the tick-wide readings. The
+# probe is read-only — recording an ask is `--record-ask`'s separate mode — so nothing is written
+# and no cap moves.
+probe_gate() {
+    hold_reason='question_identity_unavailable'
+    if [ -f "$GATE" ] && [ -n "$1" ]; then
+        gout=$(sh "$GATE" --root "$ROOT" --tick "$TICK" --key "$1" \
+                 --hour "$HOUR" --weekday "$WEEKDAY" 2>/dev/null || true)
+        case "$gout" in
+            *'"ask": true'*) gate_can_ask=true ;;
+            *) hold_reason=$(printf '%s' "$gout" | sed -n 's/.*"reason": "\([a-z_]*\)".*/\1/p' | head -1) ;;
+        esac
+        case "$hold_reason" in
+            day_cap) gate_day_cap=true ;;
+            quiet_hours|off_day|tick_cap) gate_hold=true ;;
+        esac
+    fi
+}
+
+# $1 key  $2 legacy_slug  $3 reason  $4 source  $5 first_seen (day or empty)
+# $6 sort day (empty = undated)  $7 sort tick
+add_entry() {
+    held_count=$((held_count + 1))
+    [ "$4" != registry ] || arrears_registry_only=$((arrears_registry_only + 1))
+    _fs=null
+    [ -z "$5" ] || _fs="\"$(json_escape "$5")\""
+    _grp=1
+    [ -z "$6" ] || _grp=0
+    printf '%s%s%s%s%s%s%s%s{"key": "%s", "legacy_slug": "%s", "reason": "%s", "source": "%s", "first_seen": %s}\n' \
+        "$_grp" "$TAB" "$6" "$TAB" "$7" "$TAB" "$1" "$TAB" \
+        "$(json_escape "$1")" "$(json_escape "$2")" "$(json_escape "$3")" "$4" "$_fs" \
+        >> "$tmpd/entries"
+    # The MINIMUM over the DATED entries still held — an asked key has left the arrears and must
+    # not go on ageing them. `YYYY-MM-DD` compares correctly as a string, and an undated entry
+    # contributes nothing rather than being dressed as today's.
+    if [ -n "$6" ]; then
+        if [ -z "$held_oldest_day" ] || [ "$6" \< "$held_oldest_day" ]; then
+            held_oldest_day="$6"
+        fi
+    fi
+}
+
 if [ -n "$held_rows" ]; then
     # `day tick key` per held entry, straight out of the reader's own fields — no second
     # ledger, and no notion of age this step invents for itself.
@@ -298,27 +405,32 @@ if [ -n "$held_rows" ]; then
            tr '{' '\n' |
            sed -n 's/.*"day": "\([^"]*\)", "tick": "\([^"]*\)", "step": "human-checkin-held-\([^"]*\)".*/\1 \2 \3/p' || true)
     # The EARLIEST (day, tick) per key wins: a key held across several ticks is as old as
-    # its first hold. `LC_ALL=C` so the order does not move with the runner's locale.
-    keys=$(printf '%s\n' "$rows" | awk '
+    # its first hold. `LC_ALL=C` so the order does not move with the runner's locale. The TICK
+    # is carried through now rather than dropped: it is the ordering's own second term, and the
+    # union below sorts once over every entry rather than in walk order.
+    printf '%s\n' "$rows" | awk '
         NF == 3 {
             k = $3; d = $1 " " $2
             if (!(k in first) || d < first[k]) first[k] = d
         }
         END { for (k in first) print first[k] " " k }
-    ' | LC_ALL=C sort | awk '{ print $1 ":" $3 }')
-    # `day:key`, in the drain order the sort above already produced. The day rides along
-    # rather than being re-derived: it IS the value the ordering was computed from.
-    for entry in $keys; do
-        [ -n "$entry" ] || continue
-        day=${entry%%:*}
-        k=${entry#*:}
+    ' | LC_ALL=C sort > "$tmpd/logkeys"
+    # `day tick slug` per held key. The day rides along rather than being re-derived: it IS the
+    # value the ordering was computed from.
+    while IFS=' ' read -r day tick k; do
         [ -n "$k" ] || continue
         held_ever=$((held_ever + 1))
-        asked=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "human-checkin-ask-${k}" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
-        case "$asked" in ''|*[!0-9]*) asked=0 ;; esac
-        [ "$asked" -eq 0 ] || continue
         # A log suffix is not a content key. Resolve only a stored preimage; never
         # guess one or ask an unidentifiable legacy question again.
+        #
+        # RESOLVED BEFORE THE ASK CHECK, SO THE LOG ARM STAYS AUTHORITATIVE (2026-09-18, ticket
+        # `20260918131255`). The resolution used to run after it, so a key the log had already
+        # seen asked left this loop with nothing recorded — and the registry arm below then
+        # offered it again, because the two arms spell an ask's log step differently: this arm
+        # uses the LOG'S OWN slug (which may be a legacy spelling) and that one derives the
+        # hashed slug from the key. Every key this arm resolves is recorded as seen whether or
+        # not it is offered, so the registry arm never second-guesses a decision made here.
+        # The cost is the two small preimage loops for an already-asked key as well.
         full_key=''
         while IFS= read -r candidate; do
             [ -n "$candidate" ] || continue
@@ -338,33 +450,54 @@ EOF
 $legacy_keys
 EOF
         fi
+        printf '%s\n' "$full_key" >> "$tmpd/seen"
+        asked=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "human-checkin-ask-${k}" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
+        case "$asked" in ''|*[!0-9]*) asked=0 ;; esac
+        [ "$asked" -eq 0 ] || continue
         if [ -n "$full_key" ]; then
             qstate=$(printf '%s' "$registry" | jq -r --arg key "$full_key" '.data.record.data.questions[$key].state // "candidate"')
             case "$qstate" in answered|retired) continue;; esac
         fi
-        held_count=$((held_count + 1))
-        # WHY THIS ONE IS HELD, in the gate's own word. The probe is read-only — recording an
-        # ask is `--record-ask`'s separate mode — so nothing is written and no cap moves.
-        hold_reason='question_identity_unavailable'
-        if [ -f "$GATE" ] && [ -n "$full_key" ]; then
-            gout=$(sh "$GATE" --root "$ROOT" --tick "$TICK" --key "$full_key" \
-                     --hour "$HOUR" --weekday "$WEEKDAY" 2>/dev/null || true)
-            case "$gout" in
-                *'"ask": true'*) gate_can_ask=true ;;
-                *) hold_reason=$(printf '%s' "$gout" | sed -n 's/.*"reason": "\([a-z_]*\)".*/\1/p' | head -1) ;;
-            esac
-            case "$hold_reason" in
-                day_cap) gate_day_cap=true ;;
-                quiet_hours|off_day|tick_cap) gate_hold=true ;;
-            esac
+        # WHY THIS ONE IS HELD, in the gate's own word.
+        probe_gate "$full_key"
+        # `both` when the registry also carries this key as open: the log saw it and the
+        # registry remembers it, and a reader diagnosing a lost question needs to know which
+        # readers still hold it.
+        src=log
+        if [ -n "$full_key" ]; then
+            case "$(registry_state "$full_key")" in candidate|asked) src=both ;; esac
         fi
-        held="${held:+${held}, }{\"key\": \"$(json_escape "$full_key")\", \"legacy_slug\": \"$(json_escape "$k")\", \"reason\": \"$(json_escape "$hold_reason")\"}"
-        # The MINIMUM over the keys still held — an asked key has left the arrears and must
-        # not go on ageing them. `YYYY-MM-DD` compares correctly as a string.
-        if [ -z "$held_oldest_day" ] || [ "$day" \< "$held_oldest_day" ]; then
-            held_oldest_day="$day"
-        fi
-    done
+        add_entry "$full_key" "$k" "$hold_reason" "$src" \
+                  "$(registry_first_seen "$full_key")" "$day" "$tick"
+    done < "$tmpd/logkeys"
+fi
+
+# --- THE REGISTRY'S OWN OPEN ROWS, deduped on the CONTENT KEY -------------------------
+# `lib/question-id.sh` stays the one derivation of a question's identity: the log side resolves
+# its slug to a content key above, so the dedup happens on that key and nothing compares slugs.
+[ -f "$tmpd/seen" ] || : > "$tmpd/seen"
+while IFS= read -r rkey; do
+    [ -n "$rkey" ] || continue
+    if grep -Fxq -- "$rkey" "$tmpd/seen"; then continue; fi
+    printf '%s\n' "$rkey" >> "$tmpd/seen"
+    held_ever=$((held_ever + 1))
+    rslug=$(sh -c '. "$1"; question_slug "$2"' sh "$SCRIPT_DIR/lib/question-id.sh" "$rkey")
+    rfirst=$(registry_first_seen "$rkey")
+    # The ask is the resolution of the hold, on this arm exactly as on the log's.
+    asked=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "human-checkin-ask-${rslug}" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
+    case "$asked" in ''|*[!0-9]*) asked=0 ;; esac
+    [ "$asked" -eq 0 ] || continue
+    probe_gate "$rkey"
+    add_entry "$rkey" "$rslug" "$hold_reason" registry "$rfirst" "$rfirst" ''
+done <<EOF
+$registry_open
+EOF
+
+# ONE SORT OVER THE UNION, so the order is total and a re-entered tick produces a byte-identical
+# sequence. Group first, then the day, the tick and the key — the log-derived set's own terms.
+if [ -s "$tmpd/entries" ]; then
+    held=$(LC_ALL=C sort -t"$TAB" -k1,1 -k2,2 -k3,3 -k4,4 "$tmpd/entries" | cut -f5- |
+           awk 'NR > 1 { printf ", " } { printf "%s", $0 } END { if (NR > 0) print "" }')
 fi
 
 # Null, never `0`, when there is nothing held or the day could not be read.
@@ -442,10 +575,10 @@ if [ "$offday" = "true" ]; then
     # it earns its line here too, because this is where a weekend's arrears actually sit.
     event=''
     [ "$delivery" != "all_held" ] || event=$(outlived_event)
-    printf '{"step": "human-checkin", "status": "skipped", "reason": "off_day", "summary": "weekday %s is outside the %s working week (%s) — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
+    printf '{"step": "human-checkin", "status": "skipped", "reason": "off_day", "summary": "weekday %s is outside the %s working week (%s) — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "arrears_registry_only": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
         "$WEEKDAY" "$ZONE" "$WORK_DAYS" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
         "$(json_escape "$event")" \
-        "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"
+        "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$arrears_registry_only" "$delivered" "$candidates" "$delivery"
     exit 0
 fi
 
@@ -453,10 +586,10 @@ if [ "$quiet" = "true" ]; then
     [ "$held_count" -eq 0 ] || delivery=all_held
     event=''
     [ "$delivery" != "all_held" ] || event=$(outlived_event)
-    printf '{"step": "human-checkin", "status": "skipped", "reason": "quiet_hours", "summary": "inside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
+    printf '{"step": "human-checkin", "status": "skipped", "reason": "quiet_hours", "summary": "inside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "arrears_registry_only": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": true}\n' \
         "$WINDOW" "$ZONE" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
         "$(json_escape "$event")" \
-        "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"
+        "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$arrears_registry_only" "$delivered" "$candidates" "$delivery"
     exit 0
 fi
 
@@ -493,6 +626,6 @@ NEEDS="{\"action\": \"ask_if_worth_asking\", \"bound\": \"apply the Recommended-
 # THE SUMMARY IS A FUNCTION OF THE READING ALONE. No hour, no timestamp, nothing that moves
 # by construction — so the root's hour-to-hour diff suppresses an unchanged reason rather
 # than rendering it every tick, which is the property that lets the event above exist.
-printf '{"step": "human-checkin", "status": "ok", "reason": "", "summary": "outside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [%s], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": false}\n' \
+printf '{"step": "human-checkin", "status": "ok", "reason": "", "summary": "outside the %s %s quiet window — %s candidate(s): %s delivered, %s held (%s)", "event": "%s", "needs_agent": [%s], "held": [%s], "held_count": %s, "held_oldest_day": %s, "held_days": %s, "arrears_registry_only": %s, "delivered": %s, "candidates": %s, "delivery": "%s", "quiet": false}\n' \
     "$WINDOW" "$ZONE" "$candidates" "$delivered" "$held_count" "${delivery:-none}" \
-    "$(json_escape "$event")" "$NEEDS" "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$delivered" "$candidates" "$delivery"
+    "$(json_escape "$event")" "$NEEDS" "$held" "$held_count" "$held_oldest_json" "$held_days_json" "$arrears_registry_only" "$delivered" "$candidates" "$delivery"

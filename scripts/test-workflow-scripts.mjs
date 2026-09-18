@@ -6542,14 +6542,14 @@ function testReleaseScanGateDecision() {
       JSON.parse(run(dir, `${stdinExpr} | ${POSIX_SH} ${SCRIPTS.gateDecision}${args}`).stdout);
 
     let r = refuse(`printf ''`);
-    assertEq("empty stdin refuses rather than passing", { decision: r.decision, reason: r.reason }, { decision: "refuse", reason: "no_input" });
+    assertEq("empty stdin refuses rather than passing", { decision: r.decision, reason: r.reason }, { decision: "refuse", reason: "no_scan_input" });
     assertEq("and a refusal's counts are null, never 0", { total: r.total, hard: r.hard, confirm: r.confirm }, { total: null, hard: null, confirm: null });
     // LOAD-BEARING: a consumer that reads a boolean licence must not be able to read a
     // refusal as one. `override_only: true` is a merge licence for /drive's review route.
     assertEq("and neither licence field is set on a refusal", { overridable: r.overridable, override_only: r.override_only }, { overridable: null, override_only: null });
 
     r = refuse(`printf ' \\n\\t '`);
-    assertEq("whitespace-only stdin is also no_input", r.reason, "no_input");
+    assertEq("whitespace-only stdin is also no_scan_input", r.reason, "no_scan_input");
 
     // A positional argument is REFUSED rather than accepted: this script's contract is one
     // stdin pipe, and a gate with two input routes is exactly how a caller comes to believe
@@ -6561,6 +6561,30 @@ function testReleaseScanGateDecision() {
     // The same file through the sanctioned route is judged, and is the hard block it is.
     const viaStdin = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.gateDecision} < v.json`).stdout);
     assertEq("the recovery form judges that same file", { decision: viaStdin.decision, overridable: viaStdin.overridable, hard: viaStdin.hard }, { decision: "block", overridable: false, hard: 1 });
+
+    // THE NEAR MISS, BOTH WAYS ROUND, IN ONE CASE (2026-09-18). A caller passed this exact,
+    // CORRECT file positionally and got `{"decision":"pass",...,"total":0}`, exit 0 — caught
+    // only because the same output had already printed its one finding through `jq`, and a
+    // wrong explanation was immediately available (*`override` is neither `hard` nor
+    // `confirm`, so of course it is not in `total`*). The merge outcome would have been the
+    // same; the recorded justification would have said zero findings where there was one.
+    const nearMiss = '{"verdict":"block","findings":[{"rule":"too-large-commit","severity":"override","file":"d0f29157f","line":0,"detail":null}]}';
+    writeFileSync(join(dir, "near-miss.json"), nearMiss);
+    const nmPositional = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.gateDecision} near-miss.json </dev/null`).stdout);
+    assertEq("the near-miss file passed positionally refuses", { decision: nmPositional.decision, reason: nmPositional.reason }, { decision: "refuse", reason: "bad_argument" });
+    const nmPiped = decide(nearMiss);
+    assertEq("and the same bytes piped are the block they always were", { decision: nmPiped.decision, override_only: nmPiped.override_only, total: nmPiped.total }, { decision: "block", override_only: true, total: 1 });
+    assertTrue("so no route answers pass for that content", nmPositional.decision !== "pass" && nmPiped.decision !== "pass");
+
+    // `decision` ALONE distinguishes *read nothing* from *read and found nothing*: a consumer
+    // must not have to compare count fields to learn which answer it got. This constrains the
+    // SHAPE of the answer, not only its content — it is why `refuse` is a third word rather
+    // than a `pass` or `block` carrying some other marker.
+    const readNothing = refuse(`printf ''`).decision;
+    const foundNothing = decide('{"verdict":"pass","findings":[]}').decision;
+    assertTrue("decision alone tells the two apart", readNothing !== foundNothing, `${readNothing} vs ${foundNothing}`);
+    assertEq("and they are never byte-identical objects",
+      JSON.stringify(refuse(`printf ''`)) === JSON.stringify(decide('{"verdict":"pass","findings":[]}')), false);
 
     assertEq("input that is not JSON refuses unparseable_input", refuse(`printf 'not json'`).reason, "unparseable_input");
     assertEq("JSON with no findings key is not a scan verdict", decide('{"verdict":"pass"}').reason, "not_a_scan_verdict");
@@ -6626,7 +6650,7 @@ function testGateRefusalReachesConsumers() {
   cpSync(join(REPO_ROOT, "plugins/workaholic"), join(plug, "workaholic"), { recursive: true });
   const stubbedGate = join(plug, "workaholic/skills/release-scan/scripts/gate-decision.sh");
   writeFileSync(stubbedGate, "#!/bin/sh -eu\ncat >/dev/null 2>&1 || true\n"
-    + 'printf \'{"decision": "refuse", "reason": "no_input", "overridable": null,'
+    + 'printf \'{"decision": "refuse", "reason": "no_scan_input", "overridable": null,'
     + ' "override_only": null, "hard": null, "confirm": null, "total": null}\\n\'\n');
   chmodSync(stubbedGate, 0o755);
   const CATCH_UP = join(plug, "workaholic/skills/drive/scripts/catch-up-claim.sh");

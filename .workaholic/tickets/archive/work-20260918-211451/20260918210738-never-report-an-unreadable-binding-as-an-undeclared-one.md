@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-18T21:07:38+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -196,3 +197,62 @@ this ticket closes the half it did not reach, on the same surfaces and through t
 - **`CLAUDE.md` carries the "ordinary answer" sentence** (the Slack-binding section) without the
   `ok` qualification. Updating documentation in the same change is the repository's standing
   rule, so the sentence there is amended alongside the two contracts rather than left to drift.
+
+## Final Report
+
+Development completed as planned.
+
+**Step 1 — reproduced, and the hypothesis is NOT confirmed.** The reader's four calls answer
+byte-for-byte what the Overview table records at `0c7d77629` (re-measured at `805a44598`), and a
+fifth case was added to the record: an unreadable *declaring* `CLAUDE.md` answers
+`ok:false, reason:"unreadable:CLAUDE.md"` and **exits 0** — so the exit status does not separate a
+refusal from an ordinary answer either, and `ok` is the only complete test.
+
+The reaped-worktree hypothesis could not be established, and nothing in this repository can
+establish it: a worker's report dies with its context and `.workaholic/moderations/` carries no
+`no_root` line, so neither run's own surface survives. What the tree does establish is narrower
+and sufficient. The **only** spelled call in the plugin is
+`commands/infinite-development.md`'s `--root .`; `commands/implement.md` spells none, so an
+`[Implement]` runner asked to report the binding composes its own call at run time. And the
+vocabulary that paragraph offered for a failed read was `binding_unreadable:<source>` — which a
+`no_root` refusal has **no source for** — while the sentence beside it said `declared: false` was
+"an ordinary answer". A session holding `ok:false / no_root` therefore had no word to report it
+with and one that fit. The word is now `binding_unreadable:<reason>`, and the `<source>` spelling
+is folded into it so one thing has one name.
+
+**Step 2 — which layer was wrong, re-derived rather than taken on trust.** **No script produced
+either misreport.** `observe-channel.sh:44` and `verify-live-proof.sh:16-18` test `ok` first;
+`check-slack-channel.sh:75-79` projects `.binding.mount` and renders no `declared` verdict at all.
+Every wrong report was an agent's prose. Two scripts did key on `declared` alone and both are
+repaired here — and only one of them had a consequence, which was not a report: against a root
+whose `CLAUDE.md` it could not read, `apply-slack-binding.sh` **wrote** a second, contradicting
+declaration (`{"applied":true,"created":true}`), which is the `binding_contradictory` state that
+settles no value at all.
+
+**Positioning, unchanged from the ticket's own:** neither misreport changed a delivery outcome —
+both notifications were undeliverable for separately measured reasons. What is repaired is the
+honesty of the record, plus one write performed on an unread precondition, reproducible in a
+hermetic fixture.
+
+### Discovered Insights
+
+- **Insight**: `ok: false` and a non-zero exit are different sets in `read-declared-binding.sh`.
+  `--root <missing>` exits 2, but an unreadable, unterminated or malformed instruction file
+  answers `ok:false` on exit **0**, because that refusal is discovered inside the walk rather than
+  at the argument check.
+  **Context**: a consumer using the exit status as the cheap test catches the argument errors and
+  misses exactly the cases where a declaration exists and could not be read — the dangerous half.
+
+- **Insight**: the reader's `declared` is **true** for a conflict as well as for a settled
+  declaration (`declared: (($settled|length) > 0 or ($conflicts|length) > 0)`), while `binding`
+  stays `{}`.
+  **Context**: this is why the `apply` defect was worse than a wrong report. The `AGENTS.md` it
+  appended made every later read answer `declared: true, reason: contradictory_declaration,
+  binding: {}` — a repository declaring two destinations settles none, so the loop reads no
+  destination whatever, while a consumer keying on `declared` would call the binding present.
+
+- **Insight**: `check-slack-binding.sh` renders every reader error kind — `unreadable`,
+  `unterminated`, `malformed` — as `unreadable:<source>`.
+  **Context**: pre-existing and deliberately untouched, but it means the audit's `unreadable:`
+  word reads as *the reader could not complete its walk over this source*, not literally
+  *permission denied*.

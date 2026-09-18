@@ -12,9 +12,22 @@
 # because a setup step that silently rewrote a destination would be indistinguishable from
 # posting to the wrong workspace on purpose.
 #
+# A POSITIVE READING IS THE PRECONDITION FOR WRITING (2026-09-18, ticket `20260918210738`).
+# `already_declared` keyed on `.declared == true` alone, and `declared` is a field on a hard
+# refusal as much as on an empty answer — so a root whose `CLAUDE.md` could not be read got a
+# SECOND, contradicting declaration appended beside the one nobody could read. Measured: against
+# a directory whose unreadable `CLAUDE.md` declared `workspace: real / channel: real-channel`,
+# `--workspace other --channel other-channel` answered `{"applied":true,"created":true}` and
+# wrote `AGENTS.md`; with both files then readable the reader answers `contradictory_declaration`
+# and settles NO value at all, which is the state this refusal exists to prevent and which
+# `observe-channel.sh` refuses outright as `binding_contradictory`. So the reader must answer
+# `ok: true` before anything is written; anything else — `ok: false`, empty output, output that
+# is not JSON — is `declaration_unreadable`, carrying the reader's own `reason` as `detail`, with
+# nothing written. A repository the reader reads cleanly is byte-identical to before.
+#
 # Output (one JSON line):
 #   {"applied":true,"file":"AGENTS.md","created":false,"reason":""}
-#   {"applied":false,"reason":"already_declared"|"no_workspace"|"no_channel"|"no_root"|"write_failed"}
+#   {"applied":false,"reason":"already_declared"|"declaration_unreadable"|"no_workspace"|"no_channel"|"no_root"|"write_failed"}
 
 ROOT="" FILE="AGENTS.md" WORKSPACE="" CHANNEL="" CHANNEL_ID="" MOUNT="" ACCOUNT="" SENDER="" OPERATIONS="" FALLBACK=""
 while [ $# -gt 0 ]; do
@@ -39,6 +52,12 @@ case "$FILE" in /*|*..*) printf '{"applied":false,"reason":"file_not_repo_relati
 
 READER=$(CDPATH='' cd -- "$(dirname -- "$0")/../../transport/scripts" && pwd)/read-declared-binding.sh
 existing=$(sh "$READER" --root "$ROOT" 2>/dev/null || printf '')
+if ! printf '%s' "$existing" | jq -e '.ok == true' >/dev/null 2>&1; then
+  detail=$(printf '%s' "$existing" | jq -r '.reason' 2>/dev/null || printf '')
+  [ -n "$detail" ] && [ "$detail" != null ] || detail=reader_failed
+  jq -cn --arg detail "$detail" '{applied:false, reason:"declaration_unreadable", detail:$detail}'
+  exit 0
+fi
 if printf '%s' "$existing" | jq -e '.declared == true' >/dev/null 2>&1; then
   printf '%s' "$existing" | jq -c '{applied:false, reason:"already_declared", sources:.sources}'
   exit 0

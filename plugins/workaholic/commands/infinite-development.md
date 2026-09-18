@@ -29,7 +29,12 @@ channel or thread is absent: establish access to the declared channel first, oth
 
 For agent-composed operations, call `branch-checks.sh` / `gate-decision.sh` separately from the
 subsequent merge, push or deletion. Read and validate the returned decision before constructing
-the write call; shell exit zero alone is not a passing JSON gate. Never put an unconditional
+the write call; shell exit zero alone is not a passing JSON gate. Only `decision: "pass"` or
+`override_only: true` is a passing scan gate; every other answer, a `decision: "refuse"`
+included, is not (2026-09-18, ticket `20260918150931`) — a refusal is *readability precedes
+counting* applied to the gate itself: no reading was made, its counts are `null` rather than
+`0`, it merges nothing, and it is reported as `merge_refused: scan_unreadable` with the scan
+re-run as the remedy. Never put an unconditional
 write after the gate in the same tool call. Existing delivery scripts may check and act in one
 invocation because they branch on the gate internally and bind the merge to the observed head.
 Prefer `drive/scripts/deliver-unit.sh <unit>` for reported units; a direct ship uses

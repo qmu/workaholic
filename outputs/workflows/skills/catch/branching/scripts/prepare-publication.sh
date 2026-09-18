@@ -242,6 +242,13 @@ if [ -f "$SCAN" ] && [ -f "$GATE" ]; then
              | sh "$GATE" 2>/dev/null || printf '')"
     [ -n "$gate" ] || refuse scan_unreadable
     case "$gate" in
+        # ORDERED FIRST, deliberately (2026-09-18, ticket `20260918150931`). The gate's
+        # third word is *no reading was made*, which is the existing `scan_unreadable` and
+        # never a held finding. A refusal's `overridable`/`override_only` are `null`, so it
+        # would reach the `*)` fallthrough today anyway — but that safety is incidental, and
+        # a later change setting `overridable: false` "for safety" on a refusal would
+        # silently re-route it into `scan_held:hard`, reporting a credential nobody found.
+        *'"decision": "refuse"'*) refuse scan_unreadable ;;
         *'"decision": "pass"'*) ;;
         *'"override_only": true'*) ;;
         *'"overridable": false'*) refuse scan_held:hard ;;

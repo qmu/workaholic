@@ -92,7 +92,7 @@ must be stated, not left absent.
      `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "release-scan" "override" "<findings overridden: rules + files>" "bypassed"`
      — then continue. Re-run the scan after any fix.
    - **`decision: "refuse"`** (2026-09-18, ticket `20260918150931`) — **no reading was
-     made**, and the reason names which way it failed (`no_input`, `unparseable_input`,
+     made**, and the reason names which way it failed (`no_scan_input`, `unparseable_input`,
      `not_a_scan_verdict`, `finding_unclassified`, `bad_argument`, `jq_unavailable`).
      **Stop, and the remedy is to re-run the scan correctly** — most often the pipe above
      was never fed (a `bad_argument` means a path was passed positionally; the form is

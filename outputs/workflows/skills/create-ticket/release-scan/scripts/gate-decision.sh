@@ -77,8 +77,17 @@
 # load-bearing, because a consumer that reads a boolean licence cannot read a refusal as
 # one.
 #
+# THE ONE LOAD-BEARING CHECK IS `no_scan_input`, AND THE OTHER REASONS ARE DIAGNOSTIC
+# GRANULARITY, NOT SAFETY MECHANISMS. The requirement is: read ONE PARSEABLE SCAN OBJECT
+# FROM STDIN, and refuse when you cannot, instead of mapping `total: 0` to `pass` before
+# confirming an input existed. That single check closes BOTH entry doors on its own — a
+# positional argument leaves stdin empty and therefore refuses as `no_scan_input` even with
+# the argument check below removed. Do not build safety on any of the other five: each names
+# *why* there was no usable reading, which is what turns a refusal a caller can act on out of
+# one they have to investigate.
+#
 # The closed reason set, six words and no seventh:
-#   no_input              stdin was empty or whitespace only
+#   no_scan_input         stdin was empty or whitespace only  <- the safety check
 #   unparseable_input     stdin is not JSON
 #   not_a_scan_verdict    JSON, but not one object whose `.findings` is an array
 #   finding_unclassified  a `findings[]` element is not an object, or its `severity` is
@@ -90,7 +99,31 @@
 # one stdin pipe and every call site pipes into it; accepting a path would create a second
 # input route and, with both supplied, an ambiguity about which one was judged — and a gate
 # with two input routes is exactly how a caller comes to believe it judged something it did
-# not. The recovery costs one character: `gate-decision.sh < scan.json`.
+# not. The recovery costs one character: `gate-decision.sh < scan.json`. It earns its place
+# by naming the mistake precisely — *your file was never read* — where `no_scan_input` would
+# leave a caller holding a correct file and no explanation, which is exactly the position the
+# near-miss caller below was in.
+#
+# THE NEAR MISS, because a permissive default that ships with a ready-made rationalisation is
+# the real hazard. A caller passed a correct file positionally:
+#
+#   {"verdict":"block","findings":[{"rule":"too-large-commit","severity":"override",
+#    "file":"d0f29157f","line":0,"detail":null}]}
+#
+# and got `{"decision":"pass",...,"total":0}`, exit 0. It was caught only because the same
+# output block had already printed that file's one finding through `jq`, so *one finding* and
+# *`total: 0`* sat side by side — and an explanation was immediately available and wrong:
+# *the `override` tier is neither `hard` nor `confirm`, so of course it is not in `total`*.
+# The merge outcome would have been identical; the RECORDED JUSTIFICATION would not — a false
+# pass leaves a durable record saying the branch had zero findings when it had one. Piped, the
+# same bytes answer `block` / `override_only: true` / `total: 1`, and passed positionally they
+# now refuse. A silent wrong answer that supplies its own excuse is worse than one that looks
+# wrong, which is why this is a defect in the gate and not a lesson for its callers.
+#
+# `decision` ALONE TELLS *READ NOTHING* FROM *READ AND FOUND NOTHING*. A refusal and a clean
+# pass are never byte-identical and no consumer has to compare counts to learn which it got —
+# which was the second fact the near miss established: nothing in the old output said whether
+# an input had been read at all.
 #
 # EXIT STATUS IS 0 IN EVERY CASE, including every refusal — this repository's refusal
 # convention, and both script consumers wrap the call in `|| printf ''`, so a non-zero exit
@@ -121,7 +154,7 @@ refuse() {
 input=$(cat 2>/dev/null || true)
 
 case "$(printf '%s' "$input" | tr -d '[:space:]')" in
-    '') refuse no_input ;;
+    '') refuse no_scan_input ;;
 esac
 
 command -v jq >/dev/null 2>&1 || refuse jq_unavailable

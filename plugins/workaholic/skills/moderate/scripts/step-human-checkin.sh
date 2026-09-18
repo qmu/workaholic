@@ -420,11 +420,17 @@ if [ -n "$held_rows" ]; then
     while IFS=' ' read -r day tick k; do
         [ -n "$k" ] || continue
         held_ever=$((held_ever + 1))
-        asked=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "human-checkin-ask-${k}" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
-        case "$asked" in ''|*[!0-9]*) asked=0 ;; esac
-        [ "$asked" -eq 0 ] || continue
         # A log suffix is not a content key. Resolve only a stored preimage; never
         # guess one or ask an unidentifiable legacy question again.
+        #
+        # RESOLVED BEFORE THE ASK CHECK, SO THE LOG ARM STAYS AUTHORITATIVE (2026-09-18, ticket
+        # `20260918131255`). The resolution used to run after it, so a key the log had already
+        # seen asked left this loop with nothing recorded — and the registry arm below then
+        # offered it again, because the two arms spell an ask's log step differently: this arm
+        # uses the LOG'S OWN slug (which may be a legacy spelling) and that one derives the
+        # hashed slug from the key. Every key this arm resolves is recorded as seen whether or
+        # not it is offered, so the registry arm never second-guesses a decision made here.
+        # The cost is the two small preimage loops for an already-asked key as well.
         full_key=''
         while IFS= read -r candidate; do
             [ -n "$candidate" ] || continue
@@ -444,6 +450,10 @@ EOF
 $legacy_keys
 EOF
         fi
+        printf '%s\n' "$full_key" >> "$tmpd/seen"
+        asked=$(sh "$LOG_READ" --root "$ROOT" --step-prefix "human-checkin-ask-${k}" 2>/dev/null | sed 's/.*"count": //; s/,.*//')
+        case "$asked" in ''|*[!0-9]*) asked=0 ;; esac
+        [ "$asked" -eq 0 ] || continue
         if [ -n "$full_key" ]; then
             qstate=$(printf '%s' "$registry" | jq -r --arg key "$full_key" '.data.record.data.questions[$key].state // "candidate"')
             case "$qstate" in answered|retired) continue;; esac
@@ -459,7 +469,6 @@ EOF
         fi
         add_entry "$full_key" "$k" "$hold_reason" "$src" \
                   "$(registry_first_seen "$full_key")" "$day" "$tick"
-        printf '%s\n' "$full_key" >> "$tmpd/seen"
     done < "$tmpd/logkeys"
 fi
 

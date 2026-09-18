@@ -16994,6 +16994,175 @@ function testLandUnit() {
   } finally { cleanup(origin); cleanup(A); }
 }
 
+// ---------- land-unit.sh: an unread scan refuses, it never lands (2026-09-18) ----------
+// `land-unit.sh` carried its own inline copy of the tier reading — a `case` over the scan's
+// raw text, two literal patterns pinned to two different spellings of one producer, and NO
+// `*)` ARM — so anything unmatched left `scan_verdict="pass"`, `scan_findings=0` and pushed
+// the unit onto the base ref, which is the one push in this plugin whose destination IS
+// `main`. MEASURED at `fc5b42b94` by running the block verbatim with the scan stubbed: a
+// scan exiting 0 emitting nothing LANDED; a `block` spelled without the space LANDED while
+// carrying a `hard` secret finding; a scan exiting non-zero killed the script with no JSON
+// at all, after section 3 had already merged the base into the worktree.
+//
+// THE DISCRIMINATING ASSERTION IN EVERY CASE IS THE ORIGIN'S OWN `refs/heads/main`, byte
+// for byte, not the reported word: before this change the first two inputs answered
+// `{"landed": true, "scan_verdict": "pass"}` AND THE PUSH HAPPENED, so a test that only
+// read the word would have passed against the defect for one of the four shapes.
+//
+// The stub reaches the script through a COPY of the plugin tree, the technique
+// `testGateRefusalReachesConsumers` establishes and for its reason: each script resolves
+// its neighbours relative to its own directory. A fresh claim fixture per case, because a
+// land is irreversible and a case that DID land would poison the next.
+T("drive/land-unit.sh: an unread scan refuses and nothing reaches the base",
+  testLandUnitUnreadScan);
+function testLandUnitUnreadScan() {
+  const plug = mkdtempSync(join(tmpdir(), "wh-land-stub-"));
+  cpSync(join(REPO_ROOT, "plugins/workaholic"), join(plug, "workaholic"), { recursive: true });
+  const LAND = `${POSIX_SH} ${join(plug, "workaholic/skills/drive/scripts/land-unit.sh")}`;
+  const SCAN = join(plug, "workaholic/skills/release-scan/scripts/scan-branch-safety.sh");
+  const GATE = join(plug, "workaholic/skills/release-scan/scripts/gate-decision.sh");
+  const realGate = readFileSync(GATE, "utf8");
+  const stub = (path, body) => { writeFileSync(path, body); chmodSync(path, 0o755); };
+  const emit = (json) => `#!/bin/sh\ncat >/dev/null 2>&1 || true\nprintf '%s' '${json}'\n`;
+
+  // The suite runs where CLAUDE_CODE_REMOTE=true would refuse every land before the gate.
+  const attended = { ...process.env };
+  delete attended.CLAUDE_CODE_REMOTE;
+  delete attended.CI;
+  delete attended.WORKAHOLIC_HEADLESS;
+
+  // Drive one shape end to end and hand the caller the reported object plus the base ref on
+  // both sides of the call.
+  const drive = (scanBody, { gateBody = null, override = false, removeScan = false } = {}, check) => {
+    stub(SCAN, scanBody);
+    stub(GATE, gateBody === null ? realGate : gateBody);
+    if (removeScan) rmSync(SCAN);
+    // Twelve fixtures in one row, so the unused second clone is cleaned too rather than
+    // left in the temp dir a dozen times over.
+    const { origin, A, B } = makeClaimFixture();
+    try {
+      const t1 = `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`;
+      const claimed = JSON.parse(run(A, `${POSIX_SH} ${SCRIPTS.claim} batch ${t1}`).stdout);
+      const baseRef = () =>
+        execSync("git rev-parse refs/heads/main", { cwd: origin, encoding: "utf8" }).trim();
+      const before = baseRef();
+      const res = run(A, `${LAND} ${claimed.unit} --developer-present`
+        + (override ? " --override-scan" : ""), { env: attended });
+      check({ res, before, after: baseRef(), origin, A, claimed,
+              json: (() => { try { return JSON.parse(res.stdout.trim()); } catch { return null; } })() });
+    } finally { cleanup(origin); cleanup(A); cleanup(B); }
+  };
+
+  const hardBlock = '{"verdict":"block","findings":[{"category":"secret","severity":"hard",'
+    + '"file":"a.txt","line":1,"rule":"credential","evidence":"[redacted]"}]}';
+  const sizeBlock = '{"verdict": "block", "findings": [{"category":"size","severity":"override",'
+    + '"file":"a.txt","line":1,"rule":"too-large-commit","evidence":"900"},'
+    + '{"category":"size","severity":"override","file":"b.txt","line":1,'
+    + '"rule":"large-file","evidence":"900"}]}';
+  const gateRefusal = '{"decision": "refuse", "reason": "jq_unavailable", "overridable": null,'
+    + ' "override_only": null, "hard": null, "confirm": null, "total": null}';
+
+  try {
+    // 1. A scan that exits 0 emitting NOTHING. Before: landed, `pass`, 0 findings.
+    for (const override of [false, true]) {
+      drive("#!/bin/sh\nexit 0\n", { override }, ({ json, before, after }) => {
+        assertEq(`a silent scan refuses${override ? " even with --override-scan" : ""}`,
+          { l: json && json.landed, r: json && json.reason },
+          { l: false, r: "scan_unreadable" });
+        assertEq("and the base ref is byte-identical", after, before);
+      });
+    }
+
+    // 2. A `block` one byte of spacing away from today's producer, carrying a HARD finding.
+    //    Before: landed, `pass`, 0 findings — both literal patterns missed it. The gate
+    //    counts structurally, so this is now the `secret_finding` it always was, and
+    //    `--override-scan` cannot rule past it either.
+    for (const override of [false, true]) {
+      drive(emit(hardBlock), { override }, ({ json, before, after }) => {
+        assertEq(`an unspaced hard block refuses${override ? " even with --override-scan" : ""}`,
+          { l: json && json.landed, r: json && json.reason },
+          { l: false, r: "secret_finding" });
+        assertEq("and the base ref is byte-identical", after, before);
+      });
+    }
+
+    // 3. A scan that EXITS NON-ZERO — its own documented base-ref refusal. Before: `set -e`
+    //    killed the script, exit 1, no JSON at all, after the base had been merged into the
+    //    worktree. The status is now read explicitly and named in `detail`.
+    drive("#!/bin/sh\necho 'could not resolve a base ref' >&2\nexit 1\n", {},
+      ({ res, json, before, after }) => {
+        assertEq("a scan that exits non-zero refuses rather than aborting",
+          { l: json && json.landed, r: json && json.reason },
+          { l: false, r: "scan_unreadable" });
+        assertEq("and the refusal is a reported outcome, not a crash", res.status, 0);
+        assertTrue("and the exit status is named in detail",
+          /exited 1/.test((json && json.detail) || ""), JSON.stringify(json));
+        assertEq("and the base ref is byte-identical", after, before);
+      });
+
+    // 4. THE GATE ITSELF REFUSES, whatever the reason word. The refusal arm is ordered above
+    //    every block arm and above the override, so this can never become `secret_finding`
+    //    should a later change set `overridable: false` "for safety" on a refusal.
+    for (const override of [false, true]) {
+      drive(emit('{"verdict": "pass", "findings": []}'),
+        { gateBody: emit(gateRefusal), override }, ({ json, before, after }) => {
+          assertEq(`a refusing gate refuses the land${override ? " even with --override-scan" : ""}`,
+            { l: json && json.landed, r: json && json.reason },
+            { l: false, r: "scan_unreadable" });
+          assertTrue("and the gate's own reason rides into detail",
+            /jq_unavailable/.test((json && json.detail) || ""), JSON.stringify(json));
+          assertEq("and the base ref is byte-identical", after, before);
+        });
+    }
+
+    // 5. A gate answering a shape this script does not recognise — the `*)` arm whose
+    //    ABSENCE was the defect.
+    drive(emit('{"verdict": "pass", "findings": []}'),
+      { gateBody: emit('{"something": "else"}') }, ({ json, before, after }) => {
+        assertEq("an unrecognised gate answer refuses",
+          { l: json && json.landed, r: json && json.reason },
+          { l: false, r: "scan_unreadable" });
+        assertEq("and the base ref is byte-identical", after, before);
+      });
+
+    // 6. A SCAN THAT RAN BEHAVES EXACTLY AS IT DID. An override-tier block refuses without
+    //    the flag and lands with it, and `scan_findings` is now the gate's structural
+    //    `total` rather than a count of `"category":` occurrences.
+    drive(emit(sizeBlock), {}, ({ json, before, after }) => {
+      assertEq("an override-tier block refuses without the flag",
+        { l: json && json.landed, r: json && json.reason }, { l: false, r: "scan_block" });
+      assertEq("and the base ref is byte-identical", after, before);
+    });
+    drive(emit(sizeBlock), { override: true }, ({ json, before, after }) => {
+      assertEq("and lands with it, reporting the override and the gate's own total",
+        { l: json && json.landed, v: json && json.scan_verdict, n: json && json.scan_findings },
+        { l: true, v: "overridden", n: 2 });
+      assertTrue("and the base ref moved, which is what landing means", after !== before);
+    });
+
+    // 7. A clean scan through the composed path still lands on `pass` with no findings —
+    //    the same fact `testLandUnit` asserts against the REAL scan, held here against the
+    //    gate composition so a regression in either is attributable.
+    drive(emit('{"verdict": "pass", "findings": []}'), {}, ({ json, before, after }) => {
+      assertEq("a clean scan lands unchanged",
+        { l: json && json.landed, v: json && json.scan_verdict, n: json && json.scan_findings },
+        { l: true, v: "pass", n: 0 });
+      assertTrue("and the base ref moved", after !== before);
+    });
+
+    // 8. THE SCRIPTS THEMSELVES ABSENT REFUSE — they do not skip the gate. This is the one
+    //    place `catch-up-claim.sh`'s `[ -f ]` shape must NOT be copied: there an absent scan
+    //    proceeds to a pull-request merge behind branch protection; here the next act is a
+    //    fast-forward push onto the base ref.
+    drive("#!/bin/sh\nexit 0\n", { removeScan: true }, ({ json, before, after }) => {
+      assertEq("an absent scan script refuses rather than skipping the gate",
+        { l: json && json.landed, r: json && json.reason },
+        { l: false, r: "scan_unreadable" });
+      assertEq("and the base ref is byte-identical", after, before);
+    });
+  } finally { cleanup(plug); }
+}
+
 // The reader DEGRADES offline; the writer FAILS. False "unclaimed" is the dangerous
 // error — it double-picks work — so a runner that cannot see origin must still be
 // told what it last knew, and must not be allowed to claim on that knowledge.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-18T16:45:52+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -364,3 +365,45 @@ copies. This ticket removes the last copy that was left standing.
   from a command substitution interacts with `set -e`, and the plugin's scripts are written to run
   under `sh` generally (`rules/shell.md`). Reading the status explicitly (step 3) makes the
   behaviour the same under every shell instead of relying on that corner.
+
+## Final Report
+
+Development completed as planned. The inline tier reading is gone from `land-unit.sh`: the scan
+is read through `release-scan/scripts/gate-decision.sh`, three guards refuse rather than skip, the
+`decision: "refuse"` arm is ordered above every block arm and above the override, and the `case`
+ends in a mandatory `*)` that also refuses. `scan_verdict` gained no third value and a scan that
+ran is unchanged.
+
+**The four shapes reproduced first** (step 1), by running lines 193-213 verbatim under `/bin/sh`
+with the scan stubbed, then re-run after the change:
+
+| The scan | Before (`fc5b42b94`) | After |
+| -------- | -------------------- | ----- |
+| exits 0, emits nothing | **landed**, `scan_verdict=pass`, `scan_findings=0` | `scan_unreadable` (`no_input`), nothing pushed |
+| `{"verdict":"block",…}` without the space, `severity":"hard"` | **landed**, `pass`, `0` | `secret_finding`, nothing pushed |
+| exits non-zero | `set -e` abort, exit 1, **no JSON at all** | `scan_unreadable`, exit 0, `detail` naming `exited 1` |
+| a real block in today's spelling | refused correctly | unchanged |
+
+`--override-scan` changes none of the first three. An override-tier (`size`) block still refuses
+`scan_block` without the flag and lands `overridden` with it, and `scan_findings` is now the gate's
+structural `total` rather than a count of `"category":` occurrences.
+
+### Discovered Insights
+
+- **Insight**: The unspaced `block` case is not a `scan_unreadable` after the change — it is the
+  `secret_finding` it always was. The gate parses the findings array rather than matching text, so
+  a spelling the old patterns missed is now simply read correctly. The ticket's table predicted
+  *does not land*; what it does is stronger, and the test asserts the specific word.
+- **Insight**: The `[ -f "$SCAN" ] && [ -f "$GATE" ]` guard is the one place `catch-up-claim.sh`'s
+  shape must not be copied, and the difference is not stylistic: there the next act is a REST merge
+  behind branch protection, here it is `git push origin <branch>:main`. A skip and a refusal differ
+  only where the next act differs.
+- **Insight**: `land-unit.sh` embeds no `jq` of its own. The dependency the ticket prices in is
+  genuinely transitive — through the gate — and the two fields this script still reads (`reason`,
+  `total`) come off the gate's own single-`printf` six-field object, not the producer's variable
+  findings array. That matters for the refusal arm in particular: `jq_unavailable` is precisely the
+  case where a `jq` extraction of the reason word could not run.
+- **Pattern**: The discriminating assertion the Quality Gate names — the origin's `refs/heads/main`
+  byte-identical across the call — is what makes the row proof rather than paraphrase. Two of the
+  four shapes answered `{"landed": true, "scan_verdict": "pass"}` before the change *and pushed*, so
+  a test reading only the reported word would have passed against the defect.

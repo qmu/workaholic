@@ -433,7 +433,26 @@ checkout so the very next survey offers the leftover tickets.
 apply unchanged: `secret` refuses with no override; `size`/`leak` refuse unless `--override-scan`
 is passed, reported as `scan_verdict: "overridden"`. Remaining refusals are facts: `not_claimed`,
 `worktree_missing`, `dirty_worktree`, `no_origin`/`origin_unreachable`, `catchup_conflict`,
-`diverged`. Two mechanics not to re-derive: it pushes the branch tip **onto the base ref**
+**`scan_unreadable`**, `diverged`.
+
+**An unread scan refuses, and `--override-scan` cannot rule past one** (2026-09-18, ticket
+`20260918164552`). The scan is read through `release-scan/scripts/gate-decision.sh` — the one
+derivation of the tier policy — rather than by the inline text `case` this script carried, whose
+two literal patterns had no `*)` arm: a scan that emitted nothing, or emitted a `block` spelled one
+byte differently, left `scan_verdict: "pass"` and pushed the unit onto the base ref, and a scan
+that exited non-zero killed the script with no JSON at all after the base had already been merged
+into the worktree. Three guards, each a refusal and none a skip — the scan and gate scripts must be
+present, the scan's exit status is read explicitly, and an empty gate reading refuses — and the
+`case` over the gate's answer puts `decision: "refuse"` **above every block arm and above the
+override** and ends in a mandatory `*)` that also refuses. The ordering is what enforces the
+override bound: an override is a developer's ruling **about findings**, and a refusal means there
+are none to rule on. `detail` carries the gate's own `reason`. `scan_verdict` gains **no third
+value** — it stays `"pass" | "overridden"` and appears only in the success object, which a refusal
+never reaches; a third value could only mean *and the unit landed anyway*. A scan that **ran**
+behaves byte-identically, and `/drive`'s `review`-route rule that `override_only: true` proceeds
+without a ruling is deliberately not adopted here.
+
+Two mechanics not to re-derive: it pushes the branch tip **onto the base ref**
 (`git push origin <branch>:main`) rather than merging into a local `main` (a rejected push after
 a local merge leaves the checkout repairable only by the forbidden `git reset --hard`; a
 rejection here changes nothing — re-fetch, re-catch-up, retry **once**); and its order is the

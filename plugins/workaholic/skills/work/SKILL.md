@@ -80,6 +80,10 @@ workspace and channel it resolved, and `channel_id` when the declaration carries
 from the reader's own `binding` and never from memory, a directory name or a repository name —
 a report that names no destination is **non-conformant on its face**, and an undeclared
 repository names the environment fallback it used instead.
+A repository is named as declaring nothing **only** when the reader answered `ok: true`: an
+`ok: false` reading is reported as `binding_unreadable:<reason>` and never as
+`declared: false`, because `declared` is a field on a hard refusal as much as on an empty
+answer.
 Each effect names its `route` and, when it left the preferred one,
 `degraded_from` and the typed `degradation_reason`. A connector or token success is a **degraded
 success** — it proves delivery and never that the preferred route is configured — and reporting

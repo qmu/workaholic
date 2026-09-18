@@ -132,10 +132,13 @@ Read the repository's declared Slack binding **before** any Slack selection, rea
 Read its output whole: a projection that drops `binding` keeps the workspace and channel out of
 this tick's context entirely, which is how a session comes to answer where it posts from memory.
 A declaration is the destination; the environment variables below are the fallback for a
-repository that declares nothing (`declared: false`, an ordinary answer). Report
-`binding_contradictory`, `binding_incomplete`, or `binding_unreadable:<source>` and select no
-route on any of them — a contradictory declaration is two destinations, and guessing between
-them is the failure the declaration exists to prevent.
+repository that declares nothing — `ok: true` with `declared: false`, an ordinary answer, and
+the **only** reading that may be reported as one. Report `binding_contradictory`,
+`binding_incomplete`, or `binding_unreadable:<reason>` and select no route on any of them — a
+contradictory declaration is two destinations, and guessing between them is the failure the
+declaration exists to prevent. `declared` is a field on a hard refusal too, so an `ok: false`
+answer of any kind (`no_root`, `unreadable:<source>`) is `binding_unreadable:<reason>`, carrying
+the reader's own `reason`, and is never the fallback's ordinary answer.
 
 Observe both inbound sources before dispatch:
 
@@ -358,11 +361,15 @@ Return one short Japanese block:
 
 - dirty checkout, only when dirty;
 - the declared binding this tick resolved, and any `binding_contradictory`,
-  `binding_incomplete` or `binding_unreadable:<source>` reading. Name the destination: the
+  `binding_incomplete` or `binding_unreadable:<reason>` reading. Name the destination: the
   workspace and channel it resolved, and `channel_id` when the declaration carries one, taken
   from the reader's own `binding` and never from memory, a directory name or a repository name —
   a report that names no destination is **non-conformant on its face**, and an undeclared
   repository names the environment fallback it used instead.
+  A repository is named as declaring nothing **only** when the reader answered `ok: true`: an
+  `ok: false` reading is reported as `binding_unreadable:<reason>` and never as
+  `declared: false`, because `declared` is a field on a hard refusal as much as on an empty
+  answer.
 - thread coverage: `covered`, or `partial` with its reason;
 - each Slack action or named degradation, naming the `route` it took and — when it left the
   declared one — `degraded_from` and the typed `degradation_reason`. A connector or token

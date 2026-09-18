@@ -41437,9 +41437,22 @@ function testReportNamesDestination() {
     + "memory, a directory name or a repository name — a report that names no destination is "
     + "**non-conformant on its face**, and an undeclared repository names the environment "
     + "fallback it used instead.";
+  // AND A REPOSITORY IS CALLED UNDECLARED ONLY ON A COMPLETED READ (2026-09-18, ticket
+  // `20260918210738`). `declared` is a field on a hard refusal as much as on an empty answer, so
+  // two `[Implement]` runs reported this repository — which declares `qmu` / `dev-workaholic` in
+  // `AGENTS.md` — as declaring nothing, quoting the reader's `declared: false, reason: no_root`.
+  // Neither changed a delivery outcome; both misreported the state of the world. The reader is
+  // correct and untouched: it answers `ok`, `reason` and an exit status that tell all four cases
+  // apart. What was missing is that the report contracts never said to read `ok` first.
+  const OK_WORDING = "A repository is named as declaring nothing **only** when the reader "
+    + "answered `ok: true`: an `ok: false` reading is reported as `binding_unreadable:<reason>` "
+    + "and never as `declared: false`, because `declared` is a field on a hard refusal as much "
+    + "as on an empty answer.";
   for (const [path, what] of surfaces) {
     const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
     assertTrue(`${what} carries the destination wording verbatim`, flat.includes(WORDING), path);
+    assertTrue(`${what} carries the ok-before-undeclared wording verbatim`,
+      flat.includes(OK_WORDING), path);
   }
   // The degraded answers keep their own words: naming a destination must not replace them.
   for (const [path, what] of surfaces) {
@@ -41466,6 +41479,88 @@ function testReportNamesDestination() {
   };
   walk(join(REPO_ROOT, "plugins/workaholic"));
   assertEq("no call site projects the reader's output without keeping `binding`", offenders, []);
+}
+
+// ---------- a refused binding read is never an undeclared repository (2026-09-18) ----------
+// Ticket `20260918210738`. `read-declared-binding.sh` answers `declared: false` on a hard refusal
+// as well as on an empty repository, so a consumer keying on `declared` alone cannot tell
+// *nothing was declared* from *I could not look*. The reader is correct and is asserted here
+// unchanged — all four of its cases, by `ok`, `reason` and exit status. What the two consumers do
+// with the answer is what moved, and only one of them had a live consequence: `apply` wrote a
+// SECOND, contradicting declaration into a root whose own declaration it could not read, which is
+// exactly the `binding_contradictory` state `observe-channel.sh` then refuses outright.
+T("a refused binding read is named, never reported as an undeclared repository",
+  testRefusedBindingIsNotUndeclared);
+function testRefusedBindingIsNotUndeclared() {
+  const reader = join(REPO_ROOT, "plugins/workaholic/skills/transport/scripts/read-declared-binding.sh");
+  const audit = join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/check-slack-binding.sh");
+  const apply = join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/apply-slack-binding.sh");
+  const dir = mkdtempSync(join(tmpdir(), "wh-binding-refusal-"));
+  const unreadable = join(dir, "unreadable");
+  const empty = join(dir, "empty");
+  const gone = join(dir, "no-such-root");
+  mkdirSync(unreadable, { recursive: true });
+  mkdirSync(empty, { recursive: true });
+  writeFileSync(join(unreadable, "CLAUDE.md"),
+    "# Instructions\n\n```workaholic-slack-binding\nworkspace: real\nchannel: real-channel\n```\n");
+  try {
+    chmodSync(join(unreadable, "CLAUDE.md"), 0o000);
+
+    // 1. THE READER IS UNTOUCHED. A refusal it raised before it could open anything carries no
+    //    source at all, which is why `binding_unreadable:<source>` alone could not express it.
+    const refused = run(dir, `${POSIX_SH} ${reader} --root ${gone}`);
+    assertEq("a nonexistent root is `no_root`", JSON.parse(refused.stdout).reason, "no_root");
+    assertEq("...and exits 2", refused.status, 2);
+    assertEq("...and still carries `declared: false`",
+      JSON.parse(refused.stdout).declared, false);
+    const ordinary = JSON.parse(run(dir, `${POSIX_SH} ${reader} --root ${empty}`).stdout);
+    assertEq("a readable root that declares nothing is `ok: true`", ordinary.ok, true);
+    assertEq("...with the ordinary reason", ordinary.reason, "no_declaration");
+    const own = JSON.parse(run(dir, `${POSIX_SH} ${reader} --root ${REPO_ROOT}`).stdout);
+    assertEq("this repository's own declaration reads cleanly", [own.ok, own.declared], [true, true]);
+
+    // 2. THE AUDIT NAMES THE REFUSAL AND NOT `not_declared`.
+    const auditGone = JSON.parse(run(dir, `${POSIX_SH} ${audit} ${gone}`).stdout);
+    assertEq("the audit names a refused root by its refusal",
+      auditGone.findings, ["unreadable:no_root"]);
+    assertEq("the audit still reports the empty root as undeclared",
+      JSON.parse(run(dir, `${POSIX_SH} ${audit} ${empty}`).stdout).findings, ["not_declared"]);
+    assertEq("this repository's audit answer is unchanged",
+      JSON.parse(run(dir, `${POSIX_SH} ${audit} ${REPO_ROOT}`).stdout).findings,
+      ["unverifiable_sender"]);
+
+    // 3. AND `apply` WRITES NOTHING AGAINST A DECLARATION IT COULD NOT READ. A root-capable
+    //    runner reads a mode-000 file, so the arm is entered only where the refusal is real —
+    //    the shape `slack-binding.test.mjs` already uses for the same fixture.
+    const blind = JSON.parse(run(dir, `${POSIX_SH} ${reader} --root ${unreadable}`).stdout);
+    if (blind.ok === false) {
+      assertEq("an unreadable instruction file is named by its source",
+        blind.reason, "unreadable:CLAUDE.md");
+      assertEq("the audit names that refusal alone",
+        JSON.parse(run(dir, `${POSIX_SH} ${audit} ${unreadable}`).stdout).findings,
+        ["unreadable:CLAUDE.md"]);
+      const applied = JSON.parse(run(dir,
+        `${POSIX_SH} ${apply} --root ${unreadable} --workspace other --channel other-channel`).stdout);
+      assertEq("apply refuses an unreadable declaration", applied.applied, false);
+      assertEq("...by its own word", applied.reason, "declaration_unreadable");
+      assertEq("...carrying the reader's reason", applied.detail, "unreadable:CLAUDE.md");
+      assertTrue("...and writes no second declaration beside one it could not read",
+        !existsSync(join(unreadable, "AGENTS.md")), "AGENTS.md was created");
+    } else {
+      assertEq("a root-capable runner reads the file instead", blind.declared, true);
+    }
+
+    // 4. A ROOT THAT GENUINELY DECLARES NOTHING STILL APPLIES, exactly as before.
+    const fresh = JSON.parse(run(dir,
+      `${POSIX_SH} ${apply} --root ${empty} --workspace w --channel c`).stdout);
+    assertEq("an undeclared root is scaffolded", [fresh.applied, fresh.created], [true, true]);
+    assertEq("a second apply refuses `already_declared`", JSON.parse(run(dir,
+      `${POSIX_SH} ${apply} --root ${empty} --workspace other --channel other`).stdout).reason,
+      "already_declared");
+  } finally {
+    try { chmodSync(join(unreadable, "CLAUDE.md"), 0o644); } catch { /* already gone */ }
+    cleanup(dir);
+  }
 }
 
 // A TYPED FAILURE AND A FALLBACK-PERMITTING ONE ARE NOT THE SAME SET (2026-09-10, ticket

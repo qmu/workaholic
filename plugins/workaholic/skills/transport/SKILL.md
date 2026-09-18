@@ -22,8 +22,11 @@ already loads — a fenced `workaholic-slack-binding` block (`scripts/schemas/bi
 `scripts/read-declared-binding.sh` is its **one reader**: it takes `CLAUDE.md` and `AGENTS.md`
 at the root, then the same two under each `--scope`, then `WORKAHOLIC_SLACK_BINDING_FILE`;
 a deeper scope **overrides** a shallower one, and two sources at one depth disagreeing is a
-**conflict** that settles no value and is reported. `declared: false` is an ordinary answer —
-such a repository runs on its environment variables exactly as before.
+**conflict** that settles no value and is reported. `declared: false` **under `ok: true`** is an
+ordinary answer — such a repository runs on its environment variables exactly as before. Read
+`ok` first: `declared` is a field on a hard refusal (`no_root`, `unreadable:<source>`) as much as
+on an empty answer, so an `ok: false` reading is `binding_unreadable:<reason>` and is never
+reported, audited or written against as *this repository declares nothing*.
 
 Read the declaration **before** selecting a route: it is the target discovery is judged
 against, never a hint added afterwards. `declared_digest` is the operator's declaration

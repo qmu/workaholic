@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260918-211451
 ---
 
 # Never report an unreadable binding as an undeclared one

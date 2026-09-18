@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-18T13:12:55+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -290,3 +291,64 @@ of the same pipe.
   works the delivery half of the same incident — proving the declared Slack route. This ticket
   touches no transport script: an undeliverable question is the input it assumes, not the
   problem it solves.
+
+## Final Report
+
+Development completed as planned. The registry now persists a raised question independently of
+its step's window, the drain enumerates from it, and the upgrade path was exercised against a
+seeded legacy registry rather than a fresh one.
+
+**Reproduced first.** In a throwaway repository, a registry seeded with the measured row
+(`{"blocked-tick:20260904-085918": {"state": "candidate", "step": "direction-health"}}`,
+`revision: 7`) and **no** `human-checkin-held-*` line answered:
+
+```
+{"status":"ok","held_count":0,"held":[],"delivery":"no_candidates","candidates":0}
+```
+
+— the row open in the registry, askable by contract, offered to nobody.
+
+**The live readings confirmed, all four.** This checkout's registry holds exactly three rows,
+every one `state: candidate`, `first_seen: null` and **`step: direction-health`** — including
+`blocked-tick:20260917-211754`, whose producing step is `blocked-tick`. `2026-09-17.md` line 53
+is the single `questions-held` line naming four keys; exactly one per-key held line exists on
+that day (`human-checkin-held-inbound-channel-unreadab-3989672039`); and
+`blocked-tick:20260904-085918` is absent from the registry.
+
+**After the change**, the same reproduction offers the row with `source: "registry"`,
+`first_seen: null`, counted in `held_count` and `arrears_registry_only`, and held with the gate's
+own word (`quiet_hours` under a quiet hour). `step-blocked-tick.sh` is byte-identical.
+
+**The legacy upgrade fixture** (planted before the new code ran; `revision: 22`, no `first_seen`
+anywhere, a `step` naming a step that never raised the key, a row with no `key` field, an
+`answered` row, a `retired` row, and the three unrecoverable slugs in the log beside it) reads:
+row 1 offered `source: "registry"` / `first_seen: null`; the answered and retired rows never
+offered and byte-identical to the seed; each unrecoverable slug still
+`question_identity_unavailable` with **no key fabricated**; and a second pass a no-op on the
+record, revision included.
+
+### Discovered Insights
+
+- **Insight**: `question-registry.sh`'s `list` returned the values array and dropped each row's
+  **map key**, which is the row's identity. Every row the current code writes carries `key`
+  inside it too — so the gap was invisible until a legacy row was read, and
+  `reconcile-questions.sh` then reported an outcome for a question named by the literal string
+  `"null"`. Found only because the fixture was seeded in the shape the old code actually wrote.
+  **Context**: this is exactly what *a tightened reading over persisted data is verified against
+  legacy rows* buys. A fresh registry would have passed every assertion, because the new code
+  never writes a row without a `key`.
+- **Insight**: an unconditional `register` per raised key per tick bumps the record's `revision`
+  on a `questions` map that is byte-identical, so *idempotent* has to mean *writes nothing*, not
+  *converges*. The write is now conditioned on there being something to change — a newly seen
+  key, or a row whose `step` names a step that never raised it, which is the measured
+  `step: direction-health`-for-every-key shape and is corrected once and then never again.
+  **Context**: the ticket stated the cost as "one write per **newly seen** key per tick"; the
+  obvious implementation spends one per **raised** key per tick, forever, and races every other
+  writer for nothing.
+- **Insight**: the drain's ordering had to move from walk-order string accumulation to one sort
+  over the union, because a registry-only entry interleaves by date with the log's entries rather
+  than appending after them. A log entry keeps its **held day** as its sort date and a
+  registry-only entry takes its `first_seen` — which is what makes the log-derived set's sequence
+  byte-identical to what it was, since the held day *is* the first-seen reading on that side.
+  **Context**: reading the ticket's `(first_seen | held day, tick, key)` as *first_seen wins
+  everywhere* would have reordered existing fixtures the acceptance criteria require unchanged.

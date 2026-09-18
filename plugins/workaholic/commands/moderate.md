@@ -38,6 +38,17 @@ bounded inbox. Each association carries the full question key, verified subject 
 coordinate. Ambiguous answers remain deferred. Read the registry for held keys; never invert or
 re-hash a log slug. Reconcile liveness before asking, not after posting a stale question.
 
+**That call also registers this tick's own candidates, before any question is offered** — every
+question key the run report carries, under the step that raised it, reported per key
+(`registered` / `already_known` / `skipped:<state>`, or `no_question_key` for a step row that
+named none). It is what makes a raised question survive its step's window: the registry is the
+durable record and `human-checkin`'s arrears are drained from it as well as from the log, each
+entry naming its `source` and `first_seen`. **Still record a per-key
+`human-checkin-held-<slug>` line for every question you hold** — it is the human record of the
+hour and the ordering's own dated side — but the arrears no longer depend on your having written
+it. **Never fabricate a content key** for a log slug whose preimage is unrecoverable; it stays
+visible as `question_identity_unavailable`.
+
 A question is retired **only on a positive reading** — the owning step's own `resolved_keys`
 naming the exact key (`question-liveness.sh`'s `resolution: proved`). A step that ran and simply
 did not raise the key is an **absence**, never a proof: it reads `unwitnessed`, retires nothing,

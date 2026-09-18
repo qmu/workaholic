@@ -223,3 +223,47 @@ put a render in the count, since `needs_ruling` is *not repairable* and nothing 
   work with no person asked; `render` is not repairable, so no render can ever reach
   `file-inbound-ask.sh`. Assert it as a behaviour rather than a shape, as the existing test does
   for `needs_ruling` (`scripts/test-workflow-scripts.mjs` lines 35742-35746).
+
+## Final Report
+
+Development completed as planned. Both halves shipped together, exactly one classification row
+moved, and the reproduction was recorded before anything changed.
+
+**Reproduced first.** Driven against a stubbed reports file holding the measured hour
+(`issue-triage`, `direction-health`, `strategy-digest`, all `ok` with events, no repairable
+candidate), `step-file-findings.sh` answered:
+
+```
+{"reason": "no_candidates", "summary": "no repairable finding this tick; 3 left to a person",
+ "left": 3, ...}
+```
+
+— no member anywhere in the output, and `strategy-digest` in the count solely because the
+derivation counted every non-repairable step that supplied an event. After the change the same
+fixture answers `left: 2`, `left_steps: [issue-triage, direction-health]`, and a summary naming
+both.
+
+**The row regex was the sharp edge, as the ticket predicted.** It accepted two words and is
+pinned against `STEPS` in both directions, so the `render` row had to be parsed or
+`strategy-digest` would have reported as unclassified.
+
+### Discovered Insights
+
+- **Insight**: the script-copy ban's word boundary was the real false-positive risk, not the
+  word itself. `\brender\b` matches `render-tick-post.sh` and
+  `render_the_morning_digest_at_the_top_of_the_root`, because `-` and `_` are non-word
+  characters — so the ban would fire on any future line carrying one of those *and* a step id.
+  Measured over every moderate script at the time of writing: **no line false-positives today**,
+  so the word set was extended rather than moved to the backticked token (which no shell script
+  would ever write, so keying on it would make the ban stop firing for the shape it guards).
+  The boundary was tightened by one character instead — `-` joins the word characters on both
+  sides, so only a standalone `render` counts.
+  **Context**: the ticket offered two branches and said to state the choice; the third option
+  (narrow the boundary) preserves the ban's strength for all three words and removes the
+  fragility, and nothing in the tree relied on the wider match.
+- **Insight**: `strategy-digest` already carried the right *Why* text — *A render; it produces no
+  finding to file* — under the wrong classification, for two weeks. The table's stated default
+  (`needs_ruling` for anything unclassified) is what put it there: `needs_ruling` is *not
+  repairable*, which was the only distinction the count could read.
+  **Context**: a row whose prose and whose classification disagree is the shape worth grepping
+  for when a classification table gains a value.

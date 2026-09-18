@@ -907,6 +907,48 @@ loop is queued to re-implement `main`.
   dropped**. The gate is one function reading one zone, so it stays swappable.
 - **Held is not dropped**: a suppressed question is recorded as `human-checkin-held-<slug>` and
   handed back by this step on the next eligible tick; it drops out once it has been asked.
+- **And the arrears are the UNION of the log and the registry** (2026-09-18, ticket
+  `20260918131255`). *Held is not dropped* rested on two things that could both be absent:
+  candidacy came from the **producing step's own window** each tick, and the arrears were
+  enumerated from the per-key `human-checkin-held-<slug>` lines the **agent** wrote by hand. So a
+  question whose step stopped offering it, and for which no per-key line was written, was
+  enumerated by **no reader in the tick** — the registry was consulted here only to resolve a
+  slug back to its content key. **Measured** on 2026-09-17: one aggregate `questions-held` line
+  named four keys and promised every one would be offered again; exactly **one** got a per-key
+  held line, and it is the only one of the four still reachable. `blocked-tick:20260904-085918`
+  left `blocked-tick`'s *tick before last* window an hour later and nothing reported the loss.
+
+  The drain takes the union of the log's slugs and **every registry row in state `candidate` or
+  `asked`**, deduped on the **content key** (`lib/question-id.sh` stays the one derivation of
+  identity — nothing compares slugs). Each entry carries **`source`** (`log` | `registry` |
+  `both`) and **`first_seen`** (a day, or `null` for a legacy row), and the step reports
+  **`arrears_registry_only`**.
+
+  **Every existing exclusion holds unchanged** and no gate moved: a key with an
+  `human-checkin-ask-*` line drops out on both arms (the ask is the resolution of the hold),
+  `answered` and `retired` rows are never offered, and the per-candidate `ask-question.sh` probe
+  supplies each entry's refusal word **verbatim**. The per-tick cap, the day cap, the quiet-hours
+  and working-day holds, `already_asked`, `premise_resolved` and the one bounded re-ask are
+  byte-identical, and **`step-blocked-tick.sh`'s window is deliberately not widened** — its
+  header defends *the tick before last* as a structural bound chosen over a tunable threshold.
+
+  **The registration is mechanical, in `reconcile-questions.sh`**, which already walks the run
+  report once per tick: every key at `.needs_agent[]? | .. | objects | .key`, registered with the
+  row's **own** step id, reported per key (`registered` / `already_known` / `skipped:<state>`;
+  a row with no `key` field yields nothing and is counted `no_question_key`). The refused
+  alternative was a stricter instruction to the agent — that is what the contract already said,
+  and the measured tick wrote one line out of four. **No key is guessed** from a summary, a slug
+  or a legacy log line.
+
+  **The aggregate `questions-held` line stays.** It is a good human record; what changed is that
+  nothing depends on it.
+
+  **The stated cost**: up to one revision-checked registry write per newly seen key per tick, on
+  a record the tick already reads and writes, bounded by the run's own candidate set — four keys
+  on the measured tick. No network, no second store, no new script. And an unasked candidate now
+  stays offered until it is asked once, which will occasionally ask a question whose premise
+  resolved before anybody heard it; that is accepted, because asking once beats extinguishing a
+  raised question.
 - **And the arrears come back oldest-held first** (2026-08-28, the same mission). The held set
   was collected with `sort -u` — alphabetical, an arbitrary order over a set whose only
   meaningful axis is age — which had never mattered while the day cap was jammed and nothing
@@ -959,6 +1001,13 @@ loop is queued to re-implement `main`.
   `date -d` is GNU-only and `date -v` is BSD-only). No second walk of the log, no cursor, no
   store, and `log-read.sh` is untouched. A degraded read reports **null** for both, never `0` —
   a zero reads as *this just started* for a reading nobody made.
+
+  **Over the union the order stays total, and both fields read the DATED entries only**
+  (2026-09-18). A **log** entry is dated by its held day and a **registry-only** entry by its
+  `first_seen`, which is what keeps the log-derived set's sequence byte-identical to what it was:
+  the held day *is* the first-seen reading on that side. Undated entries — a legacy row with no
+  `first_seen` — sort last, by key, and contribute to neither `held_oldest_day` nor `held_days`,
+  which stay **null** when nothing is dated rather than being dressed as today's.
 
   **What `delivered` honestly is.** The agent asks and records under `human-checkin-ask-<slug>`
   *after* `run.sh` returns, and **there is no post-agent seam in `run.sh`** to move the reading
@@ -2513,9 +2562,32 @@ in-tick caller of the filer acted on a *person's* answer and never on a finding 
 **What counts as a finding.** A step in the `repairable` set that supplied an **`event`** — its
 own statement that a repository event happened — or that reported **`degraded`** or
 **`blocked`**, because our own machinery failing is the loop's debt as surely as a stuck pull
-request is. Everything else the tick found is **`left`**, a count and never a list: those
-findings reach a person through their own questions, and re-listing them here is the report
-addressed to nobody this repository has twice retired posts for.
+request is.
+
+**What `left` counts, and where its members are named** (2026-09-18, ticket `20260918132030`).
+It is what only a **person** can settle, and until then it was a count of **steps**: every
+non-repairable row that either supplied an `event` or reported `degraded`/`blocked`, so a step
+producing no finding at all entered the count as long as it had something to say. **Measured**:
+four consecutive ticks reported `N left to a person` as 2, 2, 3 and 3 and named none of them, and
+the 2026-09-18 04:07 tick's three were `issue-triage` (a ruling), `direction-health` (a ruling)
+and `strategy-digest` — **a render, which waits on nobody**. Both halves shipped together,
+because either alone leaves the reader where they were:
+
+- **A `render`-classified row is not counted.** The classification table's third word (below) is
+  read here exactly as `repairable` is; there is no classifier function and no second copy.
+- **A `degraded` or `blocked` row is counted whatever its class** — the exemption covers the
+  findings a render does not produce, never a render that failed.
+- **The members are named**, in **`left_steps`** (`{"step","status","reason"}` per row, in the
+  reports file's own order) and in the step's `summary`. `left` itself stays the **count** it
+  always was.
+
+**And `left`'s *count, never a list* rule is about the ROOT.** Its stated reason is *the report
+addressed to nobody this repository has twice retired posts for* — the Slack root — and this step
+renders no root line at all, because its `event` is always empty. The run report and the tick log
+are read by a maintainer diagnosing the tick, which is exactly the audience the measured hour
+left with nothing. The summary stays **stable**: a function of the candidate set and the
+classification alone, with no timestamp, clock or moving count, so the root's hour-to-hour diff
+still suppresses an unchanged hour.
 
 **The issue is composed, never pasted.** A step's `summary` is written for a maintainer
 diagnosing the tick and reads badly as an issue body; the agent writes it for the person and for
@@ -2555,9 +2627,9 @@ the reader for a different thing — work the loop took on, the brake doing its 
 a person can settle — and collapsing them is exactly what made the tick's debt invisible
 (`0 retired` hour after hour with nobody told). The step carries `needs_agent` (to file),
 **`held`** (each candidate with the open issue that held it), **`already_filed`** (each dropped
-candidate with the issue that already carries it) and **`left`** as a **count, never a list**:
-those findings reach a person through their own questions, and re-listing them here is the
-report addressed to nobody this repository has twice retired posts for.
+candidate with the issue that already carries it) and **`left`** as a **count, never a list** —
+with **`left_steps`** naming that count's members beside it, in the step's own JSON and summary
+and on no root (above).
 
 **A tick that filed nothing names why, from a closed set of four**: `no_candidates`,
 `brake_held`, `all_already_filed`, `brake_unreadable` — never one word for all four. The
@@ -2640,6 +2712,30 @@ still mechanical, and a trivial ruling is still a ruling. `repairable` means *a 
 repository fixes it, and no human owes a decision first*; `needs_ruling` means *a person must
 decide something before any change is the right one*.
 
+**And since 2026-09-18 there is a third word, `render`** (ticket `20260918132030`): *this step
+produces no finding to file and owes nobody a decision.* It is **not** repairable, so **the
+filing gate is unchanged** — only a `repairable` finding may become work with no person asked,
+and no `render` row can ever reach `file-inbound-ask.sh`. What the word buys is the other
+consumer: `file-findings`' left-to-a-person count (§25) was the count of every non-repairable
+step that had something to say, so a render entered it and a reader took it as a decision they
+owed. **Measured**: four consecutive ticks reported `N left to a person` as 2, 2, 3 and 3, and on
+the 2026-09-18 04:07 tick the three were `issue-triage`, `direction-health` and
+`strategy-digest` — two rulings and one render.
+
+- **The default for an unclassified step id is still `needs_ruling`**, the safe side, unchanged.
+  A new step is silent until somebody classifies it deliberately, and it is never a render by
+  omission.
+- **A `degraded` or `blocked` row is counted whatever its class.** The exemption is about the
+  findings a render does not produce, never about a render that *failed*: our own machinery
+  failing is the loop's debt, and exempting a broken render is how a silent degradation becomes
+  invisible.
+- **A row moves to `render` only deliberately, one at a time.** The change that introduced the
+  word moved **exactly one** row (`strategy-digest`); every other row stayed where it was.
+  Whether any other row is really a render — `thread-reconcile`'s *its repair is the tick's own
+  reply, already taken; it owes the queue nothing* is the arguable one — is a separate act with
+  its own evidence, and leaving such a row where it is costs at most one over-count and never a
+  lost finding.
+
 | Step id | Classification | Why |
 | ------- | -------------- | --- |
 | `open-log` | **`repairable`** | It produced no finding until 2026-09-06, when it began reading whether the tick log is **tracked on the base** (`log_tracked_on_base`). Untracking a git-ignored operational log is a change to this repository and nobody owes a decision first — the design already ruled that the log is committed nowhere. The step itself moves nothing: the repair goes the long way round through the filing seam, which is what keeps an unattended tick from deleting tracked files on its own reading. |
@@ -2668,7 +2764,7 @@ decide something before any change is the right one*.
 | `unrecorded-missions` | `needs_ruling` | **Whether to close the mission or drive it again is the assignee's**, and the step exists because the loop cannot tell them apart: what it establishes is that nothing *recorded* the work, never that the work is undone. `closable-missions`' row, one state over — and filing it as work would have the loop closing a mission on a reading its own header refuses to treat as a proof. |
 | `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
 | `drill-health` | `needs_ruling` | `base-health`'s row, for `base-health`'s reason: it composes the same check-run reader, so every value it carries is a judgement a re-run can turn green. The finding reaches the person who shipped the mechanism as that step's own keyed question, which is the delivery the mission asked for. |
-| `strategy-digest` | `needs_ruling` | A render; it produces no finding to file. |
+| `strategy-digest` | **`render`** | A render; it produces no finding to file. |
 | `question-answers` | `needs_ruling` | A person's own words, already filed by that step through the one filer. |
 | `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. **That key is the only route this reading has to a person, and it is composed by the agent after this step runs** — so the step never names it in `needs_agent` and it carries only as a substring of the escalation sentence. Until 2026-09-18 the reconciliation read that absence as proof the premise had resolved and retired the question on the first tick, permanently; only a **positive** `resolved_keys` reading retires now (the liveness section above), and this step is deliberately unmodified: enumerating the key as a candidate would have it claim a channel reading its own header says is the agent's half, and would fire the question every tick whatever the channel's state. |
 | `blocked-tick` | `needs_ruling` | The reading says a tick **stopped** and cannot say why — the record that would carry the reason is the one the stop prevented — so filing it as work would have the loop repairing a cause it never established (`cadence-lapse`'s row, for `cadence-lapse`'s reason). The repair is besides that routinely a person's: answering or removing a prompt, or reading the run in the session list. |

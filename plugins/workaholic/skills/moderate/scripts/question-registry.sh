@@ -17,6 +17,21 @@
 # never touched (a person's own words outrank this repair), and any other `evidence.reason`, a
 # row with no evidence, a row not retired at all and an unknown key are each named. It is
 # idempotent — after one run no row carries the old word, so a second run finds nothing.
+#
+# `first_seen` IS WRITTEN ON CREATION AND NEVER MOVED (2026-09-18, ticket `20260918131255`).
+# `step-human-checkin.sh` drains its arrears oldest-first, and once the registry became a
+# candidate source of its own (rather than only a slug→key preimage resolver) a registry row had
+# no age at all to sort on. The day is derived HERE, from `date -u`, so no caller has to learn a
+# new field and a caller written before this existed still gets one; it is in the `YYYY-MM-DD`
+# form the drain's ordering already compares.
+#
+# IT IS SET ONLY INSIDE THE `//` DEFAULT, which is the whole write-once mechanism: the `+` merge
+# beside it carries `step`/`coordinate`/`subject` and nothing else, so a later `register` for the
+# same key cannot move it. A LEGACY ROW CARRIES NONE, and that stays `unknown` — never the tick's
+# own day, which reads as *this just started*, the most reassuring thing the field can say for a
+# reading nobody made. Every checkout meets this code holding rows the old code wrote, because
+# the registry is per-clone runtime state under the Git common directory and no pull request can
+# carry a migration to it.
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 RUNTIME="$SCRIPT_DIR/../../runtime/scripts"
 . "$RUNTIME/lib/result.sh"
@@ -44,12 +59,12 @@ while [ "$attempt" -lt 3 ]; do
       exit 0
     fi
   fi
-  jq -n --slurpfile old "$tmp/read" --slurpfile input "$INPUT" '
+  jq -n --arg today "$(date -u +%Y-%m-%d)" --slurpfile old "$tmp/read" --slurpfile input "$INPUT" '
     ($old[0].data.record.data.questions // {}) as $q | $input[0] as $e |
     if $e.event == "list" then $q
     elif ($e.key|type != "string" or length==0) then error("key required")
     elif $e.event == "register" then
-      $q | .[$e.key] = ((.[$e.key] // {key:$e.key,state:"candidate"}) +
+      $q | .[$e.key] = ((.[$e.key] // {key:$e.key,state:"candidate",first_seen:$today}) +
         ($e|{step,coordinate,subject}|with_entries(select(.value != null and .value != ""))))
     elif $e.event == "asked" then
       if $q[$e.key] == null then error("register question first")
@@ -69,8 +84,16 @@ while [ "$attempt" -lt 3 ]; do
       then error("reinstate bounds not met") else
       $q | .[$e.key] = (.[$e.key] | del(.evidence) | .state = "candidate") end
     else error("invalid event") end' > "$tmp/questions" 2> "$tmp/error" || runtime_usage "$(cat "$tmp/error")"
+  # THE MAP KEY IS THE ROW'S IDENTITY, and `list` used to hand back the values alone. Every row
+  # the current code writes carries `key` inside it too, but a LEGACY row does not — measured on
+  # the seeded upgrade fixture, `blocked-tick:20260904-085918` is stored as
+  # `{"state":"candidate","step":"direction-health"}` and nothing else — so `reconcile-questions.sh`
+  # read its key as the string `"null"` and reported an outcome for a question by that name. The
+  # map key is injected under the value, so a row that already carries the right one is
+  # byte-identical and a legacy row gets the truth (2026-09-18, ticket `20260918131255`).
   if [ "$(jq -r .event "$INPUT")" = list ]; then
-    runtime_json_result ok "" questions "$(jq -c '{questions:[.[]]}' "$tmp/questions")"; exit 0
+    runtime_json_result ok "" questions \
+      "$(jq -c '{questions:[to_entries[] | .value + {key: .key}]}' "$tmp/questions")"; exit 0
   fi
   jq -n --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --slurpfile q "$tmp/questions" \
     '{updated_at:$now,data:{questions:$q[0]}}' > "$tmp/write"

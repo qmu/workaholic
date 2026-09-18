@@ -37,10 +37,31 @@
 # `closable-missions`: that survey runs the living migrations and STAGES what they converge, and
 # a step whose contract is *writes nothing* may not reach it through something that writes.
 #
+# WHAT `left` COUNTS, AND WHY IT NAMES ITS MEMBERS (2026-09-18, ticket `20260918132030`). It is
+# the count of things a PERSON still owes a decision on, and it was a count of STEPS: every
+# non-repairable row that either supplied an `event` or reported `degraded`/`blocked`. A step that
+# produces no finding at all therefore entered the count as long as it had something to say.
+# MEASURED: four consecutive ticks reported `N left to a person` as 2, 2, 3 and 3 and named none
+# of them; enumerated by hand on the 2026-09-18 04:07 tick the three were `issue-triage` (a real
+# ruling), `direction-health` (a real ruling) and `strategy-digest` — a RENDER, whose own table
+# row reads *A render; it produces no finding to file*, and which waits on nobody. So the honest
+# reading of that hour was two decisions plus one render, while a reader took it as three things
+# they had to answer and had no way to find out which three.
+#
+# Two halves, and they only work together: the classification table gained a third word,
+# `render`, read here exactly as `repairable` is; and the rows the count is made of are NAMED, in
+# `left_steps` and in the summary. Excluding the render without naming the members still leaves a
+# bare number nobody can follow; naming the members without excluding the render still tells a
+# person three things are owed when two are.
+#
+# A `degraded` OR `blocked` ROW STAYS COUNTED WHATEVER ITS CLASS. The exemption is about the
+# findings a render does not produce, never about a render that FAILED — our own machinery failing
+# is the loop's debt, and exempting a broken render is how a silent degradation becomes invisible.
+#
 # Usage: step-file-findings.sh --tick <id> [--root <repo-root>]
 # Output: one JSON line
 #   {"step","status","reason","summary","needs_agent":[...],
-#    "held":[...], "already_filed":[...], "left": N, "event": ""}
+#    "held":[...], "already_filed":[...], "left": N, "left_steps":[...], "event": ""}
 
 set -eu
 
@@ -70,17 +91,23 @@ json_escape() {
 # the brake doing its job, `left` is what only a person can settle. Collapsing them is exactly
 # what made the tick's debt invisible — `0 retired` hour after hour with nobody told. So the
 # step carries `held` and `already_filed` as their own arrays beside `needs_agent`, and `left`
-# as a COUNT, never a list: those findings reach a person through their own questions, and
-# re-listing them here is the report addressed to nobody this repository has twice retired
-# posts for.
+# as a COUNT, never a list.
+#
+# AND THE SURFACE THAT RULE IS ABOUT IS THE ROOT (2026-09-18). Its stated reason is *the report
+# addressed to nobody this repository has twice retired posts for* — which is the Slack root, and
+# this step renders no line on one at all, because its `event` is always empty. The run report
+# and the tick log are read by a maintainer diagnosing the tick, and that is exactly the audience
+# the measured hour left with nothing. So `left` stays the count it always was on every surface,
+# and `left_steps` names its members in the step's own JSON and summary. Nothing here reaches a
+# root, and nothing re-lists a finding to the person it already asked.
 #
 # THE SUMMARY IS STABLE: every term is a function of the candidate set and the ledger state
 # alone. No timestamp, no clock, no moving count — `inbound-sweep`'s embedded timestamp is the
 # measured failure here, which made its line "changed" on every tick by construction.
 emit() {
     # $1 status  $2 reason  $3 summary  $4 needs_agent body  $5 held body  $6 already_filed body
-    printf '{"step": "file-findings", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "held": [%s], "already_filed": [%s], "left": %s, "event": ""}\n' \
-        "$1" "$2" "$(json_escape "$3")" "${4:-}" "${5:-}" "${6:-}" "${left:-0}"
+    printf '{"step": "file-findings", "status": "%s", "reason": "%s", "summary": "%s", "needs_agent": [%s], "held": [%s], "already_filed": [%s], "left": %s, "left_steps": [%s], "event": ""}\n' \
+        "$1" "$2" "$(json_escape "$3")" "${4:-}" "${5:-}" "${6:-}" "${left:-0}" "${left_steps:-}"
     exit 0
 }
 
@@ -94,6 +121,11 @@ repairable=$(sed -n 's#^| *`\([a-z-]\{1,\}\)` *| *\**`repairable`.*#\1#p' "$TABL
 [ -n "$repairable" ] || emit degraded classification_unreadable \
     "no repairable step could be read out of the classification table"
 
+# The third word, read the same way out of the same rows. An EMPTY render set is an ordinary
+# answer — the table's default is `needs_ruling` and a repository whose table names no render row
+# behaves exactly as it did before this word existed — so it is deliberately not a degradation.
+render=$(sed -n 's#^| *`\([a-z-]\{1,\}\)` *| *\**`render`.*#\1#p' "$TABLE" | sort -u)
+
 # --- 2. This tick's own step reports --------------------------------------------------
 reports="${WORKAHOLIC_TICK_REPORTS:-}"
 [ -n "$reports" ] && [ -f "$reports" ] || emit degraded reports_unavailable \
@@ -102,6 +134,9 @@ printf '%s' "$(cat "$reports")" | jq -e . >/dev/null 2>&1 || emit degraded repor
     "the run's step reports could not be parsed, so no finding could be read"
 
 repairable_json=$(printf '%s\n' "$repairable" | jq -R . | jq -sc .)
+# `printf '%s\n' ""` is one empty line, which would read back as `[""]` — a set holding a step id
+# nothing is named. An empty render set must be the empty array.
+render_json=$(printf '%s\n' "$render" | jq -R . | jq -sc 'map(select(. != ""))')
 
 # A step reports a FINDING when it supplied an `event`, or when it was `degraded`/`blocked`.
 # The first is the step's own statement that a repository event happened; the second is our own
@@ -114,21 +149,36 @@ found=$(jq -c --argjson repairable "$repairable_json" '
        summary: (.summary // ""), event: (.event // "")} ]' < "$reports" 2>/dev/null || printf '[]')
 [ -n "$found" ] || found='[]'
 
-# Everything else this tick found is LEFT to a person — it reaches them through its own
-# question, and re-listing it here would be the report addressed to nobody this repository has
-# twice retired posts for. It is a count.
-left=$(jq -r --argjson repairable "$repairable_json" '
+# Everything else this tick found is LEFT to a person, and the count is of DECISIONS OWED rather
+# than of steps that had something to say: a non-repairable row awaiting a ruling (it supplied an
+# `event` and its class is not `render`), PLUS any non-repairable row that reported `degraded` or
+# `blocked` whatever its class. `. as $row` binds the row once so no membership test is written as
+# `<array> | index(.)`, which rebinds `.` and tests the array against itself (`rules/shell.md`).
+# The order is the reports file's own, which is the order `run.sh` accumulated the steps in.
+left_rows=$(jq -c --argjson repairable "$repairable_json" --argjson render "$render_json" '
   [ (.steps // [])[]
-    | select(.step as $s | $repairable | index($s) | not)
-    | select(((.event // "") != "") or (.status == "degraded") or (.status == "blocked")) ]
-  | length' < "$reports" 2>/dev/null || printf '0')
+    | . as $row
+    | select(($repairable | index($row.step)) | not)
+    | select((($row.status == "degraded") or ($row.status == "blocked"))
+             or ((($row.event // "") != "") and (($render | index($row.step)) | not)))
+    | {step: $row.step, status: $row.status, reason: ($row.reason // "")} ]' \
+  < "$reports" 2>/dev/null || printf '[]')
+[ -n "$left_rows" ] || left_rows='[]'
+left=$(printf '%s' "$left_rows" | jq -r 'length' 2>/dev/null || printf '0')
 case "$left" in ''|*[!0-9]*) left=0 ;; esac
+left_steps=$(printf '%s' "$left_rows" | sed 's/^\[//; s/\]$//')
+# The members ride the summary too, and it stays STABLE: a function of the candidate set and the
+# classification alone, with no timestamp, clock or moving count, so the root's hour-to-hour diff
+# still suppresses an unchanged hour.
+left_names=$(printf '%s' "$left_rows" | jq -r '[.[].step] | join(", ")' 2>/dev/null || printf '')
+left_phrase="${left} left to a person"
+[ -z "$left_names" ] || left_phrase="${left} left to a person (${left_names})"
 
 n=$(printf '%s' "$found" | jq -r 'length')
 case "$n" in ''|*[!0-9]*) n=0 ;; esac
 
 if [ "$n" -eq 0 ]; then
-    emit ok no_candidates "no repairable finding this tick; ${left} left to a person"
+    emit ok no_candidates "no repairable finding this tick; ${left_phrase}"
 fi
 
 # --- 3. The finding id, derived where every other question id is derived --------------
@@ -162,11 +212,11 @@ candidates=$(printf '%s' "$found" | jq -c --argjson ids "$ids_json" \
 ledger=$( ( cd "$ROOT" && sh "$LEDGER" ) 2>/dev/null || true )
 if [ -z "$ledger" ] || ! printf '%s' "$ledger" | jq -e . >/dev/null 2>&1; then
     emit degraded brake_unreadable \
-        "the finding issues could not be read (unparseable), so nothing is filed: ${n} repairable, ${left} left to a person"
+        "the finding issues could not be read (unparseable), so nothing is filed: ${n} repairable, ${left_phrase}"
 fi
 if [ "$(printf '%s' "$ledger" | jq -r '.ok // false')" != "true" ]; then
     emit degraded brake_unreadable \
-        "the finding issues could not be read ($(printf '%s' "$ledger" | jq -r '.reason // "unreadable"' | tr -d '"')), so nothing is filed: ${n} repairable, ${left} left to a person"
+        "the finding issues could not be read ($(printf '%s' "$ledger" | jq -r '.reason // "unreadable"' | tr -d '"')), so nothing is filed: ${n} repairable, ${left_phrase}"
 fi
 
 # THE BRAKE: at most one open finding issue in flight. No cursor and no stored state — the two
@@ -183,7 +233,7 @@ if [ "$(printf '%s' "$ledger" | jq -r '.any_open // false')" = "true" ]; then
         '[ .[] | {step, finding_id, held_by: ($open | map(.number) | first)} ]' 2>/dev/null || printf '[]')
     held_rows=$(printf '%s' "$held_rows" | sed 's/^\[//; s/\]$//')
     emit ok brake_held \
-        "a finding issue is already open (#${held_numbers}); ${n} repairable finding(s) held, ${left} left to a person" \
+        "a finding issue is already open (#${held_numbers}); ${n} repairable finding(s) held, ${left_phrase}" \
         "" "$held_rows"
 fi
 
@@ -208,7 +258,7 @@ dropped_rows=$(printf '%s' "$dropped" | sed 's/^\[//; s/\]$//')
 
 if [ "$kept" -eq 0 ]; then
     emit ok all_already_filed \
-        "all ${n} repairable finding(s) are already filed; ${left} left to a person" \
+        "all ${n} repairable finding(s) are already filed; ${left_phrase}" \
         "" "" "$dropped_rows"
 fi
 candidates="$remaining"
@@ -225,5 +275,5 @@ needs=$(jq -nc --argjson candidates "$candidates" --arg tick "$TICK" '
      candidates: $candidates}' 2>/dev/null || printf '{}')
 
 emit ok "" \
-  "${kept} repairable finding(s) to file, ${already} already filed; ${left} left to a person" \
+  "${kept} repairable finding(s) to file, ${already} already filed; ${left_phrase}" \
   "$needs" "" "$dropped_rows"

@@ -4,8 +4,33 @@ The registry is runtime instance `questions` under the Git common directory. Upd
 `question-registry.sh --input FILE` with revision checking. Keys are full content keys, not log
 slugs. Neither this registry nor the operational log is a remote cross-clone ledger.
 
+**The registry is the durable record of a raised question, and the check-in drains from it.**
+Until 2026-09-18 candidacy came from the **producing step's own window** each tick, and the
+arrears were enumerated from per-key `human-checkin-held-<slug>` lines the **agent** wrote by
+hand — so a question whose step stopped offering it, and for which no per-key line was written,
+was enumerated by no reader in the tick at all: it was raised, held because nothing could deliver
+it, and then vanished, unasked and reported nowhere. Measured on 2026-09-17: one aggregate
+`questions-held` line named four keys and promised each would be offered again; exactly **one**
+got a per-key held line, and it is the only one of the four still reachable.
+
+The registry now persists a raised question **independently of its step's window**, and
+`step-human-checkin.sh` enumerates from it. **The aggregate `questions-held` line stays** — it is
+a good human record — and nothing depends on it any more.
+
 1. `ask-question.sh --key KEY --asked-step STEP --to SUBJECT` registers the preimage before
    speaking/budget/dedup gates. Registration does not mean anyone was asked.
+   **And registration no longer depends on that call, or on the agent.**
+   `reconcile-questions.sh` registers every question key the run report carries — every string at
+   `.needs_agent[]? | .. | objects | .key` per step row, through the existing `register` event
+   with `step` set to the **row's own step id**. It reports one result per key
+   (`registered` / `already_known` / `skipped:<state>`), and a step row carrying no `key` field
+   yields nothing and is counted (`no_question_key`). **No key is ever guessed** from a summary, a
+   slug or a legacy log line. An `answered` or `retired` row is not registered at all, so it comes
+   out byte-identical. It writes only where a write would change something — a newly seen key, or
+   a row recorded against a step that never raised it, which is the measured
+   `step: direction-health`-for-every-key shape and is corrected once and then never again.
+   `register` sets **`first_seen`** (`YYYY-MM-DD`) on **creation only** and never moves it; a
+   legacy row carries none and that stays `unknown`, never the tick's own day.
 2. `reconcile-questions.sh --input FILE` takes `{tick,run:{steps:[]},answers:[]}`. It retires a
    candidate only on a **positive reading**: `question-liveness.sh`'s additive `resolution`
    answers `proved` when the owning step's row names the key as an exact string in its own
@@ -41,12 +66,43 @@ slugs. Neither this registry nor the operational log is a remote cross-clone led
    --tick TICK` stores the asked state and coordinate. Failure to post never reaches this act.
 5. `question-state.sh` reads the registry first, then legacy logs. Answered/retired keys cannot
    be re-asked; asked state survives log retention. Registration does not clear a state.
+   **`question-registry.sh`'s `list` injects each row's map key**, which is the row's identity: a
+   legacy row stores only `{"state","step"}`, so a reader taking `.key` off the value read the
+   string `"null"` and reported an outcome for a question by that name.
 6. `decision-maturity.sh` reads grouped direction keys from this registry. An answer prompts a
    new assessment; it does not itself authorize a strategy change or merge.
 
-The check-in drains oldest-held first after excluding answered/retired keys. Legacy preimages
-are recovered only from explicit records reproducing the slug. A suffix without a recoverable
-key remains visible as `question_identity_unavailable`; never fabricate a key to clear arrears.
+The check-in drains oldest-held first after excluding answered/retired keys, over the **union of
+the log's `human-checkin-held-*` slugs and every registry row in state `candidate` or `asked`**,
+deduped on the **content key** (`lib/question-id.sh` stays the one derivation of identity).
+Every existing exclusion holds unchanged: a key with an `human-checkin-ask-*` line drops out (the
+ask is the resolution of the hold), `answered` and `retired` rows are never offered, and the
+per-candidate `ask-question.sh` probe supplies each entry's refusal word **verbatim**. Nothing
+about the gates moved — the per-tick cap, the day cap, the quiet-hours and working-day holds,
+`already_asked`, `premise_resolved` and the one bounded re-ask are byte-identical — and
+`step-blocked-tick.sh`'s *tick before last* window is deliberately **not** widened.
+
+Each entry carries **`source`** (`log` | `registry` | `both`) and **`first_seen`** (a day, or
+`null` for a legacy row), and the step reports **`arrears_registry_only`**. The order is total:
+dated entries oldest-first, then the undated ones by key. A **log** entry is dated by its held
+day and a **registry-only** entry by its `first_seen`, which is what keeps the log-derived set's
+order byte-identical to what it was — the held day *is* the first-seen reading on that side.
+`held_oldest_day` / `held_days` are computed over the **dated** entries only and stay `null` when
+none is dated, never `0`.
+
+Legacy preimages are recovered only from explicit records reproducing the slug. A suffix without a
+recoverable key remains visible as `question_identity_unavailable`; **never fabricate a key to
+clear arrears** — the three slugs held on 2026-09-02 before the registry existed
+(`direction-expiring-an-au-16258524`, `stranded-unit-retire-a-c-731715597`,
+`stuck-634714808-3638566254`) are that information loss already realised, and they stay visible
+and unidentified.
+
+**A tightened reading over persisted registry rows is verified against legacy rows**
+(`plugins/workaholic/rules/general.md`). The registry is clone-local runtime state under the Git
+common directory, so no pull request can carry a migration to it and every checkout meets new
+code holding rows the old code wrote: rows with no `first_seen`, rows whose `step` names a step
+that never raised the key, and rows with no `key` field at all are the **normal** state. A
+registry created empty and then driven by the new code is not evidence for the upgrade.
 
 An `answer-outcome.sh` `issue_closed` reading describes intake, not deployed behavior. Completion
 uses `work/scripts/feedback-outcome.sh` with per-feedback implementation, surface and verification

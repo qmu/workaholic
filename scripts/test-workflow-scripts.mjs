@@ -6529,6 +6529,77 @@ function testReleaseScanGateDecision() {
     d = decide('{"verdict":"block","findings":[{"category":"leak","severity":"confirm"}]}');
     assertEq("the confirm tier is counted so a consumer can tell it apart", d.confirm, 1);
 
+    // ---- AN UNREAD SCAN REFUSES; IT NEVER PASSES (2026-09-18, ticket `20260918150931`) ----
+    // The gate's failure mode was `pass`: `decision` was gated on a text-grep count of
+    // `"category":` in the raw input, and every way of arriving here with no reading drove
+    // that count to zero — which is also what a clean branch looks like. MEASURED at
+    // `2a85aff9e`, all three answering `decision: "pass"`: empty stdin; a file path passed
+    // POSITIONALLY (never read, so the caller believed its file had been judged); and a
+    // finding carrying `severity` but no `category`, which produced the self-contradictory
+    // `{"hard": 1, ..., "decision": "pass", "total": 0}`. Two independent callers hit this
+    // in one session, noticed only because an answer looked suspicious.
+    const refuse = (stdinExpr, args = "") =>
+      JSON.parse(run(dir, `${stdinExpr} | ${POSIX_SH} ${SCRIPTS.gateDecision}${args}`).stdout);
+
+    let r = refuse(`printf ''`);
+    assertEq("empty stdin refuses rather than passing", { decision: r.decision, reason: r.reason }, { decision: "refuse", reason: "no_input" });
+    assertEq("and a refusal's counts are null, never 0", { total: r.total, hard: r.hard, confirm: r.confirm }, { total: null, hard: null, confirm: null });
+    // LOAD-BEARING: a consumer that reads a boolean licence must not be able to read a
+    // refusal as one. `override_only: true` is a merge licence for /drive's review route.
+    assertEq("and neither licence field is set on a refusal", { overridable: r.overridable, override_only: r.override_only }, { overridable: null, override_only: null });
+
+    r = refuse(`printf ' \\n\\t '`);
+    assertEq("whitespace-only stdin is also no_input", r.reason, "no_input");
+
+    // A positional argument is REFUSED rather than accepted: this script's contract is one
+    // stdin pipe, and a gate with two input routes is exactly how a caller comes to believe
+    // it judged something it did not. The recovery costs one character: `< scan.json`.
+    writeFileSync(join(dir, "v.json"), '{"verdict":"block","findings":[{"category":"secret","severity":"hard"}]}');
+    const arg = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.gateDecision} v.json </dev/null`).stdout);
+    assertEq("a positional file path refuses bad_argument", { decision: arg.decision, reason: arg.reason }, { decision: "refuse", reason: "bad_argument" });
+    assertEq("and reads neither the file nor stdin", arg.total, null);
+    // The same file through the sanctioned route is judged, and is the hard block it is.
+    const viaStdin = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.gateDecision} < v.json`).stdout);
+    assertEq("the recovery form judges that same file", { decision: viaStdin.decision, overridable: viaStdin.overridable, hard: viaStdin.hard }, { decision: "block", overridable: false, hard: 1 });
+
+    assertEq("input that is not JSON refuses unparseable_input", refuse(`printf 'not json'`).reason, "unparseable_input");
+    assertEq("JSON with no findings key is not a scan verdict", decide('{"verdict":"pass"}').reason, "not_a_scan_verdict");
+    assertEq("findings that is not an array is not a scan verdict", decide('{"verdict":"pass","findings":{}}').reason, "not_a_scan_verdict");
+    assertEq("a top-level array is not a scan verdict", decide("[]").reason, "not_a_scan_verdict");
+    assertEq("two concatenated verdicts are not one scan verdict", decide('{"findings":[]}{"findings":[]}').reason, "not_a_scan_verdict");
+    assertEq("a severity outside the closed set is finding_unclassified", decide('{"findings":[{"category":"x","severity":"nudge"}]}').reason, "finding_unclassified");
+    assertEq("an absent severity is finding_unclassified", decide('{"findings":[{"category":"size"}]}').reason, "finding_unclassified");
+    assertEq("a findings element that is not an object is finding_unclassified", decide('{"findings":[3]}').reason, "finding_unclassified");
+
+    // THE TIER IS COUNTED STRUCTURALLY, so `category` is no longer the axis. A finding
+    // carrying `severity` and no `category` is classified BY ITS SEVERITY and blocks; what
+    // must never happen again is the `pass` that sat beside `"hard": 1`.
+    d = decide('{"verdict":"block","findings":[{"severity":"hard","rule":"secret"}]}');
+    assertEq("severity without category still blocks, non-overridably", { decision: d.decision, overridable: d.overridable, hard: d.hard, total: d.total }, { decision: "block", overridable: false, hard: 1, total: 1 });
+
+    // The OTHER direction of the same text grep, and the one that was reachable: a
+    // `"category":` anywhere outside `findings[]` inflated `total` into a false `block`
+    // with `override_only: true` — a merge licence minted from a summary object.
+    d = decide('{"verdict":"pass","findings":[],"summary":{"category":"none"}}');
+    assertEq("a category key outside findings[] no longer inflates total into a block", { decision: d.decision, total: d.total, override_only: d.override_only }, { decision: "pass", total: 0, override_only: false });
+
+    // THE TWO INVARIANTS, asserted here rather than guarded at runtime: `decision` is
+    // derived from the severity counts off one parsed array, so these states are
+    // unreachable by construction and a runtime self-check would say the derivation is not
+    // trusted.
+    for (const shape of [
+      '{"verdict":"pass","findings":[]}',
+      '{"verdict":"block","findings":[{"category":"secret","severity":"hard"}]}',
+      '{"verdict":"block","findings":[{"category":"leak","severity":"confirm"}]}',
+      '{"verdict":"block","findings":[{"category":"size","severity":"override"}]}',
+      '{"verdict":"block","findings":[{"severity":"hard"},{"severity":"confirm"},{"severity":"override"}]}',
+      '{"verdict":"pass","findings":[],"summary":{"category":"none"}}',
+    ]) {
+      const s = decide(shape);
+      if (s.decision === "pass") assertEq(`no pass beside a finding: ${shape}`, { hard: s.hard, confirm: s.confirm, total: s.total }, { hard: 0, confirm: 0, total: 0 });
+      if (s.override_only === true) assertEq(`no override_only beside hard/confirm: ${shape}`, { hard: s.hard, confirm: s.confirm }, { hard: 0, confirm: 0 });
+    }
+
     // End-to-end: a real secret branch through scan | gate-decision is a hard block.
     execSync(`git checkout -q -b work-20260714-000009`, { cwd: dir });
     writeFileSync(join(dir, "creds.txt"), "token=supersecretvalue123\n");
@@ -6537,6 +6608,98 @@ function testReleaseScanGateDecision() {
     assertEq("scan | gate-decision on a real secret -> non-overridable block", { decision: e2e.decision, overridable: e2e.overridable }, { decision: "block", overridable: false });
     assertEq("and a real secret is never override_only", e2e.override_only, false);
   } finally { cleanup(dir); }
+}
+
+// ---------- the gate's refusal, as its two SCRIPT consumers read it (2026-09-18) ----------
+// The ordered `case` arm is the risky half of ticket `20260918150931`: a refusal's `null`
+// licence fields already route it to each consumer's `*)` fallthrough, but that safety is
+// INCIDENTAL — a later change setting `overridable: false` "for safety" would silently
+// re-route the refusal into `scan_held:hard`, reporting a credential nobody found. So both
+// consumers are driven with the gate stubbed to refuse, through a COPY of the plugin tree
+// (each resolves `$GATE` relative to its own directory, so the copy is how a stub reaches
+// them at all) — and the discriminating fact is that neither delivers: before this change
+// the same input answered `pass` and the merge was attempted.
+T("release-scan gate: a refusal reaches both script consumers as scan_unreadable",
+  testGateRefusalReachesConsumers);
+function testGateRefusalReachesConsumers() {
+  const plug = mkdtempSync(join(tmpdir(), "wh-gate-stub-"));
+  cpSync(join(REPO_ROOT, "plugins/workaholic"), join(plug, "workaholic"), { recursive: true });
+  const stubbedGate = join(plug, "workaholic/skills/release-scan/scripts/gate-decision.sh");
+  writeFileSync(stubbedGate, "#!/bin/sh -eu\ncat >/dev/null 2>&1 || true\n"
+    + 'printf \'{"decision": "refuse", "reason": "no_input", "overridable": null,'
+    + ' "override_only": null, "hard": null, "confirm": null, "total": null}\\n\'\n');
+  chmodSync(stubbedGate, 0o755);
+  const CATCH_UP = join(plug, "workaholic/skills/drive/scripts/catch-up-claim.sh");
+  const SETTLE = join(plug, "workaholic/skills/branching/scripts/settle-stranded-publication.sh");
+
+  // 1. THE CATCH-UP: a `queue_drained` claim is caught up and pushed, and its DELIVERY is
+  //    withheld by name. `not_attempted: scan_unreadable` is the existing word — no new
+  //    vocabulary was minted for the refusal.
+  const fx = makeDriftFixture();
+  try {
+    driftGhStub(fx.binDir);
+    const withGh = { ...process.env, PATH: `${fx.binDir}:${process.env.PATH}` };
+    // No recorded merge outcome, so the oracle reads `queue_drained` — the one verdict whose
+    // pull request this act delivers, and therefore the only one that reaches the gate.
+    const drained = strandUnit(fx.A, `.workaholic/tickets/todo/${TEST_SLUG}/20260729000001-t1.md`,
+      (wt) => writeFileSync(join(wt, ".claude-plugin/marketplace.json"),
+        '{\n  "name": "wh",\n  "version": "1.0.1",\n  "plugins": []\n}\n'), "");
+    advanceBase(fx.A, (root) => writeFileSync(join(root, ".claude-plugin/marketplace.json"),
+      '{\n  "name": "wh",\n  "version": "1.0.2",\n  "plugins": []\n}\n'));
+    const row = JSON.parse(run(fx.A, `${POSIX_SH} ${SCRIPTS.listClaims}`).stdout)
+      .claims.find((c) => c.unit === drained.unit);
+    assertEq("the fixture drives the real verdict, not a shape resembling it",
+      row.resume_reason, "queue_drained");
+    const caught = JSON.parse(run(fx.A, `${POSIX_SH} ${CATCH_UP} ${drained.unit}`,
+      { env: withGh }).stdout);
+    assertEq("a refusing gate withholds the delivery by the existing word",
+      [caught.outcome, caught.delivery], ["caught_up", "not_attempted: scan_unreadable"]);
+    // The discriminator: with the gate answering `pass` the merge WAS attempted and this read
+    // `merge_refused: merge_not_allowed` from the stub's 405.
+    assertTrue("and no merge was attempted at all",
+      !/merge_refused/.test(JSON.stringify(caught)), JSON.stringify(caught));
+  } finally { cleanup(fx.A); cleanup(fx.origin); cleanup(fx.binDir); }
+
+  // 2. THE PUBLICATION PATH: the gate is read before anything is pushed, so the refusal
+  //    leaves the branch byte-identical and nothing is delivered.
+  const pf = makePublicationFixture();
+  try {
+    const withGh = { ...process.env, PATH: `${pf.binDir}:${process.env.PATH}` };
+    const mech = publishBranch(pf.A, "work-20260918-150000", (wt) => {
+      writeFileSync(join(wt, ".workaholic/feedbacks/20260102000000-b.md"),
+        "---\ntype: Feedback\n---\n\n# b\n");
+      writeFileSync(join(wt, ".workaholic/feedbacks/index.md"),
+        feedbackIndex(["20260101000000-a", "20260102000000-b"]));
+    });
+    execSync("git checkout -q main && git merge -q --ff-only origin/main", { cwd: pf.A });
+    writeFileSync(join(pf.A, ".workaholic/feedbacks/20260103000000-c.md"),
+      "---\ntype: Feedback\n---\n\n# c\n");
+    writeFileSync(join(pf.A, ".workaholic/feedbacks/index.md"),
+      feedbackIndex(["20260101000000-a", "20260103000000-c"]));
+    execSync('git add -A && git commit -q -m "Advance the base" && git push -q origin main',
+      { cwd: pf.A });
+    execSync("git fetch -q --prune origin", { cwd: pf.A });
+    publicationGhStub(pf.binDir, {
+      pulls: [{ number: 31, url: "https://example.test/pr/31", title: "[Proposal] b",
+                created: "2026-09-18T15:00:00Z", author: "claude[bot]", head: mech }],
+      files: { 31: pubFiles([".workaholic/feedbacks/20260102000000-b.md",
+                             ".workaholic/feedbacks/index.md"]) },
+    });
+    const before = execSync(`git rev-parse origin/${mech}`, { cwd: pf.A, encoding: "utf8" }).trim();
+    const settled = JSON.parse(run(pf.A, `${POSIX_SH} ${SETTLE} 31`, { env: withGh }).stdout);
+    assertEq("a refusing gate refuses the settlement by the existing word",
+      [settled.outcome, settled.reason], ["settle_refused", "scan_unreadable"]);
+    // `merged: true` here is the LOCAL catch-up merge, which `prepare-publication.sh` performs
+    // in its throwaway worktree before it reads the gate — measured, not assumed. The safety
+    // property is the two below it: nothing was pushed, so that merge is discarded with the
+    // worktree and the published ref never moved. A later reader must not "fix" this into
+    // `merged: false`.
+    assertEq("nothing was pushed, so the local catch-up merge is discarded",
+      settled.pushed, false);
+    assertEq("and no delivery was attempted", settled.delivery, "not_attempted");
+    assertEq("and the branch is byte-identical after the refusal",
+      execSync(`git rev-parse origin/${mech}`, { cwd: pf.A, encoding: "utf8" }).trim(), before);
+  } finally { cleanup(pf.A); cleanup(pf.origin); cleanup(pf.binDir); cleanup(plug); }
 }
 
 // ---------- gather/commit-kpi.sh (orchestration-throughput KPI) ----------

@@ -49,7 +49,11 @@ do not treat it as success. The archive-time beat is too late to replace this st
 beat during a merge does not authorize a commit or takeover; finish the existing recovery path.
 
 For agent-composed delivery, read each gate result in a separate tool call before constructing
-the merge, push or deletion. A zero process exit is not a passing JSON gate. Never concatenate
+the merge, push or deletion. A zero process exit is not a passing JSON gate. **Only
+`decision: "pass"` or `override_only: true` is a passing scan gate; every other answer, a
+`decision: "refuse"` included, is not** (2026-09-18, ticket `20260918150931`) — a refusal means
+no reading was made, carries `null` counts rather than `0`, merges nothing, and is reported as
+`merge_refused: scan_unreadable` with the scan re-run as the remedy. Never concatenate
 an unconditional write after `branch-checks.sh` or `gate-decision.sh`. The existing delivery
 scripts may compose them because they branch on the result and bind the merge to its head.
 After a catch-up, the old head's passing result is stale and checks must be read again.

@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-18T15:09:31+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260918-152022
 ---
 
 # Refuse an unread scan instead of passing it
@@ -290,3 +292,51 @@ than in the consumers. The gate's *own* unread-input case was never covered.
 - **`publish-tree-pr.sh` and `land-unit.sh` read the scan JSON without this gate** (`plugins/workaholic/skills/branching/scripts/publish-tree-pr.sh` line 395, `plugins/workaholic/skills/drive/scripts/land-unit.sh` line 193). They are out of this ticket's scope, but each is a place the same permissive reading could live; note whatever is found there in the branch story's Concerns rather than widening this change.
 - **The refusal is a new reachable state for every caller**, including `/ship`, where the developer is present. If the scan genuinely cannot run in an environment (no base ref, a shallow clone), what was previously a silent `pass` becomes a visible stop. That is the intended direction, and `scan-branch-safety.sh` already refuses a missing base ref rather than defaulting (`scripts/test-workflow-scripts.mjs` line 13297), so the stop names a real condition.
 - **Exit status stays 0 on a refusal** (`plugins/workaholic/skills/release-scan/scripts/gate-decision.sh`). Both script consumers wrap the call in `|| printf ''`, so a non-zero exit would erase the reason word and land them on the generic empty-output path — the refusal object is the only way the reason survives.
+
+## Final Report
+
+Development completed as planned. All four parts landed in `gate-decision.sh`, both script
+consumers took their ordered `case` arm, the four agent-level contracts state the remedy, and
+the suite and drill are green (`7468 passed, 0 failed`; drill `52 total, 0 failed`).
+
+The three measured shapes, before and after:
+
+| Input | Before (`2a85aff9e`) | After |
+| ----- | -------------------- | ----- |
+| `printf '' \|` | `pass`, `total: 0` | `refuse`, `no_input`, `total: null` |
+| `gate-decision.sh <file>` | `pass`, `total: 0`, file unread | `refuse`, `bad_argument`, reads neither |
+| `{"severity":"hard"}` with no `category` | `pass` beside `hard: 1` | `block`, `overridable: false`, `hard: 1`, `total: 1` |
+
+A normal scan is unchanged: a clean branch is `pass`/`total: 0`/`override_only: false`, a
+secret branch a non-overridable `block`, a `size`-only branch `override_only: true`, a `leak`
+beside a `size` not `override_only`.
+
+### Discovered Insights
+
+- **Insight**: The `"category":` text grep was wrong in BOTH directions, and only the
+  over-counting one was reachable from today's producer. `scan-branch-safety.sh` escapes `"`
+  in every string value (`json_escape`, line 75), so a `"category":` inside an `evidence`
+  value can never match the pattern — the under-count the ticket describes for that case needs
+  a different producer. What IS reachable is the opposite: `{"verdict":"pass","findings":[],
+  "summary":{"category":"none"}}` counted `total: 1` and answered `block` with
+  `override_only: true` — a merge licence minted out of a key outside `findings[]`.
+  **Context**: the structural count removes both by construction, and the measurement matters
+  because "no live bypass exists" was true only of the under-count half.
+
+- **Insight**: A finding carrying `severity` but no `category` now answers `block` rather than
+  `refuse`. The closed set in step 4 is keyed on `severity`, which is the axis the tier is read
+  off, so such a finding IS classified — by the only field that decides anything.
+  **Context**: the acceptance criterion asks for "a non-`pass` decision … and never `pass`
+  beside `hard: 1`", which this satisfies; refusing it instead would make the gate reject
+  findings it can grade, and `category` is the rule family rather than the tier.
+
+- **Insight**: The refusal already reached both consumers' `*)` fallthrough before the arm was
+  added — verified, not assumed, by walking each `case` against the literal refusal object.
+  **Context**: that is exactly why the arm is worth adding; the safety was incidental to a
+  field the refusal happens not to set, and the arm makes it a property of the word.
+
+- **Insight**: `prepare-publication.sh` reports `merged: true` on a gate refusal. That is the
+  LOCAL catch-up merge in its throwaway worktree, performed before the gate is read; `pushed`
+  is false and the published ref is byte-identical, which is the safety property.
+  **Context**: a reader (or a test author — this cost one failed assertion) will misread
+  `merged` as "the pull request was merged"; the new hermetic row says so in place.

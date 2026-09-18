@@ -84,7 +84,14 @@ not write a second story generator.
 - **`review` → merge the PR immediately** (mission `auto-merge-propose-and-implement-prs-under-a-dev-release-branch-split`,
   2026-08-11, superseding the earlier stop-at-the-PR route): once `/story` has opened the unit's
   pull request, read the scan through `release-scan`'s `gate-decision.sh` — never the raw
-  `verdict` — and merge it when that reader says `decision: pass` or `override_only: true` (REST
+  `verdict` — and merge it when that reader says `decision: pass` or `override_only: true`, and
+  on **no other answer**: a `decision: "refuse"` means *no reading was made* (2026-09-18, ticket
+  `20260918150931`), carries `overridable`/`override_only` as `null` rather than `0`, and **merges
+  nothing** — the pull request stays open, the claim stays standing, and the unit's merge outcome
+  is `merge_refused: scan_unreadable`, the word the two script consumers already use. The remedy
+  is re-running the scan correctly; the `reason` (`no_input`, `unparseable_input`,
+  `not_a_scan_verdict`, `finding_unclassified`, `bad_argument`, `jq_unavailable`) says which way
+  it failed, and it is neither a secret nor an override (REST
   `PUT repos/{owner}/{repo}/pulls/{n}/merge` through `gather/scripts/gh-rest.sh` — never the
   GraphQL-backed `gh pr merge`, which a web session may 403 — carrying **three read, never
   spelled** fields: `merge_method` from `gather/scripts/merge-method.sh` (it answers `squash`),

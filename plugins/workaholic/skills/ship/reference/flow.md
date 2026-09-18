@@ -91,6 +91,18 @@ must be stated, not left absent.
      the risk and override**. On override, record it so the decision stays auditable —
      `bash ${CLAUDE_PLUGIN_ROOT}/skills/ship/scripts/record-evidence.sh "<branch>" "release-scan" "override" "<findings overridden: rules + files>" "bypassed"`
      — then continue. Re-run the scan after any fix.
+   - **`decision: "refuse"`** (2026-09-18, ticket `20260918150931`) — **no reading was
+     made**, and the reason names which way it failed (`no_input`, `unparseable_input`,
+     `not_a_scan_verdict`, `finding_unclassified`, `bad_argument`, `jq_unavailable`).
+     **Stop, and the remedy is to re-run the scan correctly** — most often the pipe above
+     was never fed (a `bad_argument` means a path was passed positionally; the form is
+     `gate-decision.sh < scan.json`) or the scan itself refused. It is **neither a secret
+     nor an override**: never hunt a credential on it, and **never** record it through
+     `record-evidence.sh … "bypassed"`, which asserts a risk a human accepted over
+     findings nobody read. `overridable` and `override_only` are `null` on a refusal, so
+     no branch above this one applies. Until 2026-09-18 every such input answered
+     `decision: "pass"` — measured that day on two independent callers, one of which
+     passed a file path and got a false `total: 0` pass.
 
 3. **Draft the deployment plan** (PRE-MERGE; this step replaced the deploy step on
    2026-08-13): run `read-deployments.sh` and `find-claude-md.sh`.

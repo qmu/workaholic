@@ -4634,10 +4634,17 @@ cmd_verify_close() {
     }
     _held=$(_mergeable '{"verdict": "fail", "findings": [{"category": "secret", "severity": "hard"}]}')
     _nudge=$(_mergeable '{"verdict": "fail", "findings": [{"category": "size", "severity": "override"}]}')
-    if [ "$_held" = "block false" ] && [ "$_nudge" = "block true" ]; then
-        add_row "close_scan_held" true "a hard finding holds the merge while an override-tier one is a nudge the route merges through" load
+    # AND A THIRD LITERAL: NO READING AT ALL (2026-09-18, ticket `20260918150931`). The gate's
+    # failure mode was `pass`, so an empty input -- a scan run from the wrong path, a pipe never
+    # fed, a file handed over positionally -- read exactly like a clean branch and the closing
+    # seam merged on it. `refuse null` is neither of the two mergeable answers, so the seam
+    # does not merge; the drill is the right home because this is where the seam's vocabulary
+    # is proved offline.
+    _unread=$(_mergeable '')
+    if [ "$_held" = "block false" ] && [ "$_nudge" = "block true" ] && [ "$_unread" = "refuse null" ]; then
+        add_row "close_scan_held" true "a hard finding holds the merge, an override-tier one is a nudge the route merges through, and an unread scan refuses instead of passing" load
     else
-        add_row "close_scan_held" false "the tier reading did not separate a hard finding (${_held}) from an override one (${_nudge})" load
+        add_row "close_scan_held" false "the tier reading did not separate a hard finding (${_held}) from an override one (${_nudge}) or did not refuse an unread scan (${_unread})" load
     fi
 
     # ---- the durable half: the outcome a run records, and what the oracle reads back ----

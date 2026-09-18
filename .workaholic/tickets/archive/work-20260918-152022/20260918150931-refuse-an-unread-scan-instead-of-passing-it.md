@@ -7,7 +7,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
-claim: work-20260918-152022
+claim: work-20260918-163623
 ---
 
 # Refuse an unread scan instead of passing it

@@ -42706,6 +42706,96 @@ function testRuntimeRecordPastArgumentCap() {
   } finally { cleanup(dir); }
 }
 
+// ---------- the context propagation policy is reported in one wording (2026-09-19) ----------
+// The tick ceiling and `work/SKILL.md` are a pinned pair: a shape that drifts between them is
+// two rules, and the measured failure this policy exists to prevent — a bounded dispatch and a
+// full-context one reading alike in the report — is exactly what a second wording reintroduces.
+T("both tick surfaces name the context propagation policy, in one wording",
+  testContextPolicyWording);
+function testContextPolicyWording() {
+  const WORDING = "**The tick names the context propagation policy it dispatched under.** Read "
+    + "it once through `bash ${CLAUDE_PLUGIN_ROOT}/skills/runtime/scripts/dispatch-policy.sh "
+    + "--root . --harness <id>` — the one reader; the policy is declared configuration and is "
+    + "never inferred from a harness flag — and report `context policy: <word>` from its "
+    + "answer: `absent` when nothing is declared, the effective policy when the harness honours "
+    + "it, and `<policy> unsupported:<reason> effective:<policy>` when it cannot. An **absent** "
+    + "declaration is today's behaviour and says so; an **unsupported** one names the policy "
+    + "that actually governed the child and never reports the declared one as honoured. An "
+    + "unreadable reading is `unreadable`, never `absent`. A report under which a bounded "
+    + "dispatch and a full-context one read alike is **non-conformant on its face**.";
+  for (const [path, what] of [
+    ["plugins/workaholic/commands/infinite-development.md", "the tick ceiling"],
+    ["plugins/workaholic/skills/work/SKILL.md", "the sibling report contract"],
+  ]) {
+    const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
+    assertTrue(`${what} carries the context-policy wording verbatim`,
+      flat.includes(WORDING.replace(/\s+/gu, " ")), path);
+  }
+  // THE CHILD INPUT CONTRACT IS WRITTEN IN EXACTLY ONE PLACE AND CITED ELSEWHERE. The return
+  // half was always specified and the input half never was; two copies of it would be the same
+  // defect one layer up.
+  const skill = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8");
+  assertTrue("the child input contract lives in work/SKILL.md",
+    skill.includes("What a child RECEIVES is contracted here, beside what it returns"));
+  const ceiling = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+  assertTrue("and the ceiling cites it rather than restating it",
+    !ceiling.includes("What a child RECEIVES is contracted here")
+      && ceiling.includes("the contracted input\n`work/SKILL.md` states"),
+    "the ceiling must cite work/SKILL.md for the child input contract");
+  // AND THE POLICY IS NOT A SECOND CADENCE LEVER: the dial it is separate from is named.
+  assertTrue("the ceiling states the policy moves no count and no cadence",
+    ceiling.includes("it never changes `WORKAHOLIC_MAX_WORKERS`"),
+    "plugins/workaholic/commands/infinite-development.md");
+}
+
+// ---------- a restriction names which guarantees lapse (2026-09-19) ----------
+// The failure this pins against is a sentence: "some guarantees may be affected" is worse than
+// saying nothing, and it is exactly what a surface drifts toward once the closed list is not in
+// one place. The list lives in `work/SKILL.md`; the ceiling cites it.
+T("a delegation restriction names which guarantees lapse", testDelegationLapseSurfaces);
+function testDelegationLapseSurfaces() {
+  const skill = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/work/SKILL.md"), "utf8");
+  const ceiling = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+  const GUARANTEES = ["observation_clock", "acknowledgement_on_cadence",
+    "work_advances_without_waiting", "separable_worker_evidence"];
+  for (const g of GUARANTEES) {
+    assertTrue(`the closed list names ${g}`, skill.includes(g),
+      "plugins/workaholic/skills/work/SKILL.md");
+  }
+  // WRITTEN ONCE AND CITED: the ceiling names the reader and the section, never the list.
+  const restated = GUARANTEES.filter((g) => ceiling.includes(g));
+  assertEq("the ceiling restates none of the four", restated.join(","), "");
+  assertTrue("the ceiling cites where the list lives",
+    ceiling.includes("written once in `workaholic:work`, *Children and reports*"),
+    "plugins/workaholic/commands/infinite-development.md");
+  assertTrue("the ceiling names the one reader",
+    ceiling.includes("skills/work/scripts/delegation-lapse.sh"),
+    "plugins/workaholic/commands/infinite-development.md");
+  // THE GENERAL WORDING IS FORBIDDEN BY NAME ON BOTH SURFACES. A positive assertion rather
+  // than a text ban, because both surfaces quote the forbidden sentence in order to forbid
+  // it — a regex cannot tell a prohibition from the thing prohibited, and the rule that
+  // matters is that each surface says which guarantees lapse.
+  assertTrue("the skill forbids the general wording",
+    skill.includes("names WHICH of them lapse, never that some may be affected"),
+    "plugins/workaholic/skills/work/SKILL.md");
+  assertTrue("the ceiling forbids it too",
+    ceiling.includes("Naming a restriction without naming which guarantees lapse is "
+      + "non-conformant on its face"),
+    "plugins/workaholic/commands/infinite-development.md");
+  // AND NO FOURTH RESERVED FINAL-RESPONSE EVENT: the lapse is commentary and a post.
+  assertTrue("the reserved events stay three",
+    skill.includes("The final response is reserved for exactly three events")
+      && ceiling.includes("The final response is reserved for exactly three events"),
+    "a lapse must not become a reason to end the parent's turn");
+  assertTrue("and the ceiling says the lapse adds none",
+    ceiling.includes("adds no fourth reserved final-response event"),
+    "plugins/workaholic/commands/infinite-development.md");
+}
+
 for (const [label, fn] of tests) {
   if (ONLY && !label.includes(ONLY)) continue;
   console.log(`\n# ${label}`);

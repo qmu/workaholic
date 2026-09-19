@@ -468,13 +468,52 @@ Return one short Japanese block:
 - the latest progress reading and its observation time;
 - each completed worker's `executed`, `outcome`, and `reason`;
 - **the reconciled counts a completion claim rests on** — see below;
+- the context propagation policy this tick dispatched under — see below;
 - where this report is delivered.
+
+**The tick names the context propagation policy it dispatched under.** Read it once through
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/runtime/scripts/dispatch-policy.sh --root . --harness <id>`
+— the one reader; the policy is declared configuration and is never inferred from a harness
+flag — and report `context policy: <word>` from its answer: `absent` when nothing is declared,
+the effective policy when the harness honours it, and `<policy> unsupported:<reason>
+effective:<policy>` when it cannot. An **absent** declaration is today's behaviour and says so;
+an **unsupported** one names the policy that actually governed the child and never reports the
+declared one as honoured. An unreadable reading is `unreadable`, never `absent`. A report under
+which a bounded dispatch and a full-context one read alike is **non-conformant on its face**.
+
+Pass the resolved policy to `coordinator.sh`'s `reserve` event as `context_policy`, so the
+child's receipt records what it was launched under; an unrecognised value is refused there
+rather than stored. Under `bounded_task` the child prompt carries only the contracted input
+`work/SKILL.md` states — the bounded task, the artifact paths, the worktree and claim, the
+receipt id, the user constraints and the result schema — and no inherited conversation. This
+dial is **separate from the count and the cadence**: it never changes `WORKAHOLIC_MAX_WORKERS`,
+the implement fanout or any polling value, and spawning fewer workers to save context remains a
+count decision belonging to the dial that already exists.
 
 If this tick ends having spawned no runner because something it needed was degraded — an
 unreadable claimable reading, a freshen refusal, a degraded issue source — post
 `workaholic:notify`'s precondition-stop shape under this tick's own signature. Its dedup,
 escalation and cool-down apply unchanged. A tick that spawned nothing because nothing was due is
 an ordinary idle tick and posts nothing.
+
+**And a restriction the OPERATOR imposed is announced the same way, naming which guarantees it
+costs.** An operator restriction is not a degraded reading — one is a person's decision, the
+other is something the loop could not see — and until this it had no treatment at all: subagents
+were turned off, the only way to make progress was to implement in the parent, and the
+coordinator went on running while it stopped receiving role ticks. Read it through `bash
+${CLAUDE_PLUGIN_ROOT}/skills/work/scripts/delegation-lapse.sh --input <facts.json>` over
+`delegation` (`available` | `refused`) and the resolved `context_policy`. The four guarantees are
+a closed list written once in `workaholic:work`, *Children and reports*, and cited here rather
+than restated; report the reader's `restriction`, `lapsed`, `held` and `costs` verbatim. On
+`announce: true` post the precondition-stop shape under the reader's own `signature`, with its
+dedup, escalation and cool-down unchanged; on `announce: false` this tick announces nothing new.
+**Naming a restriction without naming which guarantees lapse is non-conformant on its face** —
+"some guarantees may be affected" is worse than saying nothing. Where delegation is refused the
+coordinator **keeps observing and acknowledging** and does not become an inline implementer: it
+names the lapse rather than performing it silently, and inline work is the operator's own
+instruction. A dispatch-policy change is a **correction, not a restart** — same instance id,
+same startup anchor, no second `start`, live receipts reconciled through `coordinator.sh` — and
+it adds no fourth reserved final-response event.
 
 Say `idle` alone when nothing happened. Claim completion only from merged work, an empty queue,
 and reconciled pull requests. Then end this tick without polling, waiting for workers, or

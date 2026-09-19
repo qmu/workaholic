@@ -683,12 +683,57 @@ write_worker_record() {
         printf '  "pid": %s,\n' "$(json_quote "$$")"
         printf '  "boot_id": %s,\n' "$(json_quote "$(boot_id)")"
         printf '  "consecutive_failures": %s,\n' "$_ww_failures"
+        # The policy the DISPATCH resolved, carried in rather than re-read here: a second read
+        # could disagree with the one the child was actually launched under, which is the only
+        # thing this field exists to record (2026-09-19, ticket `20260919095618`).
+        [ -n "${WORKAHOLIC_CONTEXT_POLICY:-}" ] \
+            && printf '  "context_policy": %s,\n' "$(json_quote "$WORKAHOLIC_CONTEXT_POLICY")" \
+            || printf '  "context_policy": null,\n'
         printf '  "executed": %s,\n' "$_ww_executed"
         [ "$_ww_work_outcome" = null ] && printf '  "work_outcome": null,\n' || printf '  "work_outcome": %s,\n' "$(json_quote "$_ww_work_outcome")"
         printf '  "result": %s\n' "$_ww_result"
         printf '}\n'
     } >"$_ww_tmp"
     mv "$_ww_tmp" "$_ww_file"
+}
+
+# THE NON-NATIVE DISPATCH CARRIES THE SAME DECLARED CONTEXT POLICY AS THE NATIVE ONE
+# (2026-09-19, ticket `20260919095618`). Two dispatch paths reading two different answers is
+# how the two would come to disagree about what a child was launched under, so both read
+# `runtime/scripts/dispatch-policy.sh` and neither derives the policy for itself. An absent
+# declaration answers the empty string and this path behaves exactly as it did before the
+# policy existed; an unreadable reader answers `unreadable` and is REPORTED, never rounded up
+# to a policy nobody declared.
+# It prints the reader's own `data` block, so the two facts the caller needs stay separate:
+# the EFFECTIVE policy (what actually governs the child, carried onto its record) and the
+# REPORTED word (what the tick says, which must name an unsupported declaration rather than
+# hide it behind the policy that replaced it).
+dispatch_context_policy() {
+    _dcp_sh="${SCRIPT_DIR}/../../runtime/scripts/dispatch-policy.sh"
+    [ -f "$_dcp_sh" ] && [ -n "$REPO_ROOT" ] && command -v jq >/dev/null 2>&1 \
+        || { printf ''; return 0; }
+    _dcp_out=$(sh "$_dcp_sh" --root "$REPO_ROOT" --harness codex 2>/dev/null || printf '')
+    [ -n "$_dcp_out" ] || { printf ''; return 0; }
+    printf '%s' "$_dcp_out" | jq -c 'select(.status == "ok") | .data' 2>/dev/null || printf ''
+}
+
+# The one word the tick prints. An empty reading is `unreadable`, never `absent`.
+dispatch_policy_word() {
+    [ -n "$1" ] || { printf 'unreadable'; return 0; }
+    printf '%s' "$1" | jq -r '
+      if .declared != true then "absent"
+      elif .supported == true then .effective
+      else (.policy + " unsupported:" + .support_reason +
+            (if .effective == null then "" else " effective:" + .effective end)) end' \
+      2>/dev/null || printf 'unreadable'
+}
+
+# The policy that actually governs the child; empty when nothing is declared or nothing could
+# be resolved, which is what leaves the child's record reading `null`.
+dispatch_policy_effective() {
+    [ -n "$1" ] || { printf ''; return 0; }
+    printf '%s' "$1" | jq -r 'if .effective == null then "" else .effective end' \
+      2>/dev/null || printf ''
 }
 
 # THE CADENCE IS MEASURED FROM STARTUP, NOT FROM THE PREVIOUS TICK'S FINISH (2026-09-05,
@@ -1155,12 +1200,16 @@ if [ -n "$DISPATCH_ROLE" ]; then
         printf 'codex dispatch %s: already_running\n' "$DISPATCH_ROLE"
         exit 0
     fi
+    _dpolicy=$(dispatch_context_policy)
+    _dpolicy_word=$(dispatch_policy_word "$_dpolicy")
+    _dpolicy_effective=$(dispatch_policy_effective "$_dpolicy")
     if [ "$DRY_RUN" = true ]; then
         # THE DRY RUN SHOWS THE PROMPT IT WOULD DISPATCH. It printed one line naming neither the
         # role body nor the clause, so the composed prompt — the thing a reader needs to check —
         # was visible only through `--worker <role> --dry-run`, one layer down and easy to run
         # for real by mistake. The dispatch starts nothing either way.
         printf 'codex dispatch %s: would start a detached worker\n' "$DISPATCH_ROLE"
+        printf 'codex dispatch %s: context_policy=%s\n' "$DISPATCH_ROLE" "$_dpolicy_word"
         printf 'prompt: %s\n' "$(worker_prompt "$DISPATCH_ROLE")"
         exit 0
     fi
@@ -1171,6 +1220,10 @@ if [ -n "$DISPATCH_ROLE" ]; then
     dispatch_claim_role "$DISPATCH_ROLE" \
         || { printf 'codex dispatch %s: already_running\n' "$DISPATCH_ROLE"; exit 0; }
     _dlog="${LOG_DIR}/dispatch-${DISPATCH_ROLE}.log"
+    # The policy is CARRIED to the child rather than re-read by it, so the record the worker
+    # writes names the policy this dispatch resolved and not a later reading of the config.
+    WORKAHOLIC_CONTEXT_POLICY=$_dpolicy_effective
+    export WORKAHOLIC_CONTEXT_POLICY
     if command -v setsid >/dev/null 2>&1; then
         setsid sh "${SCRIPT_DIR}/codex-loop.sh" --worker "$DISPATCH_ROLE" --claimed --log "$LOG_DIR" \
             >"$_dlog" 2>&1 &
@@ -1184,6 +1237,7 @@ if [ -n "$DISPATCH_ROLE" ]; then
     has_flock \
         || printf '%s\n' "$_dpid" >"$(role_pidfile "$DISPATCH_ROLE")"
     printf 'codex dispatch %s: started pid=%s log=%s\n' "$DISPATCH_ROLE" "$_dpid" "$_dlog"
+    printf 'codex dispatch %s: context_policy=%s\n' "$DISPATCH_ROLE" "$_dpolicy_word"
     # WHERE THE RESULT WILL AND WILL NOT ARRIVE, said at the moment the child is detached
     # (2026-09-06, mission `finish-the-backlog-without-handing-it-back-to-the-operator`). This
     # returns instantly and the child outlives it — the lifetime the port needed, and the exact

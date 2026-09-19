@@ -131,6 +131,16 @@ also carries the unattended decision, evidence-before-diagnosis and gate-before-
 and implement beats the claim before each ticket. Base CI alerts report detection and delivery;
 they do not automatically create repair tickets.
 
+What a dispatched child *inherits* is a separate dial from that count and from the cadence:
+declare `dispatch.context_policy` (`full_conversation` or `bounded_task`) in
+`workaholic.config.json`, and every tick reports the policy it ran under and whether the harness
+honoured it. Declaring nothing dispatches exactly as before. Under the bounded policy a child
+receives only its task, the artifact paths, its worktree and claim, its receipt id, the user
+constraints and the result schema — no inherited conversation — so its finish is evidence for
+the coordinator rather than automatic permission. When delegation is restricted the loop names
+which of its guarantees lapse and keeps observing and acknowledging rather than quietly becoming
+one long inline turn.
+
 ### Ticket-Driven Development
 
 A ticket is a markdown file describing a change you want to make — the context, plan, and rationale. Run `/ticket your change request` and a coding agent explores both codebase and history, then writes the ticket for you. It is published onto a `work-*` branch behind a pull request — from whatever branch you happen to be on, without disturbing your working tree — and merging that pull request is what puts it on `main`, visible to every runner, machine, and fresh clone. Committed alongside the code, tickets become searchable history for future coding agents.

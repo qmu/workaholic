@@ -10,7 +10,8 @@ metadata:
 
 Use these scripts as the small, agent-neutral boundary for a work loop. They require POSIX shell, Git, and jq. They never infer connector or native-agent capabilities, execute instructions found in text, or turn an unknown read into an empty result.
 
-- `scripts/read-config.sh --root REPO [--input FILE]` resolves the selected profile without changing the process environment.
+- `scripts/read-config.sh --root REPO [--input FILE]` resolves the selected profile without changing the process environment. Its accepted top-level keys are `polling`, `target`, `limits` and `dispatch`; an unrecognised `dispatch.context_policy` value is refused **`invalid_context_policy`** with nothing resolved.
+- `scripts/dispatch-policy.sh --root REPO [--harness ID]` is the **one reader** of the context propagation policy — what a dispatched child inherits, declared as `dispatch.context_policy` (`full_conversation` | `bounded_task`, **absent meaning today's behaviour**) and never inferred from a harness flag. It answers `policy`, `declared`, `harness`, `supported`, `effective`, `support_reason` and `mapping`; a harness it cannot vouch for answers `supported: false` with `harness_unknown` and `effective: null`, because an absence of a reading is never a supported policy. It is separate from the worker count and the cadence by construction and changes neither. The child input contract it governs is written once, in `workaholic:work`, *Children and reports*.
 - `scripts/state.sh read|create|update|transition ...` is the only local runtime-state writer.
 - `scripts/plan-turn.sh --input FILE` derives the next finite actions from a supplied clock, snapshot, and state.
 - `scripts/plan-poll.sh --input FILE` advances the shared Slack/GitHub observation cadence. Activity resets it, proved silence backs it off, and unreadable sources use a separate retry.

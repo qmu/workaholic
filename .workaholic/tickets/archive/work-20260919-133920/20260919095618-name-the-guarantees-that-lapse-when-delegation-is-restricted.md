@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:56:18+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -132,3 +133,44 @@ not reset the startup anchor*, *after compaction, rediscover children*) but noth
   that would re-introduce a misdiagnosis this repository has already paid for once.
 - **An operator restriction is not a degraded reading**, and the vocabulary should keep them
   apart: one is a person's decision and the other is something the loop could not see.
+
+## Final Report
+
+Development completed as planned.
+
+The three existing contracts were read in full first. `final-response-contract.sh` reserves the
+parent's final response for three events and reaches a delegation restriction not at all;
+`commands/infinite-development.md`'s precondition-stop obligation covers a tick **degraded** into
+spawning nothing; `lib/coordinator.jq` owns the receipt lifecycle and already answers
+`already_started` to a second `start`. None of them covers an operator restriction, which is a
+person's decision rather than something the loop could not see — so the vocabularies stay apart
+and this adds one reader, no shape and no transport.
+
+`work/scripts/delegation-lapse.sh` is that reader. The four guarantees are a closed list written
+once in `work/SKILL.md` — `observation_clock`, `acknowledgement_on_cadence`,
+`work_advances_without_waiting`, `separable_worker_evidence` — and the lapse is stated **per
+restriction**: a refused delegation lapses the last two and holds the first two, a bounded
+context holds all four at one stated cost, and no restriction announces nothing new. `announce`
+is true **only** when `lapsed` is non-empty, which is what makes *a tick with delegation intact
+announces nothing new* mechanical rather than a sentence. `coordinator_action` is
+`keep_observing` under every restriction: the coordinator never becomes an inline implementer,
+and inline work stays the operator's own instruction. The announcement reuses the existing
+precondition-stop shape under the reader's own `signature`, with dedup, escalation and cool-down
+untouched, and no fourth reserved final-response event exists.
+
+Verified: `node --test scripts/tests/agentic-loop/delegation-lapse.test.mjs` (5 rows, including
+the policy-change invariant — same instance, same anchor, `already_started` on a second `start`,
+the live receipt surviving with the policy it was launched under) and
+`node scripts/test-workflow-scripts.mjs "delegation restriction"` (11 rows).
+
+### Discovered Insights
+
+- **Insight**: the ceiling and `work/SKILL.md` both have to *quote* the forbidden sentence in
+  order to forbid it, so a regex ban on "may be affected" cannot tell a prohibition from the
+  thing prohibited.
+  **Context**: the pin is written as a positive assertion — each surface must carry its own
+  prohibition wording — which is the shape any "this phrasing is banned" rule needs here.
+- **Insight**: `implement`'s fanout is 1, so a second `reserve` for that role answers
+  `role_running` rather than `reserved`.
+  **Context**: a contract row about the anchor or the receipt lifecycle must use a second role,
+  or it measures the fanout instead of the thing it meant to.

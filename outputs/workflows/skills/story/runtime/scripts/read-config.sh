@@ -32,18 +32,25 @@ env_interval=${WORKAHOLIC_POLL_INTERVAL_SECONDS-}
 env_mode=${WORKAHOLIC_POLL_MODE-}
 env_max=${WORKAHOLIC_PROPOSE_MAX-}
 
-jq -cn \
+# THE CONTEXT PROPAGATION POLICY IS ITS OWN TOP-LEVEL KEY (2026-09-19, ticket
+# `20260919095618`). It is not folded into `limits`, which is a count, nor into `polling`,
+# which is a clock: the operator's ask was for a dial *separate from cadence*, and one key
+# answering two questions is how two questions drift. ABSENT MEANS TODAY'S BEHAVIOUR --
+# `dispatch.context_policy` resolves to `null` for a repository that declares nothing, which
+# is the same safety property `WORKAHOLIC_WIP_LIMIT` states for itself.
+OUT=$(jq -cn \
     --arg request read-config --arg root "$ROOT" --arg profile "$PROFILE" \
     --arg input "$INPUT" --argjson cfg "$cfg" --argjson old "$old" --argjson explicit "$explicit" \
     --arg env_interval "$env_interval" --arg env_mode "$env_mode" --arg env_max "$env_max" '
   def allowed:
-    (type=="object") and all(keys[]; .=="polling" or .=="target" or .=="limits")
+    (type=="object") and all(keys[]; .=="polling" or .=="target" or .=="limits" or .=="dispatch")
     and ((.polling? // {}) | type=="object" and all(keys[]; .=="mode" or .=="interval_seconds" or .=="conversation_seconds" or .=="idle_seconds" or .=="max_seconds"))
     and ((.limits? // {}) | type=="object" and all(keys[]; .=="propose_max"))
+    and ((.dispatch? // {}) | type=="object" and all(keys[]; .=="context_policy"))
     and ((.target? // {}) | type=="object" and all(keys[]; .=="workspace_id" or .=="channel_id" or .=="qfs" or .=="allowed_sender_ids" or .=="identity_policy"));
   ($cfg.profiles[$profile] // {}) as $selected
   | ($old.env // {}) as $legacy_env
-  | {polling:{mode:"adaptive",interval_seconds:300,conversation_seconds:30,idle_seconds:300,max_seconds:900},target:null,limits:{propose_max:null}} as $defaults
+  | {polling:{mode:"adaptive",interval_seconds:300,conversation_seconds:30,idle_seconds:300,max_seconds:900},target:null,limits:{propose_max:null},dispatch:{context_policy:null}} as $defaults
   | if (($selected|allowed) and ($explicit|allowed)) then . else error("unknown configuration key") end
   | ($defaults
       | if ($legacy_env.WORKAHOLIC_POLL_MODE? != null) then .polling.mode=$legacy_env.WORKAHOLIC_POLL_MODE else . end
@@ -61,4 +68,21 @@ jq -cn \
   | {protocol:"workaholic.runtime/v1",request_id:$request,status:"ok",reason:"",
      data:{schema_version:1,repo_root:$root,profile:$profile,config:$resolved,
        sources:{explicit:($input != "/dev/null"),environment:{polling_mode:($env_mode != ""),polling_interval_seconds:($env_interval != ""),propose_max:($env_max != "")},profile:($selected != {}),legacy:($legacy_env != {})}}}' \
-    2>/dev/null || runtime_usage "configuration values have invalid types"
+    2>/dev/null) || runtime_usage "configuration values have invalid types"
+
+# AN INVALID POLICY IS REFUSED BY ITS OWN WORD, and nothing is dispatched under a guessed one.
+# The RESOLVED value is tested rather than each source, so a bad value reaching the policy from
+# the profile or from `--input` is refused identically. `// ` is avoided deliberately: a boolean
+# `false` is a real JSON value here and must reach the refusal rather than read as absent
+# (`rules/shell.md`, *`//` is not a default where `false` is a real answer*).
+policy=$(printf '%s' "$OUT" | jq -r 'if .data.config.dispatch.context_policy == null then "null"
+                                     else (.data.config.dispatch.context_policy|tostring) end')
+case "$policy" in
+    null|full_conversation|bounded_task) ;;
+    *)
+        runtime_json_result error invalid_context_policy read-config \
+            "$(jq -cn --arg v "$policy" '{detail:"dispatch.context_policy must be full_conversation or bounded_task",value:$v}')"
+        printf 'invalid dispatch.context_policy: %s\n' "$policy" >&2
+        exit 2 ;;
+esac
+printf '%s\n' "$OUT"

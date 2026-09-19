@@ -145,3 +145,90 @@ and renders the `📥 受理` groups afterwards (`commands/infinite-development.
 - **The ask's first item says the tick "should not read as clean"; it does not ask for a retry or
   an escalation.** Keep the existing rule that the filed issue is never changed by an
   acknowledgement outcome.
+
+## Final Report
+
+Development completed as planned. All three gaps are closed on the surfaces the ticket named, and
+the ticket's own reading of the before-state was confirmed by walk before anything changed.
+
+**Step 1 — the before-state, measured.**
+
+| token | where it was |
+| ----- | ------------ |
+| `ack_failed` | `commands/infinite-development.md:247`, `skills/notify/SKILL.md:50`, plus three reference/history sites and one suite regex |
+| `ack_withheld` | **nowhere in the tree** |
+| `stand-down` | `commands/propose.md:15` and **nowhere else** — not in `infinite-development.md`, `specificate.md`, `implement.md`, `moderate.md` or `notify/SKILL.md` |
+| *before any work* / *reply first* / 返事 | **nowhere** in `infinite-development.md`, `notify/SKILL.md` or `work/SKILL.md` |
+
+Each of the three gaps stood exactly as the ticket described it.
+
+**Step 2 — the vocabulary is split, in one wording, in two homes.** `ack_failed` now means **the
+post was attempted and the transport refused it**; `ack_withheld` means **this run decided not to
+post it**, and a tick carrying one is an **unanswered person** rather than a clean tick. The
+wording is written once and carried into `skills/notify/SKILL.md` and
+`commands/infinite-development.md`, pinned as one wording by the suite (whitespace-normalised, so
+the pin holds a wording across two homes and not one line width). `notify/SKILL.md`'s sentence
+that *the receipt is never load-bearing* — the phrase that read as permission to skip it — is
+replaced by *the receipt never gates the capture*, which is the property that was actually meant
+and is unchanged in force: the issue is open before either post is attempted, and neither outcome
+is retried or escalated.
+
+**Step 3 — the stand-down clause is on the ceiling that performs the act.** `commands/propose.md`'s
+sentence is carried verbatim into `commands/infinite-development.md` and extended with the ask's
+own distinction: a receipt for an ask this loop has just filed is a **reply**, not a reaction this
+run may weigh. `/propose`'s copy is **not rewritten** — one wording, two homes, and the suite
+compares them.
+
+**Step 4 — the reply-before-work obligation is stated**, and stated as an obligation: *a person who
+wrote to the channel is answered in the channel before any work on their ask begins*, with the
+sentence explicitly naming that the existing order already satisfies it and that it is therefore a
+**constraint on future edits** rather than a behaviour change.
+
+**Step 5 — the withheld case is visible in the report.** The tick's report contract now names
+`ack_owed`, `ack_posted`, `ack_failed` and `ack_withheld`, each by its own word, and states that a
+non-zero `ack_withheld` is reported as an unanswered person while `ack_owed: 0` is the different
+fact of a tick with nothing to acknowledge.
+
+**Step 6 — the suite assertions.** One row, `notify: a withheld receipt is its own word, in one
+wording`, holds: the withheld wording present and identical in both homes; `ack_failed` reserved
+for a transport refusal in both; the stand-down clause present on the ceiling and still present on
+`/propose`; the receipt-is-not-a-reaction extension; the reply-before-work sentence and its
+constraint framing; the four report words and the `ack_owed: 0` distinction; and that the `📥 受理`
+and `💬` shapes are untouched. **Each assertion was proved to go red when its own sentence is
+reverted** — verified by mutating the ceiling in memory and re-running the four regex/identity
+tests, all four of which fail on the reverted text.
+
+**`acknowledgement-contract.sh` is byte-identical** (`git diff origin/main` over it is empty), as
+the ticket's verification method requires. That validator answers *are this rendered receipt's
+facts true*; a run that withheld one never calls it, so a check placed there would be unreachable
+exactly when it is needed.
+
+**No receipt shape changed** and the rule that an acknowledgement outcome never changes the filed
+issue is carried unchanged into both new copies.
+
+### Discovered Insights
+
+- **Insight**: a vocabulary that cannot name a decision is read as permission to make it.
+  **Context**: `ack_failed` covered both *the transport refused it* and *we chose not to*, and the
+  sentence beside it said the receipt was *never load-bearing*. Nothing was wrong in either
+  statement; together they left a run with no word for an unanswered person and a phrase that
+  sounded like leave to skip one. The repair is two words and a report line, not a mechanism.
+
+- **Insight**: a rule can be made false by moving the code rather than by editing the rule.
+  **Context**: the stand-down clause was correct where it sat and became a gap the day the sweep
+  moved out of `/propose` into the tick (2026-09-03). Nothing failed, nothing drifted, and no test
+  could have caught it — the sentence was still true of `/propose`. A rule that governs an *act*
+  belongs on whatever ceiling performs that act, and moving an act is a prompt to walk its rules.
+
+- **Insight**: behaviour that is right by layout rather than by statement is the behaviour a later
+  edit reorders.
+  **Context**: the tick already filed and receipted before dispatching, so gap 3 cost nothing on
+  the day — and there was no sentence anywhere that would have made a reordering wrong. Writing the
+  obligation down changed no behaviour and is the whole point: it is a constraint on future edits.
+
+- **Insight**: pinning "one wording across two homes" has to normalise whitespace, or it pins line
+  width.
+  **Context**: `commands/propose.md` wraps the stand-down clause mid-sentence and the ceiling does
+  not. A byte-literal `includes` would have failed on the newline and invited someone to reflow one
+  file to satisfy a test. The suite's existing byte-identical pins compare blocks that were authored
+  at one width; a pin across differently-wrapped files needs the normalisation, and says so.

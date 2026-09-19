@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T15:16:00+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -292,3 +293,98 @@ rulings are load-bearing here and neither is reopened.
   every positional suite call site — and it must keep the validation, because parsing changes which
   spelling slips and never removes the slip
   (`plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh` line 131).
+
+## Final Report
+
+Development completed as planned. Every decision the ticket closed was kept; nothing was reopened.
+
+**Step 1 — reproduced before changing anything.** In a throwaway repository with one story
+concern, `NO_COMMIT=1 sh extract-deferred-concerns.sh work-x --base main` returned
+`{"status":"ok","created":1,…,"destination":"main"}` with exit 0, and the record it wrote carried:
+
+```
+origin_pr: --base
+origin_pr_url: main
+```
+
+`$4` fell through to its `main` default, exactly as the ticket read it. That is the signal the
+repair was written against — the landed record was not taken on report.
+
+**Step 2 — the refusal, above every write.** Two rungs sit in the existing argument block, above
+the publish-tree branch:
+
+- `flag_in_positional` — any of `$1`..`$4` begins with `-`.
+- `bad_pr_number` — `$2` is not a bare run of digits.
+
+Both carry `received` (the offending value) and `expected` (the positional contract), so a
+composing session can correct the call without a second contract existing.
+
+Measured after the repair, each in a fresh throwaway repository:
+
+| vector | outcome | records | refs |
+| ------ | ------- | ------- | ---- |
+| `work-x --base main` | `flag_in_positional`, `received: "--base"`, exit 1 | none | unchanged |
+| `work-x '#10' <url>` | `bad_pr_number`, `received: "#10"`, exit 1 | none | unchanged |
+| `-work-x 10 <url>` | `flag_in_positional`, `received: "-work-x"`, exit 1 | none | unchanged |
+| `work-x 10 <url>` | `status: ok`, `origin_pr: 10`, `origin_pr_url: <url>` | 1 | unchanged |
+
+Each refusal re-run answers the same word with the repository unchanged, and the happy path
+re-run dedups to `created: 0` exactly as before. **The word for the ticket's own vector is
+`flag_in_positional`** — the hyphen rung fires before the digit rung — and the suite asserts that
+exact word rather than accepting either, so the two rungs cannot swap unnoticed.
+
+**Step 3 — `destination` deliberately omitted from both refusals**, matching the adjacent
+`missing_args` exit, with one sentence added to the header recording that the pre-resolution
+refusals are the stated exception to the capitalised claim. Naming a destination in a refusal
+caused by a shifted vector would assert the one argument in doubt.
+
+**Step 4** — the positional re-entry at the publish-tree seam is unchanged; it passes an
+already-validated number back in and re-validates cleanly.
+
+**Step 5** — `testExtractDeferredConcerns` was **extended, never replaced**: its extraction, dedup
+and stable-`concern_id` assertions are untouched above the additions and still pass, which is the
+byte-identical-behaviour proof.
+
+**Step 6** — `ship/SKILL.md` (the script table and step 7), `ship/reference/flow.md` §7 and
+`ship/reference/scripts.md` each name the positional contract and both refusal words, in the same
+commit.
+
+**Step 7 — `f5b91d91b` and the mis-attributed record stand.** Neither was touched. The concern's
+true origin is **PR #1231**, recoverable from the record's own `origin_commit: 0751b1b9a`; it is
+named in the branch story and here, which is the whole remedy the ticket specified. Nothing on the
+publication path changed — `publish-tree-pr.sh`, the release-safety scan and the branch checks all
+behaved correctly when the bad value passed through them.
+
+**The cost, stated rather than implied.** `/ship` §7 now **fails** on a mis-composed call where it
+previously succeeded wrongly. §7 is post-merge and best-effort, so a refusal costs the run a named,
+correctable error rather than a merge or a deployment — and the alternative is what was measured: a
+wrong value stamped permanently onto the base.
+
+### Discovered Insights
+
+- **Insight**: no signature can stop a wrong argument being *written* when the caller is an agent
+  composing the call in prose; only a refusal stops one *landing*.
+  **Context**: this is why option parsing was closed off rather than deferred. A parser moves which
+  spelling slips — an agent writing `--pr` for `--pull-request` slips exactly as readily — and it
+  would leave two contracts across four documented surfaces and a positional self-re-entry. The
+  ergonomic payoff was bought *inside* the refusal instead, by naming `received` and `expected`.
+
+- **Insight**: a leading-hyphen test over every positional is contract-neutral and catches the
+  whole shift class at once.
+  **Context**: no legal branch name, pull-request number, URL or base branch begins with `-`, so
+  the rung costs nothing and covers a flag landing in *any* slot — including the branch and base
+  slots, which a per-argument format check would have missed. It caught `-work-x` in the probe.
+
+- **Insight**: the more dangerous half of this defect left no trace at all.
+  **Context**: the shift silently discharged the script's own explicit-destination contract — the
+  one its header spends thirteen lines on, after the 2026-07-30 incident that made four concerns
+  invisible. `base` fell through to its default and was right *only because the default happened to
+  equal the intended base*. The visible wrong number in a commit subject is what got this noticed;
+  the invisible one is what the refusal actually protects.
+
+- **Insight**: a downstream reader that coerces an unreadable value is correct behaviour, and
+  repairing it would have been the wrong seam.
+  **Context**: `list-open-concerns.sh:98` renders a non-numeric `origin_pr` as `0` rather than
+  crashing a listing over an already-landed record. Once the writer refuses, that coercion only
+  ever sees history. The same reasoning kept the release-safety scan and the branch checks
+  untouched: each was correctly minding something else when the bad value went past.

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T23:06:00+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -89,3 +90,43 @@ The declaration mechanism and its one reader were introduced 2026-09-08 (mission
 - `git rev-parse --show-toplevel` answers *the tree I am standing in*, so inside a claim worktree it resolves to that worktree — which is correct here: that checkout holds its own `CLAUDE.md`/`AGENTS.md` and is the repository the caller means (`plugins/workaholic/skills/branching/scripts/survey-worktrees.sh` records the same property being load-bearing for a different reason).
 - The default must not be `pwd`. A caller standing in a subdirectory would then read no declaration at all and get `declared: false` — the precise failure this ticket removes, reintroduced one level down (`plugins/workaholic/skills/transport/scripts/read-declared-binding.sh` lines 82-84, which compose `$ROOT/CLAUDE.md`).
 - `apply-slack-binding.sh` refuses `declaration_unreadable` on an `ok: false` reading and `check-slack-binding.sh` names the refusal alone. Neither behaviour may change here; this ticket removes a way of reaching `no_root`, it does not reclassify it.
+
+## Final Report
+
+Development completed as planned.
+
+Both readings in the Overview were reproduced verbatim at the branch head before the repair:
+
+```
+$ sh plugins/workaholic/skills/transport/scripts/read-declared-binding.sh
+{"ok":false,"declared":false,"reason":"no_root"}      # exit 2
+$ sh plugins/workaholic/skills/transport/scripts/read-declared-binding.sh --root .
+{"ok":true,"declared":true,"sources":["AGENTS.md"],"binding":{"channel":"dev-workaholic",…}}
+```
+
+The call-site walk was re-derived and the no-harm finding is **confirmed**: every caller in the
+tree passes `--root` — `transport/scripts/observe-channel.sh`, `transport/scripts/verify-live-proof.sh`,
+`workaholify/scripts/check-slack-channel.sh`, `workaholify/scripts/check-slack-binding.sh`,
+`workaholify/scripts/apply-slack-binding.sh`, `commands/infinite-development.md`, and the two test
+files. No omission exists today. What makes it a defect anyway is the direction of the failure: a
+required argument whose omission answers `declared: false` does not fail loudly, it reads as *this
+repository declares nothing* and the loop falls back to the environment variables — the exact
+misdelivery the declaration mechanism exists to prevent. That reasoning is recorded in the script's
+own header, beside the default, so the question is settled by what is written.
+
+`ROOT` now defaults to `git rev-parse --show-toplevel` (falling back to the empty string), resolved
+**before** the existing validity test, which is byte-identical. No call site changed; no key and no
+reason word was added.
+
+### Discovered Insights
+
+- **Insight**: the default must be the repository root and never `pwd`, because lines 82-84 compose
+  `$ROOT/CLAUDE.md` and `$ROOT/AGENTS.md` directly.
+  **Context**: defaulting to the working directory would reintroduce the same silent
+  `declared: false` one level down — a caller standing in a subdirectory would read no declaration
+  at all. The fixture *the default is the repository root, not the working directory* pins it.
+- **Insight**: `git rev-parse` inside a command substitution under `sh -eu` must carry
+  `|| printf ''`, or a caller outside any repository aborts the script before it can print its own
+  `no_root` line.
+  **Context**: the same shape the repository already records for `capture-inbox.sh` — a refusal
+  that cannot reach stdout is substituted for by the caller with a worse word.

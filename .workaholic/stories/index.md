@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [The drill stopped supplying the premise its reader had gained](work-20260920-010451.md)
 * [Declare the local proof set a main-bound merge stands on](work-20260919-231306.md)
 * [Two readers were looking in the wrong place](work-20260919-231254.md)
 * [work-20260919-214225](work-20260919-214225.md) - The P8 registry row derives completeness from the shipped step scripts and asserts only the orderings the workflow reference states, so adding a step no longer needs a second edit

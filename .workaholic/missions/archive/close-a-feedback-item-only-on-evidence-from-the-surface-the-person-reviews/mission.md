@@ -2,7 +2,7 @@
 type: Mission
 title: Close a feedback item only on evidence from the surface the person reviews
 slug: close-a-feedback-item-only-on-evidence-from-the-surface-the-person-reviews
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-19T09:46:12+09:00
 author: a@qmu.jp
@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-102417
 ---
 
 # Close a feedback item only on evidence from the surface the person reviews
@@ -37,11 +38,16 @@ not asserted at report time. A run that cannot read the evidence says so and clo
 
 <!-- PROPOSED - a sketch the reviewer replans drive-ready. -->
 
-- [ ] The review surface an ask names is persisted on the artifact and read back, not asserted (#20260919094701-carry-the-ask-s-review-surface-onto-the-artifact-it-emits.md)
-- [ ] Merging the ingest pull request no longer closes the source feedback issue (#20260919094701-stop-the-ingest-pull-request-closing-the-source-feedback-issue.md)
-- [ ] A source issue is closed only on a reconciliation reading `implemented_and_verified`, and
+- [x] The review surface an ask names is persisted on the artifact and read back, not asserted (#20260919094701-carry-the-ask-s-review-surface-onto-the-artifact-it-emits.md)
+- [x] Merging the ingest pull request no longer closes the source feedback issue (#20260919094701-stop-the-ingest-pull-request-closing-the-source-feedback-issue.md)
+- [x] A source issue is closed only on a reconciliation reading `implemented_and_verified`, and
       an unclosed item names which state held it (#20260919094701-close-a-source-issue-only-on-a-verified-reconciliation.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-19 — ticket archived — 20260919094701-carry-the-ask-s-review-surface-onto-the-artifact-it-emits.md
+- 2026-09-19 — ticket archived — 20260919094701-stop-the-ingest-pull-request-closing-the-source-feedback-issue.md
+- 2026-09-19 — ticket archived — 20260919094701-close-a-source-issue-only-on-a-verified-reconciliation.md
+- 2026-09-19 — mission achieved — mission.md
+- 2026-09-19 — Story opened — work-20260919-102417.md

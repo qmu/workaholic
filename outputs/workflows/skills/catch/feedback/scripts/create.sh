@@ -21,7 +21,43 @@
 # opinion in the project is the runner's, which is the exact failure `assignees`
 # had before P6. A caller that does not know the subject must find it, not guess.
 #
-# Usage: printf '%s\n' "<body>" | create.sh --subject <subject> "<title>" <kind> <source> [supersedes-filename]
+# A FOURTH FACT IS RECORDED WHEN THE ASK STATES IT: `review_surface`, the surface
+# the person who asked will look at to judge whether the work landed — a package, a
+# route, a screen, a rendered page. `work/scripts/feedback-outcome.sh` has always
+# compared an `expected_surface` against the `verified_surface` a run observed, and
+# until 2026-09-19 (ticket `20260919094701`) BOTH sides were supplied by whoever
+# composed the facts: the gate's input was asserted by the party the gate checks,
+# which is the same defect this repository names for `open_proposal` and for every
+# proof in `drive/reference/claims.md`. Measured on a consuming repository: a request
+# about a public prototype screen was implemented in the application package's shell,
+# the item was closed, and the channel summary claimed the work landed.
+#
+# WHY THE FEEDBACK RECORD AND NOT THE TICKET OR THE MISSION. Three candidates, one
+# chosen, and the two rejected are named here rather than left to be re-derived:
+#   * THE FEEDBACK RECORD (chosen). It is the grain `feedback-outcome.sh` actually
+#     reconciles — its items are keyed on `.feedback` — so the reader resolves the
+#     value with no second walk and no relation. It is written once by ONE writer
+#     (this script) from the person's own words, and it is IMMUTABLE, so the loop
+#     cannot move the gate's input while implementing the work the gate checks.
+#   * THE TICKET (rejected). Closest to the work, but a request routinely becomes
+#     several tickets, so the reader would have to fold N values into one and decide
+#     what a disagreement meant; and a replan rewrites tickets, which would hand the
+#     implementing party the ability to edit the expectation it is judged against.
+#   * THE MISSION (rejected). One value per correction pass is the right SHAPE, but a
+#     mission is the loop's own decomposition rather than the ask, it is mutable, and
+#     an ask answered by a loose ticket has no mission at all.
+# The immutability objection — that a wrong surface can never be corrected — is
+# answered by the stream's own correction mechanism: a new record naming the old in
+# `supersedes` (SKILL.md, *Immutability*). A wrong PERSISTED surface is arguable by
+# the person who wrote the ask; a wrong ASSERTED one is invisible.
+#
+# IT IS NEVER INFERRED AND NEVER FLOORED. It is written only when the ask names the
+# surface; most asks are not about a rendered screen, so an absent value is the
+# ORDINARY case and reconciles as `surface_unresolved` rather than as a pass. A
+# guessed surface is worse than none, because the gate would then compare a guess
+# against a guess.
+#
+# Usage: printf '%s\n' "<body>" | create.sh --subject <subject> [--review-surface <surface>] "<title>" <kind> <source> [supersedes-filename]
 #   subject: <kind>[:<identity>]; kind is the closed set
 #            person | meeting | observer_ai | customer | team | other
 #            and the identity after the colon is free text ("person:a@qmu.jp",
@@ -36,10 +72,17 @@
 set -eu
 
 SUBJECT=""
-if [ "${1:-}" = "--subject" ]; then
-    SUBJECT="${2:-}"
-    shift 2
-fi
+REVIEW_SURFACE=""
+# Both are OPTIONS and both are read in a loop, deliberately: the positional
+# contract every caller already uses is left exactly where it was, so adding an axis
+# moves no argument, and a caller may pass them in either order.
+while :; do
+    case "${1:-}" in
+        --subject) SUBJECT="${2:-}"; shift 2 || shift ;;
+        --review-surface) REVIEW_SURFACE="${2:-}"; shift 2 || shift ;;
+        *) break ;;
+    esac
+done
 
 TITLE="${1:-}"
 KIND="${2:-}"
@@ -109,6 +152,11 @@ mkdir -p "$DIR"
     printf 'created_at: %s\n' "$CREATED_AT"
     printf 'author: %s\n' "$AUTHOR"
     printf 'supersedes: %s\n' "$SUPERSEDES"
+    # One frontmatter line, so a multi-line surface is folded rather than corrupting
+    # the block. Written always, empty when the ask named none — an absent value and
+    # an empty one must read alike to `work/scripts/review-surface.sh`, and a key that
+    # is sometimes missing is a key every reader has to test for twice.
+    printf 'review_surface: %s\n' "$(printf '%s' "$REVIEW_SURFACE" | tr '\n' ' ')"
     printf -- '---\n'
     printf '\n# %s\n\n' "$TITLE"
     printf '%s\n' "$BODY"
@@ -120,4 +168,9 @@ sh "${SCRIPT_DIR}/../../okf/scripts/refresh-index.sh" >/dev/null 2>&1 || true
 
 git add "$FILE" 2>/dev/null || true
 
-printf '{"created": true, "path": "%s"}\n' "$FILE"
+json_escape() {
+    printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+printf '{"created": true, "path": "%s", "review_surface": "%s"}\n' \
+    "$FILE" "$(json_escape "$(printf '%s' "$REVIEW_SURFACE" | tr '\n' ' ')")"

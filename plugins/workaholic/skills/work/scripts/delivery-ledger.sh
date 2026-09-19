@@ -41,7 +41,13 @@
 # array reads as *nothing left to integrate*, which is the opposite.
 #
 # Usage: delivery-ledger.sh --input FILE
-# Input:  {items:[{feedback, expected_surface, verified_surface, evidence[], queue_readable,
+# THE EXPECTED SURFACE IS NOT AN INPUT (2026-09-19, ticket `20260919094701`). It is
+# resolved off the feedback record by `feedback-outcome.sh`, the one reader, and this
+# script composes that reader — so both seams read the persisted value through one
+# derivation and neither can be handed a different one. Each row carries the resolved
+# `expected_surface` and `surface_reason` straight through.
+#
+# Input:  {items:[{feedback, verified_surface, evidence[], queue_readable,
 #                  queued, deployment, public_verification, thread:{status,complete},
 #                  pull_requests:[{number, merged, verified, blocker, depends_on[]}]}]}
 # Output: one JSON line, {ledger:[…], blockers:[…], independent:[…]}
@@ -67,7 +73,12 @@ jq -c '
     (if $prs == null then null
      elif ($prs | length) == 0 then false
      else ($prs | all(.verified == true)) end) as $verified |
-    {feedback:.feedback, expected_surface:.expected_surface, verified_surface:.verified_surface,
+    # `expected_surface` is DELIBERATELY NOT FORWARDED (2026-09-19, ticket
+    # `20260919094701`): the delivery reader resolves it off the feedback record
+    # itself, so forwarding a caller-supplied value here would be the one thing the
+    # persisted surface exists to make impossible. `verified_surface` IS forwarded --
+    # it is what this run observed, which is the claim being checked.
+    {feedback:.feedback, verified_surface:.verified_surface,
      evidence:.evidence, deployment:.deployment, thread:.thread,
      # A pull-request list we could not read must not become a readable-but-empty one: it is
      # handed over as an unreadable QUEUE so the delivery reader answers `unreadable` rather
@@ -140,6 +151,8 @@ jq -c --slurpfile outcome "$tmp/outcome.json" --argjson max "$MAX" '
      notification:($s.notification // "held"),
      deployment:($s.deployment // "unreadable"),
      evidence:($s.evidence // []),
+     expected_surface:($s.expected_surface // ""),
+     surface_reason:($s.surface_reason // ""),
      missing:$missing,
      # `state` answers the implementation and `missing` answers the stages, and NEITHER alone is
      # delivery: a request whose every pull request merged and verified while the deployment

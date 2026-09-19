@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "vitepress": "^1.6.3",
-    "wrangler": "^4.126.0"
+    "wrangler": "^4.131.0"
   },
   "overrides": {
     "vite": "^6.4.3"

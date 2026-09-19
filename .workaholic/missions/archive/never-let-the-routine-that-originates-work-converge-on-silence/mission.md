@@ -2,7 +2,7 @@
 type: Mission
 title: Never let the routine that originates work converge on silence
 slug: never-let-the-routine-that-originates-work-converge-on-silence
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-19T09:36:51+09:00
 author: a@qmu.jp
@@ -39,7 +39,7 @@ claims is named. No judgement is weakened.
 <!-- PROPOSED - a sketch the reviewer replans drive-ready. -->
 
 - [x] A run of ticks that all originate nothing raises one named finding where a person reads it (#20260919093809-raise-a-run-of-originate-nothing-propose-ticks-as-a-finding.md)
-- [ ] `open_proposal` stops holding a direction once the tree proves the ingest stage has not run
+- [x] `open_proposal` stops holding a direction once the tree proves the ingest stage has not run
       since the proposal opened — derived from a reading, never a new constant (#20260919093809-stop-open-proposal-holding-a-direction-when-the-ingest-stage-is-not-running.md)
 - [x] An operator ask no direction claims is named; no origination bypasses a strategy (#20260919093809-name-the-operator-ask-that-answers-no-direction.md)
 
@@ -48,3 +48,5 @@ claims is named. No judgement is weakened.
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-19 — ticket archived — 20260919093809-raise-a-run-of-originate-nothing-propose-ticks-as-a-finding.md
 - 2026-09-19 — ticket archived — 20260919093809-name-the-operator-ask-that-answers-no-direction.md
+- 2026-09-19 — ticket archived — 20260919093809-stop-open-proposal-holding-a-direction-when-the-ingest-stage-is-not-running.md
+- 2026-09-19 — mission achieved — mission.md

@@ -766,4 +766,10 @@
 * [Question reconciliation retires the unreadable-channel escalation before it is ever asked](20260918074738-question-reconciliation-retires-the-unreadable-channel-escalation-before-it-is-ever-asked.md)
 * [The /fb assignee instruction reads a vestigial login field](20260919083843-the-fb-assignee-instruction-reads-a-vestigial-login-field.md)
 * [Nothing invokes the worktree reaper](20260919083922-nothing-invokes-the-worktree-reaper.md)
+* [Propose converges on silence and stops feeding implement](20260919093448-propose-converges-on-silence-and-stops-feeding-implement.md)
+* [A person's ask can sit unanswered while the tick reads clean](20260919094303-a-person-s-ask-can-sit-unanswered-while-the-tick-reads-clean.md)
+* [Verify a feedback item on its own review surface before closing it](20260919094536-verify-a-feedback-item-on-its-own-review-surface-before-closing-it.md)
+* [Keep a coherent feedback batch one mission one PR one report](20260919095027-keep-a-coherent-feedback-batch-one-mission-one-pr-one-report.md)
+* [Support low-context workers without stalling the work tick](20260919095501-support-low-context-workers-without-stalling-the-work-tick.md)
+* [Reconcile every accepted request before a completion mention](20260919100026-reconcile-every-accepted-request-before-a-completion-mention.md)
 <!-- okf:generated:end -->

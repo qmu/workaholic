@@ -16,7 +16,8 @@
 #    "resumable": [{"unit", "branch", "author", "last_commit_at", "stale",
 #                   "resume_reason", "artifacts"}],
 #    "missions": [{"slug", "title", "merge_policy", "checked", "total", "next", "path"}],
-#    "backlog":  [{"path", "title", "merge_policy", "depends_on", "mission_closed"}],
+#    "backlog":  [{"path", "title", "merge_policy", "depends_on", "mission_closed",
+#                  "feedback_refs"}],
 #    "excluded": [{"kind": "mission"|"ticket", "id": "...", "reason": "..."}],
 #    "backlog_all_excluded": {"excluded": true|false, "backlog_size": N,
 #                             "reasons": [{"reason": "...", "count": N}, ...]}}
@@ -51,6 +52,18 @@
 #     guessed at relatedness would make the conservative "when unsure, one ticket
 #     per unit" bar unreachable, because nothing downstream could tell a confident
 #     grouping from a coincidental one.
+#
+# `feedback_refs` IS REPORTED AND NEVER APPLIED, and that is the whole of its
+# contract (2026-09-19, issue #1110 items 1 and 7). `/drive` §2 names a shared
+# `feedback:` ref as grounds for one batch unit beside `depends_on`, and grounds
+# the executor cannot SEE are grounds nobody can use -- so the row carries the
+# refs the relation's one reader (specificate/scripts/read-feedback-relation.sh,
+# never a second parser) answers for that ticket, comma-joined, empty when the
+# ticket names none. It is an ANNOTATION, exactly as `mission_closed` is: this
+# script groups nothing, offers exactly what it offered before, excludes nothing
+# on it, and sorts nothing by it. The judgment above stays with the executor --
+# in particular, an intersection on a strategy's carried-forward direction ref is
+# coincidental, and only a reader that can weigh that can tell the two apart.
 #
 # CLAIMS ARE READ THROUGH THE SHARED SCAN (lib/claims.sh) -- the same
 # implementation list-claims.sh renders and claim.sh verifies against. A surveyor
@@ -278,6 +291,9 @@ fi
 
 MISSION_SCRIPTS="${SCRIPT_DIR}/../../mission/scripts"
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
+# For the `feedback_refs` ANNOTATION alone (see above): the relation's one reader. A pure
+# local read, so the survey stays offline by construction.
+SPECIFICATE_SCRIPTS="${SCRIPT_DIR}/../../specificate/scripts"
 # For the offer order alone (see THE OFFER ORDER below): `mission-strategy.sh` answers which
 # direction a mission serves and `list.sh` supplies that direction's date. Both are pure LOCAL
 # reads, so the survey stays offline by construction.
@@ -811,7 +827,10 @@ for t in $TODO_LIST; do
     title=$(json_escape "$(doc_title "$t")")
     policy=$(json_escape "$(fm_field "$t" merge_policy)")
     depends=$(json_escape "$(fm_field "$t" depends_on)")
-    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\", \"mission_closed\": \"$(json_escape "$mission_closed")\"}"
+    # Reported, never applied: see `feedback_refs` IS REPORTED AND NEVER APPLIED above.
+    feedback_refs=$(sh "${SPECIFICATE_SCRIPTS}/read-feedback-relation.sh" "$t" 2>/dev/null \
+        | tr '\n' ',' | sed -e 's/,*$//' || true)
+    BACKLOG="${BACKLOG}${b_sep}{\"path\": \"$(json_escape "$t")\", \"title\": \"${title}\", \"merge_policy\": \"${policy}\", \"depends_on\": \"${depends}\", \"mission_closed\": \"$(json_escape "$mission_closed")\", \"feedback_refs\": \"$(json_escape "$feedback_refs")\"}"
     b_sep=", "
 done
 

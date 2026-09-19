@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:51:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -127,3 +128,38 @@ inference.
   named — a shared *direction* ref is not a shared review batch.
 - **Do not make the grounds a gate.** Requiring a group wherever refs intersect would be the
   mirror of the defect being fixed.
+
+## Final Report
+
+Development completed as planned.
+
+`/drive` §2 and `reference/routing.md` now name a shared `feedback:` ref as the second
+grounds for one batch unit, in one byte-identical wording, read through
+`specificate/scripts/read-feedback-relation.sh` and never re-parsed. The bound ships with
+it: an intersection is grounds and not an obligation, and a shared *direction* ref — what a
+strategy's carry-forward puts on everything it emits — is explicitly not a shared review
+batch. The partition report now names the grounds each group was formed on
+(`depends_on`, `shared_feedback:<ref>`, or the one-sentence reason).
+
+`plan-units.sh` gained the `feedback_refs` annotation on each backlog row and **no grouping**:
+its offer, every exclusion reason and every membership are unchanged, the header states the
+field is reported and never applied, and its own claim that no grouping heuristic lives there
+is still true. Hermetic rows cover the inline-list and bare-scalar forms, the empty case, the
+non-grouping tripwire over three intersecting tickets, and the byte-identical prose pair.
+
+### Discovered Insights
+
+- **Insight**: the ask's item 7 needs no new notification shape, and the reason is already in
+  the tree. **Context**: `unit-feedback-stems.sh` resolves every member's stems to one thread
+  and the 2026-08-22 rule is already *one finish line per unit, never one per stem* — so
+  grouping a batch collapses four announcements into one for free. Enumerating the linked
+  items while pointing at the shared outcome is the **scoped progress** shape's job
+  (`📊`, `workaholic:notify`, *Three acts*), which landed for the sibling ask and already
+  names what landed and what remains. `🟢 Implemented` keeps its per-unit meaning; changing it
+  would have put two shapes on one question.
+- **Insight**: cross-skill script references survive the bundle build by closure.
+  **Context**: `plan-units.sh` already reaches `mission/scripts/`, so reaching
+  `specificate/scripts/read-feedback-relation.sh` cost nothing structurally — `build.mjs`
+  copies the reader into every bundled skill that transitively needs it and `verify.mjs`
+  confirms self-containment. That is what makes reading the relation through its one reader
+  cheaper than the second parser its header forbids.

@@ -7,6 +7,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: [https://github.com/qmu/workaholic/issues/1248]
+claim: work-20260920-020459
 ---
 
 # Run the local proof off the shared tmpfs and refuse a killed check

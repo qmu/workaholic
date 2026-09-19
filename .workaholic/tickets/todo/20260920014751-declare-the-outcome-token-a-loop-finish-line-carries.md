@@ -7,6 +7,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: [https://github.com/qmu/workaholic/issues/1248]
+claim: work-20260920-020459
 ---
 
 # Declare the outcome token a loop-finish line carries

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -347,4 +347,107 @@ test('an unapproved merge handoff is a per-unit wait that never ends the loop', 
   // An unlisted blocker is not a fact this reader accepts.
   assert.equal(facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test', anchor,
     blocked_on: 'something_else', continuation: CONTINUATION }).out.reason, 'invalid_facts');
+});
+
+// ---- WHAT THE COORDINATOR STORES PER WORKER IS BOUNDED, AND THE RECORD STAYS WRITABLE PAST
+// THE ARGUMENT CAP (2026-09-19, ticket `20260919120809`). The durable record is rewritten in
+// full on every event and the coordinator stored each worker's whole `result.report` prose, so
+// `.data` grew with the loop's own history: measured, 24 workers at 2.7-5.4 KB each reached
+// 129,906 bytes, at which point `state.sh` passed the record to `jq` as a single `argv` string
+// and Linux refused it at MAX_ARG_STRLEN (32 x PAGE_SIZE). A `finish` then failed, the receipt
+// stayed `running`, and the record had to be pruned by hand before the loop could resume.
+//
+// Pinned here: repeated finishes leave `.data` bounded rather than growing with the worker
+// count; the three fields every consumer reads survive intact and `report` stays a string; the
+// tick that records a finish still relays that worker's FULL report, because the bound is on
+// what is STORED and the channel post is made from the same answer.
+test('a finished worker is stored bounded, relayed whole, and never grows the record', t => {
+  const run = fixture(t);
+  run({ event: 'start', session_id: 'session' });
+  const prose = 'Worker prose that runs well past the stored bound. '.repeat(160); // ~8 KB
+  const reports = [];
+  for (let i = 0; i < 12; i++) {
+    const id = `w${i}`;
+    run({ ...reserve, id });
+    run({ event: 'started', id, child_id: `child-${id}` });
+    const report = `${id}: ${prose}`;
+    reports.push(report);
+    const fin = run({ event: 'finish', id, terminal: true,
+      result: { executed: true, outcome: 'ok', reason: '', report } });
+    assert.equal(fin.reason, 'completed');
+    // THE RELAY IS WHOLE: this tick's own answer carries the untruncated report, so the
+    // channel post the parent makes from it is not the bounded copy.
+    const relayed = fin.data.completed.find(w => w.id === id);
+    assert.equal(relayed.result.report, report, 'the finishing worker relays its full report');
+    run({ event: 'reported', id });
+  }
+
+  // THE STORE IS BOUNDED. Read the durable record the way `coordinator.sh` does.
+  const meta = JSON.parse(readFileSync(
+    join(run.dir, '.git/workaholic/runtime/v1/instances/native-test/meta.json'), 'utf8'));
+  const workers = meta.data.coordinator.workers;
+  assert.equal(Object.keys(workers).length, 12);
+  for (const [id, w] of Object.entries(workers)) {
+    assert.equal(w.result.executed, true, `${id} keeps executed`);
+    assert.equal(w.result.outcome, 'ok', `${id} keeps outcome`);
+    assert.equal(w.result.reason, '', `${id} keeps reason`);
+    assert.equal(typeof w.result.report, 'string', `${id} keeps report a string`);
+    assert.ok(w.result.report.length < 1400, `${id} stores a bounded report`);
+    assert.ok(w.result.report.includes('bounded at 1200 chars'), `${id} marks the truncation`);
+  }
+  const dataBytes = Buffer.byteLength(JSON.stringify(meta.data));
+  assert.ok(dataBytes < 60000, `12 workers of 8 KB prose stay bounded, got ${dataBytes}`);
+
+  // A REPLAYED FINISH IS STILL A DUPLICATE. The stored result is the bounded form, so a
+  // comparison against the full incoming result would read a crash replay as conflicting.
+  const replay = run({ event: 'finish', id: 'w0', terminal: true,
+    result: { executed: true, outcome: 'ok', reason: '', report: reports[0] } });
+  assert.equal(replay.reason, 'duplicate_result');
+});
+
+// ---- AN OVERSIZED RECORD WRITTEN BY THE OLD CODE IS READ, WRITTEN OVER, AND RE-BOUNDED
+// (`plugins/workaholic/rules/general.md`, *A tightened constraint over persisted data is
+// verified against legacy rows*). The store is clone-local under `.git/workaholic/runtime/`,
+// so no pull request can carry a migration to it and every checkout meets this code holding
+// rows the old code wrote. A fresh store proves none of that, which is why the fixture is
+// PLANTED on disk in the pre-change shape: many workers carrying full untruncated prose, with
+// `.data` above MAX_ARG_STRLEN -- the size at which the old code could neither read nor write.
+test('a legacy record above the argument cap is readable, writable and re-bounded', t => {
+  const run = fixture(t);
+  const cap = 32 * Number(spawnSync('getconf', ['PAGESIZE'], { encoding: 'utf8' }).stdout.trim());
+  const dir = join(run.dir, '.git/workaholic/runtime/v1/instances/native-test');
+  mkdirSync(dir, { recursive: true });
+  const prose = 'Legacy untruncated worker prose. '.repeat(170); // ~5.6 KB, as the old code stored it
+  const workers = {};
+  for (let i = 0; i < 30; i++) {
+    const id = `old${i}`;
+    workers[id] = { id, role: 'implement', state: 'completed', reported: true,
+      finished_at: 1999999000 + i, child_id: `c${i}`, target: null,
+      result: { executed: true, outcome: 'ok', reason: '', report: `${id}: ${prose}` } };
+  }
+  const legacy = { schema_version: 1, revision: 41, owner: null, generation: 1,
+    updated_at: '2026-09-18T00:00:00Z',
+    data: { coordinator: { mode: 'running', anchor: 1999999000, session_id: 'legacy',
+      workers, max_workers: 2, fanout: 1,
+      continuation: { kind: 'interruptible_parent', id: 'p1', next_due: 2999999999 } } } };
+  const before = Buffer.byteLength(JSON.stringify(legacy.data));
+  assert.ok(before > cap, `the fixture must exceed MAX_ARG_STRLEN (${before} vs ${cap})`);
+  writeFileSync(join(dir, 'meta.json'), `${JSON.stringify(legacy)}\n`);
+
+  // (a) it is READ -- `fixture`'s own runner asserts status ok and a parseable answer.
+  assert.equal(run({ event: 'tick' }).data.control, 'running');
+  // (b) it is WRITTEN OVER, and (c) the write leaves it re-bounded.
+  const continued = run({ event: 'continued',
+    continuation: { kind: 'interruptible_parent', id: 'p2', next_due: 2999999999 } });
+  assert.equal(continued.reason, 'continued');
+  const after = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'));
+  assert.equal(after.revision, 42, 'the legacy revision advanced');
+  const bytes = Buffer.byteLength(JSON.stringify(after.data));
+  assert.ok(bytes < before, `the first write re-bounds the legacy rows (${before} -> ${bytes})`);
+  for (const w of Object.values(after.data.coordinator.workers)) {
+    assert.equal(w.result.executed, true);
+    assert.equal(w.result.outcome, 'ok');
+    assert.equal(w.result.reason, '');
+    assert.ok(w.result.report.length < 1400, 'a legacy row is re-bounded on the first write');
+  }
 });

@@ -99,6 +99,28 @@ scheduled tick, named by `kind` and `id`, refused `continuation_unproved` by the
 absent — and the coordinator derives `resumed` at every event (`control == running` **and** a
 recorded continuation whose `next_due` has not passed; otherwise `continuation_unproved`,
 `continuation_lapsed` or the control mode); `running` alone is never reported as resumed.
+**The coordinator's durable record is bounded by a declared ceiling, never by the argument cap**
+(2026-09-19, ticket `20260919120809`). `runtime/scripts/state.sh` rewrites the record in full on
+every event and passed it to `jq` through `argv`, which Linux caps at `MAX_ARG_STRLEN`
+(`32 × PAGE_SIZE`; 131,072 bytes here, **not** `ARG_MAX`) — so a growing record stopped being
+writable and then readable, each of the three sites failing silently in a different way: the wrong
+word (`state_invalid`) with nothing written, a write that **landed** and then exited 2 with empty
+stdout so its caller retried into its own `revision_conflict`, and a read whose empty output made
+**every** coordinator event answer in silence. Measured: 24 workers of prose took `.data` to
+129,906 bytes, a `finish` failed, the receipt stayed `running`. Every unbounded value now travels
+by **file** (`--slurpfile`/`--rawfile`, `lib/result.sh`'s added `runtime_json_result_file`), the
+success result is **rendered before the record lands** so a refusal leaves it byte-identical, and
+three words each mean one thing: **`state_too_large`** (over the declared `RECORD_MAX_BYTES`, 1 MiB,
+carrying the observed size and the ceiling; it gates **writes only**, so a legacy record is always
+read back), **`state_write_failed`** (a step that could not run, naming it), and **`state_unreadable`**
+(also what `coordinator.sh` answers instead of exiting silently). `state_invalid` is narrowed to the
+shape assertion and **not** widened, and no new word collides with `revision_conflict`.
+`lib/coordinator.jq` bounds each stored `result.report` to 1200 characters with a visible marker,
+keeping `executed`/`outcome`/`reason` intact and `report` a string, while the finishing tick still
+relays that worker's **full** report in `completed[]`; every stored worker is re-bounded on every
+write, which **is** the upgrade path — the store is clone-local under `.git/workaholic/runtime/`, so
+no pull request can carry a migration to it. Full contract: `skills/runtime/SKILL.md`.
+
 For agent-composed gated writes, read the gate in one tool call
 before constructing the merge, push or deletion in another; exit zero is not a passing JSON
 gate. Internally gated delivery scripts retain their check-and-act flow. The implement command

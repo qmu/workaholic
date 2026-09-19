@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 3.5
 feedback: [20260919093448-propose-converges-on-silence-and-stops-feeding-implement.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -50,3 +50,4 @@ claims is named. No judgement is weakened.
 - 2026-09-19 — ticket archived — 20260919093809-name-the-operator-ask-that-answers-no-direction.md
 - 2026-09-19 — ticket archived — 20260919093809-stop-open-proposal-holding-a-direction-when-the-ingest-stage-is-not-running.md
 - 2026-09-19 — mission achieved — mission.md
+- 2026-09-19 — run recorded (+3.5h) — impl16-20260919-1740

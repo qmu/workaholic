@@ -3,6 +3,7 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [never-let-the-routine-that-originates-work-converge-on-silence](active/never-let-the-routine-that-originates-work-converge-on-silence/mission.md) - Never let the routine that originates work converge on silence
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 
 ## archive

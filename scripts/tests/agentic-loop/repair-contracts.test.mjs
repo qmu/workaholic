@@ -808,3 +808,46 @@ test('the mention-time reread obligation is one wording in both surfaces', () =>
   assert.ok(tick.includes('observe-channel.sh'), 'the existing thread read is not composed');
   assert.ok(/advances no cursor of its own/.test(tick), 'the cursor bound is missing');
 });
+
+// A WORKER RECEIPT, SCOPED PROGRESS AND A COMPLETION MENTION ARE THREE ACTS (2026-09-19,
+// ticket `20260919100143`, issue #1146). The loop had two of the three and conflated them with
+// the third: `🟢 Implemented` is a per-unit post, so a per-unit finish carrying a mention was
+// the only completion signal that existed — which is what went out while four requests from the
+// same thread were still queued.
+test('the three post classes are defined once and carried in one wording', () => {
+  const root = resolve(import.meta.dirname, '../../..');
+  const catalogPath = 'plugins/workaholic/skills/notify/reference/notifications.md';
+  const tickPath = 'plugins/workaholic/commands/infinite-development.md';
+  const between = text => {
+    const m = text.match(/<!-- workaholic:three-acts[^>]*-->\n([\s\S]*?)<!-- \/workaholic:three-acts -->/);
+    assert.ok(m, 'the marked block is absent');
+    return m[1];
+  };
+  const catalog = readFileSync(join(root, catalogPath), 'utf8');
+  const tick = readFileSync(join(root, tickPath), 'utf8');
+  const block = between(catalog);
+  assert.equal(block, between(tick), 'the catalog and the ceiling have drifted');
+
+  // The completion shape and the progress shape, each exactly once in the shared block.
+  for (const label of ['🏁 ご依頼分すべて完了 <@U…>', '📊 進捗 - <N>件のうち<M>件が反映済み']) {
+    assert.equal(block.split(label).length - 1, 1, `${label} is not defined exactly once`);
+  }
+  // A scoped progress message carries NO mention token; the completion mention carries one.
+  const progress = block.slice(block.indexOf('📊 進捗'));
+  assert.ok(!/<@U…>/.test(progress.slice(0, progress.indexOf('```', 3))),
+    'the progress shape carries a mention token');
+
+  // A worker finish is EVIDENCE for the parent, never its permission.
+  assert.ok(/evidence for the parent, never its permission/.test(block), 'the rule is missing');
+  // The scope rule has exactly one home, and it is this block.
+  assert.equal(catalog.split('narrows only on an explicit human defer or cancel').length - 1, 1,
+    'the scope rule is stated more than once in the catalog');
+
+  // `🟢 Implemented` keeps its per-unit meaning and its own shape, untouched.
+  assert.ok(/`🟢 Implemented` is untouched and must not be repurposed/.test(block));
+  assert.ok(catalog.includes('🟢 Implemented [#123 Title](<repo-url>/pull/123)'),
+    'the per-unit finish shape moved');
+
+  // The tick report names the class of each post, so a reader need not open the channel.
+  assert.ok(/names the class of each post/.test(catalog), 'the report obligation is missing');
+});

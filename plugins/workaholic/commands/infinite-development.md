@@ -304,6 +304,45 @@ reading is never a proof, so the direction is asymmetric on purpose. **A new req
 ordinary good case rather than an error path**: it is captured, the mention is withheld, and
 scoped progress goes out instead.
 <!-- /workaholic:mention-reread -->
+
+**A worker receipt, scoped progress and a completion mention are three acts** (2026-09-19,
+ticket `20260919100143`, issue #1146): a per-unit finish was the only completion signal that
+existed, so it became one. The shapes and the scope rule are the catalog's
+(`workaholic:notify`, *Three acts: a worker receipt, scoped progress, and a completion
+mention*), carried here byte-identical because this is the ceiling a routine-fired session
+actually reads.
+
+<!-- workaholic:three-acts — one wording, byte-identical with skills/notify/reference/notifications.md. -->
+
+| Act | Where it goes | Mention token |
+| --- | ------------- | ------------- |
+| **Worker terminal receipt** | **Nowhere on the channel.** It is internal evidence the coordinator records; the tick report names it. | — |
+| **Scoped progress** | The thread, when there is something new to say. Names what landed and what remains. | **None.** |
+| **Completion mention** | The thread, **once**, on the thread-grain `complete` verdict. | The addressee's `<@U…>`. |
+
+**A worker finish is evidence for the parent, never its permission.** The completion mention is permitted only by `work/scripts/thread-completion.sh`'s `complete` verdict over the whole accepted set, and only after the mention-time reread answered `allow` (SKILL's own *Children and reports* wording). A merged unit, a closed issue and a green worker result are each evidence that verdict reads; none of them is the verdict.
+
+```
+🏁 ご依頼分すべて完了 <@U…>
+- [<その人の言葉で表した件名>](<issue URL>)
+- [<その人の言葉で表した件名>](<issue URL>)
+<このまとまりで何が反映されたかを一文で。最大30語>
+<session URL>
+```
+
+```
+📊 進捗 - <N>件のうち<M>件が反映済み
+- 反映済み: [<その人の言葉で表した件名>](<issue URL>)
+- 残り: [<その人の言葉で表した件名>](<issue URL>) — <保留している状態>
+<いま何が残っていて次に何が起きるかを一文で。最大30語>
+<session URL>
+```
+
+**The accepted scope narrows only on an explicit human defer or cancel**, captured as an ordinary inbound ask. A worker's judgement that a request is obsolete, a merged pull request, a closed issue and a run's own reading **never** narrow it — absent that rule the set was implicitly whatever the latest worker touched, which is the silent redefinition the ask names. This sentence is the rule's one home; the tick ceiling and `work/scripts/thread-completion.sh` cite it.
+
+**`🟢 Implemented` is untouched and must not be repurposed.** It keeps its per-unit meaning and its exact shape above: a unit merged, said in its own thread. A reader who takes it for a completion signal is making exactly the mistake this section exists to end, which is why the completion mention is a different label rather than a longer sentence under the same one.
+
+<!-- /workaholic:three-acts -->
 **This step announces and never closes** (2026-09-19, ticket `20260919094701`): its candidate
 reader lists issues that are already closed, so it sees an item only after something else ended
 it. The one seam that may close a source issue is `/implement`'s per-item reconciliation
@@ -419,7 +458,10 @@ Return one short Japanese block:
   success is a **degraded** success: it proves delivery and never that the preferred route is
   configured or that the declared sender spoke;
 - each assigned feedback issue observation or unreadable issue source;
-- each ask announcement result;
+- each ask announcement result, **naming the class of every post it made** — worker receipt
+  (internal, no post), scoped progress, or completion mention — so a reader tells a progress
+  message from a completion mention without opening the channel, and, for a withheld mention,
+  the thread verdict or reread reason that held it;
 - roles spawned or reaped; use `loops: none due` when all were quiet;
 - implement allocation and any load, fanout, or advancement refusal;
 - total live workers, the configured worker limit, and roles still due but held for capacity;

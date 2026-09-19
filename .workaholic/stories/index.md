@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260919-195549](work-20260919-195549.md) - The moderation planner refuses a registry row it cannot read, the concern extractor refuses an argument vector it cannot trust, and an unanswered person gets a word of its own
 * [work-20260919-173750](work-20260919-173750.md) - The originating routine says why it produced nothing, stops holding a direction behind a proposal nothing is ingesting, and names the asks no direction claims
 * [work-20260919-172454](work-20260919-172454.md) - One coherent review batch now becomes one mission, one PR-unit and one report, with an announced regroup for the batches already split.
 * [work-20260919-152739](work-20260919-152739.md) - Hold the completion mention until every accepted request in one human thread is in, verified and delivered

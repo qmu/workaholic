@@ -771,4 +771,5 @@
 * [Verify a feedback item on its own review surface before closing it](20260919094536-verify-a-feedback-item-on-its-own-review-surface-before-closing-it.md)
 * [Keep a coherent feedback batch one mission one PR one report](20260919095027-keep-a-coherent-feedback-batch-one-mission-one-pr-one-report.md)
 * [Support low-context workers without stalling the work tick](20260919095501-support-low-context-workers-without-stalling-the-work-tick.md)
+* [Reconcile every accepted request before a completion mention](20260919100026-reconcile-every-accepted-request-before-a-completion-mention.md)
 <!-- okf:generated:end -->

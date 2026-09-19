@@ -15972,6 +15972,26 @@ function testFeedback() {
     assertTrue("list.sh surfaces the subject",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`).stdout).some((e) => e.subject === "meeting:2026-08-13 planning"));
 
+    // THE REVIEW SURFACE IS PERSISTED WHERE THE ASK IS CAPTURED, never asserted at
+    // report time (2026-09-19, ticket `20260919094701`). The write half is here; the
+    // read half, and that no caller fact can override it, is pinned in
+    // `scripts/tests/agentic-loop/repair-contracts.test.mjs`.
+    r = run(dir, `printf 'A public prototype screen.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" --review-surface "/prototype-1" "Ask naming a surface" instruction slack`);
+    const surfaced = JSON.parse(r.stdout);
+    assertEq("create echoes the review surface it wrote", surfaced.review_surface, "/prototype-1");
+    assertTrue("the record carries the surface the ask named",
+      /^review_surface: \/prototype-1$/m.test(readFileSync(join(dir, surfaced.path), "utf8")));
+    // An ask naming none is the ORDINARY case and is never refused — most asks are not
+    // about a rendered screen, and a guessed surface is worse than none.
+    r = run(dir, `printf 'An ordinary ask.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "Ask naming no surface" instruction slack`);
+    const unsurfaced = JSON.parse(r.stdout);
+    assertTrue("an ask naming no surface still publishes", unsurfaced.created === true, r.stdout);
+    assertTrue("a record whose ask named no surface carries an empty field",
+      /^review_surface: *$/m.test(readFileSync(join(dir, unsurfaced.path), "utf8")));
+    // The option is read in either order and moves no positional.
+    r = run(dir, `printf 'Either order.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --review-surface "/app/settings" --subject "person:a@qmu.jp" "Ask with flags reversed" instruction slack`);
+    assertEq("the surface option is order-independent", JSON.parse(r.stdout).review_surface, "/app/settings");
+
     // EVERY DOCUMENTED SOURCE IS ACCEPTED, not just the three the writer listed.
     // `development` was in this script's own usage header, in `SKILL.md` and in
     // `validate-feedback.sh`, and missing only from `create.sh`'s own case — so the
@@ -26881,10 +26901,145 @@ echo ""
     const bodyBogus = readFileSync(capturedBody, "utf8");
     assertTrue("a non-numeric issue value is validated away, never laundered into the body",
       !bodyBogus.includes("Closes #"), bodyBogus);
+
+    // An INGEST publication references the issue and leaves it open (2026-09-19, ticket
+    // `20260919094701`): merging a proposal queues work, and at that moment there is no
+    // implementation, no verification and no review surface to compare.
+    rmSync(capturedBody, { force: true });
+    const refsOnly = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000006-u.md", "WORKAHOLIC_REFERENCES_ISSUE=1104");
+    assertEq("a referencing publication reports success", refsOnly.ok, true);
+    const bodyRefs = readFileSync(capturedBody, "utf8");
+    assertTrue("the body references the issue without a closing keyword",
+      bodyRefs.includes("Refs #1104") && !bodyRefs.includes("Closes #"), bodyRefs);
+    assertTrue("and says what the open issue is waiting for",
+      bodyRefs.includes("stays open until the work it asks for is reconciled"), bodyRefs);
+
+    // One body never says both: a caller that asked for a close gets the close.
+    rmSync(capturedBody, { force: true });
+    const both = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000007-t.md",
+      "WORKAHOLIC_CLOSES_ISSUE=319 WORKAHOLIC_REFERENCES_ISSUE=1104");
+    assertEq("a publication naming both reports success", both.ok, true);
+    const bodyBoth = readFileSync(capturedBody, "utf8");
+    assertTrue("the closing keyword wins and no contradicting reference line is written",
+      bodyBoth.includes("Closes #319") && !bodyBoth.includes("Refs #"), bodyBoth);
+
+    // A non-numeric reference is validated away exactly as a non-numeric close is.
+    rmSync(capturedBody, { force: true });
+    const bogusRef = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000008-s.md", "WORKAHOLIC_REFERENCES_ISSUE=not-a-number");
+    assertEq("a non-numeric reference still reports success", bogusRef.ok, true);
+    const bodyBogusRef = readFileSync(capturedBody, "utf8");
+    assertTrue("a non-numeric reference is never laundered into the body",
+      !bodyBogusRef.includes("Refs #") && !bodyBogusRef.includes("stays open until"), bodyBogusRef);
   } finally {
     rmSync(binDir, { recursive: true, force: true });
   }
 }
+
+// ---------- a source issue closes only on a verified reconciliation ----------
+// The ingest close is gone (the ticket above), so this is the ONE act that may close a
+// person's feedback issue. Every state short of `implemented_and_verified` refuses by its
+// own word and reaches GitHub with no write at all — `requested` is the audit.
+T("work close-source-issue: closes only on implemented_and_verified, and never twice", () => {
+  const CLOSE = join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/close-source-issue.sh");
+  const dir = makeRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-close-"));
+  const calls = join(binDir, "calls.log");
+  try {
+    execSync(`git remote add origin https://github.com/qmu/workaholic.git`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/feedbacks/ask.md"),
+      "---\ntype: Feedback\nreview_surface: /prototype-1\n---\n\n# Ask\n");
+    // The stub records every call and answers `open` until a PATCH has been seen, so the
+    // idempotence row exercises a real second invocation rather than a second stub.
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+printf '%s\\n' "$*" >> ${calls}
+case "$*" in
+  *PATCH*) printf 'closed\\n'; printf 'patched\\n' >> ${calls}.patched; exit 0 ;;
+  *issues/1104*) if [ -f ${calls}.patched ]; then printf 'closed\\n'; else printf 'open\\n'; fi; exit 0 ;;
+  *issues/1105*) printf 'closed\\n'; exit 0 ;;
+esac
+printf ''
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+    const verified = {
+      feedback: "ask.md", verified_surface: "/prototype-1", evidence: ["browser:probe"],
+      queue_readable: true, queued: 0, implementation_pr: { merged: true, verified: true },
+      deployment: "ok", thread: { status: "found", complete: true },
+    };
+    const call = (issue, item) => {
+      const f = join(dir, "close-input.json");
+      writeFileSync(f, JSON.stringify({ issue, item }));
+      return JSON.parse(run(dir, `${POSIX_SH} ${CLOSE} --input ${f}`, { env }).stdout);
+    };
+
+    // Every refusal: its own word, and no request of any kind.
+    const refusals = [
+      ["still_queued", { ...verified, queued: 6 }],
+      ["not_implemented", { ...verified, implementation_pr: { merged: false } }],
+      ["not_verified", { ...verified, implementation_pr: { merged: true, verified: false } }],
+      ["surface_mismatch", { ...verified, verified_surface: "/app" }],
+      ["surface_unreadable", { ...verified, feedback: "never-captured.md" }],
+      ["unreadable", { ...verified, queue_readable: false }],
+      ["evidence_missing", { ...verified, evidence: [] }],
+    ];
+    rmSync(calls, { force: true });
+    for (const [word, item] of refusals) {
+      const r = call(1104, item);
+      assertEq(`close refuses ${word} by its own word`, r.state, word);
+      assertEq(`close refuses ${word} without acting`, r.outcome, "refused");
+      assertEq(`close refuses ${word} with no request`, r.requested, false);
+    }
+    // A record naming no surface reconciles unresolved and closes nothing either.
+    writeFileSync(join(dir, ".workaholic/feedbacks/plain.md"),
+      "---\ntype: Feedback\nreview_surface:\n---\n\n# Plain\n");
+    assertEq("an ask naming no review surface is refused surface_unresolved",
+      call(1104, { ...verified, feedback: "plain.md" }).state, "surface_unresolved");
+    assertTrue("no refusal issued a single request",
+      !existsSync(calls), existsSync(calls) ? readFileSync(calls, "utf8") : "");
+
+    // The one state that closes.
+    const closed = call(1104, verified);
+    assertEq("a verified reconciliation closes the issue", closed.outcome, "closed");
+    assertEq("and records that it acted", closed.requested, true);
+    assertTrue("through REST, never a gh issue subcommand",
+      /PATCH/.test(readFileSync(calls, "utf8")) && !/\bissue close\b/.test(readFileSync(calls, "utf8")),
+      readFileSync(calls, "utf8"));
+
+    // Idempotent: a second run over the same item makes no second write.
+    const patchesBefore = (readFileSync(calls, "utf8").match(/PATCH/g) || []).length;
+    const again = call(1104, verified);
+    assertEq("a repeat run answers already_closed", again.outcome, "already_closed");
+    assertEq("and issues no second close", again.requested, false);
+    assertEq("so the write count does not move",
+      (readFileSync(calls, "utf8").match(/PATCH/g) || []).length, patchesBefore);
+
+    // An issue a person closed by hand is the same answer, with no write.
+    const byHand = call(1105, verified);
+    assertEq("an issue already closed elsewhere answers already_closed", byHand.outcome, "already_closed");
+    assertEq("and issues no request", byHand.requested, false);
+  } finally {
+    cleanup(dir);
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+// The ingest seam must not carry a closing keyword at all: removing the wrong close is a
+// separate, independently reviewable act from choosing the right one, and shipping only
+// the first leaves issues open, which is the safe direction.
+T("specificate ingest: the publication references its issue and never closes it", () => {
+  const workflow = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  // The variable NAME in the composed command line, not the sentence around it: a token
+  // a run executes, which is the only thing worth pinning in a document.
+  assertTrue("the ingest publish call sets the referencing variable",
+    /WORKAHOLIC_REFERENCES_ISSUE=\S/.test(workflow), "step 10");
+  assertTrue("and the ingest publish call assigns no closing keyword",
+    !/WORKAHOLIC_CLOSES_ISSUE=\S/.test(workflow), "step 10 still closes the issue");
+});
 
 // ---------- the PR title is not the commit subject (P4's surviving half) ----------
 // P4 (2026-08-06) split two surfaces that had shared one string: `[Proposal]` is exactly

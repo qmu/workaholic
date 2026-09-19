@@ -15,7 +15,19 @@ function fixture(t) {
     const r=spawnSync('sh',[join(skills,script),'--input',file],{cwd:dir,encoding:'utf8',env:{...process.env,...env}});
     return {...r,json:r.stdout.trim()?JSON.parse(r.stdout):null};
   };
-  return {dir,call};
+  // The review surface an ask named is PERSISTED on the feedback record and read back
+  // (2026-09-19, ticket `20260919094701`), so a fixture that reconciles an item must
+  // plant the record the ask was captured into — the caller can no longer assert it.
+  const record=(ref,surface)=>{
+    mkdirSync(join(dir,'.workaholic/feedbacks'),{recursive:true});
+    const stem=ref.replace(/^fb:/,'').replace(/\.md$/,'');
+    // `null` writes NO `review_surface:` key: a record from before the field existed
+    // must read exactly like one whose ask named no surface.
+    const field=typeof surface==='string'?`review_surface: ${surface}\n`:'';
+    writeFileSync(join(dir,'.workaholic/feedbacks',`${stem}.md`),
+      `---\ntype: Feedback\ntitle: ${stem}\n${field}---\n\n# ${stem}\n`);
+  };
+  return {dir,call,record};
 }
 test('release eligibility permits partial and absent missions without changing their records',t=>{
   const {dir}=fixture(t);
@@ -206,13 +218,50 @@ test('question liveness matches the full key, not a substring of another questio
   assert.equal(JSON.parse(r.stdout).liveness,'settled');
 });
 test('feedback completion rejects proposals, wrong surfaces and pending deployments stay visible',t=>{
-  const {call}=fixture(t);
-  const item={feedback:'fb:header',expected_surface:'/prototype-1',verified_surface:'/prototype-1',evidence:['browser:verified-header'],queue_readable:true,queued:0,implementation_pr:{merged:true,verified:true},deployment:'failed',thread:{status:'missing',complete:true}};
+  const {call,record}=fixture(t);
+  record('fb:header','/prototype-1');
+  const item={feedback:'fb:header',verified_surface:'/prototype-1',evidence:['browser:verified-header'],queue_readable:true,queued:0,implementation_pr:{merged:true,verified:true},deployment:'failed',thread:{status:'missing',complete:true}};
   const items=[item,{...item,verified_surface:'/app'},{...item,queued:6},{...item,implementation_pr:{merged:true}},{...item,thread:{status:'missing',complete:false}}];
   const r=call('work/scripts/feedback-outcome.sh',{items}).json.items;
   assert.deepEqual(r.map(x=>x.state),['implemented_and_verified','surface_mismatch','still_queued','not_verified','implemented_and_verified']);
   assert.equal(r[0].deployment,'failed');assert.equal(r[0].notification,'create_description_root');
   assert.equal(r[4].notification,'thread_unresolved');
+});
+
+// The review surface the ask named is persisted on the artifact and READ BACK, never
+// asserted at report time (2026-09-19, ticket `20260919094701`). Until then both sides
+// of the comparison were written by whoever composed the facts — the one party whose
+// claim the gate exists to check.
+test('the expected review surface is read off the artifact and no caller fact overrides it',t=>{
+  const {call,record}=fixture(t);
+  record('named.md','/prototype-1');   // the ask named a surface
+  record('unnamed.md','');             // the ordinary ask: no surface at all
+  record('legacy.md',null);            // a record written before the field existed
+  const base={verified_surface:'/prototype-1',evidence:['probe'],queue_readable:true,queued:0,
+    implementation_pr:{merged:true,verified:true},deployment:'ok',thread:{status:'found',complete:true}};
+  const r=call('work/scripts/feedback-outcome.sh',{items:[
+    // 1. A caller asserting a DIFFERENT surface changes nothing: the persisted value wins.
+    {...base,feedback:'named.md',expected_surface:'/somewhere-else'},
+    // 2. A caller asserting a surface that would PASS cannot manufacture one either.
+    {...base,feedback:'named.md',verified_surface:'/app',expected_surface:'/app'},
+    // 3. An ask naming none is accepted and reconciles as unresolved — never a pass.
+    {...base,feedback:'unnamed.md'},
+    // 4. A record predating the field is the same ordinary absence.
+    {...base,feedback:'legacy.md'},
+    // 5. An artifact that is not there answers its OWN reason, distinct from absence.
+    {...base,feedback:'never-captured.md'},
+    // 6. An item naming no record at all is likewise a reading nobody could make.
+    {...base,feedback:''},
+  ]}).json.items;
+  assert.deepEqual(r.map(x=>x.state),
+    ['implemented_and_verified','surface_mismatch','surface_unresolved','surface_unresolved',
+     'surface_unreadable','surface_unreadable']);
+  assert.equal(r[0].expected_surface,'/prototype-1','the persisted value, not the caller\'s');
+  assert.equal(r[2].surface_reason,'','an absent surface is not a failed reading');
+  assert.equal(r[4].surface_reason,'record_not_found');
+  assert.equal(r[5].surface_reason,'no_feedback_ref');
+  // Every non-verified state still holds the notification, unchanged.
+  assert.deepEqual(r.slice(1).map(x=>x.notification),['held','held','held','held','held']);
 });
 test('QFS expression encoder escapes quotes, slashes and controls independently of JSON',()=>{
   const value="apostrophe' backslash\\ newline\n tab\t carriage\r nul\0 double\"";
@@ -534,8 +583,9 @@ test('morning digest opens with zero questions independently of JSON spacing',t=
 // exactly like a finished one, and a gate holding all of them was named once per pull request
 // without ever naming what it held.
 test('a request spread over several pull requests is delivered only when all of it is', t => {
-  const {call} = fixture(t);
-  const base = {expected_surface:'/app', verified_surface:'/app', evidence:['probe'],
+  const {call, record} = fixture(t);
+  for (const r of ['whole','partly','sibling','deployfail','unverified','unreadable']) record(r, '/app');
+  const base = {verified_surface:'/app', evidence:['probe'],
     queue_readable:true, queued:0, deployment:'ok', public_verification:true,
     thread:{status:'found', complete:true}};
   const items = [
@@ -598,8 +648,9 @@ test('a request spread over several pull requests is delivered only when all of 
 });
 
 test('the integration order refuses a cycle and a dependency outside the request', t => {
-  const {call} = fixture(t);
-  const base = {expected_surface:'/app', verified_surface:'/app', evidence:['probe'],
+  const {call, record} = fixture(t);
+  for (const r of ['cycle','outside','chain']) record(r, '/app');
+  const base = {verified_surface:'/app', evidence:['probe'],
     queue_readable:true, queued:0, deployment:'ok', public_verification:true,
     thread:{status:'found', complete:true}};
   const out = call('work/scripts/delivery-ledger.sh', {items:[

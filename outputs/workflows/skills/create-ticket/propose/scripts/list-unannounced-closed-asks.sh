@@ -4,11 +4,23 @@
 # WHY THIS READER EXISTS (2026-09-03, mission
 # `announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread`). An ask written in the
 # channel is captured by the inbound sweep, gets its `📥 受理` receipt in its own thread, and
-# becomes an `[FB]` issue. When the work lands the issue closes — but `🟢 Implemented` is a
+# becomes an `[FB]` issue. The issue then closes — but `🟢 Implemented` is a
 # per-unit post of `/implement` (`workaholic:notify`, *Which thread an `/implement` unit's
 # posts land in*), so an ask whose work landed through a session working it directly reaches
 # no route step and its thread ends at the receipt. From the channel, an ask that shipped
 # three hours ago and one nobody has started look identical.
+#
+# WHAT CLOSES THAT ISSUE CHANGED UNDER THIS READER, AND THE READER DID NOT (2026-09-19,
+# ticket `20260919094701`). It used to be the ingest pull request's `Closes #<N>` — so an
+# issue closed when its proposal MERGED, which is before any work exists. That keyword is
+# gone from the ingest seam; a source issue is now closed by `/implement`'s per-item
+# reconciliation (`work/scripts/close-source-issue.sh`, on `implemented_and_verified`) or
+# by a person. This reader's subject is unchanged: it still answers WHICH CLOSED ASKS
+# NOBODY TOLD THEIR OWN THREAD ABOUT. Two consequences worth stating. An ask still being
+# worked on no longer appears here at all, which is correct — it is not finished, and the
+# old behaviour listed it the moment its proposal merged. And this reader MUST NOT be
+# given the close: it lists issues that are already closed, so it sees an item only after
+# something else ended it, and a second closer would be a race over an act that needs none.
 #
 # THE NEIGHBOURING READER CANNOT ANSWER IT, AND THAT WAS MEASURED BEFORE THIS WAS WRITTEN.
 # `moderate/scripts/reconcile-candidates.sh` lists `repos/<slug>/pulls` and keeps only rows

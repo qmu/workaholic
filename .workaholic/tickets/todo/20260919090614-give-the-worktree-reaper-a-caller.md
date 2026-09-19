@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260919-091316
 ---
 
 # Give the worktree reaper a caller, and stop reporting a held backlog as nothing to do

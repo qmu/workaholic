@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260919-091316
 ---
 
 # Resolve the /fb assignee from a real identity, and stop omitting the unassigned

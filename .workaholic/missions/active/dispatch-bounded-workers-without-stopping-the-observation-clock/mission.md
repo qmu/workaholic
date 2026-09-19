@@ -50,3 +50,4 @@ becoming a long inline turn. Changing the policy keeps the same instance, anchor
 - 2026-09-19 — ticket archived — 20260919095618-declare-a-context-propagation-policy-beside-the-worker-count.md
 - 2026-09-19 — ticket archived — 20260919095618-name-the-guarantees-that-lapse-when-delegation-is-restricted.md
 - 2026-09-19 — ticket archived — 20260919095618-drill-a-long-implementation-against-a-live-slack-reply.md
+- 2026-09-19 — Story opened — work-20260919-133920.md

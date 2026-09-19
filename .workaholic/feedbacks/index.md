@@ -773,4 +773,5 @@
 * [Support low-context workers without stalling the work tick](20260919095501-support-low-context-workers-without-stalling-the-work-tick.md)
 * [Reconcile every accepted request before a completion mention](20260919100026-reconcile-every-accepted-request-before-a-completion-mention.md)
 * [The Codex loop pins its own skill path and its status surface writes the locks it reads](20260919114700-the-codex-loop-pins-its-own-skill-path-and-its-status-surface-writes-the-locks-it-reads.md)
+* [The moderation planner stops answering at the 35th step](20260919145924-the-moderation-planner-stops-answering-at.md)
 <!-- okf:generated:end -->

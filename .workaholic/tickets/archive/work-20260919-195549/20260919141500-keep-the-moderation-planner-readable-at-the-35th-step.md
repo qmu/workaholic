@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T14:15:00+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -136,3 +137,97 @@ repaired script's own lesson (*every unbounded value travels by file*) is the fi
 - No constraint over persisted data is tightened without exercising the upgrade path against a
   legacy snapshot record (`rules/general.md`) — the runtime snapshot store is persisted state, so
   if its shape changes, a record written by today's version must still be read back.
+
+## Final Report
+
+Development completed as planned, with one correction to the ticket's own framing recorded below.
+
+**The cause is the shape of one registry row, and the registry's size is not a term.** The ticket
+recorded two signals and deliberately asserted neither. Step 2's instruction — establish the cause
+before repairing — settled it as follows.
+
+Reproduced byte-for-byte on the current tree, with a row whose `trigger` is the string `"cadence"`:
+
+```
+cold tick count: 37
+second.json bytes: 1066  valid: yes
+--- second tick ---
+jq: error (at <unknown>): Cannot index string with string "seconds"
+exit=5
+--- piped (the ticket's shape) ---
+jq: error (at <unknown>): Cannot index string with string "seconds"
+pipeline exit=0
+```
+
+That is every observed symptom at once: a clean cold tick, a shape error on the second, empty
+stdout, and **exit 0 through a pipe** — the ticket's own "empty stdout, exit 0". jq's `or` and its
+`if` both short-circuit, and `.trigger.seconds` is reached only on the arm where the step has
+already run, so a cold tick never evaluates it and a malformed row is invisible until the tick the
+reading exists for.
+
+**The 1024-byte signal is not the cause.** Measured on the tree's own scripts with the registry
+grown from its own rows:
+
+| steps | `second.json` | valid JSON | planner exit | planner answer |
+| ----- | ------------- | ---------- | ------------ | -------------- |
+| 36 | 1181 | yes | 0 | parseable |
+| 40 | 1283 | yes | 0 | parseable |
+| 60 | 1824 | yes | 0 | parseable |
+| 100 | 2909 | yes | 0 | parseable |
+| 200 | 5688 | yes | 0 | parseable |
+| 400 | 11283 | yes | 0 | parseable |
+
+The planner crosses 1024 bytes at 36 steps and answers correctly, and the fault reproduces at 1066
+bytes with intact JSON. The ticket's second signal — *a `second.json` that ended cleanly and still
+drove the shape error* — is exactly what a valid input carrying a malformed row looks like; the
+first signal was not reproducible and is not the cause. No bound was raised and no value was moved
+to a file, because no bound is involved.
+
+**Why it matters now, restated correctly.** The registry reached **36** steps on 2026-09-19
+(`unattributed-asks`, `propose-yield`, PR #1239), so the 35th step the ticket predicted has already
+landed — and the planner is fine, because every one of those rows is well formed. What the next
+step addition risks is not a count but a hand-written row, and that is what the repair and the
+regression catch.
+
+**What changed.** `plan-steps.sh` asserts every field its program indexes — `id`, `script`,
+`trigger` (an object), and, when present, `trigger.seconds` and `depends_on_snapshot` — before
+planning, refusing **by name and on the cold tick**: `invalid_registry_step` carrying the offending
+ids, `registry_unreadable`, or `plan_failed` when its own program aborts for any other reason. A
+well-formed registry is byte-identical in behaviour. `delivery-report.test.mjs`'s P8 row asserted
+`assert.ok(row.trigger)`, which the string `'cadence'` satisfies; it now asserts an object with a
+numeric `seconds`, naming the row.
+
+**No literal step count was introduced.** The regression grows the registry from its own rows and
+compares against `grown.length`; `README.md`'s stale prose count (`33`, against a registry of 36)
+was removed rather than updated.
+
+### Discovered Insights
+
+- **Insight**: jq's `or` and `if` short-circuit, so a field indexed only on a later arm is never
+  evaluated on the path most tests take — a malformed row passes the cold tick and aborts the warm
+  one.
+  **Context**: `plan-steps.sh` reads `.trigger.seconds` twice, in the `select` and in the `reason`,
+  and both sites sit behind `($has_last | not)`. Any reading in this repository written as
+  "validate by using it" inherits the same blind spot: the validating use has to be on the path
+  every input takes, or it is not validation.
+
+- **Insight**: a shell script whose last command is `jq` reports jq's failure as its own exit
+  status — and that status vanishes the moment a caller pipes it, because the pipeline reports the
+  last stage. Empty stdout then reads as an empty answer.
+  **Context**: this is the same class as `rules/shell.md`'s embedded-jq rule, one layer out: that
+  rule classifies a jq *compile* error, and this is a jq *runtime* error reaching a caller as
+  silence. `run.sh` was protected only because it tests `.status` explicitly; nothing else in the
+  chain would have been.
+
+- **Insight**: a truthiness assertion over structured data is not a shape assertion —
+  `assert.ok(row.trigger)` passes for the string that breaks the consumer.
+  **Context**: the P8 registry row exists to make a registry change *stated*, and it waved through
+  precisely the malformation the planner cannot survive. A pin over data that another program
+  indexes should assert the shape that program requires.
+
+- **Insight**: a ticket that records two signals and refuses to choose between them is doing the
+  right thing — one of the two was an artefact and the other was the whole cause, and asserting
+  either at writing time would have sent the repair at a size bound that does not exist.
+  **Context**: the ticket's step 2 ("Do not repair before this is settled") is what made the
+  measurement happen. The 1024 number came from a session's own shell; `rules/shell.md`'s
+  `noclobber` rule describes one way such an artefact arises.

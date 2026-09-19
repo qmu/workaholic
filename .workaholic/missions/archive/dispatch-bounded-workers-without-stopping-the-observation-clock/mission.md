@@ -2,7 +2,7 @@
 type: Mission
 title: Dispatch bounded workers without stopping the observation clock
 slug: dispatch-bounded-workers-without-stopping-the-observation-clock
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-19T09:55:46+09:00
 author: a@qmu.jp
@@ -51,3 +51,4 @@ becoming a long inline turn. Changing the policy keeps the same instance, anchor
 - 2026-09-19 — ticket archived — 20260919095618-name-the-guarantees-that-lapse-when-delegation-is-restricted.md
 - 2026-09-19 — ticket archived — 20260919095618-drill-a-long-implementation-against-a-live-slack-reply.md
 - 2026-09-19 — Story opened — work-20260919-133920.md
+- 2026-09-19 — mission achieved — mission.md

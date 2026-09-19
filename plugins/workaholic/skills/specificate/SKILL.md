@@ -37,7 +37,17 @@ issue, with the reason on stderr; a walk that cannot run at all leaves the base 
 alone and never turns a readable inbox into a refusal. Each returned issue is an ask in hand exactly as if the retired trigger
 had delivered it. A returned `recorded_unplanned` issue reuses the named immutable record;
 capturing it again is forbidden. Run the full workflow per issue — its record, its own judgment,
-its own pull request with `Closes #<N>` — one at a time.
+its own pull request with `Refs #<N>` — one at a time.
+
+**The exclusion is keyed on the record naming the issue's URL, never on the issue being
+closed** — a reading established against this tree on 2026-09-19 (ticket
+`20260919094701`) before the ingest close was removed. `list-inbound-issues.sh` filters
+`state=open` server-side and then excludes by `grep`ping the feedback area for
+`/issues/<N>`; closure appears in neither term, and until that ticket it suppressed the
+re-offer one layer earlier, by removing the issue from the listing altogether. So an ask
+whose record carries its URL stays excluded with the issue **open**, under the same word
+it reports today — which is what makes leaving it open safe, and what makes step 3's
+`Source:` line load-bearing rather than decorative.
 
 The page is one **formation turn**. While it or an unmerged capture exists,
 `formation_pending: true` prevents the coordinator from starting a new implementation claim.
@@ -104,8 +114,10 @@ envelope, and abort reason, is [`reference/workflow.md`](reference/workflow.md):
 4. **Judge and decide the form** (below); scaffold the mission and/or tickets, stamp the
    acceptance links, and check the ticket floor.
 5. **Publish everything as one pull request** (`publish-tree-pr.sh` under
-   `WORKAHOLIC_PR_TITLE`, and `WORKAHOLIC_CLOSES_ISSUE` when step 1 captured a
-   triggering issue number — its merge then auto-closes that issue), close the
+   `WORKAHOLIC_PR_TITLE`, and `WORKAHOLIC_REFERENCES_ISSUE` when step 1 captured a
+   triggering issue number — the body then **references** that issue and says it stays
+   open until the work is reconciled; this run never sets `WORKAHOLIC_CLOSES_ISSUE`,
+   because merging a proposal queues work rather than delivering it), close the
    publish tree,
    **notify**, and **report** one line: the form chosen with its reason, the record's
    filename, **the carry** (what each emitted artifact carried, and every dropped ref with
@@ -378,7 +390,7 @@ Full invocations with `${CLAUDE_PLUGIN_ROOT}` paths are in [`reference/workflow.
 - **`strategy/scripts/list.sh [--status <s>]`** — the strategy set, read at step 5b before any judgment that names a slug. Pure read, and it degrades to an empty list in a tree with no `strategies/` area; an empty set simply means every announcement is `strategy_not_found`.
 - **`strategy/scripts/close.sh <slug> achieved|abandoned`** — the only writer of an end state, run **inside the publish tree** for an *ended* announcement. Refuses `no_slug` / `bad_status` / `not_found` / `already_ended`, and `reason: already` on a no-op re-close; each refusal falls back to record-only naming it. Re-opening is not offered by the script and is not worked around here — a direction being pursued again is a new strategy.
 - **`strategy/scripts/create.sh "<title>" <YYYY-MM-DD> "<assignees>" "<schedule>" ["<feedback-refs>"]`** (Aim prose on stdin) — the strategy form's only writer, run **inside the publish tree**; never Write/Edit the file directly. Refuses `no_title` / `bad_target_date` / `no_assignees` / `empty_schedule` / `empty_aim` / `exists`, and every one of those refusals is a **fall back to record-only naming the refusal**, never a retry with an invented value. Its own floor is the same one `hooks/validate-strategy.sh` enforces at the write seam, so a strategy that `create.sh` wrote is valid by construction.
-- **`branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify>`** — one call, everything written; emits `{ok, sha, branch, pr_url, base}`; `pr_failed` still reports `branch` and `sha`. `WORKAHOLIC_CLOSES_ISSUE=<N>` threads a native `Closes #<N>` line into the body, so merging the pull request auto-closes the "[FB] ***" issue the ask came from — empty (the common case) emits no line. **`WORKAHOLIC_AUTO_MERGE` is left unset for the strategy form** — that is the whole mechanism of the exemption, not a separate flag.
+- **`branching/scripts/publish-tree-pr.sh <title> <why> <changes> <concerns> <insights> <verify>`** — one call, everything written; emits `{ok, sha, branch, pr_url, base}`; `pr_failed` still reports `branch` and `sha`. `WORKAHOLIC_REFERENCES_ISSUE=<N>` threads a plain `Refs #<N>` line into the body plus one line saying the issue stays open until the work is reconciled — empty (the common case) emits no line. **This run uses that one, never `WORKAHOLIC_CLOSES_ISSUE`** (2026-09-19, ticket `20260919094701`): merging an ingest pull request queues the work, so a closing keyword here would end a person's ask before any implementation, verification or review surface existed. The writer still honours `WORKAHOLIC_CLOSES_ISSUE=<N>` for every other caller, and never writes both lines. **`WORKAHOLIC_AUTO_MERGE` is left unset for the strategy form** — that is the whole mechanism of the exemption, not a separate flag.
 - **`extract-issue-number.sh ["<argument>"]`** — the source for that env var: `CCR_TRIGGER_ISSUE_NUMBER` under a routine, else a `#<N>`/issue URL in the argument; emits `{"issue_number": "<N>"}` or `""`. Run at step 1, kept in hand through to step 10.
 - **`list-inbound-issues.sh [feedbacks-dir]`** — the clock-fired discovery (*Clock-fired discovery*, above): the open GitHub issues assigned to the session's own identity, oldest-first. A base record without an artifact relation remains offered as `recorded_unplanned`; a relation excludes it as `already_planned`, a record on an unmerged branch as `captured_on_branch`, and the tick's own finding as `self_originated`. Its `formation_pending` value is the coordinator's mechanical no-new-implement boundary. `WORKAHOLIC_PROPOSE_ISSUE_LIMIT` caps the page (default 20). Pure read, never load-bearing: a missing `gh` or a failed lookup is `{ok: false, reason, detail}` with exit 0 — an unreadable inbox is reported, never rendered as an empty one, and a branch walk that could not run is named on stderr rather than turned into a refusal.
 - **`lib/unmerged-branches.sh`** — sourced, never invoked: the one walk over what an unmerged remote branch **adds**, shared by `list-proposed-refs.sh` (missions and tickets) and `list-inbound-issues.sh` (feedback records). Git-native rather than `gh pr list` — the same oracle the claim protocol rests on — and it over-reads on every ambiguity, because the loud failure on both sides is the duplicate.

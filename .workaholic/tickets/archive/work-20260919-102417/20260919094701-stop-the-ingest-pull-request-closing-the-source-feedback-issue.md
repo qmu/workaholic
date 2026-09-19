@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:47:01+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -123,3 +124,65 @@ changes, and the reading must be recorded either way.
 - **`/fb`'s cross-repository path and any other caller of `WORKAHOLIC_CLOSES_ISSUE` are out of
   scope**; the ticket touches the ingest caller only, and the story should name any other caller
   it found so the next reader knows the set.
+
+## Final Report
+
+Development completed as planned. Step 1(b)'s reading came out in the direction the ticket
+needed, so step 2 was taken and step 3 was not.
+
+**Reading (a): the ingest pull request did carry `Closes #<N>`.** `publish-tree-pr.sh:106`
+(the transaction path) and `:193` (the ordinary path) both write it from
+`WORKAHOLIC_CLOSES_ISSUE`, and `specificate/reference/workflow.md` step 10 set that variable
+to the **triggering** issue's number on every ingest.
+
+**Reading (b): the exclusion is keyed on the record naming the issue's URL, not on closure —
+so this change is safe as written.** `list-inbound-issues.sh` asks GitHub for
+`state=open&assignee=<login>` and then, for each row, `grep`s the feedback area for
+`/issues/<number>`: a match promotes to `already_planned` when `list-proposed-refs.sh` shows a
+planned artifact relating to that record, and to `captured_on_branch` when the record lives
+only on an unmerged proposal branch. **Closure appears in neither term.** What it was doing was
+suppressing the re-offer one layer *earlier* — a closed issue never reaches the listing at all —
+so leaving the issue open simply moves the suppression onto the exclusion that was always there.
+That is exactly why step 3's `Source:` line is load-bearing: a record omitting the URL leaves the
+ask re-proposed every tick, which is the failure mode step 3 already warns about.
+
+**What changed.** `publish-tree-pr.sh` gained a second, validated env var,
+`WORKAHOLIC_REFERENCES_ISSUE`, writing a plain `Refs #<N>` plus one line stating that the issue
+stays open until the work is reconciled; the ingest caller sets that one and no longer sets
+`WORKAHOLIC_CLOSES_ISSUE`. A new variable rather than a prose instruction, because the
+acceptance criterion is *the body carries no closing keyword and still references the issue* and
+a prose instruction is checkable by nothing. The two are mutually exclusive and the **closing
+keyword wins** when both are set — a body saying `Closes #<N>` and *this stays open* at once
+contradicts itself, and the caller that set the closing keyword asked for a close.
+
+**The writer is unchanged in behaviour.** Given `WORKAHOLIC_CLOSES_ISSUE` it still writes the
+closing line, on both the ordinary and the transaction path, and the existing hermetic rows for
+that behaviour pass untouched. Only the ingest **caller** stopped setting it.
+
+**The caller set, walked.** A tree-wide grep for `WORKAHOLIC_CLOSES_ISSUE` across `plugins/`,
+`scripts/`, `docs/` and `.github/` returns the writer itself, `specificate/SKILL.md`,
+`specificate/reference/workflow.md` and the suite. **`/specificate` step 10 was the only caller
+that assigned it**; `/fb`'s cross-repository path never used it, and there is no other. The next
+reader therefore has the whole set.
+
+**Shipping this alone leaves feedback issues open indefinitely, deliberately.** The mission's
+next ticket supplies the one act that may close one, on a reconciliation reading
+`implemented_and_verified`. An open issue is visible and arguable; a wrongly closed one is
+invisible.
+
+### Discovered Insights
+
+- **Insight**: `publish-tree-pr.sh` composes the pull-request body in **two** places — a
+  transaction path (`WORKAHOLIC_PUBLICATION_ID` set, body built as an escaped string for
+  `publication.sh`) and the ordinary path (a `printf` heredoc into a body file) — and a change to
+  the body must be made in both or it silently applies to only some callers.
+  **Context**: the two paths diverged for a real reason (the transaction seam hands JSON to
+  another script) and neither is dead, so a single body composer would be a larger change than
+  this ticket. Worth knowing before editing that script again.
+
+- **Insight**: a GitHub closing keyword in a publication body is a *delivery* claim made by a
+  *queueing* act, and nothing downstream could contradict it.
+  **Context**: the reconciliation reader that decides whether work landed cannot have run when
+  the proposal merges — there is no branch yet. Any seam that closes an ask has to sit after
+  implementation, which is what makes the keyword the wrong mechanism here rather than merely
+  mistimed.

@@ -512,7 +512,7 @@ and every abort reports a machine-readable reason.
    step 9b/9c/9d's, and recorded as such rather than implied to be the same.
 
 10. **Publish it all as one pull request, merged immediately.**
-   `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_CLOSES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
+   `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_REFERENCES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`
    — **one call**, carrying the record and whatever the judgment added.
    **The body names step 3b's two sets**, in `<changes>`, per emitted artifact: the refs
    **carried** onto it, and every ref **dropped** with its reason. **And the direction** —
@@ -564,14 +564,33 @@ and every abort reports a machine-readable reason.
    behind the `[Proposal]` prefix (`[提案]` for a Japanese title); the subject and the
    title are separate surfaces (SKILL.md). No notification target rides the body — the
    reply thread is found statelessly (Q1; `workaholic:notify`, *One thread per
-   feedback item*). `WORKAHOLIC_CLOSES_ISSUE` is empty whenever step 1 found no issue
-   number — the ordinary case — and the writer then emits no closing line, unchanged
-   from before this existed; when it is set, the body carries a `Closes #<N>` line so
-   merging the pull request auto-closes the originating "[FB] ***" issue. On
+   feedback item*). **The ingest publication REFERENCES the originating issue and never
+   closes it** (2026-09-19, ticket `20260919094701`): `WORKAHOLIC_REFERENCES_ISSUE`
+   carries step 1's number as a plain `Refs #<N>` plus a line saying the issue stays open
+   until the work is reconciled, and it is empty whenever step 1 found no issue number —
+   the ordinary case — with no line emitted at all. **This run must not set
+   `WORKAHOLIC_CLOSES_ISSUE`.** Merging this pull request merely **queues** the work: at
+   that moment there is no implementation, no branch, no verification and no surface to
+   compare, and `work/scripts/feedback-outcome.sh` has not run and cannot have run — so a
+   closing keyword here closes a person's ask on the strength of a proposal being
+   accepted. The issue is closed one place only, on a reconciliation that reads
+   `implemented_and_verified`. **The writer is unchanged**: given
+   `WORKAHOLIC_CLOSES_ISSUE` it still writes the closing line for every other caller, and
+   a body never carries both. On
    `ok: false`, report the reason; `pr_failed` means the artifact **is** pushed, so open
    the PR by hand rather than re-publishing (which would duplicate it) — and if step 1
-   captured an issue number, include the same `Closes #<N>` line in the hand-opened
-   body, since GitHub's native behavior applies identically either way.
+   captured an issue number, include the same `Refs #<N>` line in the hand-opened
+   body, never a closing keyword.
+
+   **The ask stops being re-offered without the close, and that was established before
+   this changed.** `list-inbound-issues.sh` filters `state=open` server-side and excludes
+   an issue by finding a feedback record that names its `/issues/<N>` URL —
+   `already_planned` once `list-proposed-refs.sh` shows a planned artifact relating to
+   that record, `captured_on_branch` while the record lives only on an unmerged proposal
+   branch. **Closure plays no part in either term**; until now it suppressed the re-offer
+   *before* the exclusion could, by removing the issue from the listing altogether. That
+   is why step 3's `Source:` line is load-bearing: a record omitting the URL leaves the
+   ask re-proposed every tick, forever.
 
 11. **Close the publish tree.** `bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/close-publish-tree.sh`.
     Run it whether or not the publish succeeded; it refuses rather than destroying

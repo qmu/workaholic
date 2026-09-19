@@ -38,6 +38,16 @@
 # asks never had a GitHub issue at all — emits no line, unchanged from before
 # this existed.
 #
+# WORKAHOLIC_REFERENCES_ISSUE threads the same number in as a PLAIN reference
+# (`Refs #<N>`) plus one line saying the issue stays open until the work is
+# reconciled. It is the answer to a question the closing keyword could not ask:
+# a publication that merely QUEUES work must leave the person's issue open, and
+# must still carry the trail back to it (2026-09-19, ticket `20260919094701`).
+# The two are MUTUALLY EXCLUSIVE and the closing keyword wins when both are set
+# — a body carrying `Closes #<N>` and "this stays open" at once is a body that
+# contradicts itself, and the caller that set the closing keyword asked for a
+# close. Validated identically; unset or non-numeric emits no line.
+#
 # WORKAHOLIC_PR_TITLE is an ENV VAR rather than a positional because the
 # positionals belong to commit.sh and end in an open-ended `[files...]`, so an
 # extra one could not be told from a filename.
@@ -103,7 +113,14 @@ if [ -n "${WORKAHOLIC_PUBLICATION_ID:-}" ]; then
   [ "$(printf '%s' "$committed" | jq -r .ok)" = true ] || { printf '%s\n' "$committed"; exit 0; }
   pr_title=${WORKAHOLIC_PR_TITLE:-$TITLE}
   body="## Overview\n\n${WHY}"
-  case "${WORKAHOLIC_CLOSES_ISSUE:-}" in ''|*[!0-9]*) ;; *) body="${body}\n\nCloses #${WORKAHOLIC_CLOSES_ISSUE}";; esac
+  case "${WORKAHOLIC_CLOSES_ISSUE:-}" in
+    ''|*[!0-9]*)
+      case "${WORKAHOLIC_REFERENCES_ISSUE:-}" in
+        ''|*[!0-9]*) ;;
+        *) body="${body}\n\nRefs #${WORKAHOLIC_REFERENCES_ISSUE}\n\nThis issue stays open until the work it asks for is reconciled on the surface it named." ;;
+      esac ;;
+    *) body="${body}\n\nCloses #${WORKAHOLIC_CLOSES_ISSUE}";;
+  esac
   jq -cn --arg title "$pr_title" --arg body "$body" '{title:$title,body:$body}' >"$publish_request"
   published=$(sh "${SCRIPT_DIR}/publication.sh" publish --transaction "$WORKAHOLIC_PUBLICATION_ID" --request "$publish_request" --mode pr)
   if [ "$(printf '%s' "$published" | jq -r .ok)" = true ]; then
@@ -185,12 +202,25 @@ case "$closes_issue" in
   ''|*[!0-9]*) closes_issue="" ;;
 esac
 
+# The plain reference is validated the same way, and only reached when nothing is
+# being closed: one body never says both.
+refs_issue=""
+if [ -z "$closes_issue" ]; then
+  refs_issue="${WORKAHOLIC_REFERENCES_ISSUE:-}"
+  case "$refs_issue" in
+    ''|*[!0-9]*) refs_issue="" ;;
+  esac
+fi
+
 body_file=$(mktemp "${TMPDIR:-/tmp}/workaholic-publish-pr.XXXXXX")
 trap 'rm -f "$body_file"' EXIT
 {
   printf '## Overview\n\n%s\n\n' "$WHY"
   if [ -n "$closes_issue" ]; then
     printf 'Closes #%s\n\n' "$closes_issue"
+  elif [ -n "$refs_issue" ]; then
+    printf 'Refs #%s\n\n' "$refs_issue"
+    printf 'This issue stays open until the work it asks for is reconciled on the surface it named.\n\n'
   fi
   printf '## Artifacts\n\n'
   # Counts per (.workaholic/ area, status), not an enumerated file-path list (a

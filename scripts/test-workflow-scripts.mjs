@@ -26819,10 +26819,56 @@ echo ""
     const bodyBogus = readFileSync(capturedBody, "utf8");
     assertTrue("a non-numeric issue value is validated away, never laundered into the body",
       !bodyBogus.includes("Closes #"), bodyBogus);
+
+    // An INGEST publication references the issue and leaves it open (2026-09-19, ticket
+    // `20260919094701`): merging a proposal queues work, and at that moment there is no
+    // implementation, no verification and no review surface to compare.
+    rmSync(capturedBody, { force: true });
+    const refsOnly = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000006-u.md", "WORKAHOLIC_REFERENCES_ISSUE=1104");
+    assertEq("a referencing publication reports success", refsOnly.ok, true);
+    const bodyRefs = readFileSync(capturedBody, "utf8");
+    assertTrue("the body references the issue without a closing keyword",
+      bodyRefs.includes("Refs #1104") && !bodyRefs.includes("Closes #"), bodyRefs);
+    assertTrue("and says what the open issue is waiting for",
+      bodyRefs.includes("stays open until the work it asks for is reconciled"), bodyRefs);
+
+    // One body never says both: a caller that asked for a close gets the close.
+    rmSync(capturedBody, { force: true });
+    const both = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000007-t.md",
+      "WORKAHOLIC_CLOSES_ISSUE=319 WORKAHOLIC_REFERENCES_ISSUE=1104");
+    assertEq("a publication naming both reports success", both.ok, true);
+    const bodyBoth = readFileSync(capturedBody, "utf8");
+    assertTrue("the closing keyword wins and no contradicting reference line is written",
+      bodyBoth.includes("Closes #319") && !bodyBoth.includes("Refs #"), bodyBoth);
+
+    // A non-numeric reference is validated away exactly as a non-numeric close is.
+    rmSync(capturedBody, { force: true });
+    const bogusRef = testPublishTreePrClosesIssueScenario(env,
+      ".workaholic/tickets/todo/20260809000008-s.md", "WORKAHOLIC_REFERENCES_ISSUE=not-a-number");
+    assertEq("a non-numeric reference still reports success", bogusRef.ok, true);
+    const bodyBogusRef = readFileSync(capturedBody, "utf8");
+    assertTrue("a non-numeric reference is never laundered into the body",
+      !bodyBogusRef.includes("Refs #") && !bodyBogusRef.includes("stays open until"), bodyBogusRef);
   } finally {
     rmSync(binDir, { recursive: true, force: true });
   }
 }
+
+// The ingest seam must not carry a closing keyword at all: removing the wrong close is a
+// separate, independently reviewable act from choosing the right one, and shipping only
+// the first leaves issues open, which is the safe direction.
+T("specificate ingest: the publication references its issue and never closes it", () => {
+  const workflow = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  // The variable NAME in the composed command line, not the sentence around it: a token
+  // a run executes, which is the only thing worth pinning in a document.
+  assertTrue("the ingest publish call sets the referencing variable",
+    /WORKAHOLIC_REFERENCES_ISSUE=\S/.test(workflow), "step 10");
+  assertTrue("and the ingest publish call assigns no closing keyword",
+    !/WORKAHOLIC_CLOSES_ISSUE=\S/.test(workflow), "step 10 still closes the issue");
+});
 
 // ---------- the PR title is not the commit subject (P4's surviving half) ----------
 // P4 (2026-08-06) split two surfaces that had shared one string: `[Proposal]` is exactly

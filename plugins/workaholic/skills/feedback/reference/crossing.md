@@ -98,10 +98,14 @@ The command owns every `AskUserQuestion` (one-level fan-out; subagents cannot pr
    ```bash
    bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/open-issue.sh --assignee <login> <owner/name> "<title>" <body-file>
    ```
-   `<login>` is the invoking identity (`gh-rest.sh available`). Returns
+   `<login>` is the invoking identity (`gh api user --jq .login`). Returns
    `{ok, url, slug, requested_assignee, assignees, assigned}`. A refusal from `gh` —
    issues disabled, no access for this identity — is reported verbatim and never worked
-   around.
+   around. On an **empty or failing** identity read, **refuse `identity_unresolved` and
+   file nothing** — the word the REST transport's other person-needing callers already
+   answer with (`rules/shell.md`, *GitHub over REST only*; `gh-rest.sh available`'s
+   `login` is vestigial and always empty, so it is never the source of one). The crossing
+   has no fallback of its own, so the refusal is simply reported.
 
    **The crossing offers the assignment and lets GitHub decide** (2026-08-23, measured).
    The rule here until then was that it passed no `--assignee`, on the ground that naming

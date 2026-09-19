@@ -8,7 +8,7 @@
 #   {"ok": true, "identity": "<login>", "limit": N,
 #    "formation_pending": true|false,
 #    "issues":   [{"number", "title", "url", "updated_at", "state", "record"}...], oldest first
-#    "excluded": [{"number", "reason": "already_planned"|"captured_on_branch"|"self_originated"}...]}
+#    "excluded": [{"number", "reason": "already_planned"|"captured_on_branch"|"self_originated"|"unassigned"}...]}
 #   {"ok": false, "reason": "gh_unavailable" | "identity_unresolved" | "list_failed",
 #    "detail": "..."}
 #
@@ -31,6 +31,20 @@
 # issue still reaches /specificate by hand (`/specificate #<N>`), where a human chose
 # the one session that acts. The server-side assignee filter also makes the
 # P8 `not_mine` verdict impossible on this path by construction.
+#
+# THAT DECISION STANDS; WHAT CHANGED IS THAT THE ROWS ARE NAMED (2026-09-19, issue
+# #1213). Until then the server-side `assignee=<login>` filter meant an unassigned
+# issue was returned in NEITHER `issues[]` NOR `excluded[]` — OMITTED, not excluded —
+# so a reader could not tell an empty inbox from one full of asks this reader declines.
+# Measured on this repository: nine open issues carried `assignees: []`, every one
+# authored by the operator, the oldest filed weeks earlier, and two of them were the
+# operator's own reports OF THIS DEFECT, unreachable by the routine that would have
+# ingested them. They are now listed and reported under the reason `unassigned`.
+# VISIBILITY, NOT ROUTING: nothing gates on the word, no proposal originates from such
+# an issue, and the `assignee=<login>` filter that governs `issues[]` is unchanged —
+# widening the OFFER would re-open the decision above, which is still live. The cost,
+# stated: one extra REST listing per discovery call, and a repository whose maintainers
+# deliberately leave issues unassigned carries a standing non-empty `excluded[]`.
 #
 # NO TITLE FILTER (decided, not omitted), because of what arrives rather than
 # what we send: issues are filed here by humans in the GitHub UI and by other
@@ -235,6 +249,28 @@ while IFS="$TAB" read -r number url updated origin title; do
 done <<EOF
 $rows
 EOF
+
+# ---- the unassigned issues this reader DECLINES to offer --------------------
+# Reported, never offered (see ASSIGNED TO ME, NOT UNASSIGNED above). Strictly after the
+# assigned read and strictly non-load-bearing: the inbox this run must serve has already
+# been read, so a failure here warns on stderr and the envelope is emitted without these
+# rows. An unreadable ADVISORY must never fail a readable inbox — the inverse of this
+# script's own "an unreadable inbox must never render as an empty one", and the reason a
+# discovery tick never goes quiet for the hour because a second listing failed.
+# `.pull_request` rows are dropped exactly as the assigned listing drops them, and the
+# same `per_page` ceiling bounds it.
+if unassigned="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
+  "repos/${slug}/issues?state=open&assignee=none&sort=created&direction=asc&per_page=${LIMIT}&page=${PAGE}" \
+  --jq 'map(select(.pull_request | not)) | .[] | (.number|tostring)' 2>&1)"; then
+  while read -r un_number; do
+    case "$un_number" in ''|*[!0-9]*) continue ;; esac
+    excluded="${excluded:+${excluded}, }{\"number\": ${un_number}, \"reason\": \"unassigned\"}"
+  done <<EOF
+$unassigned
+EOF
+else
+  echo "list-inbound-issues: unassigned listing unreadable; those issues are not reported" >&2
+fi
 
 page_count=$(printf '%s\n' "$rows" | grep -c . || true)
 if [ "$page_count" -ge "$LIMIT" ]; then next_page=$((PAGE + 1)); else next_page=null; fi

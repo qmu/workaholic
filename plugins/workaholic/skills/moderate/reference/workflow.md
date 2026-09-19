@@ -2760,6 +2760,7 @@ the 2026-09-18 04:07 tick the three were `issue-triage`, `direction-health` and
 | `operator-pulls` | `needs_ruling` | The publication exists **because** merging it is the operator's ruling and closing it is their refusal; the seam refused to auto-merge it for exactly that reason. Filing it as work would be the loop asking itself to settle what it opened a diff to have settled. Every reading it carries is besides that a **judgement** (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*). |
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
+| `worktree-sweep` | `needs_ruling` | It produces no finding to file, and the two things it reports are both a person's. A **removal** is done — the checkout is gone, the branch and its commits are untouched, and nothing is left to repair. A worktree it **held** is held by `reclaimable`, which is `merged AND clean`; `merged` is an ancestry test that a squash-merged base can never satisfy, so a landed branch reads `unmerged` forever and the backlog is permanent by construction rather than by a defect. Whether that predicate should change is the operator's ruling and has been made once already (2026-09-19: it should not), and what to do with a specific standing worktree is a person's judgement about work that may exist on no other ref. Filing either as work would have the loop proposing to loosen the gate that makes its own irreversible act safe. |
 | `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
 | `unrecorded-missions` | `needs_ruling` | **Whether to close the mission or drive it again is the assignee's**, and the step exists because the loop cannot tell them apart: what it establishes is that nothing *recorded* the work, never that the work is undone. `closable-missions`' row, one state over — and filing it as work would have the loop closing a mission on a reading its own header refuses to treat as a proof. |
 | `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
@@ -3762,6 +3763,101 @@ been driven.
   twins while three had none and their work existed anyway).
 - **Two ages, never conflated**: `open_hours` is how long the **pull request** has been open;
   `age` is how long the **question** has been asked, through `lib/read-age.sh` as above.
+
+---
+
+## 33. `worktree-sweep` — reclaim the worktrees a proof says are finished with
+
+```
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-worktree-sweep.sh --tick <id> [--root <repo-root>]
+```
+
+**Why it exists** (2026-09-19, issue #1212). `branching/scripts/reap-worktrees.sh` was built
+after a 53 GB incident and **never given a caller**. Walking the tracked tree, it appeared
+outside its own body in exactly four places — two documentation rows and two test fixtures. No
+command body, no skill workflow step, no entry in `steps.json`, no `.github/workflows/*.yml` and
+no routine prompt invoked it; `survey-worktrees.sh`'s only non-test caller was the reaper itself.
+The one script written to catch what teardown structurally cannot was reachable only by a person
+who already knew its name.
+
+**Why this tick and not a teardown.** `/drive`'s teardown was rejected for the reason the
+reaper's own header gives: teardown exists three times over and each is correct, but all three
+share one precondition — *somebody's run has to reach the end* — and a worktree whose run died,
+whose branch was hand-driven, or whose caller was killed is nobody's teardown, which is exactly
+the set that accumulates. A fourth teardown call would be a fourth instance of the same
+precondition. `/workaholify`'s converge seam was rejected because it runs when an operator
+invokes it, leaving the sweep person-triggered, which **is** the defect. This tick runs hourly
+and unattended in the main checkout, its charter is finding what has gone stale, and
+`retire-claims` (§19) is the standing precedent for a step that **acts** on a proof — including
+the precedent that **a local worktree reap is not a tree write**, so the tick's *writes nothing
+but its own log line* contract is intact.
+
+**What it acts on.** `reap-worktrees.sh --apply`, composed from `$ROOT`. The step **derives no
+predicate of its own and passes no survey in**: the reaper re-derives the proof from a fresh
+`survey-worktrees.sh` at the moment of the act, and a step that handed it a cached reading would
+break exactly the property that makes the act safe.
+
+**The proof is exactly two terms, and the step owns neither.** `reclaimable == true` — merged
+**and** clean **and** no open publication transaction **and** not the main tree, `.publish/`, or
+the current worktree — **plus** `git worktree remove` **without `--force`**, a second,
+independent gate git itself holds. Probed in a throwaway repository 2026-09-19: removing a clean
+worktree whose branch holds commits the base lacks is **allowed**, and afterwards
+`refs/heads/<branch>` is still present with its tip commit reachable — a removal destroys a
+**checkout**, never a branch and never a commit — while a worktree holding an untracked file is
+refused by git itself (`contains modified or untracked files, use --force to delete it`).
+
+**The two things it never does**: it deletes **no branch** and passes **no `--force`**. It also
+writes no ref, pushes nothing, and touches no `.workaholic/` artifact other than the tick log
+line.
+
+**A live claim's worktree cannot be a candidate, by construction rather than by a second check.**
+A live claim always carries at least its own `Claim <unit-id>` commit on the branch, so
+`ahead >= 1` and `merged` is `false`. **No claim-liveness term is added**: the reaper's header
+forbids a second safety authority beside `reclaimable` by name, and a second one is exactly how
+the reader a human consults and the writer that acts start disagreeing.
+
+**The predicate is not loosened, and the consequence is stated.** That is the operator's own
+ruling (issue #1212, verbatim: *"`reclaimable` is merged AND clean, which is the right predicate
+and I am not proposing to loosen it"*). `merged` is `ahead == 0` against `origin/<base>` —
+**ancestry** — and every pull request this loop merges is squash-merged (2026-09-01), so a landed
+branch is never an ancestor of the base and `ahead` never returns to zero: a landed branch is
+**permanently `merged: false`**, the same misreading `superseded` was repaired for in issue #788.
+Measured here the day this shipped: 4 worktrees, 191.7 M held, `reclaimable_bytes: 0`, every one
+`unmerged`. **The first sweep on this repository frees zero bytes and removes none of them, and
+that is the correct outcome rather than a failure.** It still ships — the same sweep run once on
+a consuming repository removed 44 worktrees and freed 5.4 GB with zero failures.
+
+**The summary says what is held, not only what was freed.** `<N> worktree(s); <R> reclaimable,
+<removed> removed, <skipped> skipped — <count> unmerged, <count> dirty, <count>
+unmerged_and_dirty, <count> publication_transaction`. Every term is a function of **the worktree
+set and its skip reasons alone**, so two ticks over an unchanged set render byte-identical
+summaries and a held backlog produces no root line, while a newly held worktree moves the set and
+is visible the hour it appears — `retire-claims`' stability rule unchanged. **Byte totals are
+deliberately excluded** from the summary and the event: `du` output moves between ticks, so a
+byte count in the diff key would render a root line every hour for a backlog that had not
+changed. A reader who wants the bytes runs `survey-worktrees.sh`, which is where they live.
+
+**The `event` names a removal and nothing else.** One or more worktrees removed is a repository
+fact and earns a phrase naming **how many**, never which — the 2026-09-01 rule that a root line
+carries counts and a question carries identifiers. A sweep that removed nothing supplies an
+**empty** `event` and renders no root line at all.
+
+**`needs_agent` is empty**, for `retire-claims`' own reason: a merged-and-clean worktree is
+proved finished, so there is no judgement for a person to make. **Escalating the unreclaimable
+backlog to a person is an explicit non-goal** — it would need a size or an age threshold, and
+this repository does not add a constant without a home for it. The reading is shipped; whether a
+number should provoke a question is a later, separable decision, and the log carries the evidence
+either way.
+
+**A degraded reading sweeps nothing**: a missing reaper (`no_reaper`), empty output
+(`reaper_unreadable`) or output this step cannot parse (`reaper_unparseable`) is `degraded` with
+**nothing removed**. An absent `.worktrees/` directory and a repository with no linked worktrees
+are the ordinary `ok` case, not a degradation.
+
+**It must run from the main checkout**, stated rather than left implicit: `reap-worktrees.sh`
+resolves `here` from `git rev-parse --show-toplevel` and skips the current worktree, so a sweep
+invoked from inside a linked worktree would silently exclude that one. `/moderate` runs in the
+main checkout.
 
 ---
 

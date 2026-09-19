@@ -323,6 +323,20 @@
       "writer": true
     },
     {
+      "id": "worktree-sweep",
+      "script": "step-worktree-sweep.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": true
+    },
+    {
       "id": "closable-missions",
       "script": "step-closable-missions.sh",
       "depends_on_snapshot": [

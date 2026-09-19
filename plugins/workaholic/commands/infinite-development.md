@@ -260,6 +260,10 @@ Run
 `bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/list-unannounced-closed-asks.sh`.
 For each readable item, reconcile its feedback, queued tickets, implementation PR and actual
 review surface. A timeline cross-reference or merged proposal is not implementation evidence.
+**The expected review surface is read off the feedback record, never composed here** (2026-09-19,
+ticket `20260919094701`): the reader resolves `review_surface:` through
+`feedback/scripts/review-surface.sh` and ignores an `expected_surface` a caller supplies, so report
+`verified_surface` — what was actually observed — and let the artifact answer the other side.
 Pass the per-item facts through `work/scripts/feedback-outcome.sh --input <file>` before composing
 a finish line, and through `work/scripts/delivery-ledger.sh --input <file>` where one item is
 answered by **several** pull requests: that reader composes the same one and folds the set with

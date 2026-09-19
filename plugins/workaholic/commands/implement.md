@@ -18,6 +18,12 @@ Before a completion summary, reconcile every source feedback item with its actua
 or package, verification evidence, remaining tickets, implementation PR and deployment outcome.
 Validate those facts with `work/scripts/feedback-outcome.sh`. A similar sibling UI, passing
 tests on another package, or a merged proposal does not satisfy the named review surface.
+**The expected surface is read off the feedback record, never passed in** (2026-09-19, ticket
+`20260919094701`): that reader resolves `review_surface:` through `feedback/scripts/review-surface.sh`
+and ignores any `expected_surface` a caller supplies, so compose `verified_surface` — what this
+run actually observed — and let the artifact answer the other side. A record naming no surface is
+`surface_unresolved`; an absent or unreadable one is `surface_unreadable` with its own
+`surface_reason`, and neither is a pass.
 
 **Where one accepted request is answered by SEVERAL pull requests, read the ledger rather than
 picking one of them** (2026-09-17, ticket `20260917122912`): `work/scripts/delivery-ledger.sh`

@@ -33,10 +33,19 @@ subject: <kind>[:<identity>]  # WHOSE opinion this is; kind is the closed set
 created_at: <ISO-8601>
 author: <email>
 supersedes:               # OPTIONAL: filename of an earlier feedback this entry moots/resolves
+review_surface:           # OPTIONAL: the surface the ASK named — a package, route,
+                          # screen or page the person will look at to judge the work.
+                          # Empty is the ordinary case; never inferred.
 ---
 ```
 
 `kind` is the nature of the entry, `source` the channel it arrived through, `subject` **whose opinion it is**. `supersedes` is the immutable alternative to a status flip: resolving, correcting, or mooting a record is a **new** entry naming the old one. Full field semantics, the `kind: concern` producer fields, and the computed open-concern set: [`reference/schema.md`](reference/schema.md).
+
+### The review surface — persisted here, read back there
+
+**A gate whose input is asserted by the party it checks is not a gate** (2026-09-19, ticket `20260919094701`). `work/scripts/feedback-outcome.sh` has always compared an `expected_surface` against the `verified_surface` a run observed, and until this a tree-wide walk found `expected_surface` in exactly two files — in both as an **input**. No artifact carried it, so the value the reconciliation compared was whatever the agent composing the facts wrote at report time. Measured on a consuming repository: a request about a **public prototype** screen was implemented in the **application package's** shell, the item was closed, and the channel summary claimed the work landed.
+
+The value now lives on **this** record and nowhere else — the grain `feedback-outcome.sh` reconciles, written once by `create.sh --review-surface`, immutable, and therefore not editable by the party implementing the work. Why the ticket and the mission were rejected is stated in that script's own header. It is **read off the ask, never inferred**: an ask naming no surface is the ordinary case, persists nothing, and reconciles as `surface_unresolved` — never a pass and never a publish refusal. `validate-feedback.sh` does **not** floor it, deliberately, because most asks are not about a rendered screen. A wrong surface is corrected the way every other mistake in this stream is: a new record naming the old in `supersedes`.
 
 ### Choosing the subject
 
@@ -150,7 +159,8 @@ The writers of `.workaholic/feedbacks/` are `/specificate` (one record on every 
 
 ## Scripts
 
-- **create.sh** — `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh --subject <subject> "<title>" <kind> <source> [supersedes-filename]`. Stamps `created_at`/`author`, derives the filename, refuses an existing filename, unknown enum values, a missing `--subject` (`no_subject`) and a subject kind outside the closed set (`bad_subject_kind`), refreshes the OKF indexes, git-stages. Emits `{created, path[, reason]}`. `--subject` is an **option**, so the positional contract every caller already used did not move.
+- **create.sh** — `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh --subject <subject> [--review-surface <surface>] "<title>" <kind> <source> [supersedes-filename]`. Stamps `created_at`/`author`, derives the filename, refuses an existing filename, unknown enum values, a missing `--subject` (`no_subject`) and a subject kind outside the closed set (`bad_subject_kind`), refreshes the OKF indexes, git-stages. Emits `{created, path, review_surface[, reason]}`. Both flags are **options** read in either order, so the positional contract every caller already used did not move. `--review-surface` is passed **only when the ask states it** and is never inferred (*The review surface*).
+- **review-surface.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/review-surface.sh <feedback-ref>...`, or `--stdin` with one ref per line when the answer is read back by position. The **one reader** of the persisted surface: `{surfaces: [{feedback, surface, readable, reason}]}`. A record naming none is `readable: true` with an empty `surface`; a record that is absent or unreadable is `readable: false` with `record_not_found` / `record_unreadable` / `no_feedback_ref` — an absence of a **reading** never rounds to an absence of a **surface**. Pure read, exits 0 for every answer.
 - **list-open-concerns.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/list-open-concerns.sh`. The single reader of the open concern set (`kind: concern` minus superseded minus migration-`closed:`). Envelope `{active_count, my_lane_count, owner_counts, should_triage: false, migrated, concerns: [...]}`; runs `migrate-concerns.sh` first and reports that write as `migrated`.
 - **migrate-concerns.sh** — `bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/migrate-concerns.sh [workaholic-root]`. The living migration for the concerns-corpus merger: active files become open records, archived ones `closed:`-stamped records, then `concerns/` is removed. Idempotent, best-effort, never blocks a caller. **It never touches the index** (`staged: false` is a contract): the index is the caller's shared state, and this runs as a side effect of a documented pure read.
 - **fb-fallback.sh** — `printf '%s' "<open-issue envelope>" | sh ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/fb-fallback.sh in-repo|crossing`. The one decision of *The fallback*: `{fallback, reason}`. Pure logic, no network, no `gh` — `ok: true` and a `crossing` destination both answer `false`, an unparseable envelope answers `true` on the in-repo path.

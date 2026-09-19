@@ -42,7 +42,17 @@ and every abort reports a machine-readable reason.
    and uncommitted work are untouched, and steps 3–4 read the base.
 
 3. **Register the record**, inside the publish tree:
-   `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh --subject <subject> "<title>" <kind> <source> [supersedes]`.
+   `printf '%s\n' "<body>" | bash ${CLAUDE_PLUGIN_ROOT}/skills/feedback/scripts/create.sh --subject <subject> [--review-surface "<surface>"] "<title>" <kind> <source> [supersedes]`.
+   **Pass `--review-surface` when the ask names the surface the person will review** —
+   a package, a route, a screen, a rendered page — and **never** otherwise
+   (`workaholic:feedback`, *The review surface*). It is read off the ask exactly as
+   `--verification-handoff` is at step 9, and for the same reason: it records something
+   the ask already stated, rather than granting a permission or asserting a judgement
+   this run made. Most asks name none and that is the ordinary case, which reconciles as
+   `surface_unresolved`. **Never infer one** from the files this batch is about to touch:
+   the reconciliation compares the persisted surface against the surface a later run
+   verified, so a guessed value would make the gate compare a guess against a guess
+   (2026-09-19, ticket `20260919094701`).
    **The subject is the ask's author, never this session.** For a discovered inbound
    issue that is `person:<the issue's author login or email>`; for an argument handed in
    by a human it is that human. The runner's own identity is already recorded as

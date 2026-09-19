@@ -38,7 +38,7 @@ not asserted at report time. A run that cannot read the evidence says so and clo
 
 <!-- PROPOSED - a sketch the reviewer replans drive-ready. -->
 
-- [ ] The review surface an ask names is persisted on the artifact and read back, not asserted (#20260919094701-carry-the-ask-s-review-surface-onto-the-artifact-it-emits.md)
+- [x] The review surface an ask names is persisted on the artifact and read back, not asserted (#20260919094701-carry-the-ask-s-review-surface-onto-the-artifact-it-emits.md)
 - [ ] Merging the ingest pull request no longer closes the source feedback issue (#20260919094701-stop-the-ingest-pull-request-closing-the-source-feedback-issue.md)
 - [ ] A source issue is closed only on a reconciliation reading `implemented_and_verified`, and
       an unclosed item names which state held it (#20260919094701-close-a-source-issue-only-on-a-verified-reconciliation.md)
@@ -46,3 +46,4 @@ not asserted at report time. A run that cannot read the evidence says so and clo
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-19 — ticket archived — 20260919094701-carry-the-ask-s-review-surface-onto-the-artifact-it-emits.md

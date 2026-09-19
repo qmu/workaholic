@@ -25,6 +25,17 @@ per-field detail, the classification rationale, and the concern producer extensi
   earlier feedback is resolved, obsolete, or overtaken, write a **new** entry naming the
   old one here. Consumers treat a superseded entry as historical context, not current
   signal.
+- **`review_surface`** is the surface **the ask named** — the package, route, screen or
+  rendered page the person will look at to judge whether the work landed. It is an
+  acceptance dimension, not a location for the code: *a similar sibling UI, passing
+  tests on another package, or a merged proposal does not satisfy the named review
+  surface* (`commands/implement.md`). Read off the ask and **never inferred**; empty is
+  the ordinary case, because most asks are not about a rendered screen. Not floored by
+  `validate-feedback.sh`, deliberately — refusing to publish an ask that names no
+  surface would turn a reading into an outage. The three candidate homes and why this
+  one won are in the writer's own header (`feedback/scripts/create.sh`); the reader is
+  `feedback/scripts/review-surface.sh`, and the one consumer of its answer is
+  `work/scripts/feedback-outcome.sh`.
 
 ## The subject axis
 

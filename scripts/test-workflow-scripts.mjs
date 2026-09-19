@@ -15972,6 +15972,26 @@ function testFeedback() {
     assertTrue("list.sh surfaces the subject",
       JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.feedbackList}`).stdout).some((e) => e.subject === "meeting:2026-08-13 planning"));
 
+    // THE REVIEW SURFACE IS PERSISTED WHERE THE ASK IS CAPTURED, never asserted at
+    // report time (2026-09-19, ticket `20260919094701`). The write half is here; the
+    // read half, and that no caller fact can override it, is pinned in
+    // `scripts/tests/agentic-loop/repair-contracts.test.mjs`.
+    r = run(dir, `printf 'A public prototype screen.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" --review-surface "/prototype-1" "Ask naming a surface" instruction slack`);
+    const surfaced = JSON.parse(r.stdout);
+    assertEq("create echoes the review surface it wrote", surfaced.review_surface, "/prototype-1");
+    assertTrue("the record carries the surface the ask named",
+      /^review_surface: \/prototype-1$/m.test(readFileSync(join(dir, surfaced.path), "utf8")));
+    // An ask naming none is the ORDINARY case and is never refused — most asks are not
+    // about a rendered screen, and a guessed surface is worse than none.
+    r = run(dir, `printf 'An ordinary ask.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --subject "person:a@qmu.jp" "Ask naming no surface" instruction slack`);
+    const unsurfaced = JSON.parse(r.stdout);
+    assertTrue("an ask naming no surface still publishes", unsurfaced.created === true, r.stdout);
+    assertTrue("a record whose ask named no surface carries an empty field",
+      /^review_surface: *$/m.test(readFileSync(join(dir, unsurfaced.path), "utf8")));
+    // The option is read in either order and moves no positional.
+    r = run(dir, `printf 'Either order.\\n' | ${POSIX_SH} ${SCRIPTS.feedbackCreate} --review-surface "/app/settings" --subject "person:a@qmu.jp" "Ask with flags reversed" instruction slack`);
+    assertEq("the surface option is order-independent", JSON.parse(r.stdout).review_surface, "/app/settings");
+
     // EVERY DOCUMENTED SOURCE IS ACCEPTED, not just the three the writer listed.
     // `development` was in this script's own usage header, in `SKILL.md` and in
     // `validate-feedback.sh`, and missing only from `create.sh`'s own case — so the

@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.4
 feedback: [20260919114700-the-codex-loop-pins-its-own-skill-path-and-its-status-surface-writes-the-locks-it-reads.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -50,3 +50,4 @@ stderr and a file nobody opens.
 - 2026-09-19 — ticket archived — 20260919115510-recover-or-record-a-retired-plugin-tree-at-startup.md
 - 2026-09-19 — ticket archived — 20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing.md
 - 2026-09-19 — mission achieved — mission.md
+- 2026-09-19 — run recorded (+1.4h) — impl17-20260919-1920

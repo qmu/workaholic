@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-172454
 ---
 
 # Keep one coherent feedback batch one mission one pull request one report

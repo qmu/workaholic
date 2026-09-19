@@ -40,10 +40,11 @@ stderr and a file nobody opens.
 ## Acceptance
 
 - [x] Reading worker liveness writes nothing and takes no lock, and the drill proves it. (#20260919115510-read-worker-liveness-without-writing-or-locking.md)
-- [ ] A startup that cannot read its own instructions recovers the tree or leaves a record. (#20260919115510-recover-or-record-a-retired-plugin-tree-at-startup.md)
+- [x] A startup that cannot read its own instructions recovers the tree or leaves a record. (#20260919115510-recover-or-record-a-retired-plugin-tree-at-startup.md)
 - [ ] A stopped or non-executing clock is announced where a person already looks. (#20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing.md)
 
 ## Changelog
 
 - 2026-09-19 — Proposed from issue #1218 (`[FB]`, subject `person:tamurayoshiya`).
 - 2026-09-19 — ticket archived — 20260919115510-read-worker-liveness-without-writing-or-locking.md
+- 2026-09-19 — ticket archived — 20260919115510-recover-or-record-a-retired-plugin-tree-at-startup.md

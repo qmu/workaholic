@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-152739
 ---
 
 # Hold the completion mention until the whole human request set is in

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T13:37:19+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -248,3 +249,45 @@ the failure names `worktree-sweep` rather than an integer.
   `human-checkin` bookends and the per-row shape loop survive with their own messages.
 - No constraint over persisted data is tightened here, so the legacy-fixture rule
   (`rules/general.md`) does not apply; say so rather than leaving it unaddressed.
+
+## Final Report
+
+Development completed as planned. `main`'s `validate` red is cleared: the two stale `33` literals
+in `scripts/tests/agentic-loop/` are gone and `node --test scripts/tests/agentic-loop/*.test.mjs`
+is green at 147/147 on the 34-step registry.
+
+The two numbers were repaired with different edits, as step 2 required. `delivery-report.test.mjs`
+now pins the registry as a named, ordered `EXPECTED_STEPS` list compared with `deepEqual`, and its
+duplicate check became the number-free invariant `new Set(ids).size === ids.length`. The `open-log`
+/ `human-checkin` bookends and the per-row shape loop were kept beside it, so a violated bookend
+still fails with its own message rather than inside a 34-element diff. `polling-cost.test.mjs`
+hoists the `steps.json` read it already performed one line below and derives its cold-tick
+expectation from `registry.steps.length`; no shared constant was introduced.
+
+Add / remove / swap probes were run against a scratch copy of the registry, restored after each.
+All three fail `delivery-report.test.mjs` naming the exact id: `+ 'fabricated-probe'` (add),
+`- 'retire-claims'` (remove), and both `+ 'release-status'` / `- 'release-status'` (swap — a case
+the literal count could not catch at all). `loop-drill.sh:1326` and `test-workflow-scripts.mjs`'s
+`moderateSteps()` were read and confirmed to pin no literal count; neither was touched.
+
+### Discovered Insights
+
+- **Insight**: `polling-cost.test.mjs`'s derived cold-tick assertion passes all three probes, but
+  under the *add* probe the row as a whole still fails — at the pre-existing second-tick assertion
+  (`data.count, 0`), not at the derived one.
+  **Context**: The ticket predicted the derived assertion would pass, and it does: measured
+  directly, `plan-steps.sh` answers `data.count == 35` on a cold tick over a 35-step registry. What
+  fails is the *second* tick, where `plan-steps.sh` emits empty stdout and
+  `jq: error … Cannot index string with string "seconds"`. Both scripts involved
+  (`runtime-plan.sh`, `plan-steps.sh`) are untouched by this change, and the same sequence is green
+  at the tree's real 34 steps — so this is a latent property of the planner that the 35th step will
+  expose, not a regression here. Minted as ticket `20260919141500`; deliberately not repaired
+  opportunistically, since its cause is not yet established and two observed signals disagree.
+
+- **Insight**: A registry pinned by name is strictly stronger than one pinned by length and costs
+  one list edit per deliberate step addition.
+  **Context**: The literal caught only a *net* size change — a swap, a rename and a reorder all
+  passed it — and failed with `34 !== 33`, naming nothing a reader can act on. The repository had
+  already learned this twice against this same registry (`loop-drill.sh`'s 2026-08-26 comment, and
+  `test-workflow-scripts.mjs`'s fourteen by-name consumers); the two `node --test` files were the
+  last place still counting.

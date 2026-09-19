@@ -82,9 +82,15 @@ test('P5 maintenance cadence state selects no unchanged step twice inside its ho
   run(['git','init','-q','-b','main',dir]); writeFileSync(join(dir,'tracked'),'x'); run(['git','-C',dir,'add','tracked']); run(['git','-C',dir,'-c','user.name=T','-c','user.email=t@example.com','commit','-qm','fixture']);
   const state=join(skills,'moderate/scripts/runtime-plan.sh'); const planner=join(skills,'moderate/scripts/plan-steps.sh');
   const prepare=now=>run(['sh',state,'prepare','--root',dir,'--now',String(now)],{cwd:dir});
+  // Derived, not literal (2026-09-19): the subject under test is `plan-steps.sh`, so comparing its
+  // selected count to the registry proves a real property — a cold tick selects ALL of them —
+  // rather than restating `steps.json` to itself. It therefore stays green at any registry size,
+  // which is correct: the registry's own contents are pinned by name in delivery-report.test.mjs.
+  const registry=JSON.parse(readFileSync(join(skills,'moderate/scripts/steps.json'),'utf8'));
   const first=prepare(10000); assert.equal(first.status,0,first.stderr); const firstInput=join(dir,'first.json'); writeFileSync(firstInput,first.stdout);
-  assert.equal(JSON.parse(run(['sh',planner,'--input',firstInput]).stdout).data.count,33);
-  const completed=run(['sh',state,'complete','--root',dir,'--now','10000','--executed',JSON.parse(readFileSync(join(skills,'moderate/scripts/steps.json'))).steps.map(x=>x.id).join(',')],{cwd:dir});
+  assert.equal(JSON.parse(run(['sh',planner,'--input',firstInput]).stdout).data.count,
+    registry.steps.length,'a cold tick selects every registered step');
+  const completed=run(['sh',state,'complete','--root',dir,'--now','10000','--executed',registry.steps.map(x=>x.id).join(',')],{cwd:dir});
   assert.equal(completed.status,0,completed.stderr);
   const second=prepare(10001); const secondInput=join(dir,'second.json'); writeFileSync(secondInput,second.stdout);
   assert.deepEqual(JSON.parse(second.stdout).changed_snapshots,[]);

@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [Declare the local proof set a main-bound merge stands on](work-20260919-231306.md)
 * [work-20260919-214225](work-20260919-214225.md) - The P8 registry row derives completeness from the shipped step scripts and asserts only the orderings the workflow reference states, so adding a step no longer needs a second edit
 * [work-20260919-195549](work-20260919-195549.md) - The moderation planner refuses a registry row it cannot read, the concern extractor refuses an argument vector it cannot trust, and an unanswered person gets a word of its own
 * [work-20260919-192006](work-20260919-192006.md) - The Codex clock stops writing the locks it reads, records a startup it cannot recover, and announces a stop where a person already looks

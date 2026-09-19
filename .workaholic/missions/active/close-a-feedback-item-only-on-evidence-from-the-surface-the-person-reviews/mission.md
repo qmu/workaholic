@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-102417
 ---
 
 # Close a feedback item only on evidence from the surface the person reviews

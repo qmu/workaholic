@@ -271,6 +271,12 @@ answered by **several** pull requests: that reader composes the same one and fol
 answers `delivered`, the first `missing` stage, the bounded dependency-ordered `next[]`, one
 `blockers[]` entry per gate naming its whole affected scope, and the `independent[]` work that
 keeps going. Report every item, including queued, unverified and surface-mismatched work.
+**This step announces and never closes** (2026-09-19, ticket `20260919094701`): its candidate
+reader lists issues that are already closed, so it sees an item only after something else ended
+it. The one seam that may close a source issue is `/implement`'s per-item reconciliation
+(`commands/implement.md`), through `work/scripts/close-source-issue.sh` on an
+`implemented_and_verified` verdict; two seams closing one issue is a race over an act that
+needs none.
 Resolve the exact `fb:<stem>` thread. A complete lookup proving it missing earns the description
 root through the same durable transport, then the finish reply at its verified returned timestamp.
 An ambiguous, partial or failed lookup stays `thread_unresolved`; never silently discard it or

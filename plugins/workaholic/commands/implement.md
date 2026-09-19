@@ -34,6 +34,24 @@ composes that same reader over the whole pull-request set and answers per reques
 guessing. **One external gate is reported once with its whole affected scope** (`blockers[]`,
 naming every request and pull request it holds), and `independent[]` names the open work no gate
 holds — which keeps going. It clears no gate, merges nothing and verifies nothing.
+**And the source issue is closed here, on that verdict and nowhere else** (2026-09-19, ticket
+`20260919094701`). The ingest pull request no longer carries `Closes #<N>` — merging a proposal
+queues work — so after the reconciliation above, for each source item whose ask arrived as a
+GitHub issue, run
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/work/scripts/close-source-issue.sh --input <file>` with
+`{"issue": <N>, "item": <that item's facts>}`. It re-derives the verdict through the same one
+reader in the moment of the act, closes **only** on `implemented_and_verified`, and refuses
+every other state **by that state's own word** with no request made — `still_queued`,
+`not_implemented`, `not_verified`, `surface_unresolved`, `surface_unreadable`,
+`surface_mismatch`, `evidence_missing`, `unreadable`. A repeat answers `already_closed` and
+writes nothing. **Report each item's outcome and, for one that did not close, the state that
+held it**; naming an item and reporting no outcome for it is non-conformant on its face.
+**This is the only seam that closes.** The tick's *Announce landed asks* step must not — its
+candidate reader lists issues that are **already** closed, so it sees an item only after
+something else ended it, and two seams closing one issue is a race over an act that needs none.
+The stated gap: an ask whose work lands through a session that never runs this command reaches
+no closer, and a person closes it by hand exactly as they always could.
+
 If persisted constraints tighten, test an upgrade with representative legacy rows as well as
 fresh schema creation. A failed deployed migration remains a failed deployment, even when the
 PR merged and local tests passed. Preserve the evidence in the unit report.

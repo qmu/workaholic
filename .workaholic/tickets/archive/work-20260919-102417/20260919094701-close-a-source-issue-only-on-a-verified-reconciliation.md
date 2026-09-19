@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:47:01+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -125,3 +126,70 @@ and every non-`implemented_and_verified` state refuses by its own name.
 - **Do not let this become an issue-management routine.** It closes an item on a proof and does
   nothing else — no labels, no comments beyond the finish line the tick already composes, no
   reassignment.
+
+## Final Report
+
+Development completed as planned. Both readers were read in full before the act was written
+(step 1), and the act consumes one verdict rather than deriving a second.
+
+**The act.** `plugins/workaholic/skills/work/scripts/close-source-issue.sh` — one item, one
+close, `{issue, item}` in and `{outcome, state, reason, requested}` out. It hands the caller's
+facts to `feedback-outcome.sh` **in the same invocation as the close**, closes only on
+`implemented_and_verified`, and refuses every other state by that state's own word with no
+request of any kind. `requested` is on the output precisely so *it did nothing* is provable
+rather than asserted, and the hermetic rows assert on it.
+
+**The four bounds are cited, not restated**, in the script's own header
+(`drive/reference/claims.md`, *When a bounded act may read a judgement*): re-derived at the
+moment of the act, idempotent (`already_closed`, no second request), reversible (a person
+reopens an issue), and refusing every bound by its own word. The header also states, rather than
+leaving to be re-asked, that the **base-ref gate does not apply** — it governs commits and
+pushes, and this act writes no ref, no file and no commit.
+
+**An unreadable reading refuses** (step 3) and is reported `unreadable` with its own reason —
+`reader_unreadable` when the reader produced no state, `issue_unreadable` when the issue's
+current state could not be read, `close_unconfirmed` when the PATCH's response did not confirm.
+None of the three is `not_implemented`; an absence of a reading is never a verdict about the
+work.
+
+**REST only** (step 4). `PATCH repos/<slug>/issues/<N>` through `gather/scripts/gh-rest.sh`,
+with the outcome read from the **response** rather than the exit status. No `gh issue`
+subcommand appears in the change, and the suite's existing `gh issue|pr|repo` walk stays green.
+
+**The sibling-surface case got no new rule** (step 6), and the script's header says so: it is
+`surface_mismatch` now that the mission's first ticket persists the expected surface, and the
+act refuses on it like any other state. A second test for one question is how two tests drift.
+
+**The seam, chosen and named** (step 7): **`/implement`'s per-item reconciliation**
+(`commands/implement.md`). Two candidates were weighed. That command already reconciles at the
+**item** grain — the grain the verdict is keyed on — and it runs at the moment the work is
+finished, which is what the verdict is about. The tick's *Announce landed asks* step was
+rejected because its candidate reader, `list-unannounced-closed-asks.sh`, lists issues that are
+**already closed**: it sees an item only after something else ended it, so it could never be the
+thing that ends one, and giving it the act would make two seams race over an act that needs no
+race. `infinite-development.md` and that reader's own header now say so explicitly, so the next
+reader does not re-open the question.
+
+**The stated gap.** An ask whose work lands through a session that never runs `/implement`
+reaches no closer. That gap is not new — it is the same one `list-unannounced-closed-asks.sh`
+exists to report for the *announcement* — and it is left rather than filled, because filling it
+means a sweep that hunts for work to declare finished, which is the issue-management routine
+this ticket's Considerations forbid. A person closes such an issue by hand exactly as before.
+
+### Discovered Insights
+
+- **Insight**: `list-unannounced-closed-asks.sh` is built on the premise that *when the work
+  lands the issue closes*, and that premise was supplied entirely by the ingest `Closes #<N>`
+  keyword this mission removed.
+  **Context**: the reader's subject survives the change — it still answers *which closed asks
+  nobody told their own thread about* — but what populates it moved from *a proposal merged* to
+  *a verified reconciliation closed it, or a person did*. One visible consequence: an ask still
+  being worked on no longer appears in its output at all, which is correct and was not true
+  before. A reader whose candidate set is defined by another seam's side effect needs its
+  premise written in its own header, or a later change to that seam silently redefines it.
+
+- **Insight**: `gh-rest.sh slug` resolves the repository from the local git remote, not from the
+  network, so a hermetic fixture needs `git remote add origin` and nothing more — the stubbed
+  `gh` is never asked for the slug.
+  **Context**: worth knowing when writing any fixture for a script that reaches GitHub; the stub
+  only has to answer the calls the act itself makes, which keeps the stub small enough to read.

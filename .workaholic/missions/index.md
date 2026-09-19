@@ -2,7 +2,6 @@
 
 ## active
 
-* [close-a-feedback-item-only-on-evidence-from-the-surface-the-person-reviews](active/close-a-feedback-item-only-on-evidence-from-the-surface-the-person-reviews/mission.md) - Close a feedback item only on evidence from the surface the person reviews
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [dispatch-bounded-workers-without-stopping-the-observation-clock](active/dispatch-bounded-workers-without-stopping-the-observation-clock/mission.md) - Dispatch bounded workers without stopping the observation clock
 * [hold-the-completion-mention-until-the-whole-human-request-set-is-in](active/hold-the-completion-mention-until-the-whole-human-request-set-is-in/mission.md) - Hold the completion mention until the whole human request set is in
@@ -25,6 +24,7 @@
 * [carry-claim-liveness-off-the-review-branch](archive/carry-claim-liveness-off-the-review-branch/mission.md) - Carry claim liveness off the review branch
 * [catch-a-reported-claim-up-before-its-conflict-hardens](archive/catch-a-reported-claim-up-before-its-conflict-hardens/mission.md) - Catch a reported claim up before its conflict hardens
 * [clear-the-residue-the-base-already-holds-and-never-stop-silently](archive/clear-the-residue-the-base-already-holds-and-never-stop-silently/mission.md) - Clear the residue the base already holds, and never stop silently
+* [close-a-feedback-item-only-on-evidence-from-the-surface-the-person-reviews](archive/close-a-feedback-item-only-on-evidence-from-the-surface-the-person-reviews/mission.md) - Close a feedback item only on evidence from the surface the person reviews
 * [close-a-mission-the-run-can-prove-is-finished](archive/close-a-mission-the-run-can-prove-is-finished/mission.md) - Close a mission the run can prove is finished
 * [close-the-units-the-loop-already-finished](archive/close-the-units-the-loop-already-finished/mission.md) - Close the units the loop already finished
 * [color-code-the-notify-post-shapes-by-state](archive/color-code-the-notify-post-shapes-by-state/mission.md) - Color-code the notify post shapes by state

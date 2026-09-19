@@ -26856,6 +26856,95 @@ echo ""
   }
 }
 
+// ---------- a source issue closes only on a verified reconciliation ----------
+// The ingest close is gone (the ticket above), so this is the ONE act that may close a
+// person's feedback issue. Every state short of `implemented_and_verified` refuses by its
+// own word and reaches GitHub with no write at all — `requested` is the audit.
+T("work close-source-issue: closes only on implemented_and_verified, and never twice", () => {
+  const CLOSE = join(REPO_ROOT, "plugins/workaholic/skills/work/scripts/close-source-issue.sh");
+  const dir = makeRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "wh-gh-close-"));
+  const calls = join(binDir, "calls.log");
+  try {
+    execSync(`git remote add origin https://github.com/qmu/workaholic.git`, { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/feedbacks"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/feedbacks/ask.md"),
+      "---\ntype: Feedback\nreview_surface: /prototype-1\n---\n\n# Ask\n");
+    // The stub records every call and answers `open` until a PATCH has been seen, so the
+    // idempotence row exercises a real second invocation rather than a second stub.
+    writeFileSync(join(binDir, "gh"), `#!/bin/sh
+printf '%s\\n' "$*" >> ${calls}
+case "$*" in
+  *PATCH*) printf 'closed\\n'; printf 'patched\\n' >> ${calls}.patched; exit 0 ;;
+  *issues/1104*) if [ -f ${calls}.patched ]; then printf 'closed\\n'; else printf 'open\\n'; fi; exit 0 ;;
+  *issues/1105*) printf 'closed\\n'; exit 0 ;;
+esac
+printf ''
+`);
+    chmodSync(join(binDir, "gh"), 0o755);
+    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH}` };
+    const verified = {
+      feedback: "ask.md", verified_surface: "/prototype-1", evidence: ["browser:probe"],
+      queue_readable: true, queued: 0, implementation_pr: { merged: true, verified: true },
+      deployment: "ok", thread: { status: "found", complete: true },
+    };
+    const call = (issue, item) => {
+      const f = join(dir, "close-input.json");
+      writeFileSync(f, JSON.stringify({ issue, item }));
+      return JSON.parse(run(dir, `${POSIX_SH} ${CLOSE} --input ${f}`, { env }).stdout);
+    };
+
+    // Every refusal: its own word, and no request of any kind.
+    const refusals = [
+      ["still_queued", { ...verified, queued: 6 }],
+      ["not_implemented", { ...verified, implementation_pr: { merged: false } }],
+      ["not_verified", { ...verified, implementation_pr: { merged: true, verified: false } }],
+      ["surface_mismatch", { ...verified, verified_surface: "/app" }],
+      ["surface_unreadable", { ...verified, feedback: "never-captured.md" }],
+      ["unreadable", { ...verified, queue_readable: false }],
+      ["evidence_missing", { ...verified, evidence: [] }],
+    ];
+    rmSync(calls, { force: true });
+    for (const [word, item] of refusals) {
+      const r = call(1104, item);
+      assertEq(`close refuses ${word} by its own word`, r.state, word);
+      assertEq(`close refuses ${word} without acting`, r.outcome, "refused");
+      assertEq(`close refuses ${word} with no request`, r.requested, false);
+    }
+    // A record naming no surface reconciles unresolved and closes nothing either.
+    writeFileSync(join(dir, ".workaholic/feedbacks/plain.md"),
+      "---\ntype: Feedback\nreview_surface:\n---\n\n# Plain\n");
+    assertEq("an ask naming no review surface is refused surface_unresolved",
+      call(1104, { ...verified, feedback: "plain.md" }).state, "surface_unresolved");
+    assertTrue("no refusal issued a single request",
+      !existsSync(calls), existsSync(calls) ? readFileSync(calls, "utf8") : "");
+
+    // The one state that closes.
+    const closed = call(1104, verified);
+    assertEq("a verified reconciliation closes the issue", closed.outcome, "closed");
+    assertEq("and records that it acted", closed.requested, true);
+    assertTrue("through REST, never a gh issue subcommand",
+      /PATCH/.test(readFileSync(calls, "utf8")) && !/\bissue close\b/.test(readFileSync(calls, "utf8")),
+      readFileSync(calls, "utf8"));
+
+    // Idempotent: a second run over the same item makes no second write.
+    const patchesBefore = (readFileSync(calls, "utf8").match(/PATCH/g) || []).length;
+    const again = call(1104, verified);
+    assertEq("a repeat run answers already_closed", again.outcome, "already_closed");
+    assertEq("and issues no second close", again.requested, false);
+    assertEq("so the write count does not move",
+      (readFileSync(calls, "utf8").match(/PATCH/g) || []).length, patchesBefore);
+
+    // An issue a person closed by hand is the same answer, with no write.
+    const byHand = call(1105, verified);
+    assertEq("an issue already closed elsewhere answers already_closed", byHand.outcome, "already_closed");
+    assertEq("and issues no request", byHand.requested, false);
+  } finally {
+    cleanup(dir);
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
 // The ingest seam must not carry a closing keyword at all: removing the wrong close is a
 // separate, independently reviewable act from choosing the right one, and shipping only
 // the first leaves issues open, which is the safe direction.

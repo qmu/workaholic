@@ -33,6 +33,24 @@ This ticket makes the script **refuse** an argument vector it cannot trust, by i
 with nothing written and no branch pushed — and records what happens to the commit and the record
 that already landed.
 
+### The caller is identified, and it is an agent composing a positional call
+
+PR #1232 — whose squash is `f5b91d91b` — was raised by the `[Implement]` runner that had just
+shipped **PR #1231** (`0751b1b9a`, the moderation-registry pin). That runner reported the step as
+*「保留懸念の抽出: 1件を `[Record]` PR #1232 で main にマージ済み」*, so the call came from `/ship`
+§7's deferred-concern extraction, **composed by that agent at run time**, exactly as the positional
+contract permits. This is not a script calling a script, and that is the whole point: the argument
+vector is assembled in prose by a session, which is why no signature shape can make the assembly
+correct and why the remedy has to be a refusal.
+
+**The bad value reached `main` through a successful, fully gated publication.** It travelled
+`publish-tree-pr.sh` under `WORKAHOLIC_AUTO_MERGE=1`, past the release-safety scan, past the branch
+checks, and merged. Nothing on that path is broken and nothing on it should change — a scan looks
+for secrets, size and leaked vocabulary, and `--base` is none of those. The value was simply never
+anybody's to question after it was composed. That is the argument for validating **at the seam that
+composes the title and the record**, at the moment the arguments enter it, rather than anywhere
+downstream: downstream is a series of gates that are each correctly minding something else.
+
 ### What the measured blast radius actually was
 
 Established by reading the landed record and its consumers, not taken on report:
@@ -47,9 +65,13 @@ Established by reading the landed record and its consumers, not taken on report:
   the record, and nothing in `/story` or `/specificate` reads `origin_pr` at all (grep over both
   skills and `commands/` returns nothing).
 - **`origin_branch` and `origin_commit` are correct**, because they are derived from git inside the
-  script (`work-20260919-135359`, `0751b1b9a`) rather than passed in. The true origin is therefore
-  recoverable from the record itself, which is why the mis-attribution costs a reader nothing they
-  cannot get back.
+  script (`work-20260919-135359`, `0751b1b9a`) rather than passed in — and the recovery is exact,
+  not approximate: `git log --oneline -1 0751b1b9a` reads `Pin the moderation registry by name
+  (#1231)`, so **the value `origin_pr` should have carried is `1231`**, and `origin_pr_url` the URL
+  of that pull request. The concern is therefore filed against a number that is not its origin, but
+  its origin is one `git log` away inside the record itself. That is why the mis-attribution costs a
+  reader nothing they cannot get back, and it is what makes the small remedy below defensible rather
+  than merely convenient.
 - **The one downstream effect is a silent coercion.** `feedback/scripts/list-open-concerns.sh:98`
   reads `int(pr) if pr.isdigit() else 0`, so every future listing reports this concern as
   `origin_pr: 0` and `origin_pr_url: main` — a broken provenance link presented as a value, with no
@@ -101,13 +123,24 @@ repository ruled exactly that about the colliding `1.0.284` / `1.0.285` version 
 the one it would cure"). A rewrite of the base to correct a commit *subject* is a strictly larger
 act than that one.
 
-**The record it carries also stands.** The concern it holds is real, open and correctly described;
-only its provenance line is wrong, and the correct origin is recoverable from the `origin_branch`
-and `origin_commit` the script derived itself. Editing `origin_pr` in place would break the
-append-only property the stream is built on, and writing a superseding record would close a concern
-that nobody has resolved — a superseding record is a **resolution**, written by `/story`'s judge
-seam, not a scribal correction. The stated cost: `list-open-concerns.sh` will report that one
-concern as `origin_pr: 0` with a broken `origin_pr_url` for as long as it stays open.
+**The record it carries also stands, and the remedy for it is exactly one sentence in this
+ticket.** That publication carried a real concern — the moderation planner failing at the 35th step
+— which is open, correctly described, and correctly keyed. What is wrong is two provenance fields,
+and their true values are recoverable from the record's own `origin_commit`: the concern belongs to
+**PR #1231**, not to the `--base` that was stamped and not to the `0` that
+`list-open-concerns.sh` now coerces it to.
+
+Do **not** repair it, by either available route. Editing `origin_pr` in place breaks the
+append-only property the whole stream is built on — the script's header states that records are
+never rewritten, resurfaced or refreshed in place, and a scribal exception is still an exception
+that the next writer will cite. Writing a superseding record is worse: a superseding record is a
+**resolution**, written by `/story`'s judge seam, and it would close a concern nobody has resolved,
+removing a live finding from the open set to tidy a metadata field.
+
+The stated cost, in full: for as long as that concern stays open, `list-open-concerns.sh` reports it
+as `origin_pr: 0` with `origin_pr_url: main`, and a reader who wants its real origin must resolve
+`origin_commit: 0751b1b9a` to `#1231` by hand. Naming that here, in the queue, is the remedy —
+the record's provenance is wrong in one place and right in this one.
 
 ## Policies
 
@@ -189,9 +222,12 @@ rulings are load-bearing here and neither is reopened.
    by name with nothing written, and name both refusal words. `CLAUDE.md`'s *Important* rule makes
    the doc update part of this commit, not a follow-up.
 7. **Record `f5b91d91b` and the mis-attributed record as standing**, in the branch story's Concerns
-   or Notes, with the reason above. Do not rewrite base history, do not edit
+   or Notes, with the reason above, naming the concern's true origin as **PR #1231** (resolved from
+   its own `origin_commit: 0751b1b9a`). Do not rewrite base history, do not edit
    `20260919145924-the-moderation-planner-stops-answering-at.md`, and do not write a superseding
-   record for it.
+   record for it. **Change nothing on the publication path either** — `publish-tree-pr.sh`, the
+   release-safety scan and the branch checks all behaved correctly when the bad value passed
+   through them, and widening a scan to look for malformed arguments would be the wrong seam.
 8. **Run the local verification set**: `node scripts/test-workflow-scripts.mjs`, then
    `node scripts/build-plugins/build.mjs` and `node scripts/build-plugins/verify.mjs` — the script
    and its skill ship into `outputs/workflows`, and the `Outputs Freshness` CI workflow fails on any

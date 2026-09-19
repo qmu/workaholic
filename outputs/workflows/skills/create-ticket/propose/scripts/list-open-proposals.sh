@@ -4,8 +4,15 @@
 # Usage: list-open-proposals.sh
 # Output: {"ok": true, "identity": "<login>", "slug": "<owner/name>",
 #          "proposals": [{"number": N, "url": "...", "strategy": "<slug>",
-#                         "move": "depth|breadth|contraction", "title": "..."}]}
+#                         "move": "depth|breadth|contraction", "title": "...",
+#                         "created_at": "<ISO-8601>|null"}]}
 #      or {"ok": false, "reason": "...", "detail": "..."} — exit 0 either way.
+#
+# `created_at` IS EVIDENCE, NEVER THE GATE (2026-09-19, ticket `20260919093809`). It rides the
+# row so a reader can see how long a hold has stood; what DECIDES whether `open_proposal` still
+# holds is the tree proof in `survey-strategies.sh` — *has the ingest stage left any evidence at
+# all since this proposal opened* — and never an elapsed time. A `null` timestamp is rendered
+# null and never zero, which would read as *opened this second*.
 #
 # THIS IS ONE HALF OF THE BRAKE, and it is the half that has to be read over the network,
 # so its failure mode is the one that matters. `/propose` deliberately drops the
@@ -27,7 +34,19 @@
 #     `waiting_count` gate holds instead (`survey-strategies.sh`).
 #
 # So "one proposal per strategy in flight at a time" is enforced continuously without a
-# cursor, a stored timestamp or a per-day bound. A per-day bound was considered and
+# cursor, a stored timestamp or a per-day bound.
+#
+# THAT REASONING IS EXACTLY RIGHT WHILE `[Specificate]` RUNS, AND SAYS NOTHING ABOUT THE CASE
+# WHERE IT DOES NOT (2026-09-19, ticket `20260919093809`, operator's ask issue #907 item 2). If
+# the ingest stage is not running the handoff never happens and this gate holds forever, so one
+# dead routine silences two. MEASURED: four directions locked for four hours behind proposals
+# nothing was ingesting. The window-free handoff above is therefore CONDITIONAL, not
+# unconditional, and `survey-strategies.sh` carries the condition: a strategy held by a proposal
+# the ingest stage has provably not run against since it opened is eligible again, named
+# `open_proposal_uningested` on its row. No per-day bound and no staleness constant were
+# introduced — the relaxation is a tree proof, and a proof that cannot be read keeps braking.
+#
+# A per-day bound was considered and
 # REFUSED: the ask is explicitly for three routines turning an HOURLY loop, and a daily
 # cap on the only routine that originates work would cap the loop itself at one turn a day.
 # The `deploy-day:` bound it would have been copied from answers a different question — an
@@ -77,18 +96,21 @@ repo_slug="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" slug 2>&1)" || emit_err "list_fai
 rows="$(sh "${GATHER_SCRIPTS}/gh-rest.sh" api \
   "repos/${repo_slug}/issues?state=open&per_page=${LIMIT}" \
   --jq 'map(select(.pull_request | not)) | .[]
-        | [(.number|tostring), .html_url, ((.body // "") | split("\n") | map(select(test("^strategy: ")))[0] // ""), .title] | @tsv' 2>&1)" \
+        | [(.number|tostring), .html_url, ((.body // "") | split("\n") | map(select(test("^strategy: ")))[0] // ""), .title, (.created_at // "")] | @tsv' 2>&1)" \
   || emit_err "list_failed" "$rows"
 
 TAB="$(printf '\t')"
 proposals=""
-while IFS="$TAB" read -r number url marker title; do
+while IFS="$TAB" read -r number url marker title created; do
   [ -n "$number" ] || continue
   [ -n "$marker" ] || continue
   slug=$(printf '%s' "$marker" | sed -n 's|^strategy: *\([^ /]*\) */ *move: *\([A-Za-z]*\).*$|\1|p')
   move=$(printf '%s' "$marker" | sed -n 's|^strategy: *\([^ /]*\) */ *move: *\([A-Za-z]*\).*$|\2|p')
   [ -n "$slug" ] || continue
-  row="{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"strategy\": \"$(json_escape "$slug")\", \"move\": \"$(json_escape "$move")\", \"title\": \"$(json_escape "$title")\"}"
+  # A timestamp we could not read is `null`, never a zero and never the empty string: zero
+  # reads as *opened this second* and an empty string parses as a date nowhere.
+  if [ -n "$created" ]; then created_json="\"$(json_escape "$created")\""; else created_json=null; fi
+  row="{\"number\": ${number}, \"url\": \"$(json_escape "$url")\", \"strategy\": \"$(json_escape "$slug")\", \"move\": \"$(json_escape "$move")\", \"title\": \"$(json_escape "$title")\", \"created_at\": ${created_json}}"
   proposals="${proposals:+${proposals}, }${row}"
 done <<EOF
 $rows

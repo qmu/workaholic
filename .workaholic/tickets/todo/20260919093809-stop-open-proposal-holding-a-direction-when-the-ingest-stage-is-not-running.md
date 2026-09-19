@@ -146,3 +146,48 @@ one the gate already makes, and without a stored timestamp.
 - **A stale-proposal reading is not a stale-proposal act.** Nothing here closes an issue, retires a
   proposal, or edits anything on GitHub. Whether an un-ingested proposal should be closed is a
   person's decision and stays out of this ticket.
+
+## Final Report
+
+Development completed as planned.
+
+**The chosen proof and the two rejected candidates are written into `survey-strategies.sh`'s own
+header**, as the Gate required. Chosen: *the newest feedback record on the base is older than the
+proposal* — a successful `/specificate` run always registers a feedback record, so *no record at
+all since this proposal opened* is the tree's own statement that the stage has not run against
+it. It costs no network call beyond the one the gate already makes, needs no cursor and no stored
+timestamp, and is **binary** — no threshold, no constant, no tunable. Rejected: an elapsed-time
+bound on the proposal's age (the staleness constant this repository refuses by name, and the
+wrong question — a proposal is stale because nothing ingests it, not because it is old); and a
+liveness read of the tick log for a `[Specificate]` cadence (an inference rather than a tree
+reading, whose degraded answer points the **permissive** way, which the Considerations forbid).
+
+**Exactly one term moved.** The rung now reads `($held | index($w.slug)) and
+(ingest_state($w.slug) != "uningested")`. `ingested` and `unreadable` both keep braking — the
+failure-safe direction, because the permissive error is a second proposal against a direction
+already being answered. `wip_limit` stays last; `work_waiting`, `attribution_unreadable`,
+`not_active`, `not_mine`, `past_target_date` and `no_feedback_refs` refuse unchanged; the
+`quiescent` and `dormant` blocks read `$held` unchanged, because their question is *is a proposal
+in flight*, which an un-ingested one still is.
+
+The relaxation **names itself** on the row (`open_proposal_uningested`, with the proposal's
+number, url, `created_at`, `age_hours` and its proof), and the key is added **only where it
+fired** — so a survey over a repository with no open proposals is byte-identical, which the suite
+asserts with `has()`. `list-open-proposals.sh` carries `created_at` as evidence, `null` when
+unreadable and never zero. `open-proposal.sh` is byte-identical: this ticket changes reading,
+never writing.
+
+### Discovered Insights
+
+- **Insight**: `survey-strategies.sh`'s jq program is a single-quoted shell string, so a plain
+  apostrophe anywhere in its **comments** terminates the string and turns the whole ladder into a
+  shell syntax error. It cost one broken suite run here; the file's existing comments escape it
+  as `'"'"'` for exactly this reason.
+  **Context**: any edit to that program — including a prose comment — has to be checked with
+  `sh -n` before anything else, and the failure surfaces far away (`direction-state.sh` and every
+  consumer of the survey go blank), not at the line that caused it.
+- **Insight**: jq's `fromdateiso8601` rejects a numeric UTC offset, and this repository's own
+  artifacts carry `+09:00` while GitHub's carry `Z`.
+  **Context**: the record side is therefore converted to epoch seconds in shell (`date -u -d`)
+  and only the GitHub side is parsed in jq — mixing the two inside jq would have failed on every
+  locally-written record.

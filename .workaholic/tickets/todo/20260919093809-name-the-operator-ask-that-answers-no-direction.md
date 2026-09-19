@@ -142,3 +142,38 @@ ticket makes it named.
 - **The third attribution rung is deliberately not automated.** A script that judged an ask against
   an Aim would be asserting a reading the repository keeps as a judgement in exactly one place
   (`/specificate` step 7), and two judges of one question drift.
+
+## Final Report
+
+Development completed as planned.
+
+Step 1 (reproduce the gap) was run in this checkout and its answer is recorded rather than
+implied: `list-inbound-issues.sh` returns **no uncaptured assigned issue** right now, so
+`unattributed-asks.sh` answers `{"ask_count": 0}` here. That is the honest before-state — the
+uncovered set is empty at this moment, and the reading exists for the state the operator measured
+(their own stated priority belonging to no active strategy), not for a standing backlog.
+
+`strategy/scripts/unattributed-asks.sh` sits beside `unattributed-work.sh` and composes
+`list-inbound-issues.sh`, `list.sh` and `read.sh`; it adds no relation, no field and no second
+walker. It answers only the two **mechanical** attribution rungs — an explicit `feedback:` ref
+resolving to an active direction, then an explicit slug in the ask's title — and reports
+everything else `undecidable_here`, which every consumer renders as *no line and no slug* and
+never as *no direction*. The third rung stays `/specificate` step 7's judgement.
+
+A degraded read is named with **null** counts and a **null** `asks`; `readable` is absent on a
+completed walk, so the test is `readable == false`. `/propose`'s run report names the reading as
+evidence (`reference/loop.md` step 5) and `/moderate`'s new `unattributed-asks` step asks the
+operator once per ask, keyed `unattributed-ask:<number>` and aged through `condition-age.sh`.
+
+The boundary the Overview insisted on is honoured and stated in the skill prose: this gives the
+ask **visibility**, not an origination path. `survey-strategies.sh`, `create.sh` and `amend.sh`
+are untouched by this ticket, and the suite asserts the reader reaches none of them.
+
+### Discovered Insights
+
+- **Insight**: an ask that `list-inbound-issues.sh` offers is by construction `uncaptured` with
+  `record: null` — a captured one is already excluded `already_planned`/`captured_on_branch` and
+  never reaches `.issues[]`.
+  **Context**: the `feedback:` attribution rung can therefore only fire for a row a caller hands
+  in with a record, which is why the reader tests the record in both containment directions
+  rather than assuming a shape, and why the `undecidable_here` case is the ordinary one.

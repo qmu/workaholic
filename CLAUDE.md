@@ -216,6 +216,7 @@ Everything converges on the **ticket** as the unit of work: *sources* fill `tick
 | `attributed-work.sh` | which work belongs to a strategy — `strategy.feedback[] ∩ artifact.feedback[]` (`direct`) plus the hop through a mission attributed that way (`via_mission:<slug>`); reports ticket **and** mission grains (`waiting_missions*`, `waiting_kind`/`waiting_describing`/`waiting_advancing` via `work-kind.sh`) |
 | `mission-strategy.sh` | the inverse — which strategy a mission belongs to |
 | `unattributed-work.sh` | what no direction claims (active missions by slug/path with queued-ticket counts, loose queued tickets) |
+| `unattributed-asks.sh` | the **ask** side of the same question — the open inbound asks no `active` direction covers, composing `specificate/scripts/list-inbound-issues.sh` with `list.sh`/`read.sh` |
 | `survey-strategies.sh` | one row per strategy: `refusal`, `pace`, `overdue`, `expiring`, `dormant`, `quiescent`, `landed`, `stage`, `residue`, `target_date`, `days_to_target` |
 | `direction-state.sh` | the lifecycle: `live \| arrived \| overdue \| expiring \| dormant \| unreadable`, plus the repository-level `none`; `--with-leaving` attaches the leaving per row by handing that row back through `--state-row`; `--emit-survey <file>` hands the caller the survey it already made |
 | `closing-residue.sh` | what a direction is leaving — the waiting grains, the residue, and its last lifecycle reading, each block carrying its own `readable` and reason |
@@ -240,12 +241,15 @@ The retired `strategy:` mission relation and its ownership hop stay retired; `mi
 `adjust-the-plan-hourly-not-only-report-it`). The ask that produced it was accurate about the
 documents: the loop had three clerks — intake adds, execution drives, bookkeeping reports — and
 nothing named planning, so no reader could tell whether *nothing re-plans* was a defect or the
-design. It is now five acts, each belonging to a tick that already runs; **no new command, no new
+design. It is now eight acts, each belonging to a tick that already runs; **no new command, no new
 routine and no new artifact**.
 
 | Act | Where it lives | What it does |
 | --- | -------------- | ------------ |
 | **Hold new divergence** | `/propose`'s `wip_limit` rung (`survey-strategies.sh`) | refuses origination while the repository already carries `WORKAHOLIC_WIP_LIMIT` active missions with queued work; **absent means no limit** |
+| **Stop holding a dead handoff** | `/propose`'s `open_proposal` rung (`survey-strategies.sh`) | holds on membership **and** a tree proof — no feedback record on the base newer than the proposal means `[Specificate]` has not run against it, so the direction is eligible again and the row names `open_proposal_uningested`. `ingested` and an unreadable proof both keep braking; no constant, variable or stored timestamp |
+| **Name an ask no direction claims** | `/propose`'s run report + `/moderate`'s `unattributed-asks` step (`strategy/scripts/unattributed-asks.sh`) | names the open inbound asks no active direction covers, `undecidable_here` meaning *no `feedback:` line and no slug*; it originates nothing |
+| **Say when origination has stopped** | `/moderate`'s `propose-yield` step | raises a **run** of propose ticks that all closed having originated nothing, naming the survey's own refusal words; a single such tick and an unclassifiable outcome raise nothing |
 | **Order the offer** | `plan-units.sh` (`order_reason`) | offers missions by the nearest `target_date` of the direction each serves; changes **order, never eligibility** |
 | **Do the arithmetic** | `strategy/scripts/landing-arithmetic.sh` | per direction, what remains against how long is left, at the direction's own measured rate |
 | **Escalate a date** | `/moderate`'s `date-will-not-hold` step | asks the assignee, **before** the date, when the board will not clear; `overdue`/`expiring` keep their own cases |
@@ -255,8 +259,9 @@ routine and no new artifact**.
 (`drive/reference/claims.md`, *Proofs and judgements* and *When a bounded act may read a
 judgement*): planning may **act** on a proof it re-derives at the moment of the act, idempotently,
 refusing every bound by its own word; everything else it may only **report** or **ask about**. Of
-the five acts, exactly one refuses work (`wip_limit`, on a declared number) and one reorders an
-offer; the other three read and say.
+the eight acts, exactly one refuses work (`wip_limit`, on a declared number), one **stops**
+refusing it on a tree proof (`open_proposal`'s ingest term), and one reorders an offer; the other
+five read, say and ask.
 
 **What planning may not do, each with the rule that forbids it**: it may not **re-date a
 direction** (`amend.sh` carries only a revision the operator announced by explicit slug, and a

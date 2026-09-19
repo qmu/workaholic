@@ -271,6 +271,28 @@ Three of them carry the design:
   **hourly** loop, and a daily cap on the only routine that originates work would cap the loop
   itself at one turn a day.
 
+  **That handoff is window-free WHILE `[Specificate]` RUNS, and the sentence above said nothing
+  about the case where it does not** (2026-09-19, ticket `20260919093809`, operator's ask issue
+  #907 item 2). The merge that closes the first half is the ingest stage's own act, so when that
+  stage is not running the handoff never happens and `open_proposal` holds **forever** — one
+  dead routine silencing two. Measured: four directions locked for four hours behind proposals
+  nothing was ingesting. So the rung now holds on membership **and** a tree proof: a strategy
+  whose proposal the ingest stage has **provably left no evidence against since it opened** — no
+  feedback record on the base newer than the proposal, which a successful `/specificate` run
+  always writes — is eligible again, and its row names **`open_proposal_uningested`** with the
+  proposal's number and age, because a silently lifted brake is worse than a stuck one.
+  **`ingested` and a proof that could not be read both keep braking**: the permissive error here
+  is a second proposal against a direction already being answered, so an unreadable reading
+  refuses exactly as before. **No per-day bound, no staleness constant, no environment variable
+  and no stored timestamp were introduced** — the relaxation is binary and has no threshold in
+  it. The proposal's `created_at` rides `list-open-proposals.sh`'s row as **evidence**, never as
+  the decision. `wip_limit` stays last in the ladder and `work_waiting`,
+  `attribution_unreadable`, `not_active`, `not_mine`, `past_target_date` and `no_feedback_refs`
+  refuse unchanged; the `quiescent` and `dormant` blocks read `$held` unchanged, because their
+  question is *is a proposal in flight*, which an un-ingested one still is. **A stale-proposal
+  reading is not a stale-proposal act**: nothing here closes an issue, retires a proposal or
+  edits anything on GitHub.
+
   **`work_waiting` reads the mission grain since 2026-08-26**, in two OR'd terms and neither is
   redundant. The **mission** term — an *active* attributed mission — is what holds the gate
   while a mission's last ticket sits at a pull request with its queue already drained; under the
@@ -787,6 +809,34 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
 
 The run itself is five steps: [reference/loop.md](reference/loop.md) carries them, together
 with the alternatives that were refused.
+
+## An ask that answers no direction is named, never originated
+
+**Operator's ask, issue #907 item 3** (2026-09-19, ticket `20260919093809`): *a move is declared
+against a strategy, so an ask with no direction can never be originated; `unattributed` exists on
+the inbound path and has no counterpart here.* Measured — the operator's own stated immediate
+priority belonged to no active strategy, so this command was structurally incapable of proposing
+it and spent two days proposing against the directions that did exist.
+
+**The gap was visibility, not origination, and the difference is deliberate.** An inbound operator
+ask is **already** originable — by `/specificate`, through the path built for it — so a second
+route from here would not add reach; it would only bypass the rule that every move is declared
+against a direction, which `rules/workaholic.md`, *What May Originate a Mission*, states and this
+file does not restate. What was missing is that such an ask was unreachable in the report and
+unnamed to a person, which is how an operator priority can be captured and still never be worked
+on.
+
+So `strategy/scripts/unattributed-asks.sh` — the mirror of `unattributed-work.sh`, composing
+`list-inbound-issues.sh` with the strategy readers — names it, this run reports it as **evidence**
+(`reference/loop.md` step 5), and `/moderate`'s `unattributed-asks` step asks the operator once
+whether it wants a direction. **Nothing here proposes it, creates a strategy or amends one**;
+`create.sh` and `amend.sh` keep their three writers, and `survey-strategies.sh` is untouched.
+
+**`undecidable_here` means *no `feedback:` line and no slug*, never *no direction*.** The reader
+answers the two mechanical attribution rungs only; the third — a judgement against the Aims —
+belongs to `/specificate` step 7 and to nothing else, because two judges of one question drift.
+**If the operator wants the stronger reading, the artifact they would add is a direction** — which
+is exactly what the question asks for.
 
 ## Describing work does not gate a building aim
 

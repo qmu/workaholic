@@ -366,9 +366,75 @@ case "$WIP_LIMIT" in
         ;;
 esac
 
+# ═══ THE INGEST PROOF: HAS `[Specificate]` LEFT ANY EVIDENCE SINCE A PROPOSAL OPENED ═══════
+# (2026-09-19, ticket `20260919093809`, operator's ask issue #907 item 2.)
+#
+# `open_proposal` below refuses on SET MEMBERSHIP alone, and the set only empties when the
+# proposal's pull request merges — which is `[Specificate]`'s act. So when the ingest stage is
+# not running the handoff never happens and the gate holds FOREVER, and one dead routine
+# silences two. MEASURED: four directions locked for four hours behind proposals nothing was
+# ingesting.
+#
+# THE PROOF, AND THE TWO CANDIDATES REJECTED AGAINST IT.
+#
+#   CHOSEN — *the newest feedback record on the base is older than the proposal*. A successful
+#   `/specificate` run always registers a feedback record (`specificate/reference/workflow.md`
+#   step 10: the `[Proposal]` pull request carries the record it wrote), so *no record at all
+#   since this proposal opened* is the tree's own statement that the stage has not run against
+#   it. It is a reading the TREE established, it costs no network call beyond the one the gate
+#   already makes, it needs no cursor and no stored timestamp, and it is BINARY — there is no
+#   threshold, no constant and no tunable anywhere in it.
+#
+#   REJECTED — *an elapsed-time bound on the proposal's own age*. That is the staleness constant
+#   this repository refuses by name (`workaholic:propose`, *The threshold is not a threshold*)
+#   and the per-day bound `list-open-proposals.sh`'s own header already rejected. It would also
+#   answer the wrong question: a proposal is not stale because it is old, it is stale because
+#   nothing is ingesting it.
+#
+#   REJECTED — *a liveness read of the tick log for a `[Specificate]` cadence*. That is an
+#   INFERENCE about a routine rather than a reading of the tree, and its degraded answer points
+#   the wrong way: a log this survey could not read would look exactly like a stage that is not
+#   running, which is the PERMISSIVE direction and the one the ticket's own Considerations
+#   forbid — a wrong permissive proof opens a second proposal against a direction already being
+#   answered.
+#
+# THE SCAN IS ONE FILE. Records are named `<YYYYMMDDHHMMSS>-<slug>.md`, so the lexically
+# greatest name is the newest record and only that one file's `created_at` is read. The
+# assumption is stated rather than hidden: the prefix is generated from local time by one
+# writer, so lexical order and chronological order agree on any machine that does not move its
+# clock backwards across a record write.
+#
+# A PROOF THAT COULD NOT BE READ KEEPS BRAKING. An absent area, an unreadable record or a
+# `created_at` this survey cannot parse leaves `INGEST_READABLE=false`, and the ladder then
+# refuses `open_proposal` exactly as it does today. *A gate that cannot be read is not a gate*
+# cuts the other way here: the brake's failure-safe direction is to keep braking, which is what
+# `list-open-proposals.sh`'s own `ok: false` already does for the whole tick.
+INGEST_LATEST_EPOCH=0
+INGEST_READABLE=false
+_ing_dir="${ROOT}/feedbacks"
+if [ -d "$_ing_dir" ]; then
+    _ing_newest=$(ls "$_ing_dir" 2>/dev/null | sed -n 's/^\([0-9][0-9]*-.*\)\.md$/\1/p' | LC_ALL=C sort | tail -1)
+    if [ -z "$_ing_newest" ]; then
+        # A readable area holding no record at all: the stage has left no evidence, ever.
+        INGEST_READABLE=true
+    elif [ -f "${_ing_dir}/${_ing_newest}.md" ]; then
+        _ing_at=$(sed -n '1,40p' "${_ing_dir}/${_ing_newest}.md" \
+            | sed -n 's/^created_at:[[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' | head -1)
+        if [ -n "$_ing_at" ]; then
+            _ing_epoch=$(date -u -d "$_ing_at" +%s 2>/dev/null || true)
+            case "$_ing_epoch" in
+                ''|*[!0-9]*) ;;
+                *) INGEST_LATEST_EPOCH=$_ing_epoch; INGEST_READABLE=true ;;
+            esac
+        fi
+    fi
+fi
+
 jq -sc \
   --argjson list "$(printf '%s' "$LIST")" \
   --argjson open "$(printf '%s' "$OPEN")" \
+  --argjson ingest_latest_epoch "$INGEST_LATEST_EPOCH" \
+  --argjson ingest_readable "$INGEST_READABLE" \
   --argjson residue "$(printf '%s' "$RESIDUE")" \
   --arg today "$TODAY" \
   --arg window "$WINDOW" \
@@ -384,7 +450,18 @@ jq -sc \
       then (((($t + "T00:00:00Z") | fromdateiso8601) - (($today + "T00:00:00Z") | fromdateiso8601)) / 86400 | floor)
       else null end;
   ($open.proposals | map(.strategy)) as $held
-  | [ .[]
+  # THE INGEST PROOF, PER STRATEGY. Three values and no fourth: `uningested` relaxes the
+  # `open_proposal` rung, `ingested` and `unreadable` both leave it refusing exactly as before.
+  # `null` is what a strategy no proposal holds reads, and it reaches no rung at all.
+  | def ingest_state($slug):
+      (($open.proposals | map(select(.strategy == $slug)) | .[0]) // null) as $p
+      | if $p == null then null
+        elif ($ingest_readable | not) then "unreadable"
+        elif (($p.created_at // "") == "") then "unreadable"
+        elif (($p.created_at | try fromdateiso8601 catch null) == null) then "unreadable"
+        elif ($ingest_latest_epoch >= ($p.created_at | fromdateiso8601)) then "ingested"
+        else "uningested" end;
+  [ .[]
       | . as $w
       | (($list.strategies[] | select(.slug == $w.slug)) // {}) as $s
       # A WALK THAT DID NOT COMPLETE IS A ROW WE COULD NOT READ (2026-08-29, mission
@@ -662,7 +739,18 @@ jq -sc \
                   then (.waiting_missions_advancing // .waiting_missions // 0)
                        + (.waiting_advancing // .waiting_count // 0)
                   else (.waiting_missions // 0) + (.waiting_count // 0) end) > 0) then "work_waiting"
-           elif ($held | index($w.slug)) then "open_proposal"
+           # ONE TERM RELAXED, AND ONLY ONE (2026-09-19, ticket `20260919093809`). The rung held
+           # on set membership alone, and the set only empties when `[Specificate]` merges the
+           # pull request for the proposal — so a dead ingest stage held this gate forever. It now
+           # holds when the strategy is in `$held` AND the ingest proof does not say the stage
+           # has left no evidence since that proposal opened. `ingested` and `unreadable` both
+           # refuse exactly as before: a proof that could not be read keeps braking, because
+           # the permissive error here is a second proposal against a direction already being
+           # answered. Nothing else moves — `wip_limit` stays last, and the `quiescent` and
+           # `dormant` blocks above read `$held` unchanged, because their question is *is a
+           # proposal in flight*, which an un-ingested one still is.
+           elif (($held | index($w.slug)) and (ingest_state($w.slug) != "uningested"))
+                then "open_proposal"
            # THE REPOSITORY'"'"'S WIP BOUND, LAST IN THE LADDER (2026-09-01). Placed here on
            # purpose: a direction refused by ANY earlier gate never reaches this rung, so a
            # direction that was never going to originate anything is not also reported as
@@ -670,7 +758,20 @@ jq -sc \
            # declaration, or a count we could not take — in all three the gate holds nothing.
            elif ($wip_limit >= 0 and $wip_count != null and $wip_count >= $wip_limit)
                 then "wip_limit"
-           else "" end)} ]
+           else "" end)}
+      # THE RELAXATION NAMES ITSELF ON THE ROW — *a silently lifted brake is worse than a stuck
+      # one* (the observability policy the ticket names). The key is added ONLY where it fired, so a
+      # survey over a repository with no open proposals is byte-identical to the pre-change one.
+      # `age_hours` is EVIDENCE beside the proof and never the decision; `null` when the
+      # timestamp could not be read, never zero, which reads as *opened this second*.
+      | . + (if (ingest_state($w.slug) == "uningested")
+             then {open_proposal_uningested:
+                     (($open.proposals | map(select(.strategy == $w.slug)) | .[0]) as $p
+                      | {number: $p.number, url: $p.url, created_at: $p.created_at,
+                         age_hours: (if (($p.created_at // "") == "") then null
+                                     else ((now - ($p.created_at | fromdateiso8601)) / 3600 | floor) end),
+                         proof: "no_ingest_evidence_since_proposal"})}
+             else {} end) ]
   # THE WHOLE ORDERING, STATED HERE AND NOWHERE ELSE, so no consumer re-derives it:
   #
   #   1. 改良中 FIRST, then every other stage (2026-08-29, mission

@@ -193,7 +193,11 @@ and every abort reports a machine-readable reason.
    **and** a mission slug and rules that the mission *answers* that direction (step 9e,
    2026-08-28) — or that announces a new direction as the **successor of a named
    predecessor slug** (step 9b's carry, 2026-08-28) — takes step 9b, 9c, 9d or 9e
-   instead of the four forms (SKILL.md, *Strategy lifecycle announcements*): a slug absent
+   instead of the four forms (SKILL.md, *Strategy lifecycle announcements*). **And an ask
+   that names a mission slug and an explicit set of queued ticket filenames and rules that
+   those tickets belong inside that mission takes step 9f** (2026-09-19, issue #1110 item 6),
+   on the same terms: a granularity correction the operator announced, carried and never
+   judged. A slug absent
    from step 5b's set is record-only with `strategy_not_found` and the slug named; an
    *ended* announcement that does not say achieved or abandoned is record-only with
    `no_end_state`; a *changed* announcement about a slug already in the set **reaches
@@ -213,7 +217,7 @@ and every abort reports a machine-readable reason.
    (SKILL.md, *An ask that already names a mission is emitted as that mission*): the run
    does not re-decompose it, and it reports `precedence:mission` naming the ask as the
    plan's source. Every floor still applies over the top of it, and a named plan that
-   breaches one is **demoted and reported by name**, never trimmed to fit. **The four are an ordered rule and are consulted first**; *when unsure, record-only* applies only to an ask they did not resolve, never over one they did (SKILL.md, *The form follows the work's shape*). Uncertainty about how to decompose is not uncertainty about whether it decomposes. **Row 1 carries two terms since 2026-09-03** — the ask decomposes into two or more units **and** there is a mid-term plan to hold, several tickets wanting ordering and allocation across a period (`rules/workaholic.md`, *What a Mission Must Be Able to Hold*); an ask that decomposes with no such plan takes the next row it fits, and the judgement is reported as `mid_term_plan:yes` or `mid_term_plan:no -> <what it became>` beside the precedence word, in this report and in the pull-request body. Name which rule decided — `precedence:<form>` or `unsure:<what>` — and name what made you
+   breaches one is **demoted and reported by name**, never trimmed to fit. **The four are an ordered rule and are consulted first**; *when unsure, record-only* applies only to an ask they did not resolve, never over one they did (SKILL.md, *The form follows the work's shape*). Uncertainty about how to decompose is not uncertainty about whether it decomposes. **Row 1 carries two terms since 2026-09-03** — the ask decomposes into two or more units **and** there is a mid-term plan to hold, several tickets wanting ordering and allocation across a period (`rules/workaholic.md`, *What a Mission Must Be Able to Hold*); an ask that decomposes with no such plan takes the next row it fits, and the judgement is reported as `mid_term_plan:yes` or `mid_term_plan:no -> <what it became>` beside the precedence word, in this report and in the pull-request body. **Row 1's one named case is a person's single review pass** — a batch whose items share **one review surface, one feedback thread and one coherent acceptance walk** is a mid-term container and takes row 1, all three terms required, with concrete **release, dependency, ownership or risk** evidence separating it and one mission absent such evidence (`rules/workaholic.md`, *What a Mission Must Be Able to Hold*, rule 2, cited rather than restated). Report `mission_held_by:review_batch` beside `precedence:<form>` and `mid_term_plan:<yes|no>` when that case decided, `mission_held_by:mid_term_plan` when the ordinary criterion did, and `separated_by:<release|dependency|ownership|risk>` when the evidence split the batch. It adds a case and removes none: the mid-term-plan term still refuses an ask with no plan, and every floor and the ceiling are untouched. Name which rule decided — `precedence:<form>` or `unsure:<what>` — and name what made you
    unsure in step 10's PR body.
 
 8. **Draft the mission** (mission form only, and only when step 9's extend-or-mint judgment
@@ -510,6 +514,44 @@ and every abort reports a machine-readable reason.
    byte-indistinguishable from any other mission write. So this one is the caller's rule,
    stated here and pinned by a test over this step's own text — a weaker guarantee than
    step 9b/9c/9d's, and recorded as such rather than implied to be the same.
+
+9f. **Regroup queued tickets on an operator granularity correction** (a *regroup* announcement
+   only — the ask names a mission slug **and** an explicit set of queued ticket filenames and
+   says those tickets belong inside that mission), in the publish tree — instead of steps 8, 9,
+   9b, 9c, 9d and 9e, never alongside them:
+
+   ```sh
+   bash ${CLAUDE_PLUGIN_ROOT}/skills/mission/scripts/regroup-tickets.sh <mission> <ticket-filename>...
+   ```
+
+   The mission must be in the active area and every ticket must be named by the ask. It writes
+   the `mission:` relation onto each named queued ticket and appends **one** changelog line to
+   the mission, and writes nothing else — no acceptance item, no ticket body edit, no
+   reordering, no ticket creation and no deletion.
+
+   **All-or-nothing over the named set.** A refusal on any member leaves every member
+   byte-identical and the call reports the set and the refusals together. Record-only, by name:
+   `mission_not_found`, `not_active` (a closed mission acquires no work), `ticket_not_found`,
+   `not_queued`, `in_other_mission` (it is not a loose ticket), `claimed` (a ticket inside a
+   live claim is another run's work — the **next safe boundary** the ask names, satisfied by
+   the existing claim protocol and no new mechanism), `claim_unreadable` (an absence of a
+   reading is never a proof that nothing is claimed) and `immutable_field`. A re-run over a
+   fully regrouped set leaves every ticket byte-identical and reports `already_in_mission`,
+   which is a success and not a refusal.
+
+   **A run never regroups on its own reading.** The route fires on an explicit announcement
+   naming the mission and every ticket, and on nothing else — never on this run's judgement
+   that queued tickets look related. That judgement changes a **unit**, not an artifact, and
+   lives in `workaholic:drive` §2, where a shared `feedback:` ref is grounds for one batch unit.
+
+   **Leave `WORKAHOLIC_AUTO_MERGE` unset for this form.** It carries an operator's ruling, so
+   the operator's merge is the authorship. Said plainly rather than implied: the seam **cannot**
+   derive it here. `publish-tree-pr.sh`'s `ruling_touching` test fires on a mission that already
+   existed on the base whose diff moves its `feedback:` line
+   (`branching/scripts/lib/publication-refusal.sh`), and a regroup moves a **ticket's**
+   `mission:` line and appends a mission **changelog** line — neither term. So this is the
+   caller's rule, stated here and pinned by a test over this step's own text: a weaker
+   guarantee than step 9b/9c/9d's, and recorded as such rather than implied to be the same.
 
 10. **Publish it all as one pull request, merged immediately.**
    `WORKAHOLIC_AUTO_MERGE=1 WORKAHOLIC_PR_TITLE="[Proposal] <title>" WORKAHOLIC_REFERENCES_ISSUE="<issue number from step 1>" bash ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh "<title>" "<why>" "<changes>" "<concerns>" "<insights>" "<verify>"`

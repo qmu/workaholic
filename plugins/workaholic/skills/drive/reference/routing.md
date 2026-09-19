@@ -8,8 +8,23 @@ contract, the routing mechanics, and the run report's full shape.
 - **Group conservatively — when unsure, one ticket per unit.** The failure mode is asymmetric: a
   PR bundling unrelated changes cannot be reviewed as one thing; splitting too finely costs one
   extra PR. Group only on a reason you could state in one sentence in the PR body. `depends_on` is
-  the one signal strong enough to group on by itself — a dependent ticket in a separate PR cannot
+  one signal strong enough to group on by itself — a dependent ticket in a separate PR cannot
   merge.
+- **And a shared `feedback:` ref is the second grounds** (2026-09-19, issue #1110 items 1 and 7): tickets whose `feedback:` refs intersect — read through `specificate/scripts/read-feedback-relation.sh`, the relation's one reader, never re-parsed — are grounds for one batch unit exactly as `depends_on` is, because that intersection is a **fact on the artifacts** rather than a guess about relatedness. **An intersection is grounds, not an obligation**: the executor may still split on a stated reason, and a shared **direction** ref is not a shared review batch — a strategy's carry-forward puts its refs on everything it emits, so an intersection on those alone is coincidental and groups nothing.
+  **Each group names the grounds it was formed on** (`depends_on`, `shared_feedback:<ref>`, or the
+  one-sentence reason); a group with no statable grounds stays one ticket per unit. Requiring a
+  group wherever refs intersect is refused by name — it is the mirror of the fragmentation being
+  repaired.
+- **Grouping raises the cost of one failure, knowingly**: a nine-ticket unit that fails late fails
+  as one pull request. That is the trade the ask makes — the developer's review unit over
+  mechanical atomicity — and the per-ticket archive commit and the branch story keep the finer
+  granularity available where it is still wanted.
+- **The notification follows the unit and needs no new shape.** Once a batch is one unit it has one
+  claim, one pull request and one finish line, and `unit-feedback-stems.sh` already resolves every
+  member's stems to one resolved thread (*One finish line per unit, never one per stem*,
+  2026-08-22). The ask's item 7 — enumerate the linked items while pointing at the shared outcome —
+  is the **scoped progress** shape's job (`📊`, `workaholic:notify`, *Three acts*), which names what
+  landed and what remains; `🟢 Implemented` keeps its per-unit meaning and is untouched.
 - **Never mix merge policies to force a route.** Batching an `auto` ticket with a `review` one
   does not make the review ticket merge; it makes the auto ticket wait. Policy is not a grouping
   input.

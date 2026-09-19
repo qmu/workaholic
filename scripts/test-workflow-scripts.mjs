@@ -133,6 +133,7 @@ const SCRIPTS = {
   tickAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/tick-acceptance.sh"),
   acceptanceHandoffs: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/acceptance-handoffs.sh"),
   linkAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/link-acceptance.sh"),
+  regroupTickets: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/regroup-tickets.sh"),
   unlinkedAcceptance: join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/unlinked-acceptance.sh"),
   refreshIndex: join(REPO_ROOT, "plugins/workaholic/skills/okf/scripts/refresh-index.sh"),
   promoteIcebox: join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/promote-icebox.sh"),
@@ -2705,11 +2706,44 @@ function testCarryAttribution() {
     // route writes `.workaholic/missions/`, so it cannot see it. Weaker than the strategy
     // exemption, pinned rather than trusted.
     const wf = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
-    const step = wf.slice(wf.indexOf("9e."), wf.indexOf("10. **Publish it all"));
+    // Bounded at 9f, which sits between this step and step 10 since 2026-09-19: a slice that
+    // ran past it would let 9f's own sentences satisfy 9e's assertions.
+    const step = wf.slice(wf.indexOf("9e."), wf.indexOf("9f."));
     assertTrue("step 9e names the writer", /carry-attribution\.sh <strategy> <mission>/.test(step), step.slice(0, 200));
     assertTrue("and states that WORKAHOLIC_AUTO_MERGE is left unset",
       /Leave `WORKAHOLIC_AUTO_MERGE` unset/.test(step), step);
     assertTrue("and says the seam cannot enforce it", /cannot\*\* enforce it here/.test(step), step);
+
+    // STEP 9f IS THE SAME SHAPE ON A DIFFERENT RELATION (2026-09-19, issue #1110 item 6), and
+    // its auto-merge rule is the CALLER's for a reason it must keep stating: `ruling_touching`
+    // fires on a mission whose diff moves its `feedback:` line, and a regroup moves a TICKET's
+    // `mission:` line. A step that implied the seam enforced it would be the exact error this
+    // row exists to catch.
+    const regroup = wf.slice(wf.indexOf("9f."), wf.indexOf("10. **Publish it all"));
+    assertTrue("step 9f names the writer",
+      /regroup-tickets\.sh <mission> <ticket-filename>\.\.\./.test(regroup), regroup.slice(0, 200));
+    assertTrue("and it fires on an explicit announcement, never on the run's own reading",
+      /never on this run's judgement/.test(regroup), regroup);
+    assertTrue("and it is all-or-nothing over the named set",
+      /All-or-nothing over the named set/.test(regroup), regroup);
+    assertTrue("and `claimed` is named as the next safe boundary",
+      /next safe boundary/.test(regroup) && /no new mechanism/.test(regroup), regroup);
+    assertTrue("and WORKAHOLIC_AUTO_MERGE is left unset",
+      /Leave `WORKAHOLIC_AUTO_MERGE` unset/.test(regroup), regroup);
+    assertTrue("and it says plainly that the seam cannot derive it",
+      /cannot\*\*\s*\n?\s*derive it here/.test(regroup) || /cannot\*\* derive it here/.test(regroup),
+      regroup);
+
+    // The act's own header carries the precedent and the four bounds by citation.
+    const act = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/regroup-tickets.sh"), "utf8");
+    assertTrue("the act names carry-attribution.sh as its precedent",
+      /carry-attribution\.sh/.test(act), "the precedent is not named");
+    assertTrue("and cites the four bounds rather than restating them",
+      /drive\/reference\/claims\.md/.test(act) && /cited\s*\n?#\s*rather than restated/.test(act),
+      "the bounds are restated or absent");
+    assertTrue("and states that the seam cannot derive its refusal",
+      /does \*\*not\*\* catch\s*\n?# this shape/.test(act), "the act implies the seam enforces it");
   } finally { cleanup(A); }
 }
 
@@ -17748,6 +17782,246 @@ function testPlanUnitsClosedMission() {
       why(proposed), "mission_member");
     assertEq("only the two repaired tickets reach the offer", offered.length, 2);
   } finally { cleanup(dir); }
+}
+
+// A SHARED `feedback:` REF IS GROUNDS FOR ONE PR-UNIT, AND THE SCRIPT STILL GROUPS NOTHING
+// (2026-09-19, issue #1110 items 1 and 7). `depends_on` was the only NAMED grounds, so a batch
+// of corrections sharing one thread and one screen fell to the conservative one-ticket-per-unit
+// default -- the exact shape the ask rejects. What moves is prose at the two homes of the
+// grouping bar plus ONE annotation on the row; what must NOT move is the offer itself, because
+// `plan-units.sh`'s own header stakes the conservative bar on no heuristic living in the script.
+T("drive/plan-units.sh (a shared feedback ref is annotated, never grouped)", testPlanUnitsFeedbackRefs);
+function testPlanUnitsFeedbackRefs() {
+  const dir = makeRepo("main");
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const ticket = (name, feedback) => {
+    const p = `.workaholic/tickets/todo/${name}`;
+    writeFileSync(join(dir, p),
+      `---\ncreated_at: 2026-09-19T00:00:01+09:00\nauthor: test@example.com\n`
+      + `assignees: [test@example.com]\ndepends_on:\n${feedback}---\n\n# ${name}\n`);
+    return p;
+  };
+  try {
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    const a = ticket("20260919000001-a.md", "feedback: [r1.md, r2.md]\n");
+    const b = ticket("20260919000002-b.md", "feedback: r2.md\n");
+    const c = ticket("20260919000003-c.md", "");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    const plan = JSON.parse(run(dir, PLAN).stdout);
+    const row = (p) => plan.backlog.find((r) => r.path === p);
+    assertEq("the inline-list form is annotated through the relation's one reader",
+      row(a)?.feedback_refs, "r1.md,r2.md");
+    assertEq("and the bare-scalar form is too", row(b)?.feedback_refs, "r2.md");
+    assertEq("a ticket naming no record annotates empty, never null", row(c)?.feedback_refs, "");
+
+    // THE TRIPWIRE, and the reason this row exists: the annotation is reported and never
+    // applied. Three intersecting tickets are still offered one per row, nothing is excluded
+    // on the refs, and the membership is byte-identical to what it was before the field.
+    assertEq("every ticket is still offered, one row each", plan.backlog.length, 3);
+    assertEq("and nothing was excluded on a shared ref", plan.excluded.length, 0);
+    assertTrue("the script names no grouping of its own",
+      !Object.keys(plan).includes("groups") && !Object.keys(plan).includes("batches"),
+      JSON.stringify(Object.keys(plan)));
+
+    // The header must keep saying so, because the contract is what stops the next reader
+    // from putting the judgement here.
+    const script = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/plan-units.sh"), "utf8");
+    assertTrue("the header names the annotation as reported and never applied",
+      /REPORTED AND NEVER APPLIED/.test(script), "the contract is not in the script");
+    assertTrue("and the no-heuristic claim it rests on is still true",
+      /no grouping heuristic lives here/.test(script), "the header's own claim went stale");
+    assertTrue("the refs are read through the relation's one reader, not re-parsed",
+      /read-feedback-relation\.sh/.test(script), "a second parser of the relation");
+
+    // The grounds is named at BOTH homes of the grouping bar, in one wording.
+    const GROUNDS = "**And a shared `feedback:` ref is the second grounds** (2026-09-19, issue "
+      + "#1110 items 1 and 7): tickets whose `feedback:` refs intersect — read through "
+      + "`specificate/scripts/read-feedback-relation.sh`, the relation's one reader, never "
+      + "re-parsed — are grounds for one batch unit exactly as `depends_on` is, because that "
+      + "intersection is a **fact on the artifacts** rather than a guess about relatedness. "
+      + "**An intersection is grounds, not an obligation**: the executor may still split on a "
+      + "stated reason, and a shared **direction** ref is not a shared review batch — a "
+      + "strategy's carry-forward puts its refs on everything it emits, so an intersection on "
+      + "those alone is coincidental and groups nothing.";
+    const skill = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/SKILL.md"), "utf8");
+    const routing = readFileSync(
+      join(REPO_ROOT, "plugins/workaholic/skills/drive/reference/routing.md"), "utf8");
+    assertTrue("drive/SKILL.md §2 names the second grounds", skill.includes(GROUNDS), "SKILL.md");
+    assertTrue("and reference/routing.md carries it byte-identically",
+      routing.includes(GROUNDS), "routing.md");
+    assertTrue("the partition report names the grounds each group was formed on",
+      /shared_feedback:<ref>/.test(skill) && /shared_feedback:<ref>/.test(routing));
+    assertTrue("and a batch mixing merge policies is still never grouped",
+      /Never mix merge policies to force a route/.test(skill));
+    assertTrue("the per-unit finish line is stated as unchanged, not re-shaped",
+      /`🟢 Implemented` keeps its per-unit meaning and is untouched/.test(routing),
+      "item 7's reading is not recorded");
+  } finally { cleanup(dir); }
+}
+
+// ---------- mission/regroup-tickets.sh (an operator's granularity correction) ----------
+// (2026-09-19, issue #1110 item 6.) Nothing in this repository could move a queued loose
+// ticket into a mission, so a correction mid-flight had no act at all. The act copies
+// `carry-attribution.sh` property for property, and what is pinned is exactly those
+// properties: it fires on the named set, it is all-or-nothing, it is idempotent, it refuses
+// every bound by its own word with the tree byte-identical, and it writes ONE relation.
+T("mission/regroup-tickets.sh (an announced regroup, all-or-nothing and idempotent)",
+  testRegroupTickets);
+function testRegroupTickets() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-regroup-origin-"));
+  const dir = mkdtempSync(join(tmpdir(), "wh-regroup-"));
+  const REGROUP = `${POSIX_SH} ${SCRIPTS.regroupTickets}`;
+  const ticket = (name, extra = "") => {
+    const p = `.workaholic/tickets/todo/${name}`;
+    writeFileSync(join(dir, p),
+      `---\ncreated_at: 2026-09-19T00:00:01+09:00\nauthor: test@example.com\n`
+      + `assignees: [test@example.com]\ndepends_on:\n${extra}---\n\n# ${name}\n\n`
+      + `## Policies\n\n- none\n\n## Quality Gate\n\nnone\n`);
+    return p;
+  };
+  const dirty = () => execSync("git status --porcelain", { cwd: dir, encoding: "utf8" });
+  try {
+    execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: dir });
+    execSync("git config user.email test@example.com && git config user.name Test"
+      + " && git config commit.gpgsign false", { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    for (const [area, slug, status] of [["active", "m-live", "active"],
+                                        ["archive", "m-done", "achieved"]]) {
+      mkdirSync(join(dir, `.workaholic/missions/${area}/${slug}`), { recursive: true });
+      writeFileSync(join(dir, `.workaholic/missions/${area}/${slug}/mission.md`),
+        `---\ntype: Mission\ntitle: ${slug}\nslug: ${slug}\nstatus: ${status}\n`
+        + `assignees: [test@example.com]\n---\n\n# ${slug}\n\n## Experience\n\nx\n\n`
+        + `## Acceptance\n\n- [ ] ship it\n\n## Changelog\n`);
+    }
+    const a = ticket("20260919000001-a.md", "mission:\n");
+    const b = ticket("20260919000002-b.md");           // no `mission:` key at all
+    const owned = ticket("20260919000003-owned.md", "mission: m-live\n");
+    const elsewhere = ticket("20260919000004-elsewhere.md", "mission: m-done\n");
+    execSync("git add -A && git commit -q -m seed && git push -q -u origin main", { cwd: dir });
+
+    // --- Every refusal writes NOTHING, and each has its own word --------------------
+    const refuse = (args) => JSON.parse(run(dir, `${REGROUP} ${args}`).stdout
+      || run(dir, `${REGROUP} ${args}`).stdout);
+    const reasonOf = (args) => {
+      const r = run(dir, `${REGROUP} ${args}`);
+      return { status: r.status, json: JSON.parse(r.stdout) };
+    };
+    assertEq("an unknown mission refuses by its own word",
+      reasonOf("m-nowhere 20260919000001-a.md").json.reason, "mission_not_found");
+    assertEq("a CLOSED mission acquires no work", reasonOf("m-done 20260919000001-a.md").json.reason,
+      "not_active");
+    assertEq("no ticket named is its own refusal", reasonOf("m-live").json.reason, "no_tickets");
+    let r = reasonOf("m-live 20260919000001-a.md 20260919000099-ghost.md");
+    assertEq("a member that is not there refuses the WHOLE set", r.json.reason, "member_refused");
+    assertEq("and names which member and why",
+      r.json.refusals.map((x) => [x.ticket, x.reason]),
+      [["20260919000099-ghost.md", "ticket_not_found"]]);
+    assertEq("a ticket already inside another mission is not a loose ticket",
+      reasonOf("m-live 20260919000004-elsewhere.md").json.refusals[0].reason, "in_other_mission");
+    assertEq("every refusal leaves the tree byte-identical", dirty(), "");
+
+    // --- The act: the named set gains ONE relation and the mission ONE line ---------
+    r = reasonOf(`m-live 20260919000001-a.md 20260919000002-b.md --date 2026-09-19`);
+    assertEq("the announced set is regrouped", [r.json.regrouped, r.json.added],
+      [true, ["20260919000001-a.md", "20260919000002-b.md"]]);
+    const READ_REL = join(REPO_ROOT, "plugins/workaholic/skills/mission/scripts/read-relation.sh");
+    assertEq("the empty-key form gained the relation",
+      run(dir, `${POSIX_SH} ${READ_REL} ${a}`).stdout.trim(), "m-live");
+    assertEq("and so did the form carrying no key at all",
+      run(dir, `${POSIX_SH} ${READ_REL} ${b}`).stdout.trim(), "m-live");
+    assertTrue("the mission carries one changelog line", r.json.changelog === true,
+      JSON.stringify(r.json));
+    let floor = 1;
+    try {
+      execSync(`${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/hooks/validate-ticket.sh")}`, {
+        cwd: dir, input: JSON.stringify({ tool_input: { file_path: a } }),
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
+      });
+      floor = 0;
+    } catch (e) { floor = e.status ?? 1; }
+    assertEq("the regrouped ticket still passes the write-time floor", floor, 0);
+    // NOTHING BEYOND THE RELATION: the body and the rest of the frontmatter are untouched,
+    // and no ticket was created, deleted or reordered.
+    const changed = dirty().trim().split("\n").map((l) => l.slice(3)).sort();
+    assertEq("only the two tickets and the mission moved", changed,
+      [".workaholic/missions/active/m-live/mission.md", a, b].sort());
+    assertTrue("the ticket body is untouched",
+      readFileSync(join(dir, a), "utf8").includes("## Quality Gate\n\nnone\n"));
+
+    // --- Idempotent: a re-run writes nothing and says so ---------------------------
+    execSync("git add -A && git commit -q -m regrouped", { cwd: dir });
+    r = reasonOf(`m-live 20260919000001-a.md 20260919000002-b.md --date 2026-09-19`);
+    assertEq("a re-run is a success, not a refusal",
+      [r.json.regrouped, r.json.reason], [true, "already_in_mission"]);
+    assertEq("and it leaves every member byte-identical", dirty(), "");
+    assertEq("a ticket that already names the mission is `already`, never re-added",
+      reasonOf(`m-live 20260919000003-owned.md`).json.already, ["20260919000003-owned.md"]);
+
+    // --- The regrouped ticket leaves the loose offer, inside its mission's unit -----
+    const plan = JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.planUnits}`).stdout);
+    assertTrue("the regrouped ticket is no longer offered loose",
+      !plan.backlog.some((x) => x.path === a), JSON.stringify(plan.backlog));
+    assertEq("and the exclusion is named rather than silent",
+      plan.excluded.find((e) => e.id === a)?.reason, "mission_member");
+    assertTrue("its mission is offered as the unit instead",
+      plan.missions.some((m) => m.slug === "m-live"), JSON.stringify(plan.missions));
+  } finally { cleanup(origin); cleanup(dir); }
+}
+
+// A CLAIMED ticket is another run's work, and that is the NEXT SAFE BOUNDARY the ask names —
+// satisfied by the existing claim protocol rather than by a hold, a flag or a second control
+// path. The oracle is read once for the whole set, and a scan that could not be read is a
+// refusal rather than a proof that nothing is claimed.
+T("mission/regroup-tickets.sh (a claimed ticket refuses, an unreadable scan too)",
+  testRegroupTicketsClaimed);
+function testRegroupTicketsClaimed() {
+  const origin = mkdtempSync(join(tmpdir(), "wh-regroup-c-origin-"));
+  const dir = mkdtempSync(join(tmpdir(), "wh-regroup-c-"));
+  const REGROUP = `${POSIX_SH} ${SCRIPTS.regroupTickets}`;
+  try {
+    execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+    execSync(`git clone -q ${origin} .`, { cwd: dir });
+    execSync("git config user.email test@example.com && git config user.name Test"
+      + " && git config commit.gpgsign false", { cwd: dir });
+    mkdirSync(join(dir, ".workaholic/missions/active/m-live"), { recursive: true });
+    writeFileSync(join(dir, ".workaholic/missions/active/m-live/mission.md"),
+      "---\ntype: Mission\ntitle: m-live\nslug: m-live\nstatus: active\n"
+      + "assignees: [test@example.com]\n---\n\n# m-live\n\n## Experience\n\nx\n\n"
+      + "## Acceptance\n\n- [ ] ship it\n\n## Changelog\n");
+    mkdirSync(join(dir, ".workaholic/tickets/todo"), { recursive: true });
+    const held = ".workaholic/tickets/todo/20260919000005-held.md";
+    writeFileSync(join(dir, held),
+      "---\ncreated_at: 2026-09-19T00:00:05+09:00\nauthor: test@example.com\n"
+      + "assignees: [test@example.com]\ndepends_on:\nmission:\n---\n\n# Held\n\n"
+      + "## Policies\n\n- none\n\n## Quality Gate\n\nnone\n");
+    execSync("git add -A && git commit -q -m seed && git push -q -u origin main", { cwd: dir });
+
+    // A REAL claim through the real writer, so the refusal is driven by the oracle's own
+    // answer rather than by a shape resembling it.
+    JSON.parse(run(dir, `${POSIX_SH} ${SCRIPTS.claim} batch ${held}`).stdout);
+    const r = run(dir, `${REGROUP} m-live 20260919000005-held.md`);
+    assertEq("a ticket inside a live claim refuses by name",
+      JSON.parse(r.stdout).refusals[0].reason, "claimed");
+    assertEq("and nothing was written", execSync("git status --porcelain",
+      { cwd: dir, encoding: "utf8" }).replace(/^.*\.worktrees.*$\n?/gm, ""), "");
+
+    // AN UNREADABLE SCAN IS NOT A PROOF. Shadow the oracle with one that answers nothing.
+    const plug = mkdtempSync(join(tmpdir(), "wh-regroup-plug-"));
+    cpSync(join(REPO_ROOT, "plugins/workaholic"), join(plug, "workaholic"), { recursive: true });
+    const stub = join(plug, "workaholic/skills/drive/scripts/list-claims.sh");
+    writeFileSync(stub, "#!/bin/sh -eu\nexit 1\n");
+    chmodSync(stub, 0o755);
+    const shadowed = run(dir,
+      `${POSIX_SH} ${join(plug, "workaholic/skills/mission/scripts/regroup-tickets.sh")} `
+      + "m-live 20260919000005-held.md");
+    assertEq("an unreadable claim scan refuses rather than passing",
+      JSON.parse(shadowed.stdout).reason, "claim_unreadable");
+    cleanup(plug);
+  } finally { cleanup(origin); cleanup(dir); }
 }
 
 // An UNREADABLE backlog must never render as an EMPTY one. The queue is scoped to
@@ -40996,6 +41270,42 @@ function testMissionGrainStatedOnce() {
     /a reader can disagree with it/.test(spec));
   assertTrue("and no cap is placed on the ingest path",
     /No cap is placed on the ingest path/.test(spec));
+
+  // RULE 2's ONE NAMED CASE (2026-09-19, issue #1110 item 2). A batch a person reviewed as one
+  // pass is a container by their own definition of the review unit, and the case is written in
+  // the rule's one home and CITED by both /specificate surfaces in ONE wording. What is pinned
+  // is the shape: the three terms, the separation evidence, a reported word of its own, and
+  // that the 2026-09-03 term is still there -- this adds a case and removes none.
+  assertTrue("rule 2 names the review-batch case in the rule's own home",
+    /one review surface, one feedback thread and one coherent acceptance\s+walk/.test(rules),
+    "the named case has no home");
+  assertTrue("and it requires all three terms rather than any one of them",
+    /All three terms must hold/.test(rules), "one shared term would re-open proliferation");
+  assertTrue("and concrete evidence separates the batch",
+    /release, dependency, ownership or risk/.test(rules));
+  assertTrue("and the per-member feedback ref is stated as carried, not as gated",
+    /check-carry-floor\.sh` proves the second and \*\*not\*\* the first/.test(rules),
+    "the floor's coverage is implied rather than stated");
+  const workflow = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  const CITED = "**Row 1's one named case is a person's single review pass** — a batch whose "
+    + "items share **one review surface, one feedback thread and one coherent acceptance walk** "
+    + "is a mid-term container and takes row 1, all three terms required, with concrete "
+    + "**release, dependency, ownership or risk** evidence separating it and one mission absent "
+    + "such evidence (`rules/workaholic.md`, *What a Mission Must Be Able to Hold*, rule 2, "
+    + "cited rather than restated). Report `mission_held_by:review_batch` beside "
+    + "`precedence:<form>` and `mid_term_plan:<yes|no>` when that case decided, "
+    + "`mission_held_by:mid_term_plan` when the ordinary criterion did, and "
+    + "`separated_by:<release|dependency|ownership|risk>` when the evidence split the batch. "
+    + "It adds a case and removes none: the mid-term-plan term still refuses an ask with no "
+    + "plan, and every floor and the ceiling are untouched.";
+  assertTrue("SKILL.md carries the cited wording", spec.includes(CITED), "SKILL.md");
+  assertTrue("and reference/workflow.md carries it byte-identically",
+    workflow.includes(CITED), "workflow.md");
+  assertTrue("the 2026-09-03 mid-term-plan term survives in both",
+    /and there is a mid-term plan to hold/.test(spec)
+      && /there is a mid-term plan to hold/.test(workflow),
+    "the named case silently replaced the term it was meant to sit beside");
 
   // The floor is enumerated at every seam, and the hook says why it is not one of them.
   const missionSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");

@@ -50,3 +50,4 @@ not asserted at report time. A run that cannot read the evidence says so and clo
 - 2026-09-19 — ticket archived — 20260919094701-stop-the-ingest-pull-request-closing-the-source-feedback-issue.md
 - 2026-09-19 — ticket archived — 20260919094701-close-a-source-issue-only-on-a-verified-reconciliation.md
 - 2026-09-19 — mission achieved — mission.md
+- 2026-09-19 — Story opened — work-20260919-102417.md

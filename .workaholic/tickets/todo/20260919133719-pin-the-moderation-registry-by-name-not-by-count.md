@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy: auto
 verification_handoff:
+claim: work-20260919-135359
 ---
 
 # Pin the moderation registry by name, not by a count that goes stale

@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260919-195549
 ---
 
 # Refuse a non-numeric pull-request argument before a record is written

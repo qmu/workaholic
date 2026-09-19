@@ -7,6 +7,7 @@ mission:
 merge_policy:
 feedback: [20260919094303-a-person-s-ask-can-sit-unanswered-while-the-tick-reads-clean.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 verification_handoff:
+claim: work-20260919-195549
 ---
 
 # Make the inbound receipt an obligation the tick cannot judge away

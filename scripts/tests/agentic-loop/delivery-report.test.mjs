@@ -68,9 +68,27 @@ test('P8 delivery resumes an unknown merge without repeating catch-up or the mer
   assert.deepEqual(readFileSync(calls,'utf8').trim().split('\n'),['catchup','prepare','merge']);
 });
 
+// The registry is a contract, so it is pinned BY NAME (2026-09-19). A bare `length` pin went
+// stale the first time a step was added (`worktree-sweep`, PR #1224) and failed with `34 !== 33`,
+// naming nothing. `loop-drill.sh:1326` recorded the same lesson in 2026-08-26. Adding, removing or
+// reordering a step means editing this list, which is deliberate: the row exists so that a
+// registry change is stated rather than absorbed, and the diff names the id that moved.
+const EXPECTED_STEPS = ['open-log','blocked-tick','inbound-sweep','workload-logs','merge-conflicts',
+  'issue-triage','stuck-prs','doc-drift','release-status','note-cadence','strategy-pace',
+  'direction-health','date-will-not-hold','stalled-units','raced-units','undrivable-units',
+  'standing-rulings','undelivered-units','handoff-units','thread-reconcile',
+  'stranded-publications','operator-pulls','retire-claims','worktree-sweep','closable-missions',
+  'unrecorded-missions','base-health','drill-health','cadence-lapse','strategy-digest',
+  'question-answers','unanswered-asks','file-findings','human-checkin'];
+
 test('P8 maintenance registry is ordered and complete', () => {
   const registry=JSON.parse(readFileSync(join(scripts,'moderate/scripts/steps.json'),'utf8'));
-  assert.equal(registry.steps.length,33); assert.equal(registry.steps[0].id,'open-log'); assert.equal(registry.steps.at(-1).id,'human-checkin');
-  assert.equal(new Set(registry.steps.map(x=>x.id)).size,33);
+  const ids=registry.steps.map(x=>x.id);
+  assert.deepEqual(ids,EXPECTED_STEPS);
+  // Kept beside the deepEqual although it subsumes them: each bookend is a pinned property with
+  // its own recorded reason (`human-checkin` asks with every finding in hand), and it must fail
+  // with its own message rather than inside a 34-element diff.
+  assert.equal(registry.steps[0].id,'open-log'); assert.equal(registry.steps.at(-1).id,'human-checkin');
+  assert.equal(new Set(ids).size,ids.length,'a step id is registered twice');
   for (const row of registry.steps) { assert.ok(row.script); assert.ok(row.trigger); assert.equal(typeof row.reader,'boolean'); assert.equal(typeof row.writer,'boolean'); }
 });

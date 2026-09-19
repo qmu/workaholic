@@ -14,6 +14,20 @@ def valid_result:
   type == "object" and (.executed|type == "boolean") and
   (.outcome|type == "string" and length > 0) and (.reason|type == "string") and
   (.report|type == "string");
+# WHAT THE COORDINATOR STORES PER WORKER IS BOUNDED (2026-09-19, ticket `20260919120809`).
+# The whole record is rewritten on every event, so an unbounded `result.report` makes each
+# write O(the loop's own history): measured, 24 workers at 2.7-5.4 KB of prose each took
+# `.data` to 129,906 bytes and the store stopped accepting writes at all. `executed`,
+# `outcome` and `reason` are kept INTACT -- they are what `valid_result`, the finish-log
+# summary and `codex-loop.sh`'s worker reading consume -- and `report` stays a STRING,
+# which `valid_result` requires. The marker is deliberately distinguishable from the
+# `(pruned; relayed and logged)` PREFIX the one-off manual recovery left on live rows.
+def report_max: 1200;
+def bound_report:
+  if type == "object" and (.report|type == "string") and (.report|length) > report_max
+  then .report = (.report[:report_max] + "… (bounded at " + (report_max|tostring) +
+                  " chars; full report relayed at finish)")
+  else . end;
 def finish_times:
   [.workers[] | select(.state == "completed")] | group_by(.role) |
   map({key:.[0].role,value:(map(.finished_at)|max)}) | from_entries;
@@ -96,13 +110,26 @@ elif $e.event == "started" or $e.event == "finish" or $e.event == "reported" or 
     {state:($s|if (.workers[$e.id]|active) then .workers[$e.id].state="unknown" else . end),
       changed:($w|active),reason:"result_unreadable"}
   elif $w.state == "completed" then
-    {state:$s,changed:false,reason:(if $w.result == $e.result then "duplicate_result" else "conflicting_result" end)}
-  else {state:($s|.workers[$e.id] += {state:"completed",finished_at:$e.now,result:$e.result,
-    process_exit:($e.process_exit // null)}),changed:true,reason:"completed"} end
+    # Compared against the BOUNDED form, because that is what a previous finish stored:
+    # comparing a full incoming result against it would read a replay as `conflicting`.
+    {state:$s,changed:false,reason:(if $w.result == ($e.result|bound_report) then "duplicate_result" else "conflicting_result" end)}
+  else {state:($s|.workers[$e.id] += {state:"completed",finished_at:$e.now,result:($e.result|bound_report),
+    process_exit:($e.process_exit // null)}),changed:true,reason:"completed",
+    relay:{id:$e.id,result:$e.result}} end
 elif $e.event == "tick" then {state:$s,changed:false,reason:$s.mode}
 else fail("unknown coordinator event") end |
 if (.state.max_workers|integer|not) or .state.max_workers < 1 or
    (.state.fanout|integer|not) or .state.fanout < 1 then fail("worker limits must be positive integers") else . end |
+(.relay // null) as $relay |
+del(.relay) |
+# EVERY STORED WORKER IS RE-BOUNDED ON EVERY WRITE, not only the one this event touched.
+# The store is clone-local under `.git/workaholic/runtime/`, so no pull request can carry a
+# migration to it and every checkout meets this code holding rows the old code wrote with
+# full untruncated prose. Bounding here is the upgrade path: the first write after the
+# change re-bounds the legacy rows, so no separate prune pass and no migration script exist.
+.state |= (if (.workers|type) == "object"
+           then .workers |= map_values(if (.result|type) == "object" then .result |= bound_report else . end)
+           else . end) |
 .state as $next |
 ($next|finish_times) as $finished |
 ($next.continuation // null) as $continuation |
@@ -114,7 +141,9 @@ if (.state.max_workers|integer|not) or .state.max_workers < 1 or
   resumed:($not_resumed == ""),resumed_reason:$not_resumed,continuation:$continuation,
   cancel_schedule:($next.mode == "stopped"),
   cancel_children:(if $next.mode == "stopped" then [$next.workers[]|select(active)|{id,child_id}] else [] end),
-  completed:(if $next.mode == "held" then [] else [$next.workers[]|select(.state == "completed" and .reported != true)] end),
+  completed:(if $next.mode == "held" then [] else
+    [$next.workers[]|select(.state == "completed" and .reported != true)]
+    | map(if $relay != null and .id == $relay.id then .result = $relay.result else . end) end),
   live:[$next.workers[]|select(active)|{id,role,child_id,state,target}],
   waiting_review:[$next.workers[]|select(.state == "awaiting_review")|{id,role,review_thread,awaited_at,target}],
   cancelled:[$next.workers[]|select(.state == "cancelled")|{id,role,child_id,cancelled_at}],

@@ -42560,6 +42560,152 @@ function testCaptureDuplicateKey() {
 // went unnoticed because the total kept rising from the rows that did run. Nothing may be
 // added after this block.
 const ONLY = process.argv[2] || "";
+
+// ---- THE DURABLE RECORD STAYS WRITABLE AND READABLE PAST THE ARGUMENT CAP, AND EVERY
+// REFUSAL ANSWERS BY ITS OWN NAME (2026-09-19, ticket `20260919120809`). `state.sh` passed
+// whole JSON values to `jq` as single `argv` strings, and Linux caps ONE argument at
+// MAX_ARG_STRLEN -- `32 * PAGE_SIZE`, DERIVED here rather than hard-coded, since the page
+// size is not 4096 everywhere. Three measured failures, each silent in a different way:
+//   A. `.data` over the cap -> the composition failed, `$value` was empty, and the shape
+//      assertion answered `state_invalid` with NOTHING written -- the wrong word entirely.
+//   B. `.data` just under and the whole record just over (a ~100-byte window) -> the record
+//      LANDED ON DISK and the success render then failed, exiting 2 with EMPTY stdout while
+//      the revision had advanced; the caller read failure, retried, and collided with its
+//      own successful write.
+//   C. A record over the cap ON DISK -> `state.sh read` exited 0 with empty stdout, so
+//      `coordinator.sh` read an empty file and EVERY coordinator event answered in silence.
+// The upgrade path is exercised against a record PLANTED on disk in the pre-change shape
+// (`rules/general.md`, *A tightened constraint over persisted data is verified against
+// legacy rows*): the store is clone-local under `.git/workaholic/runtime/`, so no pull
+// request can carry a migration to it and a store the suite creates fresh proves nothing.
+T("a runtime record is written and read past the argument cap, and every refusal is named",
+  testRuntimeRecordPastArgumentCap);
+function testRuntimeRecordPastArgumentCap() {
+  const STATE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/runtime/scripts/state.sh")}`;
+  const dir = makeRepo();
+  try {
+    const page = Number(run(dir, "getconf PAGESIZE").stdout.trim());
+    const cap = 32 * page;                       // MAX_ARG_STRLEN, derived, never 131072.
+    assertTrue("the argument cap is derived from the page size", cap > 0, `page ${page}`);
+
+    let n = 0;
+    const input = (data, withOwner) => {
+      n += 1;
+      const file = `state-in-${n}.json`;         // RUN-UNIQUE: `>` may not truncate.
+      const body = { updated_at: "2026-09-19T00:00:00Z", data };
+      if (withOwner) body.owner = null;
+      writeFileSync(join(dir, file), JSON.stringify(body));
+      return file;
+    };
+    const call = (args) => {
+      const r = run(dir, `${STATE} ${args}`);
+      let json = null;
+      try { json = r.stdout.trim() ? JSON.parse(r.stdout) : null; } catch { json = undefined; }
+      return { ...r, json };
+    };
+    const blob = (bytes) => ({ coordinator: { blob: "x".repeat(bytes) } });
+    const recordPath = (id) => join(dir, ".git/workaholic/runtime/v1/instances", id, "meta.json");
+
+    // 1. A `.data` LARGER THAN THE CAP round-trips: create, update and read all answer ok.
+    let r = call(`create --scope instance --id big --input ${input(blob(cap + 5000), true)}`);
+    assertEq("a create whose data exceeds the argument cap succeeds", r.json?.status, "ok");
+    r = call(`update --scope instance --id big --expected-revision 1 --input ${input(blob(cap + 9000), false)}`);
+    assertEq("and an update past the cap succeeds too", r.json?.status, "ok");
+    r = call("read --scope instance --id big");
+    assertEq("and the record reads back", r.json?.status, "ok");
+    assertEq("with the data it was written with",
+      r.json?.data?.record?.data?.coordinator?.blob?.length, cap + 9000);
+    assertEq("at the revision the update produced", r.json?.data?.record?.revision, 2);
+
+    // 2. MODE B'S WINDOW IS CLOSED. The old code landed the write and then failed the render
+    //    with empty stdout. Walk the whole window rather than one lucky size.
+    for (const delta of [-120, -60, -20, 0, 20, 60, 120]) {
+      const target = cap + delta;
+      const pad = target - JSON.stringify({ coordinator: { blob: "" } }).length;
+      const id = `win${delta < 0 ? `m${-delta}` : delta}`;
+      const res = call(`create --scope instance --id ${id} --input ${input(blob(pad), true)}`);
+      assertTrue(`a record sized at the cap${delta >= 0 ? "+" : ""}${delta} answers at all`,
+        res.json != null && res.json !== undefined, `exit ${res.status}: ${res.stderr.slice(0, 120)}`);
+      assertEq(`and reports success rather than landing silently (cap${delta >= 0 ? "+" : ""}${delta})`,
+        res.json?.status, "ok");
+      const back = call(`read --scope instance --id ${id}`);
+      assertEq(`and reads back (cap${delta >= 0 ? "+" : ""}${delta})`, back.json?.status, "ok");
+    }
+
+    // 3. GENUINELY MALFORMED INPUT STILL ANSWERS `state_invalid`, WITH NOTHING WRITTEN. The
+    //    word is narrowed to the shape assertion and is deliberately NOT widened, so a data
+    //    block that is present and not an object reaches it exactly as it always did.
+    r = call(`create --scope instance --id bad --input ${input(5, true)}`);
+    assertEq("a non-object data block exits 0", r.status, 0);
+    assertEq("and answers state_invalid", r.json?.reason, "state_invalid");
+    assertTrue("with nothing written", !existsSync(recordPath("bad")));
+
+    // 4. A RECORD ABOVE THE DECLARED CEILING IS REFUSED BY NAME, carrying both numbers. The
+    //    ceiling is a policy bound well above the argument cap, so §1 succeeds rather than
+    //    trading one refusal for another.
+    const huge = input(blob(1_100_000), true);
+    r = call(`create --scope instance --id over --input ${huge}`);
+    assertEq("an oversized record answers state_too_large", r.json?.reason, "state_too_large");
+    assertTrue("carrying the observed size", r.json?.data?.observed_bytes > 1_100_000,
+      JSON.stringify(r.json?.data));
+    assertEq("and the declared ceiling", r.json?.data?.ceiling_bytes, 1048576);
+    assertTrue("and writes nothing", !existsSync(recordPath("over")));
+    assertTrue("state_too_large never collides with revision_conflict",
+      r.json?.reason !== "revision_conflict");
+
+    // And a refusal over an EXISTING record leaves it byte-identical -- never both. A meta
+    // update may not carry `owner`, so this input is the owner-less form of the same payload.
+    const hugeUpdate = input(blob(1_100_000), false);
+    const beforeBytes = readFileSync(recordPath("big"), "utf8");
+    r = call(`update --scope instance --id big --expected-revision 2 --input ${hugeUpdate}`);
+    assertEq("a ceiling refusal over a live record is named", r.json?.reason, "state_too_large");
+    assertEq("and the record is byte-identical", readFileSync(recordPath("big"), "utf8"), beforeBytes);
+
+    // 5. NO PATH PRODUCES EMPTY STDOUT. That was the defect's whole shape.
+    for (const args of ["read --scope instance --id big",
+                        "read --scope instance --id absent",
+                        `create --scope instance --id big --input ${input(blob(4), true)}`,
+                        `update --scope instance --id big --expected-revision 99 --input ${input(blob(4), false)}`,
+                        `create --scope instance --id over --input ${huge}`,
+                        `create --scope instance --id bad2 --input ${input(5, true)}`]) {
+      const res = call(args);
+      assertTrue(`\`${args.split(" ").slice(0, 2).join(" ")}\` emits parseable JSON`,
+        res.json != null && res.json !== undefined,
+        `exit ${res.status}, stdout ${JSON.stringify(res.stdout.slice(0, 80))}`);
+      assertTrue("and names a status", typeof res.json?.status === "string");
+    }
+
+    // 6. THE UPGRADE PATH, AGAINST A LEGACY RECORD PLANTED ON DISK. Many workers carrying
+    //    full untruncated `result.report` prose, `.data` above the cap -- the shape the old
+    //    code left and the one it could neither read nor write.
+    const legacyDir = join(dir, ".git/workaholic/runtime/v1/instances/legacy");
+    mkdirSync(legacyDir, { recursive: true });
+    const prose = "Legacy untruncated worker prose. ".repeat(170);
+    const workers = {};
+    for (let i = 0; i < 30; i++) {
+      workers[`old${i}`] = { id: `old${i}`, role: "implement", state: "completed", reported: true,
+        finished_at: 1999999000 + i, child_id: `c${i}`, target: null,
+        result: { executed: true, outcome: "ok", reason: "", report: `old${i}: ${prose}` } };
+    }
+    const legacy = { schema_version: 1, revision: 41, owner: null, generation: 1,
+      updated_at: "2026-09-18T00:00:00Z",
+      data: { coordinator: { mode: "running", anchor: 1999999000, session_id: "legacy",
+        workers, max_workers: 2, fanout: 1 } } };
+    const legacyBytes = Buffer.byteLength(JSON.stringify(legacy.data));
+    assertTrue("the legacy fixture exceeds the argument cap", legacyBytes > cap,
+      `${legacyBytes} vs ${cap}`);
+    writeFileSync(join(legacyDir, "meta.json"), `${JSON.stringify(legacy)}\n`);
+
+    r = call("read --scope instance --id legacy");
+    assertEq("a legacy record above the cap is read", r.json?.status, "ok");
+    assertEq("with every worker it held", Object.keys(r.json?.data?.record?.data?.coordinator?.workers || {}).length, 30);
+    r = call(`update --scope instance --id legacy --expected-revision 41 --input ${input(blob(200), false)}`);
+    assertEq("and is written over", r.json?.status, "ok");
+    assertEq("advancing its legacy revision", r.json?.data?.record?.revision, 42);
+
+  } finally { cleanup(dir); }
+}
+
 for (const [label, fn] of tests) {
   if (ONLY && !label.includes(ONLY)) continue;
   console.log(`\n# ${label}`);

@@ -14,11 +14,22 @@ done
 runtime_require_json_file "$INPUT"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT HUP INT TERM
+# A STATE RESULT THAT CANNOT BE READ IS NAMED, NEVER RENDERED AS SILENCE (2026-09-19,
+# ticket `20260919120809`). `[ "$(jq -r .status …)" = ok ] || { cat …; exit 0; }` turns an
+# empty or unparseable result into `exit 0` printing NOTHING, so every coordinator event --
+# including a plain read -- answered with no reason word at all. That was reachable through
+# `state.sh`'s argument cap; the cap is gone, and a caller that renders an unreadable answer
+# as silence is wrong whatever stopped the output.
+state_status() { jq -r '.status // empty' "$1" 2>/dev/null || printf ''; }
+state_reason() { jq -r '.reason // empty' "$1" 2>/dev/null || printf ''; }
+
 attempt=0
 while [ "$attempt" -lt 3 ]; do
     attempt=$((attempt+1))
-    sh "$SCRIPT_DIR/state.sh" read --scope instance --id "$INSTANCE" > "$WORK/read"
-    [ "$(jq -r .status "$WORK/read")" = ok ] || { cat "$WORK/read"; exit 0; }
+    sh "$SCRIPT_DIR/state.sh" read --scope instance --id "$INSTANCE" > "$WORK/read" 2>"$WORK/read.err" || true
+    status=$(state_status "$WORK/read")
+    [ -n "$status" ] || { runtime_json_result error state_unreadable coordinator '{"stage":"read"}'; exit 0; }
+    [ "$status" = ok ] || { cat "$WORK/read"; exit 0; }
     jq -n --slurpfile old "$WORK/read" --slurpfile input "$INPUT" \
       '{state:($old[0].data.record.data.coordinator // null),input:$input[0]}' > "$WORK/reduce"
     jq -f "$SCRIPT_DIR/lib/coordinator.jq" "$WORK/reduce" > "$WORK/plan" 2> "$WORK/error" \
@@ -28,19 +39,21 @@ while [ "$attempt" -lt 3 ]; do
     if [ "$(jq -r .data.found "$WORK/read")" = false ]; then
         jq -n --arg now "$now" --slurpfile plan "$WORK/plan" \
           '{updated_at:$now,data:{coordinator:$plan[0].state}}' > "$WORK/write"
-        sh "$SCRIPT_DIR/state.sh" create --scope instance --id "$INSTANCE" --input "$WORK/write" > "$WORK/result"
+        sh "$SCRIPT_DIR/state.sh" create --scope instance --id "$INSTANCE" --input "$WORK/write" > "$WORK/result" 2>"$WORK/write.err" || true
     else
         revision=$(jq -r .data.record.revision "$WORK/read")
         jq -n --arg now "$now" --slurpfile old "$WORK/read" --slurpfile plan "$WORK/plan" \
           '{updated_at:$now,data:($old[0].data.record.data + {coordinator:$plan[0].state})}' > "$WORK/write"
         sh "$SCRIPT_DIR/state.sh" update --scope instance --id "$INSTANCE" \
-          --expected-revision "$revision" --input "$WORK/write" > "$WORK/result"
+          --expected-revision "$revision" --input "$WORK/write" > "$WORK/result" 2>"$WORK/write.err" || true
     fi
-    [ "$(jq -r .reason "$WORK/result")" = revision_conflict ] && continue
-    [ "$(jq -r .status "$WORK/result")" = ok ] || { cat "$WORK/result"; exit 0; }
+    write_status=$(state_status "$WORK/result")
+    [ -n "$write_status" ] || { runtime_json_result error state_unreadable coordinator '{"stage":"write"}'; exit 0; }
+    [ "$(state_reason "$WORK/result")" = revision_conflict ] && continue
+    [ "$write_status" = ok ] || { cat "$WORK/result"; exit 0; }
     break
 done
-if [ -f "$WORK/result" ] && [ "$(jq -r .reason "$WORK/result")" = revision_conflict ]; then cat "$WORK/result"; exit 0; fi
+if [ -f "$WORK/result" ] && [ "$(state_reason "$WORK/result")" = revision_conflict ]; then cat "$WORK/result"; exit 0; fi
 
 # The native completion seam owns the legacy cadence log too. Replaying a finish heals
 # a crash after state persistence; log-append is idempotent per completion tick + receipt.

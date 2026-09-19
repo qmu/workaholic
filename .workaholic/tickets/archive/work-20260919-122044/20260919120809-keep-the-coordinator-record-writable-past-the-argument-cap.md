@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-19T12:08:09+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
 mission:
 merge_policy: review
 verification_handoff:
+claim: work-20260919-122044
 ---
 
 # Keep the coordinator record writable past the argument cap
@@ -307,3 +309,76 @@ working, and prove the new word is reachable.
   ticket was written; the live runtime store under `.git/workaholic/runtime/` was read
   but never modified while measuring. A session driving this ticket should seed its own
   throwaway store rather than experiment against the running instance's record.
+
+## Final Report
+
+Development completed as planned. Both failure modes and the read path were reproduced
+against the pre-change code before anything was changed, and each reproduction now passes.
+
+**Step 1 — reproduced.** `getconf PAGESIZE` = 4096 here, so `MAX_ARG_STRLEN` = 131,072 bytes
+including the NUL; probed directly, a 131,071-byte argument executes and 131,072 answers
+`E2BIG`. Against the old code: (a) `.data` at cap+60 answered `state_invalid` with the `jq`
+`E2BIG` line on stderr and nothing on disk; (b) `.data` at 131,032 bytes **landed the record**
+(131,138 bytes, `revision` 1) and then exited **2 with empty stdout**; (c) `state.sh read`
+against that on-disk record exited **0 with empty stdout**; (d) `coordinator.sh` against it
+emitted nothing at all. The cap is derived everywhere it is used and is hard-coded nowhere.
+
+**Steps 2-4 — the write and read paths.** Every unbounded value now travels by file. In
+`state.sh` the create data and owner blocks, the update data block, the transition's requested
+owner and old-owner evidence, the transition's extra data, the composed record and both success
+renders are `--slurpfile`d out of run-unique payloads under one scratch directory carried by
+every trap on the path. `lib/result.sh` gained `runtime_json_result_file` beside the existing
+function rather than changing its signature. Three words each mean one thing: `state_too_large`
+(over the declared 1 MiB `RECORD_MAX_BYTES`, carrying `observed_bytes` and `ceiling_bytes`),
+`state_write_failed` (a step that could not run, naming it), and `state_unreadable` (now also a
+render that could not be made). `state_invalid` is narrowed to the shape assertion, which a
+non-object `.data` still reaches exactly as before.
+
+**Mode B's window is closed by ordering, not by luck**: the success result is rendered *before*
+the record lands, so every refusal reachable at that seam leaves the record byte-identical. The
+suite walks the whole window (cap-120 … cap+120) rather than one size.
+
+**Step 5 — the stored result is bounded.** `lib/coordinator.jq` truncates `result.report` to
+1200 characters with a marker distinguishable from the manual recovery's `(pruned; relayed and
+logged)` prefix, keeping `executed`/`outcome`/`reason` intact and `report` a string. Two
+consequences had to be handled: a replayed finish is compared against the **bounded** form, or a
+crash replay would read `conflicting_result`; and the finishing tick relays that worker's
+**full** report in `completed[]`, so the channel post is not the truncated copy.
+
+**Steps 6-8.** Every stored worker is re-bounded on every write, which **is** the upgrade path —
+no prune pass, no migration script. Verified against a record planted on disk in the pre-change
+shape (30 workers, full untruncated prose, `.data` 169,882 bytes > cap): the old code read it as
+empty stdout; the new code reads it, writes over it (`revision` 41 → 42) and leaves `.data` at
+43,823 bytes with the three fields intact. `coordinator.sh` answers `state_unreadable` with the
+stage rather than exiting silently, proved against a stubbed `state.sh` that prints nothing and
+one that prints garbage.
+
+**Step 7 — the consumer enumeration, re-derived from the tree.** `state_invalid` appears only at
+its emission site. What consumers key on is `revision_conflict` (`coordinator.sh` ×2,
+`moderate/scripts/question-registry.sh:106`, `transport/scripts/capture-inbox.sh:94` — two more
+than the ticket listed) and `status == ok`. No new word collides with either.
+
+### Discovered Insights
+
+- **Insight**: The dangerous half of this defect was not the refusal but the **write that
+  succeeded and reported failure**. Mode A is loud in its own wrong way; Mode B advances the
+  revision and returns nothing, so the caller's retry collides with its own successful write and
+  the record looks contended by a runner that does not exist.
+  **Context**: It is why the success render was moved *before* the `mv` rather than merely being
+  made cap-proof — ordering makes "written and reported failed" unreachable by construction,
+  whatever stops the render next time.
+
+- **Insight**: Bounding what is **stored** and bounding what is **reported** are different
+  decisions, and `lib/coordinator.jq` is where they meet: `completed[]` is read by the parent to
+  compose the channel post in the same tick the finish is recorded.
+  **Context**: Truncating at the storage site alone silently shortens every relayed report. The
+  reducer now carries the incoming result out beside the bounded state and substitutes it for the
+  worker that just finished, so the durable record shrinks and the post does not.
+
+- **Insight**: A `--slurpfile` guard must test the **array's length**, not the value's type. A
+  `($x[0] // null) | type != "object"` guard conflates *the payload did not survive staging*
+  (our defect) with *the caller sent a non-object* (their malformed input), and folding the
+  second into `state_write_failed` would have silently retired the one path that still reaches
+  `state_invalid`.
+  **Context**: The ticket's own gate required malformed input to keep answering `state_invalid`;
+  the first implementation of the guard broke it and the acceptance run caught it.

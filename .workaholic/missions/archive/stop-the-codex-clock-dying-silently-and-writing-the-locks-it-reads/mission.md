@@ -2,20 +2,21 @@
 type: Mission
 title: Stop the Codex clock dying silently and writing the locks it reads
 slug: stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-19T11:53:32+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 1.4
 feedback: [20260919114700-the-codex-loop-pins-its-own-skill-path-and-its-status-surface-writes-the-locks-it-reads.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-192006
 ---
 
 # Stop the Codex clock dying silently and writing the locks it reads
@@ -38,10 +39,15 @@ stderr and a file nobody opens.
 
 ## Acceptance
 
-- [ ] Reading worker liveness writes nothing and takes no lock, and the drill proves it. (#20260919115510-read-worker-liveness-without-writing-or-locking.md)
-- [ ] A startup that cannot read its own instructions recovers the tree or leaves a record. (#20260919115510-recover-or-record-a-retired-plugin-tree-at-startup.md)
-- [ ] A stopped or non-executing clock is announced where a person already looks. (#20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing.md)
+- [x] Reading worker liveness writes nothing and takes no lock, and the drill proves it. (#20260919115510-read-worker-liveness-without-writing-or-locking.md)
+- [x] A startup that cannot read its own instructions recovers the tree or leaves a record. (#20260919115510-recover-or-record-a-retired-plugin-tree-at-startup.md)
+- [x] A stopped or non-executing clock is announced where a person already looks. (#20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing.md)
 
 ## Changelog
 
 - 2026-09-19 — Proposed from issue #1218 (`[FB]`, subject `person:tamurayoshiya`).
+- 2026-09-19 — ticket archived — 20260919115510-read-worker-liveness-without-writing-or-locking.md
+- 2026-09-19 — ticket archived — 20260919115510-recover-or-record-a-retired-plugin-tree-at-startup.md
+- 2026-09-19 — ticket archived — 20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing.md
+- 2026-09-19 — mission achieved — mission.md
+- 2026-09-19 — run recorded (+1.4h) — impl17-20260919-1920

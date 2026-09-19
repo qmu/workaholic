@@ -42189,7 +42189,14 @@ exit 0
   try {
     run(ran, `sh ${LAUNCHER} --once --interval 60`,
       { env: { ...process.env, PATH: `${join(ran, "bin")}:${process.env.PATH}` } });
-    const before = readdirSync(join(ran, ".codex-loop")).sort().join(",");
+    // THE FINGERPRINT CARRIES SIZE AND MTIME, NOT JUST THE NAMES (2026-09-19, ticket
+    // `20260919115510-read-worker-liveness-without-writing-or-locking`). A name listing could
+    // never see the defect it was written to catch: the lock probes opened each lock with
+    // `exec 8>`, which truncates the file and moves its mtime while creating nothing new.
+    const fingerprint = (dir) => readdirSync(dir).sort()
+      .map((n) => { const st = statSync(join(dir, n)); return `${n}:${st.size}:${st.mtimeMs}`; })
+      .join(",");
+    const before = fingerprint(join(ran, ".codex-loop"));
     const r = composed(ran);
     assertEq("a completed tick reads through", r.status, 0);
     assertEq("the supervisor is stopped, not absent", r.json.supervisor.reading, "stopped:completed_once");
@@ -42201,8 +42208,8 @@ exit 0
     assertEq("and its outcome", r.json.tick.outcome, "ready");
     assertTrue("and its identity and next boundary",
       Boolean(r.json.tick.tick_id) && Boolean(r.json.tick.next_due), JSON.stringify(r.json.tick));
-    // SIDE-EFFECT FREE: it starts nothing, writes nothing and takes no lock.
-    assertEq("reading changes no durable byte", readdirSync(join(ran, ".codex-loop")).sort().join(","), before);
+    // SIDE-EFFECT FREE: it starts nothing and writes nothing — its lock probes open read-only.
+    assertEq("reading changes no durable byte", fingerprint(join(ran, ".codex-loop")), before);
   } finally { cleanup(ran); }
 
   // THREE DEGRADATIONS AT ONCE, each named in place and none rendering as healthy.

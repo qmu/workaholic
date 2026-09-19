@@ -94,8 +94,14 @@ case "$_last_post" in ''|*[!0-9]*) _last_post=0 ;; esac
 # three are the check-in gate's own values and are read through its one derivation. Where that
 # derivation cannot be reached, only the 24-hour term applies and the reason says so -- a longer
 # silence, which is the safe direction for a rule whose job is to suppress repeats.
+# A LINE THAT NEVER LANDED IS NOT IN A COOL-DOWN AT ALL, and it is not at an expiry either: the
+# cool-down suppresses a REPEAT, and nothing has been said once. Such a tick re-attempts the shape
+# the ladder is already at, so a transport that comes back finds the alert still owed. The ledger
+# advances `last_post_epoch` only on a landed post, which is what keeps these two apart.
+never_posted() { [ "$_last_post" -le 0 ]; }
+
 cooled_down() {
-    [ "$_last_post" -gt 0 ] || return 0
+    never_posted && return 1
     [ $((NOW - _last_post)) -ge 86400 ] && return 0
     [ -f "$SPEAKING_WINDOW" ] || return 1
     # shellcheck disable=SC1090
@@ -117,6 +123,9 @@ if [ "$_reports" -eq 1 ]; then
     _shape=paused
     _body="⚪ Paused - ${SIGNATURE}"
 elif [ "$_reports" -eq 2 ]; then
+    _shape=blocked
+    _body="🔴 Blocked - ${SIGNATURE}"
+elif never_posted; then
     _shape=blocked
     _body="🔴 Blocked - ${SIGNATURE}"
 elif cooled_down; then

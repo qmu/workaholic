@@ -354,7 +354,17 @@ STATUS_FIXTURE
     # and the undeliverable case is asserted on the outbox and the refusal word, as it must be.
     _stub_sink="${_tmp}/announce-posts.txt"
     _stub="${_tmp}/announce-stub.sh"
-    printf '#!/bin/sh -eu\nprintf "%%s\\n---\\n" "$1" >> "${STUB_SINK:?}"\nprintf \x27{"notified": true, "reason": ""}\n\x27\n' > "$_stub"
+    # WRITTEN AS A HEREDOC, NOT AS printf ESCAPES (2026-09-19). `\x27` is a bashism: dash's
+    # printf emits it literally, so on a runner whose /bin/sh is dash the stub's last line was
+    # broken quoting — it still appended to the sink, so the post rows passed, and it returned no
+    # readable `notified`, so every announcement took the undeliverable branch and re-attempted
+    # the next tick. MEASURED in CI against a checkout that passed locally under bash-as-sh:
+    # `five ticks posted 1 calm and 4 red roots`.
+    cat > "$_stub" <<'ANNOUNCE_STUB'
+#!/bin/sh -eu
+printf '%s\n---\n' "$1" >> "${STUB_SINK:?}"
+printf '{"notified": true, "reason": ""}\n'
+ANNOUNCE_STUB
     chmod +x "$_stub"
     : > "$_stub_sink"
     rm -rf "${_retired_repo}/.codex-loop"

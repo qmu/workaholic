@@ -385,7 +385,10 @@ The transport is `specificate/scripts/notify-slack.sh`, the one script-level sea
 supervisor can reach. **An undeliverable transport is a recorded refusal and never a post**: the
 line is retained in `<state dir>/outbox/` with the transport's own refusal word (`no_token`,
 `slack_<error>`, …), `announced` is false, and the cool-down does **not** start, so the escalation
-ladder stays where the refusal left it. Slack is undeliverable in this repository today, so the
+ladder stays where the refusal left it. **A line that never landed is in no cool-down and at no
+expiry**: the cool-down suppresses a *repeat*, and nothing has been said once, so such a tick
+re-attempts the shape the ladder is already at and a transport that comes back finds the alert
+still owed. `last_post_epoch` advances only on a landed post, which is what keeps the two apart. Slack is undeliverable in this repository today, so the
 verification is the outbox and the refusal word rather than a message anybody reads.
 
 **The dedup ledger is local**, in `<state dir>/announcements.json`: `workaholic:notify` dedups by

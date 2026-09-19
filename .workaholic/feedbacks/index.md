@@ -772,4 +772,5 @@
 * [Keep a coherent feedback batch one mission one PR one report](20260919095027-keep-a-coherent-feedback-batch-one-mission-one-pr-one-report.md)
 * [Support low-context workers without stalling the work tick](20260919095501-support-low-context-workers-without-stalling-the-work-tick.md)
 * [Reconcile every accepted request before a completion mention](20260919100026-reconcile-every-accepted-request-before-a-completion-mention.md)
+* [The Codex loop pins its own skill path and its status surface writes the locks it reads](20260919114700-the-codex-loop-pins-its-own-skill-path-and-its-status-surface-writes-the-locks-it-reads.md)
 <!-- okf:generated:end -->

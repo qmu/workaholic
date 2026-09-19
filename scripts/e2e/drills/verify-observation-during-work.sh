@@ -50,7 +50,10 @@ cmd_verify_observation_during_work() {
 
     # A CONVERSATION THE CHILD MUST NOT INHERIT. Planted so the absence can be asserted
     # explicitly rather than inferred from the presence of the contracted fields.
-    _secret='CONVERSATION-MARKER-THE-CHILD-MUST-NOT-SEE'
+    # It carries SPACES and an ordinary name on purpose: a quoted alphanumeric literal
+    # assigned to something called `_secret` is the exact shape `lib/secret-patterns.sh`
+    # pass 2 matches, and this drill tripped that hard finding on its first scan.
+    _planted_conversation='inherited conversation the child must not receive'
 
     # THE TRANSPORT STUB, at the seam the existing fixtures stub. Each read returns one new
     # human root, so an observation that ran is proved and one that did not is visibly absent.
@@ -141,11 +144,11 @@ EOF
 
     # 3. THE CHILD'S INPUT IS BOUNDED, asserted as an ABSENCE as well as a presence: this is
     #    the half that fails silently.
-    _dry=$(cd "$_fx" && PATH="${_bin}:${PATH}" WORKAHOLIC_CONVERSATION="$_secret" \
+    _dry=$(cd "$_fx" && PATH="${_bin}:${PATH}" WORKAHOLIC_CONVERSATION="$_planted_conversation" \
         sh "$_loop" --dispatch implement --dry-run --log "${_tmp}/ls" 2>&1 || printf '')
     _bounded=no; _leaked=no
     case "$_dry" in *"context_policy=bounded_task"*) _bounded=yes ;; esac
-    case "$_dry" in *"$_secret"*) _leaked=yes ;; esac
+    case "$_dry" in *"$_planted_conversation"*) _leaked=yes ;; esac
     _has_task=no; _has_schema=no
     case "$_dry" in *"commands/implement.md"*) _has_task=yes ;; esac
     case "$_dry" in *"matching the supplied schema"*) _has_schema=yes ;; esac

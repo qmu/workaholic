@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-192006
 ---
 
 # Stop the Codex clock dying silently and writing the locks it reads

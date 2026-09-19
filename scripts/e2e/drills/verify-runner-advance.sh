@@ -5,16 +5,69 @@ cmd_verify_runner_advance() {
     _before=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     _tmp=$(mktemp -d)
 
-    _mkwt() {  # _mkwt <fixture> <unit> <age-arg|now>
-        mkdir -p "${_tmp}/$1/.worktrees/$2"
+    # THE FIXTURE IS A REAL GIT REPOSITORY WITH REAL CLAIM WORKTREES (2026-09-20, the repair
+    # for `verify-runner-advance` going red at `7a6db3d7b`). Until then each fixture was a bare
+    # directory tree holding files with chosen mtimes, which was everything the reader needed
+    # while the newest mtime under `.worktrees/<unit>/` was its ONLY premise. It is no longer:
+    # ticket `20260919230800` gave the reader a second, git-native premise — a worktree is
+    # weighed only when its branch stands on `refs/remotes/origin/`, the claim oracle's own test
+    # — and a fixture that is not a repository at all supplies neither half of it, so
+    # `git worktree list` and `for-each-ref` both failed and EVERY unit fell to
+    # `claim_unresolved`. Four load-bearing rows went red against a reader that was reading
+    # correctly.
+    #
+    # THE REPAIR IS THE FIXTURE'S, NOT THE READER'S, and that is a decision rather than the
+    # cheaper road. The reader's answer for a root with no claim oracle — `unreadable`, which
+    # frees nothing — is the direction this repository requires of it everywhere else; teaching
+    # it that "no origin remote" means "weigh every worktree as before" would add a code path
+    # whose only caller is a fixture, and would hand back the pre-`20260919230800` reading in
+    # exactly the repository where nothing could contradict it. So the fixture now supplies the
+    # premise the real loop always has. It stays hermetic: `git init` under the drill's own temp
+    # directory, `update-ref` writing the origin ref by hand, no remote, no fetch, no network.
+    #
+    # The worktree's own `.git` FILE is aged with the rest. `git worktree add` writes it at
+    # creation and nothing rewrites it, so in the real loop it carries the claim's birth and ages
+    # with it; in a fixture built this second it would be the newest file under the worktree and
+    # would read every claim `advancing`.
+    _gitid='-c user.email=drill@example.invalid -c user.name=drill'
+    _repo() {  # _repo <fixture> -- a throwaway repository with one empty commit
+        mkdir -p "${_tmp}/$1"
+        git -c init.defaultBranch=main init -q "${_tmp}/$1" >/dev/null 2>&1
+        # shellcheck disable=SC2086
+        git -C "${_tmp}/$1" $_gitid commit -q --allow-empty -m init >/dev/null 2>&1
+    }
+    _mkwt() {  # _mkwt <fixture> <unit> <branch> <age-arg|now> <live|residue>
+        # shellcheck disable=SC2086
+        git -C "${_tmp}/$1" $_gitid worktree add -q -b "$3" \
+            "${_tmp}/$1/.worktrees/$2" >/dev/null 2>&1
+        [ "$5" = residue ] \
+            || git -C "${_tmp}/$1" update-ref "refs/remotes/origin/$3" HEAD >/dev/null 2>&1
         printf 'work\n' > "${_tmp}/$1/.worktrees/$2/f.md"
-        [ "$3" = now ] || touch -d "$3" "${_tmp}/$1/.worktrees/$2/f.md"
+        [ "$4" = now ] || find "${_tmp}/$1/.worktrees/$2" -exec touch -d "$4" {} + 2>/dev/null
     }
 
-    _mkwt frozen unit-a '2 hours ago'; _mkwt frozen unit-b '2 hours ago'
-    _mkwt mixed  unit-a '2 hours ago'; _mkwt mixed  unit-b now
-    mkdir -p "${_tmp}/none"
-    _mkwt blind  unit-a '2 hours ago'; mkdir -p "${_tmp}/blind/.worktrees/unit-b"
+    _repo frozen
+    _mkwt frozen unit-a work-20260101-000001 '2 hours ago' live
+    _mkwt frozen unit-b work-20260101-000002 '2 hours ago' live
+    _repo mixed
+    _mkwt mixed  unit-a work-20260101-000001 '2 hours ago' live
+    _mkwt mixed  unit-b work-20260101-000002 now           live
+    _repo none
+    _repo blind
+    _mkwt blind  unit-a work-20260101-000001 '2 hours ago' live
+    _mkwt blind  unit-b work-20260101-000002 '2 hours ago' live
+    # A LIVE claim whose files cannot be read at all — the `no_files` row. The worktree is
+    # registered and its branch stands on origin, so the filter admits it and the evidence walk
+    # is what comes back empty; that is the only way this case is reachable, since
+    # `git worktree add` always writes a `.git` file.
+    chmod 000 "${_tmp}/blind/.worktrees/unit-b" 2>/dev/null || true
+    # Residue: a worktree whose branch stands on NO origin ref, so no claim can be behind it.
+    _repo residue
+    _mkwt residue unit-a work-20260101-000001 '2 hours ago' live
+    _mkwt residue unit-b work-20260101-000002 '2 hours ago' residue
+    _repo abandoned
+    _mkwt abandoned unit-a work-20260101-000001 '2 hours ago' residue
+    _mkwt abandoned unit-b work-20260101-000002 '2 hours ago' residue
 
     # 1. THE EVIDENCE THE LOCALIZATION PROVED: a claim worktree whose files have not moved
     #    inside the window is `not_advancing`, one that has moved is `advancing`. This is the
@@ -127,7 +180,56 @@ cmd_verify_runner_advance() {
         add_row "runner_advance_frees_the_slot" false "the fan-out arithmetic over the reader's own output did not free a frozen runner's slot, or freed one on a reading nobody made" load
     fi
 
-    # 8. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Wire the reader so a claim whose
+    # 8. RESIDUE IS EXCLUDED FROM THE EVIDENCE, NOT COUNTED AS A FLAT RUNNER (2026-09-19,
+    #    ticket `20260919230800`). An unmerged REMOTE branch is the only claim oracle, so a
+    #    worktree whose branch stands on no `refs/remotes/origin/` ref has no claim behind it
+    #    and is evidence about nobody. It is not a `claims[]` row at all — putting it there as
+    #    flat would return the same arithmetic under a new name — and it is counted in
+    #    `residue_worktrees` so an operator sees the disk holding it. Nothing removes it:
+    #    `reap-worktrees.sh`'s `reclaimable` predicate is untouched.
+    _rs=$(sh "$_reader" --names implement "${_tmp}/residue" 2>&1 || true)
+    if printf '%s' "$_rs" | jq -e '
+        (.residue_worktrees == 1) and (.claims | length == 1)
+        and ([.claims[] | select(.unit=="unit-a" and .verdict=="not_advancing")] | length == 1)
+        and (.names[0].verdict=="not_advancing") and (.frozen_count == 1)' >/dev/null 2>&1; then
+        add_row "runner_advance_excludes_residue" true "a worktree whose branch stands on no origin ref is counted as residue and never weighed as a claim" load
+    else
+        add_row "runner_advance_excludes_residue" false "residue was weighed as a claim, or a live claim beside it was dropped: $(one_line "$_rs")" load
+    fi
+
+    # 9. RESIDUE ALONE IS `no_claim_evidence`, WHICH FREES NOTHING — the measured defect itself.
+    #    Measured 2026-09-19 at `daff53802`: four worktrees idle 15.2-16.7 days, `frozen_count:
+    #    2`, and both running runners read `not_advancing` while working. The escape hatch is
+    #    keyed on the COUNT of claim rows, so residue did not merely add noise — it made
+    #    `no_claim_evidence` unreachable and turned the answer deterministic in the wrong
+    #    direction.
+    _ab=$(sh "$_reader" --names implement,implement-2 "${_tmp}/abandoned" 2>&1 || true)
+    if printf '%s' "$_ab" | jq -e '
+        (.residue_worktrees == 2) and (.claims | length == 0) and (.frozen_count == 0)
+        and ([.names[] | select(.verdict=="unreadable" and .reason=="no_claim_evidence")] | length == 2)' >/dev/null 2>&1 \
+        && [ "$(_alloc "$_ab" 2 2)" = "0" ]; then
+        add_row "runner_advance_residue_frees_nothing" true "a tree holding only abandoned worktrees reads no_claim_evidence and gives back no fan-out slot" load
+    else
+        add_row "runner_advance_residue_frees_nothing" false "abandoned residue was read as a frozen runner or freed a slot: $(one_line "$_ab")" load
+    fi
+
+    # 10. THE RESIDUE BREAKER, WRITTEN AGAINST THE BEHAVIOUR. Wire the reader so every worktree
+    #     on disk stands behind a claim — which is exactly what it did before
+    #     `20260919230800` — and the abandoned fixture must then report a runner
+    #     `not_advancing` and free its slot, on a claim nobody holds. A breaker satisfied by
+    #     keeping the JSON shape proves nothing.
+    _broken_res="${_tmp}/broken-residue-reader.sh"
+    sed 's/^        standing=\$(claim_standing "\$unit")$/        standing=live/' "$_reader" > "$_broken_res"
+    chmod +x "$_broken_res"
+    _rb=$(sh "$_broken_res" --names implement,implement-2 "${_tmp}/abandoned" 2>&1 || true)
+    if printf '%s' "$_rb" | jq -e '
+        ([.names[] | select(.verdict=="not_advancing")] | length == 2) and (.frozen_count == 2)' >/dev/null 2>&1; then
+        add_row "runner_advance_residue_breaker" true "with residue weighed as a claim the reader frees both slots on claims nobody holds (this drill can fail)" breaker
+    else
+        add_row "runner_advance_residue_breaker" false "the breaker did not break: residue weighed as a claim still refused ($(one_line "$_rb")), so rows 8-9 prove nothing" breaker
+    fi
+
+    # 11. THE BREAKER, LABELLED AS THE INTENTIONAL FAILURE. Wire the reader so a claim whose
     #    files cannot be read counts as flat rather than unreadable, and the `blind` fixture —
     #    one flat claim beside one that could not be read at all — must then report a runner
     #    `not_advancing` and free its slot, on evidence that was never established. A breaker
@@ -142,7 +244,7 @@ cmd_verify_runner_advance() {
         add_row "runner_advance_breaker" false "the breaker did not break: an unreadable claim counted as flat still refused ($(one_line "$_bb")), so row 4 proves nothing" breaker
     fi
 
-    # 9. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
+    # 12. NOTHING WAS WRITTEN OUTSIDE THE FIXTURE.
     _after=$(cd "$REPO_ROOT" && git status --porcelain 2>/dev/null | sort)
     if [ "$_before" = "$_after" ]; then
         add_row "runner_advance_writes_nothing_outside_the_fixture" true "the checkout is byte-identical after the drill" load
@@ -150,6 +252,9 @@ cmd_verify_runner_advance() {
         add_row "runner_advance_writes_nothing_outside_the_fixture" false "the drill changed the working tree" load
     fi
 
+    # The unreadable-claim fixture is mode 000 on purpose; restore it or the cleanup cannot
+    # descend into it and the drill leaves its own temp tree behind.
+    chmod 755 "${_tmp}/blind/.worktrees/unit-b" 2>/dev/null || true
     rm -rf "$_tmp"
     if [ "$LOAD_FAILED" -gt 0 ]; then
         emit_verdict "runner-advance" 0 "fail" 1

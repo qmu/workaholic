@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260919-122044](work-20260919-122044.md) - Pass every unbounded runtime value by file, bound what the coordinator stores per worker, and give each refusal its own name
 * [work-20260919-091316](work-20260919-091316.md) - Point /fb's assignee at gh api user, name the unassigned issues the inbox declines, and give the worktree reaper its first caller
 * [work-20260918-211451](work-20260918-211451.md) - Read `ok` before calling a Slack binding undeclared — the report contracts, the audit, and the scaffold that was writing against an unread precondition
 * [work-20260918-165448](work-20260918-165448.md) - Route land-unit.sh's scan reading through gate-decision.sh so an unread scan refuses instead of pushing the unit onto the base ref.

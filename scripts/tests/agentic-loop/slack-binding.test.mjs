@@ -140,3 +140,58 @@ test("an unreadable instruction file is named, never read as an absent declarati
     assert.equal(result.json.declared, true, "a root-capable runner still reads it");
   }
 });
+
+// ---------- `--root` defaults to the repository the caller stands in (2026-09-19) ----------
+// Ticket `20260919230600`. `--root` was required and its omission answered `no_root`, which
+// carries `declared: false` — so one call site that forgets it does not fail loudly, it reads as
+// *this repository declares nothing* and the loop falls back to the environment. The default
+// removes the commonest way to reach that; `no_root` itself stays exact.
+function gitRepo() {
+  const dir = repo();
+  spawnSync("git", ["init", "-q"], { cwd: dir });
+  return dir;
+}
+
+test("with no --root the reader defaults to the repository it is standing in", () => {
+  const dir = gitRepo();
+  declare(dir, "AGENTS.md", ["workspace: qmu", "channel: defaulted"].join("\n"));
+  const result = run(reader, [], { cwd: dir });
+  assert.equal(result.json.ok, true, result.stderr);
+  assert.equal(result.json.declared, true);
+  assert.equal(result.json.binding.channel, "defaulted");
+});
+
+test("the default is the repository root, not the working directory", () => {
+  const dir = gitRepo();
+  declare(dir, "AGENTS.md", ["workspace: qmu", "channel: defaulted"].join("\n"));
+  mkdirSync(join(dir, "a/b/c"), { recursive: true });
+  const deep = run(reader, [], { cwd: join(dir, "a/b/c") });
+  const top = run(reader, [], { cwd: dir });
+  assert.equal(deep.json.declared, true, deep.stderr);
+  assert.deepEqual(deep.json.binding, top.json.binding, "a subdirectory reads the same binding");
+});
+
+test("an explicit --root still wins over the default", () => {
+  const here = gitRepo();
+  declare(here, "AGENTS.md", ["workspace: qmu", "channel: standing-in"].join("\n"));
+  const there = repo();
+  declare(there, "AGENTS.md", ["workspace: other", "channel: named"].join("\n"));
+  const result = run(reader, ["--root", there], { cwd: here });
+  assert.equal(result.json.binding.channel, "named");
+  assert.equal(result.json.binding.workspace, "other");
+});
+
+test("outside any repository with no --root the refusal is exactly `no_root`", () => {
+  const dir = repo();
+  const result = run(reader, [], { cwd: dir, env: { GIT_CEILING_DIRECTORIES: dir } });
+  assert.equal(result.stdout.trim(), '{"ok":false,"declared":false,"reason":"no_root"}');
+  assert.equal(result.status, 2);
+});
+
+test("an explicit --root that is not a directory is the same refusal", () => {
+  const dir = gitRepo();
+  declare(dir, "AGENTS.md", ["workspace: qmu", "channel: defaulted"].join("\n"));
+  const result = run(reader, ["--root", join(dir, "no-such-path")], { cwd: dir });
+  assert.equal(result.stdout.trim(), '{"ok":false,"declared":false,"reason":"no_root"}');
+  assert.equal(result.status, 2);
+});

@@ -52,9 +52,10 @@
 #
 # A READING THAT CANNOT BE MADE IS `unreadable:<reason>`, NEVER `not_advancing`. A wrong
 # `not_advancing` sends the loop after a runner that is working; the repository's standing rule
-# is that a gate which cannot be read is not a gate. In particular, with NO claim worktree on
-# disk at all the answer is `no_claim_evidence` and never `not_advancing` -- a runner still in
-# its survey has claimed nothing yet and has no worktree to move.
+# is that a gate which cannot be read is not a gate. In particular, with NO LIVE claim worktree
+# to weigh the answer is `no_claim_evidence` and never `not_advancing` -- a runner still in
+# its survey has claimed nothing yet and has no worktree to move, and abandoned residue is not
+# evidence about anybody (see the evidence walk below).
 #
 # IT STOPS NO AGENT, CHANGES NO ALLOCATION AND MAKES NO NETWORK CALL. It is a pure read; the
 # accounting is `commands/infinite-development.md` §2's and the killing is nobody's.
@@ -68,8 +69,9 @@
 #                                            healthy run takes between writes.
 # Output: one JSON line, ALWAYS exit 0.
 #   {"stale_minutes": N, "running": N, "advancing": N, "frozen_count": N,
+#    "residue_worktrees": N,
 #    "claims": [{"unit": "...", "verdict": "advancing"|"not_advancing"|"unreadable",
-#                "reason": "", "idle_seconds": N|null}],
+#                "reason": ""|"no_files"|"claim_unresolved", "idle_seconds": N|null}],
 #    "names":  [{"name": "...", "role": "...", "verdict": "...", "reason": ""}]}
 #   {"readable": false, "reason": "<word>", ...nulls}
 #
@@ -92,7 +94,7 @@ while [ $# -gt 0 ]; do
             names_arg="${1#--names=}"
             ;;
         -*)
-            printf '{"readable": false, "reason": "bad_argument", "stale_minutes": null, "running": null, "advancing": null, "frozen_count": null, "claims": [], "names": []}\n'
+            printf '{"readable": false, "reason": "bad_argument", "stale_minutes": null, "running": null, "advancing": null, "frozen_count": null, "residue_worktrees": null, "claims": [], "names": []}\n'
             exit 0
             ;;
         *)
@@ -103,7 +105,7 @@ while [ $# -gt 0 ]; do
 done
 
 emit_unreadable() {
-    printf '{"readable": false, "reason": "%s", "stale_minutes": null, "running": null, "advancing": null, "frozen_count": null, "claims": [], "names": []}\n' "$1"
+    printf '{"readable": false, "reason": "%s", "stale_minutes": null, "running": null, "advancing": null, "frozen_count": null, "residue_worktrees": null, "claims": [], "names": []}\n' "$1"
     exit 0
 }
 
@@ -124,18 +126,93 @@ case "${now:-}" in
     ''|*[!0-9]*) emit_unreadable no_clock ;;
 esac
 
-# --- The evidence: one row per claim worktree on disk. -----------------------------------
-# `.worktrees/<unit-id>/` is the claim protocol's own path, so enumerating it needs no git
-# call and no network read. A worktree with no readable file is `unreadable`, never flat.
+# --- The evidence: one row per LIVE CLAIM worktree on disk. -------------------------------
+# `.worktrees/<unit-id>/` is the claim protocol's own path, so enumerating it needs no network
+# read. A worktree with no readable file is `unreadable`, never flat.
+#
+# BOUNDED TO WORKTREES A CLAIM CAN STAND BEHIND (2026-09-19, ticket `20260919230800`).
+# Until then every directory under `.worktrees/` was weighed, with no test that anybody's claim
+# stood behind it -- so an abandoned worktree read as a flat runner, and because the escape
+# hatch below is keyed on the COUNT of worktrees rather than on their liveness, residue did not
+# merely add noise: it made `no_claim_evidence` unreachable and turned the answer deterministic
+# in the wrong direction. Measured 2026-09-19 at `daff53802`: four worktrees idle 15.2-16.7
+# days, `frozen_count: 2`, and both running runners read `not_advancing` while working.
+#
+# The test is the claim oracle's own: an unmerged REMOTE branch is the only claim oracle
+# (`drive/scripts/list-claims.sh`), so a worktree is weighed only when its branch exists under
+# `refs/remotes/origin/`. It is read OFFLINE, from the local ref store -- no fetch, no
+# `ls-remote`, and no call into `list-claims.sh`, which fetches; this reader's stated contract
+# that it makes no network call does not move.
+#
+# A worktree whose branch cannot be resolved, or whose ref store cannot be read, is
+# `unreadable` with reason `claim_unresolved` and counts toward `unreadable_claims`. It is
+# NEVER flat: an absence of a reading is never a proof, and the direction of this reader's
+# error is the dangerous one. A worktree the filter EXCLUDES is not a claim row at all --
+# putting it in `claims[]` as flat would return the same arithmetic under a new name -- and is
+# counted in `residue_worktrees` so an operator can see the disk holding it without the reading
+# spending it. Nothing here removes a worktree: `reap-worktrees.sh`'s `reclaimable` predicate
+# is untouched and residue stays on disk (the operator's ruling, `CLAUDE.md`).
 worktrees_dir="$root/.worktrees"
 claims=''
 advancing=0
 unreadable_claims=0
+residue_worktrees=0
+
+wt_tmp=$(mktemp -d 2>/dev/null) || emit_unreadable no_tmpdir
+trap 'rm -rf "$wt_tmp"' EXIT HUP INT TERM
+
+# One local `git worktree list` and one local ref listing, both offline.
+wt_readable=1
+git -C "$root" worktree list --porcelain >"$wt_tmp/worktrees" 2>/dev/null || wt_readable=0
+refs_readable=1
+git -C "$root" for-each-ref --format='%(refname)' 'refs/remotes/origin/**' \
+    >"$wt_tmp/refs" 2>/dev/null || refs_readable=0
+[ -f "$wt_tmp/worktrees" ] || : >"$wt_tmp/worktrees"
+[ -f "$wt_tmp/refs" ] || : >"$wt_tmp/refs"
+
+# unit<TAB>refs/heads/<branch>, for every attached worktree under `.worktrees/`. The unit id is
+# the directory's own basename -- the claim protocol's key (`.worktrees/<unit-id>/`) -- so the
+# join needs no path normalisation and survives a worktree directory this process cannot enter.
+# A detached worktree prints nothing and is therefore unresolved, which is the safe direction.
+awk '/^worktree /{p=substr($0, 10); next}
+     /^branch /{
+        if (p != "" && p ~ /\/\.worktrees\//) {
+          n = split(p, parts, "/"); print parts[n] "\t" substr($0, 8)
+        }
+        p=""; next
+     }' "$wt_tmp/worktrees" >"$wt_tmp/branches" 2>/dev/null || : >"$wt_tmp/branches"
+
+# `claim_standing <unit-id>` -> `live` | `residue` | `unresolved`
+claim_standing() {
+    [ "$wt_readable" -eq 1 ] && [ "$refs_readable" -eq 1 ] || { printf 'unresolved'; return 0; }
+    _branch=$(awk -v u="$1" -F '\t' '$1 == u { print $2; exit }' "$wt_tmp/branches" 2>/dev/null || printf '')
+    case "${_branch:-}" in
+        refs/heads/*) _branch=${_branch#refs/heads/} ;;
+        *) printf 'unresolved'; return 0 ;;
+    esac
+    if grep -qxF "refs/remotes/origin/$_branch" "$wt_tmp/refs" 2>/dev/null; then
+        printf 'live'
+    else
+        printf 'residue'
+    fi
+}
 
 if [ -d "$worktrees_dir" ]; then
     for d in "$worktrees_dir"/*/; do
         [ -d "$d" ] || continue
         unit=$(basename "$d")
+        standing=$(claim_standing "$unit")
+        case "$standing" in
+            residue)
+                residue_worktrees=$((residue_worktrees + 1))
+                continue
+                ;;
+            unresolved)
+                claims="$claims$(printf '{"unit": "%s", "verdict": "unreadable", "reason": "claim_unresolved", "idle_seconds": null}' "$unit")"
+                unreadable_claims=$((unreadable_claims + 1))
+                continue
+                ;;
+        esac
         newest=$(find "$d" -type f -not -path '*/.git/*' -printf '%T@\n' 2>/dev/null \
             | sort -rn | head -1 | cut -d. -f1)
         case "${newest:-}" in
@@ -182,8 +259,8 @@ for n in $(printf '%s' "$names_arg" | tr ',' ' '); do
         verdict=unreadable
         reason=role_holds_no_claim
     elif [ "$claim_count" -eq 0 ]; then
-        # No worktree exists to have moved, so nothing here can distinguish a runner still
-        # surveying from one that is frozen.
+        # No LIVE claim worktree exists to have moved, so nothing here can distinguish a runner
+        # still surveying from one that is frozen. Residue on disk does not reach this count.
         verdict=unreadable
         reason=no_claim_evidence
     elif [ "$advancing" -ge "$running" ]; then
@@ -215,6 +292,7 @@ printf '%s\n%s\n' "$claim_rows" "$name_rows" | jq -s -c \
     --argjson running "$running" \
     --argjson advancing "$advancing" \
     --argjson frozen "$frozen_count" \
+    --argjson residue "$residue_worktrees" \
     '{stale_minutes: $stale, running: $running, advancing: $advancing,
-      frozen_count: $frozen, claims: .[0], names: .[1]}' 2>/dev/null \
+      frozen_count: $frozen, residue_worktrees: $residue, claims: .[0], names: .[1]}' 2>/dev/null \
     || emit_unreadable render_failed

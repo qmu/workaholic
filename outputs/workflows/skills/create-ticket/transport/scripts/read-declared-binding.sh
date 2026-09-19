@@ -1,7 +1,14 @@
 #!/bin/sh -eu
 # Read the repository's own declared Slack binding. Pure read; writes nothing.
 #
-#   read-declared-binding.sh --root REPO [--scope RELDIR]...
+#   read-declared-binding.sh [--root REPO] [--scope RELDIR]...
+#
+# `--root` is OPTIONAL. With none given the root defaults to the repository the caller is
+# standing in (`git rev-parse --show-toplevel`); an explicit `--root` always wins. The default
+# is the repository ROOT and never `pwd`, because the sources below are composed against it and
+# a caller standing in a subdirectory would otherwise read no declaration at all — the exact
+# failure this default removes, one level down. `no_root` stays exact and reachable: outside any
+# repository with no `--root`, and an explicit `--root` naming something that is not a directory.
 #
 # The declaration is a fenced block in the repository's instruction file, so every agent
 # reads it from the surface it already loads and no agent has to read CLAUDE.md:
@@ -42,6 +49,15 @@ while [ $# -gt 0 ]; do
     *) printf '{"ok":false,"declared":false,"reason":"invalid_argument"}\n'; exit 2 ;;
   esac
 done
+# A required argument whose omission silently disables the whole mechanism is a defect in the
+# READER, not in the caller that forgets it: an unresolved root answers `declared: false`, a
+# caller reads that as *this repository declares nothing*, and the loop falls through to
+# WORKAHOLIC_INBOUND_SLACK_CHANNEL / WORKAHOLIC_SLACK_WORKSPACE — a routine that runs, does its
+# work, and posts where nobody meant, which is the outcome the declaration exists to prevent.
+# Resolved BEFORE the validity test below, so that test and every refusal word are unchanged.
+if [ -z "$ROOT" ]; then
+  ROOT=$(git rev-parse --show-toplevel 2>/dev/null || printf '')
+fi
 [ -n "$ROOT" ] && [ -d "$ROOT" ] || { printf '{"ok":false,"declared":false,"reason":"no_root"}\n'; exit 2; }
 
 REQUIRED='workspace channel'

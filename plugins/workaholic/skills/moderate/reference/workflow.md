@@ -2770,6 +2770,8 @@ the 2026-09-18 04:07 tick the three were `issue-triage`, `direction-health` and
 | `unanswered-asks` | `needs_ruling` | A person is waiting; that is the finding, and only a person clears it. A channel the tick could not read is the same kind of finding — a connector, a token or a name only a person can fix — and it reaches that person as the keyed `inbound-channel-unreadable:<channel>` question rather than as a filed issue. **That key is the only route this reading has to a person, and it is composed by the agent after this step runs** — so the step never names it in `needs_agent` and it carries only as a substring of the escalation sentence. Until 2026-09-18 the reconciliation read that absence as proof the premise had resolved and retired the question on the first tick, permanently; only a **positive** `resolved_keys` reading retires now (the liveness section above), and this step is deliberately unmodified: enumerating the key as a candidate would have it claim a channel reading its own header says is the agent's half, and would fire the question every tick whatever the channel's state. |
 | `blocked-tick` | `needs_ruling` | The reading says a tick **stopped** and cannot say why — the record that would carry the reason is the one the stop prevented — so filing it as work would have the loop repairing a cause it never established (`cadence-lapse`'s row, for `cadence-lapse`'s reason). The repair is besides that routinely a person's: answering or removing a prompt, or reading the run in the session list. |
 | `cadence-lapse` | `needs_ruling` | The reading says an artifact **stopped** and cannot say **why** — a routine switched off, a credential that expired, a producer that moved, or a declaration that is now wrong — and which of those it is decides whether any change is the right one. `note-cadence` is the row worth arguing against and it loses on exactly that: it names one workflow **this repository owns and can fix**, while a declared cadence names an artifact whose producer the declaration does not identify. Filing it as work would have the loop repairing a cause it never established. |
+| `unattributed-asks` | `needs_ruling` | The reading says an open ask names **no active direction** — no `feedback:` line and no slug — and the only thing that settles it is the operator giving it one, which is `create.sh`/`amend.sh`'s three writers and never the loop's. Filing it as work would have the loop originating against a direction that does not exist, which `rules/workaholic.md`, *What May Originate a Mission*, forbids. |
+| `propose-yield` | `needs_ruling` | The reading says the originating routine has stopped producing and names **what refused it** — a set of correct gates. Whether those refusals are the intended state is a judgement about the directions themselves; filing it as work would have the loop opening the proposal its own gates declined, which is the one thing that step's header refuses by name. |
 | `file-findings` | `needs_ruling` | Filing its own findings as work is the loop asking itself for work. |
 | `human-checkin` | `needs_ruling` | The asking step itself. |
 
@@ -3858,6 +3860,87 @@ are the ordinary `ok` case, not a degradation.
 resolves `here` from `git rev-parse --show-toplevel` and skips the current worktree, so a sweep
 invoked from inside a linked worktree would silently exclude that one. `/moderate` runs in the
 main checkout.
+
+---
+
+## 34. `propose-yield` — a run of propose ticks that originated nothing
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-propose-yield.sh --tick <tick-id> --root <repo-root>
+```
+
+**What it reads.** The tick log's own propose finish lines —
+`log-read.sh --owner loop --step-prefix loop-finish-propose` over the newest two day files, the
+window `blocked-tick` already uses — whose summary is the worker's structured result carrying the
+tick's `outcome`. Nothing is written: the line is already there, put by the one writer
+(`log-append.sh`) through the finish seam. `log-read.sh --owner propose` answers **zero** entries
+in this repository — nothing in the plugin writes the documented `propose-open`/`propose-close`
+pair — which is why the reading takes the `loop` owner by name.
+
+**What it answers.** Over the propose ticks the window holds, how many closed having originated
+nothing and how many originated something, classified by a **declared, closed token set** spelled
+in the step's own header. An outcome outside that set is `unclassified` and **holds the finding**:
+one entry the step could not read makes *every tick originated nothing* a claim it has not
+established, so it answers `degraded` / `outcome_unclassified` and raises nothing.
+
+**The bound is derived, not picked.** A single originate-nothing tick is the ordinary case. The
+finding is a **run**: every propose finish the window holds, and more than one of them — the same
+structural *a condition that has outlived a further tick* bound the sibling step applies to its own
+subject, over the same two-day-file window. No constant, no environment variable, no stored
+timestamp.
+
+**The finding is the gating, not the silence.** It composes
+`propose/scripts/survey-strategies.sh` and names that survey's own `.refused[].reason` words, so a
+person reads *directions held by `open_proposal`, `past_target_date`* rather than *propose is
+quiet*. It derives no refusal and adds no word to that vocabulary; a survey that could not be run
+is `survey_unreadable` and raises nothing, because a finding naming no cause is the silent line the
+step exists to replace.
+
+**The summary carries no count, no tick id and no timestamp.** The root calls a step changed when
+its summary differs from the same step's an hour ago, and the window's entry count grows every
+tick; the counts ride `needs_agent`, which is the question's body.
+
+**The two things it never does.** It never **proposes** — `rules/workaholic.md`, *What May
+Originate a Mission*, permits only a human's ask or a human-authored strategy, so the step asks
+whether the refusals are the intended state and never opens the move the gates refused. And it
+never **lifts a gate**: `survey-strategies.sh` and its refusal ladder are untouched, as is
+`step-blocked-tick.sh`, whose question — *opened and never closed* — is a different one.
+
+---
+
+## 35. `unattributed-asks` — an open operator ask that answers no active direction
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-unattributed-asks.sh --tick <tick-id> --root <repo-root>
+```
+
+**What it reads.** `strategy/scripts/unattributed-asks.sh` and nothing else — the mirror of
+`unattributed-work.sh`, composing `specificate/scripts/list-inbound-issues.sh` with
+`strategy/scripts/list.sh` and `read.sh`. The step adds no walk, no relation and no field on any
+artifact; it renders that one reading and asks about it.
+
+**Why a sibling step.** `direction-health`'s subject is a **direction** — its verdict, its
+maturity, its assignee — and an ask that answers no direction has none of those, so it has no
+honest row there; `unanswered-asks` reads the **channel**. Two subjects in one step is how two
+readings start to disagree.
+
+**`undecidable_here` is rendered as what it means.** The reader answers only the two mechanical
+attribution rungs (an explicit `feedback:` line, an explicit slug); the third is a judgement
+against the Aims that `/specificate` step 7 owns and no script may assert. So the question says
+*no line and no slug name a direction for this ask* — **never** *this ask belongs to no
+direction*.
+
+**It creates and amends nothing.** `strategy/scripts/create.sh` and `amend.sh` keep their three
+writers. The loop names the ask; giving it a direction is the operator's act
+(`rules/workaholic.md`, *What May Originate a Mission*).
+
+**One question per ask**, keyed `unattributed-ask:<number>` through the existing asked-once gate,
+with `condition-age.sh` answering how long that question has stood — the **question's** age, a
+lower bound on the ask's own, so the body says *asked about since* and asserts nothing further.
+
+**A degraded read is named, never an empty set.** `readable == false` carries its own reason
+(`inbox_unreadable`, `strategy_list_unreadable`, …) with null counts; the test is never
+`readable // true`.
 
 ---
 

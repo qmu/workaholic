@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:38:09+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -152,3 +153,38 @@ answer is a report nobody opens, and the surface a person reads never asks the q
 - **The ask's own wording — "emit that rather than a silent line" — is read as *report*, not
   *queue*.** Filing a ticket for a stalled ingest stage would be the loop writing itself work, and
   `self_authored` forbids it.
+
+## Final Report
+
+Development completed as planned.
+
+Step 1 (reproduce first) was run against this checkout and changed the design:
+`log-read.sh --owner propose` answers **zero** entries here — nothing in the plugin writes the
+documented `propose-open`/`propose-close` pair, which exists only in `step-blocked-tick.sh`'s
+reader, the drill fixture and the rules table. What *does* carry the propose tick's outcome is
+`log-read.sh --owner loop --step-prefix loop-finish-propose`: 16 entries whose summary is the
+worker's structured result (`{"executed":true,"outcome":"propose:proposed_0:past_target_date",…}`),
+written by the one writer (`log-append.sh`) through the finish seam. So step 2's conditional
+applied — **the log already carries enough and nothing new is written**.
+
+`step-propose-yield.sh` reads those lines, classifies each tick by a **declared, closed token
+set** spelled in its own header, and treats an outcome outside that set as `unclassified`, which
+**holds** the finding (`degraded` / `outcome_unclassified`) rather than letting *every tick
+originated nothing* stand as a claim it did not establish. Run against the live log here it
+answers exactly that, because `completed` is a live outcome value.
+
+The bound has a stated derivation and no constant: the **window** is `step-blocked-tick.sh`'s own
+newest-two-day-files bound, and a **run** is *every propose finish that window holds, and more
+than one* — the same structural *outlived a further tick* bound the sibling applies to its own
+subject. The finding composes `survey-strategies.sh` for the refusal words and derives none.
+
+### Discovered Insights
+
+- **Insight**: the `propose-open`/`propose-close` producer contract is documented in
+  `rules/workaholic.md`, in `log-read.sh`'s header and in the drill fixture, and **no script in
+  the plugin writes it**. `/propose`'s command body forbids writing into the repository, and its
+  only script seam (`open-proposal.sh`) runs solely on a tick that *did* originate — so the
+  zero-proposal case has no writer at all.
+  **Context**: a reader scoped `--owner propose` returns nothing in this repository, so anything
+  built on that owner is inert here. The coordinator's `loop-finish-<role>` line is the real
+  carrier of a propose tick's outcome, and it lives under owner `loop`.

@@ -254,6 +254,30 @@ exists to keep apart. `exhaustive` is `false` by construction, and a loose queue
 residue by construction too — this reader answers at the mission grain, so it over-reports rather
 than under-reports and says so.
 
+**And the ASK side has the same reading** (2026-09-19, ticket `20260919093809`, operator's ask
+issue #907 item 3). `unattributed-work.sh` is about work already **emitted**; nothing read the
+other side, so an **operator ask** sitting in the inbox that no active direction covers was
+visible to nobody — `/propose` surveys strategies and never reads the inbox, and
+`list-inbound-issues.sh` knows nothing about directions. Measured: the operator's own stated
+immediate priority belonged to no active strategy, so `/propose` was structurally incapable of
+proposing it and spent two days proposing against the directions that did exist.
+
+`unattributed-asks.sh` sits beside it and is built the same way — composing
+`specificate/scripts/list-inbound-issues.sh` with `list.sh` and `read.sh`, adding no walker, no
+relation and no field. **It answers only the two mechanical attribution rungs**: an explicit
+`feedback:` line resolving to an active direction, then an explicit slug in the ask's title.
+The third rung — a judgement against the active Aims — is `/specificate` step 7's and no script
+may assert it, so everything else is reported **`undecidable_here`**, which a consumer renders as
+*no line and no slug* and **never** as *no direction*.
+
+**It gives the ask visibility, not an origination path.** An inbound operator ask is already
+originable by `/specificate`; `rules/workaholic.md`, *What May Originate a Mission*, is unchanged,
+`survey-strategies.sh` is untouched and `create.sh`/`amend.sh` keep their three writers.
+`/propose` reports it as evidence and `/moderate`'s `unattributed-asks` step asks the operator
+once. `readable: false` carries its own reason (`inbox_unreadable`, `strategy_list_unreadable`, …)
+with **null** counts and a **null** `asks`, never an empty set; `exhaustive` is `false` because
+the inbox reader is paged and assignee-scoped by construction.
+
 ### What a direction leaves behind — the three readings, composed at the moment of the decision
 
 ```bash

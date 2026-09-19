@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T23:07:00+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -93,3 +94,68 @@ The check gate itself was added 2026-09-03 for the inverse defect — merging wh
 - Only the **hermetic** part of `loop-drill.sh` belongs in the pre-push set, matching what `loop-drills.yml` runs on push; the classified set (`verify-all`) stays a pre-approval gate and is named as such in the Quality Gate above, not in the declaration.
 - `prepare-publication.sh` currently discards its checks' output (`>/dev/null 2>&1`, line 231). Composing the runner fixes that as a side effect; say so in the change rather than letting it read as an unrelated edit.
 - This ticket adds no network read and no gate to the merge path. `branch-checks.sh` still emits the same pass for `main`; what changes is that the proof it names is now something a reader can ask about (`plugins/workaholic/skills/drive/scripts/branch-checks.sh` lines 88-97).
+
+## Final Report
+
+**Outcome**: implemented.
+
+**The gap, reproduced before it was repaired.** `Validate Plugins` (workflow id 223779125) failed
+**seven consecutive first-parent commits** on `main` — `f195a667f`, `915e115fd`, `6dcf73b41`,
+`d28e34429`, `52964b8c8`, `eb795c92f`, `3243c1c4f` — from 10:10:40Z to 11:45:28Z on 2026-09-19, read
+over REST through `gh-rest.sh`. The failing step on **both ends** of that range is job `validate`,
+step 9, *Test agentic loop contracts and consumers* — the command neither hard-coded pre-push list
+ran (`catch-up-claim.sh:404`, `prepare-publication.sh:226`, the same three checks spelled twice and
+both a strict subset of the `validate` job). `merge-gate-policy.sh main` answers
+`remote_checks_required: false` and `branch-checks.sh` emits `pass development_main_local_proof`
+before reaching any check reader; that is the recorded release-tier decision and **nothing about it
+moved** — `branch-checks.sh` and `merge-gate-policy.sh` are byte-identical in this change
+(`git diff --stat` over both is empty), and every `release/*` behaviour is untouched.
+
+**What was built.** `plugins/workaholic/skills/branching/scripts/local-proof.sh` is the one
+declaration of the set and the one runner of it: the `validate` job's own repository commands
+(`validate-metadata.mjs`, the agentic-loop suite with **CI's own 5m bound**,
+`test-workflow-scripts.mjs`, `layout-doctor.sh`) plus `build-plugins/verify.mjs` and the **hermetic**
+drill entry point `loop-drills.yml` runs on push. Both of `catch-up-claim.sh`'s rulings moved *into*
+it so they hold at every call site: the checks run with the three claim tunables unset, and each
+check's output is kept in a log whose path rides that check's row (`prepare-publication.sh`
+discarded its output outright and gains the log by composing the runner). Both call sites now
+compose it and neither spells the set; `validation_failed:<check>` is byte-identical, so no caller's
+`case` arm moved. Three fields, never collapsed: `ok` (no check ran and failed — what refuses),
+`complete` (every required check ran — **reported, never a refusal**, so a consuming repository
+carrying none of these files keeps pushing exactly as it did), and `not_run` (one line per check
+that did not run, with its own reason). **Every check runs, including after one has failed**, so
+`not_run` never has to mean both *could not run* and *we stopped early*.
+
+**The proof set's own first full run** (this machine, ~20 concurrent loop runners):
+`verify.mjs` 2s ok · `validate-metadata.mjs` 0s ok · `layout-doctor.sh` 43s ok ·
+`agentic-loop.test.mjs` **`ran: false, reason: timeout:300s`** · `test-workflow-scripts.mjs` 1335s
+(then `exit:1`, four assertions of the row that pinned the moved rulings at the old site — since
+repaired) · `loop-drill-hermetic` 283s ok. The timeout is the stated cost behaving as designed: the
+same suite run alone on the same tree in the same hour answered **163 passed, 0 failed in 115s**, and
+the set says it did not prove that check and names why rather than folding it into a pass. The bound
+is deliberately not raised past CI's own.
+
+**Negative probes, each run in-session.** (1) `validate-metadata.mjs` shadowed into failure over the
+**whole** set on a fixture: `ok: false`, `complete: true`, `failed: ["validate-metadata.mjs"]`,
+`not_run: []`, the caller's word `validation_failed:validate-metadata.mjs`, log kept with the bytes.
+(2) `node` shadowed away: `ran: false`, `reason: interpreter_unavailable:node`, never `ok: true` and
+never a silent skip. (3) A check the repository does not carry: `not_run: ["loop-drill-hermetic:
+check_absent"]`, `complete: false`, `ok: true` — byte-identical in effect to the retired
+`[ -f ] || continue`. (4) The `agentic-loop` row deleted from the declaration while it remains in
+`validate-plugins.yml`: the new test row fails `the declaration covers CI's
+scripts/tests/agentic-loop/*.test.mjs`; reverted and green again.
+
+**Reported.** The obligation is stated once in `skills/drive/SKILL.md` §7, *And an act that ran the
+local proof set names what it proved*, and cited by `commands/implement.md`; `local_proof` rides both
+callers' own JSON so a run report can name every check and every `not_run`.
+
+**One thing added beyond the steps, and why.** `--only <name>` narrows a run to one row. Without it
+the set's own behaviour could not be probed without spending its whole wall clock, and a narrowed run
+reports every other row `not_selected` so it can never be mistaken for a full proof. No call site
+passes it.
+
+**Verification**: `local-proof.sh` full run as above · `build.mjs` + `verify.mjs` (all built skills
+self-contained) · `validate-metadata.mjs` · `test-workflow-scripts.mjs` **7837 passed, 0 failed** ·
+`node --test scripts/tests/agentic-loop/*.test.mjs` · `layout-doctor.sh .` `conforming: true`.
+**Not run, and named**: `sh scripts/e2e/loop-drill.sh verify-all` (the classified set) — only its
+hermetic part ran, inside the proof set.

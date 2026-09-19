@@ -22,6 +22,7 @@ CLEAN_WORKTREE="${SCRIPT_DIR}/cleanup-mission-worktree.sh"
 MERGE_REASON="${SCRIPT_DIR}/merge-reason.sh"
 SCAN="${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh"
 GATE="${SCRIPT_DIR}/../../release-scan/scripts/gate-decision.sh"
+LOCAL_PROOF="${SCRIPT_DIR}/local-proof.sh"
 
 NUMBER="${1:-}"
 BASE_BRANCH="${2:-main}"
@@ -47,6 +48,10 @@ PUSHED=false
 DELIVERY="not_attempted"
 [ "$CATCHUP_ONLY" = false ] || DELIVERY="not_attempted: operator_facing"
 WORKTREE_ID="publication-${NUMBER}"
+# `null` means the local-proof runner was never reached on this path — never that the checks
+# passed. `CHECK_LOG` is the failing check's kept output, empty on every other exit.
+LOCAL_PROOF_RESULT="null"
+CHECK_LOG=""
 
 json_str() {
     printf '%s' "${1:-}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/[[:cntrl:]]/ /g'
@@ -72,11 +77,12 @@ teardown_worktree() {
 
 report() {
     teardown_worktree "$1"
-    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "age_hours": %s, "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s"}\n' \
+    printf '{"outcome": "%s", "number": %s, "branch": "%s", "reason": "%s", "class": "%s", "age_hours": %s, "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s", "check_log": "%s", "local_proof": %s}\n' \
         "$1" "$NUMBER" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" "$(json_str "$CLASS")" \
         "$AGE" "$CONFLICTED" "$(json_str "$WORKTREE")" \
         "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")" \
-        "$(json_str "${MERGE_BODY_SOURCE:-}")"
+        "$(json_str "${MERGE_BODY_SOURCE:-}")" "$(json_str "${CHECK_LOG:-}")" \
+        "${LOCAL_PROOF_RESULT:-null}"
     exit 0
 }
 refuse() { report settle_refused "$1"; }
@@ -222,13 +228,29 @@ if [ "$NEEDS_CATCHUP" = true ]; then
     # ── THE REPOSITORY'S OWN FAST CHECKS, BEFORE THE PUSH ────────────────────────────
     # A push that turns CI red costs a cycle and the reviewers' trust, and this one lands on a
     # branch behind an open pull request. Each check is named in its own refusal.
-    if command -v node >/dev/null 2>&1; then
-        for check in build-plugins/verify.mjs build-plugins/validate-metadata.mjs \
-                     test-workflow-scripts.mjs; do
-            [ -f "${WORKTREE}/scripts/${check}" ] || continue
-            ( cd "$WORKTREE" && node "scripts/${check}" ) >/dev/null 2>&1 \
-                || refuse "validation_failed:${check##*/}"
-        done
+    #
+    # THE SET IS DECLARED, NOT SPELLED HERE (2026-09-19, ticket `20260919230700`). This was the
+    # second copy of a three-check list that was a strict subset of CI's `validate` job — it
+    # never ran `node --test scripts/tests/agentic-loop/*.test.mjs`, the step that turned `main`
+    # red seven consecutive times on 2026-09-19 — and it also DISCARDED every check's output
+    # (`>/dev/null 2>&1`), so a refusal named a check and nothing about why it went red.
+    # `local-proof.sh` is the one declaration and the one runner; composing it fixes the
+    # discarded output as a side effect, because the kept log is that runner's own ruling and
+    # now rides this script's result as `check_log`. The refusal word is byte-identical.
+    if [ -f "$LOCAL_PROOF" ]; then
+        _lp=$(sh "$LOCAL_PROOF" --repo "$WORKTREE" 2>/dev/null || printf '')
+        [ -n "$_lp" ] || refuse local_proof_unreadable
+        # Only a reading that PARSES is carried into the report; an unparseable one would make
+        # this script's own JSON unreadable, a worse failure than the one being reported.
+        printf '%s' "$_lp" | jq -e . >/dev/null 2>&1 || refuse local_proof_unparseable
+        LOCAL_PROOF_RESULT="$_lp"
+        _lp_readable=$(printf '%s' "$_lp" | jq -r 'if has("readable") then .readable else true end' 2>/dev/null || printf '')
+        [ "$_lp_readable" = true ] || refuse "local_proof_unreadable:$(printf '%s' "$_lp" | jq -r '.reason // "unparseable"' 2>/dev/null || printf unparseable)"
+        _lp_failed=$(printf '%s' "$_lp" | jq -r '.failed[0] // ""' 2>/dev/null || printf '')
+        if [ -n "$_lp_failed" ]; then
+            CHECK_LOG=$(printf '%s' "$_lp" | jq -r --arg n "$_lp_failed" '.checks[] | select(.name == $n) | .log' 2>/dev/null || printf '')
+            refuse "validation_failed:${_lp_failed}"
+        fi
     fi
     VALIDATED=true
 fi

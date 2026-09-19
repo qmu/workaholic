@@ -126,6 +126,20 @@ not on the run's other work.
 
 Before either merge, run `bash ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/merge-commit-body.sh <pull-request-number>` and pass its `title` and `body` through as `-f commit_title=` and `-f commit_message=` (REST) or as the connector's commit title and message. The values are **never composed here** — that derivation is the script's, exactly as `gather/scripts/merge-method.sh` owns the method. A composer answering `unreadable:<reason>` still yields a body (the story description when one was read, the fallback line otherwise), so the **merge is never held on it**; report the `source` (`story` / `fallback` / `unreadable:<reason>`) beside the unit's merge outcome, as evidence that moves no token.
 
+## What this run's own local proof was
+
+**A merge onto `main` stands on a local proof, and this run names which one** (2026-09-19, ticket
+`20260919230700`). `merge-gate-policy.sh` answers `remote_checks_required: false` for `main` and
+`branch-checks.sh` passes `development_main_local_proof` without reading a check run — the recorded
+release-tier decision, unchanged and out of scope here. What changed is the substitute: the set is
+declared once in `branching/scripts/local-proof.sh` and its reading rides `catch-up-claim.sh`'s and
+`prepare-publication.sh`'s own results as `local_proof`. **The reporting obligation is stated once in
+`workaholic:drive` §7, *And an act that ran the local proof set names what it proved*, and cited here
+rather than restated**: for every act this run took that reached the runner, name the checks that ran with
+their outcomes and every `not_run` by name with its own reason, in the run report and in the
+pull-request body. A check that did not run is its own state and never a soft pass, and **naming such an
+act and reporting no local proof for it is non-conformant on its face**. It moves no token.
+
 ## What this run resolves rather than hands over
 
 **A `content_conflict` is this run's own work** (2026-09-06, mission `finish-the-backlog-without-handing-it-back-to-the-operator`; the operator's instruction, in those words: *routine engineering work must never be handed back to a person*). `catch-up-claim.sh` and `settle-stranded-publication.sh` attempt the merge and refuse `content_conflict` on the hunk it could not settle, leaving the branch byte-identical — and that refusal is an engineering judgement the loop **declined to make**, not an external limitation it lacked. No script may resolve a hunk by judgement, so the step is this agent's, on four bounds and no others:

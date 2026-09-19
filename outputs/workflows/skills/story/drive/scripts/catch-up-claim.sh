@@ -106,6 +106,7 @@ MERGE_PULL="${GATHER}/merge-pull.sh"
 RECORD_OUTCOME="${SCRIPT_DIR}/../../story/scripts/record-merge-outcome.sh"
 SCAN="${SCRIPT_DIR}/../../release-scan/scripts/scan-branch-safety.sh"
 GATE="${SCRIPT_DIR}/../../release-scan/scripts/gate-decision.sh"
+LOCAL_PROOF="${SCRIPT_DIR}/../../branching/scripts/local-proof.sh"
 
 unit="${1:-}"
 base="${2:-main}"
@@ -133,18 +134,24 @@ report() {
     # other exit path -- a field, not a second vocabulary. It is written only when a check went
     # red, so a caller that finds it non-empty has the bytes; a caller that finds it empty is
     # not being told the checks passed, only that none of them left a log to read.
-    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s", "check_log": "%s"}\n' \
+    # `local_proof` is `local-proof.sh`'s whole reading, carried verbatim so the run report can
+    # name which checks ran, which failed and every `not_run` by name. `null` means the runner
+    # was never reached on this path — never that the checks passed.
+    printf '{"outcome": "%s", "unit": "%s", "branch": "%s", "reason": "%s", "class": "%s", "conflicted_files": %s, "worktree_path": "%s", "merged": %s, "regenerated": %s, "validated": %s, "pushed": %s, "delivery": "%s", "body_source": "%s", "check_log": "%s", "local_proof": %s}\n' \
         "$1" "$(json_str "$unit")" "$(json_str "$BRANCH")" "$(json_str "${2:-}")" \
         "$(json_str "$CLASS")" "$CONFLICTED" "$(json_str "$WORKTREE")" \
         "$MERGED" "$REGENERATED" "$VALIDATED" "$PUSHED" "$(json_str "$DELIVERY")" \
-        "$(json_str "${MERGE_BODY_SOURCE:-}")" "$(json_str "${CHECK_LOG:-}")"
+        "$(json_str "${MERGE_BODY_SOURCE:-}")" "$(json_str "${CHECK_LOG:-}")" \
+        "${LOCAL_PROOF_RESULT:-null}"
     exit 0
 }
 refuse() { report catch_up_refused "$1"; }
 
 # Declared here, beside the emitter that reads it, so every earlier refusal renders "" rather
-# than tripping `set -u` on a path that never reaches the checks.
+# than tripping `set -u` on a path that never reaches the checks. `LOCAL_PROOF_RESULT` renders
+# `null` for the same reason — an absent reading, never a passing one.
 CHECK_LOG=""
+LOCAL_PROOF_RESULT="null"
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || refuse not_a_repository
 REPO_ROOT=$(git rev-parse --show-toplevel)
@@ -374,44 +381,33 @@ fi
 # branch behind an open pull request. Each check is named in its own refusal so a reader is
 # sent to the one that went red rather than to "validation".
 #
-# THE CHECKS RUN IN A CLEAN ENVIRONMENT, and that is not tidiness. A caller reaches this
-# script through the claim protocol's own tunables — `WORKAHOLIC_CLAIM_STALE_HOURS`,
-# `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES`, `WORKAHOLIC_CLAIM_MERGED_LOOKUP` — and a
-# repository's test suite may legitimately assert on their DEFAULTS. Measured on this
-# script's own first live run: a caller collapsing the heartbeat window (the same relaxation
-# `retry-undelivered.sh --own-tip` performs) turned 16 claim-protocol assertions red, so the
-# push was refused `validation_failed:test-workflow-scripts.mjs` over a branch whose suite
-# passed. Unsetting them is the narrow fix: the tunables belong to the claim reading, which
-# is already done by this point, and never to the repository's own verification.
-# A REFUSAL THAT DISCARDS THE OUTPUT CANNOT BE DIAGNOSED, AND THIS ONE HAD TO BE
-# (2026-09-03). `>/dev/null 2>&1` threw away the only evidence of WHY a check went red, so a
-# refusal read `validation_failed:test-workflow-scripts.mjs` and nothing else — the same six
-# words whether the branch is genuinely broken, the environment leaked (the case the note above
-# records), or the run was simply unlucky. Measured here: two consecutive catch-ups on
-# `work-20260902-043932` refused over that suite, and re-running the script's OWN invocation
-# byte-for-byte in the same worktree answered `6236 passed, 0 failed`, exit 0, twice. Nothing
-# distinguished a real failure from that, because nothing was kept.
+# THE SET IS DECLARED, NOT SPELLED HERE (2026-09-19, ticket `20260919230700`). This site and
+# `branching/scripts/prepare-publication.sh` each hard-coded the same three checks, both a
+# strict subset of CI's own `validate` job — neither ran `node --test
+# scripts/tests/agentic-loop/*.test.mjs`, which is exactly the step that turned `main` red
+# seven consecutive times on 2026-09-19. `branching/scripts/local-proof.sh` is now the one
+# declaration and the one runner; both of this site's rulings (the clean environment and the
+# kept log) moved INTO it, so they hold at every call site rather than at one. The refusal
+# word is byte-identical — `validation_failed:<check>` — so no caller's `case` arm moves.
 #
-# Under the loop's subagents this stopped being rare: several runs share the multi-minute suite
-# on one machine, so a check can lose to load in a way no single-session premise ever showed.
-#
-# THE OUTPUT IS KEPT, NOT PRINTED. It goes to a file beside the worktree whose path rides the
-# refusal, so stdout stays the one JSON line every caller parses and a reader is sent to the
-# bytes rather than to a guess. The gate itself does not move: the same three checks, the same
-# clean environment, the same refusal with nothing pushed. What changes is only that the next
-# occurrence can be read.
-if command -v node >/dev/null 2>&1; then
-    for check in build-plugins/verify.mjs build-plugins/validate-metadata.mjs \
-                 test-workflow-scripts.mjs; do
-        [ -f "${WORKTREE}/scripts/${check}" ] || continue
-        _cul="${WORKTREE}/../.catch-up-check-${check##*/}.log"
-        ( cd "$WORKTREE" \
-          && unset WORKAHOLIC_CLAIM_STALE_HOURS WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES \
-                   WORKAHOLIC_CLAIM_MERGED_LOOKUP \
-          && node "scripts/${check}" ) >"$_cul" 2>&1 \
-            || { CHECK_LOG="$_cul"; refuse "validation_failed:${check##*/}"; }
-        rm -f "$_cul"
-    done
+# `ok: false` is what refuses; `complete: false` is REPORTED and never refuses, because the
+# retired list skipped an absent check silently and a consuming repository carrying none of
+# these files must keep pushing exactly as it did. `local_proof` rides the result so the run
+# report can name what ran and every `not_run`.
+if [ -f "$LOCAL_PROOF" ]; then
+    _lp=$(sh "$LOCAL_PROOF" --repo "$WORKTREE" 2>/dev/null || printf '')
+    [ -n "$_lp" ] || refuse local_proof_unreadable
+    # Only a reading that PARSES is carried into the report; an unparseable one would make the
+    # report's own JSON unreadable, which is a worse failure than the one being reported.
+    printf '%s' "$_lp" | jq -e . >/dev/null 2>&1 || refuse local_proof_unparseable
+    LOCAL_PROOF_RESULT="$_lp"
+    _lp_readable=$(printf '%s' "$_lp" | jq -r 'if has("readable") then .readable else true end' 2>/dev/null || printf '')
+    [ "$_lp_readable" = true ] || refuse "local_proof_unreadable:$(printf '%s' "$_lp" | jq -r '.reason // "unparseable"' 2>/dev/null || printf unparseable)"
+    _lp_failed=$(printf '%s' "$_lp" | jq -r '.failed[0] // ""' 2>/dev/null || printf '')
+    if [ -n "$_lp_failed" ]; then
+        CHECK_LOG=$(printf '%s' "$LOCAL_PROOF_RESULT" | jq -r --arg n "$_lp_failed" '.checks[] | select(.name == $n) | .log' 2>/dev/null || printf '')
+        refuse "validation_failed:${_lp_failed}"
+    fi
 fi
 VALIDATED=true
 

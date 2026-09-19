@@ -4,6 +4,7 @@
 
 * [close-a-feedback-item-only-on-evidence-from-the-surface-the-person-reviews](active/close-a-feedback-item-only-on-evidence-from-the-surface-the-person-reviews/mission.md) - Close a feedback item only on evidence from the surface the person reviews
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report](active/keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report/mission.md) - Keep one coherent feedback batch one mission one pull request one report
 * [never-let-the-routine-that-originates-work-converge-on-silence](active/never-let-the-routine-that-originates-work-converge-on-silence/mission.md) - Never let the routine that originates work converge on silence
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 

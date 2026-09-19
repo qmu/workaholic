@@ -29,19 +29,29 @@
 # (`runtime/scripts/coordinator.sh`, `work/scripts/codex-loop.sh`), once per propose tick that
 # executed. So this step READS; it establishes nothing new.
 #
-# THE CLASSIFICATION IS A DECLARED, CLOSED TOKEN SET, and an outcome outside it is `unclassified`
-# rather than guessed. The outcome string is composed by the run, so a substring test is the
-# honest instrument and its vocabulary belongs HERE rather than being inferred per call:
+# THE CLASSIFICATION IS DECLARED ONCE AND COMPOSED HERE, NEVER SPELLED (2026-09-20, ticket
+# `20260920014751`). It used to be enumerated in this file, on the READER's side, where it could
+# only ever be a guess about what writers produce — this header said so — and the guess was
+# wrong on ordinary traffic: MEASURED 2026-09-20 over this checkout's newest two day files,
+# `completed`, `published_and_merged` and `published` were all outside it, so the step answered
+# `degraded` every run and never once reached its finding.
+# `runtime/scripts/outcome-classify.sh` is now the one declaration and the one reading. It
+# answers four classes per entry — `originated`, `nothing`, `unmeasured` (a recognised terminal
+# word carrying no yield information, `worker-result.schema.json`'s own enum among them) and
+# `unclassified` (a token outside every set, or a summary that is not JSON) — reading `.outcome`
+# and NEVER `.reason`, per segment of a composite outcome, with any originated segment winning.
+# This step counts what that reading answers and spells no token.
 #
-#   originated nothing  `no_evolutionary_move` | `proposed_0` | `"proposed":0` | `proposed: 0`
-#   originated          `proposed_<1-9>` | `ticket_published` | `proposal_opened`
-#                       | `proposed_mission` | `issue_opened`
-#   unclassified        anything else (`completed` is a live example)
-#
-# AN UNCLASSIFIED ENTRY HOLDS THE FINDING. One entry this step could not read is enough to make
-# *every tick originated nothing* a claim it has not established, and a degraded read is never a
-# finding (`log-read.sh`'s own header: `readable: false` is not zero ticks). It answers
-# `degraded` with `outcome_unclassified` and raises nothing.
+# AN UNREAD ENTRY HOLDS THE FINDING, BUT ONLY WHEN THE FINDING IS THE CLAIM IT WOULD BLOCK.
+# The old order tested `unclassified` BEFORE `originated`, so one unreadable entry suppressed a
+# conclusion it cannot weaken: *one tick originated something* is established by that one tick
+# whatever else the window holds. The rule this file has always stated is narrower than the code
+# was — one entry this step could not read is enough to make *EVERY tick originated nothing* a
+# claim it has not established — so the unread entries are consulted exactly where that claim is
+# about to be made, and `originated > 0` answers `ok` first. A degraded read is still never a
+# finding (`log-read.sh`'s own header: `readable: false` is not zero ticks), and
+# `outcome_unclassified` keeps its name beside the new `outcome_unmeasured`, because *the writer
+# could not say* and *the reader could not read* send a person to different places.
 #
 # THE BOUND IS DERIVED, NOT PICKED (the ticket's own gate: a bare number with no derivation does
 # not pass). The finding is a RUN of originate-nothing ticks, never a single one, and the two
@@ -80,6 +90,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "${SCRIPT_DIR}/lib/jq-guard.sh"
 LOG_READ="${SCRIPT_DIR}/log-read.sh"
 SURVEY="${SCRIPT_DIR}/../../propose/scripts/survey-strategies.sh"
+CLASSIFY="${SCRIPT_DIR}/../../runtime/scripts/outcome-classify.sh"
 
 TICK=""
 ROOT="."
@@ -103,6 +114,7 @@ emit() {
 }
 
 [ -f "$LOG_READ" ] || emit degraded no_log_reader "log-read.sh is not present beside this skill"
+[ -f "$CLASSIFY" ] || emit degraded no_outcome_classifier "the one outcome declaration is not present beside this skill"
 
 DIR="${ROOT}/.workaholic/moderations"
 [ -d "$DIR" ] || emit skipped no_log_area "this repository keeps no tick log; there is no propose tick to read"
@@ -120,36 +132,45 @@ if ! printf '%s' "$out" | jq -e '.read == true' >/dev/null 2>&1; then
     emit degraded "$why" "the propose tick log could not be read: ${why}"
 fi
 
-# One reading, three counts. The token sets are the header's, spelled once here.
-counts=$(printf '%s' "$out" | jq -c '
-      [ .entries[]
-        | .summary
-        | if   test("no_evolutionary_move") or test("proposed_0") or test("\"proposed\" *: *0") or test("proposed: *0")
-          then "nothing"
-          elif test("proposed_[1-9]") or test("ticket_published") or test("proposal_opened") or test("proposed_mission") or test("issue_opened")
-          then "originated"
-          else "unclassified" end ]
-      | {total: length,
-         nothing:      (map(select(. == "nothing")) | length),
-         originated:   (map(select(. == "originated")) | length),
-         unclassified: (map(select(. == "unclassified")) | length)}' 2>/dev/null || printf '')
+# One reading, four counts. The token sets are the CLASSIFIER's; this step spells none of them.
+# Each summary goes in as its own line, which is what it already is in the day file.
+classes=$(printf '%s' "$out" | jq -r '.entries[].summary' 2>/dev/null \
+    | sh "$CLASSIFY" 2>/dev/null || printf '')
+counts=$(printf '%s' "$classes" | jq -s -c '
+      {total: length,
+       nothing:      (map(select(.class == "nothing")) | length),
+       originated:   (map(select(.class == "originated")) | length),
+       unmeasured:   (map(select(.class == "unmeasured")) | length),
+       unclassified: (map(select(.class == "unclassified")) | length)}' 2>/dev/null || printf '')
 [ -n "$counts" ] || emit degraded log_unreadable "the propose finish entries could not be classified"
 
 total=$(printf '%s' "$counts" | jq -r '.total' 2>/dev/null || printf 0)
 nothing=$(printf '%s' "$counts" | jq -r '.nothing' 2>/dev/null || printf 0)
 originated=$(printf '%s' "$counts" | jq -r '.originated' 2>/dev/null || printf 0)
+unmeasured=$(printf '%s' "$counts" | jq -r '.unmeasured' 2>/dev/null || printf 0)
 unclassified=$(printf '%s' "$counts" | jq -r '.unclassified' 2>/dev/null || printf 0)
 
 [ "$total" -gt 0 ] || emit ok "" "the log window holds no propose tick that finished; nothing to read for a yield"
 
-# An entry this step could not read holds the finding: *every tick originated nothing* is then a
-# claim it has not established. Degraded, never `ok` with a zero count.
-if [ "$unclassified" -gt 0 ]; then
-    emit degraded outcome_unclassified "a propose tick's recorded outcome is outside this step's declared token set; no yield was judged"
-fi
-
+# ONE TICK THAT ORIGINATED SETTLES IT, and it settles it whatever else the window holds — an
+# entry nobody could read cannot unmake a tick that demonstrably produced something. This is
+# tested FIRST for that reason; the unread entries are consulted below, where the claim they
+# genuinely block is about to be made.
 if [ "$originated" -gt 0 ]; then
     emit ok "" "the propose ticks in the log window include one that originated something"
+fi
+
+# From here the step is about to claim that EVERY tick originated nothing, and an entry it could
+# not read makes that a claim it has not established. Two reasons, never one: `unclassified` is
+# a token outside the declaration or a summary that is not JSON — the reader could not read it —
+# while `unmeasured` is a recognised terminal word that carries no yield at all, which is the
+# WRITER being unable to say. They send a person to different places.
+if [ "$unclassified" -gt 0 ]; then
+    emit degraded outcome_unclassified "a propose tick's recorded outcome is outside the declared token set, or its summary is not JSON; no yield was judged"
+fi
+
+if [ "$unmeasured" -gt 0 ]; then
+    emit degraded outcome_unmeasured "a propose tick recorded a terminal outcome that carries no yield information; no yield was judged"
 fi
 
 # `nothing == total` from here. A single such tick is the ordinary case.

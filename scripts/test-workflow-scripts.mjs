@@ -23921,11 +23921,16 @@ function testProposeYield() {
   try {
     const mod = join(root, "skills/moderate/scripts");
     const prop = join(root, "skills/propose/scripts");
+    const rt = join(root, "skills/runtime/scripts");
     mkdirSync(join(mod, "lib"), { recursive: true });
     mkdirSync(prop, { recursive: true });
+    mkdirSync(rt, { recursive: true });
     const src = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
     for (const f of ["step-propose-yield.sh", "log-read.sh"]) copyFileSync(join(src, f), join(mod, f));
     copyFileSync(join(src, "lib/jq-guard.sh"), join(mod, "lib/jq-guard.sh"));
+    // The ONE outcome declaration the step composes (2026-09-20, ticket `20260920014751`).
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/runtime/scripts/outcome-classify.sh"),
+      join(rt, "outcome-classify.sh"));
 
     // The stub survey. `ok: true` with two refused rows, so the finding has words to name and a
     // reader can tell a composed refusal set from an invented one.
@@ -23984,10 +23989,86 @@ function testProposeYield() {
     // degraded read is never a finding -- never `ok` with a zero count either.
     const murky = read(fixture(
       finish("20260919-100000", "propose:no_evolutionary_move") +
-      finish("20260919-110000", "completed")));
+      finish("20260919-110000", "wat_is_this")));
     assertEq("an unclassifiable outcome degrades by name and raises nothing",
       [murky.status, murky.reason, murky.needs_agent.length],
       ["degraded", "outcome_unclassified", 0]);
+
+    // (d2) A RECOGNISED TERMINAL WORD CARRYING NO YIELD IS ITS OWN REASON (2026-09-20, ticket
+    // `20260920014751`). `completed` and the schema's own `ok` are read fine — it is the WRITER
+    // that could not say what the tick produced — so folding them into `unclassified` would
+    // send a reader to look for a typo instead of at the seam that cannot measure.
+    for (const word of ["completed", "ok", "not_executed:work_waiting"]) {
+      const unm = read(fixture(
+        finish("20260919-100000", "propose:no_evolutionary_move") +
+        finish("20260919-110000", word)));
+      assertEq(`a terminal word carrying no yield (${word}) degrades by its own reason`,
+        [unm.status, unm.reason, unm.needs_agent.length],
+        ["degraded", "outcome_unmeasured", 0]);
+    }
+
+    // (d3) A COMPOSITE OUTCOME IS READ PER SEGMENT, AND ANY ORIGINATED SEGMENT WINS. Both rows
+    // measured in this repository's own window on 2026-09-20 were silently classified `nothing`
+    // by the retired whole-line reader, which took the first arm that matched: one carries
+    // `proposed_6` and the other `proposed_mission`, each an originated token in that reader's
+    // OWN set. That is the dangerous half of the defect, because once the unreadable entries
+    // age out it would raise `originated_nothing` over a window in which specificate had
+    // ingested a mission and six tickets.
+    for (const composite of [
+      "propose:proposed_0:past_target_date / specificate:proposed_6:formation_turn_closed",
+      "propose:no_evolutionary_move / specificate:proposed_mission_merged"]) {
+      const comp = read(fixture(
+        finish("20260919-100000", "propose:no_evolutionary_move") +
+        finish("20260919-110000", composite)));
+      assertEq(`a composite outcome whose second segment originated is not \`nothing\``,
+        [comp.status, comp.needs_agent.length], ["ok", 0]);
+    }
+
+    // (d4) THE REASON FIELD NEVER CLASSIFIES. The retired reader tested the whole summary
+    // string, so a reason sentence naming a token would have decided the entry.
+    const reasoned = fixture(
+      `## 20260919-100000\n\n- \`loop-finish-propose-a\`: ok — ` +
+      `{"executed":true,"outcome":"propose:proposed_0","reason":"ticket_published elsewhere"}\n\n` +
+      `## 20260919-110000\n\n- \`loop-finish-propose-b\`: ok — ` +
+      `{"executed":true,"outcome":"propose:no_evolutionary_move","reason":"proposed_mission was discussed"}\n\n`);
+    const byReason = read(reasoned);
+    assertEq("an originated token in `reason` does not change an entry whose `.outcome` says nothing",
+      [byReason.status, byReason.reason], ["blocked", "originated_nothing"]);
+
+    // (d5) ONE ORIGINATED TICK SETTLES IT EVEN BESIDE AN UNREADABLE ENTRY. *One tick originated
+    // something* is established by that tick; the unread entries block only the claim that
+    // EVERY tick originated nothing, which is the claim this step's own header names.
+    const mixed = read(fixture(
+      finish("20260919-100000", "ticket_published") +
+      finish("20260919-110000", "wat_is_this")));
+    assertEq("an originated tick answers ok even with an unclassified entry beside it",
+      [mixed.status, mixed.reason, mixed.needs_agent.length], ["ok", "", 0]);
+
+    // (d6) LEGACY ROWS: THE PROSE SHAPE ALREADY ON DISK IS REJECTED BY NAME, NEVER READ AS
+    // `nothing` (`rules/general.md`, *A tightened constraint over persisted data is verified
+    // against legacy rows*). `log-append.sh` never prunes and nothing here may rewrite a line,
+    // so the 21 prose lines measured in this checkout on 2026-09-20 stay until the two-day
+    // window ages them out. A fresh-log pass is not evidence for this change.
+    const legacy = fixture(
+      `## 20260919-100000\n\n- \`loop-finish-propose\`: ok — propose finished (ok)\n\n` +
+      `## 20260919-110000\n\n- \`loop-finish-propose\`: ok — ` +
+      `propose と specificate が完了しました。新規提案はありません。\n\n` +
+      finish("20260919-120000", "propose:no_evolutionary_move"));
+    const old = read(legacy);
+    assertEq("a prose-shaped legacy summary is unclassified by name, never a silent `nothing`",
+      [old.status, old.reason, old.needs_agent.length],
+      ["degraded", "outcome_unclassified", 0]);
+
+    // And the classifier says so itself, on the exact two shapes one day file now holds.
+    const CLASSIFY = join(REPO_ROOT, "plugins/workaholic/skills/runtime/scripts/outcome-classify.sh");
+    const classed = run(REPO_ROOT,
+      `printf '%s\\n' 'propose finished (ok)' ` +
+      `'{"executed":true,"outcome":"ticket_published","reason":""}' | ${POSIX_SH} ${CLASSIFY}`)
+      .stdout.trim().split("\n").map((l) => JSON.parse(l));
+    assertEq("the one declaration rejects a prose line by its own reason",
+      [classed[0].class, classed[0].reason], ["unclassified", "summary_not_json"]);
+    assertEq("and reads the structured one both writers now emit",
+      classed[1].class, "originated");
 
     // (e) AN UNREADABLE LOG AREA DEGRADES, never an empty yield.
     const bare = mkdtempSync(join(tmpdir(), "workaholic-propose-yield-bare-"));
@@ -24013,6 +24094,54 @@ function testProposeYield() {
     /--owner loop --step-prefix loop-finish-propose/.test(yieldSrc), "no owner-scoped read found");
   assertTrue("the registry carries it — a step absent there does not run",
     moderateSteps().includes("propose-yield"), "propose-yield is absent from steps.json");
+
+  // (h) THE TOKEN SET IS DECLARED ONCE AND THE STEP SPELLS NONE OF IT (2026-09-20, ticket
+  // `20260920014751`). It was enumerated here, on the reader's side, where it could only ever
+  // be a guess about what writers produce.
+  assertTrue("the step composes the one outcome declaration",
+    /outcome-classify\.sh/.test(yieldSrc), "no classifier composition found");
+  for (const token of ["no_evolutionary_move", "proposed_0", "ticket_published", "proposed_mission"]) {
+    assertTrue(`the step no longer spells \`${token}\``, !yieldSrc.includes(`test("${token}`),
+      "the vocabulary belongs to outcome-classify.sh alone");
+  }
+  assertTrue("and every existing refusal word survives",
+    ["no_log_reader", "no_log_area", "log_unreadable", "survey_unreadable", "outcome_unclassified"]
+      .every((w) => yieldSrc.includes(w)), "a refusal word was removed");
+
+  // (i) BOTH FINISH WRITERS EMIT ONE SHAPE. The native seam always did; `codex-loop.sh` wrote
+  // prose into the same day files, so no reader could take `.outcome` as a field. Measured on
+  // this checkout 2026-09-20: 75 `loop-finish-*` lines, 54 JSON and 21 prose.
+  const codexLoop = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/work/scripts/codex-loop.sh"), "utf8");
+  const finishCalls = codexLoop.split("\n")
+    .map((l, i) => [l, i]).filter(([l]) => l.includes('--step "loop-finish-${_rw_role}"'));
+  assertTrue("codex-loop.sh still writes its two finish lines", finishCalls.length === 2,
+    `found ${finishCalls.length}`);
+  assertTrue("neither finish line is prose any more",
+    !/--summary "\$\{_rw_role\} finished/.test(codexLoop)
+    && !/--summary "\$\{_rw_role\} not executed/.test(codexLoop),
+    "a prose summary survives at a finish seam");
+  assertTrue("both compose the {executed, outcome, reason} object the native seam writes",
+    (codexLoop.match(/\{executed: (?:true|false), outcome: \$o/g) || []).length === 2, codexLoop.slice(0, 0));
+  const coordinator = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/runtime/scripts/coordinator.sh"), "utf8");
+  assertTrue("and the native seam's own shape is untouched",
+    /\{executed:\.result\.executed,outcome:\.result\.outcome,reason:\.result\.reason\}/.test(coordinator),
+    "the coordinator's summary shape moved");
+
+  // (j) THE DECLARATION IS A READER AND REACHES NO WRITER.
+  const classifySrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/runtime/scripts/outcome-classify.sh"), "utf8");
+  const classifyCode = classifySrc.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  for (const forbidden of ["log-append.sh", "git ", "gh-rest.sh", "curl "]) {
+    assertTrue(`the declaration reaches no writer: ${forbidden}`,
+      !classifyCode.includes(forbidden), forbidden);
+  }
+  const listed = JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${join(REPO_ROOT,
+    "plugins/workaholic/skills/runtime/scripts/outcome-classify.sh")} --list`).stdout);
+  assertEq("--list states the precedence the reading applies",
+    listed.precedence, ["originated", "nothing", "unmeasured", "unclassified"]);
+  assertEq("and the composite separator it splits on", listed.separator, " / ");
 }
 
 T("a tick pays only its operative cost", testTickOperativeCost);
@@ -43730,6 +43859,97 @@ function testLocalProofDeclaration() {
     /unset WORKAHOLIC_CLAIM_STALE_HOURS/.test(runner), RUNNER);
   assertTrue("the runner keeps each check's output in a log whose path rides the row",
     /log\\?": /.test(runner) && /json_str "\$log"/.test(runner), RUNNER);
+
+  // ---- 6. A REQUIRED CHECK THE KERNEL KILLED REFUSES, AND IS NOT A TIMEOUT
+  // (2026-09-20, ticket `20260920014750`). `137` was folded into the `124` arm, so a check
+  // ended part-way reported `ran: false`, `reason: "timeout:0s"` on a row declaring NO
+  // timeout, landed in `not_run` rather than `failed`, and left `ok: true` — a pass over a
+  // check that proved nothing, which both consumers (refusing on `ok: false` alone) let
+  // through. The probe is the ticket's own: a throwaway repository whose `verify.mjs`
+  // SIGKILLs itself, run through `--only`.
+  const killDir = mkdtempSync(join(tmpdir(), "wh-local-proof-kill-"));
+  try {
+    mkdirSync(join(killDir, "scripts/build-plugins"), { recursive: true });
+    writeFileSync(join(killDir, "scripts/build-plugins/verify.mjs"),
+      'process.kill(process.pid, "SIGKILL");\n');
+    run(killDir, "git init -q && git config user.email t@example.com && git config user.name T");
+    const probe = JSON.parse(run(REPO_ROOT,
+      `sh ${RUNNER} --repo ${killDir} --only verify.mjs 2>/dev/null`).stdout);
+    const row = probe.checks.find((c) => c.name === "verify.mjs");
+    assertTrue("a SIGKILLed required check does not answer ok: true", probe.ok === false,
+      JSON.stringify(probe));
+    assertTrue("it refuses through `failed`, the path no consumer can forget to read",
+      probe.failed.includes("verify.mjs"), JSON.stringify(probe.failed));
+    // `verify.mjs` declares `timeout 0` — no timeout at all — so a reason naming one is the
+    // contradiction this repair removes. The test is on the STRING, not on the arm.
+    assertTrue("a check declaring `timeout 0` never reports a reason containing `timeout`",
+      !/timeout/.test(row.reason), `reason: ${row.reason}`);
+    assertEq("and the reason carries the signal instead", row.reason, "killed:SIGKILL");
+    assertTrue("not_run carries no entry for it", !probe.not_run.some((l) => /^verify\.mjs:/.test(l)),
+      JSON.stringify(probe.not_run));
+  } finally { rmSync(killDir, { recursive: true, force: true }); }
+
+  // AND AN APPLIED TIMEOUT KEEPS `137` AS ITS OWN ESCALATION. GNU `timeout` exits `137` when
+  // `--kill-after` had to SIGKILL the child, so the split is on whether a timeout was applied
+  // and never on the status alone. That arm cannot be driven in a bounded test — reaching it
+  // means waiting out a declared bound plus the 30s escalation — so it is pinned on the
+  // source, which is stated rather than claimed as a behavioural proof.
+  assertTrue("the runner splits `137` on whether a timeout was APPLIED",
+    /timed=true/.test(runner) && /\[ "\$timed" = true \]/.test(runner), RUNNER);
+  assertTrue("and the applied-timeout arm keeps the `timeout:<n>s` spelling",
+    /timed" = true \][\s\S]{0,80}timeout:\$\{timeout_s\}s/.test(runner), RUNNER);
+
+  // ---- 7. THE CHECKS RUN UNDER A TMPDIR THE RUNNER OWNS, beside the clean-environment
+  // `unset`. Mitigation, not the repair above: measured 2026-09-20, `/tmp` on this machine is
+  // a 3.8 G tmpfs holding 2.1 G of a 7.7 G RAM with no swap, and the abort that produced the
+  // ticket happened with `TMPDIR` already on local disk.
+  assertTrue("the runner exports TMPDIR for each check",
+    /TMPDIR="\$SCRATCH_DIR"; export TMPDIR/.test(runner), RUNNER);
+  // AND IT LIVES OUTSIDE EVERY REPOSITORY, WHICH IS A MEASUREMENT. The obvious home is under
+  // `LOG_DIR` (inside `.git/`), and putting it there breaks a REQUIRED check in this very set:
+  // `agentic-loop/legacy-contracts.test.mjs` asserts the outside-repo refusal of four
+  // publication scripts, and a `TMPDIR` under `.git/` makes git resolve the enclosing gitdir —
+  // measured 2026-09-20, that file exits 0 on plain local disk and 1 under `.git/`.
+  assertTrue("the scratch directory is NOT placed inside the repository or its git directory",
+    !/SCRATCH_DIR="\$\{LOG_DIR\}/.test(runner) && !/SCRATCH_DIR="\$\{REPO\}/.test(runner),
+    "a TMPDIR inside a repository breaks legacy-contracts.test.mjs's outside-repo assertions");
+  assertTrue("and the runner proves that before using it",
+    /rev-parse --git-dir[\s\S]{0,200}scratch_dir_inside_repository/.test(runner), RUNNER);
+  assertTrue("a scratch directory it cannot use is named, never silent",
+    /SCRATCH_REASON=scratch_dir_unwritable/.test(runner)
+    && /"scratch": \{"used": %s, "path": "%s", "reason": "%s"\}/.test(runner),
+    "the fall-back must ride the result");
+  assertTrue("and it is removed on every exit path, including the unreadable ones",
+    /trap cleanup_scratch EXIT/.test(runner), RUNNER);
+
+  // The fall-back is not a refusal: this half is mitigation, and refusing the whole proof over
+  // a temp directory would stop every merge the loop makes for a tidiness measure.
+  const noHome = JSON.parse(run(REPO_ROOT,
+    `env -u HOME -u XDG_CACHE_HOME sh ${RUNNER} --repo ${REPO_ROOT} --only no-such-check`).stdout);
+  assertEq("with no cache home the run still answers, naming why it used none",
+    [noHome.readable, noHome.scratch.used, noHome.scratch.reason], [true, false, "no_cache_home"]);
+
+  // The exported TMPDIR must actually reach the check's own process, which is what makes the
+  // mitigation real rather than a variable nobody reads.
+  const tmpDir = mkdtempSync(join(tmpdir(), "wh-local-proof-tmpdir-"));
+  try {
+    mkdirSync(join(tmpDir, "scripts/build-plugins"), { recursive: true });
+    writeFileSync(join(tmpDir, "scripts/build-plugins/verify.mjs"),
+      'import {tmpdir} from "node:os"; console.log(tmpdir()); process.exit(1);\n');
+    run(tmpDir, "git init -q && git config user.email t@example.com && git config user.name T");
+    const res = JSON.parse(run(REPO_ROOT,
+      `sh ${RUNNER} --repo ${tmpDir} --only verify.mjs 2>/dev/null`).stdout);
+    const logPath = res.checks.find((c) => c.name === "verify.mjs").log;
+    const seen = readFileSync(logPath, "utf8").trim();
+    assertTrue("the check's own os.tmpdir() reads the runner's scratch directory",
+      res.scratch.used === true && seen === res.scratch.path,
+      `check saw TMPDIR=${seen}, runner reported ${JSON.stringify(res.scratch)}`);
+    assertTrue("which is outside every git repository",
+      run(seen === "" ? REPO_ROOT : dirname(seen),
+        `git -C ${seen} rev-parse --git-dir`).status !== 0 || !existsSync(seen), seen);
+    assertTrue("and the scratch directory is gone once the run ends",
+      !existsSync(seen), seen);
+  } finally { rmSync(tmpDir, { recursive: true, force: true }); }
 }
 
 for (const [label, fn] of tests) {

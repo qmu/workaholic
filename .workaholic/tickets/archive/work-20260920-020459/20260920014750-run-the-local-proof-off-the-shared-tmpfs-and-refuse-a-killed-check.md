@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-20T01:47:50+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -129,3 +130,97 @@ The sibling ticket in this issue's first batch established the proof set itself 
 - One thing the report *does* rule out: `scripts/test-workflow-scripts.mjs`'s runner loop wraps every row in `try { await fn(); } catch (e) { fail(label, …) }` (lines ~43735-43739), so an `ENOSPC` raised inside a test row becomes a **counted failure**, not an abort. An abort with zero failures therefore means the process itself was ended from outside, which is what makes the signal reading the load-bearing part of this ticket.
 - `scripts/tests/agentic-loop/*.test.mjs` is the check most exposed here: it is the only row carrying a timeout (300s, CI's own bound), and `local-proof.sh`'s header already records it being killed at that bound under ~20 concurrent runners while the same suite alone took 115s. With `124` and `137` separated, that row's reports become legible for the first time (`plugins/workaholic/skills/branching/scripts/local-proof.sh`, the declaration comment).
 - `.git/workaholic/` is inside the git directory and is never committed, so a scratch directory there needs no `.gitignore` entry — but it does need removing, or a long-lived checkout accumulates one fixture tree per proof run on local disk (`plugins/workaholic/skills/branching/scripts/local-proof.sh` lines ~196-208).
+
+## Final Report
+
+Development completed as planned. Both halves landed in `local-proof.sh`, the repair first.
+
+**Reproduced before changing anything.** A throwaway repository whose `scripts/build-plugins/verify.mjs`
+is `process.kill(process.pid, "SIGKILL")`, run as `local-proof.sh --repo <that> --only verify.mjs`,
+answered exactly what the Overview predicted: `{"ok": true, "complete": false, "not_run":
+["verify.mjs: timeout:0s", …], "failed": [], "row": {"ran": false, "ok": false, "reason":
+"timeout:0s"}}`. The same command run directly exits **137**, which the Considerations had left
+open — so `137` *is* the status such an abort delivers to the runner. The consumer side was read
+rather than assumed: `catch-up-claim.sh:397-411` refuses on `.failed[0]` alone and nothing on that
+path reads `complete`.
+
+**The `## Open Decisions` fork, and how it was settled.** Both named sources were read whole.
+`local-proof.sh`'s own header says *`complete` — every REQUIRED check ran. An incomplete set is
+REPORTED, never a refusal*, and gives one reason: *the two former lists skipped an absent check
+silently (`[ -f ] || continue`) and a consuming repository that carries none of these files must
+keep pushing exactly as it did.* `catch-up-claim.sh:393-396` states the same split from the
+consumer side in the same words. **That reason is about `check_absent`** — a repository that does
+not have the file — and a kill is not that: the check is present, it started, and something ended
+it. So the stated rationale for `complete` never refusing does not reach this case, which is what
+the ticket observed and what the reading confirms.
+
+**Decided: (A), with the accuracy cost removed rather than paid.** A killed required check is
+`ran: true, ok: false`, joins `failed`, and refuses through the existing `validation_failed:<check>`
+word — no new vocabulary, no consumer change, no `case` arm moved. (B) was refused because it makes
+two consumers grow an arm they can forget to read, which is the defect this ticket is about. The
+"small lie" (A) was charged with is avoidable: `ran: false` is reserved in this script for a check
+that was never **launched** (`not_selected`, `check_absent`, `interpreter_unavailable`), so
+`ran: true` for a process that started is the honest reading, and the reason string carries the
+signal — `killed:SIGKILL`, never a timeout the check never declared. Stated cost, unhidden: a
+consuming repository on a constrained machine now gets refusals it did not get before. That is the
+right direction — a refusal is retried, a push on an unproved check is not.
+
+**The split is on whether a timeout was APPLIED, never on the status alone.** GNU `timeout` exits
+`137` when its own `--kill-after` escalation had to SIGKILL the child, so a row that *declares* a
+timeout keeps `124` and `137` as one byte-identical reading — the measured `agentic-loop.test.mjs`
+case the declaration comment records. A `timed` flag records which branch ran.
+
+**`TMPDIR`, and the one place Step 5 was wrong.** Step 5 prescribed `${LOG_DIR}/tmp.$$` — inside
+the git directory — and **the proof set caught that as a regression in its own first full run**.
+`scripts/tests/agentic-loop/legacy-contracts.test.mjs` asserts the *outside-repo refusal* of four
+publication scripts, so its fixture must not be inside a repository; with `TMPDIR` under `.git/`,
+git resolves the enclosing gitdir and answers `fatal: this operation must be run in a work tree`
+(status 128) where the test expects `{"error": "not inside a git repository"}` (status 1).
+**Measured both ways on the same file**: exit 0 with `TMPDIR` on plain local disk, exit 1 with it
+under `.git/`. Every path inside the repository fails identically, so the scratch directory moved
+to `${XDG_CACHE_HOME:-$HOME/.cache}/workaholic/proof-tmp.$$` — local disk, off the shared tmpfs, on
+no ref — and the runner **proves** it is outside every repository (`git rev-parse --git-dir` must
+fail) before using it, refusing `scratch_dir_inside_repository` rather than silently reintroducing
+the break.
+
+**And the fall-back is named rather than fatal — a deliberate deviation from Step 5.** Step 5 asked
+for an `unreadable` refusal so the fall-back could never be silent. Once the directory lives outside
+ground this script controls, a hard refusal would let an odd `$HOME` stop **every merge the loop
+makes** for what the ticket itself calls mitigation. So an unusable scratch directory leaves `TMPDIR`
+exactly as the caller set it and says so in a new `scratch` block on the result
+(`{"used": bool, "path", "reason"}`) — not silent, and not a refusal. The repair (the killed-check
+reading) is unaffected either way.
+
+Which checks honour `TMPDIR` was **read, not assumed**: `test-workflow-scripts.mjs` and all 16
+`scripts/tests/agentic-loop/*.test.mjs` use `os.tmpdir()` (which reads `TMPDIR` on POSIX),
+`loop-drill.sh` spells `"${TMPDIR:-/tmp}"` and `mktemp -d`; `verify.mjs` and `validate-metadata.mjs`
+create no temporary files at all and are unaffected either way. Proved behaviourally: a check
+printing `os.tmpdir()` saw exactly the path the runner reported, and the directory was gone after
+the run. An `EXIT` trap removes it on every path including the `unreadable` early exits.
+
+Machine readings re-taken at implementation time (they move with load): `free -m` → total 7,767,
+shared 2,148, **available 824, swap 0**; `df -h /tmp` → `tmpfs 3.8G 2.1G 56%`;
+`pgrep -cf test-workflow-scripts.mjs` → 4.
+
+### Discovered Insights
+
+- **Insight**: `ran` in `local-proof.sh` does not mean *the check produced a verdict*; it means
+  *the check was launched*. The three pre-existing `ran: false` reasons are all pre-launch
+  (`not_selected`, `check_absent`, `interpreter_unavailable`), and `timeout` was the one exception.
+  **Context**: this is what makes the Open Decision's "(A) is a small lie" premise false, and it is
+  the axis to reason on when a fourth post-launch failure mode appears.
+- **Insight**: exit `137` is genuinely ambiguous between an external SIGKILL and GNU `timeout`'s own
+  `--kill-after` escalation, and the exit status alone cannot separate them — only knowing whether a
+  timeout was applied can.
+  **Context**: any later reader tempted to "simplify" the `timed` flag away would silently reclassify
+  the one row in the set that declares a timeout.
+- **Insight**: the shared `/tmp` on this machine is tmpfs with no swap, so temp-directory hygiene is
+  a **memory** question here, not a disk one — and pointing `TMPDIR` elsewhere was measured *not* to
+  prevent the abort that produced this ticket.
+  **Context**: a later session reading the `TMPDIR` change must not take it for the fix; the refusal
+  is the fix.
+- **Insight**: this repository's own test suite contains assertions that depend on the fixture being
+  **outside** any git repository, so `TMPDIR` cannot be pointed anywhere under the repository or its
+  git directory — including `.git/workaholic/`, where every other per-run artifact lives.
+  **Context**: `.git/` is the natural home for scratch state here and is the one home this particular
+  variable may not take; the runner now proves the constraint rather than documenting it.

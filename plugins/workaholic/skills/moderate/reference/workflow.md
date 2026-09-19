@@ -3889,10 +3889,35 @@ in this repository — nothing in the plugin writes the documented `propose-open
 pair — which is why the reading takes the `loop` owner by name.
 
 **What it answers.** Over the propose ticks the window holds, how many closed having originated
-nothing and how many originated something, classified by a **declared, closed token set** spelled
-in the step's own header. An outcome outside that set is `unclassified` and **holds the finding**:
-one entry the step could not read makes *every tick originated nothing* a claim it has not
-established, so it answers `degraded` / `outcome_unclassified` and raises nothing.
+nothing and how many originated something, classified by **`runtime/scripts/outcome-classify.sh`,
+the one declaration of that vocabulary and the one reading over it** (2026-09-20, ticket
+`20260920014751`). The step composes it and spells no token. That reading takes each entry's
+summary as **JSON**, reads **`.outcome` and never `.reason`**, splits a composite outcome on
+` / ` and applies a stated precedence — **any segment that originated makes the entry
+`originated`** — and answers four classes:
+
+| class | meaning |
+| --- | --- |
+| `originated` | a segment names work the routine produced |
+| `nothing` | every segment that says anything says it produced nothing |
+| `unmeasured` | a **recognised** terminal word carrying no yield information (`worker-result.schema.json`'s own `ok \| pending \| blocked \| failed`, plus `not_executed`, `unreadable`, `completed`) — the **writer** could not say |
+| `unclassified` | a token outside every set, or a summary that is not JSON — the **reader** could not read it |
+
+**One originated tick settles it, and is tested first.** *One tick originated something* is
+established by that tick whatever else the window holds, so the step answers `ok` before it
+consults the unread entries. Those are consulted exactly where the claim they genuinely block —
+*every tick originated nothing* — is about to be made: `unclassified` answers `degraded` /
+`outcome_unclassified` and `unmeasured` answers `degraded` / `outcome_unmeasured`, each raising
+nothing. Until 2026-09-20 the vocabulary was enumerated on the reader's side, the whole summary
+was tested as one string, and `unclassified` was tested before `originated`; measured on this
+checkout, `completed`, `published_and_merged` and `published` all fell outside the set — so the
+step answered `degraded` on every run and never reached its finding — while two composite rows
+carrying `proposed_6` and `proposed_mission` were silently classified `nothing`.
+
+**Legacy rows.** `log-append.sh` never prunes and nothing rewrites a line, so the prose-shaped
+finish lines written before both writers emitted one shape stay on disk (measured 2026-09-20: 75
+`loop-finish-*` lines, 54 JSON and 21 prose). They read `unclassified` **by name**, never as a
+silent `nothing`, and the two-day window ages them out on its own.
 
 **The bound is derived, not picked.** A single originate-nothing tick is the ordinary case. The
 finding is a **run**: every propose finish the window holds, and more than one of them — the same

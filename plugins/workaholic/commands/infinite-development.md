@@ -283,6 +283,27 @@ named in `keyless[]` and folded into no thread. The accepted set narrows only on
 human defer or cancel** (`workaholic:notify`, *Three acts: a worker receipt, scoped progress, and a
 completion mention*); a worker's judgement, a merged pull request and this run's own reading never
 narrow it. Report each thread's verdict and, for an `incomplete` one, the members holding it.
+
+<!-- workaholic:mention-reread — one wording, byte-identical with skills/work/SKILL.md. -->
+**Immediately before a completion mention is composed, reread its own thread** (2026-09-19,
+ticket `20260919100143`, issue #1146). The existing read answers *have we already posted*, never
+*has anything new arrived*, so a request written while the work ran was outside the mention's
+scope and the person was told the batch was done while their newest ask was unseen. Reread that
+thread and the continuations it **explicitly links** — a link a person wrote, never a similar or
+recent thread — through `transport/scripts/observe-channel.sh`, the existing bounded thread read:
+no second transport call shape, no second dedup and no full-channel scan. Anything new is captured
+through `transport/scripts/capture-inbox.sh` **first**, so a request the reread found is a filed
+ask before the mention is even considered. **The reread advances no cursor of its own** —
+`observe-channel.sh` is the one writer of observation state, and a second advancing path is a page
+the next ordinary observation skips. Pass each read through
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/work/scripts/mention-reread.sh --input <file>`: only `allow`
+permits the mention, and `no_reread`, `observation_unreadable`, an `unsettled[]` term
+(`thread_fanout_truncated`, `thread_coverage_partial`, …), `capture_unreadable`,
+`capture_incomplete` or `new_request_found` each **withhold** it by that word. An absence of a
+reading is never a proof, so the direction is asymmetric on purpose. **A new request found is the
+ordinary good case rather than an error path**: it is captured, the mention is withheld, and
+scoped progress goes out instead.
+<!-- /workaholic:mention-reread -->
 **This step announces and never closes** (2026-09-19, ticket `20260919094701`): its candidate
 reader lists issues that are already closed, so it sees an item only after something else ended
 it. The one seam that may close a source issue is `/implement`'s per-item reconciliation

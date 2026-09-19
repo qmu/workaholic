@@ -747,3 +747,64 @@ test('an unreadable membership or member withholds the thread with null counts',
   assert.equal(out.complete, 0, 'nothing completes on an absence of a reading');
   assert.equal(out.unreadable, 2);
 });
+
+// A completion mention is composed only after a reread of its own thread that COMPLETED
+// (2026-09-19, ticket `20260919100143`, issue #1146). The existing read answered *have we
+// already posted*, never *has anything new arrived*, so a request written while the work ran
+// was outside the mention's scope. Every withhold path is pinned, and so is the one allow.
+test('a mention-time reread withholds on anything short of a complete read', t => {
+  const {call} = fixture(t);
+  const read = over => ({thread_key:'C1:1.1', role:'thread', observation_proved:true,
+    observation_settled:true, unsettled:[], new_human_messages:0, captured:0,
+    capture_readable:true, ...over});
+  const v = reads => call('work/scripts/mention-reread.sh', {reads}).json.data;
+
+  assert.equal(v([read()]).verdict, 'allow', 'a clean reread with nothing new permits the mention');
+  assert.equal(v([read()]).reason, '');
+
+  // A new request is the ORDINARY GOOD CASE, named as its own reason so a reader can tell
+  // *the thread moved* from *the read failed*.
+  assert.deepEqual(v([read({new_human_messages:1, captured:1})]),
+    {verdict:'withhold', reason:'new_request_found',
+     holds:[{thread_key:'C1:1.1', role:'thread', reason:'new_request_found'}], reads:1});
+
+  // The unsettled term is passed through VERBATIM — a normalised word sends a reader to a
+  // string no script printed.
+  assert.equal(v([read({observation_settled:false, unsettled:['thread_fanout_truncated']})]).reason,
+    'thread_fanout_truncated');
+  assert.equal(v([read({observation_settled:false, unsettled:['thread_coverage_partial']})]).reason,
+    'thread_coverage_partial');
+
+  // An unproved read is UNREAD, never quiet.
+  assert.equal(v([read({observation_proved:false})]).reason, 'observation_unreadable');
+
+  // An explicitly linked continuation that could not be read withholds the whole mention.
+  const both = v([read(), read({thread_key:'C1:9.9', role:'continuation', observation_proved:false})]);
+  assert.equal(both.verdict, 'withhold');
+  assert.deepEqual(both.holds, [{thread_key:'C1:9.9', role:'continuation',
+    reason:'observation_unreadable'}], 'only the read that failed is named');
+
+  assert.equal(v([read({new_human_messages:2, captured:1})]).reason, 'capture_incomplete');
+  assert.equal(v([read({capture_readable:false})]).reason, 'capture_unreadable');
+
+  // No reread at all is the state before this existed, and is never `allow`.
+  assert.deepEqual(v([]), {verdict:'withhold', reason:'no_reread', holds:[], reads:0});
+});
+
+// The obligation is ONE WORDING carried in the ceiling a routine-fired session reads and in the
+// skill that owns the loop's contract; two wordings for one rule is how the two drift.
+test('the mention-time reread obligation is one wording in both surfaces', () => {
+  const root = resolve(import.meta.dirname, '../../..');
+  const between = text => {
+    const m = text.match(/<!-- workaholic:mention-reread[^>]*-->\n([\s\S]*?)<!-- \/workaholic:mention-reread -->/);
+    assert.ok(m, 'the marked block is absent');
+    return m[1];
+  };
+  const tick = between(readFileSync(join(root, 'plugins/workaholic/commands/infinite-development.md'), 'utf8'));
+  const skill = between(readFileSync(join(root, 'plugins/workaholic/skills/work/SKILL.md'), 'utf8'));
+  assert.equal(tick, skill, 'the two surfaces have drifted');
+  // The three facts a session must read to act, rather than a paraphrase of them.
+  assert.ok(tick.includes('mention-reread.sh'), 'the reader is not named');
+  assert.ok(tick.includes('observe-channel.sh'), 'the existing thread read is not composed');
+  assert.ok(/advances no cursor of its own/.test(tick), 'the cursor bound is missing');
+});

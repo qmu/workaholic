@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-20T01:47:51+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -7,6 +8,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: [https://github.com/qmu/workaholic/issues/1248]
+claim: work-20260920-020459
 ---
 
 # Declare the outcome token a loop-finish line carries
@@ -123,3 +125,73 @@ The step and its `unclassified` arm are two weeks old; the log's two-writer shap
 - The `.workaholic/moderations/` log is git-ignored and stays only in the checkout that wrote it, so a developer's checkout and a loop clone hold different logs and the step's answer differs between them. That is by design (`rules/workaholic.md` line 177) and is not a defect this ticket touches, but it means the before/after evidence must name which checkout it was read in.
 - `log-append.sh` is idempotent per `(tick, step)` and never prunes, so nothing in this change may rewrite a line. Verified in its header; re-confirm before editing (`plugins/workaholic/skills/moderate/scripts/log-append.sh`).
 - `outputs/workflows/` carries a generated copy of these skills; regenerate with `node scripts/build-plugins/build.mjs` in the same change or `Outputs Freshness` fails the merge.
+
+## Final Report
+
+Development completed as planned.
+
+**Reproduced first, and the table re-derived.** `step-propose-yield.sh --tick <id> --root .` against
+the main checkout answered `{"status": "degraded", "reason": "outcome_unclassified"}`. The window had
+moved since the ticket was written — **seven** propose finishes, not six — and the re-derived table
+confirmed every claim: `completed`, `published_and_merged` and **`published`** (a fourth word the
+ticket had not seen) outside the reader's set, and the two composite rows carrying `proposed_6` and
+`proposed_mission` classified `nothing` by the first-arm-wins `if` chain. Live counts across the whole
+log: **75** `loop-finish-*` lines, **54** JSON and **21** prose.
+
+**Writer set established by walking the tree, not trusted.** `loop-finish-` in command position
+appears at exactly two sites — `runtime/scripts/coordinator.sh:73` and `work/scripts/codex-loop.sh`
+lines 1168 and 1181. **No third writer.** `log-append.sh`'s own caller set is unchanged.
+
+**Where the declaration lives, and why (Step 3).** `runtime/scripts/outcome-classify.sh`, a new
+one-purpose reader in the `runtime` skill — this repository's shape for a question with one home
+(`conflict-class.sh`, `refusal-capability.sh`, `merge-method.sh`). It is **not** put in the schema,
+because `work/scripts/worker-result.schema.json` already declares a different axis: the **terminal**
+token (`ok | pending | blocked | failed`), which carries no yield information for any role. The yield
+vocabulary is a sub-structure *inside* the string that the native path composes and the schema path
+never produces. Both axes are now named and neither is renamed. An unrecognised token is
+`unclassified` and never guessed; the set is closed so a new word shows up as a thing to add there.
+
+**What the Codex arm can honestly say (Step 4).** `_rw_outcome` on the success arm is exactly `ok`,
+the schema's own first enum value, so the line says `ok` and a yield reader classifies that
+**`unmeasured`** — a fourth class that exists because *the writer could not say* and *the reader could
+not read* send a person to different places. No token was invented for a yield that path never
+measured. The non-execution arm writes `executed: false` with its own reason.
+
+**The classifier** parses the summary as JSON, reads **`.outcome` alone**, splits a composite on
+` / `, and applies the stated precedence: **any originated segment wins**. One `jq` invocation reads
+the whole window rather than one fork per line.
+
+**And the ordering defect the ticket did not name.** `unclassified` was tested *before* `originated`,
+so one unreadable entry suppressed a conclusion it cannot weaken. The step's own header has always
+stated the narrower rule — an unread entry makes *EVERY tick originated nothing* a claim it has not
+established — so `originated > 0` now answers `ok` first and the unread entries are consulted exactly
+where that claim is about to be made. This is what lets the step answer `ok` on the live log instead
+of `degraded`.
+
+**Legacy rows, per `rules/general.md`.** Nothing rewrites a line and `log-append.sh` never prunes, so
+the 21 prose lines stay; the fixture plants both shapes, including a Japanese prose line, and asserts
+the new reader rejects them **by name** (`unclassified` / `summary_not_json`) rather than reading them
+as a silent `nothing`. The two-day window ages them out on its own. A fresh-log pass was not accepted
+as evidence.
+
+**Verification.** `step-propose-yield.sh` against the live main checkout: **before** `degraded` /
+`outcome_unclassified`, **after** `ok` — *the propose ticks in the log window include one that
+originated something*. Read in the **main checkout** (`/home/ec2-user/projects/workaholic`), which
+matters because the log is git-ignored and per-checkout.
+
+### Discovered Insights
+
+- **Insight**: two paths write the same `outcome` field with incompatible vocabularies — the Codex
+  path validates against `worker-result.schema.json`'s four-value enum, while the native coordinator
+  copies a subagent's free-composed sentence into it. `worker_outcome()` even normalises anything
+  outside the enum to `unreadable:unknown_outcome`.
+  **Context**: any reader of `.result.outcome` must expect both, and any attempt to enforce the enum
+  at the native seam would destroy the only yield signal the loop currently records.
+- **Insight**: a step whose guard order is "unreadable first, positive second" suppresses conclusions
+  that unreadability cannot weaken. The asymmetry is that an existential claim survives missing data
+  and a universal one does not.
+  **Context**: `step-propose-yield.sh` was the instance; the same shape is worth checking wherever a
+  `degraded` arm sits above an `ok` arm.
+- **Insight**: `published_and_merged` defeats a word-boundary test on `published` because `_` is a
+  word character, so the compound has to be spelled explicitly beside the boundary test.
+  **Context**: relevant to anyone extending the originated set with another compound token.

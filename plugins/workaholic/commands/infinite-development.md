@@ -482,7 +482,9 @@ Return one short Japanese block:
 - implement allocation and any load, fanout, or advancement refusal;
 - total live workers, the configured worker limit, and roles still due but held for capacity;
 - the latest progress reading and its observation time;
-- each completed worker's `executed`, `outcome`, and `reason`;
+- each completed worker's `executed`, `outcome`, and `reason` — the terminal `outcome` token is
+  `worker-result.schema.json`'s own closed enum, and what a token says about **yield** is
+  declared once in `runtime/scripts/outcome-classify.sh` and read there, never spelled here;
 - **the reconciled counts a completion claim rests on** — see below;
 - the context propagation policy this tick dispatched under — see below;
 - where this report is delivered.

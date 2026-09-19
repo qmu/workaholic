@@ -6,7 +6,8 @@
 # Output: one JSON line, ALWAYS exit 0
 #   {"readable": bool, "repo": "...", "ok": bool, "complete": bool,
 #    "checks": [{"name","required","ran","ok","seconds","log","reason"}],
-#    "not_run": ["<name>: <reason>", ...], "failed": ["<name>", ...]}
+#    "not_run": ["<name>: <reason>", ...], "failed": ["<name>", ...],
+#    "scratch": {"used": bool, "path": "...", "reason": "..."}}
 #
 # WHY IT EXISTS (2026-09-19, ticket `20260919230700`). `merge-gate-policy.sh` answers
 # `remote_checks_required: false` for `main`, and `branch-checks.sh` emits
@@ -40,7 +41,10 @@
 #                  the two former lists skipped an absent check silently (`[ -f ] || continue`)
 #                  and a consuming repository that carries none of these files must keep
 #                  pushing exactly as it did. What changes is that the skip is now named.
-#   * `not_run`  — one line per check that did not run, with its own reason.
+#   * `not_run`  — one line per check that did not run, with its own reason
+#                  (`not_selected`, `check_absent`, `interpreter_unavailable:<tok>`,
+#                  `timeout:<n>s`). A check the kernel KILLED is not one of these: it ran,
+#                  proved nothing, and is a `failed` row reading `killed:SIGKILL` — see below.
 #
 # EVERY CHECK RUNS, INCLUDING AFTER ONE HAS FAILED. Stopping at the first failure would make
 # `not_run` mean two different things — *this could not run* and *we stopped early* — which is
@@ -62,6 +66,51 @@
 # single-session premise ever shows. Each check's bytes go to a log file whose path rides that
 # check's row; a PASSING check's log is removed, so only what a reader needs survives.
 # `prepare-publication.sh` discarded its output outright and gains the log by composing this.
+#
+# A KILLED REQUIRED CHECK REFUSES, AND IS NOT A TIMEOUT (2026-09-20, ticket `20260920014750`).
+# Status `137` is `128 + SIGKILL` and was folded into the `124` arm, so a check the kernel ended
+# part-way reported `ran: false`, `reason: "timeout:0s"` on a row declaring NO timeout, landed in
+# `not_run` rather than `failed`, and left `ok: true` — a pass, over a check that proved nothing.
+# MEASURED 2026-09-20 with a throwaway repository whose `verify.mjs` is
+# `process.kill(process.pid, "SIGKILL")`: `{"ok": true, "complete": false,
+# "not_run": ["verify.mjs: timeout:0s"], "failed": []}`, while the same command run directly
+# exits 137. Both consumers refuse on `ok: false` alone, so that push went through.
+#
+# THE SPLIT IS ON WHETHER A TIMEOUT WAS APPLIED, never on the status alone. GNU `timeout` exits
+# `137` when its own `--kill-after` escalation had to SIGKILL the child, so for a row that
+# DECLARES a timeout `124` and `137` are one reading and stay byte-identical — that is the
+# measured `agentic-loop.test.mjs` case this file's declaration comment records. For a row
+# declaring `timeout 0` no timeout ran at all, so `137` is an external kill: it is
+# `ran: true, ok: false, reason: "killed:SIGKILL"`, joins `failed`, and refuses through the
+# existing `validation_failed:<check>` word.
+#
+# WHY A FAILURE RATHER THAN A THIRD REFUSING TERM (the ticket's `## Open Decisions`, decided
+# here). `complete: false` is reported and never refuses, and BOTH sources that state that rule
+# — this header above, and `drive/scripts/catch-up-claim.sh`'s own comment — give the same one
+# reason for it: *a consuming repository that carries none of these files must keep pushing
+# exactly as it did*. That reason is about `check_absent`. A kill is not that: the check is
+# present, it started, and something ended it. Adding a `killed` term to `not_run` would make
+# two consumers grow an arm they can forget to read, which is the defect this ticket is about,
+# so the refusal takes a path no consumer can miss. `ran: true` is honest under this script's
+# own semantics — `ran: false` is reserved for a check that was never launched (`not_selected`,
+# `check_absent`, `interpreter_unavailable`) — and the reason string carries the signal, so the
+# record loses no accuracy. STATED COST: a consuming repository on a constrained machine now
+# gets refusals it did not get before. That is the correct direction — a refusal is retried, a
+# push on an unproved check is not.
+#
+# THE CHECKS RUN UNDER A TMPDIR THIS SCRIPT OWNS, and that is mitigation, NOT the repair above.
+# `test-workflow-scripts.mjs`, all 16 files under `scripts/tests/agentic-loop/` and
+# `scripts/e2e/loop-drill.sh` create throwaway repositories under the OS temp directory, and
+# nothing anywhere declared one. MEASURED on this machine the same morning: `/tmp` is **tmpfs**
+# with no swap — `free -m` total 7,767, shared 2,146, available 825 — so 2.1 G of the machine's
+# memory is the temp filesystem, permanently, for every process on it, with 89,959 top-level
+# entries and up to 7 concurrent copies of the same multi-minute suite. A per-run directory
+# under `LOG_DIR` (inside the git directory, never committed) is exported as `TMPDIR` around
+# each check and removed when the run ends. `os.tmpdir()` reads `TMPDIR` on POSIX and so does
+# `mktemp`, so every check that creates fixtures honours it; `verify.mjs` and
+# `validate-metadata.mjs` create no temporary files and are unaffected either way.
+# IT REDUCES PRESSURE AND DOES NOT REMOVE IT — the abort that produced this ticket was measured
+# with `TMPDIR` ALREADY on local disk. A later reader must not take it for the fix.
 #
 # IT RUNS NOTHING OUTWARD. No network read, no push, no merge, no ref written, no gate.
 
@@ -173,6 +222,49 @@ DECL_FILE="${LOG_DIR}/.local-proof-declaration.$$"
 proof_set >"$DECL_FILE" 2>/dev/null || unreadable declaration_unreadable
 [ -s "$DECL_FILE" ] || { rm -f "$DECL_FILE"; unreadable declaration_empty; }
 
+# --- The scratch directory the checks run under --------------------------------------
+# IT MUST BE OUTSIDE EVERY GIT REPOSITORY, and that is a MEASUREMENT rather than a preference.
+# The obvious home is beneath `LOG_DIR`, inside the git directory — and putting it there breaks
+# a required check in this very set: `scripts/tests/agentic-loop/legacy-contracts.test.mjs`
+# asserts the *outside-repo refusal* of four publication scripts, so its fixture must not be
+# inside a repository, and a `TMPDIR` under `.git/` makes git resolve the enclosing gitdir and
+# answer `fatal: this operation must be run in a work tree` (status 128) where the test expects
+# `{"error": "not inside a git repository"}` (status 1). MEASURED 2026-09-20: the same file
+# exits 0 with `TMPDIR` on plain local disk and 1 with it under `.git/`. Every path inside the
+# repository fails the same way, so the scratch directory lives under the user's cache — local
+# disk, off the shared tmpfs, and on no ref — and the script PROVES that before using it.
+#
+# AND THE FALL-BACK IS NAMED, NEVER SILENT AND NEVER A REFUSAL. This half is mitigation: the
+# repair is the killed-check reading above. A scratch directory that cannot be created, or that
+# turns out to be inside a repository, leaves `TMPDIR` exactly as the caller set it and says so
+# in `scratch` — refusing the whole proof over a temp directory would stop every merge the loop
+# makes for a tidiness measure, which is a worse failure than the pressure it saves.
+SCRATCH_DIR=""
+SCRATCH_USED=false
+SCRATCH_REASON=""
+cleanup_scratch() { [ -z "${SCRATCH_DIR:-}" ] || rm -rf "$SCRATCH_DIR" 2>/dev/null || :; }
+trap cleanup_scratch EXIT
+
+_scratch_base="${XDG_CACHE_HOME:-${HOME:-}/.cache}"
+if [ -z "${HOME:-}" ] && [ -z "${XDG_CACHE_HOME:-}" ]; then
+    SCRATCH_REASON=no_cache_home
+elif ! mkdir -p "${_scratch_base}/workaholic" 2>/dev/null; then
+    SCRATCH_REASON=scratch_dir_unwritable
+else
+    _scratch_try="${_scratch_base}/workaholic/proof-tmp.$$"
+    if ! mkdir -p "$_scratch_try" 2>/dev/null || [ ! -w "$_scratch_try" ]; then
+        SCRATCH_REASON=scratch_dir_unwritable
+        rm -rf "$_scratch_try" 2>/dev/null || :
+    elif git -C "$_scratch_try" rev-parse --git-dir >/dev/null 2>&1; then
+        # The one thing that would silently reintroduce the measured break.
+        SCRATCH_REASON=scratch_dir_inside_repository
+        rm -rf "$_scratch_try" 2>/dev/null || :
+    else
+        SCRATCH_DIR="$_scratch_try"
+        SCRATCH_USED=true
+    fi
+fi
+
 ROWS=""
 NOT_RUN=""
 FAILED=""
@@ -208,16 +300,22 @@ while IFS= read -r line; do
         log="${LOG_DIR}/.local-proof-${name}.log"
         started=$(date +%s 2>/dev/null || printf 0)
         status=0
+        # `timed` records whether a timeout was actually APPLIED, which is what tells a
+        # timeout's own SIGKILL escalation from an external kill; the status alone cannot.
+        timed=false
         if [ "$timeout_s" != 0 ] && command -v timeout >/dev/null 2>&1; then
+            timed=true
             ( cd "$REPO" \
               && unset WORKAHOLIC_CLAIM_STALE_HOURS WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES \
                        WORKAHOLIC_CLAIM_MERGED_LOOKUP \
+              && { [ "$SCRATCH_USED" = false ] || { TMPDIR="$SCRATCH_DIR"; export TMPDIR; }; } \
               && timeout --signal=TERM --kill-after=30s "$timeout_s" sh -c "$cmd" ) \
                 >"$log" 2>&1 || status=$?
         else
             ( cd "$REPO" \
               && unset WORKAHOLIC_CLAIM_STALE_HOURS WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES \
                        WORKAHOLIC_CLAIM_MERGED_LOOKUP \
+              && { [ "$SCRATCH_USED" = false ] || { TMPDIR="$SCRATCH_DIR"; export TMPDIR; }; } \
               && sh -c "$cmd" ) >"$log" 2>&1 || status=$?
         fi
         finished=$(date +%s 2>/dev/null || printf 0)
@@ -225,7 +323,16 @@ while IFS= read -r line; do
         [ "$seconds" -ge 0 ] || seconds=0
         case "$status" in
             0)   ran=true; ok=true; rm -f "$log"; log="" ;;
-            124|137) reason="timeout:${timeout_s}s" ;;
+            124) reason="timeout:${timeout_s}s" ;;
+            # `137` is `128 + SIGKILL`. Under an APPLIED timeout it is that timeout's own
+            # `--kill-after` escalation and keeps the timeout reading, byte-identical. With no
+            # timeout applied nothing here killed it, so it is an external kill: the check
+            # started, produced no verdict, and REFUSES as a failure.
+            137) if [ "$timed" = true ]; then
+                     reason="timeout:${timeout_s}s"
+                 else
+                     ran=true; reason="killed:SIGKILL"
+                 fi ;;
             *)   ran=true; reason="exit:${status}" ;;
         esac
     fi
@@ -243,6 +350,7 @@ done <"$DECL_FILE"
 
 rm -f "$DECL_FILE"
 
-printf '{"readable": true, "repo": "%s", "ok": %s, "complete": %s, "checks": [%s], "not_run": [%s], "failed": [%s]}\n' \
-    "$(json_str "$REPO")" "$SET_OK" "$SET_COMPLETE" "$ROWS" "$NOT_RUN" "$FAILED"
+printf '{"readable": true, "repo": "%s", "ok": %s, "complete": %s, "checks": [%s], "not_run": [%s], "failed": [%s], "scratch": {"used": %s, "path": "%s", "reason": "%s"}}\n' \
+    "$(json_str "$REPO")" "$SET_OK" "$SET_COMPLETE" "$ROWS" "$NOT_RUN" "$FAILED" \
+    "$SCRATCH_USED" "$(json_str "$SCRATCH_DIR")" "$(json_str "$SCRATCH_REASON")"
 exit 0

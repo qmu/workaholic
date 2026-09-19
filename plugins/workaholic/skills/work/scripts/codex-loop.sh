@@ -1149,6 +1149,21 @@ worker_outcome() {
 # anything, the rule every declared number in this loop already follows.
 #
 # `log-append.sh` REMAINS THE ONE WRITER and its `(tick, step)` idempotence is untouched.
+#
+# THE FINISH LINE CARRIES THE SAME `{executed, outcome, reason}` OBJECT THE NATIVE SEAM WRITES
+# (2026-09-20, ticket `20260920014751`). These two calls wrote PROSE — `propose finished (ok)` —
+# while `runtime/scripts/coordinator.sh` wrote structured JSON into the same day files, so one
+# log carried two incompatible shapes and no reader could take `.outcome` as a field. MEASURED
+# on this checkout: 75 `loop-finish-*` lines, 54 JSON and 21 prose, some of the prose in
+# Japanese. `log-append.sh` never prunes and nothing may rewrite a line, so the 21 already on
+# disk stay; the consuming step's window is the newest two day files, so the old shape ages out
+# on its own within two UTC days and the new reader rejects it BY NAME in the meantime.
+#
+# THE SUCCESS ARM SAYS WHAT IT HONESTLY MEASURED AND INVENTS NOTHING. `_rw_outcome` is
+# `worker_outcome()`'s normalised terminal token, and on this arm it is exactly `ok` — the first
+# value of `worker-result.schema.json`'s own enum, which carries no yield information for any
+# role. So the line says `ok`, and a yield reader classifies that `unmeasured` rather than being
+# handed a token this path never measured.
 record_worker_finish() {
     _rw_role=$1 _rw_outcome=$2
     _tick_id_sh="${SCRIPT_DIR}/../../moderate/scripts/tick-id.sh"
@@ -1165,8 +1180,11 @@ record_worker_finish() {
         >/dev/null 2>&1 || true
 
     if [ "$_rw_outcome" = ok ]; then
+        _rw_summary=$(jq -cn --arg o "$_rw_outcome" \
+            '{executed: true, outcome: $o, reason: ""}' 2>/dev/null \
+            || printf '{"executed": true, "outcome": "ok", "reason": ""}')
         sh "$_log_append_sh" --tick "$_tick" --step "loop-finish-${_rw_role}" \
-            --status ok --summary "${_rw_role} finished (${_rw_outcome})" >/dev/null 2>&1 || true
+            --status ok --summary "$_rw_summary" >/dev/null 2>&1 || true
         return 0
     fi
 
@@ -1178,9 +1196,15 @@ record_worker_finish() {
     _rw_seen=$(jq -r '.consecutive_failures // 0' "$(role_record "$_rw_role")" 2>/dev/null || printf 0)
     case "$_rw_seen" in ''|*[!0-9]*) _rw_seen=0 ;; esac
     if [ "$_rw_seen" -ge "$_rw_max" ]; then
+        # `executed: false` is the fact this arm exists for — the run did NOT execute — and the
+        # reason names the bound that wrote the line anyway, which is what the prose said.
+        _rw_summary=$(jq -cn --arg o "$_rw_outcome" --arg n "$_rw_seen" \
+            '{executed: false, outcome: $o,
+              reason: ("not_executed_\($n)_times; held to its ordinary cadence")}' 2>/dev/null \
+            || printf '{"executed": false, "outcome": "unreadable:jq_unavailable", "reason": "held to its ordinary cadence"}')
         sh "$_log_append_sh" --tick "$_tick" --step "loop-finish-${_rw_role}" \
             --status blocked \
-            --summary "${_rw_role} not executed ${_rw_seen} times (${_rw_outcome}); held to its ordinary cadence" \
+            --summary "$_rw_summary" \
             >/dev/null 2>&1 || true
         # A CLOCK THAT KEEPS TICKING WITHOUT EXECUTING ANYTHING reaches a person here, at the
         # threshold this branch already crosses. The signature carries the role and the outcome

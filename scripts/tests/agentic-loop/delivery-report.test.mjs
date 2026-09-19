@@ -73,7 +73,8 @@ test('P8 delivery resumes an unknown merge without repeating catch-up or the mer
 // naming nothing. `loop-drill.sh:1326` recorded the same lesson in 2026-08-26. Adding, removing or
 // reordering a step means editing this list, which is deliberate: the row exists so that a
 // registry change is stated rather than absorbed, and the diff names the id that moved.
-const EXPECTED_STEPS = ['open-log','blocked-tick','inbound-sweep','workload-logs','merge-conflicts',
+const EXPECTED_STEPS = ['open-log','blocked-tick','unattributed-asks','propose-yield',
+  'inbound-sweep','workload-logs','merge-conflicts',
   'issue-triage','stuck-prs','doc-drift','release-status','note-cadence','strategy-pace',
   'direction-health','date-will-not-hold','stalled-units','raced-units','undrivable-units',
   'standing-rulings','undelivered-units','handoff-units','thread-reconcile',
@@ -90,5 +91,9 @@ test('P8 maintenance registry is ordered and complete', () => {
   // with its own message rather than inside a 34-element diff.
   assert.equal(registry.steps[0].id,'open-log'); assert.equal(registry.steps.at(-1).id,'human-checkin');
   assert.equal(new Set(ids).size,ids.length,'a step id is registered twice');
-  for (const row of registry.steps) { assert.ok(row.script); assert.ok(row.trigger); assert.equal(typeof row.reader,'boolean'); assert.equal(typeof row.writer,'boolean'); }
+  // `trigger` is asserted to be an OBJECT, not merely truthy (2026-09-19, ticket `20260919141500`):
+  // the string `'cadence'` is truthy and passed here, while `plan-steps.sh` indexes `.trigger.seconds`
+  // on the arm a step reaches only after it has already run — so a row this row waved through aborted
+  // the planner on the second tick of an hour, silently, with nothing on stdout.
+  for (const row of registry.steps) { assert.ok(row.script); assert.equal(typeof row.trigger,'object',`${row.id}: trigger must be an object the planner can index`); assert.equal(typeof row.trigger.seconds,'number',`${row.id}: trigger.seconds must be a number`); assert.equal(typeof row.reader,'boolean'); assert.equal(typeof row.writer,'boolean'); }
 });

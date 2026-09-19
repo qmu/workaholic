@@ -276,6 +276,17 @@ tag. Targets the merge commit.
 bash ../ship/scripts/extract-deferred-concerns.sh "<branch>" "<pr-number>" "<pr-url>" [<base-branch>]
 ```
 
+**The arguments are positional and are validated first** (2026-09-19, ticket
+`20260919151600`): `<pr-number>` is a bare run of digits and no positional may begin with
+`-`. A flag in a positional slot is refused **`flag_in_positional`**, a `#`-prefixed or
+non-numeric number **`bad_pr_number`** — each on stdout with the value it `received`, exit
+1, and **nothing written**: no record, no branch, no publish tree, because the check sits
+above the publish-tree branch. No signature can stop a wrong argument being *written* (the
+call is composed by an agent at run time), so the refusal is what stops one *landing*;
+option parsing would only move which spelling slips. `destination` is deliberately absent
+from both refusals, as it is from `missing_args`: a shifted vector is exactly the case
+where the base argument cannot be trusted.
+
 Reads the just-shipped story (`.workaholic/stories/<branch>.md`) and persists each `###`
 block of its Concerns section into the feedback stream as one immutable `kind: concern`
 record. Each concern is keyed on a stable `concern_id` — the slug of its title with any

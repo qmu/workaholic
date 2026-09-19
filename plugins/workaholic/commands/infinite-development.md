@@ -243,9 +243,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/propose/scripts/file-inbound-ask.sh \
 
   The heading and links are required facts; the connective sentence is composed naturally in the
   person's language and register. Never claim implementation, readiness, a date, or a schedule that
-  the structured `workflow_state` does not establish. A reaction or reply failure is still
-  `ack_failed` per source and never changes the filed issue. An ask arriving during composition is
+  the structured `workflow_state` does not establish. An ask arriving during composition is
   outside this page and remains discoverable by the next overlapping observation.
+
+  **A receipt attempted and a receipt never sent are two words, and only one of them leaves a clean tick** (2026-09-19, ticket `20260919094341`, issue #908). **`ack_failed`** means the post was **attempted and the transport refused it**; the issue is open either way, nothing is retried or escalated, and the tick is otherwise clean. **`ack_withheld`** means **this run decided not to post it** — and a tick carrying one is **never** a clean tick: it is an **unanswered person**, named by that word and counted beside `ack_owed` and `ack_posted` in the tick's own report, so a tick that filed an ask and answered nobody is distinguishable from one that had nothing to acknowledge. Measured: a person's ask sat twenty-five minutes while four consecutive ticks reported clean, and the only vocabulary in reach said the receipt was *never load-bearing*, which reads as permission to skip it. Neither word changes the filed issue, and neither licenses a retry.
+
+  **What a stand-down covers.** An instruction to another agent does not cancel this loop's acknowledgement; a hold or stand-down addressed to this loop does. A receipt for an ask this loop has just filed is a **reply**, not a reaction this run may weigh: it is owed from the moment the issue exists, and an instruction addressed to another agent never withholds it.
+
+  **A person who wrote to the channel is answered in the channel before any work on their ask begins.** The order above already satisfies this — every ask on the page is filed and receipted before any dispatch — so this sentence is a **constraint on future edits**, not a change in behaviour. Measured: after the silence the run's next move was to implement rather than answer, and the correction was 「着手じゃねえよ返事だ、それからだ」.
 
 - A reply under the loop's own `🙋` question is an answer, not a new ask; moderate records it.
 - React to other human messages with `:eyes:` and do not reply.
@@ -457,6 +462,11 @@ Return one short Japanese block:
   declared one — `degraded_from` and the typed `degradation_reason`. A connector or token
   success is a **degraded** success: it proves delivery and never that the preferred route is
   configured or that the declared sender spoke;
+- **receipts owed, posted and withheld**, each by its own word — `ack_owed`, `ack_posted`,
+  `ack_failed` (attempted, the transport refused it) and `ack_withheld` (this run decided not to
+  post it). A non-zero `ack_withheld` is reported as an **unanswered person** and the tick is not
+  reported as clean; `ack_owed: 0` is the tick that had nothing to acknowledge, which is a
+  different fact and reads differently;
 - each assigned feedback issue observation or unreadable issue source;
 - each ask announcement result, **naming the class of every post it made** — worker receipt
   (internal, no post), scoped progress, or completion mention — so a reader tells a progress

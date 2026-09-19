@@ -46,6 +46,20 @@ The registry `scripts/steps.json` owns step order and cadence. The wrapper recor
 executed, skipped, degraded or blocked and advances cadence only for steps actually run.
 `--deadline-seconds <n>` bounds the tick; a step not reached is `skipped:budget`, not successful.
 
+**A registry row the planner cannot read is refused by name, on the cold tick** (2026-09-19,
+ticket `20260919141500`). `plan-steps.sh` asserts each row's `id`, `script`, `trigger` (an object)
+and, when present, `trigger.seconds` and `depends_on_snapshot`, answering
+`invalid_registry_step` with the offending ids, `registry_unreadable`, or `plan_failed` when its
+own program aborts. Before that it indexed `.trigger.seconds` inside a short-circuited `or`, which
+a **cold** tick never evaluates — so a row whose `trigger` was a string planned cleanly on the
+first tick of an hour and aborted mid-array on the second, printing nothing on stdout; through a
+pipe the pipeline then exited 0 and every caller read the abort as *no steps selected*, which is
+the dangerous direction for a reading that exists to stop a step running twice inside its hour.
+`run.sh`'s `step_plan_unreadable` still catches it and discards the cause (`2>/dev/null`), so the
+condition was legible nowhere. **The registry's size is not a term**: measured at 36, 40, 60, 100,
+200 and 400 steps, the planner answers a parseable result at every one, and the fault reproduces
+at a 1066-byte input whose JSON is intact.
+
 For every returned `needs_agent` item, read **that step's section** in
 [reference/workflow.md](reference/workflow.md) before acting. Do not load every step's history.
 After acting, record the actual result through `log-append.sh` under `<step>-filed` or

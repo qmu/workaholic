@@ -33,6 +33,9 @@
 # concerns/ tree heals on its next ship.
 #
 # Usage: extract-deferred-concerns.sh <branch> <pr-number> <pr-url> [base-branch]
+# The contract is POSITIONAL and the arguments are validated before anything is written:
+# `<pr-number>` is a bare run of digits, and no positional may begin with `-`. See the
+# refusal block below (`bad_pr_number`, `flag_in_positional`) for why and what it measured.
 # Output: single JSON line summarizing what was extracted, INCLUDING the `destination`
 # branch the records were pushed to. `updated` and `story_only` are always 0 (kept for
 # consumer stability across the merger).
@@ -74,6 +77,39 @@ if [ -z "$branch" ] || [ -z "$pr_number" ] || [ -z "$pr_url" ]; then
   echo '{"status":"error","reason":"missing_args","extracted":0}'
   exit 1
 fi
+
+# AN ARGUMENT VECTOR THIS CANNOT TRUST IS REFUSED BY NAME, ABOVE EVERY WRITE (2026-09-19,
+# ticket `20260919151600`). The pull-request number was taken positionally and validated
+# nowhere. On 2026-09-19 a caller wrote `<branch> --base main` where `<branch> <pr> <url>`
+# goes, the whole vector shifted by one, and the unsubstituted flag reached the base twice:
+# as a permanent squash subject (`f5b91d91b`, `[Record] Deferred concerns from PR #--base`)
+# and as `origin_pr: --base` / `origin_pr_url: main` in an append-only feedback record. The
+# shift also silently discharged the destination contract this header spends thirteen lines
+# on -- `--base` became `$2`, `main` became `$3`, and `base` fell through to its default,
+# which was right only by coincidence.
+#
+# NO SIGNATURE CAN PREVENT THE SLIP, so the refusal is the remedy. The call is composed by
+# an AGENT at run time (this one came from /ship §7), and option parsing would only move
+# which spelling fails -- an agent that writes `--pr` for `--pull-request` slips as readily.
+# The refusal names what it received and what it expected, so the composing session can
+# correct the call on the spot without a second contract existing.
+#
+# It sits ABOVE the publish-tree branch below, so a refusal can never open a publish tree,
+# create a branch or push. `destination` is DELIBERATELY OMITTED from both refusals, exactly
+# as the `missing_args` exit above omits it: `$4` is precisely the argument a shift corrupts,
+# so naming a destination would assert the one thing in doubt. The capitalised claim above
+# that `destination` rides every exit has always had that exception; these two join it, and
+# every exit AFTER the arguments resolve still carries it.
+for _arg in "$branch" "$pr_number" "$pr_url" "$base"; do
+  case "$_arg" in
+    -*) printf '{"status":"error","reason":"flag_in_positional","received":"%s","expected":"<branch> <pr-number> <pr-url> [base-branch]","extracted":0}\n' "$_arg"
+        exit 1 ;;
+  esac
+done
+case "$pr_number" in
+  ''|*[!0-9]*) printf '{"status":"error","reason":"bad_pr_number","received":"%s","expected":"a bare run of digits","extracted":0}\n' "$pr_number"
+               exit 1 ;;
+esac
 
 story_file=".workaholic/stories/${branch}.md"
 # A publish-tree re-entry (below) carries the story's ABSOLUTE path as $5, because

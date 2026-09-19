@@ -168,6 +168,19 @@ must be stated, not left absent.
    **`destination`** (a count without a destination does not say whether the records
    became visible on the base).
 
+   **The four arguments are positional and are validated before anything is written**
+   (2026-09-19, ticket `20260919151600`). `<pr-number>` must be a bare run of digits, and
+   no positional may begin with `-` — no legal branch name, number, URL or base branch
+   does. A flag written where a positional goes is refused **`flag_in_positional`** and a
+   `#`-prefixed or otherwise non-numeric number **`bad_pr_number`**, each naming the value
+   it `received` and the contract it expected, with **no record written, no branch created
+   and no publish tree opened**. Measured: `<branch> --base main` shifted the whole vector
+   by one, stamped `--base` into a permanent squash subject on the base and into an
+   append-only record's `origin_pr`, and silently discharged the explicit-destination
+   contract by letting `base` fall through to its default. Report a refusal by its word and
+   correct the call — this step is post-merge and best-effort, so a refusal costs the run a
+   named, correctable error rather than a merge or a deployment.
+
 8. **Summarize**: catch-up result, branch-safety scan result (pass, or the blocking
    findings — and any recorded accepted-risk override), **the drafted plan** (targets
    covered, `changed`, or the reported reason it was skipped, and any target whose

@@ -11834,6 +11834,36 @@ function testExtractDeferredConcerns() {
     assertEq("extract-deferred-concerns dedups the same concern_id", r2.extracted, 0);
     const records = readdirSync(join(repo, ".workaholic/feedbacks")).filter((f) => f.endsWith("-some-real-concern.md"));
     assertEq("re-extract appends NO second record for the same id", records.length, 1);
+    // AN UNTRUSTWORTHY ARGUMENT VECTOR IS REFUSED BY NAME, WITH NOTHING WRITTEN
+    // (2026-09-19, ticket `20260919151600`). MEASURED: `<branch> --base main` shifted the
+    // whole vector by one and stamped `--base` into a permanent squash subject
+    // (`f5b91d91b`) and into `origin_pr:` on an append-only record. The rows above are the
+    // byte-identical-behaviour proof and are deliberately left untouched.
+    const before = readdirSync(join(repo, ".workaholic/feedbacks")).length;
+    const refsBefore = run(repo, `git for-each-ref --format='%(refname)'`).stdout;
+    const shifted = run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x --base main`);
+    assertTrue("a shifted argument vector exits non-zero", shifted.status !== 0, String(shifted.status));
+    const shiftedJson = JSON.parse(shifted.stdout);
+    // The word is asserted exactly, never "either of two": the leading-hyphen rung fires
+    // first for this vector, and accepting either would let the rungs swap unnoticed.
+    assertEq("and is refused flag_in_positional", shiftedJson.reason, "flag_in_positional");
+    assertEq("naming the argument it received", shiftedJson.received, "--base");
+    const hashed = run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x '#10' https://x/pr/10`);
+    assertTrue("a #-prefixed pull-request number exits non-zero", hashed.status !== 0, String(hashed.status));
+    assertEq("and is refused bad_pr_number", JSON.parse(hashed.stdout).reason, "bad_pr_number");
+    // A refusal writes NOTHING: no record, and no ref, which is what proves it fired above
+    // the publish-tree branch rather than after it.
+    assertEq("a refused call creates no feedback record",
+      readdirSync(join(repo, ".workaholic/feedbacks")).length, before);
+    assertEq("and creates no ref",
+      run(repo, `git for-each-ref --format='%(refname)'`).stdout, refsBefore);
+    // Idempotent: the same refusal again, the repository unchanged both times.
+    assertEq("a refused call refuses again with the same word",
+      JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x --base main`).stdout).reason,
+      "flag_in_positional");
+    // And the happy path still lands a well-formed number, unchanged.
+    const good = JSON.parse(run(repo, `NO_COMMIT=1 ${POSIX_SH} ${SCRIPTS.extractDeferredConcerns} work-x 12 https://x/pr/12`).stdout);
+    assertEq("a well-formed vector is unaffected", good.status, "ok");
   } finally { cleanup(repo); }
 }
 
@@ -22776,6 +22806,65 @@ function testPostLanguageRuleShipsWithThePlugin() {
   assertTrue("and says plainly what it cannot check",
     /Nothing mechanical can check the Japanese a run actually emits/.test(rules),
     "the rule claims more than it can enforce");
+}
+
+// ---------- an unanswered person is its own word, in both homes ----------
+// MEASURED 2026-09-19 (issue #908, ticket `20260919094341`): a person's ask sat twenty-five
+// minutes while four consecutive ticks reported clean. Three gaps, each a sentence that was
+// absent rather than wrong. (1) `ack_failed` covered BOTH a transport refusal and a run that
+// judged the receipt away, so nothing could say a tick answered nobody. (2) the stand-down
+// clause lived only on `commands/propose.md`, which since 2026-09-03 no longer performs the
+// sweep, and was absent from the ceiling that does. (3) nothing anywhere stated that a person
+// is answered before work on their ask starts -- the tick's order happened to be right, which
+// is exactly the property a later edit reorders.
+//
+// WHAT THIS CAN AND CANNOT HOLD, stated rather than implied: whether a run judged a receipt
+// away is composed at run time and is no file test. What the suite holds is the VOCABULARY,
+// the PRESENCE of each sentence, and the IDENTITY of the pair -- the shape this repository
+// already accepts for its other composed-at-run-time rules.
+T("notify: a withheld receipt is its own word, in one wording", testWithheldReceiptVocabulary);
+function testWithheldReceiptVocabulary() {
+  const ceiling = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/infinite-development.md"), "utf8");
+  const catalog = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/notify/SKILL.md"), "utf8");
+  const propose = readFileSync(join(REPO_ROOT, "plugins/workaholic/commands/propose.md"), "utf8");
+  // Wrapping differs per file, so the pair is compared with whitespace normalised: this pins
+  // one WORDING across two homes, which is the drift being caught, and not one line width.
+  const flat = (s) => s.replace(/\s+/g, " ");
+
+  const WITHHELD = "**`ack_withheld`** means **this run decided not to post it** — and a tick carrying one is **never** a clean tick: it is an **unanswered person**, named by that word and counted beside `ack_owed` and `ack_posted` in the tick's own report";
+  for (const [id, text] of [["commands/infinite-development.md", ceiling], ["skills/notify/SKILL.md", catalog]]) {
+    assertTrue(`${id} defines a withheld receipt as its own word`, flat(text).includes(flat(WITHHELD)), id);
+    assertTrue(`${id} keeps ack_failed for a transport refusal alone`,
+      /`ack_failed`\*\* means the post was \*\*attempted and the transport refused it\*\*/.test(text), id);
+  }
+
+  const STANDDOWN = "An instruction to another agent does not cancel this loop's acknowledgement; a hold or stand-down addressed to this loop does.";
+  assertTrue("the stand-down clause is on the ceiling that performs the sweep",
+    flat(ceiling).includes(flat(STANDDOWN)), "commands/infinite-development.md carries no stand-down clause");
+  assertTrue("byte-identically to /propose's own copy", flat(propose).includes(flat(STANDDOWN)),
+    "commands/propose.md no longer carries the clause the ceiling copies");
+  assertTrue("and extends it so a filed ask's receipt is not a reaction to be weighed",
+    /is a \*\*reply\*\*, not a reaction this run may weigh/.test(ceiling),
+    "the ceiling states no receipt-is-not-a-reaction distinction");
+
+  const REPLYFIRST = "**A person who wrote to the channel is answered in the channel before any work on their ask begins.**";
+  assertTrue("the ceiling states the reply-before-work obligation",
+    flat(ceiling).includes(flat(REPLYFIRST)), "commands/infinite-development.md states no reply-before-work obligation");
+  assertTrue("and names it a constraint on future edits rather than a behaviour change",
+    /constraint on future edits/.test(ceiling), "the obligation reads as a behaviour change");
+
+  // The report is where the word becomes visible; a vocabulary nothing reports is decoration.
+  assertTrue("the tick report names receipts owed, posted, failed and withheld",
+    /`ack_owed`, `ack_posted`,\s*\n?\s*`ack_failed`[\s\S]{0,120}`ack_withheld`/.test(ceiling),
+    "the report contract does not name the four receipt words");
+  assertTrue("and distinguishes a withheld receipt from nothing to acknowledge",
+    /`ack_owed: 0` is the tick that had nothing to acknowledge/.test(ceiling),
+    "the report collapses an unanswered person into an idle tick");
+
+  // The receipt SHAPES are untouched -- the ask asked for a vocabulary, not a new post.
+  for (const token of ["📥 受理", "💬"]) {
+    assertTrue(`the ${token} receipt shape is untouched`, ceiling.includes(token), token);
+  }
 }
 
 

@@ -23,10 +23,16 @@
 # `moderate` (2026-09-07, ticket `20260907063154`). THE DEFAULT IS THE WHOLE POINT:
 # *a caller that names no owner is asking about moderation.*
 #
-# WHY. Three producers write into this one file under their OWN tick ids.
+# WHY. TWO producers write into this one file under their OWN tick ids.
 # `/moderate` writes its steps; `/infinite-development` records each subagent finish as
-# `loop-finish-<name>` under the COORDINATOR's tick id; `/propose` writes `propose-open`
-# and `propose-close`. The coordinator turns every five minutes and `/moderate` every
+# `loop-finish-<name>` under the COORDINATOR's tick id. A third — `/propose`'s
+# `propose-open`/`propose-close` — is DOCUMENTED AND DOES NOT EXIST (2026-09-19, ticket
+# `20260919141500`): no script in the plugin writes that pair, `log-append.sh`'s only
+# callers being `/moderate`'s own `run.sh`, `ask-question.sh` and `record-answer.sh`.
+# The `propose` owner is kept because the derivation over the step id is right and
+# costs nothing; it simply answers ZERO entries here, which its consumers already
+# document as the ordinary state rather than a defect.
+# The coordinator turns every five minutes and `/moderate` every
 # thirty, so a section holding nothing but a `loop-finish-*` line is the ORDINARY previous
 # section, not an edge case — MEASURED on `.workaholic/moderations/2026-09-06.md`: 84
 # `loop-finish-*` lines, 0 `human-checkin-post` lines, and sections `20260906-204212` and

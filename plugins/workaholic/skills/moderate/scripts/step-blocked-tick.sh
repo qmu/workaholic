@@ -133,9 +133,12 @@ subject=$(printf '%s' "$out" | jq -r --arg now "$TICK" \
 # disagree. Same structural bound as the moderate subject: the tick BEFORE LAST, never a threshold,
 # so a propose tick still running when the next one starts is never called stopped.
 #
-# The pair it looks for is `propose-open` / `propose-close`, which `/propose` writes and nothing
-# else does. A repository whose propose tick predates that contract simply has no `propose-open`
-# line, and this arm stays silent rather than reporting a stop it cannot see.
+# The pair it looks for is `propose-open` / `propose-close`. NOTHING IN THE PLUGIN WRITES IT
+# (2026-09-19, ticket `20260919141500`): `commands/propose.md` names neither step id and
+# `log-append.sh`'s only callers are `/moderate`'s own scripts, so this arm reads zero entries
+# in every checkout today. That is the same state as a repository whose propose tick predates
+# the contract — no `propose-open` line, so the arm stays silent rather than reporting a stop
+# it cannot see — and it is why the arm costs nothing while the writer is unbuilt.
 propose_subject=$(printf '%s' "$propose_out" | jq -r --arg now "$TICK" \
     '[.entries[] | select(.step == "propose-open") | .tick] | unique | reverse
      | map(select(. != $now)) | .[1] // ""' 2>/dev/null || true)

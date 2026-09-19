@@ -3626,9 +3626,14 @@ a stopped tick is named one hour later than the earliest possible moment, and th
 lasted hours.
 
 **IT READS TWO SUBJECTS, NOT ONE** (2026-09-02, ticket `20260902043117`). The second is the
-**propose tick**, which writes `propose-open` at the start of its run and `propose-close` as its
-last act (`plugins/workaholic/commands/propose.md`, where that widening of `/propose`'s pure-reader
-contract is stated). `[Propose]` originates the loop's work and was the one measured parked hourly
+**propose tick**, whose intended trace is `propose-open` at the start of its run and
+`propose-close` as its last act. **That writer does not exist** (2026-09-19, ticket
+`20260919141500`): `commands/propose.md` names neither step id, no script in the plugin writes
+the pair, and `log-append.sh`'s only callers are `/moderate`'s own `run.sh`, `ask-question.sh`
+and `record-answer.sh` — so this arm reads zero entries in every checkout today and is silent by
+the rule stated below rather than by accident. The arm is kept because it costs one already-made
+read and becomes correct the moment the writer lands; whether to build it or retire the pair is
+the operator's call. `[Propose]` originates the loop's work and was the one measured parked hourly
 on a permission prompt — spending its fire, producing nothing, and reading as scheduled and healthy
 because it wrote no trace anywhere at all.
 

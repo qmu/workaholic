@@ -38,7 +38,7 @@ remaining work. Neither seam loses its brake: independent work still splits.
 
 <!-- PROPOSED - a sketch the reviewer replans drive-ready. -->
 
-- [ ] A coherent review batch is emitted as one mission, reconciled with the mid-term plan rule (#20260919095108-let-a-coherent-review-batch-be-one-mission-at-the-ingest-judgement.md)
+- [x] A coherent review batch is emitted as one mission, reconciled with the mid-term plan rule (#20260919095108-let-a-coherent-review-batch-be-one-mission-at-the-ingest-judgement.md)
 - [ ] A shared feedback thread or review surface is stated grounds for one PR-unit, as
       `depends_on` already is (#20260919095108-make-a-shared-feedback-thread-grounds-for-one-pr-unit.md)
 - [ ] An explicit operator correction regroups the remaining loose tickets; nothing regroups on the
@@ -47,3 +47,4 @@ remaining work. Neither seam loses its brake: independent work still splits.
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-19 — ticket archived — 20260919095108-let-a-coherent-review-batch-be-one-mission-at-the-ingest-judgement.md

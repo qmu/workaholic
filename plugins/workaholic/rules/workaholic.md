@@ -118,6 +118,28 @@ ordering and allocation across a period?* It is arguable by a reader, and a run 
 mission is expected to be able to answer it. A count may still be quoted as an **observation about
 typical size**; it is never the test.
 
+**Rule 2's one named case — a person's single review pass** (2026-09-19, issue #1110, item 2). A
+batch whose items share **one review surface, one feedback thread and one coherent acceptance
+walk** is a mid-term container and takes row 1: the ordering and allocation it wants is that
+person's single review pass, so the criterion above is answered by the **review unit** rather than
+by a period. **All three terms must hold** — a batch that can name only one of them is in the
+ordinary fallback, and concrete **release, dependency, ownership or risk** evidence separates it,
+absent which it is one mission. Report `mission_held_by:review_batch` when this case decided,
+`mission_held_by:mid_term_plan` when the ordinary criterion did, and
+`separated_by:<release|dependency|ownership|risk>` when evidence split the batch: a mission held by
+a person's review unit and one held by an ordinary mid-term plan must not report alike. It **adds a
+case and removes none** — rule 1's floor and the mission ceiling refuse exactly as before, and it
+does not reach the inbound-volume shape rule 2 was measured against, because an hour of unrelated
+channel asks shares no review surface. **Traceability is a floor here, not an aspiration**: the
+members of such a batch answer *different* records, so each member ticket keeps its own
+`feedback:` ref to the item it answers while the mission carries the ask's whole carried set.
+`check-carry-floor.sh` proves the second and **not** the first — its own header states it checks
+the artifacts the caller names and that a mission's tickets need not repeat its refs — so the
+per-member ref is carried by the scaffold call (`--feedback <that member's own record>`) and is
+stated rather than implied to be gated. **Measured**: one continuation thread published as nine
+loose tickets on one proposal pull request and driven through four implementation pull requests,
+against a developer who had reviewed it as one pass.
+
 **The measurement.** 2026-09-03, over 94 missions in this repository: one at a single ticket —
 which rule 1 says cannot exist — 21% at four or fewer, and **52% at exactly seven or eight**, which
 is the previously written *roughly 7–8 tickets, the ruled scale* printed straight into the

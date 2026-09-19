@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:51:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -127,3 +128,34 @@ delete the mid-term term.
   pass is arguable by the person who reviewed it, which is the point.
 - **Do not extend this to the inbound volume case.** The ask is about one thread's corrections; an
   hour of unrelated channel asks is the case the mid-term-plan term exists for and is untouched.
+
+## Final Report
+
+Development completed as planned.
+
+Rule 2 in `plugins/workaholic/rules/workaholic.md` gained one named case — a batch sharing
+one review surface, one feedback thread and one coherent acceptance walk is a mid-term
+container and takes row 1 — with all three terms required and concrete release, dependency,
+ownership or risk evidence separating it. Both `/specificate` surfaces cite it in one
+byte-identical wording; the 2026-09-03 mid-term-plan term is untouched and still refuses an
+ask with no plan. The reported vocabulary gained `mission_held_by:review_batch` /
+`mission_held_by:mid_term_plan` and `separated_by:<release|dependency|ownership|risk>`, so a
+mission held by a person's review unit and one held by an ordinary mid-term plan cannot
+report alike. `check-floor.sh` and `size.sh` are byte-identical to `origin/main`.
+
+### Discovered Insights
+
+- **Insight**: `check-carry-floor.sh` proves the refs on the artifacts the *caller names* and
+  its own header states that a mission's tickets need not repeat the mission's refs.
+  **Context**: the review-batch case is exactly the shape where members answer *different*
+  records, so the per-member `feedback:` ref is carried by the scaffold call
+  (`scaffold-proposed-ticket.sh` writes `feedback:` on a mission member when `--feedback` is
+  passed) and is **not** gated by that floor. The rule now states this rather than implying
+  the floor covers it — a traceability claim nobody checks is worse than one stated as
+  carried.
+- **Insight**: the two rules never conflicted about one question.
+  **Context**: the 2026-09-03 term answers *does this ask deserve a mid-term container* and
+  exists against ingest volume; issue #1110 answers *is this batch one person's single review
+  pass* and exists against fragmentation of one correction. Naming the second as a case of
+  rule 2 keeps both measurements standing; relaxing rule 1's floor would have reopened the
+  proliferation the first was measured against.

@@ -40648,6 +40648,42 @@ function testMissionGrainStatedOnce() {
   assertTrue("and no cap is placed on the ingest path",
     /No cap is placed on the ingest path/.test(spec));
 
+  // RULE 2's ONE NAMED CASE (2026-09-19, issue #1110 item 2). A batch a person reviewed as one
+  // pass is a container by their own definition of the review unit, and the case is written in
+  // the rule's one home and CITED by both /specificate surfaces in ONE wording. What is pinned
+  // is the shape: the three terms, the separation evidence, a reported word of its own, and
+  // that the 2026-09-03 term is still there -- this adds a case and removes none.
+  assertTrue("rule 2 names the review-batch case in the rule's own home",
+    /one review surface, one feedback thread and one coherent acceptance\s+walk/.test(rules),
+    "the named case has no home");
+  assertTrue("and it requires all three terms rather than any one of them",
+    /All three terms must hold/.test(rules), "one shared term would re-open proliferation");
+  assertTrue("and concrete evidence separates the batch",
+    /release, dependency, ownership or risk/.test(rules));
+  assertTrue("and the per-member feedback ref is stated as carried, not as gated",
+    /check-carry-floor\.sh` proves the second and \*\*not\*\* the first/.test(rules),
+    "the floor's coverage is implied rather than stated");
+  const workflow = readFileSync(
+    join(REPO_ROOT, "plugins/workaholic/skills/specificate/reference/workflow.md"), "utf8");
+  const CITED = "**Row 1's one named case is a person's single review pass** — a batch whose "
+    + "items share **one review surface, one feedback thread and one coherent acceptance walk** "
+    + "is a mid-term container and takes row 1, all three terms required, with concrete "
+    + "**release, dependency, ownership or risk** evidence separating it and one mission absent "
+    + "such evidence (`rules/workaholic.md`, *What a Mission Must Be Able to Hold*, rule 2, "
+    + "cited rather than restated). Report `mission_held_by:review_batch` beside "
+    + "`precedence:<form>` and `mid_term_plan:<yes|no>` when that case decided, "
+    + "`mission_held_by:mid_term_plan` when the ordinary criterion did, and "
+    + "`separated_by:<release|dependency|ownership|risk>` when the evidence split the batch. "
+    + "It adds a case and removes none: the mid-term-plan term still refuses an ask with no "
+    + "plan, and every floor and the ceiling are untouched.";
+  assertTrue("SKILL.md carries the cited wording", spec.includes(CITED), "SKILL.md");
+  assertTrue("and reference/workflow.md carries it byte-identically",
+    workflow.includes(CITED), "workflow.md");
+  assertTrue("the 2026-09-03 mid-term-plan term survives in both",
+    /and there is a mid-term plan to hold/.test(spec)
+      && /there is a mid-term plan to hold/.test(workflow),
+    "the named case silently replaced the term it was meant to sit beside");
+
   // The floor is enumerated at every seam, and the hook says why it is not one of them.
   const missionSkill = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/mission/SKILL.md"), "utf8");
   for (const seam of ["specificate", "Creation Interrogation", "replan"]) {

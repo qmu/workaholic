@@ -4,6 +4,7 @@
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
 * [never-let-the-routine-that-originates-work-converge-on-silence](active/never-let-the-routine-that-originates-work-converge-on-silence/mission.md) - Never let the routine that originates work converge on silence
+* [keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report](active/keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report/mission.md) - Keep one coherent feedback batch one mission one pull request one report
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads](active/stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads/mission.md) - Stop the Codex clock dying silently and writing the locks it reads
 
@@ -100,6 +101,7 @@
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [name-the-session-type-that-cannot-merge](archive/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [name-the-steps-a-tick-could-not-read](archive/name-the-steps-a-tick-could-not-read/mission.md) - Name the steps a tick could not read
+* [never-let-the-routine-that-originates-work-converge-on-silence](archive/never-let-the-routine-that-originates-work-converge-on-silence/mission.md) - Never let the routine that originates work converge on silence
 * [notice-a-periodic-artifact-that-stopped-being-produced](archive/notice-a-periodic-artifact-that-stopped-being-produced/mission.md) - Notice a periodic artifact that stopped being produced
 * [notify-the-person-a-directed-question-addresses](archive/notify-the-person-a-directed-question-addresses/mission.md) - Notify the person a directed question addresses
 * [pay-only-the-operative-cost-on-every-tick](archive/pay-only-the-operative-cost-on-every-tick/mission.md) - Pay only the operative cost on every tick

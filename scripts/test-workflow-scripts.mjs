@@ -23585,6 +23585,347 @@ function testLogReadOwner() {
   }
 }
 
+// A RUN OF PROPOSE TICKS THAT ORIGINATED NOTHING IS A FINDING (2026-09-19, ticket
+// `20260919093809`, operator's ask issue #907 item 1). MEASURED on a consuming repository,
+// 2026-09-02: 64 consecutive `/propose` ticks each ended `{"proposed": 0}` beside eight open
+// inbound items and an empty queue, and every one read as a healthy idle hour -- `blocked-tick`'s
+// propose arm asks a DIFFERENT question (opened and never closed), so a tick that surveyed,
+// refused every direction and closed cleanly was the healthy case by the only reading there was.
+//
+// The rows are HERMETIC by construction: the step is exercised from a COPY of the script layout,
+// with a stub `survey-strategies.sh` standing in for the real one, so no network read and no
+// `gh` call happens and the fixture decides the refusal words. That also pins the composition
+// itself -- a step that stopped reading the survey would stop seeing the stub's words.
+// AN OPEN OPERATOR ASK THAT ANSWERS NO ACTIVE DIRECTION IS NAMED (2026-09-19, ticket
+// `20260919093809`, operator's ask issue #907 item 3). MEASURED: the operator's own stated
+// immediate priority belonged to no active strategy, so `/propose` was structurally incapable of
+// proposing it and spent two days proposing against the directions that did exist.
+// `unattributed-work.sh` reads the WORK side; nothing read the ASK side, because `/propose`
+// surveys strategies and never reads the inbox while `list-inbound-issues.sh` knows nothing
+// about directions.
+//
+// HERMETIC by construction: the reader is exercised from a COPY of the script layout with a stub
+// `list-inbound-issues.sh`, so no `gh` call and no network read happens and the fixture decides
+// the rows. That also pins the composition — a reader that stopped calling the inbox would stop
+// seeing the stub's issues.
+// `open_proposal` STOPS HOLDING A DIRECTION WHEN THE INGEST STAGE IS NOT RUNNING (2026-09-19,
+// ticket `20260919093809`, operator's ask issue #907 item 2). The rung refused on SET MEMBERSHIP
+// alone and the set only empties when `[Specificate]` merges the proposal's pull request — so a
+// dead ingest stage held the origination gate forever and one dead routine silenced two.
+// MEASURED: four directions locked for four hours behind proposals nothing was ingesting.
+//
+// The rows exercise the survey's own jq ladder DIRECTLY, extracted from the script, because the
+// script's other inputs are a network read and a full attribution walk. That is the honest
+// instrument here: what changed is one term of that ladder, and the extraction fails loudly if
+// the program moves.
+T("open_proposal stops holding when the ingest stage has left no evidence", testOpenProposalUningested);
+function testOpenProposalUningested() {
+  const survey = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/propose/scripts/survey-strategies.sh"), "utf8");
+  const start = survey.indexOf("--arg aim_kind \"$AIM_KIND\" '");
+  assertTrue("the survey's jq program is where this row expects it", start > 0, "marker not found");
+  const body = survey.slice(start + "--arg aim_kind \"$AIM_KIND\" '".length);
+  const end = body.indexOf("\n  ' \"${TMP}/rows\"");
+  assertTrue("the survey's jq program terminates where this row expects it", end > 0, "end not found");
+  const program = body.slice(0, end);
+
+  const dir = mkdtempSync(join(tmpdir(), "workaholic-uningested-"));
+  try {
+    const progPath = join(dir, "survey.jq");
+    writeFileSync(progPath, program);
+    const rowPath = join(dir, "rows");
+    writeFileSync(rowPath, JSON.stringify({
+      slug: "s1", unreadable: false, owns: "mine", feedback_refs: ["r.md"], landed: [],
+      waiting_missions: 0, waiting_count: 0, waiting_missions_advancing: 0, waiting_advancing: 0,
+      residue: { readable: true }, path: "p",
+    }) + "\n");
+    const list = JSON.stringify({ strategies: [{
+      slug: "s1", status: "active", target_date: "2026-12-01", title: "S1",
+      assignees: ["a"], created_at: "2026-01-01T00:00:00+09:00" }] });
+    const proposal = { number: 5, url: "u", strategy: "s1", move: "depth", title: "t",
+      created_at: "2026-09-10T00:00:00Z" };
+
+    const survey_ = (open, epoch, readable) => JSON.parse(run(dir,
+      `jq -s --argjson list '${list}' --argjson open '${JSON.stringify(open)}'` +
+      ` --argjson residue '{}' --arg today 2026-09-19 --arg window 7 --arg identity a` +
+      ` --argjson cap -1 --argjson window_days 7 --argjson wip_limit -1 --argjson wip_count null` +
+      ` --argjson wip_readable true --arg wip_reason "" --arg aim_kind building` +
+      ` --argjson ingest_latest_epoch ${epoch} --argjson ingest_readable ${readable}` +
+      ` -f ${progPath} ${rowPath}`).stdout);
+    const held = { proposals: [proposal] };
+    const proposalEpoch = Math.floor(Date.parse(proposal.created_at) / 1000);
+
+    // (a) NO EVIDENCE SINCE THE PROPOSAL OPENED -> ELIGIBLE, and the row NAMES why. A silently
+    // lifted brake is worse than a stuck one.
+    const free = survey_(held, proposalEpoch - 1, true);
+    assertEq("a proposal the ingest stage has not run against stops holding the direction",
+      [free.selected, free.refused.map((r) => r.reason)], [["s1"], []]);
+    assertEq("and the row names the relaxation with the proposal's number and its proof",
+      [free.eligible[0].open_proposal_uningested.number,
+       free.eligible[0].open_proposal_uningested.proof],
+      [5, "no_ingest_evidence_since_proposal"]);
+    assertTrue("carrying the proposal's own age as EVIDENCE, never as the decision",
+      typeof free.eligible[0].open_proposal_uningested.age_hours === "number",
+      JSON.stringify(free.eligible[0].open_proposal_uningested));
+
+    // (b) EVIDENCE SINCE IT OPENED -> STILL REFUSED, exactly as before.
+    const ingested = survey_(held, proposalEpoch + 1, true);
+    assertEq("a proposal the ingest stage HAS run against still holds the direction",
+      [ingested.selected, ingested.refused.map((r) => r.reason)], [[], ["open_proposal"]]);
+
+    // (c) A PROOF THAT COULD NOT BE READ KEEPS BRAKING. The permissive error is a second
+    // proposal against a direction already being answered, so an unreadable reading refuses.
+    const blind = survey_(held, 0, false);
+    assertEq("an unreadable proof leaves open_proposal refusing",
+      [blind.selected, blind.refused.map((r) => r.reason)], [[], ["open_proposal"]]);
+    // A proposal carrying no timestamp is the same case, by the same rule.
+    const undated = survey_({ proposals: [{ ...proposal, created_at: null }] }, 0, true);
+    assertEq("and so does a proposal whose own timestamp could not be read",
+      [undated.selected, undated.refused.map((r) => r.reason)], [[], ["open_proposal"]]);
+
+    // (d) WITH NO OPEN PROPOSALS THE ROW IS BYTE-IDENTICAL: the named reading is added ONLY
+    // where it fired, so a repository with nothing in flight surveys exactly as it did before.
+    const none = survey_({ proposals: [] }, 0, true);
+    assertEq("a survey with no open proposals gains no key at all",
+      Object.prototype.hasOwnProperty.call(none.eligible[0], "open_proposal_uningested"), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+
+  // (e) NO CLOCK AND NO TUNABLE ENTERED THE GATE. The relaxation is a tree proof, so the diff
+  // must introduce no staleness constant and no environment variable — the shape this repository
+  // refuses by name (`workaholic:propose`, *The threshold is not a threshold*).
+  const code = survey.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  const ingestBlock = code.slice(code.indexOf("INGEST_LATEST_EPOCH="),
+    code.indexOf("jq -sc", code.indexOf("INGEST_LATEST_EPOCH=")));
+  assertTrue("the ingest proof reads the tree", /feedbacks/.test(ingestBlock), ingestBlock);
+  assertTrue("and introduces no WORKAHOLIC_* tunable of its own",
+    !/WORKAHOLIC_[A-Z_]*(STALE|AGE|DAYS|HOURS)/.test(ingestBlock), ingestBlock);
+
+  // (f) THE REMOTE HALF CARRIES `created_at` AS EVIDENCE, null-safe.
+  const listOpen = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/propose/scripts/list-open-proposals.sh"), "utf8");
+  assertTrue("list-open-proposals projects the proposal's created_at",
+    /\.created_at \/\/ ""/.test(listOpen), "created_at is not projected");
+  assertTrue("and renders an unreadable timestamp as null, never zero",
+    /created_json=null/.test(listOpen), "no null-safe rendering found");
+
+  // (g) THE WRITER DID NOT MOVE: this ticket changes reading, never writing.
+  const opener = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/propose/scripts/open-proposal.sh"), "utf8");
+  assertTrue("open-proposal.sh gained no reading of the ingest proof",
+    !/ingest_state|INGEST_LATEST_EPOCH|INGEST_READABLE|open_proposal_uningested/.test(opener),
+    "open-proposal.sh reads the ingest proof");
+}
+
+T("an ask that answers no active direction is named, never originated", testUnattributedAsks);
+function testUnattributedAsks() {
+  const root = mkdtempSync(join(tmpdir(), "workaholic-unattributed-asks-"));
+  try {
+    const strat = join(root, "skills/strategy/scripts");
+    const spec = join(root, "skills/specificate/scripts");
+    mkdirSync(strat, { recursive: true });
+    mkdirSync(spec, { recursive: true });
+    const src = join(REPO_ROOT, "plugins/workaholic/skills/strategy/scripts");
+    for (const f of ["unattributed-asks.sh", "list.sh", "read.sh"]) {
+      copyFileSync(join(src, f), join(strat, f));
+    }
+
+    // One ACTIVE direction citing one feedback record, and one CLOSED one whose slug must not
+    // cover anything — `list.sh --status active` is what bounds the covering set.
+    const wk = join(root, ".workaholic");
+    mkdirSync(join(wk, "strategies"), { recursive: true });
+    writeFileSync(join(wk, "strategies/ship-the-loop.md"),
+      "---\ntype: Strategy\ntitle: Ship the loop\nslug: ship-the-loop\nstatus: active\n" +
+      "target_date: 2026-12-01\nassignees: [a@qmu.jp]\n" +
+      "feedback: [20260901000000-a-captured-ask.md]\ncreated_at: 2026-09-01T00:00:00+09:00\n" +
+      "author: a@qmu.jp\n---\n\n# Ship the loop\n\n## Aim\n\nRun itself.\n\n## Schedule\n\n2026-12-01\n");
+
+    const inbox = join(spec, "list-inbound-issues.sh");
+    const reader = join(strat, "unattributed-asks.sh");
+    const stub = (body) => { writeFileSync(inbox, `#!/bin/sh\ncat <<'EOF'\n${body}\nEOF\n`); chmodSync(inbox, 0o755); };
+    const read = () => JSON.parse(run(REPO_ROOT, `${POSIX_SH} ${reader} --root ${wk}`).stdout);
+
+    // (a) RUNG 1 — the ask's captured record is cited by an active direction: NOT reported.
+    // (b) RUNG 2 — the ask's title names an active slug: NOT reported.
+    // (c) NEITHER — reported, `undecidable_here`.
+    stub('{"ok": true, "identity": "a", "issues": [' +
+      '{"number": 11, "title": "Covered by its record", "url": "u/11", "updated_at": "2026-09-10T00:00:00Z", "record": ".workaholic/feedbacks/20260901000000-a-captured-ask.md"},' +
+      '{"number": 12, "title": "Deepen ship-the-loop further", "url": "u/12", "updated_at": "2026-09-10T00:00:00Z", "record": null},' +
+      '{"number": 13, "title": "Something nobody declared a direction for", "url": "u/13", "updated_at": "2026-09-10T00:00:00Z", "record": null}' +
+      '], "excluded": []}');
+    const seen = read();
+    assertEq("only the ask with no feedback line and no slug is named",
+      [seen.ask_count, seen.asks.map((a) => a.number)], [1, [13]]);
+    assertEq("and it carries the mechanical reason, never an Aim judgement",
+      seen.asks[0].reason, "undecidable_here");
+    assertEq("a completed walk carries no `readable` key — the test is `readable == false`",
+      Object.prototype.hasOwnProperty.call(seen, "readable"), false);
+    assertEq("the reading is never claimed exhaustive: the inbox is paged and assignee-scoped",
+      seen.exhaustive, false);
+
+    // (d) AN UNREADABLE INBOX IS NAMED, NEVER AN EMPTY SET — and its counts are NULL, because a
+    // zero on a read that failed is the whole defect this distinction exists to prevent.
+    stub('{"ok": false, "reason": "gh_unavailable", "detail": "no token"}');
+    const broken = read();
+    assertEq("an unreadable inbox degrades by name with null counts",
+      [broken.readable, broken.reason, broken.asks, broken.ask_count],
+      [false, "inbox_unreadable", null, null]);
+
+    // (e) TWO READS OVER AN UNCHANGED TREE ARE BYTE-IDENTICAL.
+    stub('{"ok": true, "identity": "a", "issues": [' +
+      '{"number": 13, "title": "Something nobody declared a direction for", "url": "u/13", "updated_at": "2026-09-10T00:00:00Z", "record": null}' +
+      '], "excluded": []}');
+    const once = run(REPO_ROOT, `${POSIX_SH} ${reader} --root ${wk}`).stdout;
+    const twice = run(REPO_ROOT, `${POSIX_SH} ${reader} --root ${wk}`).stdout;
+    assertEq("two reads over an unchanged tree are byte-identical", once, twice);
+
+    // (f) THE /moderate STEP RENDERS THAT ONE READING AND ASKS ONCE PER ASK. It is exercised
+    // from a copy too, so the stubbed inbox reaches it through the same composition.
+    const mod = join(root, "skills/moderate/scripts");
+    mkdirSync(join(mod, "lib"), { recursive: true });
+    const msrc = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+    for (const f of ["step-unattributed-asks.sh", "condition-age.sh", "log-read.sh"]) {
+      copyFileSync(join(msrc, f), join(mod, f));
+    }
+    copyFileSync(join(msrc, "lib/jq-guard.sh"), join(mod, "lib/jq-guard.sh"));
+    // The step takes a REPO root and appends `.workaholic` itself, so the fixture root is `root`.
+    const step = join(mod, "step-unattributed-asks.sh");
+    const stepOut = JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${step} --tick 20260919-200000 --root ${root}`).stdout);
+    assertEq("an uncovered ask is blocked, by its own reason",
+      [stepOut.status, stepOut.reason], ["blocked", "uncovered_asks"]);
+    assertEq("one question per ask, keyed on the ask so the asked-once gate can reach it",
+      [stepOut.needs_agent.length, stepOut.needs_agent[0].key], [1, "unattributed-ask:13"]);
+    assertTrue("the summary names the count and the numbers and no clock-derived value",
+      /1 open ask\(s\)/.test(stepOut.summary) && /13/.test(stepOut.summary), stepOut.summary);
+
+    stub('{"ok": true, "identity": "a", "issues": [], "excluded": []}');
+    const quiet = JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${step} --tick 20260919-210000 --root ${root}`).stdout);
+    assertEq("a fully covered inbox raises nothing",
+      [quiet.status, quiet.needs_agent.length], ["ok", 0]);
+
+    stub('{"ok": false, "reason": "gh_unavailable", "detail": "no token"}');
+    const degraded = JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${step} --tick 20260919-220000 --root ${root}`).stdout);
+    assertEq("and a degraded reading is passed through by its own reason, never as `ok`",
+      [degraded.status, degraded.reason, degraded.needs_agent.length],
+      ["degraded", "inbox_unreadable", 0]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+
+  // (g) IT ORIGINATES NOTHING. The reader composes the inbox and the strategy readers and reaches
+  // no writer: `create.sh`/`amend.sh` keep their three writers and `survey-strategies.sh` is
+  // untouched, which is what keeps `rules/workaholic.md`, *What May Originate a Mission*, intact.
+  const readerSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/strategy/scripts/unattributed-asks.sh"), "utf8");
+  const code = readerSrc.split("\n").filter((l) => !l.trimStart().startsWith("#")).join("\n");
+  assertTrue("it composes the inbox reader", /list-inbound-issues\.sh/.test(code), code.slice(0, 200));
+  for (const forbidden of ["create.sh", "amend.sh", "open-proposal.sh", "survey-strategies.sh"]) {
+    assertTrue(`it reaches no writer: ${forbidden}`, !code.includes(forbidden), forbidden);
+  }
+  assertTrue("the registry carries the step — one absent there does not run",
+    moderateSteps().includes("unattributed-asks"), "unattributed-asks is absent from steps.json");
+}
+
+T("a run of originate-nothing propose ticks is a finding", testProposeYield);
+function testProposeYield() {
+  const root = mkdtempSync(join(tmpdir(), "workaholic-propose-yield-"));
+  try {
+    const mod = join(root, "skills/moderate/scripts");
+    const prop = join(root, "skills/propose/scripts");
+    mkdirSync(join(mod, "lib"), { recursive: true });
+    mkdirSync(prop, { recursive: true });
+    const src = join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts");
+    for (const f of ["step-propose-yield.sh", "log-read.sh"]) copyFileSync(join(src, f), join(mod, f));
+    copyFileSync(join(src, "lib/jq-guard.sh"), join(mod, "lib/jq-guard.sh"));
+
+    // The stub survey. `ok: true` with two refused rows, so the finding has words to name and a
+    // reader can tell a composed refusal set from an invented one.
+    const survey = join(prop, "survey-strategies.sh");
+    writeFileSync(survey,
+      '#!/bin/sh\nprintf \'{"ok": true, "eligible": [], "refused": [{"slug":"a","reason":"open_proposal"},' +
+      '{"slug":"b","reason":"past_target_date"}], "errors": [], "selected": []}\\n\'\n');
+    chmodSync(survey, 0o755);
+
+    const step = join(mod, "step-propose-yield.sh");
+    const fixture = (body) => {
+      const dir = mkdtempSync(join(tmpdir(), "workaholic-propose-yield-log-"));
+      mkdirSync(join(dir, ".workaholic/moderations"), { recursive: true });
+      writeFileSync(join(dir, ".workaholic/moderations/2026-09-19.md"), body);
+      return dir;
+    };
+    const finish = (tick, outcome) =>
+      `## ${tick}\n\n- \`loop-finish-propose-${tick}\`: ok — ` +
+      `{"executed":true,"outcome":"${outcome}","reason":""}\n\n`;
+    const read = (dir) => JSON.parse(run(REPO_ROOT,
+      `${POSIX_SH} ${step} --tick 20260919-200000 --root ${dir}`).stdout);
+
+    // (a) A RUN OF THEM FIRES ONCE, NAMING THE REFUSAL WORDS THE SURVEY REPORTS.
+    const runOfThem = fixture(
+      finish("20260919-100000", "propose:proposed_0:past_target_date") +
+      finish("20260919-110000", "propose:no_evolutionary_move") +
+      finish("20260919-120000", "propose:proposed_0:open_proposal"));
+    const found = read(runOfThem);
+    assertEq("a run of originate-nothing propose ticks is blocked, by its own reason",
+      [found.status, found.reason], ["blocked", "originated_nothing"]);
+    assertTrue("and the summary names the refusal words that held the directions",
+      /open_proposal/.test(found.summary) && /past_target_date/.test(found.summary), found.summary);
+    assertTrue("the finding asks exactly one question", found.needs_agent.length === 1,
+      JSON.stringify(found.needs_agent));
+    assertEq("keyed on its own subject so the asked-once gate and condition-age can reach it",
+      found.needs_agent[0].key, "propose-yield:originated-nothing");
+    // THE SUMMARY CARRIES NO COUNT AND NO TICK ID: the root calls a step changed when its summary
+    // moves, and the window's entry count grows every tick.
+    assertTrue("and carries no count, tick id or timestamp",
+      !/\d/.test(found.summary), found.summary);
+
+    // (b) ONE SUCH TICK IS THE ORDINARY CASE AND FIRES NOTHING. The bound is a RUN.
+    const single = read(fixture(finish("20260919-100000", "propose:no_evolutionary_move")));
+    assertEq("a single originate-nothing tick raises nothing",
+      [single.status, single.needs_agent.length], ["ok", 0]);
+
+    // (c) A TICK THAT ORIGINATED SOMETHING FIRES NOTHING.
+    const produced = read(fixture(
+      finish("20260919-100000", "propose:no_evolutionary_move") +
+      finish("20260919-110000", "propose:proposed_2:depth")));
+    assertEq("a window holding a tick that originated something raises nothing",
+      [produced.status, produced.needs_agent.length], ["ok", 0]);
+
+    // (d) AN OUTCOME OUTSIDE THE DECLARED TOKEN SET HOLDS THE FINDING. One entry the step could
+    // not read makes *every tick originated nothing* a claim it has not established, and a
+    // degraded read is never a finding -- never `ok` with a zero count either.
+    const murky = read(fixture(
+      finish("20260919-100000", "propose:no_evolutionary_move") +
+      finish("20260919-110000", "completed")));
+    assertEq("an unclassifiable outcome degrades by name and raises nothing",
+      [murky.status, murky.reason, murky.needs_agent.length],
+      ["degraded", "outcome_unclassified", 0]);
+
+    // (e) AN UNREADABLE LOG AREA DEGRADES, never an empty yield.
+    const bare = mkdtempSync(join(tmpdir(), "workaholic-propose-yield-bare-"));
+    const none = read(bare);
+    assertEq("no log area is skipped by name, never reported as a yield",
+      [none.status, none.reason], ["skipped", "no_log_area"]);
+    rmSync(bare, { recursive: true, force: true });
+
+    // (f) TWO READS OVER AN UNCHANGED TREE ARE BYTE-IDENTICAL.
+    const once = run(REPO_ROOT, `${POSIX_SH} ${step} --tick 20260919-200000 --root ${runOfThem}`).stdout;
+    const twice = run(REPO_ROOT, `${POSIX_SH} ${step} --tick 20260919-210000 --root ${runOfThem}`).stdout;
+    assertEq("two ticks over an unchanged reading produce byte-identical output", once, twice);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+
+  // (g) IT LIFTS NO GATE AND WIDENS NO SIBLING. `survey-strategies.sh` is composed, never edited,
+  // and `blocked-tick`'s own question is untouched -- *never closed* and *closed having originated
+  // nothing* are two questions, and one step answering both is how the two drift.
+  const yieldSrc = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/moderate/scripts/step-propose-yield.sh"), "utf8");
+  assertTrue("the step composes the survey for its refusal words",
+    /survey-strategies\.sh/.test(yieldSrc), "no survey composition found");
+  assertTrue("and reads the propose finish lines under the coordinator's own owner",
+    /--owner loop --step-prefix loop-finish-propose/.test(yieldSrc), "no owner-scoped read found");
+  assertTrue("the registry carries it — a step absent there does not run",
+    moderateSteps().includes("propose-yield"), "propose-yield is absent from steps.json");
+}
+
 T("a tick pays only its operative cost", testTickOperativeCost);
 function testTickOperativeCost() {
   const dir = mkdtempSync(join(tmpdir(), "workaholic-tick-cost-"));
@@ -31645,6 +31986,14 @@ function testModerateRun() {
     // rather than about the repository's work, and because the deadline cuts steps in order —
     // the reading that says the loop stopped must not be the first to go.
     "blocked-tick",
+    // `unattributed-asks` (2026-09-19, ticket `20260919093809`): an open operator ask that
+    // answers no active direction. It sits with the other machinery readings, before the work
+    // steps, because the check-in is what asks and this one only reads.
+    "unattributed-asks",
+    // `propose-yield` (2026-09-19, same ticket): a RUN of propose ticks that all closed having
+    // originated nothing. Beside `blocked-tick`, whose subject it is nearest and whose question
+    // — *opened and never closed* — it deliberately does not widen.
+    "propose-yield",
     "inbound-sweep", "workload-logs", "merge-conflicts",
     "issue-triage", "stuck-prs", "doc-drift", "release-status", "note-cadence",
     // `strategy-pace` is step 10 (2026-08-22): the surface that tells a person a direction
@@ -42006,6 +42355,7 @@ function testTickLogWriterSet() {
     "plugins/workaholic/skills/moderate/scripts/log-read.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/condition-age.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/step-blocked-tick.sh": "reader",
+    "plugins/workaholic/skills/moderate/scripts/step-propose-yield.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/run.sh": "reader",
     "plugins/workaholic/skills/moderate/scripts/persist-log.sh": "refuser",
     "scripts/e2e/loop-drill.sh": "reader",

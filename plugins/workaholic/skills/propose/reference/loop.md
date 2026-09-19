@@ -126,6 +126,18 @@ The reactive path remains independent of this reading.
    emits none and a report implying the tick judged what it could not read is the exact
    collapse this reading exists to end. It changes nothing here: the brake is the survey's,
    which refuses such a row and cannot select it.
+   **And name every open ask that answers no active direction** (2026-09-19, ticket
+   `20260919093809`, operator's ask issue #907 item 3) — `strategy/scripts/unattributed-asks.sh`,
+   **named rather than written in the `${CLAUDE_PLUGIN_ROOT}` invocation form**, for the reason
+   this file already records for `decision-maturity.sh`; §1 has resolved `src`, so the path is
+   unambiguous. Report the issue numbers and the reason the reader gave, in the same voice
+   `pace` and `arrived` use: **evidence, never a verdict**. It gates nothing — no `refusal`, no
+   sort, no `selected` and no token reads it, and `survey-strategies.sh` is untouched — and it
+   **originates nothing**: an ask that answers no direction is *named* here, not proposed
+   (`workaholic:propose`, *An ask that answers no direction is named, never originated*). Its
+   `undecidable_here` means **no `feedback:` line and no slug**, so report it as that and never
+   as *this ask belongs to no direction*. A `readable: false` reading is named **as unreadable,
+   by its reason**, and never as *every ask is covered*.
    Post nothing.
 
 ## What was refused, and why

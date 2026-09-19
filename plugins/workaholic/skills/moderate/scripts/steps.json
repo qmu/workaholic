@@ -29,6 +29,34 @@
       "writer": false
     },
     {
+      "id": "unattributed-asks",
+      "script": "step-unattributed-asks.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
+      "id": "propose-yield",
+      "script": "step-propose-yield.sh",
+      "depends_on_snapshot": [
+        "repository",
+        "runtime"
+      ],
+      "trigger": {
+        "kind": "cadence",
+        "seconds": 3600
+      },
+      "reader": true,
+      "writer": false
+    },
+    {
       "id": "inbound-sweep",
       "script": "step-inbound-sweep.sh",
       "depends_on_snapshot": [

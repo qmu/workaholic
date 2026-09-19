@@ -128,3 +128,48 @@ introduces it.
   header so a green drill is never read as a working transport.
 - **Keep the scenario to the ask's three conditions.** A drill that also exercises merges, claims
   or release paths becomes the one nobody can debug when it goes red.
+
+## Final Report
+
+Development completed as planned. Driven last, as the ticket asks: it asserts the behaviour the
+mission's other two tickets introduce.
+
+`scripts/e2e/drills/verify-observation-during-work.sh` adds one verb, registered in the
+dispatcher, in the usage string and in `docs/loop-drill-runbook.md` §9 as **hermetic**, so
+`verify-all` and the CI push matrix (`verify-all --list --kind hermetic`) both run it —
+confirmed: the register resolves the row with `mission_resolved: true` and the listing names the
+verb. It stages the ask's three conditions and nothing else: a deliberately long-running child
+launched under a declared `bounded_task` policy, a Slack reply arriving **after** it started
+(injected at the `qfs` adapter seam the existing fixtures already stub), and a delegation
+restriction that is declared rather than absent.
+
+Every assertion is made on the **recorded sequence of real calls** — a journal the drill appends
+to as each script returns — and there is no `sleep` anywhere in the verb. Rows: an observation
+read and an acknowledgement both recorded between the child's `started` and `finish`; the
+receipt reading `running` on both sides of that window, from the coordinator's own `live[]`; the
+dispatched child's input carrying the contracted fields **and no inherited conversation**,
+asserted as an explicit absence against a planted marker; the restriction named with its one
+cost; one `start`, an unmoved anchor and exactly one reconciliation; two consecutive runs
+holding; and the checkout byte-identical afterwards.
+
+**The failure was observed, not assumed** (step 8): the drill's own breaker row suppresses the
+observation read during the child's life and the cadence assertion fails, which is why rows 1–2
+prove anything. Three consecutive runs pass and `git status --short` afterwards shows only this
+unit's own edits — no worktree, branch, ref, receipt or log line left behind, and no remote
+touched.
+
+The verb's header states its own bound: a stub proves the loop and not the provider. A green
+verdict says the coordinator kept observing while a child was live and says nothing about
+whether Slack would have delivered.
+
+### Discovered Insights
+
+- **Insight**: `verify-all`'s matrix is derived twice over — the dispatcher's own `case` arms
+  (`sed -n 's/^    \(verify-[a-z-]*\)) cmd_.*/\1/p'`) intersected with the register table — so a
+  verb added to only one of the two is reported `skipped: unclassified` rather than failing.
+  **Context**: registering a drill means three edits (source, dispatcher arm, runbook row), and
+  a missing runbook row is silent.
+- **Insight**: asserting *observation happened while the child was live* needs no clock at all;
+  the coordinator's `live[]` on either side of the read is the whole proof.
+  **Context**: this is what lets the drill be timing-about-ordering rather than
+  timing-about-duration, which is the difference between a stable drill and a flaky one.

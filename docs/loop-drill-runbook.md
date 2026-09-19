@@ -1819,6 +1819,7 @@ rather than guessed. **No artifact gained a field**: the slug lives here and now
 | `verify-codex-clock` | `hermetic` | yes | `make-the-codex-work-entrypoint-self-contained` |
 | `verify-work-drain` | `hermetic` | yes | `finish-the-backlog-without-handing-it-back-to-the-operator` |
 | `verify-checkout-residue` | `hermetic` | yes | `clear-the-residue-the-base-already-holds-and-never-stop-silently` |
+| `verify-observation-during-work` | `hermetic` | yes | `dispatch-bounded-workers-without-stopping-the-observation-clock` |
 
 **`verify-codex-clock` proves recovery after the installed launch tree disappears** (2026-09-07,
 ticket `20260907082737-stop-the-codex-supervisor-running-against-a-retired-plugin-path`). A real
@@ -1869,6 +1870,23 @@ seeded backlog read as idle, and the drill fails. **What it does not cover** —
 across both entrypoints, an interruption mid-drive, and a plugin-cache replacement — needs a running
 agent and a real Slack surface, which no hermetic drill can supply; a drill that pretended to would
 be the false green this mission exists to end.
+
+**`verify-observation-during-work` proves the clock keeps ticking while a worker is busy**
+(2026-09-19, ticket `20260919095618`). It stages the ask's three conditions and nothing else — a
+deliberately long-running child launched under the declared `bounded_task` policy, a new Slack
+reply arriving **after** it started, and a delegation restriction that is declared rather than
+absent — and asserts on the **recorded sequence of real calls**, never on elapsed time: there is
+no `sleep` anywhere in the verb. Its rows are that at least one observation read **and** one
+acknowledgement are recorded between the child's `started` and `finish`; that the receipt read
+`running` on both sides of that window, from the coordinator's own `live[]`; that the dispatched
+child's input carries the contracted fields and, asserted as an explicit **absence**, no inherited
+conversation; that the restriction is named with its one stated cost; that there is one `start`,
+an unmoved anchor and exactly one reconciliation; and that two consecutive runs hold and leave the
+checkout byte-identical. **Its breaker is written against the behaviour**: suppressing the
+observation read during the child's life makes the cadence assertion fail, which is the proof that
+rows 1–2 mean anything. **What it does not cover**: `qfs` is stubbed at the adapter seam, so a
+green verdict says the coordinator kept observing and says **nothing** about whether Slack would
+have delivered — a stub proves the loop and not the provider.
 
 ### The evidence behind the classification
 

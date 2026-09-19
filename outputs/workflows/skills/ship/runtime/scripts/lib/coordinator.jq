@@ -70,8 +70,17 @@ elif $e.event == "reserve" then
   elif ([$s.workers[]|select(active and .role == $e.role)]|length) >=
     (if $e.role == "implement" then $s.fanout else 1 end) then
     {state:$s,changed:false,reason:"role_running"}
+  # A CHILD'S RECEIPT RECORDS THE POLICY IT WAS LAUNCHED UNDER (2026-09-19, ticket
+  # `20260919095618`), so a resumed coordinator can tell what a live child inherited. An
+  # absent value is `null` -- a repository declaring nothing dispatches exactly as it did --
+  # and an unrecognised one is refused here rather than stored, because a receipt naming a
+  # policy nothing implements is worse than one naming none.
+  elif $e.context_policy != null and
+    (["full_conversation","bounded_task"]|index($e.context_policy)) == null then
+    fail("invalid context policy")
   else {state:($s|.workers[$e.id]={id:$e.id,role:$e.role,state:"reserved",reserved_at:$e.now,
-    child_id:null,target:($e.target // null),reported:false}),changed:true,reason:"reserved"} end
+    child_id:null,target:($e.target // null),context_policy:($e.context_policy // null),
+    reported:false}),changed:true,reason:"reserved"} end
 elif $e.event == "launch" then
   if $s.mode != "running" then {state:$s,changed:false,reason:$s.mode}
   elif $s.workers[$e.id].state != "reserved" then {state:$s,changed:false,reason:"receipt_not_reserved"}
@@ -144,7 +153,10 @@ del(.relay) |
   completed:(if $next.mode == "held" then [] else
     [$next.workers[]|select(.state == "completed" and .reported != true)]
     | map(if $relay != null and .id == $relay.id then .result = $relay.result else . end) end),
-  live:[$next.workers[]|select(active)|{id,role,child_id,state,target}],
+  # `context_policy` is projected for every live worker, including one a legacy record wrote
+  # before the field existed: such a row answers `null`, which is the same word an undeclared
+  # repository answers, and no migration exists or is needed.
+  live:[$next.workers[]|select(active)|{id,role,child_id,state,target,context_policy}],
   waiting_review:[$next.workers[]|select(.state == "awaiting_review")|{id,role,review_thread,awaited_at,target}],
   cancelled:[$next.workers[]|select(.state == "cancelled")|{id,role,child_id,cancelled_at}],
   due:(if $next.mode != "running" then [] else

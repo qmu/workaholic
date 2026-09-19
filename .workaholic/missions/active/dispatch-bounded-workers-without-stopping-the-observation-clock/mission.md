@@ -38,7 +38,7 @@ becoming a long inline turn. Changing the policy keeps the same instance, anchor
 
 <!-- PROPOSED - a sketch the reviewer replans drive-ready. -->
 
-- [ ] A context propagation policy is declared and reported separately from count and cadence,
+- [x] A context propagation policy is declared and reported separately from count and cadence,
       and a dispatched child carries a bounded input (#20260919095618-declare-a-context-propagation-policy-beside-the-worker-count.md)
 - [ ] A restricted delegation names the guarantees that lapse and keeps observing, preserving the
       instance, anchor and receipts (#20260919095618-name-the-guarantees-that-lapse-when-delegation-is-restricted.md)
@@ -47,3 +47,4 @@ becoming a long inline turn. Changing the policy keeps the same instance, anchor
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-19 — ticket archived — 20260919095618-declare-a-context-propagation-policy-beside-the-worker-count.md

@@ -193,6 +193,84 @@ Every worker returns the supplied result schema:
 Process exit, execution, work completion, and notification delivery are separate facts.
 Missing or malformed results are unreadable, never successful.
 
+**What a child RECEIVES is contracted here, beside what it returns** (2026-09-19, ticket
+`20260919095618`). The return half above has always been specified and the input half never was,
+so how much conversation a child inherited was a property of whichever harness launched it
+rather than of anything declared — and an operator whose objection is the per-child context copy
+then has one lever, turning delegation off, which is the wrong one. A repository declares the
+policy as `dispatch.context_policy`, its own top-level configuration key beside the count and the
+clock and neither of them: **`full_conversation`** or **`bounded_task`**, read through
+`runtime/scripts/dispatch-policy.sh` and through nothing else, with **absent meaning today's
+behaviour**. Under `bounded_task` a dispatched child receives exactly this and nothing else:
+
+- the bounded task — the one command body to execute, once;
+- the artifact paths it needs, named in full;
+- its worktree and its claim;
+- its receipt id (`workaholic-receipt:<id>`, which the launch guard reads);
+- the user constraints currently in force;
+- the result schema it must answer in.
+
+It inherits **no conversation**. A bounded child therefore knows less and can claim less, which
+is the premise rather than a cost to hide: a worker's finish is **evidence for the parent, never
+automatic permission**, and a worker proves only its own unit. `fork_turns` is a **harness**
+capability, named as the mapping the bounded policy takes where one exists and never as the
+policy itself, so a harness that spells it differently needs no new policy value. A dispatched
+child's receipt records the policy it was launched under, both dispatch paths — the native child
+launch and `codex-loop.sh --dispatch` — carry the same one, and the policy changes no count and
+no cadence: `WORKAHOLIC_MAX_WORKERS`, the implement fanout and every polling value are untouched
+by it.
+
+**What the loop guarantees, and which of them a restriction costs** (2026-09-19, ticket
+`20260919095618`). The operator turned subagents off; the Tick section says *never run those
+roles inline and never wait for them*, so the only way to make progress was to implement in the
+parent — and the coordinator, still persisted and still running, stopped receiving role ticks,
+with nothing anywhere saying that trade had been made. From the outside a loop whose observation
+clock had stopped looked like a loop that was busy. The four properties this loop advertises are
+a **closed list**, written here and cited elsewhere, never restated:
+
+- `observation_clock` — an observation clock that runs independently of the work;
+- `acknowledgement_on_cadence` — a person who writes is answered on that cadence;
+- `work_advances_without_waiting` — due work advances without the parent waiting for it;
+- `separable_worker_evidence` — a worker's result is evidence the parent can weigh separately.
+
+**A restriction names WHICH of them lapse, never that some may be affected.**
+`work/scripts/delegation-lapse.sh --input <facts.json>` is the one derivation, over `delegation`
+(`available` | `refused`) and the declared `context_policy`:
+
+- **delegation refused** — `work_advances_without_waiting` and `separable_worker_evidence`
+  lapse; `observation_clock` and `acknowledgement_on_cadence` **hold**, and the coordinator
+  keeps them. It does **not** become an inline implementer: if the operator wants inline work
+  that is their instruction, and the loop names the lapse rather than performing it silently.
+- **bounded context** — all four hold, at one stated cost: a bounded child knows less and can
+  therefore claim less, so its finish is **evidence for the parent, never automatic permission**.
+- **no restriction** — all four hold, nothing lapses, and the tick announces nothing new.
+
+**It is announced once, through the shape that already exists.** A tick whose reading is
+`announce: true` posts `workaholic:notify`'s precondition-stop shape under the reader's own
+`signature`, with the existing dedup, escalation and cool-down unchanged — no new shape and no
+new transport. That class decides **severity**, never whether a stop is announced at all. An
+operator restriction is **not a degraded reading**, and the two vocabularies stay apart: one is
+a person's decision and the other is something the loop could not see. The tempting error is to
+refuse to run at all when a guarantee lapses; that is worse than the defect, because the
+operator restricted delegation for a real reason and a loop that stops observing in protest
+helps nobody.
+
+**Changing the dispatch policy is a correction, not a restart.** Same instance id, same startup
+anchor, **no second `start`** — the coordinator answers `already_started` and changes nothing —
+and live children reconciled through `coordinator.sh`, so nothing is duplicated and no second
+clock appears. The final response is not involved: a lapse is commentary and a channel post, and
+the three reserved events do **not** gain a fourth.
+
+**The tick names the context propagation policy it dispatched under.** Read it once through
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/runtime/scripts/dispatch-policy.sh --root . --harness <id>`
+— the one reader; the policy is declared configuration and is never inferred from a harness
+flag — and report `context policy: <word>` from its answer: `absent` when nothing is declared,
+the effective policy when the harness honours it, and `<policy> unsupported:<reason>
+effective:<policy>` when it cannot. An **absent** declaration is today's behaviour and says so;
+an **unsupported** one names the policy that actually governed the child and never reports the
+declared one as honoured. An unreadable reading is `unreadable`, never `absent`. A report under
+which a bounded dispatch and a full-context one read alike is **non-conformant on its face**.
+
 Under a native parent, ordinary ticks and user steering use commentary. A correction does not
 reset the startup anchor. On stop, name still-running roles and child identifiers.
 

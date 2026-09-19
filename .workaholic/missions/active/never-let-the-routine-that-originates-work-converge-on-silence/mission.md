@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-173750
 ---
 
 # Never let the routine that originates work converge on silence

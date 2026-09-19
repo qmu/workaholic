@@ -121,6 +121,44 @@ relays that worker's **full** report in `completed[]`; every stored worker is re
 write, which **is** the upgrade path — the store is clone-local under `.git/workaholic/runtime/`, so
 no pull request can carry a migration to it. Full contract: `skills/runtime/SKILL.md`.
 
+**What a dispatched child INHERITS is a declared dial, separate from the count and the clock**
+(2026-09-19, mission `dispatch-bounded-workers-without-stopping-the-observation-clock`). Cadence
+lived in `polling`, worker count in `WORKAHOLIC_MAX_WORKERS`, and context propagation **nowhere**,
+so an operator whose objection was the per-child context copy had one lever — turning delegation
+off — and pulling it produced the measured outage: the parent implemented inline and the
+coordinator, still running, stopped receiving role ticks. A repository now declares
+`dispatch.context_policy` (`full_conversation` | `bounded_task`) as its own top-level
+configuration key, accepted by `runtime/scripts/read-config.sh` and read **only** through
+`runtime/scripts/dispatch-policy.sh`; **absent means today's behaviour**, an unrecognised value is
+refused `invalid_context_policy` with nothing resolved, and a harness that cannot honour the
+declaration answers `supported: false` with its reason rather than being dispatched silently under
+another policy (`fork_turns` is named as a **harness mapping**, never as the policy). Both dispatch
+paths carry the same answer, a child's receipt records the policy it was launched under (an
+unrecognised one refused at `reserve`, a legacy row reading `null`), and the tick reports it in one
+wording pinned byte-identically across `commands/infinite-development.md` and `skills/work/SKILL.md`.
+**No count and no cadence moved**: `WORKAHOLIC_MAX_WORKERS`, the implement fanout,
+`allocate-implement.sh` and every polling value are byte-identical. The **child input contract** —
+the bounded task, the artifact paths, the worktree and claim, the receipt id, the user constraints
+and the result schema, and **no inherited conversation** — is written once in `skills/work/SKILL.md`,
+*Children and reports*, and cited elsewhere; a bounded child knows less and can therefore claim
+less, so a worker's finish is **evidence for the parent, never automatic permission**.
+
+**And a restriction the operator imposed names WHICH guarantees it costs.** An operator restriction
+is not a degraded reading — one is a person's decision, the other is something the loop could not
+see — and until now it had no treatment at all. The four properties the loop advertises are a
+closed list written once in `skills/work/SKILL.md` (`observation_clock`,
+`acknowledgement_on_cadence`, `work_advances_without_waiting`, `separable_worker_evidence`) and
+`work/scripts/delegation-lapse.sh` is the one derivation over them: a **refused delegation** lapses
+the last two and **holds** the first two — the coordinator keeps observing and acknowledging and
+never becomes an inline implementer — a **bounded context** holds all four at one stated cost, and
+an unrestricted tick announces nothing new. `announce: true` posts `workaholic:notify`'s **existing**
+precondition-stop shape under the reader's own signature, with its dedup, escalation and cool-down
+unchanged: no new shape, no new transport, and **no fourth reserved final-response event**. A
+dispatch-policy change is a **correction, not a restart** — same instance id, same startup anchor,
+no second `start`, live receipts reconciled. `scripts/e2e/loop-drill.sh verify-observation-during-work`
+(hermetic) drills the three conditions together and asserts on the recorded event sequence, never on
+elapsed time; a stub proves the loop and not the provider.
+
 For agent-composed gated writes, read the gate in one tool call
 before constructing the merge, push or deletion in another; exit zero is not a passing JSON
 gate. Internally gated delivery scripts retain their check-and-act flow. The implement command

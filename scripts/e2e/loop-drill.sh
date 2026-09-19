@@ -8001,6 +8001,7 @@ cmd_verify_checkin_delivery() {
 
 . "${SCRIPT_DIR}/drills/verify-codex-clock.sh"
 . "${SCRIPT_DIR}/drills/verify-work-drain.sh"
+. "${SCRIPT_DIR}/drills/verify-observation-during-work.sh"
 cmd_verify_all() {
     _only=""
     _list="false"
@@ -8208,7 +8209,7 @@ cmd_verify_all() {
 . "${SCRIPT_DIR}/drills/verify-retired-claim.sh"
 . "${SCRIPT_DIR}/drills/verify-retirement-candidates.sh"
 
-USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-codex-clock [--json]|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-announced-asks [--json]|verify-runner-advance [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]|verify-base-ref-gate [--json]"}'
+USAGE='{"ok": false, "reason": "usage", "detail": "loop-drill.sh seed|status|reset|verify-all [--only <drill>] [--list] [--timeout <s>]|verify-specificate <issue>|verify-implement <issue>|verify-codex-clock [--json]|verify-plan [--json]|verify-status [--json]|verify-cadence [--json]|verify-planner [--json]|verify-standup [--json]|verify-moderate [--json]|verify-propose [--json]|verify-direction-health [--json]|verify-arrival [--json]|verify-residue [--json]|verify-expiry [--json]|verify-rulings [--json]|verify-succession [--json]|verify-revision [--json]|verify-merged-claim [--json]|verify-identity-handoff [--json]|verify-close [--json]|verify-catch-up [--json]|verify-corpus-boundary [--json]|verify-retire [--json]|verify-ci-retirement [--json]|verify-act-effect [--json]|verify-delivery-retry [--json]|verify-handoff-question [--json]|verify-base-health [--json]|verify-return-path [--json]|verify-reconcile [--json]|verify-checkin-delivery [--json]|verify-findings-to-work [--json]|verify-operator-pulls [--json]|verify-condition-age [--json]|verify-plan-adjust [--json]|verify-cadence-lapse [--json]|verify-blocked-tick [--json]|verify-announced-asks [--json]|verify-runner-advance [--json]|verify-stranded-publication [--json]|verify-tick-thread [--json]|verify-retirement-candidates [--json]|verify-retired-claim [--json]|verify-base-ref-gate [--json]|verify-observation-during-work [--json]"}'
 
 CMD="${1:-}"
 [ -n "$CMD" ] || {
@@ -8240,6 +8241,7 @@ case "$CMD" in
     verify-implement) cmd_verify_implement "$@" ;;
     verify-codex-clock) cmd_verify_codex_clock "$@" ;;
     verify-work-drain) cmd_verify_work_drain "$@" ;;
+    verify-observation-during-work) cmd_verify_observation_during_work "$@" ;;
     verify-plan) cmd_verify_plan "$@" ;;
     verify-status) cmd_verify_status "$@" ;;
     verify-cadence) cmd_verify_cadence "$@" ;;

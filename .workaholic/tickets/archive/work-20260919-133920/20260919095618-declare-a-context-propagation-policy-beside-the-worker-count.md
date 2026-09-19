@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:56:18+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -134,3 +135,44 @@ launched it rather than of a declared policy.
   the policy, so a harness that spells it differently needs no new policy value.
 - **Do not let the policy become a second cadence lever.** Spawning fewer workers to save context
   is a count decision and belongs to the dial that already exists.
+
+## Final Report
+
+Development completed as planned.
+
+`dispatch` joined `polling`, `target` and `limits` as an accepted top-level key in
+`runtime/scripts/read-config.sh`, carrying one sub-key `context_policy` over the closed set
+`full_conversation | bounded_task`. Absent resolves to `null`, which is today's behaviour; an
+unrecognised value — including a boolean `false` or a number — is refused
+`invalid_context_policy` on the **resolved** value, so a bad value reaching the policy from the
+profile or from `--input` is refused identically. `runtime/scripts/dispatch-policy.sh` is the
+one reader, answering `policy` / `declared` / `harness` / `supported` / `effective` /
+`support_reason` / `mapping`; `fork_turns=none` appears only as the harness **mapping**.
+`lib/coordinator.jq` records `context_policy` on a `reserve` receipt (refusing an unrecognised
+one) and projects it on every `live[]` row; `codex-loop.sh` reads that same one script, carries
+the effective policy to its detached child through the environment rather than re-reading it
+there, records it on the worker record and prints it on the dispatch line. The report wording is
+byte-identical across `commands/infinite-development.md` and `skills/work/SKILL.md`, pinned by
+`scripts/test-workflow-scripts.mjs`; the child input contract is written once in `work/SKILL.md`
+and cited from the ceiling.
+
+`WORKAHOLIC_MAX_WORKERS`, `WORKAHOLIC_IMPLEMENT_FANOUT`, `loops/scripts/allocate-implement.sh`
+and every `polling` value are untouched.
+
+### Discovered Insights
+
+- **Insight**: `read-config.sh`'s `allowed` guard validates **keys** and nothing else, and its
+  whole jq program sits under `2>/dev/null || runtime_usage "configuration values have invalid
+  types"` — so a value-level refusal cannot be raised inside it without losing its own word.
+  **Context**: the refusal is raised in shell against the *resolved* config instead, which also
+  makes it source-independent: profile, legacy env and `--input` all reach one test.
+- **Insight**: a detached `codex exec` worker inherits no conversation at all, so `bounded_task`
+  is what that harness already does and `full_conversation` is the value it cannot honour — the
+  unsupported direction is the opposite of the one a reader expects.
+  **Context**: this is why the reader answers `effective` beside `supported` rather than one
+  boolean; a harness can be unable to honour either value, and which one it fails is not fixed.
+- **Insight**: the coordinator's store is clone-local under
+  `.git/workaholic/runtime/v1/instances/<id>/meta.json`, so no pull request can carry a
+  migration to it.
+  **Context**: adding a nullable receipt field needs none — a legacy row projects `null`, the
+  same word an undeclared repository answers.

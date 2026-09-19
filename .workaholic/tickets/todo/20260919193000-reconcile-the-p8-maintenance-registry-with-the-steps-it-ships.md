@@ -6,6 +6,7 @@ depends_on:
 mission:
 merge_policy:
 verification_handoff: 
+claim: work-20260919-214225
 ---
 
 # Reconcile the P8 maintenance registry with the steps it ships

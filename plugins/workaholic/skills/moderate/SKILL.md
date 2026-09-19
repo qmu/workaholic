@@ -42,7 +42,15 @@ PRs remain the operator's decision after the implementation role catches their b
 bash ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/run-planned.sh
 ```
 
-The registry `scripts/steps.json` owns step order and cadence. The wrapper records each step as
+The registry `scripts/steps.json` owns step order and cadence, and **nothing copies it** — adding
+a step means editing the registry and shipping its `step-<id>.sh`, and no second list anywhere
+needs the same edit. `delivery-report.test.mjs`'s `P8 maintenance registry` row derives its
+assertions rather than restating the registry: **complete** is the registry against the shipped
+`step-*.sh` files, both directions, and **ordered** is the bookends (`open-log` first,
+`human-checkin` last), `file-findings` after the steps whose reports it files, and the two
+adjacencies `reference/workflow.md` states. A copy of the order in a test file was tried twice
+(a `length` pin, then a by-name list) and each went red on the first pull request that added a
+step while another was in flight. The wrapper records each step as
 executed, skipped, degraded or blocked and advances cadence only for steps actually run.
 `--deadline-seconds <n>` bounds the tick; a step not reached is `skipped:budget`, not successful.
 

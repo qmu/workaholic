@@ -1250,9 +1250,11 @@ root.
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-direction-health.sh --tick <id> [--root <repo-root>] [--open-proposals <file>]
 ```
 
-**It runs beside `strategy-pace`** — tenth in `run.sh`'s `STEPS`, immediately after it and well
-before `human-checkin`, which must stay last. (The numbering of these sections is the order they
-were written in, not the run order; `STEPS` is the contract.)
+**It runs beside `strategy-pace`** — immediately after it in `steps.json`, and well before
+`human-checkin`, which must stay last. (The numbering of these sections is the order they were
+written in, not the run order; the registry is the contract. No ordinal is stated here: an
+absolute position goes stale the moment a step is added ahead of it, and the adjacency is what
+is load-bearing. `delivery-report.test.mjs`'s `P8 maintenance registry` row pins this pair.)
 
 Reads `strategy/scripts/direction-state.sh` — the one lifecycle reader, which composes
 `survey-strategies.sh` and re-derives nothing — and hands every **non-`live`** reading to the
@@ -1657,8 +1659,12 @@ reason `budget`, by name.
 sh ${CLAUDE_PLUGIN_ROOT}/skills/moderate/scripts/step-unanswered-asks.sh --tick <id> [--root <repo-root>]
 ```
 
-**It runs immediately before `human-checkin`** — fifteenth in `run.sh`'s `STEPS`, which is the
-contract; the numbering of these sections is the order they were written in.
+**It runs late in `steps.json`** — after the steps whose unanswered messages it gathers, and
+before `file-findings` and `human-checkin`. The registry is the contract; the numbering of these
+sections is the order they were written in. It said *immediately before `human-checkin`, fifteenth
+in `run.sh`'s `STEPS`* until 2026-09-19, and both halves had gone stale — `file-findings` sits
+between the two now, and the absolute position had moved twenty rows — which is why neither an
+ordinal nor an adjacency nothing pins is stated here.
 
 **Why the step exists** (2026-08-26, mission
 `answer-what-is-waiting-and-stamp-what-was-accepted`): the tick's question set was bounded by

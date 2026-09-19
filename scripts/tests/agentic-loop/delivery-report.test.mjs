@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -68,28 +68,55 @@ test('P8 delivery resumes an unknown merge without repeating catch-up or the mer
   assert.deepEqual(readFileSync(calls,'utf8').trim().split('\n'),['catchup','prepare','merge']);
 });
 
-// The registry is a contract, so it is pinned BY NAME (2026-09-19). A bare `length` pin went
-// stale the first time a step was added (`worktree-sweep`, PR #1224) and failed with `34 !== 33`,
-// naming nothing. `loop-drill.sh:1326` recorded the same lesson in 2026-08-26. Adding, removing or
-// reordering a step means editing this list, which is deliberate: the row exists so that a
-// registry change is stated rather than absorbed, and the diff names the id that moved.
-const EXPECTED_STEPS = ['open-log','blocked-tick','unattributed-asks','propose-yield',
-  'inbound-sweep','workload-logs','merge-conflicts',
-  'issue-triage','stuck-prs','doc-drift','release-status','note-cadence','strategy-pace',
-  'direction-health','date-will-not-hold','stalled-units','raced-units','undrivable-units',
-  'standing-rulings','undelivered-units','handoff-units','thread-reconcile',
-  'stranded-publications','operator-pulls','retire-claims','worktree-sweep','closable-missions',
-  'unrecorded-missions','base-health','drill-health','cadence-lapse','strategy-digest',
-  'question-answers','unanswered-asks','file-findings','human-checkin'];
+// The registry is a contract, and every property below is DERIVED — never a second copy of the
+// list (2026-09-19, ticket `20260919193000`). Two earlier shapes each went stale on the first
+// concurrent step addition, for one reason: the row restated `steps.json` to itself.
+//   * A bare `length` pin failed `34 !== 33` when `worktree-sweep` landed (PR #1224), naming
+//     nothing at all.
+//   * Pinning the ids BY NAME (PR #1231) fixed the message and kept the defect. `steps.json` is
+//     itself the contract the workflow reference points a reader at (*`STEPS` is the contract*),
+//     so a literal copy of it here proves nothing and costs an edit in every pull request that
+//     touches the registry — which is a red base whenever two of them are in flight. Measured
+//     the same day it landed: PR #1239 added `unattributed-asks` and `propose-yield`, both
+//     branches were green against their own base, and `main` went red for every runner building
+//     on it.
+// `loop-drill.sh:1326` recorded the same lesson in 2026-08-26 and derives its own count.
+//
+// So each half of the row's name is asserted from a source that is not the list:
+//   * COMPLETE — against the TREE, both directions. Every registered row names a script that
+//     ships, and every `step-*.sh` that ships is registered. That is strictly stronger than the
+//     literal list, which never checked a script existed at all: a shipped-but-unregistered step
+//     never runs, and a row whose script is missing reports `degraded`/`step_missing` every hour.
+//     It needs no edit when a step is added, which is the whole point.
+//   * ORDERED — the orderings `moderate/reference/workflow.md` STATES, each asserted with its own
+//     reason and its own message. The rest of the sequence is a registry authoring decision the
+//     reference explicitly declines to fix ("the numbering of these sections is the order they
+//     were written in, not the run order"), so pinning it would be pinning a non-contract.
+// A step's own identity stays pinned where the change that introduces it lives: each carries its
+// own `moderateSteps().includes('<id>')` row in `test-workflow-scripts.mjs`, so a registry change
+// is still stated by the pull request that makes it rather than absorbed.
 
 test('P8 maintenance registry is ordered and complete', () => {
-  const registry=JSON.parse(readFileSync(join(scripts,'moderate/scripts/steps.json'),'utf8'));
+  const stepDir=join(scripts,'moderate/scripts');
+  const registry=JSON.parse(readFileSync(join(stepDir,'steps.json'),'utf8'));
   const ids=registry.steps.map(x=>x.id);
-  assert.deepEqual(ids,EXPECTED_STEPS);
-  // Kept beside the deepEqual although it subsumes them: each bookend is a pinned property with
-  // its own recorded reason (`human-checkin` asks with every finding in hand), and it must fail
-  // with its own message rather than inside a 34-element diff.
-  assert.equal(registry.steps[0].id,'open-log'); assert.equal(registry.steps.at(-1).id,'human-checkin');
+
+  // Complete: the registry and the shipped scripts are the same set, read off the tree.
+  assert.deepEqual(registry.steps.map(x=>x.script).sort(),
+    readdirSync(stepDir).filter(f=>f.startsWith('step-')&&f.endsWith('.sh')).sort(),
+    'a shipped step is unregistered (it never runs), or a registered row names a script that does not ship');
+  for (const row of registry.steps) assert.equal(row.script,`step-${row.id}.sh`,
+    `${row.id}: the row's script must carry its own id — the two lists above compare by script name`);
+
+  // Ordered: each bookend and each stated adjacency is a pinned property with its own recorded
+  // reason, and must fail with its own message rather than inside a 36-element diff.
+  const at=id=>ids.indexOf(id);
+  assert.equal(registry.steps[0].id,'open-log','nothing may log before the tick log is open');
+  assert.equal(registry.steps.at(-1).id,'human-checkin','it asks with every finding in hand, so it stays last');
+  assert.equal(at('file-findings'),ids.length-2,
+    'file-findings runs after the steps whose reports are its candidates (workflow.md §25) — anything placed after it would file before its own inputs');
+  assert.equal(at('direction-health'),at('strategy-pace')+1,'direction-health runs beside strategy-pace, immediately after it (workflow.md §15)');
+  assert.equal(at('date-will-not-hold'),at('direction-health')+1,'date-will-not-hold runs immediately after direction-health (workflow.md §15a)');
   assert.equal(new Set(ids).size,ids.length,'a step id is registered twice');
   // `trigger` is asserted to be an OBJECT, not merely truthy (2026-09-19, ticket `20260919141500`):
   // the string `'cadence'` is truthy and passed here, while `plan-steps.sh` indexes `.trigger.seconds`

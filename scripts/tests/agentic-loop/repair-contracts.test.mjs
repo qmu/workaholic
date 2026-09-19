@@ -674,3 +674,76 @@ test('the integration order refuses a cycle and a dependency outside the request
   // A settled chain offers only what is ready now — 82 waits for 81.
   assert.deepEqual(row('chain.md').next, [81]);
 });
+
+// A completion mention is withheld until EVERY accepted request in one human thread is in
+// (2026-09-19, ticket `20260919100142`, issue #1146). Both existing readers fold within one
+// item; the unit a person means by *done* is the thread, and nothing folded across it — a
+// mention went out when one unit merged while four requests from the same thread were queued.
+test('a thread completes only when every accepted member of it is delivered', t => {
+  const {call, record} = fixture(t);
+  for (const r of ['done','queued','other','keyless','deferred']) record(r, '/app');
+  const base = {verified_surface:'/app', evidence:['probe'], queue_readable:true, queued:0,
+    deployment:'ok', public_verification:true, thread:{status:'found', complete:true}};
+  const pr = n => [{number:n, merged:true, verified:true}];
+  const out = call('work/scripts/thread-completion.sh', {items:[
+    {...base, feedback:'done.md',   thread_key:'C1:100.1', pull_requests:pr(1)},
+    // One member short withholds the whole thread and is named.
+    {...base, feedback:'queued.md', thread_key:'C1:100.1', queued:2,
+      pull_requests:[{number:2, merged:false, verified:false}]},
+    {...base, feedback:'other.md',  thread_key:'C1:200.2', pull_requests:pr(3)},
+    // Only an EXPLICIT human defer or cancel narrows the accepted set.
+    {...base, feedback:'deferred.md', thread_key:'C1:200.2', human_scope:'deferred', queued:9,
+      pull_requests:[{number:4, merged:false, verified:false}]},
+    // No key is its own answer, never a silent drop into some other thread.
+    {...base, feedback:'keyless.md', thread_key:'', pull_requests:pr(5)},
+  ]}).json.data;
+  const th = k => out.threads.find(x => x.thread_key === k);
+
+  assert.equal(th('C1:100.1').verdict, 'incomplete', 'one member short is not a completed thread');
+  assert.deepEqual(th('C1:100.1').holding, [{feedback:'queued.md', held_by:'still_queued'}],
+    'a withheld mention names which member held it');
+  assert.equal(th('C1:100.1').total, 2);
+  assert.equal(th('C1:100.1').delivered, 1);
+
+  assert.equal(th('C1:200.2').verdict, 'complete');
+  assert.deepEqual(th('C1:200.2').excluded, [{feedback:'deferred.md', scope:'deferred'}],
+    'a narrowing is visible, never silent');
+  assert.equal(th('C1:200.2').total, 1);
+
+  assert.deepEqual(out.keyless, [{feedback:'keyless.md', reason:'thread_key_unresolvable'}]);
+  assert.equal(out.complete, 1);
+  assert.equal(out.incomplete, 1);
+  assert.equal(out.unreadable, 0);
+});
+
+// INCOMPLETE DISCOVERY IS NEVER EVIDENCE OF COMPLETENESS (issue #1132). The direction is
+// deliberately asymmetric: an unreadable membership or member withholds, with null counts.
+test('an unreadable membership or member withholds the thread with null counts', t => {
+  const {call, record} = fixture(t);
+  for (const r of ['ok1','badmember','ok2']) record(r, '/app');
+  const base = {verified_surface:'/app', evidence:['probe'], queue_readable:true, queued:0,
+    deployment:'ok', public_verification:true, thread:{status:'found', complete:true}};
+  const out = call('work/scripts/thread-completion.sh', {items:[
+    {...base, feedback:'ok1.md', thread_key:'C1:300.3',
+      pull_requests:[{number:10, merged:true, verified:true}]},
+    // An item whose own queue could not be read keeps `feedback-outcome.sh`'s `unreadable`.
+    {...base, feedback:'badmember.md', thread_key:'C1:300.3', queue_readable:false,
+      pull_requests:[{number:11, merged:true, verified:true}]},
+    // A set whose membership could not be established is unreadable even though its one
+    // readable member is delivered.
+    {...base, feedback:'ok2.md', thread_key:'C1:400.4', membership_readable:false,
+      pull_requests:[{number:12, merged:true, verified:true}]},
+  ]}).json.data;
+  const th = k => out.threads.find(x => x.thread_key === k);
+
+  assert.equal(th('C1:300.3').verdict, 'unreadable');
+  assert.equal(th('C1:300.3').reason, 'member_unreadable');
+  assert.equal(th('C1:300.3').total, null, 'null, never 0 — 0 reads as counted and found none');
+  assert.equal(th('C1:300.3').delivered, null);
+
+  assert.equal(th('C1:400.4').verdict, 'unreadable');
+  assert.equal(th('C1:400.4').reason, 'membership_unreadable');
+  assert.equal(th('C1:400.4').total, null);
+  assert.equal(out.complete, 0, 'nothing completes on an absence of a reading');
+  assert.equal(out.unreadable, 2);
+});

@@ -271,6 +271,18 @@ answered by **several** pull requests: that reader composes the same one and fol
 answers `delivered`, the first `missing` stage, the bounded dependency-ordered `next[]`, one
 `blockers[]` entry per gate naming its whole affected scope, and the `independent[]` work that
 keeps going. Report every item, including queued, unverified and surface-mismatched work.
+**Then fold the items at the THREAD grain before any completion mention is composed** (2026-09-19,
+ticket `20260919100142`, issue #1146): both readers above fold *within* one item, and the unit a
+person means by *done* is the whole thread. Pass the items — each carrying the `thread_key` its
+`slack_ref` coordinate already gives it — through
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/work/scripts/thread-completion.sh --input <file>`. A
+**completion mention** may be composed only for a thread it answers `complete`; `incomplete` names
+every member and the state holding it and takes the scoped-progress path, and **`unreadable`
+withholds** — incomplete discovery is never evidence of completeness. An item with no thread key is
+named in `keyless[]` and folded into no thread. The accepted set narrows only on an **explicit
+human defer or cancel** (`workaholic:notify`, *Three acts: a worker receipt, scoped progress, and a
+completion mention*); a worker's judgement, a merged pull request and this run's own reading never
+narrow it. Report each thread's verdict and, for an `incomplete` one, the members holding it.
 **This step announces and never closes** (2026-09-19, ticket `20260919094701`): its candidate
 reader lists issues that are already closed, so it sees an item only after something else ended
 it. The one seam that may close a source issue is `/implement`'s per-item reconciliation

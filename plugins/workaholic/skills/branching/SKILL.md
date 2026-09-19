@@ -99,6 +99,24 @@ Output: `{"ok": true, "base", "cleared": [{"path", "class"}], "regenerated": boo
 
 **`/drive` §1 wires it once, never in a loop**: on `sync-main.sh` answering `dirty_workspace`, call the act once and, on `cleared`, re-run `sync-main.sh` once. A freshen that still refuses after a successful clear is reporting something the proof does not cover, and retrying would turn a report into a spin.
 
+## The local proof set
+
+```bash
+sh ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/local-proof.sh [--repo <path>] [--log-dir <path>] [--list]
+```
+
+**The one declaration of the checks a `main`-bound merge stands on, and the one runner of them** (2026-09-19, ticket `20260919230700`). `merge-gate-policy.sh` answers `remote_checks_required: false` for `main` and `drive/scripts/branch-checks.sh` emits `pass development_main_local_proof` before reaching any check reader — the recorded release-tier decision (`CLAUDE.md`, *The release tier*), **unchanged by this script**. The defect was the substitute: the word asserts a local proof stood in and nothing established that one ran. Two sites spelled the same three checks — `drive/scripts/catch-up-claim.sh` and `prepare-publication.sh` — both a strict subset of CI's `validate` job. **Measured**: seven consecutive first-parent commits on `main` failed `Validate Plugins` on 2026-09-19, the failing step on both ends being *Test agentic loop contracts and consumers*, which neither list ran.
+
+The declaration is the `validate` job's own repository commands plus `build-plugins/verify.mjs` and the **hermetic** drill entry point `loop-drills.yml` runs on push (`verify-all` stays a pre-approval gate and is not in the set). Each row names the command, whether it is required, its own timeout and the probe path that says whether this repository carries it. `scripts/test-workflow-scripts.mjs` pins the declaration against `validate-plugins.yml` and **names what it cannot see** — a step whose command is built by interpolation.
+
+Output: `{"readable": true, "repo", "ok", "complete", "checks": [{"name","required","ran","ok","seconds","log","reason"}], "not_run": [...], "failed": [...]}`, or `{"readable": false, "reason", "ok": null, "complete": null, "checks": null, ...}` — **null counts, never an empty array**, which reads as a set that ran and found nothing.
+
+Three fields, never collapsed. **`ok`** is *no check ran and failed*, and it is what a caller refuses on, so every existing `validation_failed:<check>` word is byte-identical. **`complete`** is *every required check ran*, and it is **reported, never a refusal**: the retired lists skipped an absent check silently (`[ -f ] || continue`) and a consuming repository that carries none of these files must keep pushing exactly as it did — what changes is that the skip is now named. **`not_run`** carries one line per check that did not run, with its own reason (`check_absent`, `interpreter_unavailable:<tok>`, `timeout:<n>s`). A check that did not run is its own state and never a soft pass, the rule `workaholic:ship` already holds for a deployment.
+
+**Every check runs, including after one has failed.** Stopping at the first failure would make `not_run` mean both *this could not run* and *we stopped early*, which is the confusion the script exists to end; the stated cost is that a doomed push spends the whole set's wall clock before it is refused.
+
+Both of `catch-up-claim.sh`'s rulings live **here** rather than at one call site: the checks run with `WORKAHOLIC_CLAIM_STALE_HOURS`, `WORKAHOLIC_CLAIM_HEARTBEAT_STALE_MINUTES` and `WORKAHOLIC_CLAIM_MERGED_LOOKUP` unset (a caller collapsing the heartbeat window turned 16 claim-protocol assertions red and refused a push over a branch whose suite passed), and each check's output is **kept, not printed**, in a log whose path rides that check's row — a passing check's log is removed. `prepare-publication.sh` discarded its output outright (`>/dev/null 2>&1`) and gains the log by composing the runner. It runs nothing outward: no network read, no push, no merge, no ref written and no gate.
+
 ## Worktree management
 
 Scripts live at `${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/<name>`. This table is a locator, not a contract — arguments, JSON outputs, and error cases are in [`reference/worktrees.md`](reference/worktrees.md).

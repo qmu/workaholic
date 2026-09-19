@@ -270,6 +270,29 @@ could see, not about whether the unit landed. Any argument for moving `ok` on it
 separate ask. It is the same ground on which `backlog_all_excluded` and the base's health move
 none.
 
+**And an act that ran the local proof set names what it proved** (2026-09-19, ticket `20260919230700`).
+`branch-checks.sh` passes a `main`-based pull request `development_main_local_proof` without reading a
+check run — the recorded release-tier decision, unchanged — so the local proof set **is** the gate for
+every merge this loop makes onto the base. Until now nothing established that any such proof ran, still
+less which one: two call sites hard-coded the same three checks, both a strict subset of CI's own
+`validate` job, and neither ran `node --test scripts/tests/agentic-loop/*.test.mjs` — the exact step whose
+absence turned `main` red **seven consecutive first-parent commits** on 2026-09-19, from 10:10:40Z to
+11:45:28Z. `branching/scripts/local-proof.sh` is the one declaration and the one runner, and its reading
+rides each act's own result as `local_proof`.
+
+**The wording is stated here once and cited, never restated.** An act that reached the runner —
+`catch-up-claim.sh`, `prepare-publication.sh` and the two acts that compose them — names in the run report
+and in the pull-request body: **the checks that ran with their outcomes, and every `not_run` by name with
+its own reason**. A check that did not run is its own state and never a soft pass, the rule
+`workaholic:ship` already holds for a deployment (*A failed or pending deployment is its own state*).
+**A report that names an act which ran the proof set and reports no local proof for it is
+non-conformant on its face**, the enforcement every act in this section carries. Three fields, never
+collapsed: `ok` (no check ran and failed — what refuses), `complete` (every required check ran — reported,
+never a refusal, because a consuming repository carrying none of these files must keep pushing exactly as
+it did), and `not_run` (one line per check that did not run). **It moves no token**: an incomplete set is a
+fact about this machine, not about whether the unit landed, and what withholds `ok` is the act's own
+refusal word (`validation_failed:<check>`), which is byte-identical to what it always was.
+
 **And each `list-catchable-claims.sh` candidate names its catch-up outcome in the same three words** (2026-08-30, mission `catch-a-reported-claim-up-before-its-conflict-hardens`): one line per candidate — the unit and one of `caught_up` / `already_current` / `catch_up_refused: <word>`, the word **verbatim**, because a normalised word sends a reader to a string no script printed. **And beside it, its `delivery`** (2026-09-02, mission `resolve-a-conflicted-pull-request-in-the-tick-not-report-it`) — `merged` / `merge_refused: <word>` / `not_attempted[: <reason>]`, in §6's existing merge vocabulary and never a second set, because a caught-up branch whose pull request is still open is exactly the parked state the delivery exists to end. **The two words sit side by side and are never collapsed**: `caught_up` is the branch's fate and `delivery` is the pull request's, and a run that reports the first alone reports a repair that delivered nothing. **Naming a candidate and reporting no delivery for it is non-conformant on its face**, the enforcement every act in this section carries. A `merged` delivery stops withholding `ok`; a `merge_refused` one **forbids** it, on the `review` route's own reasoning; a `not_attempted` one moves no token — a held gate is the gate working, a `report_undelivered` candidate's delivery is `retry-undelivered.sh`'s, reported there, and a `not_attempted: awaiting_verification` one is waiting on the person the handoff route named. **A `merge_refused: session_type_cannot_merge` takes the same numbered connector step every other refused merge takes** — one attempt through `mcp__github__merge_pull_request`, on that word and no other, with its own outcome reported; it lives in the calling agent because **no script may call an MCP tool**, and a wrapper shelling out to one would be the same gap with more moving parts. **The same three words, never a second set**: the outcome of a catch-up on a `queue_drained` claim and on a `report_undelivered` one are the same kind of fact. **A run that names a candidate and reports no outcome for it is non-conformant on its face**, the retry row's enforcement for its reason. **No artifact gains a field**, and a run with no candidates reports nothing new.
 
 **And a race this run MET is named as the run's own outcome, with both branches** (2026-08-30,

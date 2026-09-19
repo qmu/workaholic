@@ -40497,16 +40497,30 @@ function testCatchUpKeepsTheFailingCheckOutput() {
 
   assertTrue("the reported JSON carries a check_log field",
     /"check_log": "%s"/.test(src));
+  // Anchored on the FIRST refusal the script can take, not on the checks: what the declaration
+  // has to precede is any path that renders the report, and the earliest of those is this one.
   assertTrue("check_log is declared before any refusal can render it",
-    src.indexOf('CHECK_LOG=""') < src.indexOf("if command -v node"));
+    src.indexOf('CHECK_LOG=""') < src.indexOf("refuse not_a_repository"));
+  assertTrue("...and so is the local-proof reading it is reported beside",
+    src.indexOf('LOCAL_PROOF_RESULT="null"') < src.indexOf("refuse not_a_repository"));
   assertTrue("a failing check names its log on the refusal",
-    /CHECK_LOG="\$_cul"; refuse "validation_failed:/.test(src));
+    /CHECK_LOG=\$\(printf[\s\S]{0,200}refuse "validation_failed:/.test(src));
+  // THE TWO RULINGS MOVED, THEY DID NOT GO (2026-09-19, ticket `20260919230700`). The clean
+  // environment and the kept log are properties of RUNNING the set, and the set is now declared
+  // and run once in `local-proof.sh` rather than spelled at each call site — so they are pinned
+  // where they live. Pinning them at this caller again is what let the second call site
+  // (`prepare-publication.sh`) keep neither for months.
+  const runner = readFileSync(join(REPO_ROOT,
+    "plugins/workaholic/skills/branching/scripts/local-proof.sh"), "utf8");
   assertTrue("the checks still run in the same clean environment",
-    /unset WORKAHOLIC_CLAIM_STALE_HOURS/.test(src));
+    /unset WORKAHOLIC_CLAIM_STALE_HOURS/.test(runner));
   assertTrue("a check that passed leaves no log behind",
-    /rm -f "\$_cul"/.test(src));
+    /ran=true; ok=true; rm -f "\$log"/.test(runner));
   assertTrue("the captured output is never printed to stdout",
-    !/cat "\$_cul"/.test(src));
+    !/cat "\$log"/.test(runner) && !/cat "\$_cul"/.test(src));
+  // AND THE CALLER STILL COMPOSES IT, so neither ruling can be lost by a caller going its own way.
+  assertTrue("the caller reaches the set through the one runner",
+    /local-proof\.sh/.test(src));
 }
 
 T("the operator's own pull requests are derived, read and asked about", testOperatorFacingPulls);
@@ -43624,6 +43638,98 @@ function testDelegationLapseSurfaces() {
   assertTrue("and the ceiling says the lapse adds none",
     ceiling.includes("adds no fourth reserved final-response event"),
     "plugins/workaholic/commands/infinite-development.md");
+}
+
+// ---------- the local proof set is declared once and pinned against CI (2026-09-19) ----------
+// Ticket `20260919230700`. `branch-checks.sh` passes a `main`-based pull request
+// `development_main_local_proof` without reading a check run — the recorded release-tier
+// decision, unchanged here. What this row pins is the SUBSTITUTE that word asserts: one
+// declaration, one runner, and a set that is not a strict subset of what CI runs.
+//
+// WHAT IT CANNOT SEE, named in its own assertion: a `run:` step whose command is built by
+// interpolation (a shell variable, a matrix value, a composite action) never appears as a
+// literal here, so it can be added to CI without this row noticing. The extraction is
+// deliberately literal for the same reason every other tree walk in this file is.
+T("the local proof set is declared once and covers CI's validate job", testLocalProofDeclaration);
+function testLocalProofDeclaration() {
+  const RUNNER = join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/local-proof.sh");
+  assertTrue("the runner exists", existsSync(RUNNER), RUNNER);
+
+  const listed = JSON.parse(run(REPO_ROOT, `sh ${RUNNER} --list`).stdout);
+  assertTrue("--list answers a readable declaration", listed.readable === true,
+    "local-proof.sh --list");
+  const declared = listed.checks.map((c) => c.command).join("\n");
+  assertTrue("--list runs nothing", listed.checks.every((c) => c.ran === undefined),
+    "the listing must not carry a run's fields");
+
+  // ---- 1. EVERY REPOSITORY COMMAND CI'S `validate` JOB RUNS IS IN THE DECLARATION.
+  // The `validate` job is the whole of `validate-plugins.yml`'s `jobs:` block, so the file is
+  // read whole; a second job would need its own row rather than silently joining this one.
+  const wf = readFileSync(join(REPO_ROOT, ".github/workflows/validate-plugins.yml"), "utf8");
+  const jobsBlock = wf.slice(wf.indexOf("\njobs:\n"));
+  assertTrue("the workflow declares exactly one job, `validate`",
+    (jobsBlock.match(/^ {2}[a-z][a-z0-9_-]*:$/gm) || []).join(",") === "  validate:",
+    "a second job must be pinned by its own row");
+  // A repository command is one naming a path this repository carries. Anything else in a
+  // `run:` block is inline shell (jq over a manifest, a directory walk) and is CI's own.
+  const REPO_COMMANDS = (wf.match(/\b(?:scripts|plugins)\/[A-Za-z0-9._*/-]+\.(?:mjs|sh)/g) || [])
+    .filter((p, i, a) => a.indexOf(p) === i);
+  assertTrue("the workflow names at least the four commands this repair is about",
+    ["scripts/build-plugins/validate-metadata.mjs",
+      "scripts/tests/agentic-loop/*.test.mjs",
+      "scripts/test-workflow-scripts.mjs",
+      "plugins/workaholic/hooks/layout-doctor.sh"].every((c) => REPO_COMMANDS.includes(c)),
+    `read: ${REPO_COMMANDS.join(" ")}`);
+  for (const cmd of REPO_COMMANDS) {
+    assertTrue(`the declaration covers CI's \`${cmd}\``, declared.includes(cmd),
+      "add it to local-proof.sh's own declaration, which is the only place it may be named");
+  }
+
+  // ---- 2. AND THE HERMETIC DRILL ENTRY POINT `loop-drills.yml` RUNS ON PUSH.
+  assertTrue("the declaration carries the hermetic drill set",
+    /loop-drill\.sh verify-all --kind hermetic/.test(declared),
+    "only the hermetic part belongs in a pre-push set");
+
+  // ---- 3. THE SET IS SPELLED HERE AND NOWHERE ELSE UNDER `plugins/`.
+  // The two retired lists were `for check in build-plugins/verify.mjs …` loops. A prose
+  // mention of a check's name is not a check to RUN, so the ban is on the loop's own shape.
+  const offenders = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!e.name.endsWith(".sh")) continue;
+      if (p === RUNNER) continue;
+      const body = readFileSync(p, "utf8");
+      if (/for\s+check\s+in\s+build-plugins\//.test(body)) offenders.push(p);
+    }
+  };
+  walk(join(REPO_ROOT, "plugins/workaholic"));
+  assertEq("no second hard-coded check list survives under plugins/", offenders.join(","), "");
+
+  // ---- 4. BOTH CALL SITES COMPOSE THE RUNNER, AND NEITHER SPELLS THE SET.
+  for (const site of ["plugins/workaholic/skills/drive/scripts/catch-up-claim.sh",
+    "plugins/workaholic/skills/branching/scripts/prepare-publication.sh"]) {
+    const body = readFileSync(join(REPO_ROOT, site), "utf8");
+    assertTrue(`${site} composes local-proof.sh`, /local-proof\.sh/.test(body), site);
+    // THE REFUSAL WORD DOES NOT MOVE — no caller's `case` arm may need editing.
+    assertTrue(`${site} keeps the validation_failed:<check> spelling`,
+      /validation_failed:/.test(body), site);
+    // AND THE READING RIDES THE RESULT, so a run report can name every `not_run`.
+    assertTrue(`${site} carries the reading into its own result`,
+      /"local_proof": %s/.test(body), site);
+  }
+
+  // ---- 5. A CHECK THAT DID NOT RUN IS ITS OWN STATE, NEVER A SOFT PASS.
+  const runner = readFileSync(RUNNER, "utf8");
+  assertTrue("the runner separates `ok` from `complete`",
+    /"complete": %s/.test(runner) && /"ok": %s/.test(runner), RUNNER);
+  assertTrue("an unreadable set answers null counts, never an empty array",
+    /"checks": null/.test(runner), RUNNER);
+  assertTrue("the runner carries the clean-environment ruling",
+    /unset WORKAHOLIC_CLAIM_STALE_HOURS/.test(runner), RUNNER);
+  assertTrue("the runner keeps each check's output in a log whose path rides the row",
+    /log\\?": /.test(runner) && /json_str "\$log"/.test(runner), RUNNER);
 }
 
 for (const [label, fn] of tests) {

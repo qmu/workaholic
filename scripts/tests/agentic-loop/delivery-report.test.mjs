@@ -73,7 +73,8 @@ test('P8 delivery resumes an unknown merge without repeating catch-up or the mer
 // naming nothing. `loop-drill.sh:1326` recorded the same lesson in 2026-08-26. Adding, removing or
 // reordering a step means editing this list, which is deliberate: the row exists so that a
 // registry change is stated rather than absorbed, and the diff names the id that moved.
-const EXPECTED_STEPS = ['open-log','blocked-tick','inbound-sweep','workload-logs','merge-conflicts',
+const EXPECTED_STEPS = ['open-log','blocked-tick','unattributed-asks','propose-yield',
+  'inbound-sweep','workload-logs','merge-conflicts',
   'issue-triage','stuck-prs','doc-drift','release-status','note-cadence','strategy-pace',
   'direction-health','date-will-not-hold','stalled-units','raced-units','undrivable-units',
   'standing-rulings','undelivered-units','handoff-units','thread-reconcile',

@@ -7,6 +7,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: [https://github.com/qmu/workaholic/issues/1248]
+claim: work-20260919-231306
 ---
 
 # Declare the local proof set a main-bound merge stands on

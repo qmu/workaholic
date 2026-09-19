@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:51:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -139,3 +140,46 @@ own reading would be exactly the act that is forbidden.
   let the operator decide, not to silently trim or to refuse their ruling.
 - **The ask's concrete continuation names five issues on another repository.** Nothing here reaches
   another repository; what ships is the mechanism, which that repository's own operator then uses.
+
+## Final Report
+
+Development completed as planned.
+
+`mission/scripts/regroup-tickets.sh` is the act: given a mission slug and an explicit list of
+queued ticket filenames it writes the `mission:` relation onto each and appends **one**
+changelog line through `append-changelog.sh`, and writes nothing else. It copies
+`carry-attribution.sh` property for property — it fires on an explicit announcement and never
+on the run's own reading, re-derives every precondition at the moment of the act, is
+idempotent (`already_in_mission`), is reversible, and refuses every bound by its own word with
+the tree byte-identical: `mission_not_found`, `not_active`, `ticket_not_found`, `not_queued`,
+`in_other_mission`, `claimed`, `claim_unreadable`, `immutable_field`, plus `no_slug` /
+`no_tickets`. Validation is all-or-nothing: every member is checked before any member is
+written, and a refusal reports the set and the refusals together.
+
+`/specificate` gained step 9f as step 9e's sibling, named in the route-selection paragraph and
+bounded by the same explicit-announcement rule. Hermetic rows cover each refusal, the
+byte-identity of a refused tree, the write, the idempotent re-run, `plan-units.sh` offering the
+regrouped ticket inside its mission's unit rather than loose, and the write-time floor.
+
+### Discovered Insights
+
+- **Insight**: `publish-tree-pr.sh`'s `ruling_touching` derivation does **not** catch a
+  regroup, and that is said plainly rather than implied. **Context**:
+  `branching/scripts/lib/publication-refusal.sh` fires on status `M` under
+  `.workaholic/missions/` **with the file's own patch moving a `feedback:` line**. A regroup
+  moves a *ticket's* `mission:` line and appends a mission *changelog* line — neither term. So
+  the non-auto-merge is the caller's rule, pinned by a test over step 9f's own text: the same
+  weaker guarantee step 9e already records for itself, rather than a second claim that the
+  seam enforces something it cannot see.
+- **Insight**: `claimed` needed no new mechanism, but it did need the oracle.
+  **Context**: the `claim:` stamp lives on the claim's own `work-*` branch and never on the
+  base, so a publish tree checked out from `origin/main` cannot see it in frontmatter. The act
+  reads `drive/scripts/list-claims.sh` — the unmerged remote branches, the one oracle — once
+  for the whole set, and refuses `claim_unreadable` on a scan it could not parse: an absence
+  of a reading is never a proof that nothing is claimed, which is the same rule `unanswerable`
+  carries everywhere else in this repository.
+- **Insight**: a ticket already inside *another* mission needed a word of its own.
+  **Context**: the relation is many-valued, so appending would have been mechanically
+  legal — and would have left the ticket driven by whichever of two units claimed first, an
+  ambiguity the operator did not ask for. `in_other_mission` refuses it instead: the ask is
+  about regrouping *loose* tickets, and a ticket with a mission is not one.

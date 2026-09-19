@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report](active/keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report/mission.md) - Keep one coherent feedback batch one mission one pull request one report
 * [never-let-the-routine-that-originates-work-converge-on-silence](active/never-let-the-routine-that-originates-work-converge-on-silence/mission.md) - Never let the routine that originates work converge on silence
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 * [stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads](active/stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads/mission.md) - Stop the Codex clock dying silently and writing the locks it reads
@@ -55,6 +54,7 @@
 * [give-the-tick-a-route-for-the-records-it-writes](archive/give-the-tick-a-route-for-the-records-it-writes/mission.md) - Give the tick a route for the records it writes
 * [hand-off-the-members-that-declare-and-drive-the-rest](archive/hand-off-the-members-that-declare-and-drive-the-rest/mission.md) - Hand off the members that declare, and drive the rest
 * [hold-the-completion-mention-until-the-whole-human-request-set-is-in](archive/hold-the-completion-mention-until-the-whole-human-request-set-is-in/mission.md) - Hold the completion mention until the whole human request set is in
+* [keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report](archive/keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report/mission.md) - Keep one coherent feedback batch one mission one pull request one report
 * [keep-the-closing-link-readable-as-the-corpus-grows](archive/keep-the-closing-link-readable-as-the-corpus-grows/mission.md) - Keep the closing link readable as the corpus grows
 * [keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main](archive/keep-the-native-loop-alive-preserve-slack-input-and-stop-direct-commits-to-main/mission.md) - Keep the native loop alive, preserve Slack input, and stop direct commits to main
 * [land-the-loop-s-own-work-when-the-base-moves-under-it](archive/land-the-loop-s-own-work-when-the-base-moves-under-it/mission.md) - Land the loop's own work when the base moves under it

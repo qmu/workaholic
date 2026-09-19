@@ -764,4 +764,6 @@
 * [開発中のmainとrelease branchでCI merge gateを分ける](20260917173839-main-release-branch-ci-merge-gate.md)
 * [Channel observation aborts silently on a thread_ts mismatch](20260918054606-channel-observation-aborts-silently-on-a-thread-ts-mismatch.md)
 * [Question reconciliation retires the unreadable-channel escalation before it is ever asked](20260918074738-question-reconciliation-retires-the-unreadable-channel-escalation-before-it-is-ever-asked.md)
+* [The /fb assignee instruction reads a vestigial login field](20260919083843-the-fb-assignee-instruction-reads-a-vestigial-login-field.md)
+* [Nothing invokes the worktree reaper](20260919083922-nothing-invokes-the-worktree-reaper.md)
 <!-- okf:generated:end -->

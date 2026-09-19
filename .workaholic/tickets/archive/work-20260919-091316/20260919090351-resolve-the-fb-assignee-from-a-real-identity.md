@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T09:03:51+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -203,3 +204,32 @@ person and left the prose readers behind; the probe's later change to `GET /rate
 - **A second unassigned listing is a second network call at a seam that already degrades carefully** (`plugins/workaholic/skills/specificate/scripts/list-inbound-issues.sh` lines 83-86). Keep it strictly after the assigned read and strictly non-load-bearing; a discovery tick must never go quiet for the hour because an advisory read failed.
 - **Assigning an issue changes whose hourly routine takes it.** Step 7 routes each issue to its author, which for all nine is the operator — so the operator's `[Specificate]` copy will see nine new asks at once. That is the correct destination and the intended effect, but it is a visible change in one person's queue depth and belongs in the branch story.
 - **Do not widen this into `available`'s envelope** (`plugins/workaholic/skills/gather/scripts/gh-rest.sh` lines 115-121). Removing the vestigial `login` key is a separate, breaking change with seven readers; issue #1213 raises it as a suggestion and this ticket deliberately declines it.
+
+## Final Report
+
+Development completed as planned. Both halves were reproduced against the live repository before
+anything changed: `gh-rest.sh available` answered `{"ok": true, "login": ""}` while
+`gh api user --jq .login` answered `tamurayoshiya`, and `list-inbound-issues.sh` returned #1212 and
+#1213 in neither `issues[]` nor `excluded[]`. After the change the same call names nine issues under
+`excluded[]: unassigned`, and the step 7 sweep assigned seven of them to their own author, leaving
+exactly #1212 and #1213 unassigned as the ticket specified.
+
+Both forks were honoured as recorded rather than re-derived: the writer reads `gh api user --jq
+.login` (not `identity.sh`, which maps a login to an address and cannot produce one), and the reader
+still filters `issues[]` server-side on `assignee=<login>` — the unassigned rows are an observation
+that gates nothing.
+
+### Discovered Insights
+
+- **Insight**: the hermetic `gh` stub interpolates its JSON payload into a **single-quoted** shell
+  string, so any apostrophe in fixture data silently truncates the payload and the stub returns an
+  empty result rather than failing.
+  **Context**: a fixture title of `"Nobody's issue"` produced a passing-looking stub that served
+  nothing, and the resulting test failure read exactly like a defect in the script under test. Every
+  new row added to `testListInboundIssues` (and its siblings using `restGh`) must keep apostrophes
+  out of payload strings, or switch the stub to a heredoc.
+- **Insight**: `excluded[]`'s consumers key on nothing — no caller branches on the reason word — so
+  adding a fourth reason is additive by construction.
+  **Context**: this is what made *visibility, not routing* implementable without re-opening the
+  recorded assignment decision; a reason word here is a reader-facing fact, and the routing lives
+  entirely in the server-side `assignee=` filter one call above it.

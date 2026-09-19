@@ -1,3 +1,15 @@
+# Every file in a state directory with its size and mtime, so a probe that truncates or touches
+# one is visible. `stat -c` is GNU and `stat -f` is BSD; a machine with neither answers
+# `unmeasurable`, which the caller reads as *not measured* rather than as *equal*.
+codex_clock_state_fingerprint() {
+    for _fp in "$1"/* "$1"/.[!.]*; do
+        [ -e "$_fp" ] || continue
+        stat -c '%n %s %Y' "$_fp" 2>/dev/null \
+            || stat -f '%N %z %m' "$_fp" 2>/dev/null \
+            || printf '%s unmeasurable\n' "$_fp"
+    done | sort
+}
+
 cmd_verify_codex_clock() {
     _launcher_src="${REPO_ROOT}/plugins/workaholic/skills/work/scripts/codex-loop.sh"
     _shim_src="${REPO_ROOT}/scripts/codex-loop.sh"
@@ -228,6 +240,181 @@ STATUS_FIXTURE
     kill "$_livepid" 2>/dev/null || true
     wait "$_livepid" 2>/dev/null || true
     rm -rf "${_repo}/.codex-loop"
+
+    # A READING THAT CHANGES WHAT IT READS IS NOT AN OBSERVATION (2026-09-19, ticket
+    # `20260919115510-read-worker-liveness-without-writing-or-locking`). `role_state()` and
+    # `supervisor_lock_state()` opened each lock with `exec 8>` / `exec 7>`, which CREATES and
+    # TRUNCATES the file and moves its mtime — so `--status`, documented four times over as a
+    # surface that "starts nothing, writes nothing, takes no lock", destroyed the very forensics
+    # it exists to provide. MEASURED by the reporter: three `worker-*.lock` files reading one
+    # minute old, written by their own earlier `--status` call, in a repository whose supervisor
+    # had been dead for twelve days. The fixture carries NO supervisor record, so the
+    # `.supervisor.lock` probe is on the path too.
+    mkdir -p "${_repo}/.codex-loop"
+    for _lk in .supervisor.lock worker-implement.lock worker-propose.lock worker-moderate.lock; do
+        printf 'held-by-nobody\n' > "${_repo}/.codex-loop/${_lk}"
+    done
+    printf '{"state":"sleeping","outcome":"ready","blocked_reason":"","tick_id":"t","finished_at":"","next_due":"","report_path":"","relay_state":"none"}\n' \
+        > "${_repo}/.codex-loop/status.json"
+    _lock_before=$(codex_clock_state_fingerprint "${_repo}/.codex-loop")
+    (cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --status --json >/dev/null 2>&1 || true)
+    (cd "$_repo" && PATH="${_bin}:$PATH" sh "$_launcher" --status >/dev/null 2>&1 || true)
+    _lock_after=$(codex_clock_state_fingerprint "${_repo}/.codex-loop")
+    case "$_lock_before" in
+        *unmeasurable*|'')
+            add_row "status_leaves_every_lock_byte_identical" false "the state directory could not be fingerprinted on this machine" load ;;
+        *)
+            if [ "$_lock_before" = "$_lock_after" ]; then
+                add_row "status_leaves_every_lock_byte_identical" true "one --status --json and one --status leave every file in the state directory unchanged, size and mtime included" load
+            else
+                add_row "status_leaves_every_lock_byte_identical" false "a --status call moved the state directory: $(one_line "$_lock_after")" load
+            fi ;;
+    esac
+
+    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR: restore the writing probes at both sites and
+    # the same two read-only calls must move the locks again.
+    _writeprobe="${_plugin}/skills/work/scripts/writeprobe-codex-loop.sh"
+    sed 's/exec 8<"$_lock"/exec 8>"$_lock"/; s/exec 7<"$_sl_file"/exec 7>"$_sl_file"/' \
+        "$_launcher" > "$_writeprobe"
+    for _lk in .supervisor.lock worker-implement.lock worker-propose.lock worker-moderate.lock; do
+        printf 'held-by-nobody\n' > "${_repo}/.codex-loop/${_lk}"
+    done
+    _wp_before=$(codex_clock_state_fingerprint "${_repo}/.codex-loop")
+    (cd "$_repo" && PATH="${_bin}:$PATH" sh "$_writeprobe" --status --json >/dev/null 2>&1 || true)
+    _wp_after=$(codex_clock_state_fingerprint "${_repo}/.codex-loop")
+    if [ "$_wp_before" != "$_wp_after" ]; then
+        add_row "status_write_probe_breaker" true "restoring the writing probe truncates the lock files a read-only status must leave alone (this drill can fail)" breaker
+    else
+        add_row "status_write_probe_breaker" false "the restored writing probe left the state directory unchanged, so the row above proves nothing: $(one_line "$_wp_after")" breaker
+    fi
+    rm -f "$_writeprobe"
+    rm -rf "${_repo}/.codex-loop"
+
+    # A REFUSAL THAT LEAVES NO EVIDENCE IS A SILENT FAILURE (2026-09-19, ticket
+    # `20260919115510-recover-or-record-a-retired-plugin-tree-at-startup`). The startup's two
+    # plugin-tree guards ran above the `REPO_ROOT` / `LOG_DIR` resolution and exited 2 outright,
+    # so a supervisor launched against a tree that had moved died with no state directory and no
+    # record anywhere — and `--status` then answered `absent`, the reading *never started*,
+    # which is exactly the confusion `supervisor.json` was added to end. MEASURED: a supervisor
+    # pinned to a retired plugin version died on 2026-09-07 and nobody saw it for twelve days.
+    # The fixture isolates HOME, the registry and the clone home so the resolver can find no
+    # complete replacement anywhere on the machine, which is the unrecoverable half.
+    _retired_tree="${_tmp}/retired/workaholic"
+    _retired_repo="${_tmp}/retired-repo"
+    _retired_home="${_tmp}/retired-home"
+    mkdir -p "$(dirname "$_retired_tree")" "$_retired_repo" "$_retired_home"
+    git -C "$_retired_repo" -c init.defaultBranch=main init -q
+    cp -R "${REPO_ROOT}/plugins/workaholic" "$_retired_tree"
+    rm -f "${_retired_tree}/skills/work/SKILL.md"
+    _retired_env="HOME=${_retired_home} WORKAHOLIC_SRC_HOME=${_tmp}/no-clone CLAUDE_PLUGIN_REGISTRY=${_tmp}/no-registry.json CODEX_PLUGIN_CACHE=${_tmp}/no-codex-cache CLAUDE_PLUGIN_CACHE=${_tmp}/no-claude-cache CLAUDE_PLUGIN_ROOT=${_retired_tree}"
+    _retired_out=$(cd "$_retired_repo" && env $_retired_env PATH="${_bin}:$PATH" \
+        sh "${_retired_tree}/skills/work/scripts/codex-loop.sh" --once --interval 60 2>&1 || true)
+    _retired_record=$(cat "${_retired_repo}/.codex-loop/supervisor.json" 2>/dev/null || printf '')
+    _retired_reading=$(printf '%s' "$_retired_record" | jq -r '"\(.state):\(.stopped_reason)"' 2>/dev/null || printf 'unreadable')
+    case "$_retired_reading" in
+        stopped:plugin_skill_missing)
+            add_row "a_retired_tree_startup_records_its_stop" true "a supervisor that cannot read its own instructions leaves state=stopped naming plugin_skill_missing instead of dying unrecorded" load ;;
+        *) add_row "a_retired_tree_startup_records_its_stop" false "the startup recorded $(one_line "$_retired_reading"): $(one_line "$_retired_out")" load ;;
+    esac
+    case "$_retired_out" in
+        *plugin_skill_missing:*"work skill is incomplete"*)
+            add_row "a_retired_tree_startup_keeps_its_stderr" true "the refusal still prints its own two lines and exits 2, unchanged" load ;;
+        *) add_row "a_retired_tree_startup_keeps_its_stderr" false "the refusal's stderr changed: $(one_line "$_retired_out")" load ;;
+    esac
+
+    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR: restore the pre-repair early exit and the same
+    # launch must die leaving no record at all.
+    _earlyexit="${_retired_tree}/skills/work/scripts/earlyexit-codex-loop.sh"
+    sed 's/^if \[ -n "$STARTUP_TREE_REFUSAL" \]; then$/if [ -n "$STARTUP_TREE_REFUSAL" ]; then startup_tree_refuse; exit 2;/' \
+        "${_retired_tree}/skills/work/scripts/codex-loop.sh" > "$_earlyexit"
+    rm -rf "${_retired_repo}/.codex-loop"
+    (cd "$_retired_repo" && env $_retired_env PATH="${_bin}:$PATH" sh "$_earlyexit" --once --interval 60 >/dev/null 2>&1 || true)
+    if [ -f "${_retired_repo}/.codex-loop/supervisor.json" ]; then
+        add_row "retired_tree_startup_breaker" false "restoring the early exit still left a record, so the rows above prove nothing" breaker
+    else
+        add_row "retired_tree_startup_breaker" true "restoring the early exit leaves a stopped supervisor with no record anywhere (this drill can fail)" breaker
+    fi
+    rm -f "$_earlyexit"
+
+    # A LAUNCH OUTSIDE A REPOSITORY STILL REFUSES BEFORE ANY RECORD. There is nowhere to write
+    # one, and inventing a location for the state directory would be worse than the absence.
+    _norepo=$(cd "$_tmp" && env $_retired_env PATH="${_bin}:$PATH" \
+        sh "${_retired_tree}/skills/work/scripts/codex-loop.sh" --once 2>&1 || true)
+    case "$_norepo" in
+        repository_missing*) add_row "a_launch_outside_a_repository_writes_nothing" true "repository_missing still refuses ahead of every record" load ;;
+        *) add_row "a_launch_outside_a_repository_writes_nothing" false "a launch outside a repository answered: $(one_line "$_norepo")" load ;;
+    esac
+
+    # A STOP THAT REACHES NO READER IS A SILENT STOP (2026-09-19, ticket
+    # `20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing`). The supervisor's
+    # whole escalation reach was a state file and a line on stderr, and nothing outside
+    # `skills/work/` read the status surface — MEASURED: a loop stayed `blocked / interrupted`
+    # for twelve days with a person looking at the repository. The transport is stubbed, so these
+    # rows prove the loop and not the provider; Slack is undeliverable in this repository today
+    # and the undeliverable case is asserted on the outbox and the refusal word, as it must be.
+    _stub_sink="${_tmp}/announce-posts.txt"
+    _stub="${_tmp}/announce-stub.sh"
+    printf '#!/bin/sh -eu\nprintf "%%s\\n---\\n" "$1" >> "${STUB_SINK:?}"\nprintf \x27{"notified": true, "reason": ""}\n\x27\n' > "$_stub"
+    chmod +x "$_stub"
+    : > "$_stub_sink"
+    rm -rf "${_retired_repo}/.codex-loop"
+    (cd "$_retired_repo" && env $_retired_env PATH="${_bin}:$PATH" \
+        STUB_SINK="$_stub_sink" WORKAHOLIC_ANNOUNCE_NOTIFIER="$_stub" \
+        sh "${_retired_tree}/skills/work/scripts/codex-loop.sh" --once --interval 60 >/dev/null 2>&1 || true)
+    _announced=$(grep -c '⚪ Paused - codex clock stopped: plugin_skill_missing' "$_stub_sink" 2>/dev/null || printf 0)
+    if [ "$_announced" = 1 ]; then
+        add_row "a_stopped_clock_reaches_a_person" true "a supervisor that stops for a reason other than an ordinary end posts exactly one precondition-stop announcement carrying its reason word" load
+    else
+        add_row "a_stopped_clock_reaches_a_person" false "the stop produced ${_announced} announcement(s): $(one_line "$(cat "$_stub_sink" 2>/dev/null)")" load
+    fi
+
+    # ONE WALL, ONE ALERT. The same signature escalates ONCE from the calm shape to the red one
+    # and is suppressed from there, which is `workaholic:notify`'s own dedup and escalation.
+    _announcer="${_retired_tree}/skills/work/scripts/announce-stop.sh"
+    _ann_log="${_tmp}/announce-log"
+    rm -rf "$_ann_log"; : > "$_stub_sink"
+    _n=1
+    while [ "$_n" -le 5 ]; do
+        env STUB_SINK="$_stub_sink" WORKAHOLIC_ANNOUNCE_NOTIFIER="$_stub" sh "$_announcer" \
+            --log "$_ann_log" --signature 'codex worker not executing: implement (tick_not_executed)' \
+            --text drill --now $((1789800000 + _n)) >/dev/null 2>&1 || true
+        _n=$((_n + 1))
+    done
+    _paused=$(grep -c '⚪ Paused' "$_stub_sink" 2>/dev/null || printf 0)
+    _blocked=$(grep -c '🔴 Blocked' "$_stub_sink" 2>/dev/null || printf 0)
+    if [ "$_paused" = 1 ] && [ "$_blocked" = 1 ]; then
+        add_row "a_clock_that_executes_nothing_is_one_alert" true "five ticks against one signature post one calm root and one escalation, and nothing after" load
+    else
+        add_row "a_clock_that_executes_nothing_is_one_alert" false "five ticks posted ${_paused} calm and ${_blocked} red roots" load
+    fi
+
+    # AN UNDELIVERABLE TRANSPORT IS A RECORDED REFUSAL, NEVER A POST.
+    rm -rf "$_ann_log"
+    _undeliverable=$(env -u SLACK_BOT_TOKEN sh "$_announcer" --log "$_ann_log" \
+        --signature 'codex clock stopped: interrupted' --text drill 2>/dev/null || printf '{}')
+    _ud_state=$(printf '%s' "$_undeliverable" | jq -r '"\(.announced):\(.reason):\(.outbox != null)"' 2>/dev/null || printf unreadable)
+    case "$_ud_state" in
+        false:no_token:true)
+            add_row "an_undeliverable_announcement_is_carried" true "a refused transport retains the line in the outbox and names its refusal word rather than reading as posted" load ;;
+        *) add_row "an_undeliverable_announcement_is_carried" false "an undeliverable announcement answered $(one_line "$_ud_state")" load ;;
+    esac
+
+    # THE BREAKER, WRITTEN AGAINST THE BEHAVIOUR: remove the announcement and the same stop
+    # reaches nobody again.
+    _silent="${_retired_tree}/skills/work/scripts/silent-codex-loop.sh"
+    sed 's/^announce_stop() {$/announce_stop() { return 0/' \
+        "${_retired_tree}/skills/work/scripts/codex-loop.sh" > "$_silent"
+    : > "$_stub_sink"
+    rm -rf "${_retired_repo}/.codex-loop"
+    (cd "$_retired_repo" && env $_retired_env PATH="${_bin}:$PATH" \
+        STUB_SINK="$_stub_sink" WORKAHOLIC_ANNOUNCE_NOTIFIER="$_stub" \
+        sh "$_silent" --once --interval 60 >/dev/null 2>&1 || true)
+    if [ -s "$_stub_sink" ]; then
+        add_row "stop_announcement_breaker" false "removing the announcement still posted something, so the rows above prove nothing" breaker
+    else
+        add_row "stop_announcement_breaker" true "removing the announcement leaves a stopped clock reaching nobody (this drill can fail)" breaker
+    fi
+    rm -f "$_silent"
 
     mkdir -p "${_repo}/scripts"
     cp "$_shim_src" "${_repo}/scripts/codex-loop.sh"

@@ -320,8 +320,9 @@ side, so the claim moved there. `dispatch_claim_role` is the one seam that takes
 
 A lost race is `already_running` on exit 0, exactly as the cheap `role_state` answer above it is:
 the loser started nothing, and that is the mechanism working rather than a failure. `--status` is
-untouched by this — it starts nothing, writes nothing, creates no state directory and takes no
-lock. `scripts/e2e/loop-drill.sh verify-codex-clock` issues the pair **concurrently**, which is
+untouched by this — it starts nothing, writes nothing, creates no state directory, and probes
+each lock on a **read-only** descriptor, so it leaves every lock file byte-identical and never
+competes with the claim for one. `scripts/e2e/loop-drill.sh verify-codex-clock` issues the pair **concurrently**, which is
 the shape that exposes the window, and its breaker makes `dispatch_claim_role` a no-op and
 requires the drill to notice.
 
@@ -329,6 +330,70 @@ In this source repository, `sh scripts/codex-loop.sh` is a compatibility shim on
 implementation. Startup reports `clock_wrapper_missing`, `plugin_skill_missing`,
 `plugin_command_missing`, `repository_missing`, or `codex_cli_missing` for the precise missing
 layer. Only missing plugin-owned files recommend updating or reinstalling the plugin.
+
+**A startup that cannot read its own instructions recovers the tree or leaves a record**
+(2026-09-19, ticket `20260919115510-recover-or-record-a-retired-plugin-tree-at-startup`). The
+running loop has re-resolved a moved tree through `ensure_plugin_tree()` at the head of every
+iteration since 2026-09-07 (#1069); the **startup** never reached it, because the two plugin-tree
+guards ran above the `REPO_ROOT` / `LOG_DIR` resolution and exited 2 outright. So a supervisor
+launched against a tree that had moved died with **no state directory and no record anywhere**,
+and `--status` then answered `absent` — the reading *never started*, indistinguishable from a
+repository that never ran the Codex path, and exactly the confusion `supervisor.json` was added
+to end. Now the directory is resolved first, the guard is **read** in its original place with its
+original words, and the act is deferred to where the recovery already lives:
+
+- `--ack`, `--dispatch` and `--worker` refuse exactly as before, at the same point.
+- `--status` **skips it**: a read-only surface must still answer *is this loop alive* on a retired
+  tree, which is the whole question a reader could not get an answer to, and it reads neither the
+  tick prompt nor the command body.
+- A supervisor start calls the loop's own `ensure_plugin_tree()` — one resolution, one
+  `plugin_tree_complete()` test, the resolver's `call_src // src` preference unchanged, and **no
+  second copy of the recovery**. It reports a recovery the way the loop does
+  (`recovered retired plugin tree <old> -> <new>`); failing it, it writes `state: stopped` with
+  the precise word the guard read and the retired root beside it, then exits 2 with the same two
+  stderr lines. `--status` then reads `stopped:plugin_skill_missing` rather than `absent`.
+
+`repository_missing` still refuses **before any record**: there is nowhere to write one, and
+inventing a location for the state directory would be worse than the absence. A `--dry-run`
+still writes nothing and creates no state directory, so *absent means never started* is untouched
+for a repository that never ran the Codex path.
+
+### A stop, and a clock that executes nothing, reach a person
+
+**`executed: false` with a reason is an honest refusal that reached nobody** (2026-09-19, ticket
+`20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing`). The supervisor's whole
+escalation reach was `write_supervisor stopped <reason>` plus a line on stderr, and nothing
+outside `skills/work/` read the status surface at all — no `/moderate` step, no command, no
+routine. MEASURED: a loop stayed `blocked / interrupted` for twelve days with a person looking at
+the repository the whole time.
+
+This skill's own `scripts/announce-stop.sh` posts `workaholic:notify`'s **precondition-stop shape**,
+under the supervisor's own signature, with that skill's dedup, single escalation and cool-down.
+**No new shape, no new transport, and no second liveness authority** — the lock and the supervisor
+record remain the only authorities on whether anything is running; this reads them and decides
+nothing about who may run. Its two triggers are derived from state that already exists and add no
+field and no counter:
+
+1. a `stopped` record whose reason is **not** the ordinary end (`completed_once`), announced by
+   `write_supervisor()` itself, so the interrupt trap and the unrecoverable-tree refusal are both
+   covered;
+2. a role whose own `consecutive_failures` has reached `WORKAHOLIC_WORKER_ATTEMPT_MAX` — the
+   threshold `record_worker_attempt()` already crosses, which is a clock ticking without executing
+   anything.
+
+The transport is `specificate/scripts/notify-slack.sh`, the one script-level seam a POSIX
+supervisor can reach. **An undeliverable transport is a recorded refusal and never a post**: the
+line is retained in `<state dir>/outbox/` with the transport's own refusal word (`no_token`,
+`slack_<error>`, …), `announced` is false, and the cool-down does **not** start, so the escalation
+ladder stays where the refusal left it. Slack is undeliverable in this repository today, so the
+verification is the outbox and the refusal word rather than a message anybody reads.
+
+**The dedup ledger is local**, in `<state dir>/announcements.json`: `workaholic:notify` dedups by
+reading the channel's recent history, which is the connector's surface and not a script's. The
+stated cost is that a ledger a person deletes re-fires one alert, and a wall hit from two state
+directories is announced twice. Where the speaking-window derivation cannot be reached, only the
+24-hour term of the cool-down applies and the announcement says so — a longer silence, the safe
+direction for a rule whose job is to suppress repeats.
 
 ### One question, one answer
 
@@ -357,9 +422,27 @@ its reason and **null** details rather than a default that looks healthy, and no
 silently omitted. The exit status is the tick's own on both surfaces — `0` readable, `4` absent,
 `5` unreadable.
 
-**The surface starts nothing, writes nothing, takes no lock and needs no `codex` CLI.** It
-returns before the presence check and before the `mkdir`, so reading the state of a repository
-that has never run the Codex path does not create the directory it is reporting on.
+**The surface starts nothing, writes nothing, leaves every file it reads byte-identical and
+needs no `codex` CLI.** It returns before the presence check and before the `mkdir`, so reading
+the state of a repository that has never run the Codex path does not create the directory it is
+reporting on.
+
+**And the lock probes read rather than write** (2026-09-19, ticket
+`20260919115510-read-worker-liveness-without-writing-or-locking`). `role_state()` and
+`supervisor_lock_state()` opened each lock with `exec 8>` / `exec 7>`, which **creates and
+truncates** the file and moves its mtime — so this paragraph's own contract was false at three
+call sites, and the surface destroyed the forensics it exists to provide. MEASURED: three
+`worker-*.lock` files reading one minute old, written by their own earlier `--status` call, in a
+repository whose supervisor had been dead for twelve days. Both probes now open read-only
+(`exec 8<` / `exec 7<`); flock(2) ignores the open mode, so a held exclusive lock still reads
+`held`/`running` and a free one `free`/`idle`. `dispatch_claim_role()` and the `--worker` claim
+keep `exec 8>`, because they must create, truncate and hold — and they remain the only
+concurrency authority. **The wording was narrowed rather than kept**: *takes no lock* was wider
+than the code even after the repair, since testing an flock means momentarily acquiring it; what
+the surface guarantees is that it writes nothing and holds nothing a dispatch could lose.
+`scripts/e2e/loop-drill.sh verify-codex-clock` fingerprints every file's size and mtime around a
+`--status --json` and a `--status`, and its breaker restores the writing probes and requires the
+drill to notice.
 
 ### The supervisor's own liveness
 

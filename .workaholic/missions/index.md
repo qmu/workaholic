@@ -3,10 +3,7 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [never-let-the-routine-that-originates-work-converge-on-silence](active/never-let-the-routine-that-originates-work-converge-on-silence/mission.md) - Never let the routine that originates work converge on silence
-* [keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report](active/keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report/mission.md) - Keep one coherent feedback batch one mission one pull request one report
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
-* [stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads](active/stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads/mission.md) - Stop the Codex clock dying silently and writing the locks it reads
 
 ## archive
 
@@ -154,6 +151,7 @@
 * [stop-a-routine-tick-from-parking-on-a-permission-prompt](archive/stop-a-routine-tick-from-parking-on-a-permission-prompt/mission.md) - Stop a routine tick from parking on a permission prompt
 * [stop-an-unattended-tick-from-waiting-on-a-person](archive/stop-an-unattended-tick-from-waiting-on-a-person/mission.md) - Stop an unattended tick from waiting on a person
 * [stop-re-resuming-a-declared-handoff-unit](archive/stop-re-resuming-a-declared-handoff-unit/mission.md) - Stop re-resuming a declared handoff unit
+* [stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads](archive/stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads/mission.md) - Stop the Codex clock dying silently and writing the locks it reads
 * [stop-the-runner-from-taking-path-owned-legacy-tickets](archive/stop-the-runner-from-taking-path-owned-legacy-tickets/mission.md) - Stop the runner from taking path-owned legacy tickets
 * [stop-two-runs-from-claiming-and-driving-one-unit](archive/stop-two-runs-from-claiming-and-driving-one-unit/mission.md) - Stop two runs from claiming and driving one unit
 * [take-the-dedup-key-out-of-the-read-post](archive/take-the-dedup-key-out-of-the-read-post/mission.md) - Take the dedup key out of the read post

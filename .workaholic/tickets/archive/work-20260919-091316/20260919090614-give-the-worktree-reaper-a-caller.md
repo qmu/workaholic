@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-19T09:06:14+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
 mission:
 merge_policy:
 verification_handoff:
+claim: work-20260919-091316
 ---
 
 # Give the worktree reaper a caller, and stop reporting a held backlog as nothing to do
@@ -225,3 +227,36 @@ was repaired elsewhere (`superseded`, issue #788) and never carried back here.
 - **A byte reading in the diff key is the one way this step becomes the hourly status line two keyed roots were already retired for** (`plugins/workaholic/skills/moderate/scripts/step-retire-claims.sh` lines 99-115). Keep `du` output out of `summary` and out of `event`.
 - **The step must run from the main checkout.** `reap-worktrees.sh:54` resolves `here` from `git rev-parse --show-toplevel` and skips the current worktree; a sweep invoked from inside a linked worktree would silently exclude that one. `/moderate` runs in the main checkout, and the step's header should say that this is the assumption rather than leave it implicit.
 - **`.publish/` is excluded by the survey and must stay excluded** (`plugins/workaholic/skills/branching/scripts/survey-worktrees.sh` lines 38-41): it is disposable but belongs to the publish lifecycle, and a sweep reaching into it would race `open-publish-tree.sh` and `close-publish-tree.sh` for no gain.
+
+## Final Report
+
+Development completed as planned. Both findings were reproduced first: walking the tracked tree,
+`reap-worktrees.sh` appears outside its own body only in `CLAUDE.md`, `branching/SKILL.md` and two
+test fixtures — no command body, no `steps.json` entry, no workflow, no routine prompt — and
+`survey-worktrees.sh` in the main checkout reported `reclaimable_bytes: 0` over 191.7 M held with
+every worktree `unmerged`, the dry-run reaper returning `removed: []`.
+
+`step-worktree-sweep.sh` is registered beside `retire-claims` and run live in this checkout returns
+`status: "ok"`, `removed` 0 and a summary naming the held set with its skip-reason breakdown, twice
+in a row byte-identically. It **removed none of the standing worktrees**, which is the gate's stated
+expectation: the predicate was deliberately not loosened, and
+`git diff origin/main -- survey-worktrees.sh reap-worktrees.sh` is empty.
+
+The ticket's third finding — `retire-claim.sh` inspecting only `.worktrees/<unit>` and reporting
+`absent` as success — was left out of scope as its Considerations direct, and **still needs its own
+ticket**.
+
+### Discovered Insights
+
+- **Insight**: the running claim's own worktree appears in the sweep's set as
+  `skip_reason: "unmerged_and_dirty"`, so the step measured here reads 5 worktrees rather than the
+  4 the ticket recorded.
+  **Context**: this is the ticket's *a live claim's worktree cannot be reclaimable by construction*
+  claim observed directly rather than argued — `ahead: 1` from the `Claim` commit alone, plus a
+  dirty tree from the in-flight work. It is also why the step's summary is a function of the
+  worktree set: the number moves whenever a run is driving, and only the skip reasons are stable.
+- **Insight**: `reap-worktrees.sh`'s envelope carries no `reclaimable` count, so the step derives it
+  as `removed + failed` off the act's own output.
+  **Context**: those are exactly the worktrees the predicate admitted — one removed, the other
+  refused by git's second gate — so the number is read rather than re-derived, which is what keeps
+  the step from owning a predicate of its own.

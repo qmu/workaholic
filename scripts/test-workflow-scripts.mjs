@@ -26550,6 +26550,35 @@ function testInboundSweep() {
   }
 }
 
+// ---------- /fb's assignee comes from a real identity (2026-09-19, issue #1213) ----------
+// `gh-rest.sh available` probes `GET /rate_limit`; its `login` is VESTIGIAL AND ALWAYS EMPTY
+// (the script's own header, `rules/shell.md`). Two `/fb` documents told the runner to take the
+// invoking identity from it, and `/fb`'s caller is an agent reading prose, so the 2026-08-29
+// migration that moved four scripts onto `gh api user` never reached them. This pins the ONE
+// machine-checkable half — a TOKEN, not prose style: the only mention of `available` either
+// document may carry is the one stating it is not the source of a login.
+T("feedback docs: the /fb assignee is read from gh api user, never from available's login", testFbAssigneeSource);
+function testFbAssigneeSource() {
+  for (const rel of ["plugins/workaholic/skills/feedback/SKILL.md",
+                     "plugins/workaholic/skills/feedback/reference/crossing.md"]) {
+    const text = readFileSync(join(REPO_ROOT, rel), "utf8");
+    assertTrue(`${basename(rel)} names gh api user as the source of the login`,
+      /gh api user --jq \.login/.test(text), rel);
+    // Whitespace-collapsed, because these documents are hard-wrapped and the disclaimer
+    // legitimately spans a line break — a line-based test would pin the wrapping rather than
+    // the claim. Every mention of the probe must be followed closely by the word that says it
+    // is not a login source; a reintroduced "take the login from `available`" carries none.
+    const flat = text.replace(/\s+/g, " ");
+    const offending = [...flat.matchAll(/gh-rest\.sh available/g)]
+      .map((m) => flat.slice(m.index, m.index + 120))
+      .filter((w) => !/vestigial/.test(w));
+    assertEq(`${basename(rel)} carries no mention of available that is not the vestigial disclaimer`,
+      offending, []);
+    assertTrue(`${basename(rel)} states the identity_unresolved refusal`,
+      /identity_unresolved/.test(text), rel);
+  }
+}
+
 T("propose list-inbound-issues: the clock-fired discovery reads the inbox, never invents one", testListInboundIssues);
 function testListInboundIssues() {
   const SCRIPT = SCRIPTS.proposeListInboundIssues;
@@ -26583,15 +26612,27 @@ function testListInboundIssues() {
     // did not — the one behavioral difference the REST conversion must not lose.
     { number: 55, html_url: "https://github.com/o/r/pull/55", updated_at: "2026-08-12T04:00:00Z", title: "A pull request", pull_request: { url: "https://github.com/o/r/pulls/55" } },
   ]);
-  const restGh = (payload = REST_ISSUES) => [
+  // THE UNASSIGNED LISTING IS A SECOND, SEPARATELY ROUTED READ (2026-09-19, issue #1213).
+  // The assigned listing filters server-side on `assignee=<login>`, so an unassigned issue
+  // was returned by NEITHER `issues[]` nor `excluded[]` — omitted, not excluded. The stub
+  // therefore routes on the query string: `assignee=none` is its own payload, empty by
+  // default, so every assertion written before this row is byte-identical.
+  const restGh = (payload = REST_ISSUES, unassigned = "[]") => [
     `case "$1 $2" in`,
     `  "api user") printf 'tester\\n' ; exit 0 ;;`,
     `esac`,
     `case "$2" in`,
+    `  *assignee=none*) printf '%s' '${unassigned}' | jq -r "$4" ; exit 0 ;;`,
     `  repos/*/issues*) printf '%s' '${payload}' | jq -r "$4" ; exit 0 ;;`,
     `esac`,
     `exit 1`,
   ].join("\n");
+  // One unassigned issue and one unassigned PULL REQUEST on the same endpoint: the advisory
+  // listing drops `.pull_request` rows exactly as the assigned one does.
+  const REST_UNASSIGNED = JSON.stringify([
+    { number: 41, html_url: "https://github.com/o/r/issues/41", updated_at: "2026-09-19T00:00:00Z", title: "An issue nobody owns" },
+    { number: 42, html_url: "https://github.com/o/r/pull/42", updated_at: "2026-09-19T01:00:00Z", title: "A pull request nobody owns", pull_request: { url: "https://github.com/o/r/pulls/42" } },
+  ]);
   try {
     // The REST path needs a resolvable {owner}/{repo}, derived from the remote.
     execSync("git init -q", { cwd: repo });
@@ -26622,6 +26663,47 @@ function testListInboundIssues() {
     assertEq("issue 120 is NOT swallowed by the record naming issue 12 (numeric boundary)",
       r.issues.some((i) => i.number === 120), true);
     assertEq("the oldest issue comes first", r.issues[0].number, 7);
+
+    // ---- AN UNASSIGNED ISSUE IS NAMED, NEVER OMITTED (2026-09-19, issue #1213) ----
+    // Measured on this repository: nine open issues carried `assignees: []`, every one the
+    // operator's, TWO OF THEM the operator's own reports of this defect — returned in neither
+    // list, so a reader could not tell an empty inbox from one full of asks this reader
+    // declines. The recorded ASSIGNED-NOT-UNASSIGNED decision is unchanged: these rows are
+    // reported and never offered.
+    writeGh(restGh(REST_ISSUES, REST_UNASSIGNED));
+    const withUnassigned = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("an open unassigned issue is reported in excluded[] under its own reason word",
+      withUnassigned.excluded.map((e) => `${e.number}:${e.reason}`).sort(),
+      ["30:self_originated", "41:unassigned", "9:already_planned"]);
+    assertEq("and it is NEVER offered — visibility, not routing",
+      withUnassigned.issues.some((i) => i.number === 41), false);
+    assertEq("an unassigned PULL REQUEST is dropped, exactly as the assigned listing drops one",
+      withUnassigned.excluded.some((e) => e.number === 42), false);
+    assertEq("issues[] is byte-identical to the run with no unassigned issues",
+      withUnassigned.issues, r.issues);
+    assertEq("and so is every other field of the envelope",
+      [withUnassigned.identity, withUnassigned.limit, withUnassigned.page,
+       withUnassigned.next_page, withUnassigned.formation_pending],
+      [r.identity, r.limit, r.page, r.next_page, r.formation_pending]);
+
+    // AN UNREADABLE ADVISORY MUST NEVER FAIL A READABLE INBOX — the inverse of this script's
+    // own "an unreadable inbox must never render as an empty one". The inbox this run has to
+    // serve was already read, so a discovery tick never goes quiet for the hour over it.
+    writeGh([
+      `case "$1 $2" in`,
+      `  "api user") printf 'tester\\n' ; exit 0 ;;`,
+      `esac`,
+      `case "$2" in`,
+      `  *assignee=none*) echo 'boom' >&2 ; exit 1 ;;`,
+      `  repos/*/issues*) printf '%s' '${REST_ISSUES}' | jq -r "$4" ; exit 0 ;;`,
+      `esac`,
+      `exit 1`,
+    ].join("\n"));
+    const advisoryDown = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a failed unassigned listing leaves ok:true, never list_failed", advisoryDown.ok, true);
+    assertEq("the assigned inbox is intact", advisoryDown.issues.map((i) => i.number), r.issues.map((i) => i.number));
+    assertEq("and no unassigned row is invented from a read that did not happen",
+      advisoryDown.excluded.some((e) => e.reason === "unassigned"), false);
 
     // THE RESTRICTED SESSION (2026-08-12, feedback 20260812172522). A `gh` that serves
     // REST but 403s every GraphQL-backed subcommand is exactly the measured Claude Code
@@ -27993,6 +28075,144 @@ function testSpecificateCaptureSeam() {
 // across four repositories, 31 GB of it fully merged and clean. The reaper's safety rule
 // is a predicate over git state, so it is exactly testable in fixtures -- and it MUST be,
 // because the failure mode is destroying work that was never committed anywhere.
+// ---------- the sweep's caller (2026-09-19, issue #1212) ----------
+// `reap-worktrees.sh` was built after a 53 GB incident and NEVER GIVEN A CALLER: outside its own
+// body it appeared in two documentation rows and two test fixtures and nowhere else. The step
+// below is that caller. What is pinned here is what a wrong sweep would destroy silently and what
+// a wrong SUMMARY would hide: the removal set, the BRANCH-REF SURVIVAL that is the entire reason
+// the act is safe, the skip-reason breakdown that makes a held backlog legible, the empty `event`
+// on a zero-removal sweep, and the summary's stability across two ticks over an unchanged set.
+T("moderate worktree-sweep: removes only what is proved, and says what it is holding", testWorktreeSweepStep);
+function testWorktreeSweepStep() {
+  const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-worktree-sweep.sh")}`;
+  const origin = mkdtempSync(join(tmpdir(), "wh-sweep-step-origin-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  const root = mkdtempSync(join(tmpdir(), "wh-sweep-step-"));
+  execSync(`git clone -q ${origin} .`, { cwd: root });
+  execSync("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false", { cwd: root });
+  writeFileSync(join(root, "README.md"), "seed\n");
+  execSync("git add -A && git commit -q -m seed && git push -q origin main", { cwd: root });
+
+  const wt = (n) => join(root, ".worktrees", n);
+  const refExists = (b) => {
+    try { execSync(`git rev-parse --verify -q refs/heads/${b}`, { cwd: root, stdio: "ignore" }); return true; }
+    catch { return false; }
+  };
+  try {
+    mkdirSync(join(root, ".worktrees"), { recursive: true });
+    // (a) merged + clean -> the ONE candidate
+    execSync(`git worktree add -q -b work-20260919-000001 ${wt("merged-clean")} main`, { cwd: root });
+    // (b) clean but UNMERGED -> skip: unmerged
+    execSync(`git worktree add -q -b work-20260919-000002 ${wt("unmerged-clean")} main`, { cwd: root });
+    writeFileSync(join(wt("unmerged-clean"), "extra.md"), "x\n");
+    execSync("git add -A && git commit -q -m 'Add extra file'", { cwd: wt("unmerged-clean") });
+    // (c) DIRTY through a tracked modification -> skip: dirty
+    execSync(`git worktree add -q -b work-20260919-000003 ${wt("dirty")} main`, { cwd: root });
+    writeFileSync(join(wt("dirty"), "README.md"), "seed\nmodified\n");
+    // (d) UNTRACKED-ONLY -> also dirty; this is the half-written artifact of an interrupted run,
+    // and git itself refuses `worktree remove` on it without --force.
+    execSync(`git worktree add -q -b work-20260919-000004 ${wt("untracked")} main`, { cwd: root });
+    writeFileSync(join(wt("untracked"), "scratch.txt"), "uncommitted\n");
+
+    const tip = execSync("git rev-parse work-20260919-000001", { cwd: root, encoding: "utf8" }).trim();
+
+    const first = JSON.parse(run(root, `${STEP} --tick t1 --root .`).stdout);
+    assertEq("the step reports its own id", first.step, "worktree-sweep");
+    assertEq("a readable sweep is ok", first.status, "ok");
+    assertEq("it asks nobody anything", first.needs_agent, []);
+
+    // ---- the removal set ----
+    assertTrue("the merged, clean worktree is gone", !existsSync(wt("merged-clean")));
+    assertTrue("the unmerged one survives", existsSync(wt("unmerged-clean")));
+    assertTrue("the dirty one survives", existsSync(wt("dirty")));
+    assertTrue("the untracked-only one survives with its file",
+      existsSync(join(wt("untracked"), "scratch.txt")));
+
+    // ---- THE BRANCH REF SURVIVES, which is the entire reason the act is safe ----
+    // A worktree removal destroys a CHECKOUT, never a branch and never a commit. A change that
+    // removed a worktree without proving this does not pass, whatever else is green.
+    assertEq("the removed worktree's branch ref is still present", refExists("work-20260919-000001"), true);
+    assertEq("and its tip commit is still reachable",
+      execSync("git rev-parse work-20260919-000001", { cwd: root, encoding: "utf8" }).trim(), tip);
+    for (const b of ["work-20260919-000002", "work-20260919-000003", "work-20260919-000004"]) {
+      assertEq(`every surviving worktree's branch ref is present (${b})`, refExists(b), true);
+    }
+
+    // ---- the summary names what is HELD, under each skip reason's own word ----
+    assertTrue("the summary counts the set, the reclaimable, the removed and the skipped",
+      /^4 worktree\(s\); 1 reclaimable, 1 removed, 3 skipped — /.test(first.summary), first.summary);
+    assertTrue("and breaks the held set down by skip reason",
+      first.summary.includes("1 unmerged, 2 dirty, 0 unmerged_and_dirty, 0 publication_transaction"),
+      first.summary);
+    assertTrue("no byte total reaches the summary — du output would move the diff key hourly",
+      !/\d(B|K|M|G)\b/.test(first.summary), first.summary);
+
+    // ---- a removal is a repository event, naming the COUNT and no identifier ----
+    assertTrue("a sweep that removed one supplies an event", first.event.length > 0, first.event);
+    assertTrue("and the event names no worktree path or unit slug",
+      !first.event.includes("work-2026") && !first.event.includes(".worktrees"), first.event);
+
+    // ---- a zero-removal sweep is silent, and an unchanged set renders identically ----
+    const second = JSON.parse(run(root, `${STEP} --tick t2 --root .`).stdout);
+    assertEq("a sweep that removed nothing supplies an EMPTY event", second.event, "");
+    assertEq("it is still ok — nothing reclaimable is not a degradation", second.status, "ok");
+    assertTrue("and the held backlog is still named rather than read as a clean tick",
+      /^3 worktree\(s\); 0 reclaimable, 0 removed, 3 skipped — 1 unmerged, 2 dirty, /.test(second.summary),
+      second.summary);
+    const third = JSON.parse(run(root, `${STEP} --tick t3 --root .`).stdout);
+    assertEq("two ticks over an unchanged worktree set produce byte-identical summaries",
+      third.summary, second.summary);
+    assertEq("and the event stays empty", third.event, "");
+
+    // ---- A DEGRADED READING SWEEPS NOTHING, each cause under its own word ----
+    // The reaper is resolved relative to the step, so the fixture rebuilds that layout with the
+    // reaper missing, silent, or unparseable in turn.
+    const fake = mkdtempSync(join(tmpdir(), "wh-sweep-degraded-"));
+    const modScripts = join(fake, "skills/moderate/scripts");
+    mkdirSync(join(modScripts, "lib"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-worktree-sweep.sh"),
+      join(modScripts, "step-worktree-sweep.sh"));
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/lib/jq-guard.sh"),
+      join(modScripts, "lib/jq-guard.sh"));
+    const FAKE_STEP = `${POSIX_SH} ${join(modScripts, "step-worktree-sweep.sh")}`;
+    const noReaper = JSON.parse(run(root, `${FAKE_STEP} --tick t4 --root .`).stdout);
+    assertEq("a missing reaper is degraded, never ok with an empty removal list", noReaper.status, "degraded");
+    assertEq("under its own reason word", noReaper.reason, "no_reaper");
+
+    const reapDir = join(fake, "skills/branching/scripts");
+    mkdirSync(reapDir, { recursive: true });
+    writeFileSync(join(reapDir, "reap-worktrees.sh"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(reapDir, "reap-worktrees.sh"), 0o755);
+    const silent = JSON.parse(run(root, `${FAKE_STEP} --tick t5 --root .`).stdout);
+    assertEq("a silent reaper is degraded", silent.status, "degraded");
+    assertEq("under its own reason word", silent.reason, "reaper_unreadable");
+
+    writeFileSync(join(reapDir, "reap-worktrees.sh"), "#!/bin/sh\nprintf 'not json\\n'\n");
+    chmodSync(join(reapDir, "reap-worktrees.sh"), 0o755);
+    const garbage = JSON.parse(run(root, `${FAKE_STEP} --tick t6 --root .`).stdout);
+    assertEq("an unparseable reaper is degraded", garbage.status, "degraded");
+    assertEq("under its own reason word", garbage.reason, "reaper_unparseable");
+    assertTrue("and every surviving worktree is still on disk after all three degradations",
+      ["unmerged-clean", "dirty", "untracked"].every((n) => existsSync(wt(n))));
+    rmSync(fake, { recursive: true, force: true });
+
+    // ---- THE STEP NEVER REACHES FOR A SECOND AUTHORITY ----
+    // `--force` would bypass git's own independent gate, and a branch delete would destroy what
+    // the survival assertion above proves the act preserves.
+    const stepSrc = readFileSync(join(REPO_ROOT,
+      "plugins/workaholic/skills/moderate/scripts/step-worktree-sweep.sh"), "utf8");
+    for (const forbidden of ["--force", "git branch -d", "git branch -D", "git push"]) {
+      assertTrue(`the step never composes \`${forbidden}\``,
+        !stepSrc.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n").includes(forbidden), forbidden);
+    }
+    assertTrue("and it is registered, or nothing runs it",
+      moderateSteps().includes("worktree-sweep"), moderateSteps().join(","));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(origin, { recursive: true, force: true });
+  }
+}
+
 T("branching worktree reclamation: merged AND clean, every skip named", testWorktreeReclamation);
 function testWorktreeReclamation() {
   const origin = mkdtempSync(join(tmpdir(), "wh-reap-origin-"));
@@ -31233,6 +31453,14 @@ function testModerateRun() {
     // `retire-claim.sh` writes nothing into the tree — the seam `closable-missions` must cross
     // and this one does not.
     "retire-claims",
+    // `worktree-sweep` sits beside it (2026-09-19, issue #1212), whose subject it is nearest:
+    // the second step that ACTS on a proof rather than asking, and the second whose act is
+    // LOCAL — `reap-worktrees.sh` removes a checkout and writes nothing into the tree, so the
+    // tick's *writes nothing but its own log line* contract is intact, exactly as the
+    // retirement's own worktree reap is. It had NO CALLER AT ALL until this: the sweep was
+    // built after a 53 GB incident and appeared outside its own body only in two documentation
+    // rows and two test fixtures, so it ran when a person typed it and never otherwise.
+    "worktree-sweep",
     // `closable-missions` is step 12 (2026-08-23): the archive gate closes a mission whose
     // LAST ticket it archives, and this names the residue that reached full acceptance any
     // other way. Since 2026-08-24 (the developer's ruling) the agent CLOSES what the step

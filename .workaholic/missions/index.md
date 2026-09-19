@@ -8,6 +8,7 @@
 * [keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report](active/keep-one-coherent-feedback-batch-one-mission-one-pull-request-one-report/mission.md) - Keep one coherent feedback batch one mission one pull request one report
 * [never-let-the-routine-that-originates-work-converge-on-silence](active/never-let-the-routine-that-originates-work-converge-on-silence/mission.md) - Never let the routine that originates work converge on silence
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
+* [stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads](active/stop-the-codex-clock-dying-silently-and-writing-the-locks-it-reads/mission.md) - Stop the Codex clock dying silently and writing the locks it reads
 
 ## archive
 

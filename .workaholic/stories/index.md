@@ -4,6 +4,7 @@ Branch development narratives, one per branch, serving as the PR description and
 
 <!-- okf:generated:begin -->
 * [work-20260919-102417](work-20260919-102417.md) - A feedback item now closes only on evidence read back from the surface the person named, and the ingest pull request stops closing it on merge.
+* [work-20260919-091316](work-20260919-091316.md) - Point /fb's assignee at gh api user, name the unassigned issues the inbox declines, and give the worktree reaper its first caller
 * [work-20260918-211451](work-20260918-211451.md) - Read `ok` before calling a Slack binding undeclared — the report contracts, the audit, and the scaffold that was writing against an unread precondition
 * [work-20260918-165448](work-20260918-165448.md) - Route land-unit.sh's scan reading through gate-decision.sh so an unread scan refuses instead of pushing the unit onto the base ref.
 * [work-20260918-163623](work-20260918-163623.md)

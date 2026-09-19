@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T10:01:42+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -127,3 +128,30 @@ completeness.
   is obsolete does not; that rule is stated in the third ticket and cited here, never restated.
 - **Do not let the fold reach into another repository's thread.** The key is a coordinate, and a
   coordinate from elsewhere is not this repository's set.
+
+## Final Report
+
+Development completed as planned. `work/scripts/thread-completion.sh` composes
+`delivery-ledger.sh` (which composes `feedback-outcome.sh`) and folds its rows at the thread
+grain with `every`, never `any`. Both existing readers are byte-identical against `origin/main`.
+The verdict is consumed at exactly one seam — `/infinite-development`'s *Announce landed asks*.
+
+Verification: `node scripts/test-workflow-scripts.mjs` 7671 passed / 0 failed;
+`node --test scripts/tests/agentic-loop/repair-contracts.test.mjs` 27/27 with the two new rows;
+`node scripts/build-plugins/build.mjs` + `verify.mjs` clean, `outputs/` diff-free (the `work`
+skill is outside the portable bundle's closure);
+`git diff origin/main -- .../feedback-outcome.sh .../delivery-ledger.sh` empty.
+
+### Discovered Insights
+
+- **Insight**: The stamped `slack-ref: <channel>:<ts>` is a *message* coordinate, and the
+  sweep's dedup depends on it being per-message — so it is the thread key only because a root
+  message's own `ts` equals its `thread_ts`.
+  **Context**: The fold therefore takes `thread_key` as an input the caller resolves rather than
+  re-deriving it from the marker, which keeps the promise of no new relation and no new field
+  while still being correct for a request written as a thread reply.
+- **Insight**: `delivery-ledger.sh` already refuses to turn an unreadable pull-request list into
+  an empty one, and that refusal propagates upward for free — a member row with
+  `readable: false` is what makes the thread `unreadable` here.
+  **Context**: A second unreadable-detection would have been a second derivation of the same
+  fact; composing the ledger means the asymmetry is enforced once.

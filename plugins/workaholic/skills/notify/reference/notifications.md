@@ -193,6 +193,56 @@ It rides the same coordinate and the same bounds as the reply — `<channel>:<ts
 
 **The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins. The command is the ceiling a routine-fired session actually reads; the catalog is where the shape is decided. A diff between them is a drift to fix, never a second wording.
 
+### `/infinite-development` — three acts: a worker receipt, scoped progress, and a completion mention
+
+**A per-unit finish was the only completion signal that existed, so it became one** (2026-09-19, ticket `20260919100143`, issue #1146). Measured: the loop mentioned the operator when one unit merged while sorting, pagination, forms and identifiers from the same continuing thread were still queued. The loop had two of the three acts and conflated them with the third — a worker's terminal result is a structured fact (`work/worker-result.schema.json`, recorded by `runtime/scripts/coordinator.sh` as `finish`), and `🟢 Implemented` is a **per-unit** post — and there was no shape at all for *the whole request set is in*.
+
+The three are separate acts and must not be one observable event:
+
+<!-- workaholic:three-acts — one wording, byte-identical with commands/infinite-development.md. -->
+
+| Act | Where it goes | Mention token |
+| --- | ------------- | ------------- |
+| **Worker terminal receipt** | **Nowhere on the channel.** It is internal evidence the coordinator records; the tick report names it. | — |
+| **Scoped progress** | The thread, when there is something new to say. Names what landed and what remains. | **None.** |
+| **Completion mention** | The thread, **once**, on the thread-grain `complete` verdict. | The addressee's `<@U…>`. |
+
+**A worker finish is evidence for the parent, never its permission.** The completion mention is permitted only by `work/scripts/thread-completion.sh`'s `complete` verdict over the whole accepted set, and only after the mention-time reread answered `allow` (SKILL's own *Children and reports* wording). A merged unit, a closed issue and a green worker result are each evidence that verdict reads; none of them is the verdict.
+
+```
+🏁 ご依頼分すべて完了 <@U…>
+- [<その人の言葉で表した件名>](<issue URL>)
+- [<その人の言葉で表した件名>](<issue URL>)
+<このまとまりで何が反映されたかを一文で。最大30語>
+<session URL>
+```
+
+```
+📊 進捗 - <N>件のうち<M>件が反映済み
+- 反映済み: [<その人の言葉で表した件名>](<issue URL>)
+- 残り: [<その人の言葉で表した件名>](<issue URL>) — <保留している状態>
+<いま何が残っていて次に何が起きるかを一文で。最大30語>
+<session URL>
+```
+
+**The accepted scope narrows only on an explicit human defer or cancel**, captured as an ordinary inbound ask. A worker's judgement that a request is obsolete, a merged pull request, a closed issue and a run's own reading **never** narrow it — absent that rule the set was implicitly whatever the latest worker touched, which is the silent redefinition the ask names. This sentence is the rule's one home; the tick ceiling and `work/scripts/thread-completion.sh` cite it.
+
+**`🟢 Implemented` is untouched and must not be repurposed.** It keeps its per-unit meaning and its exact shape above: a unit merged, said in its own thread. A reader who takes it for a completion signal is making exactly the mistake this section exists to end, which is why the completion mention is a different label rather than a longer sentence under the same one.
+
+<!-- /workaholic:three-acts -->
+
+**The bounds, each a refusal rather than a preference:**
+
+- **The completion mention fires once per accepted set, on a transition** — never restated while the set stays complete. Two keyed status roots have been retired here for restating an unchanging state hourly, and a third class that became an hourly line would earn the same fate.
+- **Scoped progress goes out only when there is something new to say** — a member landed, or a member joined the set. An unchanged board says nothing.
+- **A held mention names what held it.** The `📊` line carries the member and its state from the fold's own `holding[]`, so a person is never left with silence and no reason.
+- **Neither shape is load-bearing.** A failed post is reported per its own outcome and changes nothing about the work, the fold or the issue.
+- **The tick report names the class of each post**, so a reader tells a progress message from a completion mention without opening the channel.
+
+**This does not contradict issue #1110's item 7**, which is about a *per-unit* finish line enumerating the linked items of one batch and states in its own ticket that it needs **no new shape**. That is the `🟢 Implemented` post for one pull request; this is a thread-grain post for a whole accepted set. Two different events, two labels, and `🟢 Implemented` is byte-identical under both.
+
+**The copy above lives in two files — `plugins/workaholic/skills/notify/reference/notifications.md` and `plugins/workaholic/commands/infinite-development.md` — and the two must stay byte-identical**, which the suite pins, exactly as the ask-landed finish line below it does.
+
 ### `/prepare-release` — retired, and nothing replaced it
 
 **The `📦 Release Preparation` root is gone** (2026-08-19, the developer's instruction). The

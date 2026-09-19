@@ -674,3 +674,180 @@ test('the integration order refuses a cycle and a dependency outside the request
   // A settled chain offers only what is ready now — 82 waits for 81.
   assert.deepEqual(row('chain.md').next, [81]);
 });
+
+// A completion mention is withheld until EVERY accepted request in one human thread is in
+// (2026-09-19, ticket `20260919100142`, issue #1146). Both existing readers fold within one
+// item; the unit a person means by *done* is the thread, and nothing folded across it — a
+// mention went out when one unit merged while four requests from the same thread were queued.
+test('a thread completes only when every accepted member of it is delivered', t => {
+  const {call, record} = fixture(t);
+  for (const r of ['done','queued','other','keyless','deferred']) record(r, '/app');
+  const base = {verified_surface:'/app', evidence:['probe'], queue_readable:true, queued:0,
+    deployment:'ok', public_verification:true, thread:{status:'found', complete:true}};
+  const pr = n => [{number:n, merged:true, verified:true}];
+  const out = call('work/scripts/thread-completion.sh', {items:[
+    {...base, feedback:'done.md',   thread_key:'C1:100.1', pull_requests:pr(1)},
+    // One member short withholds the whole thread and is named.
+    {...base, feedback:'queued.md', thread_key:'C1:100.1', queued:2,
+      pull_requests:[{number:2, merged:false, verified:false}]},
+    {...base, feedback:'other.md',  thread_key:'C1:200.2', pull_requests:pr(3)},
+    // Only an EXPLICIT human defer or cancel narrows the accepted set.
+    {...base, feedback:'deferred.md', thread_key:'C1:200.2', human_scope:'deferred', queued:9,
+      pull_requests:[{number:4, merged:false, verified:false}]},
+    // No key is its own answer, never a silent drop into some other thread.
+    {...base, feedback:'keyless.md', thread_key:'', pull_requests:pr(5)},
+  ]}).json.data;
+  const th = k => out.threads.find(x => x.thread_key === k);
+
+  assert.equal(th('C1:100.1').verdict, 'incomplete', 'one member short is not a completed thread');
+  assert.deepEqual(th('C1:100.1').holding, [{feedback:'queued.md', held_by:'still_queued'}],
+    'a withheld mention names which member held it');
+  assert.equal(th('C1:100.1').total, 2);
+  assert.equal(th('C1:100.1').delivered, 1);
+
+  assert.equal(th('C1:200.2').verdict, 'complete');
+  assert.deepEqual(th('C1:200.2').excluded, [{feedback:'deferred.md', scope:'deferred'}],
+    'a narrowing is visible, never silent');
+  assert.equal(th('C1:200.2').total, 1);
+
+  assert.deepEqual(out.keyless, [{feedback:'keyless.md', reason:'thread_key_unresolvable'}]);
+  assert.equal(out.complete, 1);
+  assert.equal(out.incomplete, 1);
+  assert.equal(out.unreadable, 0);
+});
+
+// INCOMPLETE DISCOVERY IS NEVER EVIDENCE OF COMPLETENESS (issue #1132). The direction is
+// deliberately asymmetric: an unreadable membership or member withholds, with null counts.
+test('an unreadable membership or member withholds the thread with null counts', t => {
+  const {call, record} = fixture(t);
+  for (const r of ['ok1','badmember','ok2']) record(r, '/app');
+  const base = {verified_surface:'/app', evidence:['probe'], queue_readable:true, queued:0,
+    deployment:'ok', public_verification:true, thread:{status:'found', complete:true}};
+  const out = call('work/scripts/thread-completion.sh', {items:[
+    {...base, feedback:'ok1.md', thread_key:'C1:300.3',
+      pull_requests:[{number:10, merged:true, verified:true}]},
+    // An item whose own queue could not be read keeps `feedback-outcome.sh`'s `unreadable`.
+    {...base, feedback:'badmember.md', thread_key:'C1:300.3', queue_readable:false,
+      pull_requests:[{number:11, merged:true, verified:true}]},
+    // A set whose membership could not be established is unreadable even though its one
+    // readable member is delivered.
+    {...base, feedback:'ok2.md', thread_key:'C1:400.4', membership_readable:false,
+      pull_requests:[{number:12, merged:true, verified:true}]},
+  ]}).json.data;
+  const th = k => out.threads.find(x => x.thread_key === k);
+
+  assert.equal(th('C1:300.3').verdict, 'unreadable');
+  assert.equal(th('C1:300.3').reason, 'member_unreadable');
+  assert.equal(th('C1:300.3').total, null, 'null, never 0 — 0 reads as counted and found none');
+  assert.equal(th('C1:300.3').delivered, null);
+
+  assert.equal(th('C1:400.4').verdict, 'unreadable');
+  assert.equal(th('C1:400.4').reason, 'membership_unreadable');
+  assert.equal(th('C1:400.4').total, null);
+  assert.equal(out.complete, 0, 'nothing completes on an absence of a reading');
+  assert.equal(out.unreadable, 2);
+});
+
+// A completion mention is composed only after a reread of its own thread that COMPLETED
+// (2026-09-19, ticket `20260919100143`, issue #1146). The existing read answered *have we
+// already posted*, never *has anything new arrived*, so a request written while the work ran
+// was outside the mention's scope. Every withhold path is pinned, and so is the one allow.
+test('a mention-time reread withholds on anything short of a complete read', t => {
+  const {call} = fixture(t);
+  const read = over => ({thread_key:'C1:1.1', role:'thread', observation_proved:true,
+    observation_settled:true, unsettled:[], new_human_messages:0, captured:0,
+    capture_readable:true, ...over});
+  const v = reads => call('work/scripts/mention-reread.sh', {reads}).json.data;
+
+  assert.equal(v([read()]).verdict, 'allow', 'a clean reread with nothing new permits the mention');
+  assert.equal(v([read()]).reason, '');
+
+  // A new request is the ORDINARY GOOD CASE, named as its own reason so a reader can tell
+  // *the thread moved* from *the read failed*.
+  assert.deepEqual(v([read({new_human_messages:1, captured:1})]),
+    {verdict:'withhold', reason:'new_request_found',
+     holds:[{thread_key:'C1:1.1', role:'thread', reason:'new_request_found'}], reads:1});
+
+  // The unsettled term is passed through VERBATIM — a normalised word sends a reader to a
+  // string no script printed.
+  assert.equal(v([read({observation_settled:false, unsettled:['thread_fanout_truncated']})]).reason,
+    'thread_fanout_truncated');
+  assert.equal(v([read({observation_settled:false, unsettled:['thread_coverage_partial']})]).reason,
+    'thread_coverage_partial');
+
+  // An unproved read is UNREAD, never quiet.
+  assert.equal(v([read({observation_proved:false})]).reason, 'observation_unreadable');
+
+  // An explicitly linked continuation that could not be read withholds the whole mention.
+  const both = v([read(), read({thread_key:'C1:9.9', role:'continuation', observation_proved:false})]);
+  assert.equal(both.verdict, 'withhold');
+  assert.deepEqual(both.holds, [{thread_key:'C1:9.9', role:'continuation',
+    reason:'observation_unreadable'}], 'only the read that failed is named');
+
+  assert.equal(v([read({new_human_messages:2, captured:1})]).reason, 'capture_incomplete');
+  assert.equal(v([read({capture_readable:false})]).reason, 'capture_unreadable');
+
+  // No reread at all is the state before this existed, and is never `allow`.
+  assert.deepEqual(v([]), {verdict:'withhold', reason:'no_reread', holds:[], reads:0});
+});
+
+// The obligation is ONE WORDING carried in the ceiling a routine-fired session reads and in the
+// skill that owns the loop's contract; two wordings for one rule is how the two drift.
+test('the mention-time reread obligation is one wording in both surfaces', () => {
+  const root = resolve(import.meta.dirname, '../../..');
+  const between = text => {
+    const m = text.match(/<!-- workaholic:mention-reread[^>]*-->\n([\s\S]*?)<!-- \/workaholic:mention-reread -->/);
+    assert.ok(m, 'the marked block is absent');
+    return m[1];
+  };
+  const tick = between(readFileSync(join(root, 'plugins/workaholic/commands/infinite-development.md'), 'utf8'));
+  const skill = between(readFileSync(join(root, 'plugins/workaholic/skills/work/SKILL.md'), 'utf8'));
+  assert.equal(tick, skill, 'the two surfaces have drifted');
+  // The three facts a session must read to act, rather than a paraphrase of them.
+  assert.ok(tick.includes('mention-reread.sh'), 'the reader is not named');
+  assert.ok(tick.includes('observe-channel.sh'), 'the existing thread read is not composed');
+  assert.ok(/advances no cursor of its own/.test(tick), 'the cursor bound is missing');
+});
+
+// A WORKER RECEIPT, SCOPED PROGRESS AND A COMPLETION MENTION ARE THREE ACTS (2026-09-19,
+// ticket `20260919100143`, issue #1146). The loop had two of the three and conflated them with
+// the third: `🟢 Implemented` is a per-unit post, so a per-unit finish carrying a mention was
+// the only completion signal that existed — which is what went out while four requests from the
+// same thread were still queued.
+test('the three post classes are defined once and carried in one wording', () => {
+  const root = resolve(import.meta.dirname, '../../..');
+  const catalogPath = 'plugins/workaholic/skills/notify/reference/notifications.md';
+  const tickPath = 'plugins/workaholic/commands/infinite-development.md';
+  const between = text => {
+    const m = text.match(/<!-- workaholic:three-acts[^>]*-->\n([\s\S]*?)<!-- \/workaholic:three-acts -->/);
+    assert.ok(m, 'the marked block is absent');
+    return m[1];
+  };
+  const catalog = readFileSync(join(root, catalogPath), 'utf8');
+  const tick = readFileSync(join(root, tickPath), 'utf8');
+  const block = between(catalog);
+  assert.equal(block, between(tick), 'the catalog and the ceiling have drifted');
+
+  // The completion shape and the progress shape, each exactly once in the shared block.
+  for (const label of ['🏁 ご依頼分すべて完了 <@U…>', '📊 進捗 - <N>件のうち<M>件が反映済み']) {
+    assert.equal(block.split(label).length - 1, 1, `${label} is not defined exactly once`);
+  }
+  // A scoped progress message carries NO mention token; the completion mention carries one.
+  const progress = block.slice(block.indexOf('📊 進捗'));
+  assert.ok(!/<@U…>/.test(progress.slice(0, progress.indexOf('```', 3))),
+    'the progress shape carries a mention token');
+
+  // A worker finish is EVIDENCE for the parent, never its permission.
+  assert.ok(/evidence for the parent, never its permission/.test(block), 'the rule is missing');
+  // The scope rule has exactly one home, and it is this block.
+  assert.equal(catalog.split('narrows only on an explicit human defer or cancel').length - 1, 1,
+    'the scope rule is stated more than once in the catalog');
+
+  // `🟢 Implemented` keeps its per-unit meaning and its own shape, untouched.
+  assert.ok(/`🟢 Implemented` is untouched and must not be repurposed/.test(block));
+  assert.ok(catalog.includes('🟢 Implemented [#123 Title](<repo-url>/pull/123)'),
+    'the per-unit finish shape moved');
+
+  // The tick report names the class of each post, so a reader need not open the channel.
+  assert.ok(/names the class of each post/.test(catalog), 'the report obligation is missing');
+});

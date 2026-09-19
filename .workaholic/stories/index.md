@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260919-152739](work-20260919-152739.md) - Hold the completion mention until every accepted request in one human thread is in, verified and delivered
 * [work-20260919-135359](work-20260919-135359.md) - Pin the moderation step registry by name instead of by a literal count, clearing main's red validate check
 * [work-20260919-133920](work-20260919-133920.md) - Declare what a dispatched child inherits as a dial of its own, name which guarantees a delegation restriction costs, and drill the observation clock against a busy worker
 * [work-20260919-122044](work-20260919-122044.md) - Pass every unbounded runtime value by file, bound what the coordinator stores per worker, and give each refusal its own name

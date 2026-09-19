@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T10:01:43+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -132,3 +133,37 @@ page this read just saw.
 - **Do not widen this into a general re-scan.** It is the mention's own thread and its explicitly
   linked continuations; a full-channel read is forbidden by the notify contract and is not the
   instrument here.
+
+## Final Report
+
+Development completed as planned. The reread **composes** `transport/scripts/observe-channel.sh`
+and `transport/scripts/capture-inbox.sh` rather than rebuilding either, so there is no second
+transport call shape, no second dedup and no second cursor writer.
+`work/scripts/mention-reread.sh` is the verdict over the reading that read already reported: a
+pure reader that touches no file, ref or transport. The obligation ships in **one wording** in
+`commands/infinite-development.md` and `skills/work/SKILL.md`, marked and pinned byte-identically.
+
+Verification: `node scripts/test-workflow-scripts.mjs` 7671 passed / 0 failed;
+`node --test scripts/tests/agentic-loop/repair-contracts.test.mjs` 29/29 with the two new rows
+(every withhold path and the one allow, plus the byte-identical pin);
+`node scripts/build-plugins/build.mjs` + `verify.mjs` clean.
+`git diff origin/main -- .../observe-channel.sh .../capture-inbox.sh` is empty: no cursor writer
+moved.
+
+### Discovered Insights
+
+- **Insight**: The ticket names the capture as `propose/scripts/capture-inbox.sh`; it actually
+  lives at `transport/scripts/capture-inbox.sh`, beside the observation it serves.
+  **Context**: Both surfaces here cite the real path. A reader following the ticket's path would
+  find nothing and might write a second capture, which is the one thing its own step 2 forbids.
+- **Insight**: `observe-channel.sh` already derives `observation_settled` and `unsettled[]` as
+  the single answer to *may this read be reported as nothing new* — exactly the question the
+  mention needs answered.
+  **Context**: That is why the verdict reader needs no coverage logic of its own; it passes the
+  term through verbatim, so a new coverage axis added to the observation reaches the mention
+  gate with no second edit.
+- **Insight**: `noclobber` is set in this environment, and a `>` onto an existing scratch file
+  silently left the previous contents in place — every fixture case in a first smoke run read
+  the first case's input.
+  **Context**: `rules/shell.md` predicts exactly this ("the consequence is a stale read rather
+  than an empty one"); the script itself writes only into its own `mktemp -d`.

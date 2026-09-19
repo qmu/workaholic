@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T10:01:43+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -130,3 +131,33 @@ latest worker touched, which is the silent redefinition the ask names.
 - **Low-context workers are the reason the ledger sits with the parent** (issue #1142). A bounded
   worker can prove its own unit and nothing else; keep the completion decision at the parent and
   do not push it into a child to save a round trip.
+
+## Final Report
+
+Development completed as planned. The three acts are defined **once**, in
+`skills/notify/reference/notifications.md` (*Three acts: a worker receipt, scoped progress, and a
+completion mention*), and the block carrying the two shapes, the scope rule and the
+`🟢 Implemented` non-repurposing clause is carried byte-identically into
+`commands/infinite-development.md` between explicit markers, pinned by the suite. A worker
+terminal receipt reaches the channel not at all; `📊 進捗` carries no mention token; `🏁` carries
+the addressee's and is permitted only on the thread-grain `complete` verdict. The tick report now
+names the class of every post and, for a withheld mention, what held it.
+
+Verification: `node scripts/test-workflow-scripts.mjs` 7671 passed / 0 failed;
+`node --test scripts/tests/agentic-loop/repair-contracts.test.mjs` 30/30 with the new row;
+`build.mjs` + `verify.mjs` + `validate-metadata.mjs` clean (workflows@1.0.372);
+`layout-doctor.sh .` `conforming: true` (pre-existing advisories only);
+`git diff origin/main` leaves the `🟢 Implemented` shape unchanged.
+
+### Discovered Insights
+
+- **Insight**: `✅` is already taken by `/moderate`'s `✅ 解消を確認` and `🧾` by its
+  `🧾 対応結果`, so the completion mention took `🏁` and progress took `📊`.
+  **Context**: The catalog's labels are the dedup and search key, so a reused emoji would make
+  two different events indistinguishable to a reader scanning the channel.
+- **Insight**: Issue #1110's item 7 does **not** collide with this. Its own ticket
+  (`20260919095108-make-a-shared-feedback-thread-grounds-for-one-pr-unit`) says the per-unit
+  finish "needs no new shape" and only asks that it enumerate the linked items.
+  **Context**: That is one pull request's post; this is a whole accepted set's, at the thread
+  grain. Both were checked before writing, and the catalog states the distinction so a later
+  reader does not merge them.

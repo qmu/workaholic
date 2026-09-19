@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-19T23:08:00+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 depends_on:
@@ -7,6 +8,7 @@ mission:
 merge_policy:
 verification_handoff:
 feedback: [https://github.com/qmu/workaholic/issues/1248]
+claim: work-20260919-231254
 ---
 
 # Bound the runner-advance reading to live claim worktrees
@@ -95,3 +97,88 @@ The reader was written 2026-09-06 (mission `see-a-frozen-runner-and-give-back-it
 - The filter must read the **local** ref store only. Calling `list-claims.sh` would fetch, which this reader may not do (its own header, lines 62-66), and would also make a liveness reading depend on a network round trip inside a tick.
 - A claim pushed a moment ago but whose remote-tracking ref is not yet written excludes that worktree, so the tick reads `no_claim_evidence` — unreadable, which is the safe direction and matches what the reader already does for a runner still in its survey (`plugins/workaholic/skills/loops/scripts/read-runner-advance.sh` line 56).
 - `WORKAHOLIC_RUNNER_ADVANCE_STALE_MINUTES` and every other tunable stay exactly as they are; this change moves which rows are weighed, never the window.
+
+## Final Report
+
+Development completed as planned.
+
+**The measurement was reproduced, and the state it was taken in has since changed — stated rather
+than papered over.** At the branch head the four residue worktrees are still on disk, on the same
+local-only branches, with the same remote ref store:
+
+```
+$ git worktree list --porcelain        # .worktrees/ rows only
+refs/heads/work-20260903-054004  announce-an-ask-that-landed-outside-a-unit-route-in-its-own-thread
+refs/heads/work-20260903-013925  batch-20260903013910
+refs/heads/work-20260904-143455  relay-codex-slack-through-the-owning-chat
+refs/heads/work-20260903-014343  stop-a-routine-tick-from-parking-on-a-permission-prompt
+$ git for-each-ref refs/remotes/origin/work-*
+refs/remotes/origin/work-20260908-124122
+refs/remotes/origin/work-20260919-231254   # this unit's own claim
+refs/remotes/origin/work-20260919-231306   # a sibling runner's claim
+```
+
+None of the four matches a remote ref, so no claim row can stand behind any of them — the offline
+proof the ticket states. What has changed since `daff53802` is that **two live claims now stand**
+(this unit's and a sibling runner's), so the exact `frozen_count: 2` reading cannot be taken again
+in this checkout: with two live worktrees advancing, the `advancing >= running` arm answers
+`advancing` whatever the residue does. Measured before the repair, in this checkout:
+
+```
+$ sh …/read-runner-advance.sh --names implement-20,implement-21 .
+{"running":2,"advancing":2,"frozen_count":0,
+ "claims":[ …4 residue rows, all "not_advancing", idle 1.31e6–1.44e6 s…,
+            2 live rows, "advancing" ]}
+```
+
+and after:
+
+```
+{"running":2,"advancing":2,"frozen_count":0,"residue_worktrees":4,
+ "claims":[{"unit":"batch-20260919231247","verdict":"advancing","idle_seconds":5},
+           {"unit":"batch-20260919231301","verdict":"advancing","idle_seconds":5}]}
+```
+
+The four residue rows are gone from `claims[]` and counted in `residue_worktrees`. **The ticket's
+own acceptance reading — four residue worktrees, no live claim, `advancing: 0`, `frozen_count: 0`,
+both names `unreadable: no_claim_evidence` — is proved in the hermetic fixture instead**, which
+models exactly that shape (`scripts/test-workflow-scripts.mjs`, *residue with no live claim frees
+nothing and is never a freeze*). Against the unrepaired reader that same fixture answers
+`frozen_count: 2` with both names `not_advancing`.
+
+**The filter is offline and is the claim oracle's own test.** One `git worktree list --porcelain`
+and one `git for-each-ref refs/remotes/origin/**`, both local; a row is weighed only when its
+branch exists under `refs/remotes/origin/`. There is no fetch, no `ls-remote`, and no call into
+`list-claims.sh` — which fetches — and the suite now asserts the absence of that call by name.
+
+**Step 6, the consumer.** `commands/infinite-development.md:436` already keyed the slot on *a
+non-advancing runner may free a fanout slot only when `read-runner-advance.sh` proves it*, and
+`frozen_count` counts only names this reader actually answered `not_advancing` — so the
+slot-freeing rule was sound as written and the whole defect was in the reader's evidence set. No
+weakening was found and none is recorded for later. The line gained one clause naming that the
+proof is per name and that residue is counted rather than weighed, so a reader of the consumer
+learns what the reader now excludes.
+
+**Not touched, deliberately**: `survey-worktrees.sh` and `reap-worktrees.sh` are byte-identical
+(`git diff --stat` over both is empty), the `reclaimable` predicate is not loosened, and the four
+residue worktrees remain on disk. They stop corrupting a liveness reading they were never evidence
+for; removing them stays the operator's act.
+
+### Discovered Insights
+
+- **Insight**: the join between a `.worktrees/<unit>/` directory and its `git worktree list` row is
+  made on the **unit id** — the directory's basename, which is the claim protocol's own key — and
+  not on a resolved filesystem path.
+  **Context**: a path join needs `cd` into the directory, which fails for exactly the worktree a
+  `no_files` reading exists to describe, and would turn it into `claim_unresolved` before the
+  `no_files` arm could ever be reached.
+- **Insight**: a linked worktree's `.git` is a **file** at `<worktree>/.git`, so the walk's
+  `-not -path '*/.git/*'` does not exclude it and its mtime (worktree creation time) is weighed.
+  **Context**: harmless for real residue, whose `.git` file is as old as everything else, but any
+  fixture that backdates only the content files reads as advancing. The fixture backdates every
+  entry in the worktree.
+- **Insight**: `readable: false` and the per-row `unreadable` verdict answer different questions
+  here, and only the second one was ever the defect's shape.
+  **Context**: the reader completed every walk it made; what it lacked was a test of **whose**
+  worktree it was reading. An escape hatch keyed on a *count* of evidence rather than on the
+  evidence's *standing* is the general shape — residue did not add noise, it disabled the hatch.

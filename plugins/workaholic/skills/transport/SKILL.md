@@ -28,6 +28,16 @@ ordinary answer — such a repository runs on its environment variables exactly 
 on an empty answer, so an `ok: false` reading is `binding_unreadable:<reason>` and is never
 reported, audited or written against as *this repository declares nothing*.
 
+**`--root` is optional and defaults to the repository the caller is standing in**
+(2026-09-19, ticket `20260919230600`) — `git rev-parse --show-toplevel`, resolved before the
+validity test, with an explicit `--root` always winning. It removes the commonest way to reach
+`no_root`: a required argument whose omission answers `declared: false` does not fail loudly, it
+reads as *this repository declares nothing* and the loop falls back to the environment, which is
+the misdelivery the declaration exists to prevent. The default is the repository **root** and
+never `pwd`, because the sources are composed against it. `no_root` stays exact — outside any
+repository with no `--root`, and an explicit `--root` that is not a directory — and every call
+site in the tree passes `--root` and is byte-identical.
+
 Read the declaration **before** selecting a route: it is the target discovery is judged
 against, never a hint added afterwards. `declared_digest` is the operator's declaration
 hashed, carried onto the resolved binding as `declared_digest` so an effect planned against a

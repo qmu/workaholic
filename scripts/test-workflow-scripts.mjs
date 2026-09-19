@@ -24576,15 +24576,42 @@ T("a non-advancing runner stops holding a fan-out slot", testRunnerAdvance);
 function testRunnerAdvance() {
   const reader = join(REPO_ROOT, "plugins/workaholic/skills/loops/scripts/read-runner-advance.sh");
   const tmp = mkdtempSync(join(tmpdir(), "wh-advance-"));
+  // THE FIXTURE IS GIT-BACKED since 2026-09-19 (ticket `20260919230800`), because the reader is
+  // now bounded to worktrees a CLAIM can stand behind and a claim is an unmerged REMOTE branch.
+  // `live: true` writes `refs/remotes/origin/<branch>` directly -- the local ref store is the
+  // whole test, and creating it with `update-ref` keeps the fixture offline, as the reader is.
+  // `live: false` is residue: a worktree on a local-only branch, which is what an abandoned one
+  // looks like on disk. `live: null` is a directory no `git worktree list` row names.
+  let branchSeq = 0;
   const fixture = (units) => {
     const root = join(tmp, `fx${Math.random().toString(36).slice(2)}`);
-    for (const [unit, ageSeconds] of units) {
+    mkdirSync(root, { recursive: true });
+    const git = (args) => execSync(`git ${args}`, { cwd: root, encoding: "utf8", stdio: "pipe" });
+    git("init -q");
+    git("config user.email fixture@example.com");
+    git("config user.name Fixture");
+    writeFileSync(join(root, "seed.md"), "seed\n");
+    git("add seed.md");
+    git("commit -qm seed");
+    for (const [unit, ageSeconds, live = true] of units) {
       const d = join(root, ".worktrees", unit);
-      mkdirSync(d, { recursive: true });
-      if (ageSeconds === null) continue;          // a claim whose files cannot be read at all
+      if (live === null) {                        // a directory no worktree row names
+        mkdirSync(d, { recursive: true });
+      } else {
+        const branch = `work-20260101-${String(++branchSeq).padStart(6, "0")}`;
+        git(`worktree add -q -b ${branch} ${JSON.stringify(join(".worktrees", unit))}`);
+        if (live) git(`update-ref refs/remotes/origin/${branch} HEAD`);
+      }
+      if (ageSeconds === null) {                  // a claim whose files cannot be read at all
+        for (const e of readdirSync(d)) rmSync(join(d, e), { recursive: true, force: true });
+        continue;
+      }
       const f = join(d, "f.md");
       writeFileSync(f, "work\n");
       const when = new Date(Date.now() - ageSeconds * 1000);
+      // Every file under the worktree carries the age, `.git` included: the reader takes the
+      // NEWEST mtime, so one fresh file would make a flat worktree read as advancing.
+      for (const e of readdirSync(d)) utimesSync(join(d, e), when, when);
       utimesSync(f, when, when);
     }
     return root;
@@ -24638,6 +24665,48 @@ function testRunnerAdvance() {
     assertEq("a window that is not a number holds nothing and says so",
       [bad.readable, bad.reason, bad.frozen_count], [false, "bad_window", null]);
 
+    // 4b. RESIDUE IS NOT EVIDENCE ABOUT ANYBODY (2026-09-19, ticket `20260919230800`). Until
+    //     then every directory under `.worktrees/` was weighed with no test that a claim stood
+    //     behind it, and because the escape hatch above is keyed on the COUNT of worktrees, an
+    //     abandoned one did not merely add noise -- it made `no_claim_evidence` unreachable and
+    //     turned the answer deterministic in the WRONG direction. Measured 2026-09-19 at
+    //     `daff53802`: four worktrees idle 15.2-16.7 days on local-only branches, `frozen_count:
+    //     2`, and both running runners read `not_advancing` while working, on which the
+    //     coordinator freed a slot and dispatched a second runner onto a claimed ticket.
+    const residueOnly = fixture([["r1", 1.4e6, false], ["r2", 1.4e6, false],
+                                 ["r3", 1.4e6, false], ["r4", 1.4e6, false]]);
+    r = read(residueOnly, "implement-18,implement-19");
+    assertEq("residue with no live claim frees nothing and is never a freeze",
+      [r.advancing, r.frozen_count, r.names[0].verdict, r.names[0].reason],
+      [0, 0, "unreadable", "no_claim_evidence"]);
+    assertEq("...and the residue is counted rather than weighed", r.residue_worktrees, 4);
+    assertEq("...and no excluded worktree appears as a flat claim row", r.claims, []);
+
+    //     A LIVE CLAIM BESIDE THE RESIDUE STILL DECIDES, in both directions -- the reader's
+    //     original purpose is intact, and only which rows are weighed moved.
+    r = read(fixture([["r1", 1.4e6, false], ["live", 5, true]]), "implement-18");
+    assertEq("a fresh live claim beside residue reads advancing",
+      [r.advancing, r.frozen_count, r.names[0].verdict], [1, 0, "advancing"]);
+    r = read(fixture([["r1", 1.4e6, false], ["live", 7200, true]]), "implement-18");
+    assertEq("a flat live claim beside residue still reads not_advancing",
+      [r.advancing, r.frozen_count, r.names[0].verdict], [0, 1, "not_advancing"]);
+
+    //     AND A WORKTREE WHOSE CLAIM CANNOT BE RESOLVED IS `claim_unresolved`, never flat: an
+    //     absence of a reading is never a proof, and this reader's error direction is dangerous.
+    r = read(fixture([["ghost", 7200, null], ["live", 5, true]]), "implement-18");
+    assertEq("a worktree no worktree row names is claim_unresolved, never not_advancing",
+      r.claims.find((c) => c.unit === "ghost"),
+      { unit: "ghost", verdict: "unreadable", reason: "claim_unresolved", idle_seconds: null });
+    const plain = join(tmp, "plain-root");
+    mkdirSync(join(plain, ".worktrees", "u"), { recursive: true });
+    writeFileSync(join(plain, ".worktrees", "u", "f.md"), "work\n");
+    utimesSync(join(plain, ".worktrees", "u", "f.md"),
+      new Date(Date.now() - 7200e3), new Date(Date.now() - 7200e3));
+    r = JSON.parse(execSync(`sh ${reader} --names implement ${plain}`, { encoding: "utf8" }));
+    assertEq("a root whose ref store cannot be read frees nothing",
+      [r.claims[0].reason, r.names[0].reason, r.frozen_count],
+      ["claim_unresolved", "claim_evidence_incomplete", 0]);
+
     // 5. A COMPLETED READ CARRIES NO `readable` KEY -- the `merge_policy` / `status:` convention,
     //    so a consumer tests `readable == false` and never `readable // true`.
     assertTrue("a completed read carries no readable key",
@@ -24648,6 +24717,11 @@ function testRunnerAdvance() {
     const code = readFileSync(reader, "utf8").replace(/^#.*$/gm, "");
     assertTrue("it opens no transport of its own",
       !/\bgh \b|curl|git fetch|git ls-remote/.test(code), "a network read appeared");
+    // The claim bound above reads the LOCAL ref store and must never reach the oracle itself:
+    // `list-claims.sh` fetches, and a liveness reading inside a five-minute tick may not depend
+    // on a network round trip (ticket `20260919230800`).
+    assertTrue("...and never calls the claim oracle, which fetches",
+      !/list-claims\.sh/.test(code), "the reader reached the fetching oracle");
     assertTrue("...and stops no agent", !/TaskStop|kill /.test(code), "it stops an agent");
     assertTrue("...and reads the tick log for no cadence of its own",
       !/log-read\.sh|log-append\.sh/.test(code), "a second cadence source appeared");

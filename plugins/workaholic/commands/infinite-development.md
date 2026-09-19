@@ -434,7 +434,13 @@ not a permanent exclusion: a later eligible tick retries through the executor's 
 Before each runner beyond the first, apply `WORKAHOLIC_MAX_LOAD_PER_CORE` when configured.
 Never stop a running worker because of load, never refuse the first runner, and never turn an
 unreadable load into zero capacity. A non-advancing runner may free a fanout slot only when
-`loops/scripts/read-runner-advance.sh` proves it; do not kill it.
+`loops/scripts/read-runner-advance.sh` proves it; do not kill it — and it proves it **per name**,
+never from a count. That reader
+weighs only worktrees a live claim stands behind — an unmerged `refs/remotes/origin/` branch, read
+offline — so residue on disk is counted in `residue_worktrees` and is evidence about nobody
+(2026-09-19, ticket `20260919230800`: four abandoned worktrees made `no_claim_evidence`
+unreachable and answered `not_advancing` for two runners that were working). An `unreadable`
+name frees nothing, whatever `running` and `advancing` read beside it.
 
 Resolve the base with `gather/scripts/base-ref.sh`, then start `loops/scripts/tick-progress.sh
 <repo-root> --ref <base-ref>` in the background and render the previous completed reading with

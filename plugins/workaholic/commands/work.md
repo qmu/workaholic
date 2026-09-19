@@ -35,7 +35,7 @@ the CLI clock's first-tick readiness gate and read-only `scripts/codex-loop.sh -
 which answers the **whole** loop from the state directory alone: the supervisor's own liveness,
 every worker's state and last outcome, and the last tick, with `--status --json` rendering the
 same reading for a machine and every unreadable part named by its own reason rather than omitted
-or rendered as healthy. It starts nothing, writes nothing, takes no lock and needs no `codex`
-CLI. The tick,
+or rendered as healthy. It starts nothing, writes nothing — its lock probes open read-only, so
+every file in the state directory is left byte-identical — and needs no `codex` CLI. The tick,
 the subagent contract and what the cadence buys: `workaholic:loops`
 and `plugins/workaholic/commands/infinite-development.md`.

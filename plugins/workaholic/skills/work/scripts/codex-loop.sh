@@ -60,23 +60,65 @@ WORKER_SCHEMA="${SCRIPT_DIR}/worker-result.schema.json"
 # with the token its own command body derives rather than with a word of its choosing.
 RESULT_CLAUSE="Return your result as a JSON object matching the supplied schema: \`executed\` true only if you actually read that command body and performed it, \`outcome\` the terminal token the command body itself derives, \`reason\` naming what stopped or withheld it (empty when the outcome is ok), and \`report\` carrying the run's own report block verbatim."
 
-if [ ! -f "$TICK_PROMPT" ]; then
-    printf 'plugin_skill_missing: %s\n' "$TICK_PROMPT" >&2
-    printf 'Update or reinstall the Workaholic plugin; its work skill is incomplete.\n' >&2
-    exit 2
-fi
-if [ ! -f "$COMMAND_BODY" ]; then
-    printf 'plugin_command_missing: %s\n' "$COMMAND_BODY" >&2
-    printf 'Update or reinstall the Workaholic plugin; its tick command body is incomplete.\n' >&2
-    exit 2
-fi
+# THE ROLE THIS PATH RUNS UNDER (2026-09-11, issue #1151), named at the supervisor's own entry
+# as every other unattended path names itself. The supervisor writes no commit and no ref, so it
+# reads the base-ref gate at nothing and must not acquire one; a dispatch's own role is set
+# further down and an already-set role is kept.
+: "${WORKAHOLIC_ROLE:=loop}"
+export WORKAHOLIC_ROLE
 
+# A REFUSAL NEEDS SOMEWHERE TO RECORD ITSELF, SO THE DIRECTORY IS RESOLVED FIRST (2026-09-19,
+# ticket `20260919115510-recover-or-record-a-retired-plugin-tree-at-startup`). The two plugin-tree
+# guards below used to run *above* this block and exit 2 outright, so a supervisor launched
+# against a tree that had moved died with no state directory and no record anywhere — and
+# `--status` then answered `absent`, which is the reading *never started*, indistinguishable from
+# a repository that never ran the Codex path. `repository_missing` still refuses before any
+# record: there is nowhere to write one, and inventing a location would be worse than the absence.
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 [ -n "$REPO_ROOT" ] || { printf 'repository_missing: run the launcher inside a git repository\n' >&2; exit 2; }
 [ -z "$LOG_DIR" ] && LOG_DIR="${REPO_ROOT}/.codex-loop"
 STATUS_FILE="${LOG_DIR}/status.json"
 SUPERVISOR_FILE="${LOG_DIR}/supervisor.json"
 RELAY_STATE="none"
+
+# THE GUARD IS READ HERE AND ACTED ON WHERE THE RECOVERY LIVES. The running loop has re-resolved
+# a moved tree through `ensure_plugin_tree()` since 2026-09-07 (#1069); the startup never reached
+# it, because it exited two hundred lines above the function's definition. So the reading is
+# taken here, in its original place and with its original words, and the act is deferred:
+#   * `--ack`, `--dispatch` and `--worker` refuse exactly as before, at the same point;
+#   * `--status` skips it — a read-only surface must still answer *is this loop alive* on a
+#     retired tree, which is the whole question the reporter could not get an answer to, and it
+#     reads no tick prompt and no command body;
+#   * a supervisor start attempts the loop's own recovery and, failing it, records `stopped`
+#     with this word before exiting 2 as it always did.
+STARTUP_TREE_REFUSAL=""
+STARTUP_TREE_PATH=""
+if [ ! -f "$TICK_PROMPT" ]; then
+    STARTUP_TREE_REFUSAL=plugin_skill_missing
+    STARTUP_TREE_PATH=$TICK_PROMPT
+elif [ ! -f "$COMMAND_BODY" ]; then
+    STARTUP_TREE_REFUSAL=plugin_command_missing
+    STARTUP_TREE_PATH=$COMMAND_BODY
+fi
+
+# The refusal's own two stderr lines, byte-identical to what the guards printed. It is the
+# message and nothing else — the recovery has one home, `ensure_plugin_tree()`, and a second copy
+# of it here is how the two paths would start disagreeing about which tree is current.
+startup_tree_refuse() {
+    printf '%s: %s\n' "$STARTUP_TREE_REFUSAL" "$STARTUP_TREE_PATH" >&2
+    case "$STARTUP_TREE_REFUSAL" in
+        plugin_skill_missing)
+            printf 'Update or reinstall the Workaholic plugin; its work skill is incomplete.\n' >&2 ;;
+        plugin_command_missing)
+            printf 'Update or reinstall the Workaholic plugin; its tick command body is incomplete.\n' >&2 ;;
+    esac
+}
+
+if [ -n "$STARTUP_TREE_REFUSAL" ] && [ "$STATUS_ONLY" != true ] \
+    && { [ -n "$ACK_FILE" ] || [ -n "$DISPATCH_ROLE" ] || [ -n "$WORKER_ROLE" ]; }; then
+    startup_tree_refuse
+    exit 2
+fi
 
 # THE COORDINATOR NEVER WAITS FOR THE WORK (2026-09-05, issues #984 and #985). A role is
 # dispatched as a detached process, so a run lasting longer than the interval cannot delay the
@@ -103,10 +145,25 @@ has_flock() { [ "${WORKAHOLIC_FORCE_NO_FLOCK:-0}" != 1 ] && command -v flock >/d
 
 # `running` / `idle`. flock is the authority where it exists; a pid file is the fallback, and
 # a pid file naming a dead process is idle rather than an unreadable state.
+#
+# THE PROBE READS THE LOCK AND NEVER WRITES IT (2026-09-19, ticket
+# `20260919115510-read-worker-liveness-without-writing-or-locking`). It opened the lock with
+# `exec 8>`, which CREATES and TRUNCATES the file and moves its mtime, and then held that
+# exclusive lock for the life of the subshell — so `--status`, documented four times over as a
+# surface that "starts nothing, writes nothing, takes no lock", did all three. Two consequences
+# the contract says cannot happen: a read could lose `dispatch_claim_role()` its lock and answer
+# a real dispatch `already_running`, and it destroyed the very forensics the surface exists to
+# provide. MEASURED: the reporter found three `worker-*.lock` files reading one minute old —
+# written by their own earlier `--status` call — in a repository whose supervisor had been dead
+# for twelve days. `exec 8<` opens read-only: flock(2) does not care about the open mode, so a
+# held exclusive lock still reports held and a free one free, and the file is left byte-identical
+# down to its mtime. The `[ -e ]` guard already answers an absent lock before any probe, so
+# *absent means never started* is untouched, and `dispatch_claim_role()` and the `--worker` claim
+# keep `exec 8>` because they must create, truncate and hold.
 role_state() {
     _lock=$(role_lock "$1")
     if has_flock; then
-        if [ -e "$_lock" ] && ! ( exec 8>"$_lock"; flock -n 8 ) 2>/dev/null; then
+        if [ -e "$_lock" ] && ! ( exec 8<"$_lock"; flock -n 8 ) 2>/dev/null; then
             printf 'running'; return 0
         fi
         printf 'idle'; return 0
@@ -232,9 +289,13 @@ liveness_reading() {
 # refuses nothing — the lock stays the only concurrency authority, exactly as `role_state` already
 # probes a role lock for the same evidential purpose.
 #
-# IT NEVER CREATES THE FILE. `exec >` would, and a status surface that writes is the one thing this
-# surface may not become — so an absent lock is answered before any probe, and that is also what
-# keeps *absent means never started* true for a repository that never ran the Codex path.
+# IT NEITHER CREATES NOR TRUNCATES THE FILE. `exec 7>` does both, and a status surface that writes
+# is the one thing this surface may not become — so an absent lock is answered before any probe
+# (which is also what keeps *absent means never started* true for a repository that never ran the
+# Codex path) and the probe itself opens read-only with `exec 7<`. This comment stated the intent
+# in capitals while the line below it broke it (2026-09-19, ticket
+# `20260919115510-read-worker-liveness-without-writing-or-locking`); the reading is unchanged,
+# because flock(2) ignores the open mode.
 #   held | free | unreadable:<reason>
 supervisor_lock() { printf '%s/.supervisor.lock' "$LOG_DIR"; }
 
@@ -242,7 +303,7 @@ supervisor_lock_state() {
     _sl_file=$(supervisor_lock)
     [ -e "$_sl_file" ] || { printf 'free'; return 0; }
     has_flock || { printf 'unreadable:flock_missing'; return 0; }
-    if ( exec 7>"$_sl_file"; flock -n 7 ) 2>/dev/null; then printf 'free'; else printf 'held'; fi
+    if ( exec 7<"$_sl_file"; flock -n 7 ) 2>/dev/null; then printf 'free'; else printf 'held'; fi
 }
 
 # One word. A RECORD IS NOT THE ONLY EVIDENCE THAT A SUPERVISOR EXISTS, which is where this
@@ -528,8 +589,9 @@ fi
 
 if [ "$STATUS_ONLY" = true ]; then
     # ONE INVOCATION, ONE ANSWER. `--json` renders the composed reading for a machine; without it
-    # the human lines are unchanged. Either way this branch starts nothing, writes nothing, takes
-    # no lock and requires no `codex` CLI — it returns before the presence check and before the
+    # the human lines are unchanged. Either way this branch starts nothing, writes nothing (its
+    # lock probes open read-only, so every file in the state directory is left byte-identical,
+    # mtime included) and requires no `codex` CLI — it returns before the presence check and before the
     # `mkdir`, and the exit status is the tick's own (0 / 4 / 5) on both surfaces.
     if [ "$STATUS_JSON" = true ]; then
         show_status_json
@@ -641,6 +703,33 @@ write_supervisor() {
         printf '}\n'
     } >"$_sv_w_tmp"
     mv "$_sv_w_tmp" "$SUPERVISOR_FILE"
+    # `completed_once` is the ordinary end of a `--once` run and announces nothing. Every other
+    # stop is a clock a person needs to know has stopped.
+    if [ "$_sv_w_state" = stopped ] && [ "$_sv_w_reason" != completed_once ]; then
+        announce_stop "codex clock stopped: ${_sv_w_reason:-unstated}" \
+            "Codex の外部クロックが止まりました（理由: ${_sv_w_reason:-unstated}）。状態は ${SUPERVISOR_FILE} にあります。"
+    fi
+}
+
+# THE TWO STOPS THAT REACH A PERSON, AND THE ONE SHAPE THEY USE (2026-09-19, ticket
+# `20260919115511-announce-a-codex-clock-that-stopped-or-executed-nothing`). The supervisor's
+# whole escalation reach was `write_supervisor stopped <reason>` plus a line on stderr, and
+# nothing outside `skills/work/` read the status surface at all — which is how a loop stayed
+# `blocked / interrupted` for twelve days with a person looking at the repository. The shape,
+# the dedup, the single escalation and the cool-down are `workaholic:notify`'s precondition-stop
+# shape unchanged; `announce-stop.sh` owns them and this is the caller.
+#
+# BOTH TRIGGERS ARE DERIVED FROM STATE THAT ALREADY EXISTS, and neither adds a field or a
+# counter: a `stopped` record whose reason is not the ordinary end (`completed_once`), and a
+# role whose own `consecutive_failures` has reached `WORKAHOLIC_WORKER_ATTEMPT_MAX` — the
+# threshold `record_worker_attempt` already crosses. It is NEVER a second liveness authority:
+# it reads what the record says and decides nothing about who may run. A failure is swallowed,
+# because an announcement is never load-bearing.
+ANNOUNCE_STOP_SH=""
+announce_stop() {
+    [ -n "$ANNOUNCE_STOP_SH" ] || ANNOUNCE_STOP_SH="${SCRIPT_DIR}/announce-stop.sh"
+    [ -f "$ANNOUNCE_STOP_SH" ] || return 0
+    sh "$ANNOUNCE_STOP_SH" --log "$LOG_DIR" --signature "$1" --text "$2" >/dev/null 2>&1 || true
 }
 
 # The same atomic shape again, per role. `exit_status` and `outcome` are recorded SEPARATELY and
@@ -1093,6 +1182,11 @@ record_worker_finish() {
             --status blocked \
             --summary "${_rw_role} not executed ${_rw_seen} times (${_rw_outcome}); held to its ordinary cadence" \
             >/dev/null 2>&1 || true
+        # A CLOCK THAT KEEPS TICKING WITHOUT EXECUTING ANYTHING reaches a person here, at the
+        # threshold this branch already crosses. The signature carries the role and the outcome
+        # word and no count, so a wall the loop keeps hitting is one alert rather than one a tick.
+        announce_stop "codex worker not executing: ${_rw_role} (${_rw_outcome})" \
+            "Codex の ${_rw_role} ワーカーが ${_rw_seen} 回続けて何も実行していません（${_rw_outcome}）。"
     fi
 }
 
@@ -1259,7 +1353,12 @@ plugin_tree_complete() {
         [ -f "$_pt_skill/$_pt_file" ] || return 1
     done
 }
+# The optional argument is the word the refusal records — `clock_wrapper_missing` for the loop's
+# own mid-flight re-resolution, and the startup's own more precise `plugin_skill_missing` /
+# `plugin_command_missing` when it is the startup asking. One resolution seam, one recovery, one
+# record; the caller supplies only the word it already knows.
 ensure_plugin_tree() {
+    _ept_word=${1:-clock_wrapper_missing}
     plugin_tree_complete "$PLUGIN_ROOT" && return 0
     RETIRED_PLUGIN_ROOT=$PLUGIN_ROOT
     printf 'clock_wrapper_missing: retired plugin tree %s\n' "$RETIRED_PLUGIN_ROOT" >&2
@@ -1269,7 +1368,10 @@ ensure_plugin_tree() {
         _resolved=$(printf '%s' "$_resolution" | jq -er 'select(.ok == true) | (.call_src // .src) | select(type == "string" and length > 0)' 2>/dev/null || true)
     fi
     if [ -z "$_resolved" ] || ! plugin_tree_complete "$_resolved"; then
-        write_supervisor stopped clock_wrapper_missing
+        # A DRY RUN STILL WRITES NOTHING. It is the one mode whose whole contract is that it
+        # creates no state directory, so the recovery reports itself on stderr and records
+        # nothing — the same rule `run_tick` already keeps for `status.json`.
+        [ "$DRY_RUN" = true ] || { mkdir -p "$LOG_DIR" 2>/dev/null || true; write_supervisor stopped "$_ept_word"; }
         printf 'clock_wrapper_missing: no complete replacement for %s; update or reinstall the Workaholic plugin\n' "$RETIRED_PLUGIN_ROOT" >&2
         return 1
     fi
@@ -1280,9 +1382,24 @@ ensure_plugin_tree() {
     COMMAND_BODY="${PLUGIN_ROOT}/commands/infinite-development.md"
     RELAY_CONTRACT="${SCRIPT_DIR}/relay-contract.sh"
     WORKER_SCHEMA="${SCRIPT_DIR}/worker-result.schema.json"
-    write_supervisor running ""
+    [ "$DRY_RUN" = true ] || { mkdir -p "$LOG_DIR" 2>/dev/null || true; write_supervisor running ""; }
     printf 'codex loop: recovered retired plugin tree %s -> %s\n' "$RETIRED_PLUGIN_ROOT" "$PLUGIN_ROOT" >&2
 }
+
+# THE STARTUP TAKES THE RECOVERY THE LOOP ALREADY HAS, and records the stop when it cannot
+# (2026-09-19, ticket `20260919115510-recover-or-record-a-retired-plugin-tree-at-startup`). One
+# resolution, one `plugin_tree_complete()` test, the resolver's `call_src // src` preference
+# unchanged — this calls the same function the loop calls at the head of every iteration and adds
+# no second copy of it. A recovery reports itself the way the loop's does; a failure writes
+# `stopped` with the precise word the guard read and exits 2 with the same two stderr lines, so
+# `--status` reads `stopped:plugin_skill_missing` rather than `absent`.
+if [ -n "$STARTUP_TREE_REFUSAL" ]; then
+    # `ensure_plugin_tree` creates the directory only when it has a record to put in it, and a
+    # `--dry-run` never does. A repository that never ran the Codex path reaches neither branch,
+    # so *absent means never started* is untouched.
+    ensure_plugin_tree "$STARTUP_TREE_REFUSAL" || { startup_tree_refuse; exit 2; }
+    STARTUP_TREE_REFUSAL=""
+fi
 
 LOCK="${LOG_DIR}/.supervisor.lock"
 if [ "$DRY_RUN" = true ]; then run_tick; exit 0; fi

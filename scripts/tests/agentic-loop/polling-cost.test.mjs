@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -95,6 +95,54 @@ test('P5 maintenance cadence state selects no unchanged step twice inside its ho
   const second=prepare(10001); const secondInput=join(dir,'second.json'); writeFileSync(secondInput,second.stdout);
   assert.deepEqual(JSON.parse(second.stdout).changed_snapshots,[]);
   assert.equal(JSON.parse(run(['sh',planner,'--input',secondInput]).stdout).data.count,0);
+});
+
+// The planner refuses a registry row it cannot read, BY NAME and on the COLD tick
+// (2026-09-19, ticket `20260919141500`). jq's `or`/`if` short-circuit, so `.trigger.seconds`
+// is evaluated only on the arm where the step has already run: a row whose `trigger` is a
+// string planned cleanly on the first tick of an hour and aborted the program mid-array on
+// the second, with nothing on stdout — which through a pipe exits 0 and reads as *no steps
+// selected*, the one direction of this error that is dangerous. The registry's SIZE is not a
+// term and the grown-fixture row below is what pins that: the ticket suspected a 1024-byte
+// boundary and the planner answers at 36 steps and at 200 alike.
+test('P5 the maintenance planner refuses an unreadable registry row by name, never empty', t => {
+  const dir=mkdtempSync(join(tmpdir(),'workaholic-registry-shape-')); t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const repo=join(dir,'repo'); mkdirSync(repo);
+  run(['git','init','-q','-b','main',repo]); writeFileSync(join(repo,'tracked'),'x'); run(['git','-C',repo,'add','tracked']);
+  run(['git','-C',repo,'-c','user.name=T','-c','user.email=t@example.com','commit','-qm','fixture']);
+  // `plan-steps.sh` reads the registry beside itself, so the fixture is a copy of the two
+  // skills it composes rather than an edit of the tree under test.
+  const skillsCopy=join(dir,'skills'); mkdirSync(skillsCopy);
+  for (const s of ['moderate','runtime']) cpSync(join(skills,s),join(skillsCopy,s),{recursive:true});
+  const registryPath=join(skillsCopy,'moderate/scripts/steps.json');
+  const registry=JSON.parse(readFileSync(registryPath,'utf8'));
+  const state=join(skillsCopy,'moderate/scripts/runtime-plan.sh'); const planner=join(skillsCopy,'moderate/scripts/plan-steps.sh');
+  const plan=(input)=>{const f=join(dir,'in.json');writeFileSync(f,input);return run(['sh',planner,'--input',f],{cwd:repo})};
+
+  // A `trigger` that is a string — the shape an appended row takes when it carries the kind
+  // alone. Refused on the COLD tick, naming the offending step id.
+  writeFileSync(registryPath,JSON.stringify({...registry,steps:[...registry.steps,
+    {id:'probe-step',script:'step-probe.sh',trigger:'cadence',reader:true,writer:false}]}));
+  const cold=run(['sh',state,'prepare','--root',repo,'--now','10000'],{cwd:repo});
+  const refused=plan(cold.stdout);
+  assert.equal(refused.status,2,'an unreadable registry is a typed refusal, never exit 0');
+  assert.notEqual(refused.stdout.trim(),'','a reader that cannot read its registry says so on stdout');
+  const refusal=JSON.parse(refused.stdout);
+  assert.equal(refusal.status,'error'); assert.equal(refusal.reason,'invalid_registry_step');
+  assert.match(refusal.steps,/probe-step/,'the refusal names the row it could not read');
+
+  // And a well-formed registry stays readable past today's size, on the SECOND tick — the
+  // tick the abort used to reach. Grown from the registry's own rows so no count is pinned.
+  const grown=Array.from({length:40},(_,i)=>({...registry.steps[i%registry.steps.length],id:`grown-${i}`}));
+  writeFileSync(registryPath,JSON.stringify({...registry,steps:grown}));
+  const first=run(['sh',state,'prepare','--root',repo,'--now','20000'],{cwd:repo});
+  assert.equal(JSON.parse(plan(first.stdout).stdout).data.count,grown.length,'a cold tick selects every grown step');
+  const completed=run(['sh',state,'complete','--root',repo,'--now','20000','--executed',grown.map(x=>x.id).join(',')],{cwd:repo});
+  assert.equal(completed.status,0,completed.stderr);
+  const second=run(['sh',state,'prepare','--root',repo,'--now','20001'],{cwd:repo});
+  const answered=plan(second.stdout);
+  assert.equal(answered.status,0,answered.stderr);
+  assert.equal(JSON.parse(answered.stdout).status,'ok','the second tick answers a parseable result at a grown registry');
 });
 
 test('P5 inbox cursor advances only after durable deduplicated captures', t => {

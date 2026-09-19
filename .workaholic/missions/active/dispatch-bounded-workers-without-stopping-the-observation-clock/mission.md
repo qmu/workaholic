@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260919-133920
 ---
 
 # Dispatch bounded workers without stopping the observation clock

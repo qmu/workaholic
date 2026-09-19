@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260919-152739](work-20260919-152739.md) - Hold the completion mention until every accepted request in one human thread is in, verified and delivered
 * [work-20260919-135359](work-20260919-135359.md) - Pin the moderation step registry by name instead of by a literal count, clearing main's red validate check
 * [work-20260919-122044](work-20260919-122044.md) - Pass every unbounded runtime value by file, bound what the coordinator stores per worker, and give each refusal its own name
 * [work-20260919-102417](work-20260919-102417.md) - A feedback item now closes only on evidence read back from the surface the person named, and the ingest pull request stops closing it on merge.

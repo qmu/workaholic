@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-21T18:04:18+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 mission: hold-operator-deferred-tickets-out-of-the-offer-and-say-so
@@ -105,3 +106,44 @@ and **not** in `list-todo.sh`'s filter, which is where invisibility comes from.
 - **Do not let this ticket also change allocation.** A deferred ticket being excluded and a
   deferred-only queue not consuming a runner are two readings at two layers; the second is the
   next ticket's, and folding them makes one change nobody can bisect.
+
+## Final Report
+
+Development completed as planned. `plan-units.sh` reads the declaration at the **exclusion seam** through
+the previous ticket's one reader and excludes such a ticket `operator_deferred`; a declaration that reader
+could not read is excluded `deferral_unreadable`. `list-todo.sh` is byte-identical.
+
+Step 1's before/after, measured in a throwaway tree (`git init`, two queued tickets, no origin):
+
+- **Before** — one free ticket and one carrying `status: icebox`:
+  `{"backlog_size":1,"backlog":[".../20260921000001-free.md"],"excluded":[],"backlog_all_excluded":{"excluded":false,"backlog_size":1,"reasons":[]}}`
+  The iceboxed ticket is not counted, no row names it, and the reading is byte-identical to a queue that
+  simply holds one ticket. That is the defect, and it is why the change went to `plan-units.sh` rather
+  than to `list-todo.sh`'s filter.
+- **After** — the same tree plus one ticket carrying `deferred: 顧客の確認が返るまで着手しない`:
+  `{"backlog_size":2,"backlog":[".../20260921000001-free.md"],"excluded":[{"kind":"ticket","id":".../20260921000003-deferred.md","reason":"operator_deferred"}]}`
+  Counted, offered to nobody, named.
+- **A deferred-only queue**:
+  `backlog: []` with `backlog_all_excluded: {"excluded":true,"backlog_size":2,"reasons":[{"reason":"operator_deferred","count":2}]}`.
+- **An unreadable declaration** (a bare `deferred:` planted by hand) joins as
+  `{"reason":"deferral_unreadable","count":1}` beside it, never as `operator_deferred`.
+- **Removal re-offers** with no other act: deleting the line returned the ticket to `backlog[]` on the
+  very next survey, with `excluded[]` empty.
+
+Step 5's decision, stated rather than left implicit: an unreadable declaration takes the survey's existing
+**degraded** reading one layer up — `claimable-units.sh` answers `readable: false`, which falls back to one
+runner. It sets no top-level trustworthiness field, so it does not forbid `ok` by itself; that table is
+`drive/SKILL.md` §7's and belongs to one mission at a time. The cost is stated in the script header and in
+`reference/survey.md`: such a ticket is named in every survey until it is repaired.
+
+### Discovered Insights
+
+- **Insight**: `backlog_all_excluded`'s per-reason counts are derived from whatever `excluded[]` carries,
+  so a new exclusion reason is counted by construction and needs no edit there.
+  **Context**: The genericity is deliberate (recorded in the script when `claimed_undelivered` was added);
+  this ticket needed no change to that derivation at all, only a proof that it fires.
+- **Insight**: The deferral check has to sit **after** the `mission_member` branch, not before it.
+  **Context**: A mission member is driven inside its mission's unit, which `plan-units.sh` does not
+  partition — reporting it `operator_deferred` would claim a hold the run does not honour. The
+  consequence is stated as a limit in three places rather than hidden: a mission member's deferral is
+  not read, and holding one member of a unit is `verification_handoff:`'s shape.

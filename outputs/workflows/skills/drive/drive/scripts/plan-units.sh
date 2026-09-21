@@ -76,11 +76,48 @@
 # `claimed_undelivered`, `claimed_awaiting_verification`,
 # `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`,
 # `no_plan`, `no_tickets`,
-# `queue_drained`, `mission_member`; `not_approved` was retired with the draft gate --
+# `queue_drained`, `mission_member`, `operator_deferred`, `deferral_unreadable`;
+# `not_approved` was retired with the draft gate --
 # K1), because a
 # queue item that vanishes from an unattended run's offer with no trace is
 # indistinguishable from one that was never there (`workaholic:implementation` /
 # observability).
+#
+# `operator_deferred` IS THE OPERATOR'S OWN HOLD, AND IT IS READ HERE RATHER THAN IN THE QUEUE
+# WALK (2026-09-21, ticket `20260921180418-name-a-deferred-ticket-in-the-survey-exclusions`).
+# `list-todo.sh` filters `done | abandoned | icebox` out of the walk itself, so such a ticket
+# never reaches this script at all: it is not counted in `backlog_size`, appears in no
+# `excluded[]` row, and `backlog_all_excluded` reads `excluded: false` because nothing was
+# excluded -- a queue emptied by deferral is byte-identical to an empty queue, the exact
+# collapse `backlog_all_excluded` was built to end and `placeholder_identity` was added for a
+# second time. So the deferral is read at THIS seam, where every other held artifact is already
+# named, and the queue walk is byte-identical: the ticket is still queued, and it is still
+# counted. Its reason is its own word rather than a fold into `owned_by_other` or
+# `mission_member`, because these reasons are read straight out of cron logs and each has to
+# imply its own next action -- here, the operator removing the line, which is the ONLY re-offer
+# path (no promotion script, no flag, no stored cursor, and nothing in the loop clears it).
+#
+# `deferral_unreadable` IS NOT A DEFERRAL AND NOT A PASS. A declaration the one reader could not
+# read (a malformed value, no frontmatter, an unreadable file) must not silently become *not
+# deferred* -- that would drive a ticket the operator may have parked -- and must not become
+# *deferred* either, because acting on an absence of a reading is the failure every degradation
+# word in this file exists to prevent. It is its own exclusion reason, so the ticket is held out
+# of the offer AND a reader can tell it from a ticket the operator actually deferred. One layer
+# up it takes the survey's existing degraded reading: `loops/scripts/claimable-units.sh` answers
+# `readable: false` on it, which falls back to ONE runner rather than zero -- a reading nobody
+# could make never becomes zero capacity.
+#
+# THE COST, STATED: it rides `backlog_all_excluded`'s counts and sets no top-level trustworthiness
+# field, so it does not forbid `ok` by itself -- that table is `../SKILL.md` §7's and belongs to
+# one mission at a time. Such a ticket is named in every survey's `excluded[]` until it is
+# repaired.
+#
+# A MISSION MEMBER'S DEFERRAL IS NOT READ, and that is a stated limit rather than an oversight.
+# The check sits AFTER the `mission_member` branch, so a ticket arriving inside its mission's
+# unit keeps that reason: the mission unit is offered whole, this script does not choose the
+# tickets driven inside it, and reporting `operator_deferred` for a member the mission unit will
+# drive anyway would be a lie about it being held. Holding one member of a unit is
+# `verification_handoff:`'s shape and is a separate question.
 #
 # THE SAME RULE APPLIES TO A REPAIR, WHICH IS WHY ONE REASON HAS NO `excluded` ENTRY.
 # `mission_member` is not a fact about a ticket, it is a PREMISE -- "this arrives inside
@@ -567,6 +604,24 @@ claim_reason_for() {
     printf '%s' "$_cr"
 }
 
+# The operator's own hold on a queued ticket, read through the declaration's ONE reader
+# (`read-deferral.sh`) and never re-parsed here -- two parsers of one field is how two readings
+# drift. Three answers and no fourth: `deferred` (hold it, name it), `offerable` (the ordinary
+# case), `unreadable` (hold it, and say the reading failed rather than that the operator spoke).
+# `readable` is ABSENT on a completed read, so the test is `has("readable") and .readable ==
+# false` and never `.readable // true` -- `false` is a real answer for `deferred`.
+deferral_verdict() {
+    _dv=$(sh "${SCRIPT_DIR}/read-deferral.sh" "$1" 2>/dev/null || true)
+    if [ -z "$_dv" ]; then printf 'unreadable'; return 0; fi
+    _dw=$(printf '%s' "$_dv" | jq -r '
+        if (has("readable") and .readable == false) then "unreadable"
+        elif .deferred == true then "deferred"
+        elif .deferred == false then "offerable"
+        else "unreadable" end' 2>/dev/null || true)
+    [ -n "$_dw" ] || _dw=unreadable
+    printf '%s' "$_dw"
+}
+
 EXCLUDED=""
 exc_sep=""
 exclude() {
@@ -814,6 +869,19 @@ for t in $TODO_LIST; do
         exclude ticket "$t" "mission_member"
         continue
     fi
+    # THE OPERATOR'S OWN HOLD (see `operator_deferred` in the header). Read after the member
+    # test on purpose: a mission member arrives inside its mission's unit, which this script
+    # does not partition, so naming it held here would state something the run does not do.
+    case "$(deferral_verdict "$t")" in
+        deferred)
+            exclude ticket "$t" "operator_deferred"
+            continue
+            ;;
+        unreadable)
+            exclude ticket "$t" "deferral_unreadable"
+            continue
+            ;;
+    esac
     # THE REPAIR IS ANNOTATED ON THE ROW, NOT REPORTED AS AN EXCLUSION. A repaired ticket
     # is OFFERED, and `excluded[]` names items the survey saw and DROPPED -- putting
     # `mission_closed` there would describe the opposite of what happened. So the offer

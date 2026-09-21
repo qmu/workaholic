@@ -122,7 +122,44 @@ a **local** read, so the survey stays offline by construction.
 **`excluded[]` names every drop and why**: `claimed_active`, `claimed_reported`,
 `claimed_undelivered`, `claimed_awaiting_verification`,
 `claimed_by_other`, `claimed_resumable`, `claimed_superseded`, `owned_by_other`, `no_plan`,
-`no_tickets`, `queue_drained`, `mission_member`.
+`no_tickets`, `queue_drained`, `mission_member`, `operator_deferred`, `deferral_unreadable`.
+
+**`operator_deferred`** (2026-09-21, ticket `20260921180418`) names a queued ticket **the operator
+put a hold on**, by writing `deferred: <why>` into its own frontmatter. The ticket stays queued: it
+is counted in `backlog_size`, offered to nobody, and named here with the reason it carries — and
+`backlog_all_excluded` counts it like any other reason, so a queue held entirely by deferral reports
+`excluded: true` with `operator_deferred` and its count rather than reading like an empty one.
+
+**The reading is here rather than in the queue walk, and that is the whole repair.**
+`list-todo.sh` filters `done | abandoned | icebox` out of the walk itself, so an iceboxed ticket
+never reaches the survey at all — not counted, no `excluded[]` row, `backlog_all_excluded` reading
+`excluded: false` because nothing was excluded. Measured in a throwaway tree: a queue of one free
+and one iceboxed ticket answers `backlog_size: 1` with an empty `excluded[]`, byte-identical to a
+queue that simply holds one ticket. That invisibility is the defect the ask names, so the
+declaration is read at the exclusion seam where every other held artifact is already named, and
+`list-todo.sh`'s filter is **byte-identical**. `status: icebox`, `promote-icebox.sh` and
+`list-icebox.sh` are untouched: `icebox` parks a ticket **out** of the queue, `deferred:` holds one
+**in** it.
+
+**Removing the line is the only re-offer path** — no promotion script, no flag, no stored cursor —
+and nothing in the loop writes or clears the key, exactly as no run may declare its own
+`verification_handoff:`. It is read through `drive/scripts/read-deferral.sh`, the declaration's one
+parser, and nowhere else.
+
+**`deferral_unreadable`** is neither a deferral nor a pass. A declaration the reader could not read
+(a malformed value, no frontmatter, an unreadable file) must not silently become *not deferred* —
+that drives a ticket the operator may have parked — and must not become *deferred* either, because
+acting on an absence of a reading is what every degradation word here exists to prevent. It gets its
+own reason so the two never read alike, and one layer up it takes the survey's existing degraded
+reading: `loops/scripts/claimable-units.sh` answers `readable: false` on it, which falls back to
+**one** runner rather than zero. **Cost, stated**: it sets no top-level trustworthiness field, so it
+does not forbid `ok` by itself — that table is `../SKILL.md` §7's — and such a ticket is named in
+every survey until it is repaired.
+
+**A mission member's deferral is not read**, deliberately: the check sits after the `mission_member`
+branch, the mission unit is offered whole, and this script does not choose the tickets driven inside
+it — so naming such a ticket held would state something the run does not do. Holding one member of a
+unit is `verification_handoff:`'s shape and a separate question.
 
 **`claimed_awaiting_verification`** (2026-08-27) names a unit **waiting on a person, by design**:
 the work still queued behind its claim was *declared* unverifiable in an unattended environment

@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-21T18:04:18+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 mission: hold-operator-deferred-tickets-out-of-the-offer-and-say-so
@@ -105,3 +106,34 @@ twice recorded as how two readings drift (`overdue` beside `pace`; `self_refinin
 - **Stated cost of a new key**: two parking concepts now exist side by side. That is deliberate
   — they answer different questions — and the documentation must say when to reach for which,
   or operators will use them interchangeably and the distinction will be lost.
+
+## Final Report
+
+Development completed as planned. `deferred: <why>` is the declaration, `drive/scripts/read-deferral.sh` is
+its one reader, and `hooks/validate-ticket.sh` carries the write floor. No reader changed: `list-todo.sh`,
+`plan-units.sh` and `claimable-units.sh` were byte-identical after this ticket, and `status: icebox`,
+`promote-icebox.sh` and `list-icebox.sh` are untouched for the whole mission.
+
+Step 1 (read the existing parking mechanism first) found what decided the design: `list-todo.sh` filters
+`done | abandoned | icebox` out of the **queue walk**, so an iceboxed ticket never reaches the survey at
+all — the ask asks for a ticket that stays queued and is named. `promote-icebox.sh` clears `status:` to
+bring one back; `validate-ticket.sh` validates `status:`'s *path* implications and never its value.
+
+Step 5 (the legacy-row floor) ran the hook over **every** ticket on disk under the old and the new copy
+and diffed the exit statuses: **1516 rows, 747 of them carrying a `status:` value, byte-identical**. The
+96 refusals are all pre-existing and all from other rules (frontmatter absent in the 2026-01 `feat-*`
+archive, a retired filename shape, a `depends_on` entry that is not a filename); **zero** come from the new
+key, and every one of the 5 queued tickets passes.
+
+### Discovered Insights
+
+- **Insight**: An empty frontmatter value and an absent key are the same answer to every existing reader
+  in this plugin (`fm_field`, `validate_field`), so a floor that must tell them apart needs its own
+  presence probe — here an `awk` emitting `present<TAB><value>`.
+  **Context**: That is why the write floor refuses a bare `deferred:` rather than tolerating it the way
+  `merge_policy:` does: for `merge_policy` an empty value has a safe reading (`review`), and for a hold
+  it has two contradictory ones.
+- **Insight**: The scaffolded ticket template in `create-ticket/reference/ticket-format.md` is copied
+  verbatim into new tickets, so any key added there with an empty value is written into every ticket.
+  **Context**: `deferred:` is deliberately absent from that template — adding it would make the scaffold
+  emit the one shape the floor refuses, and the file now says so beside the template.

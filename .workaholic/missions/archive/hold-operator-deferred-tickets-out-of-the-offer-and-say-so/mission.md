@@ -2,20 +2,21 @@
 type: Mission
 title: Hold operator-deferred tickets out of the offer and say so
 slug: hold-operator-deferred-tickets-out-of-the-offer-and-say-so
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-21T18:03:58+09:00
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.8
 feedback: [20260921180339-exclude-explicitly-deferred-tickets-from-the-claimable-offer.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260921-191811
 ---
 
 # Hold operator-deferred tickets out of the offer and say so
@@ -36,14 +37,20 @@ Removing the declaration is the only thing that makes it claimable again.
 
 ## Acceptance
 
-- [ ] A malformed declaration is refused at write time; a valid one is offered by no survey.
+- [x] A malformed declaration is refused at write time; a valid one is offered by no survey.
       (#20260921180418-declare-an-operator-deferral-on-a-queued-ticket.md)
-- [ ] `plan-units.sh` counts it in `backlog_size` and names it in `excluded[]` with its own
+- [x] `plan-units.sh` counts it in `backlog_size` and names it in `excluded[]` with its own
       reason, which `backlog_all_excluded` reports and counts.
       (#20260921180418-name-a-deferred-ticket-in-the-survey-exclusions.md)
-- [ ] A deferred-only queue takes zero runners, is named, and is neither `readable: false` nor
+- [x] A deferred-only queue takes zero runners, is named, and is neither `readable: false` nor
       a failure. (#20260921180419-stop-a-deferred-only-queue-consuming-a-runner.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-21 — ticket archived — 20260921180418-declare-an-operator-deferral-on-a-queued-ticket.md
+- 2026-09-21 — ticket archived — 20260921180418-name-a-deferred-ticket-in-the-survey-exclusions.md
+- 2026-09-21 — ticket archived — 20260921180419-stop-a-deferred-only-queue-consuming-a-runner.md
+- 2026-09-21 — mission achieved — mission.md
+- 2026-09-21 — run recorded (+0.8h) — impl-20260921-1013
+- 2026-09-21 — story opened — work-20260921-191811.md

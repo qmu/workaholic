@@ -17738,6 +17738,109 @@ function testPlanUnitsExclusions() {
   } finally { cleanup(dir); }
 }
 
+// AN OPERATOR-DEFERRED TICKET STAYS QUEUED AND IS NAMED (2026-09-21, mission
+// `hold-operator-deferred-tickets-out-of-the-offer-and-say-so`). The load-bearing assertion is
+// the FIRST one: `status: icebox` is filtered out inside `list-todo.sh`, so an iceboxed ticket
+// never reaches the survey at all -- not counted in `backlog_size`, no `excluded[]` row, and
+// `backlog_all_excluded` reading `excluded: false` because nothing was excluded. A queue emptied
+// by deferral was byte-identical to an empty queue, which is the collapse `backlog_all_excluded`
+// exists to end. The deferral is therefore read at the EXCLUSION seam and `list-todo.sh` is
+// untouched.
+T("drive/plan-units.sh (an operator-deferred ticket is held, counted and named)", testPlanUnitsDeferral);
+function testPlanUnitsDeferral() {
+  const dir = makeRepo("main");
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const READ = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/read-deferral.sh")}`;
+  const tdir = join(dir, ".workaholic/tickets/todo");
+  const ticket = (name, extra) => {
+    mkdirSync(tdir, { recursive: true });
+    writeFileSync(join(tdir, `${name}.md`),
+      `---\ncreated_at: 2026-09-21T00:00:01+09:00\nauthor: test@example.com\nassignees: []\n` +
+      `${extra}---\n\n# ${name}\n\n## Policies\n\n- x\n\n## Quality Gate\n\n- x\n`);
+    return `.workaholic/tickets/todo/${name}.md`;
+  };
+  const survey = () => JSON.parse(run(dir, PLAN).stdout);
+  const why = (plan, id) => plan.excluded.find((e) => e.id === id)?.reason;
+  try {
+    const free = ticket("20260921000001-free", "");
+    const iced = ticket("20260921000002-iced", "status: icebox\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // 1. THE DEFECT, REPRODUCED. An iceboxed ticket is invisible rather than held.
+    let plan = survey();
+    assertEq("an iceboxed ticket is not even counted by the survey", plan.backlog_size, 1);
+    assertEq("...and no exclusion row names it", why(plan, iced), undefined);
+    assertEq("...so the queue reads exactly like one that simply holds one ticket",
+      plan.backlog_all_excluded.excluded, false);
+
+    // 2. A DEFERRED TICKET IS COUNTED, OFFERED TO NOBODY, AND NAMED.
+    const held = ticket("20260921000003-held", "deferred: waiting on the customer\n");
+    execSync("git add -A && git commit -q -m held", { cwd: dir });
+    plan = survey();
+    assertEq("a deferred ticket is still counted in backlog_size", plan.backlog_size, 2);
+    assertEq("...and is offered to nobody", plan.backlog.map((t) => t.path), [free]);
+    assertEq("...and is named with its own reason", why(plan, held), "operator_deferred");
+
+    // 3. A QUEUE HELD ENTIRELY BY DEFERRAL REPORTS AS HELD, with the reason and its count --
+    //    distinguishable from a queue emptied by claims and from one emptied by ownership.
+    rmSync(join(dir, `${free}`), { force: true });
+    const held2 = ticket("20260921000004-held2", "deferred: another call\n");
+    execSync("git add -A && git commit -q -m held2", { cwd: dir });
+    plan = survey();
+    assertEq("a deferred-only queue offers nothing", plan.backlog.length, 0);
+    assertEq("...and reports itself held, by reason and count",
+      [plan.backlog_all_excluded.excluded,
+       plan.backlog_all_excluded.reasons.find((r) => r.reason === "operator_deferred")?.count],
+      [true, 2]);
+
+    // 4. AN UNREADABLE DECLARATION IS NEITHER A DEFERRAL NOR A PASS. It gets its own reason, so
+    //    a reading nobody could make never renders as the operator having spoken.
+    const bad = ticket("20260921000005-bad", "deferred:\n");
+    execSync("git add -A && git commit -q -m bad", { cwd: dir });
+    plan = survey();
+    assertEq("an unreadable declaration is excluded by its own word",
+      why(plan, bad), "deferral_unreadable");
+    assertTrue("...and is never reported as the operator's own hold",
+      why(plan, bad) !== "operator_deferred", why(plan, bad));
+
+    // 5. REMOVAL IS THE ONLY RE-OFFER PATH -- no promotion script, no flag, no stored cursor.
+    writeFileSync(join(dir, held2),
+      readFileSync(join(dir, held2), "utf8").replace("deferred: another call\n", ""));
+    execSync("git add -A && git commit -q -m unhold", { cwd: dir });
+    assertEq("removing the line makes the ticket claimable again on the next survey",
+      survey().backlog.map((t) => t.path), [held2]);
+
+    // 6. THE ONE READER answers the reason, and answers a NAMED reason rather than `false` on a
+    //    ticket it could not read. `false` is a real answer here, so an absence must not be one.
+    const reader = (p) => JSON.parse(run(dir, `${READ} ${p}`).stdout);
+    assertEq("the reader carries the operator's own words",
+      [reader(held).deferred, reader(held).declared_reason],
+      [true, "waiting on the customer"]);
+    assertEq("a ticket with no declaration reads false, completed",
+      [reader(held2).deferred, reader(held2).readable], [false, undefined]);
+    assertEq("a malformed declaration is named, never false",
+      [reader(bad).deferred, reader(bad).readable, reader(bad).reason],
+      [null, false, "malformed_declaration"]);
+    assertEq("a ticket that is not there is named, never false",
+      [reader(".workaholic/tickets/todo/nope.md").deferred,
+       reader(".workaholic/tickets/todo/nope.md").reason], [null, "ticket_not_found"]);
+
+    // 7. THE DECLARATION HAS EXACTLY ONE PARSER. Two parsers of one field is how two readings
+    //    drift, and the survey composes the reader rather than re-parsing the frontmatter.
+    const plan_src = readFileSync(SCRIPTS.planUnits, "utf8").replace(/^#.*$/gm, "");
+    assertTrue("plan-units.sh composes the one reader",
+      plan_src.includes("read-deferral.sh"), "the reader is not composed");
+    assertTrue("...and never parses the key itself",
+      !/deferred:/.test(plan_src), "plan-units.sh parses the declaration a second time");
+    // `list-todo.sh`'s end-state filter is where deferral must NOT go: that is where
+    // invisibility comes from.
+    assertTrue("list-todo.sh knows nothing about the declaration",
+      !readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"), "utf8")
+        .includes("deferred"),
+      "the queue walk learned about deferral, which is what made icebox invisible");
+  } finally { cleanup(dir); }
+}
+
 // A ticket whose every named mission has CLOSED must come back to the offer. The
 // `mission_member` exclusion is a premise -- "it arrives inside its mission's unit
 // instead" -- and only `missions/active/` yields units, so the premise expires when the
@@ -24669,6 +24772,29 @@ function testClaimableUnits() {
   assertEq("an unreadable recovery reading is null and named, never zero",
     [unread.readable, unread.reason, unread.claimable, unread.recovery_units],
     [false, "recovery_unreadable", null, null]);
+
+  // 7. THE THREE ANSWERS A DEFERRED QUEUE MUST KEEP DISTINCT (2026-09-21, ticket
+  //    `20260921180419`), PROVED TOGETHER IN ONE READING rather than in three, so a later
+  //    change cannot collapse two of them without failing here. The direction of error is
+  //    chosen deliberately: treating deferral as degraded spawns a runner forever against work
+  //    the operator parked, and treating a degraded read as deferral stops the loop silently.
+  const deferred = (n) =>
+    Array.from({ length: n }, (_, i) => ({ kind: "ticket", id: `t${i}`, reason: "operator_deferred" }));
+  r = read({ ...healthy, excluded: deferred(2) });
+  assertEq("a queue held entirely by the operator is a SUCCESSFUL reading of zero, named",
+    [r.claimable, r.deferred, r.readable], [0, 2, undefined]);
+  const degraded = read({ ...healthy,
+    excluded: [{ kind: "ticket", id: "t0", reason: "deferral_unreadable" }] });
+  assertEq("a declaration the survey could not read is degraded, null and named — never zero",
+    [degraded.readable, degraded.reason, degraded.claimable, degraded.deferred],
+    [false, "deferral_unreadable", null, null]);
+  r = read({ ...healthy, missions: [{}, {}], backlog: [{}], excluded: deferred(1) });
+  assertEq("a queue that also holds claimable work counts exactly what it always did",
+    [r.claimable, r.missions, r.backlog_units, r.deferred], [3, 2, 1, 1]);
+  //    ...and the reading is COMPOSED off the survey's own exclusions: no second walk of the
+  //    queue and no second parse of the declaration.
+  assertEq("a survey naming no deferral answers zero deferred, not null",
+    read({ ...healthy, excluded: [] }).deferred, 0);
 
   // 6. IT COMPOSES READERS THAT ALREADY EXIST AND DERIVES NOTHING OF ITS OWN — no second
   //    walker, no count of `todo/` files (which would ignore missions, claims, ownership and

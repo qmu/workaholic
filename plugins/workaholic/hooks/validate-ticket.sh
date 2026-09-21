@@ -320,6 +320,43 @@ if [ -n "$merge_policy" ]; then
   esac
 fi
 
+# deferred: optional, and the ONE shape that is refused is the ambiguous one.
+#
+# `deferred: <why>` is the operator's own hold on a QUEUED ticket (2026-09-21, ticket
+# `20260921180418`). Presence alone is the hold and the value carries the reason, so the reason
+# is visible where the hold is. ABSENT MEANS NOT DEFERRED — the `merge_policy` / `status:`
+# convention — so every ticket written before the key existed passes here untouched, which is
+# what makes this floor safe over the corpus already on disk rather than only over fresh writes.
+#
+# Two malformed shapes, both refused, both syntactic and narrow. A BARE `deferred:` is ambiguous
+# between *not deferred* and *deferred, reason unwritten*, and that collapse is the whole point
+# of the field: the survey names a held ticket, and a hold with no reason is a hold nobody can
+# act on. A value opening `[` or `{` is a COLLECTION where exactly one reason belongs — one
+# field answers one question. Prose elsewhere in the ticket is not read.
+#
+# The reading itself lives in drive/scripts/read-deferral.sh and nowhere else; this is a write
+# floor, not a second parser, and it asserts only the two shapes above.
+deferred_line=$(printf '%s\n' "$frontmatter" | grep '^deferred:' || true)
+if [ -n "$deferred_line" ]; then
+  deferred_value=$(printf '%s\n' "$deferred_line" | sed 's/^deferred:[[:space:]]*//' | sed 's/[[:space:]]*$//')
+  if [ -z "$deferred_value" ]; then
+    echo "Error: deferred must name the reason for the hold (or be omitted entirely)" >&2
+    echo "Got: an empty 'deferred:' — ambiguous between 'not deferred' and 'deferred, reason unwritten'" >&2
+    echo "(absent means not deferred; remove the line, or write 'deferred: <why this is held>')" >&2
+    print_skill_reference
+    exit 2
+  fi
+  case "$deferred_value" in
+    '['*|'{'*)
+      echo "Error: deferred carries one reason, not a collection" >&2
+      echo "Got: $deferred_value" >&2
+      echo "(write a single sentence naming why the ticket is held)" >&2
+      print_skill_reference
+      exit 2
+      ;;
+  esac
+fi
+
 # claim: optional, and DELIBERATELY UNVALIDATED.
 #
 # The claim protocol (docs/loop-engineering-workflow.md G3; workaholic:drive's *Claims*)

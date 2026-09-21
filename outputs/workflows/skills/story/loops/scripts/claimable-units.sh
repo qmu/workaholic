@@ -74,6 +74,32 @@
 # back to one runner and report it — so an unreadable component still spawns the pass, which a
 # zero would not.
 #
+# A QUEUE THE OPERATOR HELD IS A SUCCESSFUL READING OF ZERO, AND THE THIRD ANSWER THIS READER
+# HAS TO KEEP DISTINCT (2026-09-21, ticket `20260921180419`). An operator writes `deferred: <why>`
+# onto a queued ticket; `plan-units.sh` counts it, offers it to nobody and names it
+# `operator_deferred`. The reading SUCCEEDED and the honest answer is zero claimable units — so
+# the fan-out spawns nothing, the tick reports no failure, and nothing is escalated. The hazard is
+# the neighbouring rule pointing the wrong way: an UNREADABLE load must never become zero
+# capacity, and if deferral were mistaken for a degraded reading the loop would spawn a runner
+# every tick against work the operator explicitly parked. The three answers are therefore proved
+# together in one fixture rather than in three:
+#
+#   a queue held by deferral      `claimable: 0`, `deferred: <n>`, NO `readable` key
+#   a degraded reading            `claimable: null`, `readable: false`, its own reason
+#   a queue with claimable work   byte-identical to what it always answered
+#
+# `deferred` IS COMPOSED OFF THE SURVEY'S OWN `excluded[]`, the way every other term here is
+# composed: no second walk of the queue, no second parse of the declaration, and no verdict
+# re-derived. It is REPORTED AND NEVER SUBTRACTED — a deferred ticket was already absent from
+# `backlog[]` before this reader saw it, so the count is unchanged and the field exists so the
+# tick's own report can name what is holding the queue instead of printing a bare zero.
+#
+# AND A DECLARATION THE SURVEY COULD NOT READ IS A DEGRADED READING HERE. `deferral_unreadable`
+# is `plan-units.sh`'s word for a declaration its reader could not read; it is not a deferral and
+# not a pass, so it answers `readable: false` with that word and the caller's stated behaviour —
+# fall back to one runner and report it — applies unchanged. A zero there is exactly the collapse
+# this reader refuses everywhere else.
+#
 # `readable` IS ABSENT ON A COMPLETED READ, the `merge_policy` / `status:` convention this
 # repository already holds: absent means it completed, so a consumer tests `readable == false` and
 # never `readable // true`.
@@ -92,10 +118,10 @@
 # Usage: claimable-units.sh [--survey <path|->] [--recovery <path|->]
 # Output: one JSON line
 #   {"claimable": n, "missions": n, "backlog_units": n, "resumable": n,
-#    "recovery_units": n, "undelivered": n, "catchable": n, "stranded": n}
+#    "recovery_units": n, "undelivered": n, "catchable": n, "stranded": n, "deferred": n}
 #   {"claimable": null, "missions": null, "backlog_units": null, "resumable": null,
 #    "recovery_units": null, "undelivered": null, "catchable": null, "stranded": null,
-#    "readable": false, "reason": "<word>"}
+#    "deferred": null, "readable": false, "reason": "<word>"}
 #
 # PURE READ. No file, no commit, no branch, no post. The two recovery readers make bounded REST
 # reads of this repository's own pull requests; nothing is written anywhere.
@@ -120,7 +146,7 @@ while [ $# -gt 0 ]; do
 done
 
 emit_unreadable() {
-    printf '{"claimable": null, "missions": null, "backlog_units": null, "resumable": null, "recovery_units": null, "undelivered": null, "catchable": null, "stranded": null, "readable": false, "reason": "%s"}\n' "$1"
+    printf '{"claimable": null, "missions": null, "backlog_units": null, "resumable": null, "recovery_units": null, "undelivered": null, "catchable": null, "stranded": null, "deferred": null, "readable": false, "reason": "%s"}\n' "$1"
     exit 0
 }
 
@@ -152,6 +178,25 @@ case "$reason" in
     '') : ;;
     null) emit_unreadable survey_unreadable ;;
     *) emit_unreadable "$reason" ;;
+esac
+
+# --- The operator's own hold, and the declaration the survey could not read ----------------
+# Composed off `plan-units.sh`'s own `excluded[]` — no second walk, no second parse. The
+# unreadable arm is judged FIRST and answers `readable: false`, because a declaration nobody
+# could read must never be counted as a hold the operator chose (see the header).
+deferral_unreadable=$(printf '%s' "$raw" \
+    | jq -r '[(.excluded // [])[] | select(.reason == "deferral_unreadable")] | length' 2>/dev/null) \
+    || emit_unreadable survey_unreadable
+case "$deferral_unreadable" in
+    ''|*[!0-9]*) emit_unreadable survey_unreadable ;;
+esac
+[ "$deferral_unreadable" -eq 0 ] || emit_unreadable deferral_unreadable
+
+deferred_count=$(printf '%s' "$raw" \
+    | jq -r '[(.excluded // [])[] | select(.reason == "operator_deferred")] | length' 2>/dev/null) \
+    || emit_unreadable survey_unreadable
+case "$deferred_count" in
+    ''|*[!0-9]*) emit_unreadable survey_unreadable ;;
 esac
 
 # --- The recovery term -------------------------------------------------------------------
@@ -221,10 +266,12 @@ printf '%s' "$raw" | jq -c \
     --argjson recovery "$recovery_units" \
     --argjson undelivered "$undelivered_count" \
     --argjson catchable "$catchable_count" \
-    --argjson stranded "$stranded_count" '
+    --argjson stranded "$stranded_count" \
+    --argjson deferred "$deferred_count" '
     (.missions | length) as $m
     | ($partition_count // (if ((.backlog | length) > 0) then 1 else 0 end)) as $b
     | ([.resumable[]? | select(.resume_reason == "heartbeat_lapsed" or .resume_reason == "report_incomplete")] | length) as $r
     | {claimable: ($m + $b + $r + $recovery), missions: $m, backlog_units: $b, resumable: $r,
-       recovery_units: $recovery, undelivered: $undelivered, catchable: $catchable, stranded: $stranded}' 2>/dev/null \
+       recovery_units: $recovery, undelivered: $undelivered, catchable: $catchable, stranded: $stranded,
+       deferred: $deferred}' 2>/dev/null \
     || emit_unreadable survey_unreadable

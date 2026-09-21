@@ -49,7 +49,16 @@ A ticket's state is a **frontmatter field, not a directory**: `status:` absent m
 queued, `done` is stamped at the archive gate, and `abandoned` and `icebox` mean archived
 with that outcome. `icebox` survives as a state distinct from `abandoned` — deferred and
 promotable versus decided against — and promoting a ticket back to the queue clears the
-field. Related terms: todo, archive, ticket.
+field. Related terms: todo, archive, ticket, deferred field.
+
+## deferred field
+
+`deferred: <why>` is the **operator's own hold** on a ticket that stays **queued**, written
+and removed by hand and by no command. Presence is the hold and the value is the reason;
+absent means not deferred. The survey still counts such a ticket in `backlog_size` and names
+it `operator_deferred` in `excluded[]` — held, never invisible — and removing the line is the
+only re-offer path. It is the opposite act from `status: icebox`, which parks a ticket **out**
+of the queue where nothing counts or names it. Related terms: status field, todo, ticket.
 
 ## todo
 

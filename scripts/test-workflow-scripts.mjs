@@ -17738,6 +17738,109 @@ function testPlanUnitsExclusions() {
   } finally { cleanup(dir); }
 }
 
+// AN OPERATOR-DEFERRED TICKET STAYS QUEUED AND IS NAMED (2026-09-21, mission
+// `hold-operator-deferred-tickets-out-of-the-offer-and-say-so`). The load-bearing assertion is
+// the FIRST one: `status: icebox` is filtered out inside `list-todo.sh`, so an iceboxed ticket
+// never reaches the survey at all -- not counted in `backlog_size`, no `excluded[]` row, and
+// `backlog_all_excluded` reading `excluded: false` because nothing was excluded. A queue emptied
+// by deferral was byte-identical to an empty queue, which is the collapse `backlog_all_excluded`
+// exists to end. The deferral is therefore read at the EXCLUSION seam and `list-todo.sh` is
+// untouched.
+T("drive/plan-units.sh (an operator-deferred ticket is held, counted and named)", testPlanUnitsDeferral);
+function testPlanUnitsDeferral() {
+  const dir = makeRepo("main");
+  const PLAN = `${POSIX_SH} ${SCRIPTS.planUnits}`;
+  const READ = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/read-deferral.sh")}`;
+  const tdir = join(dir, ".workaholic/tickets/todo");
+  const ticket = (name, extra) => {
+    mkdirSync(tdir, { recursive: true });
+    writeFileSync(join(tdir, `${name}.md`),
+      `---\ncreated_at: 2026-09-21T00:00:01+09:00\nauthor: test@example.com\nassignees: []\n` +
+      `${extra}---\n\n# ${name}\n\n## Policies\n\n- x\n\n## Quality Gate\n\n- x\n`);
+    return `.workaholic/tickets/todo/${name}.md`;
+  };
+  const survey = () => JSON.parse(run(dir, PLAN).stdout);
+  const why = (plan, id) => plan.excluded.find((e) => e.id === id)?.reason;
+  try {
+    const free = ticket("20260921000001-free", "");
+    const iced = ticket("20260921000002-iced", "status: icebox\n");
+    execSync("git add -A && git commit -q -m seed", { cwd: dir });
+
+    // 1. THE DEFECT, REPRODUCED. An iceboxed ticket is invisible rather than held.
+    let plan = survey();
+    assertEq("an iceboxed ticket is not even counted by the survey", plan.backlog_size, 1);
+    assertEq("...and no exclusion row names it", why(plan, iced), undefined);
+    assertEq("...so the queue reads exactly like one that simply holds one ticket",
+      plan.backlog_all_excluded.excluded, false);
+
+    // 2. A DEFERRED TICKET IS COUNTED, OFFERED TO NOBODY, AND NAMED.
+    const held = ticket("20260921000003-held", "deferred: waiting on the customer\n");
+    execSync("git add -A && git commit -q -m held", { cwd: dir });
+    plan = survey();
+    assertEq("a deferred ticket is still counted in backlog_size", plan.backlog_size, 2);
+    assertEq("...and is offered to nobody", plan.backlog.map((t) => t.path), [free]);
+    assertEq("...and is named with its own reason", why(plan, held), "operator_deferred");
+
+    // 3. A QUEUE HELD ENTIRELY BY DEFERRAL REPORTS AS HELD, with the reason and its count --
+    //    distinguishable from a queue emptied by claims and from one emptied by ownership.
+    rmSync(join(dir, `${free}`), { force: true });
+    const held2 = ticket("20260921000004-held2", "deferred: another call\n");
+    execSync("git add -A && git commit -q -m held2", { cwd: dir });
+    plan = survey();
+    assertEq("a deferred-only queue offers nothing", plan.backlog.length, 0);
+    assertEq("...and reports itself held, by reason and count",
+      [plan.backlog_all_excluded.excluded,
+       plan.backlog_all_excluded.reasons.find((r) => r.reason === "operator_deferred")?.count],
+      [true, 2]);
+
+    // 4. AN UNREADABLE DECLARATION IS NEITHER A DEFERRAL NOR A PASS. It gets its own reason, so
+    //    a reading nobody could make never renders as the operator having spoken.
+    const bad = ticket("20260921000005-bad", "deferred:\n");
+    execSync("git add -A && git commit -q -m bad", { cwd: dir });
+    plan = survey();
+    assertEq("an unreadable declaration is excluded by its own word",
+      why(plan, bad), "deferral_unreadable");
+    assertTrue("...and is never reported as the operator's own hold",
+      why(plan, bad) !== "operator_deferred", why(plan, bad));
+
+    // 5. REMOVAL IS THE ONLY RE-OFFER PATH -- no promotion script, no flag, no stored cursor.
+    writeFileSync(join(dir, held2),
+      readFileSync(join(dir, held2), "utf8").replace("deferred: another call\n", ""));
+    execSync("git add -A && git commit -q -m unhold", { cwd: dir });
+    assertEq("removing the line makes the ticket claimable again on the next survey",
+      survey().backlog.map((t) => t.path), [held2]);
+
+    // 6. THE ONE READER answers the reason, and answers a NAMED reason rather than `false` on a
+    //    ticket it could not read. `false` is a real answer here, so an absence must not be one.
+    const reader = (p) => JSON.parse(run(dir, `${READ} ${p}`).stdout);
+    assertEq("the reader carries the operator's own words",
+      [reader(held).deferred, reader(held).declared_reason],
+      [true, "waiting on the customer"]);
+    assertEq("a ticket with no declaration reads false, completed",
+      [reader(held2).deferred, reader(held2).readable], [false, undefined]);
+    assertEq("a malformed declaration is named, never false",
+      [reader(bad).deferred, reader(bad).readable, reader(bad).reason],
+      [null, false, "malformed_declaration"]);
+    assertEq("a ticket that is not there is named, never false",
+      [reader(".workaholic/tickets/todo/nope.md").deferred,
+       reader(".workaholic/tickets/todo/nope.md").reason], [null, "ticket_not_found"]);
+
+    // 7. THE DECLARATION HAS EXACTLY ONE PARSER. Two parsers of one field is how two readings
+    //    drift, and the survey composes the reader rather than re-parsing the frontmatter.
+    const plan_src = readFileSync(SCRIPTS.planUnits, "utf8").replace(/^#.*$/gm, "");
+    assertTrue("plan-units.sh composes the one reader",
+      plan_src.includes("read-deferral.sh"), "the reader is not composed");
+    assertTrue("...and never parses the key itself",
+      !/deferred:/.test(plan_src), "plan-units.sh parses the declaration a second time");
+    // `list-todo.sh`'s end-state filter is where deferral must NOT go: that is where
+    // invisibility comes from.
+    assertTrue("list-todo.sh knows nothing about the declaration",
+      !readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/drive/scripts/list-todo.sh"), "utf8")
+        .includes("deferred"),
+      "the queue walk learned about deferral, which is what made icebox invisible");
+  } finally { cleanup(dir); }
+}
+
 // A ticket whose every named mission has CLOSED must come back to the offer. The
 // `mission_member` exclusion is a premise -- "it arrives inside its mission's unit
 // instead" -- and only `missions/active/` yields units, so the premise expires when the
@@ -24669,6 +24772,29 @@ function testClaimableUnits() {
   assertEq("an unreadable recovery reading is null and named, never zero",
     [unread.readable, unread.reason, unread.claimable, unread.recovery_units],
     [false, "recovery_unreadable", null, null]);
+
+  // 7. THE THREE ANSWERS A DEFERRED QUEUE MUST KEEP DISTINCT (2026-09-21, ticket
+  //    `20260921180419`), PROVED TOGETHER IN ONE READING rather than in three, so a later
+  //    change cannot collapse two of them without failing here. The direction of error is
+  //    chosen deliberately: treating deferral as degraded spawns a runner forever against work
+  //    the operator parked, and treating a degraded read as deferral stops the loop silently.
+  const deferred = (n) =>
+    Array.from({ length: n }, (_, i) => ({ kind: "ticket", id: `t${i}`, reason: "operator_deferred" }));
+  r = read({ ...healthy, excluded: deferred(2) });
+  assertEq("a queue held entirely by the operator is a SUCCESSFUL reading of zero, named",
+    [r.claimable, r.deferred, r.readable], [0, 2, undefined]);
+  const degraded = read({ ...healthy,
+    excluded: [{ kind: "ticket", id: "t0", reason: "deferral_unreadable" }] });
+  assertEq("a declaration the survey could not read is degraded, null and named — never zero",
+    [degraded.readable, degraded.reason, degraded.claimable, degraded.deferred],
+    [false, "deferral_unreadable", null, null]);
+  r = read({ ...healthy, missions: [{}, {}], backlog: [{}], excluded: deferred(1) });
+  assertEq("a queue that also holds claimable work counts exactly what it always did",
+    [r.claimable, r.missions, r.backlog_units, r.deferred], [3, 2, 1, 1]);
+  //    ...and the reading is COMPOSED off the survey's own exclusions: no second walk of the
+  //    queue and no second parse of the declaration.
+  assertEq("a survey naming no deferral answers zero deferred, not null",
+    read({ ...healthy, excluded: [] }).deferred, 0);
 
   // 6. IT COMPOSES READERS THAT ALREADY EXIST AND DERIVES NOTHING OF ITS OWN — no second
   //    walker, no count of `todo/` files (which would ignore missions, claims, ownership and
@@ -43118,7 +43244,20 @@ function testFinalResponseContract() {
     + "not passed (`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control "
     + "mode). `running` alone is never a resumed loop; a report that calls the loop resumed while "
     + "`resumed` is `false` is non-conformant on its face, and a missing continuation mechanism is a "
-    + "refusal to say *resumed*, never a sentence in the report.";
+    + "refusal to say *resumed*, never a sentence in the report. "
+    // A NAMED continuation is not yet a LIVE one, and a routine turn declares what it intends to
+    // emit (2026-09-21, ticket `20260921180208`). The reader proved a continuation had been named
+    // and never compared it against the clock, so a dead one satisfied the contract and the turn
+    // yielded to nothing; `coordinator.jq` already made that comparison and nothing read it.
+    + "A named continuation is not yet a live one (2026-09-21, ticket `20260921180208`): the same "
+    + "reader refuses `continuation_lapsed` for a routine turn whose named continuation's `next_due` "
+    + "has already passed, the comparison `next_due < now` being one rule with two call sites — this "
+    + "reader and the reducer — and never a second spelling, so `now` is required on any input naming a "
+    + "continuation and an absent clock is refused `invalid_facts` rather than defaulted. And a routine "
+    + "turn declares what it intends to emit: `intends_final_response` (absent means false) is refused "
+    + "`routine_emits_no_final_response`. The reader writes nothing and cannot stop a run from emitting "
+    + "text; what the refusal buys is that a run which asks the contract gets an unambiguous *no* with a "
+    + "name, and a run that emits one anyway leaves a receipt saying the contract refused it.";
   for (const [path, what] of surfaces) {
     const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
     assertTrue(`${what} carries the two-path wording verbatim`, flat.includes(WORDING), path);
@@ -43164,16 +43303,35 @@ function testFinalResponseContract() {
     };
     const q = "ループを再開してよろしいですか？";
     const continuation = { kind: "same_chat_schedule", id: "sched-1", next_due: 99 };
-    const routine = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation });
+    const routine = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50, continuation });
     assertEq("a routine interruption resumes with no final response, echoing its continuation",
       [routine.status, routine.out.path, routine.out.final_response, routine.out.second_start, routine.out.continuation],
       [0, "resume", false, false, continuation]);
     const unproved = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10 });
     assertEq("a routine turn naming no continuation is refused continuation_unproved",
       [unproved.status, unproved.out.ok, unproved.out.reason], [2, false, "continuation_unproved"]);
-    const outside = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation: { kind: "cron", id: "x", next_due: 1 } });
+    const outside = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50, continuation: { kind: "cron", id: "x", next_due: 1 } });
     assertEq("a continuation kind outside the closed set is invalid_facts",
       [outside.status, outside.out.reason], [2, "invalid_facts"]);
+    // A NAMED continuation is not yet a LIVE one (2026-09-21, ticket `20260921180208`).
+    const lapsed = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 100, continuation });
+    assertEq("a routine turn whose continuation has lapsed is refused continuation_lapsed",
+      [lapsed.status, lapsed.out.ok, lapsed.out.reason], [2, false, "continuation_lapsed"]);
+    const onTheDot = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 99, continuation });
+    assertEq("the rule is `next_due < now`, so a continuation due this second has not lapsed",
+      [onTheDot.status, onTheDot.out.path], [0, "resume"]);
+    const noClock = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation });
+    assertEq("a continuation named with no clock is invalid_facts, never a pass",
+      [noClock.status, noClock.out.reason], [2, "invalid_facts"]);
+    const declared = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50, continuation,
+      intends_final_response: true });
+    assertEq("a routine turn declaring an intent to emit a final response is refused by its own word",
+      [declared.status, declared.out.ok, declared.out.reason], [2, false, "routine_emits_no_final_response"]);
+    const stillHandsOff = ask({ interruption_kind: "review_required", instance_id: "s", anchor: 10,
+      hold_persisted: true, question: q, intends_final_response: true });
+    assertEq("review_required still answers final_response true and needs no clock",
+      [stillHandsOff.status, stillHandsOff.out.path, stillHandsOff.out.final_response],
+      [0, "review_handoff", true]);
     const handoff = ask({ interruption_kind: "review_required", instance_id: "s", anchor: 10, hold_persisted: true, question: q });
     assertEq("a review-required handoff is a final response with the one question, held, and needs no continuation",
       [handoff.status, handoff.out.path, handoff.out.final_response, handoff.out.question, handoff.out.control, handoff.out.continuation],
@@ -43188,6 +43346,37 @@ function testFinalResponseContract() {
     }
     assertEq("a refusal writes nothing beside the facts it read", readdirSync(dir), ["facts.json"]);
   } finally { cleanup(dir); }
+  // `next_due < now` IS ONE RULE WITH TWO CALL SITES (2026-09-21, ticket `20260921180208`).
+  // `coordinator.jq` is a reducer body rather than a jq module, so the reader cannot include it;
+  // what keeps the two spellings in step is this row, and it also fails on a THIRD comparison of
+  // a continuation against a clock appearing anywhere under the authored plugin tree. Generated
+  // copies under `outputs/` are the same file and are out of scope by construction.
+  const readerSrc = readFileSync(reader, "utf8");
+  const reducerPath = "plugins/workaholic/skills/runtime/scripts/lib/coordinator.jq";
+  const reducerSrc = readFileSync(join(REPO_ROOT, reducerPath), "utf8");
+  assertTrue("the reader compares the named continuation against the clock",
+    /\.continuation\.next_due < \.now then "continuation_lapsed"/.test(readerSrc), reader);
+  assertTrue("the reducer spells the same comparison and the same word",
+    /\$continuation\.next_due < \$e\.now then "continuation_lapsed"/.test(reducerSrc), reducerPath);
+  assertTrue("both files say the comparison is one rule with two call sites",
+    /one rule with two call sites/i.test(readerSrc) && /ONE RULE WITH TWO CALL SITES/.test(reducerSrc),
+    "the one-rule statement moved");
+  const comparisons = [];
+  const walkForComparisons = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const abs = join(d, e.name);
+      if (e.isDirectory()) { walkForComparisons(abs); continue; }
+      if (!/\.(sh|jq|mjs)$/u.test(e.name)) continue;
+      const hit = readFileSync(abs, "utf8").split("\n")
+        .some((line) => !/^\s*#/u.test(line) && /next_due\s*<\s*[.$]/u.test(line));
+      if (hit) comparisons.push(abs.slice(REPO_ROOT.length + 1));
+    }
+  };
+  walkForComparisons(join(REPO_ROOT, "plugins/workaholic"));
+  comparisons.sort();
+  assertEq("exactly two authored call sites compare a continuation against a clock", comparisons,
+    ["plugins/workaholic/skills/runtime/scripts/lib/coordinator.jq",
+      "plugins/workaholic/skills/work/scripts/final-response-contract.sh"]);
 }
 
 // ---- AN UNPROVED OBSERVATION IS UNREAD, NEVER QUIET, IN ONE WORDING (2026-09-11, issue #1151).

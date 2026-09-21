@@ -186,6 +186,7 @@ The tree is also an [Open Knowledge Format](https://github.com/GoogleCloudPlatfo
 | Artifact | Written by | Snapshot of | Diffed on ship? | Carried over? | Eliminated when |
 | -------- | ---------- | ----------- | --------------- | ------------- | --------------- |
 | `tickets/todo/<ts>-*.md` | `/ticket`, `/mission` (its whole ordered ticket set), `/specificate` (a mission's set, or one loose ticket) | Intended change (not yet implemented) | committed onto a **`work-*` branch behind a pull request** at creation; reaches `main` when that PR merges | no | `/drive` claims it into a PR-unit and archives it once implemented |
+| `tickets/todo/<ts>-*.md` carrying `deferred: <why>` | the **operator**, by hand — no command writes or clears it | The same queued ticket, **held**: still counted in the survey's `backlog_size` and named in `excluded[]` as `operator_deferred`, offered to nobody | committed like any queued ticket | yes — the hold survives every tick until the line is removed | deleting the line; the next survey offers it again with no other act |
 | `tickets/archive/<branch>/*.md` | `/drive` (archive) | Implemented change with final report; `status: done` stamped at the gate | committed, permanent | no — permanent record | never (institutional history) |
 | `tickets/archive/**` with `status: icebox` | `/ticket --icebox` (or manual move) | **Deferred** change — parked, promotable, developer-curated in both directions | committed | yes (survives across PRs until promoted) | `promote-icebox.sh` clears the field and returns it to `todo/` |
 | `tickets/archive/**` with `status: abandoned` | `/drive` (abandon flow) | Attempted-then-**decided-against** change with failure analysis | committed, permanent | no | never |
@@ -207,6 +208,8 @@ The plugin has one spine — the **ticket** — but the work reaches it through 
 The unit of work is a single ticket, and it is really *one file that changes state* as commands act on it. `/ticket` writes it into the queue; `/drive` reads the queue, implements it, and moves it to the permanent archive, stamping the outcome. Then the shared tail turns the archived work into a merged, deployed PR.
 
 Since 2026-08-13 the tree has **two places and four states**: the file is in `todo/` or in `archive/`, and its `status:` frontmatter field says which state it is in — absent (queued), `done`, `abandoned`, or `icebox`. This is the same move `assignees` made — *a property is a field, not a directory* — so a reader never has to parse a path to learn what a ticket is.
+
+A queued ticket also carries one orthogonal axis the operator owns: **`deferred: <why>`**, a hold that leaves the ticket *in* the queue (counted, and named `operator_deferred` in every survey's exclusions) rather than parking it out of one. `status: icebox` is the other direction — archived, invisible to the survey, brought back by `promote-icebox.sh`. Removing the `deferred:` line is the only re-offer path, and nothing in the loop writes or clears it.
 
 ```mermaid
 flowchart LR

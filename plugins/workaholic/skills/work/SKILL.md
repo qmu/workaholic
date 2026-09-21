@@ -255,6 +255,21 @@ refuse to run at all when a guarantee lapses; that is worse than the defect, bec
 operator restricted delegation for a real reason and a loop that stops observing in protest
 helps nobody.
 
+<!-- workaholic:deferred-queue — one wording, byte-identical with commands/infinite-development.md. -->
+**A queue held entirely by the operator's own deferral is a healthy idle tick, and it is named**
+(2026-09-21, ticket `20260921180419`). An operator writes `deferred: <why>` onto a queued ticket;
+`plan-units.sh` counts it, offers it to nobody and names it `operator_deferred`, and
+`loops/scripts/claimable-units.sh` answers `claimable: 0` with `deferred: <n>` and **no `readable`
+key** — the reading succeeded, so zero is the honest answer. Such a tick spawns **zero** implement
+runners, reports **no** failure and posts **no** precondition-stop alert: that shape is for
+something the loop could not see, and this is the operator's own decision. The tick report names
+what is holding the queue — `implement allocation: 0 (no_claimable_work) — deferred: <n>` — so a
+deliberately quiet tick never reads as the loop having stopped. **A declaration the survey could
+not read is the opposite case** and takes the degraded path unchanged: `deferral_unreadable`
+answers `readable: false` with null counts and falls back to **one** runner, because a reading
+nobody could make never becomes zero capacity.
+<!-- /workaholic:deferred-queue -->
+
 **Changing the dispatch policy is a correction, not a restart.** Same instance id, same startup
 anchor, **no second `start`** — the coordinator answers `already_started` and changes nothing —
 and live children reconciled through `coordinator.sh`, so nothing is duplicated and no second
@@ -341,6 +356,16 @@ for a routine turn that names none, and the coordinator's `resumed` is `true` on
 alone is never a resumed loop; a report that calls the loop resumed while `resumed` is `false` is
 non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
 never a sentence in the report.
+
+A named continuation is not yet a live one (2026-09-21, ticket `20260921180208`): the same
+reader refuses `continuation_lapsed` for a routine turn whose named continuation's `next_due`
+has already passed, the comparison `next_due < now` being one rule with two call sites — this
+reader and the reducer — and never a second spelling, so `now` is required on any input naming a
+continuation and an absent clock is refused `invalid_facts` rather than defaulted. And a routine
+turn declares what it intends to emit: `intends_final_response` (absent means false) is refused
+`routine_emits_no_final_response`. The reader writes nothing and cannot stop a run from emitting
+text; what the refusal buys is that a run which asks the contract gets an unambiguous *no* with a
+name, and a run that emits one anyway leaves a receipt saying the contract refused it.
 
 When the host goal is paused but native interruptible wait and child-result reads remain
 available, a named clock is not enough: the continuation must be the same

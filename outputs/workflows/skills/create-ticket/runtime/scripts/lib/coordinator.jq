@@ -142,6 +142,13 @@ del(.relay) |
 .state as $next |
 ($next|finish_times) as $finished |
 ($next.continuation // null) as $continuation |
+# `next_due < now` IS ONE RULE WITH TWO CALL SITES (2026-09-21, ticket `20260921180208`).
+# This ladder is one; work/scripts/final-response-contract.sh's refusal ladder is the other,
+# spelling the same comparison and emitting the same word `continuation_lapsed` immediately
+# after its own `continuation_unproved` rung. This program is a reducer body rather than a jq
+# module, so the reader cannot include it; the two copies are kept in step by
+# scripts/test-workflow-scripts.mjs instead of by a shared file. Neither spelling may drift,
+# and no third comparison of a continuation against a clock may be added anywhere.
 (if $next.mode != "running" then $next.mode
  elif $continuation == null then "continuation_unproved"
  elif $continuation.next_due < $e.now then "continuation_lapsed"

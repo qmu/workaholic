@@ -113,3 +113,42 @@ and this ticket makes the third one distinguishable from either.
 - **Stated cost.** A queue that is entirely deferred now produces quiet ticks by design. The
   report clause is what keeps that quiet legible; without it this change would be
   indistinguishable from the loop stopping, which this repository has measured twice.
+
+## Final Report
+
+Development completed as planned. `claimable-units.sh` composes `plan-units.sh`'s own `excluded[]` — no
+second walk of the queue, no second parse of the declaration — and keeps the three answers distinct;
+`allocate-implement.sh` is **byte-identical**, because it already answered `no_claimable_work` with zero
+runners for a readable zero and `claimable_unreadable` with one for a degraded reading. What was missing
+was a reader that could tell the two apart, which is the whole of this change.
+
+Step 1's reproduction, with the previous ticket's change in place: a deferred-only queue answered
+`claimable: 0` with nothing naming why, byte-identical to a repository with an empty queue — so the
+coordinator's line read `implement allocation: 0 (no_claimable_work)` over work the operator had parked
+and a reader had no way to tell that from a drained backlog.
+
+The three readings, proved together in one fixture (`scripts/tests/agentic-loop/coordinator-allocation.test.mjs`)
+and end to end from the reader into the allocator:
+
+| Queue | `claimable-units.sh` | `allocate-implement.sh` |
+| ----- | -------------------- | ----------------------- |
+| held entirely by deferral | `claimable: 0`, `deferred: 2`, **no** `readable` key | `runners: 0`, `no_claimable_work`, `claimable_readable: true` |
+| `deferral_unreadable` | `readable: false`, `reason: deferral_unreadable`, **null** counts | `runners: 1`, `claimable_reason: deferral_unreadable` |
+| two missions, one backlog unit, one deferred ticket | `claimable: 3`, `missions: 2`, `backlog_units: 1`, `deferred: 1` | `runners: 1`, `work_available` |
+
+Step 5: a deferred-only tick is **not** a precondition stop, and the ceiling now says so in one wording
+carried byte-identically in `commands/infinite-development.md` and `skills/work/SKILL.md` (pinned by the
+suite, the shape `workaholic:mention-reread` already uses). No new post shape, no new transport, no new
+control path — a reading and a report clause.
+
+### Discovered Insights
+
+- **Insight**: `deferred` is reported and never subtracted. A deferred ticket is already absent from
+  `backlog[]` before this reader sees it, so the count needed no arithmetic at all — the field exists
+  only so the tick's report can name what is holding the queue instead of printing a bare zero.
+  **Context**: The tempting change is to subtract it somewhere, which would double-count and make the
+  reader's claim that it derives nothing of its own false.
+- **Insight**: The unreadable arm has to be judged **before** the deferred count, not beside it.
+  **Context**: A survey carrying both a real deferral and an unreadable one must answer
+  `readable: false`: the honest reading is that the queue could not be fully judged, and answering a
+  plausible `deferred: n` over it is the collapse the header refuses.

@@ -19,6 +19,8 @@ merge_policy:                            # optional: auto | review — ABSENT ME
 verification_handoff:                    # optional: `probe: <command>` (preferred — its exit
                                          # status is re-measured at claim time), or prose naming
                                          # an unattended run does not have — ABSENT MEANS none
+deferred:                                # optional: the OPERATOR's hold on a queued ticket —
+                                         # the value is the reason. ABSENT MEANS not deferred
 ---
 ```
 
@@ -55,6 +57,32 @@ verification_handoff:                    # optional: `probe: <command>` (preferr
   unpark it. What it buys is that an operator reading a question can see this declaration was
   *not* checked, rather than assuming it was.
 
+- `deferred`: optional, added 2026-09-21 (ticket `20260921180418`). **The operator's own hold on a
+  queued ticket**, and the operator's alone — `/ticket` never writes it, `/specificate` never
+  writes it, and no run ever writes or clears it, exactly as no run may declare its own
+  `verification_handoff:`. Presence is the hold and the value is the reason, so the reason is
+  visible where the hold is: `deferred: 顧客の確認が返るまで着手しない`. **Absent means not
+  deferred**, so every ticket written before the key existed reads unchanged.
+
+  The ticket **stays queued**: the next survey counts it in `backlog_size`, offers it to nobody,
+  and names it in `excluded[]` as `operator_deferred` — a held queue is named, never silent, which
+  is the half `status: icebox` structurally cannot do (`list-todo.sh` drops an iceboxed ticket from
+  the queue walk, so a queue emptied by deferral read exactly like an empty one). **Removing the
+  line is the only re-offer path**: no promotion script, no flag, no stored cursor.
+
+  **When to reach for which.** `status: icebox` parks a ticket **out** of the queue — archived,
+  invisible to the survey, brought back by `promote-icebox.sh`; `deferred:` holds one **in** the
+  queue, counted and named, while the operator decides. Two parking concepts now stand side by
+  side, deliberately, because they answer different questions; using them interchangeably loses
+  the distinction.
+
+  It is read through `drive/scripts/read-deferral.sh` and **nowhere else**. The write floor
+  refuses exactly two shapes and reads nothing else in the ticket: a **bare** `deferred:` (ambiguous
+  between *not deferred* and *deferred, reason unwritten*) and a value opening `[` or `{` (a
+  collection where one reason belongs). An unreadable declaration is never *not deferred* — the
+  reader answers `deferred: null` with `readable: false` and a named reason, and the survey excludes
+  such a ticket as `deferral_unreadable`.
+
 ### Retired (2026-08-07) — never written anew
 
 `type`, `layer`, `effort`, `commit_hash`, and `category` left the ticket schema in one change: `type`/`layer` classified rather than informed (nothing routed on them once ordering became `depends_on`-and-context and the `## Policies` section became the recorded lens), `effort` was an agent's rounded guess (mission time is recorded honestly by `record-run-hours.sh`), `commit_hash` is derived from git (`story/scripts/ticket-commits.sh` — a commit cannot carry its own hash), and `category` lives in the commit's `Category:` git trailer. Existing tickets carrying them — the whole archive and any grandfathered queue item — validate and drive unchanged; the fields are tolerated everywhere and required nowhere.
@@ -67,8 +95,12 @@ verification_handoff:                    # optional: `probe: <command>` (preferr
 | Wrong date format | `2026-01-31` or `2026/01/31T...` | Use `date -Iseconds` output (includes timezone) |
 | Retired fields written anew | `type: enhancement`, `layer: [UX]` | Omit them (see *Retired* above) |
 | Invalid depends_on entry | `depends_on: [notes.md]` | List real ticket filenames only |
+| A hold with no reason | `deferred:` | Omit the line, or name why it is held |
 
 ## File structure
+
+`deferred:` is deliberately **absent from the template below** — a scaffolded empty value would be
+the one shape the write floor refuses, and an operator adds the line when there is a hold to state.
 
 ```markdown
 ---

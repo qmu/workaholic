@@ -255,6 +255,21 @@ refuse to run at all when a guarantee lapses; that is worse than the defect, bec
 operator restricted delegation for a real reason and a loop that stops observing in protest
 helps nobody.
 
+<!-- workaholic:deferred-queue — one wording, byte-identical with commands/infinite-development.md. -->
+**A queue held entirely by the operator's own deferral is a healthy idle tick, and it is named**
+(2026-09-21, ticket `20260921180419`). An operator writes `deferred: <why>` onto a queued ticket;
+`plan-units.sh` counts it, offers it to nobody and names it `operator_deferred`, and
+`loops/scripts/claimable-units.sh` answers `claimable: 0` with `deferred: <n>` and **no `readable`
+key** — the reading succeeded, so zero is the honest answer. Such a tick spawns **zero** implement
+runners, reports **no** failure and posts **no** precondition-stop alert: that shape is for
+something the loop could not see, and this is the operator's own decision. The tick report names
+what is holding the queue — `implement allocation: 0 (no_claimable_work) — deferred: <n>` — so a
+deliberately quiet tick never reads as the loop having stopped. **A declaration the survey could
+not read is the opposite case** and takes the degraded path unchanged: `deferral_unreadable`
+answers `readable: false` with null counts and falls back to **one** runner, because a reading
+nobody could make never becomes zero capacity.
+<!-- /workaholic:deferred-queue -->
+
 **Changing the dispatch policy is a correction, not a restart.** Same instance id, same startup
 anchor, **no second `start`** — the coordinator answers `already_started` and changes nothing —
 and live children reconciled through `coordinator.sh`, so nothing is duplicated and no second

@@ -43177,7 +43177,20 @@ function testFinalResponseContract() {
     + "not passed (`resumed_reason`: `continuation_unproved`, `continuation_lapsed`, or the control "
     + "mode). `running` alone is never a resumed loop; a report that calls the loop resumed while "
     + "`resumed` is `false` is non-conformant on its face, and a missing continuation mechanism is a "
-    + "refusal to say *resumed*, never a sentence in the report.";
+    + "refusal to say *resumed*, never a sentence in the report. "
+    // A NAMED continuation is not yet a LIVE one, and a routine turn declares what it intends to
+    // emit (2026-09-21, ticket `20260921180208`). The reader proved a continuation had been named
+    // and never compared it against the clock, so a dead one satisfied the contract and the turn
+    // yielded to nothing; `coordinator.jq` already made that comparison and nothing read it.
+    + "A named continuation is not yet a live one (2026-09-21, ticket `20260921180208`): the same "
+    + "reader refuses `continuation_lapsed` for a routine turn whose named continuation's `next_due` "
+    + "has already passed, the comparison `next_due < now` being one rule with two call sites — this "
+    + "reader and the reducer — and never a second spelling, so `now` is required on any input naming a "
+    + "continuation and an absent clock is refused `invalid_facts` rather than defaulted. And a routine "
+    + "turn declares what it intends to emit: `intends_final_response` (absent means false) is refused "
+    + "`routine_emits_no_final_response`. The reader writes nothing and cannot stop a run from emitting "
+    + "text; what the refusal buys is that a run which asks the contract gets an unambiguous *no* with a "
+    + "name, and a run that emits one anyway leaves a receipt saying the contract refused it.";
   for (const [path, what] of surfaces) {
     const flat = readFileSync(join(REPO_ROOT, path), "utf8").replace(/\s+/gu, " ");
     assertTrue(`${what} carries the two-path wording verbatim`, flat.includes(WORDING), path);
@@ -43223,16 +43236,35 @@ function testFinalResponseContract() {
     };
     const q = "ループを再開してよろしいですか？";
     const continuation = { kind: "same_chat_schedule", id: "sched-1", next_due: 99 };
-    const routine = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation });
+    const routine = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50, continuation });
     assertEq("a routine interruption resumes with no final response, echoing its continuation",
       [routine.status, routine.out.path, routine.out.final_response, routine.out.second_start, routine.out.continuation],
       [0, "resume", false, false, continuation]);
     const unproved = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10 });
     assertEq("a routine turn naming no continuation is refused continuation_unproved",
       [unproved.status, unproved.out.ok, unproved.out.reason], [2, false, "continuation_unproved"]);
-    const outside = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation: { kind: "cron", id: "x", next_due: 1 } });
+    const outside = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50, continuation: { kind: "cron", id: "x", next_due: 1 } });
     assertEq("a continuation kind outside the closed set is invalid_facts",
       [outside.status, outside.out.reason], [2, "invalid_facts"]);
+    // A NAMED continuation is not yet a LIVE one (2026-09-21, ticket `20260921180208`).
+    const lapsed = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 100, continuation });
+    assertEq("a routine turn whose continuation has lapsed is refused continuation_lapsed",
+      [lapsed.status, lapsed.out.ok, lapsed.out.reason], [2, false, "continuation_lapsed"]);
+    const onTheDot = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 99, continuation });
+    assertEq("the rule is `next_due < now`, so a continuation due this second has not lapsed",
+      [onTheDot.status, onTheDot.out.path], [0, "resume"]);
+    const noClock = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, continuation });
+    assertEq("a continuation named with no clock is invalid_facts, never a pass",
+      [noClock.status, noClock.out.reason], [2, "invalid_facts"]);
+    const declared = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50, continuation,
+      intends_final_response: true });
+    assertEq("a routine turn declaring an intent to emit a final response is refused by its own word",
+      [declared.status, declared.out.ok, declared.out.reason], [2, false, "routine_emits_no_final_response"]);
+    const stillHandsOff = ask({ interruption_kind: "review_required", instance_id: "s", anchor: 10,
+      hold_persisted: true, question: q, intends_final_response: true });
+    assertEq("review_required still answers final_response true and needs no clock",
+      [stillHandsOff.status, stillHandsOff.out.path, stillHandsOff.out.final_response],
+      [0, "review_handoff", true]);
     const handoff = ask({ interruption_kind: "review_required", instance_id: "s", anchor: 10, hold_persisted: true, question: q });
     assertEq("a review-required handoff is a final response with the one question, held, and needs no continuation",
       [handoff.status, handoff.out.path, handoff.out.final_response, handoff.out.question, handoff.out.control, handoff.out.continuation],
@@ -43247,6 +43279,37 @@ function testFinalResponseContract() {
     }
     assertEq("a refusal writes nothing beside the facts it read", readdirSync(dir), ["facts.json"]);
   } finally { cleanup(dir); }
+  // `next_due < now` IS ONE RULE WITH TWO CALL SITES (2026-09-21, ticket `20260921180208`).
+  // `coordinator.jq` is a reducer body rather than a jq module, so the reader cannot include it;
+  // what keeps the two spellings in step is this row, and it also fails on a THIRD comparison of
+  // a continuation against a clock appearing anywhere under the authored plugin tree. Generated
+  // copies under `outputs/` are the same file and are out of scope by construction.
+  const readerSrc = readFileSync(reader, "utf8");
+  const reducerPath = "plugins/workaholic/skills/runtime/scripts/lib/coordinator.jq";
+  const reducerSrc = readFileSync(join(REPO_ROOT, reducerPath), "utf8");
+  assertTrue("the reader compares the named continuation against the clock",
+    /\.continuation\.next_due < \.now then "continuation_lapsed"/.test(readerSrc), reader);
+  assertTrue("the reducer spells the same comparison and the same word",
+    /\$continuation\.next_due < \$e\.now then "continuation_lapsed"/.test(reducerSrc), reducerPath);
+  assertTrue("both files say the comparison is one rule with two call sites",
+    /one rule with two call sites/i.test(readerSrc) && /ONE RULE WITH TWO CALL SITES/.test(reducerSrc),
+    "the one-rule statement moved");
+  const comparisons = [];
+  const walkForComparisons = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const abs = join(d, e.name);
+      if (e.isDirectory()) { walkForComparisons(abs); continue; }
+      if (!/\.(sh|jq|mjs)$/u.test(e.name)) continue;
+      const hit = readFileSync(abs, "utf8").split("\n")
+        .some((line) => !/^\s*#/u.test(line) && /next_due\s*<\s*[.$]/u.test(line));
+      if (hit) comparisons.push(abs.slice(REPO_ROOT.length + 1));
+    }
+  };
+  walkForComparisons(join(REPO_ROOT, "plugins/workaholic"));
+  comparisons.sort();
+  assertEq("exactly two authored call sites compare a continuation against a clock", comparisons,
+    ["plugins/workaholic/skills/runtime/scripts/lib/coordinator.jq",
+      "plugins/workaholic/skills/work/scripts/final-response-contract.sh"]);
 }
 
 // ---- AN UNPROVED OBSERVATION IS UNREAD, NEVER QUIET, IN ONE WORDING (2026-09-11, issue #1151).

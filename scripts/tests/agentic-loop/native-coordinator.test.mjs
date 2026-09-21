@@ -113,7 +113,7 @@ test('a task review waits on its own thread while observation and independent wo
   assert.equal(waiting.data.control,'running'); assert.equal(waiting.data.waiting_review[0].id,'one');
   assert.deepEqual(waiting.data.live,[],'only the dependent worker waits');
   assert.equal(run({...reserve,id:'two'}).reason,'reserved','independent implementation remains eligible');
-  const routed=facts(run.dir,{interruption_kind:'task_review',instance_id:'native-test',anchor:2000000000,continuation:CONTINUATION});
+  const routed=facts(run.dir,{interruption_kind:'task_review',instance_id:'native-test',anchor:2000000000,now:NOW,continuation:CONTINUATION});
   assert.equal(routed.status,0); assert.equal(routed.out.path,'task_wait');
   assert.equal(routed.out.final_response,false); assert.equal(routed.out.control,'running');
   assert.equal(run({event:'review_resolved',id:'one',thread_id:'wrong',reply_id:'r0'}).reason,'wrong_thread');
@@ -131,6 +131,9 @@ const QUESTION = 'ループを再開してよろしいですか？';
 // A continuation is what carries the loop after the turn ends (issue #1151): the routine path
 // is `resume` only when one is named and proved; a held loop needs none.
 const CONTINUATION = { kind: 'same_chat_schedule', id: 'sched-1', next_due: 2000009000 };
+// A NAMED continuation is not yet a LIVE one (2026-09-21, ticket `20260921180208`): `now` is
+// required on any input naming one, so no caller can obtain a pass by omitting the clock.
+const NOW = 2000000300;
 function facts(dir, value) {
   const path = join(dir, 'facts.json'); writeFileSync(path, JSON.stringify(value));
   const r = spawnSync('sh', [contract, '--input', path], { cwd: dir, encoding: 'utf8' });
@@ -146,7 +149,7 @@ test('a routine mid-loop comment resumes the same instance and anchor with no fi
   run({ event: 'started', id: 'one', child_id: 'child-one' });
   const before = run({ event: 'tick', now: 2000000300 });
   assert.equal(before.data.control, 'running');
-  const routine = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: before.data.anchor, continuation: CONTINUATION });
+  const routine = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: before.data.anchor, now: NOW, continuation: CONTINUATION });
   assert.equal(routine.status, 0, JSON.stringify(routine.out));
   assert.equal(routine.out.path, 'resume'); assert.equal(routine.out.final_response, false);
   assert.equal(routine.out.question, null); assert.equal(routine.out.second_start, false);
@@ -160,17 +163,91 @@ test('a routine mid-loop comment resumes the same instance and anchor with no fi
   assert.deepEqual(after.data.live.map(w => w.child_id), ['child-one'], 'the same children are carried');
   // A routine comment under a standing hold is answered and the hold stands; it resumes nothing.
   run({ event: 'hold', explicit: true, now: 2000001000 });
-  const underHold = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000, control: 'held', continuation: CONTINUATION });
+  const underHold = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000, now: NOW, control: 'held', continuation: CONTINUATION });
   assert.equal(underHold.status, 0); assert.equal(underHold.out.path, 'resume');
   assert.equal(underHold.out.final_response, false); assert.equal(underHold.out.hold_stands, true);
   assert.equal(run({ event: 'tick', now: 2000001300 }).data.control, 'held', 'an ordinary question never resumes a hold');
+});
+// A NAMED continuation is not yet a LIVE one, and a routine turn declares what it means to emit
+// (2026-09-21, ticket `20260921180208`). Measured before the repair: `final-response-contract.sh`
+// answered `ok: true, path: "resume"` for a routine turn whose continuation's `next_due` was long
+// past, while `coordinator.jq`, handed the same continuation, already answered `resumed: false,
+// resumed_reason: "continuation_lapsed"` -- the derivation existed and the gate that yields the
+// turn did not consult it. The walk below is the sequence the ask names: a completed worker
+// recorded through `finish`, a progress report classified `routine`, then continued observation.
+// It asserts on the RECORDED EVENT SEQUENCE and never on elapsed time.
+test('a completed worker, a routine progress report, and continued observation on a live continuation', t => {
+  const run = fixture(t);
+  run({ event: 'start', session_id: 'session', continuation: CONTINUATION });
+  run(reserve); run({ event: 'started', id: 'one', child_id: 'child-one' });
+  const anchor = 2000000000;
+  const events = [];
+
+  // 1. The worker finishes. A terminal result is evidence for the parent, never its permission.
+  const finished = run({ event: 'finish', id: 'one', terminal: true, result, now: NOW });
+  events.push(finished.reason);
+  assert.equal(finished.data.completed[0].result.outcome, 'pending');
+  assert.equal(finished.data.control, 'running');
+
+  // 2. The progress report that follows it is a ROUTINE interruption, and on a live continuation
+  //    it resumes the same loop with no final response.
+  const live = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test',
+    anchor, now: NOW, continuation: CONTINUATION });
+  assert.equal(live.status, 0, JSON.stringify(live.out));
+  assert.equal(live.out.path, 'resume'); assert.equal(live.out.final_response, false);
+  assert.equal(live.out.second_start, false);
+  assert.deepEqual(live.out.continuation, CONTINUATION);
+
+  // 3. The same report on a continuation whose deadline has passed is refused by the word the
+  //    reducer already emits -- one rule, two call sites, never a second spelling.
+  const lapsed = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test',
+    anchor, now: CONTINUATION.next_due + 1, continuation: CONTINUATION });
+  assert.equal(lapsed.status, 2); assert.equal(lapsed.out.ok, false);
+  assert.equal(lapsed.out.reason, 'continuation_lapsed');
+  assert.equal(run({ event: 'tick', now: CONTINUATION.next_due + 1 }).data.resumed_reason,
+    'continuation_lapsed', 'the reducer reads the same rule and emits the same word');
+
+  // 4. A routine turn that DECLARES it intends to emit a final response is refused by its own
+  //    word. The reader writes nothing and cannot stop the act; the refusal is the receipt.
+  const declared = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test',
+    anchor, now: NOW, intends_final_response: true, continuation: CONTINUATION });
+  assert.equal(declared.status, 2); assert.equal(declared.out.ok, false);
+  assert.equal(declared.out.reason, 'routine_emits_no_final_response');
+
+  // 5. No caller obtains a pass by omitting the clock.
+  const noClock = facts(run.dir, { interruption_kind: 'routine', instance_id: 'native-test',
+    anchor, continuation: CONTINUATION });
+  assert.equal(noClock.status, 2); assert.equal(noClock.out.reason, 'invalid_facts');
+
+  // 6. A caller that declares nothing is byte-identical: review_required still ends the turn,
+  //    task_review still does not, and neither needs the intent fact.
+  const handoff = facts(run.dir, { interruption_kind: 'review_required', instance_id: 'native-test',
+    anchor, hold_persisted: true, question: QUESTION });
+  assert.equal(handoff.status, 0); assert.equal(handoff.out.final_response, true);
+  assert.equal(handoff.out.path, 'review_handoff');
+  const task = facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test',
+    anchor, now: NOW, continuation: CONTINUATION });
+  assert.equal(task.status, 0); assert.equal(task.out.final_response, false);
+  assert.equal(task.out.path, 'task_wait', 'path gains no fourth value');
+
+  // 7. Observation continues on the same instance: no second `start`, no moved anchor.
+  events.push(run({ event: 'reported', id: 'one', now: NOW }).reason);
+  events.push(run({ event: 'start', session_id: 'session', now: NOW }).reason);
+  const observing = run({ event: 'tick', now: NOW });
+  events.push(observing.reason);
+  assert.deepEqual(events, ['completed', 'reported', 'already_started', 'running'],
+    'the recorded sequence is finish -> report -> no second start -> continued observation');
+  assert.equal(observing.data.anchor, anchor, 'the startup anchor never moved');
+  assert.equal(observing.data.control, 'running');
+  assert.equal(observing.data.resumed, true, 'the continuation is still live');
+  assert.equal(observing.data.resumed_reason, '');
 });
 test('a paused host with native tools returns to the same interruptible parent and collects the child', t => {
   const run = fixture(t); run({ event: 'start', session_id: 'session' }); run(reserve);
   run({ event: 'started', id: 'one', child_id: 'child-one' });
   const continuation = { kind: 'interruptible_parent', id: 'session', next_due: 2000009000 };
   const value = { interruption_kind: 'routine', instance_id: 'native-test', anchor: 2000000000,
-    host_goal: 'paused', native_parent: { interruptible_wait: true, worker_results: true }, continuation };
+    host_goal: 'paused', now: NOW, native_parent: { interruptible_wait: true, worker_results: true }, continuation };
   const routed = facts(run.dir, value);
   assert.equal(routed.status, 0, JSON.stringify(routed.out));
   assert.equal(routed.out.final_response, false, 'steering is commentary, never a terminal response');
@@ -299,7 +376,7 @@ test('an unapproved merge handoff is a per-unit wait that never ends the loop', 
 
   // 2. The same wait routed as a task review continues the loop and records what is waiting.
   const routed = facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test',
-    anchor, blocked_on: 'merge_authority', unit: 'batch-1', continuation: CONTINUATION });
+    anchor, now: NOW, blocked_on: 'merge_authority', unit: 'batch-1', continuation: CONTINUATION });
   assert.equal(routed.status, 0, JSON.stringify(routed.out));
   assert.equal(routed.out.path, 'task_wait');
   assert.equal(routed.out.final_response, false, 'the loop does not end on a blocked merge');
@@ -313,7 +390,7 @@ test('an unapproved merge handoff is a per-unit wait that never ends the loop', 
   //    `interruptible_parent` derivation, which it used to ignore entirely.
   const continuation = { kind: 'interruptible_parent', id: 'session', next_due: 2000009000 };
   const paused = facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test', anchor,
-    blocked_on: 'merge_authority', unit: 'batch-1', host_goal: 'paused',
+    blocked_on: 'merge_authority', unit: 'batch-1', host_goal: 'paused', now: NOW,
     native_parent: { interruptible_wait: true, worker_results: true }, continuation });
   assert.equal(paused.status, 0, JSON.stringify(paused.out));
   assert.equal(paused.out.next_action, 'wait_interruptibly');
@@ -342,11 +419,11 @@ test('an unapproved merge handoff is a per-unit wait that never ends the loop', 
   assert.equal(handoff.out.blocked_on, null, 'an operator-level handoff names no unit blocker');
   // A task wait under a standing hold is still a contradiction, unchanged.
   assert.equal(facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test', anchor,
-    control: 'held', blocked_on: 'merge_authority', continuation: CONTINUATION }).out.reason,
+    control: 'held', now: NOW, blocked_on: 'merge_authority', continuation: CONTINUATION }).out.reason,
     'task_wait_is_not_global_hold');
   // An unlisted blocker is not a fact this reader accepts.
   assert.equal(facts(run.dir, { interruption_kind: 'task_review', instance_id: 'native-test', anchor,
-    blocked_on: 'something_else', continuation: CONTINUATION }).out.reason, 'invalid_facts');
+    blocked_on: 'something_else', now: NOW, continuation: CONTINUATION }).out.reason, 'invalid_facts');
 });
 
 // ---- WHAT THE COORDINATOR STORES PER WORKER IS BOUNDED, AND THE RECORD STAYS WRITABLE PAST

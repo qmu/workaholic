@@ -101,6 +101,28 @@ scheduled tick, named by `kind` and `id`, refused `continuation_unproved` by the
 absent — and the coordinator derives `resumed` at every event (`control == running` **and** a
 recorded continuation whose `next_due` has not passed; otherwise `continuation_unproved`,
 `continuation_lapsed` or the control mode); `running` alone is never reported as resumed.
+**And a NAMED continuation is not yet a LIVE one** (2026-09-21, ticket `20260921180208`).
+`final-response-contract.sh` proved a routine turn had named one and never compared it against
+the clock, so a continuation whose deadline had already passed satisfied the contract, the reader
+answered `path: "resume", final_response: false`, and the turn yielded to nothing — while
+`lib/coordinator.jq`, handed the same continuation, already answered `resumed: false,
+resumed_reason: "continuation_lapsed"`. **Measured**: `next_due: 1758400060` read `ok: true` at
+the reader and `continuation_lapsed` at the reducer in the same second. The reader now carries
+the same rung immediately after `continuation_unproved`, emitting the **same word**; `now` (epoch
+seconds) is **required on any input naming a continuation** and an absent clock is refused
+`invalid_facts` rather than defaulted, because a caller must not obtain a pass by omitting the
+clock. **`next_due < now` is one rule with two call sites and never a second spelling** — the
+reducer is a program body rather than a jq module, so the two are kept in step by
+`test-workflow-scripts.mjs`, which also fails on a third comparison anywhere under the authored
+plugin tree. **And a routine turn declares what it intends to emit**: `intends_final_response`
+(a boolean fact in the shape `interruption_kind` and `blocked_on` already have, **absent means
+false**, so every existing caller is byte-identical) is refused
+**`routine_emits_no_final_response`**. Both rungs are bounded to `routine`, the path that answers
+`final_response: false` and lets the turn end. **The reader writes nothing and cannot stop the
+act** — what the refusal buys is that a run which asks the contract gets an unambiguous *no* with
+a name, and a run that emits one anyway leaves a receipt saying the contract refused it. No
+closed set widened: `interruption_kind` keeps three values, `continuation.kind` two, `blocked_on`
+three, and `path` gains no fourth.
 **The coordinator's durable record is bounded by a declared ceiling, never by the argument cap**
 (2026-09-19, ticket `20260919120809`). `runtime/scripts/state.sh` rewrites the record in full on
 every event and passed it to `jq` through `argv`, which Linux caps at `MAX_ARG_STRLEN`

@@ -20,8 +20,12 @@ created (`kind: same_chat_schedule`, `id` that schedule's own identifier, `next_
 fire), or — where this turn stays the native parent and waits interruptibly — the parent's own
 wait (`kind: interruptible_parent`, `id` the native session ID). Before any turn ends, the
 coordinator re-derives it through `work/scripts/final-response-contract.sh`: a routine turn
-naming none is refused `continuation_unproved` and does not end, and a `running` record whose
-`resumed` reads `false` is reported as not resumed, never as the loop continuing.
+naming none is refused `continuation_unproved` and does not end, one whose named continuation's
+`next_due` has already passed is refused `continuation_lapsed` (2026-09-21, ticket
+`20260921180208` — `now` is required on any input naming a continuation, and the comparison is
+one rule with two call sites, this reader and the reducer), one that declares
+`intends_final_response` is refused `routine_emits_no_final_response`, and a `running` record
+whose `resumed` reads `false` is reported as not resumed, never as the loop continuing.
 
 To stop it, the developer stops the loop the `loop` skill created; `/work` does not take a
 stop argument, because a command whose behaviour depends on the first word of its argument is

@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260921180138-a-native-work-loop-must-not-end-after-an-ordinary-progress-report.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260921-204131
 ---
 
 # Prove a live continuation before a routine turn yields

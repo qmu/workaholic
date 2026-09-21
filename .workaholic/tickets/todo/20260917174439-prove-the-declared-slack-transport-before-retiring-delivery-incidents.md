@@ -51,3 +51,47 @@ The code portion is claimable now, but live acceptance is a handoff because this
 ## Progress Report
 
 Added a binding-locked live-proof validator that keeps all eleven incidents unresolved unless every declared operation, the verified sender, and the root/reply/reaction readback are present in one matching evidence document. The current repository preflight returns `unverifiable_sender` and `incidents_unresolved: 11`, consistent with `AGENTS.md`; no Slack write was attempted. Operator handoff: add the verified `sender_id`, use the declared connector to perform the bounded root/reply/reaction and readbacks, save the typed evidence, then run `sh plugins/workaholic/skills/transport/scripts/verify-live-proof.sh --root . --evidence <proof.json>` and proceed only when `closure_eligible: true`.
+
+### 2026-09-21 — implementation step 4's emitter, and the limitation re-measured
+
+**The gate had a reader and no writer**, so the document it refuses on was hand-made in a shape
+described only inside its own jq program — a gate whose input nobody can check. Implementation
+step 4's first half (*emit durable per-operation proof*) is now
+`plugins/workaholic/skills/transport/scripts/emit-live-proof-evidence.sh`: it writes the evidence
+template from every fact the repository establishes with no credential — the declaration's
+`declared_digest`, workspace, channel and declared sender, one row per declared operation, and
+the route reading `describe-qfs.sh` already makes — and leaves exactly the facts a credential is
+needed for empty. **It never writes `proved: true`**: a route that *advertises* an operation has
+a capability and the gate asks whether it was *performed*, so `available` carries the capability
+reading while `proved` stays false, which is the ticket's own gate (*no issue is marked delivered
+from configuration presence … or `operations_unsatisfied`*) enforced at the writer rather than
+only at the reader. A describe nobody could make answers **`available: null`, never `false`** —
+`false` means the route answered and does not carry the operation. It performs no Slack read or
+write, needs no credential and decides nothing; `verify-live-proof.sh` stays the one gate.
+Refusals: `root_required`, `binding_unreadable`, `not_declared`, `jq_unavailable`, nothing
+written. Documented in `skills/transport/SKILL.md`, *Proving the declared route before an
+incident is retired*, and in `CLAUDE.md`; pinned hermetically by
+`scripts/test-workflow-scripts.mjs` (*the live-proof evidence emitter states capability and never
+claims a performed act*), which runs it with no `qfs` on `PATH` and asserts the null-not-false
+degradation, `proved: false` on every row, and that the emitted template alone leaves all eleven
+incidents unresolved.
+
+**The prose `verification_handoff:` was re-measured here rather than taken on its own words**
+(`/drive` §6, `unmeasured`). `describe-qfs.sh --workspace qmu --channel dev-workaholic` on this
+machine, 2026-09-21: two mounts reach the channel (`/slack` account `team`, `/slack-cc-for-qmu`
+account `cc-for-qmu`), both `channel_verified: true`, both advertising **only**
+`read_channel_delta`, `read_thread`, `search_exact`, both `sender_id: null` /
+`sender_verified: false`, and both carrying the limitations `sender_unverified`,
+`thread_discovery_unavailable` (`threads_not_selectable`), `reaction_map_unverified`,
+`root_map_unverified_or_ambiguous`. So four of the six declared operations —
+`list_thread_changes`, `post_root`, `post_reply`, `add_reaction` — are unavailable on every
+reachable route and no route can prove who would speak. The declared limitation is **present**,
+and the handoff stands on that measurement.
+
+**What the operator must still do**, unchanged in substance and now bounded: declare the verified
+`sender_id` in `AGENTS.md`, run
+`sh plugins/workaholic/skills/transport/scripts/emit-live-proof-evidence.sh --root . --out proof.json`,
+perform the bounded root/reply/reaction through a route that carries those four operations, fill
+each performed operation's `proved` and the `round_trip` block in `proof.json`, then run
+`sh plugins/workaholic/skills/transport/scripts/verify-live-proof.sh --root . --evidence proof.json`
+and retire the incident set only on `closure_eligible: true`.

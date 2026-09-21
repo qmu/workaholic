@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260921-204131](work-20260921-204131.md) - Refuse a routine turn whose named continuation has already lapsed, and let a turn declare what it intends to emit
 * [work-20260921-191811](work-20260921-191811.md) - An operator can hold a queued ticket with `deferred:` — counted and named rather than made invisible — and a deferred-only queue takes zero runners without reading as a failure.
 * [Refuse a killed check, and declare the outcome token a finish line carries](work-20260920-020459.md)
 * [The drill stopped supplying the premise its reader had gained](work-20260920-010451.md)

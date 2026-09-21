@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-21T18:04:18+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 mission: hold-operator-deferred-tickets-out-of-the-offer-and-say-so

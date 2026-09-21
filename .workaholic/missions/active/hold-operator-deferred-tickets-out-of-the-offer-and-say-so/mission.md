@@ -39,7 +39,7 @@ Removing the declaration is the only thing that makes it claimable again.
 
 - [x] A malformed declaration is refused at write time; a valid one is offered by no survey.
       (#20260921180418-declare-an-operator-deferral-on-a-queued-ticket.md)
-- [ ] `plan-units.sh` counts it in `backlog_size` and names it in `excluded[]` with its own
+- [x] `plan-units.sh` counts it in `backlog_size` and names it in `excluded[]` with its own
       reason, which `backlog_all_excluded` reports and counts.
       (#20260921180418-name-a-deferred-ticket-in-the-survey-exclusions.md)
 - [ ] A deferred-only queue takes zero runners, is named, and is neither `readable: false` nor
@@ -49,3 +49,4 @@ Removing the declaration is the only thing that makes it claimable again.
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-21 — ticket archived — 20260921180418-declare-an-operator-deferral-on-a-queued-ticket.md
+- 2026-09-21 — ticket archived — 20260921180418-name-a-deferred-ticket-in-the-survey-exclusions.md

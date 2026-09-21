@@ -13,29 +13,32 @@ verification_handoff:
 
 ## Overview
 
-Two assertions in `scripts/test-workflow-scripts.mjs` fail on any machine that has the plugin
-installed, and pass on CI. They are the only two failures in the suite here, and they fail
-**identically on `origin/main`** — this ticket was minted by the run that measured that, not by
-the change it was driving.
+Two assertions in `scripts/test-workflow-scripts.mjs` answer differently depending on **where
+`TMPDIR` puts the fixture**, so a developer running the suite by hand sees two red rows that the
+declared proof set does not.
 
-**Measured 2026-09-21** in `testInstalledCodexClock` ("the installed Workaholic plugin launches
-one Codex dry-run tick and diagnoses each layer"). The fixture copies `plugins/workaholic` into
-a throwaway repository, deletes `commands/infinite-development.md`, and asserts the launcher
-exits **2** naming `plugin_command_missing`; the sibling row deletes `skills/work/SKILL.md` and
-asserts `plugin_skill_missing`. On this machine the launcher instead prints
+**Measured 2026-09-21** on `testInstalledCodexClock` ("the installed Workaholic plugin launches
+one Codex dry-run tick and diagnoses each layer"). The fixture copies `plugins/workaholic` into a
+throwaway repository under `os.tmpdir()`, deletes `commands/infinite-development.md`, and asserts
+the launcher exits **2** naming `plugin_command_missing`; the sibling row does the same for
+`skills/work/SKILL.md` and `plugin_skill_missing`. The same deletion, the same launcher, two
+different answers:
 
-```
-clock_wrapper_missing: retired plugin tree <fixture>/installed/workaholic
-codex loop: recovered retired plugin tree <fixture>/installed/workaholic -> /home/ec2-user/.claude/plugins/cache/workaholic/workaholic/1.0.384
-```
+| Fixture under | Launcher says | Exit |
+| ------------- | ------------- | ---- |
+| `/tmp` (a bare `node scripts/test-workflow-scripts.mjs`) | `recovered retired plugin tree … -> ~/.claude/plugins/cache/workaholic/workaholic/1.0.384` | **0** — the assertion fails |
+| `~/.cache/workaholic/proof-tmp.<n>` (what `local-proof.sh` exports) | `no complete replacement for …; update or reinstall the Workaholic plugin` | **2** — the assertion passes |
 
-and exits **0** — it recovers through the newest plugin tree **on the machine**, which is
-`plugin-src.sh`'s designed behaviour (`rules/general.md`: *the harness binding is an input,
-never a precondition*). The recovery cannot fire on a CI runner, which carries no
-`~/.claude/plugins/cache`, so the fixture passes there and fails for every developer.
+So `sh plugins/workaholic/skills/branching/scripts/local-proof.sh` reports `ok: true`,
+`complete: true`, `failed: []` with all six checks green — the gate is **not** broken — while
+`node scripts/test-workflow-scripts.mjs` on its own reports `7907 passed, 2 failed`. The bare-run
+failure reproduces byte-identically on `origin/main` (proved over
+`git archive origin/main plugins/workaholic`), so it is not this branch's.
 
-Proved against the base as well as the branch: the same two commands run over
-`git archive origin/main plugins/workaholic` answer `status=0` with the same recovery line.
+**A test whose verdict depends on where its fixture lives is a test that misleads whoever runs it
+by hand**, which is the whole of this ticket. The launcher's recovery through the newest plugin
+tree on the machine is deliberate (`rules/general.md`: *the harness binding is an input, never a
+precondition*) and is not the defect.
 
 ## Policies
 
@@ -54,30 +57,33 @@ Proved against the base as well as the branch: the same two commands run over
 
 ## Implementation Steps
 
-1. **Reproduce both ways first** — the fixture on a machine with a plugin cache, and the same
-   fixture with the cache made unreachable — and record both readings.
-2. **Decide which layer the fixture is testing** and bound it there. The launcher's recovery is
-   deliberate, so the assertion has to name a tree the recovery cannot reach, not assert that
-   recovery never happens. Pointing the resolution at the fixture's own tree for the duration of
-   the run is the obvious shape; do not weaken the assertion to *exit 2 or recovered*, which
-   would pass on a launcher that had lost the diagnosis entirely.
-3. **Keep the passing sibling passing**: the `clock_wrapper_missing` row already distinguishes a
-   missing compatibility target from a missing skill, and that distinction must survive.
-4. **Prove it fails when the diagnosis is removed** — a fixture that cannot fail proves nothing.
+1. **Reproduce both readings first** — the fixture under `/tmp` and under a `TMPDIR` the runner
+   owns — and record both, with the launcher's own two messages. Then **find why the resolution
+   differs between those two locations**: that is the fact the repair rests on, and guessing at it
+   is how the repair lands on the wrong layer.
+2. **Bound the fixture to one answer, whatever `TMPDIR` says.** The launcher's recovery is
+   deliberate, so the assertion must name a tree the recovery cannot reach rather than assert that
+   recovery never happens — and it must not be weakened to *exit 2 or recovered*, which would pass
+   on a launcher that had lost the diagnosis entirely.
+3. **Keep the passing sibling passing**: the `clock_wrapper_missing` row distinguishes a missing
+   compatibility target from a missing skill, and that distinction must survive.
+4. **Prove it fails when the diagnosis is removed** — a fixture that cannot fail proves nothing —
+   and prove it under **both** `TMPDIR` locations.
 
 ## Quality Gate
 
 **Acceptance criteria** — the checkable conditions that must hold:
 
-- Both assertions pass on a machine carrying an installed plugin cache and on one without.
+- Both assertions answer the same under `TMPDIR=/tmp` and under a runner-owned scratch directory.
 - Deleting the launcher's `plugin_command_missing` / `plugin_skill_missing` diagnosis makes them
-  fail.
+  fail under both.
 - `plugin-src.sh` and the launcher's recovery behaviour are byte-identical.
 
 **Verification method** — the commands/tests/probes that prove them:
 
-- `node scripts/test-workflow-scripts.mjs` on this machine (a cache is present) — `0 failed`
-- the same run with the resolution pointed away from the machine's cache
+- `node scripts/test-workflow-scripts.mjs` run bare on this machine — `0 failed`
+- the same suite through `sh plugins/workaholic/skills/branching/scripts/local-proof.sh` — still
+  `ok: true`, `complete: true`
 - `git diff --stat` proving the launcher and `plugin-src.sh` are untouched
 
 **Gate** — what must pass before approval:
@@ -90,6 +96,9 @@ Proved against the base as well as the branch: the same two commands run over
 - **The launcher is not the defect.** The recovery exists so an unattended run whose binding is
   missing still executes the workflow; a fix that removes it to satisfy a test would break the
   behaviour the test is incidental to.
+- **The declared gate is green and this is not an outage.** `local-proof.sh` passes; what is wrong
+  is that a hand-run of the same suite does not, which costs a developer a wrong diagnosis rather
+  than a merge.
 - **This is why the two failures were reported rather than fixed in place** by the run that found
-  them: it was driving an unrelated mission, and an observation outside the current ticket's
-  scope becomes a ticket (`drive/reference/failure-contract.md`).
+  them: it was driving an unrelated mission, and an observation outside the current ticket's scope
+  becomes a ticket (`drive/reference/failure-contract.md`).

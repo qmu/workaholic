@@ -9,7 +9,7 @@ author: a@qmu.jp
 assignees: [a@qmu.jp]
 assignee:
 predicted_hours:
-actual_hours:
+actual_hours: 0.8
 feedback: [20260921180339-exclude-explicitly-deferred-tickets-from-the-claimable-offer.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 tickets: []
 stories: []
@@ -52,3 +52,4 @@ Removing the declaration is the only thing that makes it claimable again.
 - 2026-09-21 — ticket archived — 20260921180418-name-a-deferred-ticket-in-the-survey-exclusions.md
 - 2026-09-21 — ticket archived — 20260921180419-stop-a-deferred-only-queue-consuming-a-runner.md
 - 2026-09-21 — mission achieved — mission.md
+- 2026-09-21 — run recorded (+0.8h) — impl-20260921-1013

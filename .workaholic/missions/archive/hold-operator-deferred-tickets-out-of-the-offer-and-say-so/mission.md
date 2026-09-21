@@ -53,3 +53,4 @@ Removing the declaration is the only thing that makes it claimable again.
 - 2026-09-21 — ticket archived — 20260921180419-stop-a-deferred-only-queue-consuming-a-runner.md
 - 2026-09-21 — mission achieved — mission.md
 - 2026-09-21 — run recorded (+0.8h) — impl-20260921-1013
+- 2026-09-21 — story opened — work-20260921-191811.md

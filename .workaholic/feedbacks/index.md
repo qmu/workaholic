@@ -775,4 +775,5 @@
 * [The Codex loop pins its own skill path and its status surface writes the locks it reads](20260919114700-the-codex-loop-pins-its-own-skill-path-and-its-status-surface-writes-the-locks-it-reads.md)
 * [The moderation planner stops answering at the 35th step](20260919145924-the-moderation-planner-stops-answering-at.md)
 * [A native Work loop must not end after an ordinary progress report](20260921180138-a-native-work-loop-must-not-end-after-an-ordinary-progress-report.md)
+* [Exclude explicitly deferred tickets from the claimable offer](20260921180339-exclude-explicitly-deferred-tickets-from-the-claimable-offer.md)
 <!-- okf:generated:end -->

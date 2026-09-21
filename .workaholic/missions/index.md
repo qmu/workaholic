@@ -3,6 +3,7 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [hold-operator-deferred-tickets-out-of-the-offer-and-say-so](active/hold-operator-deferred-tickets-out-of-the-offer-and-say-so/mission.md) - Hold operator-deferred tickets out of the offer and say so
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 
 ## archive

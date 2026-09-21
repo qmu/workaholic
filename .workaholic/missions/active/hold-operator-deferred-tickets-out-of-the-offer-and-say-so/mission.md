@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260921-191811
 ---
 
 # Hold operator-deferred tickets out of the offer and say so

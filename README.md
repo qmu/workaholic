@@ -110,16 +110,22 @@ The `plugins/workaholic` source stays Claude-Code-only (`metadata.internal: true
 
 ### The development loop
 
-`/work` starts the orchestration surface; it is not another executor. One tick first handles the
-inbound channel, then runs `/implement`, runs `/propose` followed by `/specificate` when that
-cadence is due, and runs `/moderate` when its own cadence is due. `/drive` and `/implement` remain
-the single executor, with attended and unattended entry points respectively.
+On Claude Code, `/work` is the lightweight loop ([`workaholic:watch`](plugins/workaholic/skills/watch/SKILL.md)):
+`watch-slack.sh` runs under the Monitor tool and watches the declared Slack channel with no model
+in the loop (default every two minutes; `/work 1m` means one minute), printing a line only for a
+new human message. The session wakes on that line, answers it or tickets the request, and starts
+`/implement` in a background subagent. A quiet channel costs no tokens; proposing and moderation
+do not run inside it and are their own commands. `/drive` and `/implement` remain the single
+executor, with attended and unattended entry points respectively.
 
-A session with interruptible waits, intermediate output and independently running children keeps
-its coordinator in the initiating chat. A harness's in-process timer supplies that same native
+The earlier coordinator loop remains as `/infinite-development` for Codex and CLI supervisors.
+One tick first handles the inbound channel, then runs `/implement`, runs `/propose` followed by
+`/specificate` when that cadence is due, and runs `/moderate` when its own cadence is due. A
+session with interruptible waits, intermediate output and independently running children keeps
+that coordinator in the initiating chat. A harness's in-process timer supplies that same native
 mode where available. Otherwise, a callable same-chat scheduler runs one tick per invocation;
-the external supervisor beside the installed work skill is the last mode and reports to files.
-`/work 1m` requests a one-minute interval on each mode; omitting the interval uses five minutes.
+the external supervisor beside the installed work skill is the last mode and reports to files,
+at five minutes unless another interval is requested.
 This repository's `scripts/codex-loop.sh` is the supervisor's compatibility entry point, and
 `--status` reads its state. Detailed capability and cadence rules remain in
 [`plugins/workaholic/skills/work/SKILL.md`](plugins/workaholic/skills/work/SKILL.md).
@@ -343,8 +349,8 @@ flowchart LR
 <details>
 <summary><strong>The full map</strong> — every command and every artifact in one graph</summary>
 
-Development commands communicate through the documents they write to `.workaholic/`; the `/work`
-orchestrator is the explicit exception, sequencing the loop's command bodies without becoming an
+Development commands communicate through the documents they write to `.workaholic/`; the
+`/work` watcher and the `/infinite-development` coordinator are the explicit exceptions, sequencing the loop's command bodies without becoming an
 artifact writer or a second executor. The graph covers all 22 command entry files (`/report` is the
 deprecated `/story` alias; `/drive` and `/implement` share one executor node; the two routine setup
 commands share one node). Rounded **blue** = command, rectangular **grey** = artifact, dashed grey
@@ -447,7 +453,8 @@ flowchart LR
   standup -.-> STORY
 
   %% ========== orchestration: the explicit command-to-command exception ==========
-  work -. one tick .-> tick
+  work -. new request .-> ticket
+  work -. background .-> drive
   tick -. every tick .-> drive
   tick -. cadence .-> propose
   tick -. after propose .-> specificate
@@ -473,7 +480,7 @@ flowchart LR
 Reading the map:
 
 - **Solid arrow** = the command *generates* that artifact. **Dashed arrow** = the command *reads / refers to* it. `rolls` = the command updates a named mission's `## Changelog` and `## Acceptance` checklist (via the `mission:` relation any ticket/story/concern carries).
-- **Orchestration arrows** are the only command-to-command edges: `/work` enters one tick; the tick sequences the existing source, executor, ingestion and maintenance commands. They do not make `/work` an executor.
+- **Orchestration arrows** are the only command-to-command edges: `/work` tickets a new Slack request and starts `/implement` in the background; an `/infinite-development` tick sequences the existing source, executor, ingestion and maintenance commands. Neither is an executor.
 - **Node style tells the kind apart.** Rounded **blue** = the commands (`/drive` and `/implement` share the executor node); rectangular **grey** = the artifacts they generate. A **dashed grey border** marks the artifacts that land *outside* `.workaholic/` — the `[FB] ` issue every `/fb` files, here or across the boundary, a printed PDF via `/explain`, a plain working-tree commit via `/commit`, repo wiring via `/workaholify`, and the scheduled routines `/setup-dev-routines` and `/setup-repo-routines` read and converge in the Claude Code Web account.
 - **`/mission` and `/drive` are the two poles.** `/mission` writes `missions/…` and the kickoff/delta tickets into `tickets/todo/` (with `/specificate` proposing missions and loose tickets upstream of it); `/drive` reads the mission set and each worktree's `todo/`, drains them to `tickets/archive/`, and rolls each mission it advances — in parallel across every claim it holds.
 - **The ticket is the spine.** `/ticket`, `/mission`, and `/specificate` (a mission's ticket set, or one loose ticket) all *fill* `tickets/todo/`; **`/drive` alone** drains it to `tickets/archive/`. Everything downstream reads the archive.

@@ -49,8 +49,12 @@ observation clock. Restore the write operations here in the same change that clo
 before: a declared operation no route can satisfy takes the reads down with it.
 
 **Posting route.** The declared `/slack` mount reads; posts go through the `cc-for-qmu` bot,
-which is a member of the channel: `insert into /slack-cc-for-qmu/qmu/C0BLL9J7FMY/messages values
-(text) ('…')` with `--commit` (`workaholic:watch`). The path is `<mount>/<workspace>/<channel_id>/messages`;
-omitting the workspace segment misroutes the channel and answers `channel_not_found`. The qfs
-Slack insert carries no `thread_ts`, so a reply is a channel post, not a thread reply.
-`/slack-cc-for-osbr` is bound to a different workspace despite its account name `cc01-qmu`.
+which is a member of the channel. A reply goes into the thread:
+`insert into /slack-cc-for-qmu/qmu/C0BLL9J7FMY/messages/<parent ts>/replies values (text) ('…')`
+with `--commit`; a new root is `insert into /slack-cc-for-qmu/qmu/C0BLL9J7FMY/messages values
+(text) ('…')` (`workaholic:watch`). The path is `<mount>/<workspace>/<channel_id>/messages`;
+omitting the workspace segment misroutes the channel and answers `channel_not_found`. The
+`replies` write needs a machine-local qfs map the shipped declaration lacks (the one-time
+`CREATE MAP` is in `workaholic:watch`); `thread_ts` passed as a column on `…/messages` is silently
+dropped. `/slack-cc-for-osbr` is bound to a different workspace despite its account name
+`cc01-qmu`.

@@ -33,12 +33,16 @@ metadata:
 
 - **One watcher per repository.** If a Monitor running `watch-slack.sh` already exists in this
   session, start nothing.
-- **Replies** are channel posts through qfs, because the Slack driver's insert maps only
-  `channel` and `text` (a thread's `replies` node is read-only):
-  `qfs run "insert into <post mount>/<workspace>/<channel_id>/messages values (text) ('💬 …')" --commit`.
-  The post mount is named in `AGENTS.md` beside the binding. Open with `💬` so the watcher drops
-  the loop's own post, quote what is being answered, and follow `rules/interaction.md` for
-  language (Japanese on the channel).
+- **Replies go in the message's thread** through qfs: for a root message use its own `ts`, for a
+  reply use its `thread_ts`:
+  `qfs run "insert into <post mount>/<workspace>/<channel_id>/messages/<parent ts>/replies values (text) ('💬 …')" --commit`.
+  Preview first (one INSERT), then commit, then read `…/replies` back to confirm. The post mount
+  is named in `AGENTS.md`. This needs the machine's qfs to carry an INSERT map for `replies`; the
+  shipped Slack declaration has only a read view there, so add it once per machine:
+  `qfs run "CREATE MAP INSERT /slack/{ws}/{channel}/messages/{ts}/replies AS INSERT INTO /http/slack/chat.postMessage VALUES ({channel: path.channel, text: row.text, thread_ts: path.ts})" --commit`.
+  Never pass `thread_ts` as a column on `…/messages`: that map sends only `channel` and `text`,
+  so the reply silently lands in the channel. Open with `💬` so the watcher drops the loop's own
+  post, and follow `rules/interaction.md` for language (Japanese on the channel).
 - **Never poll by hand.** No sleep loops, no re-reading the channel between events: the Monitor
   is the only clock, and a completed background runner re-invokes the session by itself.
 - **Nothing else runs in this loop.** Proposing, moderation, stale-claim repair and release work

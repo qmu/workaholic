@@ -10,13 +10,13 @@ How the coordinator loop runs one tick, including its unattended `/implement`
 executor, so inbound direction is captured and merged missions and queued tickets are
 claimed, implemented, reported, and routed (`docs/loop-engineering-workflow.md` G4).
 
-**The primary trigger is `/work` in one long-lived session.** One tick handles the inbound
+**The coordinator's trigger is `/infinite-development` in one long-lived session.** One tick handles the inbound
 channel first, then runs `/implement`, `/propose` followed by `/specificate` when due, and
 `/moderate` when due. Claude Code supplies the clock with `/loop`; the ChatGPT desktop app
 can supply it with a Scheduled task in the current chat. A CLI or IDE uses the launcher
 beside `plugins/workaholic/skills/work/SKILL.md`; this repository keeps
 `scripts/codex-loop.sh` as a compatibility shim. The older account routines remain fallback
-entry points, not a second loop to run beside `/work`.
+entry points, not a second loop to run beside `/work` or the coordinator.
 
 **Precondition (decision I9):** the repository must be **private** wherever the
 feedback stream may carry customer material (H4). Do not wire this loop on a public
@@ -29,7 +29,7 @@ without origin surveys, refuses to claim, and exits `pending` — by design (see
 
 ## 1. What the routine actually does
 
-One `/work` tick is an orchestration boundary, not an implementation unit. It reads the
+One `/infinite-development` tick is an orchestration boundary, not an implementation unit. It reads the
 checkout and channel before starting work, runs due command bodies, records their finish times,
 and reports the previous progress reading. On Claude Code the work runs in background agents;
 on an agent without background subagents it runs inline in the fixed order `/implement`, then

@@ -36,7 +36,7 @@ retains full keys and verified answers independently of rotating logs. See the
 
 ## Context and cost evidence
 
-The current `/work` selected path is the short work skill and tick command plus the pure turn and polling planners. Historical rationale stays outside the path. Test-only capability, context-packet, dispatch, adapter, metrics, and compaction shells were removed after the live supervisor audit showed that no production path called them.
+The current coordinator path (`/infinite-development`; `/work` on Claude Code now runs the `workaholic:watch` watcher instead) is the short work skill and tick command plus the pure turn and polling planners. Historical rationale stays outside the path. Test-only capability, context-packet, dispatch, adapter, metrics, and compaction shells were removed after the live supervisor audit showed that no production path called them.
 
 Hermetic P5 fixtures advance 100 unchanged poll boundaries with zero observations and zero worker launches. Request metrics store wall time, reader/API/worker counts, bytes, and provider usage only when returned; unknown token usage remains `null`.
 

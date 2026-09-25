@@ -47,3 +47,10 @@ map where six exist, one carrying `chat.postMessage`; the node itself answers `v
 loop no capability it had** — it could not post through this route either way — and buys back the
 observation clock. Restore the write operations here in the same change that closes #1259, not
 before: a declared operation no route can satisfy takes the reads down with it.
+
+**Posting route.** The declared `/slack` mount reads; posts go through the `cc-for-qmu` bot,
+which is a member of the channel: `insert into /slack-cc-for-qmu/qmu/C0BLL9J7FMY/messages values
+(text) ('…')` with `--commit` (`workaholic:watch`). The path is `<mount>/<workspace>/<channel_id>/messages`;
+omitting the workspace segment misroutes the channel and answers `channel_not_found`. The qfs
+Slack insert carries no `thread_ts`, so a reply is a channel post, not a thread reply.
+`/slack-cc-for-osbr` is bound to a different workspace despite its account name `cc01-qmu`.

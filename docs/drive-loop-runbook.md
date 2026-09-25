@@ -1,6 +1,12 @@
 # Drive Loop Runbook
 
-How the development loop runs one `/work` tick, including its unattended `/implement`
+**On Claude Code, `/work` is now the lightweight loop (`workaholic:watch`)**: a script watches
+Slack with no model in the loop and the session wakes only on a new human message, answering it
+or ticketing it and starting `/implement` in the background. The rest of this runbook describes
+the earlier coordinator tick, which remains as `/infinite-development` for Codex and CLI
+supervisors.
+
+How the coordinator loop runs one tick, including its unattended `/implement`
 executor, so inbound direction is captured and merged missions and queued tickets are
 claimed, implemented, reported, and routed (`docs/loop-engineering-workflow.md` G4).
 

@@ -273,7 +273,8 @@ Command bodies in `plugins/workaholic/commands/` define execution; their named s
 | `/explain` | `workaholic:explain` |
 | `/standup` | `workaholic:standup` |
 | `/moderate` | `workaholic:moderate` |
-| `/work`, `/infinite-development` | `workaholic:work`, `workaholic:loops` |
+| `/work` | `workaholic:watch` (script watches Slack; the session wakes only on a new human message and runs `/implement` in the background) |
+| `/infinite-development` | `workaholic:work`, `workaholic:loops` (the earlier coordinator loop, kept for Codex and CLI supervisors) |
 | `/workaholify` | `workaholic:workaholify` |
 
 Routine setup commands use their matching command body. Release-note, deployment-plan, drill and routine details live in the owning skills and `docs/`.

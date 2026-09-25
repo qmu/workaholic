@@ -208,6 +208,31 @@ messages; it is not a delivery acknowledgement.
 Scripts emit one JSON result on stdout. A typed result exits 0, invalid input
 exits 2, and an internal script failure exits 1.
 
+## Proving the declared route before an incident is retired
+
+A repeated delivery incident is retired on **live, end-to-end evidence** and on nothing else.
+`verify-live-proof.sh --root REPO [--evidence FILE]` is the one gate: it reads the declaration
+through `read-declared-binding.sh`, and answers `closure_eligible: true` only when one evidence
+document matches that declaration's own `declared_digest`, workspace and channel, carries the
+declared `sender_id` verified, marks **every** declared operation `proved`, and records one
+round trip — a root, a reply, a reaction, and each of them read back through the channel delta
+and the thread change. Anything short of that names its own reason (`unverifiable_sender`,
+`binding_mismatch`, `sender_unverified`, `operations_unsatisfied`, `round_trip_unproved`) and
+leaves every affected incident unresolved. Configuration presence, a successful `post_reply`
+alone and an `operations_unsatisfied` reading are each explicitly not delivery.
+
+`emit-live-proof-evidence.sh --root REPO [--out FILE]` writes that document's template from what
+the repository can establish with no credential: the declaration's digest, workspace, channel and
+declared sender, one row per declared operation, and the route reading `describe-qfs.sh` already
+makes. **It never writes `proved: true`.** A route that *advertises* an operation has a
+capability; the gate asks whether the operation was *performed*, and reading the first as the
+second is exactly the `operations_unsatisfied` shape the gate exists to refuse — so `available`
+carries the capability and `proved` stays false until a live act fills it in. A describe that
+could not be made leaves `available: null`, never `false`: `false` means the route answered and
+does not carry the operation, and an absence of a reading is never a verdict. It performs no
+Slack read or write and decides nothing; refusals are `root_required`, `binding_unreadable`,
+`not_declared` and `jq_unavailable`, with nothing written.
+
 ## Native QFS pipe-SQL
 
 Discovery accepts `connect --list` TSV and `describe` path/children/verbs responses, including

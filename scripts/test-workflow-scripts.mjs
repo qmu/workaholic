@@ -41952,6 +41952,73 @@ operations: read_channel_delta, read_thread, list_thread_changes, post_root, pos
   } finally { cleanup(dir); }
 }
 
+// ---- A CAPABILITY READING IS NOT A PERFORMED ACT (2026-09-21) ----
+// The incident gate had a reader and no writer, so the document it refuses on was produced by
+// hand in a shape only its own jq program described. The emitter writes that document from what
+// the repository can establish on its own and leaves `proved` false everywhere: a route that
+// ADVERTISES an operation has a capability, and the gate asks whether the operation was
+// PERFORMED. An unreadable describe answers `available: null`, never `false` — `false` means the
+// route answered and does not carry it, and an absence of a reading is never a verdict.
+T("the live-proof evidence emitter states capability and never claims a performed act",
+  testSlackLiveProofEmitter);
+function testSlackLiveProofEmitter() {
+  const dir = makeRepo("main");
+  try {
+    const ops = ["read_channel_delta", "read_thread", "list_thread_changes",
+      "post_root", "post_reply", "add_reaction"];
+    writeFileSync(join(dir, "AGENTS.md"), `\`\`\`workaholic-slack-binding
+workspace: qmu
+channel: dev-workaholic
+sender_id: U123
+operations: ${ops.join(", ")}
+\`\`\`\n`);
+    const emitter = join(REPO_ROOT,
+      "plugins/workaholic/skills/transport/scripts/emit-live-proof-evidence.sh");
+    const gate = join(REPO_ROOT,
+      "plugins/workaholic/skills/transport/scripts/verify-live-proof.sh");
+    // No `qfs` on this PATH: the describe cannot be made, which is the degradation the emitter
+    // has to state rather than round down. Hermetic — nothing here reaches a network.
+    const hermetic = { env: { ...process.env, PATH: "/usr/bin:/bin" } };
+
+    const out = join(dir, "proof.json");
+    const emitted = JSON.parse(run(dir,
+      `${POSIX_SH} ${emitter} --root ${dir} --out ${out}`, hermetic).stdout);
+    assertEq("an unreadable route is stated, not rounded down",
+      emitted.route_readable, false);
+    assertEq("and nothing is emitted as proved", emitted.proved_operations, 0);
+
+    const doc = JSON.parse(readFileSync(out, "utf8"));
+    assertEq("the document is keyed to the declaration it was made from",
+      doc.declared_digest, JSON.parse(run(dir,
+        `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/transport/scripts/read-declared-binding.sh")} --root ${dir}`,
+        hermetic).stdout).declared_digest);
+    assertEq("every declared operation gets a row", Object.keys(doc.operations).length, ops.length);
+    for (const op of ops) {
+      assertEq(`${op} is never emitted as performed`, doc.operations[op].proved, false);
+      assertEq(`${op} names the reading nobody could make`,
+        doc.operations[op].available, null);
+      assertEq(`${op} says why`, doc.operations[op].reason, "route_unreadable");
+    }
+    assertTrue("the round trip is left for the act that performs it",
+      doc.round_trip.root_ts === "" && doc.round_trip.reaction_seen === false,
+      JSON.stringify(doc.round_trip));
+
+    // The whole point: what this emits cannot satisfy the gate by itself.
+    const verdict = JSON.parse(run(dir,
+      `${POSIX_SH} ${gate} --root ${dir} --evidence ${out}`, hermetic).stdout);
+    assertEq("a template alone retires no incident", verdict.closure_eligible, false);
+    assertEq("and all eleven stay open", verdict.incidents_unresolved, 11);
+
+    assertEq("a missing root refuses by its own word", JSON.parse(run(dir,
+      `${POSIX_SH} ${emitter}`, hermetic).stdout).reason, "root_required");
+    const bare = makeRepo("main");
+    try {
+      assertEq("a repository declaring nothing refuses by its own word", JSON.parse(run(bare,
+        `${POSIX_SH} ${emitter} --root ${bare}`, hermetic).stdout).reason, "not_declared");
+    } finally { cleanup(bare); }
+  } finally { cleanup(dir); }
+}
+
 T("the pre-merge check gate defers unreadable evidence and refuses red or pending checks",
   testBranchChecksGate);
 function testBranchChecksGate() {

@@ -14,10 +14,14 @@
 #
 # The loop's own posts are dropped: the connector's "Sent using" signature, and roots opening
 # with one of the loop's post shapes, as the emoji or as the :shortcode: Slack stores it as. Text is cut at WORKAHOLIC_WATCH_TEXT_MAX (1500) characters.
+# Messages older than WORKAHOLIC_WATCH_MAX_AGE seconds (default 3600) are dropped: a changed
+# declaration mints a new binding record with no cursor, and its first read returns the channel's
+# history, which must not wake the session as if it were new.
 # --once reads a single time and exits, for a caller that brings its own clock.
 
 ROOT=; INTERVAL=${WORKAHOLIC_WATCH_INTERVAL:-120}; ONCE=false
 TEXT_MAX=${WORKAHOLIC_WATCH_TEXT_MAX:-1500}
+MAX_AGE=${WORKAHOLIC_WATCH_MAX_AGE:-3600}
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) ROOT=${2:-}; shift 2 ;;
@@ -29,6 +33,7 @@ done
 [ -n "$ROOT" ] || { printf 'usage: watch-slack.sh --root REPO [--interval SECONDS] [--once]\n' >&2; exit 2; }
 case "$INTERVAL" in ''|*[!0-9]*) INTERVAL=120 ;; esac
 case "$TEXT_MAX" in ''|*[!0-9]*) TEXT_MAX=1500 ;; esac
+case "$MAX_AGE" in ''|*[!0-9]*) MAX_AGE=3600 ;; esac
 command -v jq >/dev/null 2>&1 || { printf '{"event":"observe_failed","reason":"jq_unavailable"}\n'; exit 0; }
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -62,8 +67,9 @@ tick() {
   for id in $ids; do
     m=$(message_for "$id")
     [ -n "$m" ] || continue
-    printf '%s' "$m" | jq -c --argjson max "$TEXT_MAX" '
-      (.text // "") as $t
+    printf '%s' "$m" | jq -c --argjson max "$TEXT_MAX" --argjson oldest "$(( $(date +%s) - MAX_AGE ))" '
+      select((((.ts // .id // "0") | tostring | split(".")[0] | tonumber? ) // 0) >= $oldest)
+      | (.text // "") as $t
       | select(($t | contains("*Sent using*")) | not)
       | select(($t | ltrimstr(" ")) as $s
           | ["🙋","📝 FB","🔎 Moderation","🔵 Proposed","🟢 Implemented","🟡 Handoff","📥 受理","💬","📊","🏁","⚪","🔴",

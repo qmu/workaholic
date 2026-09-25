@@ -1,11 +1,13 @@
 ---
 created_at: 2026-09-21T18:02:08+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
 feedback: [20260921180138-a-native-work-loop-must-not-end-after-an-ordinary-progress-report.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260921-204131
 ---
 
 # Prove a live continuation before a routine turn yields
@@ -149,3 +151,39 @@ nobody and read from no sentence.
 - **Alternative weighed and rejected:** making the *coordinator* refuse at `finish` when the
   continuation has lapsed. Rejected because the turn has already yielded by then — the ask asks
   for the check *immediately before the turn yields*, which is this reader's seam and no other.
+
+## Final Report
+
+Development completed as planned.
+
+Measured before the change, and both readings are in the branch story: driving
+`final-response-contract.sh` with `interruption_kind: "routine"` and a continuation whose
+`next_due` was `1758400060` answered `{"ok":true,"path":"resume","final_response":false}` with
+exit 0, while `coordinator.jq`, handed the same continuation at `now: 1758999999`, answered
+`{"resumed":false,"resumed_reason":"continuation_lapsed"}`. The derivation existed and the gate
+that yields the turn did not consult it.
+
+The reader now takes `now` (epoch seconds, integer, `>= 0`), **required on any input naming a
+continuation** and refused `invalid_facts` when absent, so a caller cannot obtain a pass by
+omitting the clock. `continuation_lapsed` sits immediately after the existing
+`continuation_unproved` rung and spells the comparison the reducer already spells; the two call
+sites are stated in both files and pinned by the suite, which also fails on a third comparison
+anywhere under the authored plugin tree. `intends_final_response` (boolean, absent means false)
+is refused `routine_emits_no_final_response`. Both rungs are bounded to `routine`. No closed set
+widened and `path` gained no fourth value.
+
+### Discovered Insights
+
+- **Insight**: `runtime/scripts/lib/coordinator.jq` cannot be composed by another jq program.
+  **Context**: it is a reducer **body** (`.input as $e | .state as $s | …`), not a module of
+  `def`s, so `include`/`import` cannot reach its `$not_resumed` ladder. Any rule that must hold
+  in both the reducer and a shell reader is therefore two spellings kept in step by an
+  assertion, not one shared file — the same shape the repository already uses for its
+  byte-identical prose pins.
+
+- **Insight**: an apostrophe inside a comment in an embedded jq program terminates the
+  single-quoted shell string that carries it.
+  **Context**: these scripts hold jq programs inside `jq '…'`, so a jq comment reading
+  `coordinator.jq's ladder` closed the string and the shell reported a syntax error at the next
+  `elif` — not a jq compile error, so the suite's *every embedded jq program compiles* row would
+  not have caught it. Write such comments without apostrophes.

@@ -118,6 +118,16 @@ alone is never a resumed loop; a report that calls the loop resumed while `resum
 non-conformant on its face, and a missing continuation mechanism is a refusal to say *resumed*,
 never a sentence in the report.
 
+A named continuation is not yet a live one (2026-09-21, ticket `20260921180208`): the same
+reader refuses `continuation_lapsed` for a routine turn whose named continuation's `next_due`
+has already passed, the comparison `next_due < now` being one rule with two call sites — this
+reader and the reducer — and never a second spelling, so `now` is required on any input naming a
+continuation and an absent clock is refused `invalid_facts` rather than defaulted. And a routine
+turn declares what it intends to emit: `intends_final_response` (absent means false) is refused
+`routine_emits_no_final_response`. The reader writes nothing and cannot stop a run from emitting
+text; what the refusal buys is that a run which asks the contract gets an unambiguous *no* with a
+name, and a run that emits one anyway leaves a receipt saying the contract refused it.
+
 When the host goal is paused but native interruptible wait and child-result reads remain
 available, a named clock is not enough: the continuation must be the same
 `interruptible_parent`. The reader returns `next_action: wait_interruptibly` and

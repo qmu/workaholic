@@ -44230,11 +44230,12 @@ function testWatchSlackPrintsOnlyHumans() {
     rec("1.1", "ここを直して");
     rec("1.2", "🟢 Implemented the thing");
     rec("1.3", "done *Sent using* <@U9>");
+    rec("1.4", ":speech_balloon: 「test」を受け取りました");
     const observe = join(skills, "transport/scripts/observe-channel.sh");
     const run = () => execFileSync("sh", [join(skills, "watch/scripts/watch-slack.sh"), "--root", repo, "--once"],
       { encoding: "utf8" });
 
-    writeFileSync(observe, `#!/bin/sh\nprintf '%s' '{"status":"ok","data":{"new_input_ids":["1.1","1.2","1.3"],"thread_replies":[]}}'\n`);
+    writeFileSync(observe, `#!/bin/sh\nprintf '%s' '{"status":"ok","data":{"new_input_ids":["1.1","1.2","1.3","1.4"],"thread_replies":[]}}'\n`);
     const lines = run().trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
     assertEq("one line, for the human message only", lines.map((l) => l.ts), ["1.1"]);
     assertEq("carrying its text", lines[0].text, "ここを直して");

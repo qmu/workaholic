@@ -13,7 +13,7 @@
 #   {"event":"observe_failed","reason":"..."}   printed once per distinct reason, not every tick
 #
 # The loop's own posts are dropped: the connector's "Sent using" signature, and roots opening
-# with one of the loop's post shapes. Text is cut at WORKAHOLIC_WATCH_TEXT_MAX (1500) characters.
+# with one of the loop's post shapes, as the emoji or as the :shortcode: Slack stores it as. Text is cut at WORKAHOLIC_WATCH_TEXT_MAX (1500) characters.
 # --once reads a single time and exits, for a caller that brings its own clock.
 
 ROOT=; INTERVAL=${WORKAHOLIC_WATCH_INTERVAL:-120}; ONCE=false
@@ -66,7 +66,10 @@ tick() {
       (.text // "") as $t
       | select(($t | contains("*Sent using*")) | not)
       | select(($t | ltrimstr(" ")) as $s
-          | ["🙋","📝 FB","🔎 Moderation","🔵 Proposed","🟢 Implemented","🟡 Handoff","📥 受理","💬","📊","🏁","⚪","🔴"]
+          | ["🙋","📝 FB","🔎 Moderation","🔵 Proposed","🟢 Implemented","🟡 Handoff","📥 受理","💬","📊","🏁","⚪","🔴",
+             ":raising_hand:",":memo: FB",":mag: Moderation",":large_blue_circle: Proposed",
+             ":large_green_circle: Implemented",":large_yellow_circle: Handoff",":inbox_tray: 受理",
+             ":speech_balloon:",":bar_chart:",":checkered_flag:",":white_circle:",":red_circle:"]
           | any(.[]; . as $p | $s | startswith($p)) | not)
       | {event:"message", ts:(.ts // .id), thread_ts:(.thread_ts // null),
          user:(.sender_id // .user // null), text:($t | .[0:$max])}' 2>/dev/null || true

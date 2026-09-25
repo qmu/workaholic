@@ -44208,6 +44208,46 @@ function testLocalProofDeclaration() {
   } finally { rmSync(tmpDir, { recursive: true, force: true }); }
 }
 
+// ---------- /work's watcher prints only new human messages ----------
+// The lightweight loop's whole token saving rests on the watcher being SILENT on a quiet channel
+// and on it dropping the loop's own posts, so a session is woken only by a person.
+T("watch: the Slack watcher prints only new human messages", testWatchSlackPrintsOnlyHumans);
+function testWatchSlackPrintsOnlyHumans() {
+  const dir = mkdtempSync(join(tmpdir(), "wh-watch-"));
+  try {
+    const skills = join(dir, "plugin/skills");
+    mkdirSync(join(skills, "watch/scripts"), { recursive: true });
+    mkdirSync(join(skills, "transport/scripts"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "plugins/workaholic/skills/watch/scripts/watch-slack.sh"),
+      join(skills, "watch/scripts/watch-slack.sh"));
+    const repo = join(dir, "repo");
+    mkdirSync(repo);
+    execFileSync("git", ["init", "-q", repo]);
+    const inbox = join(repo, ".git/workaholic/runtime/v1/bindings/b1/inbox");
+    mkdirSync(inbox, { recursive: true });
+    const rec = (id, text) => writeFileSync(join(inbox, `${id}.json`), JSON.stringify(
+      { data: { state: "captured", provider_id: id, message: { ts: id, id, user: "U1", text, thread_ts: null } } }));
+    rec("1.1", "ここを直して");
+    rec("1.2", "🟢 Implemented the thing");
+    rec("1.3", "done *Sent using* <@U9>");
+    const observe = join(skills, "transport/scripts/observe-channel.sh");
+    const run = () => execFileSync("sh", [join(skills, "watch/scripts/watch-slack.sh"), "--root", repo, "--once"],
+      { encoding: "utf8" });
+
+    writeFileSync(observe, `#!/bin/sh\nprintf '%s' '{"status":"ok","data":{"new_input_ids":["1.1","1.2","1.3"],"thread_replies":[]}}'\n`);
+    const lines = run().trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    assertEq("one line, for the human message only", lines.map((l) => l.ts), ["1.1"]);
+    assertEq("carrying its text", lines[0].text, "ここを直して");
+
+    writeFileSync(observe, `#!/bin/sh\nprintf '%s' '{"status":"ok","data":{"new_input_ids":[],"thread_replies":[]}}'\n`);
+    assertEq("a quiet channel prints nothing", run(), "");
+
+    writeFileSync(observe, `#!/bin/sh\nprintf '%s' '{"status":"deferred","reason":"qfs_unavailable"}'\n`);
+    assertEq("a failed read is named, not silent",
+      JSON.parse(run().trim()), { event: "observe_failed", reason: "qfs_unavailable" });
+  } finally { cleanup(dir); }
+}
+
 for (const [label, fn] of tests) {
   if (ONLY && !label.includes(ONLY)) continue;
   console.log(`\n# ${label}`);

@@ -42100,7 +42100,19 @@ function testInstalledCodexClock() {
     chmodSync(join(binDir, "codex"), 0o755);
 
     const launcher = join(workDir, "scripts/codex-loop.sh");
-    const env = { ...process.env, PATH: `${binDir}:${process.env.PATH || ""}` };
+    // THE FIXTURE OWNS EVERY PLUGIN SOURCE THE LAUNCHER CAN REACH (2026-09-26, tickets
+    // `20260921133000` / `20260921195918`). A missing layer makes the launcher recover through
+    // `check-deps/scripts/plugin-src.sh`, which deliberately reads the machine's registry, Codex
+    // cache and clone under `$HOME` — so on a machine carrying an install at the fixture's version
+    // (or newer) the recovery succeeded, exited 0, and the two rows below failed whatever `TMPDIR`
+    // said, while a CI runner with no install passed them. The recovery is correct behaviour and
+    // is untouched; the fixture instead hands the launcher an empty home and no plugin variables,
+    // so every row asserts the launcher's own diagnosis rather than what this machine has installed.
+    const isolatedHome = join(dir, "home");
+    mkdirSync(isolatedHome, { recursive: true });
+    const env = { ...process.env, HOME: isolatedHome, PATH: `${binDir}:${process.env.PATH || ""}` };
+    for (const key of ["CLAUDE_PROJECT_DIR", "CLAUDE_PLUGIN_ROOT", "CLAUDE_PLUGIN_REGISTRY",
+      "CLAUDE_PLUGIN_CACHE", "CODEX_PLUGIN_CACHE", "WORKAHOLIC_SRC_HOME"]) delete env[key];
     const positive = run(dir, `${POSIX_SH} ${launcher} --dry-run --once`, { env });
     assertEq("the installed launcher exits cleanly", positive.status, 0);
     assertTrue("and launches exactly one dry-run tick from the consuming repository",

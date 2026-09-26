@@ -87,3 +87,16 @@ It carries **no `feedback:` ref**: the observation is about the local proof set 
 recovery, not about the Slack transport item that unit answers, and a wrong thread is worse than
 none. The consequence is stated rather than hidden — when this ticket is driven as its own unit
 its finish line has no thread to post into.
+
+## Final Report
+
+Resolved on candidate 1: the test was under-isolated, and the recovery is left byte-identical.
+The recovery through the newest plugin tree is deliberate (`rules/general.md`, *the harness
+binding is an input, never a precondition*), so narrowing it would break the behaviour the test is
+incidental to. The fixture in `testInstalledCodexClock` now runs with an isolated `HOME` and no
+plugin-source variables (shared change with ticket `20260921195918`).
+
+Reproduced 2026-09-26 with the registry install reachable: both rows red (`status=0`, recovered
+to `~/.claude/plugins/cache/workaholic/workaholic/1.0.389`). With the registry unreachable (the
+isolated `HOME`): both rows green, and red again when the launcher's diagnosis words are removed,
+so no row was weakened. Whole declared set: see the verification recorded at archive time.

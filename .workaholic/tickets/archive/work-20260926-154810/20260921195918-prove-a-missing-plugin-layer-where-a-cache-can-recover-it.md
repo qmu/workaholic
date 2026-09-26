@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-21T19:59:18+09:00
+status: done
 author: a@qmu.jp
 assignees: []
 mission:
@@ -103,3 +104,28 @@ precondition*) and is not the defect.
 - **This is why the two failures were reported rather than fixed in place** by the run that found
   them: it was driving an unrelated mission, and an observation outside the current ticket's scope
   becomes a ticket (`drive/reference/failure-contract.md`).
+
+## Final Report
+
+Development completed as planned. `testInstalledCodexClock` now runs the launcher with a
+fixture-owned empty `HOME` and with `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT`,
+`CLAUDE_PLUGIN_REGISTRY`, `CLAUDE_PLUGIN_CACHE`, `CODEX_PLUGIN_CACHE` and `WORKAHOLIC_SRC_HOME`
+removed, so no plugin source outside the fixture is reachable by the recovery.
+
+Step 1 readings, 2026-09-26, before the change: the bare suite under `TMPDIR=/tmp` **and** under
+`TMPDIR=~/.cache/workaholic/repro` both answered `4 passed, 2 failed`, the launcher writing
+`codex loop: recovered retired plugin tree <fixture>/installed/workaholic ->
+~/.claude/plugins/cache/workaholic/workaholic/1.0.389`. The registry install had moved to the
+fixture's own version (1.0.389), and `plugin-src.sh` gives an equal version to the immutable
+candidate, so the recovery now wins under both locations. The TMPDIR split the ticket measured was
+therefore never about `TMPDIR`: the verdict tracked which plugin trees `$HOME` held and at which
+versions relative to the checkout.
+
+After the change: `6 passed, 0 failed` under both locations; with the launcher's
+`plugin_command_missing` / `plugin_skill_missing` words replaced, both rows fail under both
+locations (mutation reverted). `codex-loop.sh` and `plugin-src.sh` are untouched.
+
+### Discovered Insights
+
+- **Insight**: Any fixture that deletes a plugin layer and expects a refusal must isolate `$HOME`, because the launcher's recovery composes `plugin-src.sh`, which reads `~/.claude/plugins/installed_plugins.json`, `~/.codex/plugins/cache` and `~/.workaholic-src`.
+  **Context**: Otherwise the assertion's verdict follows the machine's install version, flipping every time the developer updates the plugin.

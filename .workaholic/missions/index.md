@@ -3,6 +3,7 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
+* [merge-pull-requests-so-landed-branches-read-as-merged](active/merge-pull-requests-so-landed-branches-read-as-merged/mission.md) - Merge pull requests so landed branches read as merged
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 
 ## archive

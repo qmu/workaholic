@@ -778,4 +778,5 @@
 * [Exclude explicitly deferred tickets from the claimable offer](20260921180339-exclude-explicitly-deferred-tickets-from-the-claimable-offer.md)
 * [Stop squash-merging so landed branches read as merged](20260926173452-stop-squash-merging-so-landed-branches-read-as-merged.md)
 * [A mission-wide handoff consumes a fresh Implement worker every tick before any claim exists](20260926174519-a-mission-wide-handoff-consumes-a-fresh-implement-worker-every-tick-before-any-claim-exists.md)
+* [A running work loop must not stop after an ordinary progress report](20260926174713-a-running-work-loop-must-not-stop-after-an-ordinary-progress-report.md)
 <!-- okf:generated:end -->

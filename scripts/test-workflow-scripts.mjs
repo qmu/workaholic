@@ -3520,6 +3520,11 @@ Development completed as planned.
     assertTrue("archive.sh removed ticket from todo/", !existsSync(ticketPath));
 
     const archived = readFileSync(archivedPath, "utf8");
+    assertTrue("archive distinguishes implementation from delivery",
+      archived.includes("delivery is pending verification") && archived.includes("not a landed claim"));
+    assertTrue("archive records unrelated worktree paths for review", archived.includes("side.txt"));
+    assertTrue("archive records immutable pre-archive head and base assessment",
+      /Pre-archive head: `[0-9a-f]{40}`/.test(archived) && archived.includes('"state":"unknown"'));
     // Nothing is written back into the ticket after the commit. commit_hash is
     // derived from git by /story (ticket-commits.sh) — a commit cannot carry its
     // own hash — and category lives only in the commit's Category: trailer since
@@ -25497,6 +25502,9 @@ function testStrandedClaimReachesItsHolder() {
     const j = JSON.parse(run(fx.B, `${RETIRE_STEP} --tick 20260902-000000 --root ${fx.B}`, stubbed).stdout);
     const payload = (j.needs_agent || []).find((n) => n.stranded_claims);
     assertTrue("the step composes a stranded question", !!payload, JSON.stringify(j.needs_agent));
+    assertEq("the step offers executable recovery", payload.action, "offer_stranded_claim_recovery");
+    assertTrue("recovery does not depend on a holder reply",
+      payload.implement.includes("recover-stranded-claim.sh") && payload.implement.includes("not a prerequisite"));
     const sc = payload.stranded_claims.find((c) => c.unit === fx.batch.unit);
     assertTrue("addressed at the stranded unit", !!sc, JSON.stringify(payload.stranded_claims));
     assertEq("keyed once per unit", sc.key, `stranded-unit:${fx.batch.unit}`);

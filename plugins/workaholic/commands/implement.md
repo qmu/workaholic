@@ -112,6 +112,37 @@ every act on another unit's claim (a catch-up, a delivery retry, a stranded publ
 because none of them claims a unit or drives a ticket. The bound is on **claiming a second unit**,
 not on the run's other work.
 
+## Recover an archived claim with residual effects
+
+During the survey, inspect `list-claims.sh` for this identity's `stranded` rows before
+concluding that no work is claimable. This is executable work even when Slack is unavailable.
+Choose one row, read `git rev-parse origin/<branch>`, then call
+`drive/scripts/recover-stranded-claim.sh <unit> <branch> <observed-head>`.
+It rechecks ownership, liveness and the exact head, claims the branch/head through an
+absent-ref lease, and prepares a **new** worktree on the observed base. A duplicate
+`recovery_already_claimed` is not another offer: inspect that claim's
+`Recovery-Branch` trailer and existing draft PR; do not create a second recovery.
+After the heartbeat interval, the same identity can explicitly call
+`recover-stranded-claim.sh --resume <unit> <branch> <head>` to reconstruct an interrupted
+recovery in another clone. Active/foreign holders and dirty existing trees are refused.
+Report `assessment_unanswerable` with its evidence and resolve content conflicts only
+in a new isolated review worktree; never in the source tree. An unreadable assessment
+is not evidence of lost work or permission to delete.
+
+For `review_tree_prepared`, inspect all staged effects against the source tickets,
+run relevant tests, and use `commit.sh` to record the reviewed changes. Write a review Markdown file outside the worktree, then run
+`drive/scripts/publish-stranded-recovery.sh <key> <review-file>` from that worktree.
+It scans the immutable head through the canonical safety gate before pushing, refuses
+an existing PR that is no longer open/draft, and opens or returns the **draft** PR.
+The review file must contain the recovery key, original branch and exact
+head, observed base, source ticket list, assessment and test results. A `landed`
+assessment gets a reconciliation record in the PR body (and its coordination
+commit), not an invented code change. The PR is the review artifact; do not merge it,
+discard residual work, delete the original branch, or release its claim. This counts
+as the run's one claimed unit. Report the draft URL or the exact publication refusal,
+keeping the recovery branch and claim for the next run to resume. A holder notification
+is supplemental and cannot block recovery.
+
 ## What this run reports about the base
 
 **The base's health is read once per run, and a suite that never ran is named beside the colour** (2026-09-03, mission `make-a-red-base-impossible-for-the-loop-to-miss`). `bash ${CLAUDE_PLUGIN_ROOT}/skills/drive/scripts/read-base-checks.sh <tip> --declared` answers `green` / `red` / `unanswerable` **and** `unverified[]`, the declared workflows with no run on that commit. Report both: a degraded read is reported as degraded and **never as green**, a degraded declared-read (`unverified_readable: false`) is named by its reason and **never as *every declared suite ran***, and an unverified suite **moves no token** — it is a fact about the repository rather than about the unit this run drove.

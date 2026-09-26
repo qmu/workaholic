@@ -212,6 +212,21 @@ mkdir -p "$ARCHIVE_DIR"
 mv "$TICKET" "$ARCHIVE_DIR/"
 ARCHIVED_TICKET="${ARCHIVE_DIR}/${TICKET_FILENAME}"
 
+# Archive records implementation completion, not delivery. Include the dirty paths:
+# the implementation normally has not been committed or merged at this seam.
+_ARCHIVE_HEAD=$(git rev-parse HEAD)
+_ARCHIVE_BASE=$(git rev-parse --verify "${WORKAHOLIC_BASE_REF:-origin/main}^{commit}" 2>/dev/null || true)
+_ARCHIVE_EVIDENCE=$(sh "${SCRIPT_DIR}/assess-claim-residue.sh" "$BRANCH" "${WORKAHOLIC_BASE_REF:-origin/main}" HEAD)
+{
+    printf '\n## Archive delivery evidence\n\n'
+    printf 'Implementation archived; delivery is pending verification. This is not a landed claim.\n\n'
+    printf 'Pre-archive head: `%s`; observed base: `%s`.\n\n' "$_ARCHIVE_HEAD" "${_ARCHIVE_BASE:-unreadable}"
+    printf 'Committed-tree assessment (does not cover uncommitted implementation):\n\n```json\n%s\n```\n\n' "$_ARCHIVE_EVIDENCE"
+    printf 'Worktree/index paths at archival (including expected implementation):\n\n```text\n'
+    git status --short
+    printf '```\n'
+} >> "$ARCHIVED_TICKET"
+
 # Stamp the ticket's end state (2026-08-13, issue #436: state is a frontmatter
 # field, the archive is a place). `done` is the outcome an archive represents —
 # the ticket passed its gate and its work is in this commit. Absent means queued,

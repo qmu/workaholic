@@ -61,3 +61,11 @@ Each artifact type serves a specific cognitive purpose:
 The agentic loop redesign is planned in dependency-linked tickets. Its compatibility and
 portable consumer checks are described in [the contract map](../docs/agentic-loop-contracts.md).
 Runtime state belongs in the Git common directory; it does not introduce a knowledge area here.
+
+## Archived claim recovery
+
+Ticket archival records implementation completion and pending delivery evidence.
+Implement can claim stranded branch/head observations, prepare residual effects in a
+new worktree, and publish a draft review PR without a Slack response. Original refs
+remain protected; recovery never automatically merges or discards them. See
+`plugins/workaholic/skills/drive/reference/stranded-recovery.md`.

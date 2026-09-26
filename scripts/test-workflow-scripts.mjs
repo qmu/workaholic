@@ -42011,6 +42011,18 @@ operations: ${ops.join(", ")}
 
     assertEq("a missing root refuses by its own word", JSON.parse(run(dir,
       `${POSIX_SH} ${emitter}`, hermetic).stdout).reason, "root_required");
+    // A declared mount the describe did not return still yields the whole document (2026-09-26:
+    // the route bound to an empty stream and the emitter printed nothing, exit 0).
+    writeFileSync(join(dir, "AGENTS.md"), `\`\`\`workaholic-slack-binding
+workspace: qmu
+channel: dev-workaholic
+mount: /slack
+operations: read_channel_delta, read_thread
+\`\`\`\n`);
+    const mounted = JSON.parse(run(dir, `${POSIX_SH} ${emitter} --root ${dir}`, hermetic).stdout);
+    assertEq("a declared mount with no reading still emits", mounted.emitted, true);
+    assertEq("with every row stated unreadable", mounted.evidence.operations.read_thread.available, null);
+
     const bare = makeRepo("main");
     try {
       assertEq("a repository declaring nothing refuses by its own word", JSON.parse(run(bare,

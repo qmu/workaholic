@@ -6,7 +6,7 @@ depends_on:
 feedback: [20260901002017-the-moderation-tick-has-no-slack-transport-that-reaches-the-loop-s-channel.md, 20260909222245-verify-the-qfs-root-map-by-matching-not-by-counting-and-emit-add-reaction.md]
 merge_policy:
 verification_handoff: a verified Slack sender plus declared read_channel_delta, read_thread, list_thread_changes, post_root, post_reply, and add_reaction capabilities are not available in the unattended environment
-claim: work-20260921-124857
+claim: work-20260926-163546
 ---
 
 # Prove the declared Slack transport before retiring delivery incidents
@@ -95,3 +95,28 @@ perform the bounded root/reply/reaction through a route that carries those four 
 each performed operation's `proved` and the `round_trip` block in `proof.json`, then run
 `sh plugins/workaholic/skills/transport/scripts/verify-live-proof.sh --root . --evidence proof.json`
 and retire the incident set only on `closure_eligible: true`.
+
+### 2026-09-26 — the emitter printed nothing against the declared mount; re-measured
+
+**The emitter was silent on this repository's own declaration.** `AGENTS.md` now declares
+`mount: /slack`, and a declared mount takes `describe-qfs.sh`'s direct native path, which returned
+`describe-native-qfs.sh`'s bare `{ok, observations}` with no `described` or `mounts` — against the
+script's own header contract. The emitter keys on `.described == true`, so it discarded a good
+reading, and its route selection then bound to an **empty stream** over the empty observation
+list: `emit-live-proof-evidence.sh --root .` exited 0 with **no output at all**, and the gate read
+the empty file as `evidence_unreadable`. Both are fixed: the native path now carries the
+`described` / `mounts` envelope, and the emitter binds a missing route to `null` so a declared
+mount nobody could describe still yields the whole document with every `available` null. Pinned in
+`scripts/tests/agentic-loop/repair-contracts.test.mjs` (the explicit-mount describe asserts the
+envelope) and `scripts/test-workflow-scripts.mjs` (a declared mount with no `qfs` still emits).
+
+**The prose handoff was re-measured, not inherited.** `describe-qfs.sh --workspace qmu --channel
+dev-workaholic`, 2026-09-26, with qfs unlocked: `/slack` (`team`) and `/slack-cc-for-qmu`
+(`cc-for-qmu`) both reach the channel, both `channel_verified: true`, both now advertise
+`read_channel_delta`, `read_thread`, `search_exact` **and `post_reply`**, and both still carry
+`sender_unverified`, `thread_discovery_unavailable` (`threads_not_selectable`),
+`reaction_map_unverified`, `root_map_unverified_or_ambiguous` with `sender_id: null`. The emitted
+evidence through the gate answers `closure_eligible: false`, `unverifiable_sender`,
+`incidents_unresolved: 11`. `list_thread_changes`, `post_root` and `add_reaction` are advertised by
+no reachable route and no route proves the sender, so the round trip cannot be performed here and
+the handoff stands on that measurement. No Slack write was attempted.

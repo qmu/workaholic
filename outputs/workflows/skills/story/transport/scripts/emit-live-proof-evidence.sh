@@ -83,7 +83,9 @@ doc=$(jq -cn \
   --argjson required "$required" \
   --argjson desc "${desc:-null}" '
   ($desc.observations // []) as $obs |
-  (if $mount != "" then ($obs[] | select(.mount == $mount)) else $obs[0] end) as $route |
+  # Bound to null, never to an empty stream: a declared mount the describe did not return must
+  # still yield the document (every `available` null) rather than silently yield nothing.
+  (if $mount != "" then ([$obs[] | select(.mount == $mount)][0]) else $obs[0] end) as $route |
   {
     declared_digest: $digest,
     workspace: $workspace,

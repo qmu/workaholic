@@ -1,7 +1,7 @@
 #!/bin/sh -eu
 # Watch the declared Slack channel without a model in the loop.
 #
-#   watch-slack.sh --root REPO [--interval SECONDS] [--once]
+#   watch-slack.sh --root REPO [--interval SECONDS] [--once | --until-event]
 #
 # Every interval (default 120s, WORKAHOLIC_WATCH_INTERVAL) it runs the one channel reader,
 # `transport/scripts/observe-channel.sh`, which captures messages and advances the cursor. It
@@ -18,22 +18,30 @@
 # declaration mints a new binding record with no cursor, and its first read returns the channel's
 # history, which must not wake the session as if it were new.
 # --once reads a single time and exits, for a caller that brings its own clock.
+# --until-event keeps reading and exits after the first read that printed anything, so a caller
+# that is notified only when a background command ends (Claude Code's Bash run_in_background) is
+# woken once per change and never while the channel is quiet. A failed read ends it only once the
+# failure has lasted WORKAHOLIC_WATCH_FAIL_AFTER seconds (default 1800), so a restart after a
+# transient outage does not wake the session every interval.
 
-ROOT=; INTERVAL=${WORKAHOLIC_WATCH_INTERVAL:-120}; ONCE=false
+ROOT=; INTERVAL=${WORKAHOLIC_WATCH_INTERVAL:-120}; ONCE=false; UNTIL=false
 TEXT_MAX=${WORKAHOLIC_WATCH_TEXT_MAX:-1500}
 MAX_AGE=${WORKAHOLIC_WATCH_MAX_AGE:-3600}
+FAIL_AFTER=${WORKAHOLIC_WATCH_FAIL_AFTER:-1800}
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) ROOT=${2:-}; shift 2 ;;
     --interval) INTERVAL=${2:-}; shift 2 ;;
     --once) ONCE=true; shift ;;
-    *) printf 'usage: watch-slack.sh --root REPO [--interval SECONDS] [--once]\n' >&2; exit 2 ;;
+    --until-event) UNTIL=true; shift ;;
+    *) printf 'usage: watch-slack.sh --root REPO [--interval SECONDS] [--once | --until-event]\n' >&2; exit 2 ;;
   esac
 done
-[ -n "$ROOT" ] || { printf 'usage: watch-slack.sh --root REPO [--interval SECONDS] [--once]\n' >&2; exit 2; }
+[ -n "$ROOT" ] || { printf 'usage: watch-slack.sh --root REPO [--interval SECONDS] [--once | --until-event]\n' >&2; exit 2; }
 case "$INTERVAL" in ''|*[!0-9]*) INTERVAL=120 ;; esac
 case "$TEXT_MAX" in ''|*[!0-9]*) TEXT_MAX=1500 ;; esac
 case "$MAX_AGE" in ''|*[!0-9]*) MAX_AGE=3600 ;; esac
+case "$FAIL_AFTER" in ''|*[!0-9]*) FAIL_AFTER=1800 ;; esac
 command -v jq >/dev/null 2>&1 || { printf '{"event":"observe_failed","reason":"jq_unavailable"}\n'; exit 0; }
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -84,7 +92,23 @@ tick() {
 }
 
 if [ "$ONCE" = true ]; then tick; exit 0; fi
+OUT=$(mktemp "${TMPDIR:-/tmp}/watch-slack.XXXXXX"); trap 'rm -f "$OUT"' EXIT INT TERM
+FAIL_SINCE=
 while :; do
-  tick
+  tick >| "$OUT"
+  if [ "$UNTIL" = false ]; then
+    cat "$OUT"
+  elif grep -q '"event":"message"' "$OUT"; then
+    grep '"event":"message"' "$OUT"; exit 0
+  elif [ -n "$LAST_FAIL" ]; then
+    # Still failing (the reason is printed once per distinct reason, so read the state, not the output).
+    [ -n "$FAIL_SINCE" ] || FAIL_SINCE=$(date +%s)
+    if [ $(( $(date +%s) - FAIL_SINCE )) -ge "$FAIL_AFTER" ]; then
+      jq -cn --arg r "$LAST_FAIL" --argjson s "$(( $(date +%s) - FAIL_SINCE ))" '{event:"observe_failed",reason:$r,failing_for_seconds:$s}'
+      exit 0
+    fi
+  else
+    FAIL_SINCE=
+  fi
   sleep "$INTERVAL"
 done

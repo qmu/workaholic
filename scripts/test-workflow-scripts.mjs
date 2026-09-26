@@ -44248,9 +44248,23 @@ function testWatchSlackPrintsOnlyHumans() {
     writeFileSync(observe, `#!/bin/sh\nprintf '%s' '{"status":"ok","data":{"new_input_ids":[],"thread_replies":[]}}'\n`);
     assertEq("a quiet channel prints nothing", run(), "");
 
+    // --until-event: quiet reads keep it running; the first read that prints ends it.
+    const counter = join(dir, "n");
+    writeFileSync(observe, `#!/bin/sh\nn=$(cat ${counter} 2>/dev/null || echo 0); n=$((n+1)); echo $n >${counter}\n`
+      + `if [ $n -lt 3 ]; then printf '%s' '{"status":"ok","data":{"new_input_ids":[],"thread_replies":[]}}'; `
+      + `else printf '%s' '${JSON.stringify({ status: "ok", data: { new_input_ids: [h], thread_replies: [] } })}'; fi\n`);
+    const until = execFileSync("sh", [join(skills, "watch/scripts/watch-slack.sh"), "--root", repo, "--interval", "0", "--until-event"],
+      { encoding: "utf8", timeout: 20000 });
+    assertEq("--until-event stays quiet through idle reads and exits on the first message",
+      [until.trim().split("\n").map((l) => JSON.parse(l).ts), readFileSync(counter, "utf8").trim()], [[h], "3"]);
+
     writeFileSync(observe, `#!/bin/sh\nprintf '%s' '{"status":"deferred","reason":"qfs_unavailable"}'\n`);
     assertEq("a failed read is named, not silent",
       JSON.parse(run().trim()), { event: "observe_failed", reason: "qfs_unavailable" });
+    const failed = JSON.parse(execFileSync("sh", [join(skills, "watch/scripts/watch-slack.sh"), "--root", repo, "--interval", "0", "--until-event"],
+      { encoding: "utf8", timeout: 20000, env: { ...process.env, WORKAHOLIC_WATCH_FAIL_AFTER: "0" } }).trim());
+    assertEq("--until-event ends on a failure only once it has lasted FAIL_AFTER, naming the reason",
+      [failed.event, failed.reason], ["observe_failed", "qfs_unavailable"]);
   } finally { cleanup(dir); }
 }
 

@@ -9,11 +9,14 @@ metadata:
 
 `/work` on Claude Code. Three parts, and only the middle one spends tokens:
 
-1. **Watch** (no model). Start `${CLAUDE_PLUGIN_ROOT}/skills/watch/scripts/watch-slack.sh --root <repo>`
-   once with the **Monitor** tool (persistent). Every interval (default 120s,
-   `WORKAHOLIC_WATCH_INTERVAL`, or the interval `/work` was given) it reads the declared channel
-   through `transport/scripts/observe-channel.sh` and prints one JSON line per new **human**
-   message, nothing when quiet. The loop's own posts are dropped by the script.
+1. **Watch** (no model). Run
+   `${CLAUDE_PLUGIN_ROOT}/skills/watch/scripts/watch-slack.sh --root <repo> --until-event` with
+   Bash `run_in_background: true`. Every interval (default 120s, `WORKAHOLIC_WATCH_INTERVAL`, or
+   the interval `/work` was given) it reads the declared channel through
+   `transport/scripts/observe-channel.sh`; it exits after the first read that found a new
+   **human** message, printing one JSON line per message, and stays silent while the channel is
+   quiet — so the session is woken once per change and never while idle. The loop's own posts and
+   history older than an hour are dropped by the script. After handling the lines, start it again.
 2. **Decide** (only when a line arrives). For each `{"event":"message"}`:
    - a question or a reply to the loop → answer it in the message's thread;
    - a request for a change → answer `📥 受理` in the thread, write it down as a ticket through
@@ -31,8 +34,8 @@ metadata:
 
 ## Rules
 
-- **One watcher per repository.** If a Monitor running `watch-slack.sh` already exists in this
-  session, start nothing.
+- **One watcher per repository.** If a background `watch-slack.sh` already runs in this session,
+  start nothing. Restart it only after its output was handled.
 - **Replies go in the message's thread** through qfs: for a root message use its own `ts`, for a
   reply use its `thread_ts`:
   `qfs run "insert into <post mount>/<workspace>/<channel_id>/messages/<parent ts>/replies values (text) ('💬 …')" --commit`.
@@ -43,15 +46,14 @@ metadata:
   Never pass `thread_ts` as a column on `…/messages`: that map sends only `channel` and `text`,
   so the reply silently lands in the channel. Open with `💬` so the watcher drops the loop's own
   post, and follow `rules/interaction.md` for language (Japanese on the channel).
-- **Never poll by hand.** No sleep loops, no re-reading the channel between events: the Monitor
+- **Never poll by hand.** No sleep loops, no re-reading the channel between events: the watcher
   is the only clock, and a completed background runner re-invokes the session by itself.
 - **Nothing else runs in this loop.** Proposing, moderation, stale-claim repair and release work
   are their own commands (`/propose`, `/moderate`, `/prepare-release`), run on demand or on their
   own schedule.
-- **Re-arm on expiry.** A Monitor lives at most 30 minutes (`timeout_ms: 1800000`); when its
-  expiry notice arrives, start the same command again. The cursor lives in the repository, so
-  nothing is lost or re-read across the gap.
-- To stop, stop the Monitor and do not re-arm it.
+- **Do not use the Monitor tool for the watch**: a Monitor expires after 30 minutes and every
+  re-arm wakes the session with nothing to do. A background Bash command has no such deadline.
+- To stop, stop the background watcher and do not restart it.
 
 The earlier coordinator loop (`/infinite-development`, `workaholic:work`, `work/scripts/codex-loop.sh`)
 remains for Codex and CLI supervisors; `/work` on Claude Code no longer runs it.

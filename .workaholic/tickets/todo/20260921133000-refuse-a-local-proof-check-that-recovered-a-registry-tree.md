@@ -5,6 +5,7 @@ assignees: []
 depends_on:
 feedback:
 merge_policy:
+claim: work-20260926-154810
 ---
 
 # Refuse a local proof check that recovered a registry tree

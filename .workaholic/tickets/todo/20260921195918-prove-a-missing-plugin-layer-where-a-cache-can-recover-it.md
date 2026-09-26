@@ -7,6 +7,7 @@ depends_on:
 feedback: [20260921180339-exclude-explicitly-deferred-tickets-from-the-claimable-offer.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff:
+claim: work-20260926-154810
 ---
 
 # Prove a missing plugin layer where a cache can recover it

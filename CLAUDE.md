@@ -363,3 +363,11 @@ Version files (all at the same semver; `.claude-plugin/marketplace.json` is the 
 Bump PATCH by default, update 1-3, regenerate 4, commit as `Bump version to v{new_version}`.
 
 **A bump is checked against the base twice.** `check-version-bump.sh` answers `already_bumped` and `version_ahead` (field-wise semver, `null` when unreadable). `/story` Phase 0 bumps unless both hold; `/drive` §6 re-reads before merge and re-bumps when the base has overtaken the branch. It is a repair, never a gate. Motivation: five consecutive merges carried two versions between them; those collided numbers are recorded and left, and the next bump names the current `main`.
+
+## Archived claim recovery
+
+Ticket archival records implementation completion and pending delivery evidence.
+Implement can claim stranded branch/head observations, prepare residual effects in a
+new worktree, and publish a draft review PR without a Slack response. Original refs
+remain protected; recovery never automatically merges or discards them. See
+`plugins/workaholic/skills/drive/reference/stranded-recovery.md`.

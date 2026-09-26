@@ -560,3 +560,11 @@ The build follows nested script and reference dependencies, together with explic
 `scripts/build-plugins/skill-dependencies.json`. Portable consumer and legacy contract regressions
 run with `node --test scripts/tests/agentic-loop/*.test.mjs`; see
 [the contract map](docs/agentic-loop-contracts.md) and [the v1 migration and rollback guide](docs/agentic-loop-migration.md). Generated `outputs/` are rebuilt from source.
+
+## Archived claim recovery
+
+Ticket archival records implementation completion and pending delivery evidence.
+Implement can claim stranded branch/head observations, prepare residual effects in a
+new worktree, and publish a draft review PR without a Slack response. Original refs
+remain protected; recovery never automatically merges or discards them. See
+`plugins/workaholic/skills/drive/reference/stranded-recovery.md`.

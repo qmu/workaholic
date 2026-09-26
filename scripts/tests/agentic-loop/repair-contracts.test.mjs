@@ -482,6 +482,9 @@ else console.log(JSON.stringify({rows:[]}));
   const explicit=spawnSync('sh',[join(skills,'transport/scripts/describe-qfs.sh'),'--workspace','qmu','--channel','dev-test','--account','clauyo','--mount','/slack-clauyo'],{cwd:dir,encoding:'utf8',env:{...process.env,WORKAHOLIC_QFS_BIN:qfs,TEST_CALLS:calls}});
   assert.equal(explicit.status,0,explicit.stderr);
   assert.equal(JSON.parse(explicit.stdout).observations[0].dialect,'pipe-sql');
+  // A declared mount carries the same envelope as enumeration: readers key on `.described`.
+  assert.equal(JSON.parse(explicit.stdout).described,true);
+  assert.deepEqual(JSON.parse(explicit.stdout).mounts,['/slack-clauyo']);
 });
 test('release preflight refuses an existing target and a downgrade without making a release',t=>{
   const workflow=readFileSync(resolve(skills,'../../../.github/workflows/release.yml'),'utf8');

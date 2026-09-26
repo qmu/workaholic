@@ -122,7 +122,13 @@ while IFS= read -r mount; do
     continue
   fi
   if printf '%s' "$described" | jq -e '(.path|type)=="string" and (.children|type)=="array" and ((.verbs|type)=="object" or (.verbs|type)=="array")' >/dev/null 2>&1; then
-    sh "$(dirname -- "$0")/describe-native-qfs.sh" "$mount" "$WORKSPACE" "$CHANNEL" "$ACCOUNT"
+    # The native describer answers observations only; carry this script's own envelope
+    # (`described`, `mounts`) over it, or a reader keying on `.described` reads a described
+    # declared mount as no reading at all (measured 2026-09-26: the live-proof emitter).
+    sh "$(dirname -- "$0")/describe-native-qfs.sh" "$mount" "$WORKSPACE" "$CHANNEL" "$ACCOUNT" |
+      jq -c '((.observations // []) | length > 0) as $d |
+        . + {described:$d, mounts:([(.observations // [])[].mount] | unique),
+             reason:(.reason // "")}'
     exit 0
   fi
   : >"$tmp/one"

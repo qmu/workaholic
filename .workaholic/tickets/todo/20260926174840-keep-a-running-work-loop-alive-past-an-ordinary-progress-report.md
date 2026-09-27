@@ -6,6 +6,7 @@ depends_on:
 feedback: [20260926174713-a-running-work-loop-must-not-stop-after-an-ordinary-progress-report.md, 20260821162443-an-autonomous-improvement-loop-run-by-the-routines.md]
 merge_policy:
 verification_handoff: 
+claim: work-20260927-131519
 ---
 
 # Keep a running work loop alive past an ordinary progress report

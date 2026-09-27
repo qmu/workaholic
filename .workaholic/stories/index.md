@@ -3,6 +3,7 @@
 Branch development narratives, one per branch, serving as the PR description and the historical record. See [README.md](README.md) for the story format.
 
 <!-- okf:generated:begin -->
+* [work-20260927-131519](work-20260927-131519.md) - Keep a running work loop alive past an ordinary progress report
 * [work-20260927-121836](work-20260927-121836.md) - Merge every pull request with a merge commit and reclaim landed branches by ancestry
 * [work-20260926-154810](work-20260926-154810.md) - Isolate the installed Codex clock fixture from the machine's plugin installs so its missing-layer rows test the launcher, not HOME
 * [work-20260921-204131](work-20260921-204131.md) - Refuse a routine turn whose named continuation has already lapsed, and let a turn declare what it intends to emit

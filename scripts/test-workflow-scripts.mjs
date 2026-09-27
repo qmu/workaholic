@@ -23349,23 +23349,19 @@ function testLogBranchStaysRetired() {
   } finally { cleanup(dir); }
 }
 
-// ---------- the merge method is one derivation, and it is `squash` (2026-09-01) ----------
-// MEASURED on a consuming repository's `main`, one calendar day: 275 commits, of which 138
-// touched only `.workaholic/`, 25 were empty (`Refresh heartbeat`, `Resume a PR-unit`), 44 were
-// merge commits and FIVE touched only the product. A commit is a change to the development
-// target; a history where 59% of commits carry no product change does not express that.
-//
-// Almost all of that noise is BRANCH-INTERNAL and correct where it lives -- the claim commit is
-// the claim, the heartbeat is the branch tip -- and a merge commit is what carries it onto
-// `main` verbatim. A squash carries the unit's tree and one subject instead.
+// ---------- the merge method is one derivation, and it is `merge` (2026-09-26) ----------
+// The developer's instruction (#1279) superseded the 2026-09-01 squash ruling: a squash leaves a
+// landed branch off the base's ancestry, so every ancestry reader (`git branch --merged`,
+// `survey-worktrees.sh`'s `merged`) answered "not merged" for work that had landed. A merge
+// commit makes the landed tip an ancestor again; `--first-parent` keeps the trunk one line per unit.
 //
 // What is pinned here is the SINGLE DERIVATION, not the word's presence at four call sites:
-// four copies drift, and a call site merging the other way would put the noise back for one
-// route only, which is the hardest inconsistency to notice.
-T("the merge method is one derivation, and it is squash", testMergeMethodIsSingleSourced);
+// four copies drift, and a call site merging the other way would leave one route's branches
+// reading unmerged, which is the hardest inconsistency to notice.
+T("the merge method is one derivation, and it is merge", testMergeMethodIsSingleSourced);
 function testMergeMethodIsSingleSourced() {
-  assertEq("the derivation answers squash",
-    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.mergeMethod}`).stdout.trim(), "squash");
+  assertEq("the derivation answers merge",
+    run(REPO_ROOT, `${POSIX_SH} ${SCRIPTS.mergeMethod}`).stdout.trim(), "merge");
 
   // NO CALL SITE SPELLS THE METHOD. Read the code, not the headers: every one of these files
   // explains the choice in prose, and a document-wide match would read the explanation as the
@@ -23388,17 +23384,17 @@ function testMergeMethodIsSingleSourced() {
   assertTrue("the review route reads the derivation rather than naming a method",
     /merge-method\.sh/.test(driveSkill) && !/merge_method=merge\b/.test(driveSkill), "the review route still spells one");
 
-  // THE COUPLING, PINNED AS PROSE BECAUSE IT IS THE THING A LATER READER WILL NOT GUESS.
-  // A squash-merged branch is not an ancestor of the base, so `rev-list --count base..ref` stays
-  // positive; this is safe only because `superseded` is derived from the TREE, and only bounded
-  // because `delete_branch_on_merge` removes the branch at the merge.
+  // THE COST AND THE CLAIM PROTOCOL'S STANDING, PINNED AS PROSE BECAUSE A LATER READER WILL NOT
+  // GUESS THEM: bookkeeping reaches `main` as second-parent history (read with --first-parent),
+  // `superseded` stays tree-derived for already squash-landed branches, and the remote branch is
+  // still removed at the merge by `delete_branch_on_merge`.
   const header = readFileSync(SCRIPTS.mergeMethod, "utf8");
-  assertTrue("the derivation states why a squash is safe for the claim protocol",
-    /asks the TREE/.test(header) && /superseded/.test(header), "the ancestry question is unanswered");
+  assertTrue("the derivation states that superseded still asks the tree",
+    /asks the TREE/.test(header) && /superseded/.test(header), "the claim protocol's standing is unstated");
   assertTrue("and that it is coupled to delete_branch_on_merge",
     /delete_branch_on_merge/.test(header), "the coupling is unstated");
-  assertTrue("and what the squash costs",
-    /per-ticket commits collapse/.test(header), "the cost is hidden");
+  assertTrue("and what the merge commit costs",
+    /SECOND-PARENT/.test(header) && /--first-parent/.test(header), "the cost is hidden");
 
   // THE ONLY COMMIT `persist-log.sh` MAKES IS THE RECORDS ONE, and its subject says so. There
   // used to be a second, `Log the moderation tick`, which put the day file on an orphan branch;
@@ -29136,6 +29132,68 @@ function testSpecificateCaptureSeam() {
 // a wrong SUMMARY would hide: the removal set, the BRANCH-REF SURVIVAL that is the entire reason
 // the act is safe, the skip-reason breakdown that makes a held backlog legible, the empty `event`
 // on a zero-removal sweep, and the summary's stability across two ticks over an unchanged set.
+// ---------- landed local branches are named, and removed only on a proof (2026-09-26, #1279) ----------
+// Under the retired squash ruling a landed `work-*` branch was never an ancestor of the base, so
+// ~22 of them piled up looking unfinished. Every merge is now a merge commit; the pruner removes a
+// branch whose tip is an ancestor (merge-committed) or whose whole patch is already on the base
+// (squash-landed), and keeps and names everything else.
+T("prune-landed-branches: ancestry and content proofs remove, everything else is named", testPruneLandedBranches);
+function testPruneLandedBranches() {
+  const PRUNE = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-landed-branches.sh")}`;
+  const origin = mkdtempSync(join(tmpdir(), "wh-prune-origin-"));
+  execSync("git -c init.defaultBranch=main init -q --bare", { cwd: origin });
+  const root = mkdtempSync(join(tmpdir(), "wh-prune-"));
+  const g = (c, cwd = root) => execSync(c, { cwd, encoding: "utf8" });
+  const PUSH_BASE = ["git", "push", "-q", "origin", "main"].join(" ");
+  try {
+    g(`git clone -q ${origin} .`);
+    g("git config user.email test@example.com && git config user.name Test && git config commit.gpgsign false");
+    writeFileSync(join(root, "README.md"), "seed\n");
+    g(`git add -A && git commit -q -m seed && ${PUSH_BASE}`);
+    const branchWith = (b, file) => {
+      g(`git checkout -q -b ${b} main`);
+      writeFileSync(join(root, file), `${b}\n`);
+      g(`git add -A && git commit -q -m 'Add ${file}'`);
+      g("git checkout -q main");
+    };
+    branchWith("work-20260926-000001", "merged.md");     // merge-committed
+    branchWith("work-20260926-000002", "squashed.md");   // squash-landed
+    branchWith("work-20260926-000003", "unlanded.md");   // not on the base
+    g("git merge -q --no-ff -m 'Land one' work-20260926-000001");
+    g("git merge -q --squash work-20260926-000002 && git commit -q -m 'Land two'");
+    g(`${PUSH_BASE} && git fetch -q origin`);
+    mkdirSync(join(root, ".worktrees"), { recursive: true });
+    g(`git worktree add -q -b work-20260926-000004 ${join(root, ".worktrees", "held")} origin/main`);
+    const tip1 = g("git rev-parse work-20260926-000001").trim();
+
+    const dry = JSON.parse(g(PRUNE));
+    assertEq("a dry run applies nothing", dry.applied, false);
+    assertEq("and removes no ref", g("git branch --list 'work-*'").trim().split("\n").length, 4);
+    const proofs = Object.fromEntries(dry.removed.map((r) => [r.branch, r.proof]));
+    assertEq("the merge-committed branch is proved by ancestry", proofs["work-20260926-000001"], "ancestor");
+    assertEq("the squash-landed branch is proved by content", proofs["work-20260926-000002"], "content_landed");
+    const kept = Object.fromEntries(dry.kept.map((r) => [r.branch, r.reason]));
+    assertEq("an unlanded branch is kept and named", kept["work-20260926-000003"], "not_landed");
+    assertEq("a checked-out branch is kept and named", kept["work-20260926-000004"], "checked_out");
+
+    const applied = JSON.parse(g(`${PRUNE} --apply`));
+    assertEq("apply removes exactly the proved two", applied.removed.map((r) => r.branch).sort(),
+      ["work-20260926-000001", "work-20260926-000002"]);
+    assertEq("and nothing failed", applied.failed, []);
+    assertEq("the unlanded and the checked-out branches survive",
+      g("git branch --list 'work-*' --format='%(refname:short)'").trim().split("\n").sort(),
+      ["work-20260926-000003", "work-20260926-000004"]);
+    g(`git merge-base --is-ancestor ${tip1} origin/main`);
+    const src = readFileSync(join(REPO_ROOT, "plugins/workaholic/skills/branching/scripts/prune-landed-branches.sh"), "utf8")
+      .split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assertTrue("it never composes a forced delete or a push",
+      !/branch -D|--force|git push/.test(src), "forced delete present");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(origin, { recursive: true, force: true });
+  }
+}
+
 T("moderate worktree-sweep: removes only what is proved, and says what it is holding", testWorktreeSweepStep);
 function testWorktreeSweepStep() {
   const STEP = `${POSIX_SH} ${join(REPO_ROOT, "plugins/workaholic/skills/moderate/scripts/step-worktree-sweep.sh")}`;
@@ -29182,12 +29240,13 @@ function testWorktreeSweepStep() {
     assertTrue("the untracked-only one survives with its file",
       existsSync(join(wt("untracked"), "scratch.txt")));
 
-    // ---- THE BRANCH REF SURVIVES, which is the entire reason the act is safe ----
-    // A worktree removal destroys a CHECKOUT, never a branch and never a commit. A change that
-    // removed a worktree without proving this does not pass, whatever else is green.
-    assertEq("the removed worktree's branch ref is still present", refExists("work-20260919-000001"), true);
-    assertEq("and its tip commit is still reachable",
-      execSync("git rev-parse work-20260919-000001", { cwd: root, encoding: "utf8" }).trim(), tip);
+    // ---- NO COMMIT IS EVER LOST, which is the entire reason the act is safe ----
+    // A worktree removal destroys a CHECKOUT, never a commit. Since 2026-09-26 (#1279, every merge
+    // a merge commit) the reaped worktree's LANDED branch goes with it — only because its tip is an
+    // ancestor of the base, so every commit on it stays reachable from `origin/main`.
+    assertEq("the removed worktree's landed branch ref is removed with it", refExists("work-20260919-000001"), false);
+    assertTrue("and its tip commit is still reachable from the base",
+      (() => { try { execSync(`git merge-base --is-ancestor ${tip} origin/main`, { cwd: root, stdio: "ignore" }); return true; } catch { return false; } })(), tip);
     for (const b of ["work-20260919-000002", "work-20260919-000003", "work-20260919-000004"]) {
       assertEq(`every surviving worktree's branch ref is present (${b})`, refExists(b), true);
     }

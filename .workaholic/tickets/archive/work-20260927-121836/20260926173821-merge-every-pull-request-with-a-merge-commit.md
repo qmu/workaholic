@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-26T17:38:21+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -75,3 +76,50 @@ merge commit's own title and body.
 - The squash ruling was the developer's own (2026-09-01); #1279 is the newer ruling by the same person and wins. The measured cost that motivated squash (bookkeeping commits on `main`) returns as second-parent history; that is the accepted cost, stated in the header rather than hidden.
 - `superseded` stays tree-derived and needs no change; ancestry becomes an additional, stronger proof (the next ticket).
 - Branches already squash-landed stay non-ancestors; history is not rewritten.
+
+## Final Report
+
+Development completed as planned. `merge-method.sh` answers `merge`; every REST call site and both agent-level merges already read it, and `merge-commit-body.sh` keeps composing the merge commit's title and body so `git log --first-parent main` reads one line per unit. The prose stating "every merge is a squash" (CLAUDE.md, drive SKILL/routing, implement command, commit skill, ship/moderate script comments) now states the merge-commit ruling and its cost.
+
+### Discovered Insights
+
+- **Insight**: `attribute-base-red.sh` walked every reachable commit of the base, which only equalled "one commit per pull request" under squash; it now walks `--first-parent`, so the bound is spent on the merge commits the base's checks actually ran on.
+  **Context**: any per-commit reader over `main` must pick the first-parent line once merge commits land; the branch-internal commits have no base check runs.
+- **Insight**: the repository already allows merge commits (`allow_merge_commit: true`), and `check-repo-settings.sh` deliberately touches no merge-method setting, so no settings change was needed.
+  **Context**: the method is a per-call REST field, not a repository setting.
+
+## Archive delivery evidence
+
+Implementation archived; delivery is pending verification. This is not a landed claim.
+
+Pre-archive head: `af4bcec33aa42ef1bfd6b217b5703f9a5101f88b`; observed base: `cef35848fa1d171699fb8d1812c1471a47222d3f`.
+
+Committed-tree assessment (does not cover uncommitted implementation):
+
+```json
+{"branch":"work-20260927-121836","head":"af4bcec33aa42ef1bfd6b217b5703f9a5101f88b","base":"cef35848fa1d171699fb8d1812c1471a47222d3f","state":"landed","reason":"tree_effect_present","tree":"f16783562f781a56d430dbbfa9b16976375a452a","paths":[],"delivery_claim":"assessment_only_not_a_retirement_proof"}
+```
+
+Worktree/index paths at archival (including expected implementation):
+
+```text
+ D .workaholic/tickets/todo/20260926173821-merge-every-pull-request-with-a-merge-commit.md
+ M CLAUDE.md
+ M docs/agentic-loop-redesign.md
+ M plugins/workaholic/commands/implement.md
+ M plugins/workaholic/skills/branching/scripts/reap-worktrees.sh
+ M plugins/workaholic/skills/commit/SKILL.md
+ M plugins/workaholic/skills/commit/scripts/commit.sh
+ M plugins/workaholic/skills/drive/SKILL.md
+ M plugins/workaholic/skills/drive/reference/routing.md
+ M plugins/workaholic/skills/drive/scripts/attribute-base-red.sh
+ M plugins/workaholic/skills/gather/scripts/merge-commit-body.sh
+ M plugins/workaholic/skills/gather/scripts/merge-method.sh
+ M plugins/workaholic/skills/moderate/scripts/persist-log.sh
+ M plugins/workaholic/skills/ship/scripts/extract-deferred-concerns.sh
+ M plugins/workaholic/skills/ship/scripts/merge-pr.sh
+ M scripts/test-workflow-scripts.mjs
+ M scripts/tests/agentic-loop/delivery-report.test.mjs
+?? .workaholic/tickets/archive/work-20260927-121836/
+?? plugins/workaholic/skills/branching/scripts/prune-landed-branches.sh
+```

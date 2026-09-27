@@ -174,7 +174,7 @@ if [ -z "${WH_EDC_IN_PUBLISH_TREE:-}" ] && [ -z "${NO_COMMIT:-}" ]; then
     exit 0
   fi
   # The pull-request seam merges behind the release scan (WORKAHOLIC_AUTO_MERGE=1); the merge
-  # method and squash body are its own derivations and nothing is spelled here.
+  # method and merge commit body are its own derivations and nothing is spelled here.
   pub=$(WORKAHOLIC_PUBLISH_BASE="$base" WORKAHOLIC_AUTO_MERGE=1 \
     WORKAHOLIC_PR_TITLE="[Record] Deferred concerns from PR #${pr_number}" \
     sh "${SCRIPT_DIR}/../../branching/scripts/publish-tree-pr.sh" \

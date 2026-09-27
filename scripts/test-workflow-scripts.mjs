@@ -27705,6 +27705,19 @@ function testListInboundIssues() {
       r.issues.some((i) => i.number === 120), true);
     assertEq("the oldest issue comes first", r.issues[0].number, 7);
 
+    // ---- A MACHINE'S RECORD HOLDS NO FORMATION (2026-09-27, issue #1264) ----
+    // A record whose subject is a machine is judged record-only and leaves its issue open;
+    // re-offering it as recorded_unplanned held formation_pending true forever.
+    const machineRecord = join(repo, ".workaholic/feedbacks/20260812000200-machine.md");
+    writeFileSync(machineRecord,
+      `---\ntype: Feedback\nsubject: observer_ai:bot@example.com\n---\n\nSource: https://github.com/o/r/issues/120\n`);
+    const withMachine = JSON.parse(run(repo, `${POSIX_SH} ${SCRIPT}`, { env }).stdout);
+    assertEq("a machine-origin record excludes its issue under its own word",
+      withMachine.excluded.some((e) => e.number === 120 && e.reason === "recorded_machine_origin"), true);
+    assertEq("and it is not re-offered as recorded_unplanned",
+      withMachine.issues.some((i) => i.number === 120), false);
+    rmSync(machineRecord);
+
     // ---- AN UNASSIGNED ISSUE IS NAMED, NEVER OMITTED (2026-09-19, issue #1213) ----
     // Measured on this repository: nine open issues carried `assignees: []`, every one the
     // operator's, TWO OF THEM the operator's own reports of this defect — returned in neither

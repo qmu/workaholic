@@ -128,6 +128,14 @@ turn declares what it intends to emit: `intends_final_response` (absent means fa
 text; what the refusal buys is that a run which asks the contract gets an unambiguous *no* with a
 name, and a run that emits one anyway leaves a receipt saying the contract refused it.
 
+An `interruptible_parent` continuation is proof only while the parent keeps waiting (2026-09-27,
+ticket `20260926174840`): it is the parent's own wait and ends with the turn. An ordinary progress
+report is therefore commentary followed by the next interruptible wait — the reader answers
+`next_action: wait_interruptibly` whenever that continuation is named — and never the turn's end. A
+parent that cannot keep its turn open arms a `same_chat_schedule` first and names that instead; a
+turn declaring `turn_ends` (absent means false) while naming `interruptible_parent` is refused
+`continuation_ends_with_turn`.
+
 When the host goal is paused but native interruptible wait and child-result reads remain
 available, a named clock is not enough: the continuation must be the same
 `interruptible_parent`. The reader returns `next_action: wait_interruptibly` and

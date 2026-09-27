@@ -1,5 +1,6 @@
 ---
 created_at: 2026-09-26T17:48:40+09:00
+status: done
 author: a@qmu.jp
 assignees: [a@qmu.jp]
 depends_on:
@@ -92,3 +93,50 @@ carry it.
   progress report by construction; this ticket concerns the `/infinite-development` coordinator.
 - The reader cannot stop a run from emitting text; what it buys is an unambiguous refusal the run
   can ask for before ending, as #1266 already states.
+
+## Final Report
+
+Development completed as planned. Reproduction (step 1): the reported facts — `routine`,
+`control: running`, `{kind: interruptible_parent, next_due: <future>}`, `now`, no
+`intends_final_response` — answered `ok: true, path: resume, next_action: null`, so the reader
+both passed a turn that ended and told the parent nothing about waiting again. The gap was the
+reader, not only the skill text: nothing let a turn say it was ending. Fixed in
+`final-response-contract.sh` with a new optional fact `turn_ends` (absent means false) and one new
+refusal `continuation_ends_with_turn` (routine and task-wait turns naming `interruptible_parent`),
+and a named `interruptible_parent` now answers `next_action: wait_interruptibly`. No closed set
+widened; existing refusals unchanged. The rule is stated once more on the three surfaces that carry
+the continuation contract and in `CLAUDE.md` *Continuation*.
+
+### Discovered Insights
+
+- **Insight**: `next_action` used to be derived only from the paused-host `native_parent` facts, so
+  an `interruptible_parent` continuation named under an active host goal produced no instruction to
+  wait at all.
+  **Context**: A continuation that is the parent's own wait must always tell the parent to wait;
+  otherwise naming it is indistinguishable from ending the turn.
+
+## Archive delivery evidence
+
+Implementation archived; delivery is pending verification. This is not a landed claim.
+
+Pre-archive head: `faeca961b4411a8ec490089e84b31b071fcd7573`; observed base: `2361f8c3f577d7453d2921e9ef57f72421649914`.
+
+Committed-tree assessment (does not cover uncommitted implementation):
+
+```json
+{"branch":"work-20260927-131519","head":"faeca961b4411a8ec490089e84b31b071fcd7573","base":"2361f8c3f577d7453d2921e9ef57f72421649914","state":"landed","reason":"tree_effect_present","tree":"b3b8baaf0c172c27e6de9986d8e8b9c90a324539","paths":[],"delivery_claim":"assessment_only_not_a_retirement_proof"}
+```
+
+Worktree/index paths at archival (including expected implementation):
+
+```text
+ D .workaholic/tickets/todo/20260926174840-keep-a-running-work-loop-alive-past-an-ordinary-progress-report.md
+ M CLAUDE.md
+ M plugins/workaholic/commands/infinite-development.md
+ M plugins/workaholic/skills/runtime/reference/native-loop.md
+ M plugins/workaholic/skills/work/SKILL.md
+ M plugins/workaholic/skills/work/scripts/final-response-contract.sh
+ M scripts/test-workflow-scripts.mjs
+ M scripts/tests/agentic-loop/native-coordinator.test.mjs
+?? .workaholic/tickets/archive/work-20260927-131519/
+```

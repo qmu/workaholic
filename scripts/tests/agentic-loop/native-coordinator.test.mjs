@@ -254,6 +254,9 @@ test('a paused host with native tools returns to the same interruptible parent a
   assert.equal(routed.out.next_action, 'wait_interruptibly');
   assert.equal(routed.out.collect_results, true);
   assert.deepEqual(routed.out.continuation, continuation);
+  const ending = facts(run.dir, { ...value, turn_ends: true });
+  assert.equal(ending.status, 2);
+  assert.equal(ending.out.reason, 'continuation_ends_with_turn', 'the parent continuation dies with its turn');
   const wrongClock = facts(run.dir, { ...value, continuation: CONTINUATION });
   assert.equal(wrongClock.status, 2);
   assert.equal(wrongClock.out.reason, 'native_parent_not_continued', 'a schedule does not prove this parent stayed alive');

@@ -43419,6 +43419,32 @@ function testFinalResponseContract() {
       intends_final_response: true });
     assertEq("a routine turn declaring an intent to emit a final response is refused by its own word",
       [declared.status, declared.out.ok, declared.out.reason], [2, false, "routine_emits_no_final_response"]);
+    // An `interruptible_parent` continuation is proof only while the parent WAITS (2026-09-27,
+    // ticket `20260926174840`, issue #1267): the reported facts -- routine, running, a
+    // future-dated parent continuation -- passed while the turn in fact ended.
+    const parent = { kind: "interruptible_parent", id: "session", next_due: 99 };
+    const waits = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50,
+      control: "running", continuation: parent });
+    assertEq("a routine turn naming the interruptible parent is told to wait again",
+      [waits.status, waits.out.path, waits.out.final_response, waits.out.next_action],
+      [0, "resume", false, "wait_interruptibly"]);
+    const ends = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50,
+      control: "running", continuation: parent, turn_ends: true });
+    assertEq("a routine turn that ends while naming only the interruptible parent is refused by its own word",
+      [ends.status, ends.out.ok, ends.out.reason], [2, false, "continuation_ends_with_turn"]);
+    const taskEnds = ask({ interruption_kind: "task_review", instance_id: "s", anchor: 10, now: 50,
+      continuation: parent, turn_ends: true, blocked_on: "merge_authority", unit: "u" });
+    assertEq("a task wait that ends on the interruptible parent is refused the same word",
+      [taskEnds.status, taskEnds.out.reason], [2, "continuation_ends_with_turn"]);
+    const armed = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50,
+      control: "running", continuation, turn_ends: true });
+    assertEq("a routine turn that ends with an armed same-chat schedule still passes, owing no wait",
+      [armed.status, armed.out.path, armed.out.next_action, armed.out.continuation],
+      [0, "resume", null, continuation]);
+    const badEnds = ask({ interruption_kind: "routine", instance_id: "s", anchor: 10, now: 50,
+      continuation, turn_ends: "yes" });
+    assertEq("a non-boolean turn_ends is invalid_facts", [badEnds.status, badEnds.out.reason],
+      [2, "invalid_facts"]);
     const stillHandsOff = ask({ interruption_kind: "review_required", instance_id: "s", anchor: 10,
       hold_persisted: true, question: q, intends_final_response: true });
     assertEq("review_required still answers final_response true and needs no clock",

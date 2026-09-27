@@ -16,6 +16,7 @@ stories: []
 gate_type:
 gate_target:
 gate_assert:
+claim: work-20260927-121836
 ---
 
 # Merge pull requests so landed branches read as merged

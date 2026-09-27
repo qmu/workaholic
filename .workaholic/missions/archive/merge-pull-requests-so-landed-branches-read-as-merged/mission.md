@@ -45,3 +45,4 @@ After a unit's pull request merges, `git branch --merged origin/main` lists its 
 - 2026-09-27 — ticket archived — 20260926173821-merge-every-pull-request-with-a-merge-commit.md
 - 2026-09-27 — ticket archived — 20260926173821-read-and-reclaim-landed-branches-by-ancestry.md
 - 2026-09-27 — mission achieved — mission.md
+- 2026-09-27 — story written — work-20260927-121836.md

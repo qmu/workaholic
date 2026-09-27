@@ -1,44 +1,36 @@
 #!/bin/sh -eu
 # The merge method every pull request this loop merges is merged with, derived in ONE place.
 #
-#   merge-method.sh          -> the word, on stdout (`squash`)
+#   merge-method.sh          -> the word, on stdout (`merge`)
 #
-# WHY IT IS `squash` (2026-09-01, the developer's instruction). Measured on a consuming
-# repository the day the ruling was made — `main`, one calendar day, 275 commits:
+# WHY IT IS `merge` (2026-09-26, the developer's instruction, issue #1279 — superseding the
+# 2026-09-01 squash ruling below). Asked why ~22 local `work-*` branches looked unfinished, the
+# loop answered that they only LOOK unmerged because every pull request was squash-merged: a
+# squash lands the unit's tree and leaves its branch tip off the base's ancestry, so
+# `git branch --merged`, `survey-worktrees.sh`'s `merged` (`ahead == 0`) and every other
+# ancestry reader answer "not merged" for a unit that landed. The developer's reply:
+# 「だとしたらsquash mergeしないで欲しい」. So every merge is now a MERGE COMMIT, and a landed
+# branch's tip is an ancestor of the base again — ancestry answers "did this land" with no
+# network call and no tree comparison, and the hourly worktree sweep reclaims a landed unit.
 #
-#   138  touch only `.workaholic/`      (the loop's own bookkeeping)
-#    63  mixed
-#    44  merge commits
-#    25  empty                          (`Refresh heartbeat`, `Resume a PR-unit`)
-#     5  touch only the product
+# WHAT IT COSTS, STATED RATHER THAN HIDDEN: the branch-internal bookkeeping the squash kept off
+# `main` — the claim stamp, legacy heartbeat commits, index refreshes, per-ticket commits —
+# reaches `main` as SECOND-PARENT history. That is the accepted cost. The trunk stays readable
+# as one line per landed unit through `git log --first-parent main`: each first-parent commit is
+# the merge commit, and its title and body are `merge-commit-body.sh`'s composed ones (the pull
+# request's title and the story's description), never the forge's `Merge pull request #N from …`.
 #
-# **A commit is a change to the development target.** That is the principle, and a history in
-# which 59% of the commits carry no product change at all does not express it — a person
-# reading `git log` to find out what the product did has to read past the loop's own memory to
-# find it. Most of that noise is BRANCH-INTERNAL and correct where it lives: the claim commit
-# IS the claim (`drive/reference/claims.md`), the heartbeat IS the branch tip, and a unit's
-# story and its mission hours are artifacts the unit produced. None of them is a fact about
-# `main`. A merge commit carries every one of them onto `main` verbatim; a squash carries the
-# unit's TREE and one subject.
+# THE 2026-09-01 SQUASH RULING, KEPT AS HISTORY. It was measured on a consuming repository: one
+# day of `main`, 275 commits, 59% of them carrying no product change, and the ruling chose a
+# history of units over a history of the loop's memory. `--first-parent` now gives that same
+# reading without collapsing the branch, so the ruling's aim survives its method.
 #
-# WHAT IT COSTS, STATED RATHER THAN HIDDEN: a unit's per-ticket commits collapse into one, so
-# `main` no longer shows ticket-level granularity inside a unit. That granularity is not lost —
-# it is on the pull request, which is never deleted, in the unit's branch story, and in the
-# ticket archive under `archive/<branch>/`. What `main` gains is that its own log is a list of
-# units of product change, which is what a person opens it for.
-#
-# WHY IT IS SAFE FOR THE CLAIM PROTOCOL, and this is the part that had to be checked rather
-# than assumed. A squash-merged branch is NOT an ancestor of the base, so
-# `git rev-list --count base..ref` stays positive and the branch keeps appearing in the scan —
-# which would be fatal if `superseded` were derived from ancestry. It is not: `claims_superseded`
-# asks the TREE (every one of the unit's tickets archived on the base, matched by filename under
-# any branch directory) and a squash preserves the tree exactly. So a squash-merged claim reads
-# `superseded`, which is the correct verdict, and `retire-claim.sh` retires it as it always did.
-#
-# It is nonetheless COUPLED to `delete_branch_on_merge`, which is why the two shipped together:
-# with the setting off, a squash-merged branch survives as a `superseded` row forever instead of
-# disappearing at the merge. `workaholify/scripts/check-repo-settings.sh` is where that setting
-# is applied, and its header carries the other half of this reasoning.
+# WHAT DID NOT MOVE FOR THE CLAIM PROTOCOL. `claims_superseded` asks the TREE (every one of the
+# unit's tickets archived on the base) and `claims_branch_empty_against_base` the diff, so both
+# still answer for branches already squash-landed; for a merge-committed branch the claim oracle
+# (unmerged remote branches) simply stops listing it, and `delete_branch_on_merge`
+# (`workaholify/scripts/check-repo-settings.sh`) still removes the remote branch at the merge.
+# Branches squash-landed before this ruling stay non-ancestors; history is not rewritten.
 #
 # ONE DERIVATION, SEVEN CONSUMERS -- five REST call sites (`ship/scripts/merge-pr.sh`,
 # `branching/scripts/publish-tree-pr.sh`, `drive/scripts/retry-undelivered.sh`,
@@ -47,14 +39,12 @@
 # retry a `session_type_cannot_merge` refusal licenses, carried in `commands/implement.md`).
 # A literal `merge_method=` at a call site is refused by `scripts/test-workflow-scripts.mjs`: seven
 # copies of one word is exactly the drift this repository keeps single-sourcing to avoid, and a
-# call site that merges the OTHER way would put the noise back on `main` for one route only,
-# which is the hardest kind of inconsistency to notice.
+# call site that merged the OTHER way would leave one route's branches reading unmerged, which is
+# the hardest kind of inconsistency to notice.
 #
-# ITS SIBLING IS `merge-commit-body.sh` (2026-09-03), which answers the squash `commit_title` and
-# `commit_message` the same way and for the same reason. The method alone was half the record: a
-# squash whose call carries no body gets the forge's concatenation of every commit on the branch,
-# so the bookkeeping this method exists to keep off `main` landed there inside the squash body --
-# measured, 48 such commits on `main`, the longest 11,515 lines. Every call site above reads both.
+# ITS SIBLING IS `merge-commit-body.sh` (2026-09-03), which answers the merge commit's
+# `commit_title` and `commit_message` the same way. Every call site above reads both, so the
+# first-parent line of `main` is the unit's own title rather than the forge's default.
 
 set -eu
-printf 'squash\n'
+printf 'merge\n'

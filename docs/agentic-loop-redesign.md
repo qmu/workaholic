@@ -64,7 +64,7 @@
 5. **待機・差分確認に推論を使いすぎない。** AI の時間とトークンを課題設定、実装、検証、解釈へ配分します。
 6. **既存データを読み続ける。** 内部整理と利用リポジトリの移行を分離し、旧形式を読む責任を互換層へ集めます。
 
-これは既存ポリシーの `multiple-ai-use`、`vendor-neutrality`、`explanations-on-demand`、`objective-documentation` と整合します。企業ポリシーの写しをこのリポジトリの都合で改変することはしません。例えば `commit-change-history` の squash に関する記述と、現在の squash 運用の差は明記しておき、今回の内部整理でマージ方法を勝手に変更しません。
+これは既存ポリシーの `multiple-ai-use`、`vendor-neutrality`、`explanations-on-demand`、`objective-documentation` と整合します。企業ポリシーの写しをこのリポジトリの都合で改変することはしません。例えば `commit-change-history` の squash に関する記述と、現在のマージ運用（2026-09-26 の開発者指示 #1279 により squash をやめ、マージコミットで取り込む）の差は明記しておき、今回の内部整理でマージ方法を勝手に変更しません。
 
 ## 共通の循環
 

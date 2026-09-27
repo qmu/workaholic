@@ -102,7 +102,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 | Trailer | Emitted when | Read by |
 | ------- | ------------ | ------- |
 | `Category:` | `--category` was passed | `/story`'s `collect-commits.sh`, for Added/Changed/Removed grouping |
-| `Workaholic-Housekeeping:` | `--housekeeping <kind>` was passed, `kind` from the closed set `heartbeat \| claim \| index \| hours` | `gather/scripts/merge-commit-body.sh`, which drops such a commit from the squash body it composes |
+| `Workaholic-Housekeeping:` | `--housekeeping <kind>` was passed, `kind` from the closed set `heartbeat \| claim \| index \| hours` | `gather/scripts/merge-commit-body.sh`, which drops such a commit from the merge commit body it composes |
 | `Claude-Session:` | the process environment carries `CLAUDE_CODE_REMOTE_SESSION_ID` — a cloud session, which every routine-fired run is | a human auditing which run produced a commit |
 | `Co-Authored-By:` | always | GitHub's co-author attribution |
 

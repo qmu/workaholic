@@ -36,9 +36,10 @@ After a unit's pull request merges, `git branch --merged origin/main` lists its 
 
 ## Acceptance
 
-- [ ] Every merge site merges with a merge commit, derived by `merge-method.sh` (#20260926173821-merge-every-pull-request-with-a-merge-commit.md)
+- [x] Every merge site merges with a merge commit, derived by `merge-method.sh` (#20260926173821-merge-every-pull-request-with-a-merge-commit.md)
 - [ ] A landed branch and its worktree read as merged by ancestry and are reclaimed (#20260926173821-read-and-reclaim-landed-branches-by-ancestry.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
+- 2026-09-27 — ticket archived — 20260926173821-merge-every-pull-request-with-a-merge-commit.md

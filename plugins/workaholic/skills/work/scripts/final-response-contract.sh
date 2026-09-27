@@ -22,6 +22,8 @@
 #                        id        the parent's or the schedule's own identifier
 #                        next_due  epoch seconds the continuation next fires
 #   intends_final_response  whether the turn intends to emit one   (boolean, default false)
+#   turn_ends          whether the parent's turn ends after this response rather than
+#                      staying open in an interruptible wait        (boolean, default false)
 #   host_goal          "active" | "paused" (default active)
 #   native_parent      {interruptible_wait,worker_results}; when the host goal is paused and
 #                      both are true, the routine path must return to an interruptible parent
@@ -53,7 +55,10 @@
 #   question         null, or the one sentence
 #   control          the mode the coordinator is left in: "running" or "held"
 #   continuation     the continuation the turn returns to, or null
-#   next_action      "wait_interruptibly" when the same native parent must observe again
+#   next_action      "wait_interruptibly" when the same native parent must observe again --
+#                    whenever the named continuation is `interruptible_parent`, because that
+#                    continuation IS the parent's own wait, and when a paused host goal leaves
+#                    native interruptible wait and worker results available
 #   collect_results  whether that parent must consume child terminal results
 #   blocked_on       the per-unit blocker this wait belongs to, or null
 #   unit             the unit it belongs to, or null
@@ -105,6 +110,22 @@
 # emits one anyway leaves a receipt saying the contract refused it. Absent means false, so every
 # caller that declares nothing behaves exactly as it did.
 #
+# Why an `interruptible_parent` continuation is proof only while the parent WAITS (2026-09-27,
+# ticket `20260926174840`, issue #1267). Measured: a coordinator persisted `control: running`,
+# named `{kind: interruptible_parent, next_due: <future>}`, emitted an ordinary progress report
+# and its turn ended; no later tick happened until the operator prompted it again. Every rung
+# above passed -- the continuation was named, its clock had not lapsed, and nothing declared a
+# final response -- because nothing said the turn was ending, and this reader answered
+# `path: "resume"` with `next_action: null`, telling the parent nothing about waiting. Two
+# changes, no closed set widened:
+#   - `turn_ends` is the run's own declaration that its turn will end after this response (the
+#     shape `intends_final_response` has; absent means false). A turn that ends while naming
+#     `interruptible_parent` is refused `continuation_ends_with_turn`: that continuation is the
+#     parent's own wait and dies with the turn, so an ending turn must first arm and name a
+#     `same_chat_schedule` -- the one continuation that fires with no turn open.
+#   - A named `interruptible_parent` answers `next_action: "wait_interruptibly"`, so the
+#     ordinary progress report is commentary followed by the next wait, never the turn's end.
+#
 # Why the continuation is a fact and not a sentence (2026-09-11, issue #1151): a native
 # session reported that it had returned to the loop, emitted a final response and stopped
 # observing while the coordinator record still read `running`. The classification above
@@ -123,6 +144,8 @@
 #   routine_emits_no_final_response (a routine turn declaring `intends_final_response`),
 #   continuation_unproved (a routine turn naming no continuation),
 #   continuation_lapsed (a routine turn whose named continuation's `next_due` has passed),
+#   continuation_ends_with_turn (a routine or task-wait turn declaring `turn_ends` while its
+#     named continuation is `interruptible_parent`, which dies with the turn),
 #   task_wait_is_not_global_hold (a task wait under a standing hold),
 #   unit_wait_is_not_global_hold (`review_required` naming a per-unit `blocked_on`).
 #
@@ -155,6 +178,7 @@ if ! jq -e '
   ((.control == null) or .control == "running" or .control == "held") and
   ((.hold_persisted == null) or (.hold_persisted | type == "boolean")) and
   ((.intends_final_response == null) or (.intends_final_response | type == "boolean")) and
+  ((.turn_ends == null) or (.turn_ends | type == "boolean")) and
   ((.question == null) or (.question | type == "string")) and
   ((.blocked_on == null) or .blocked_on == "merge_authority" or
    .blocked_on == "pull_request_review" or .blocked_on == "verification_handoff") and
@@ -196,6 +220,11 @@ reason=$(jq -r --arg q "$QUESTION" '
   # `next_due < now` -- one rule, two call sites; the other is the `$not_resumed` ladder in
   # runtime/scripts/lib/coordinator.jq. Neither spelling may drift from the other.
   elif .interruption_kind == "routine" and .continuation.next_due < .now then "continuation_lapsed"
+  # An `interruptible_parent` continuation is the wait of the parent itself: it carries the loop only
+  # while the turn stays open, so a turn that ends must have armed a `same_chat_schedule`.
+  elif (.interruption_kind == "routine" or .interruption_kind == "task_review") and
+       (.turn_ends // false) and .continuation.kind == "interruptible_parent"
+    then "continuation_ends_with_turn"
   elif .interruption_kind == "routine" and (.host_goal // "active") == "paused" and
        (.native_parent.interruptible_wait // false) and (.native_parent.worker_results // false) and
        .continuation.kind != "interruptible_parent" then "native_parent_not_continued"
@@ -213,6 +242,8 @@ jq -c --arg q "$QUESTION" '
   (((.host_goal // "active") == "paused") and
    (.native_parent.interruptible_wait // false) and
    (.native_parent.worker_results // false)) as $native_continue |
+  ($native_continue or ($continuation != null and $continuation.kind == "interruptible_parent"))
+    as $parent_waits |
   if .interruption_kind == "review_required" then
     {ok:true, path:"review_handoff", final_response:true, question:$q,
      instance_id:.instance_id, anchor:.anchor, control:"held", hold_stands:true,
@@ -222,7 +253,7 @@ jq -c --arg q "$QUESTION" '
     {ok:true, path:"task_wait", final_response:false, question:null,
      instance_id:.instance_id, anchor:.anchor, control:"running", hold_stands:false,
      second_start:false, continuation:$continuation,
-     next_action:(if $native_continue then "wait_interruptibly" else null end),
+     next_action:(if $parent_waits then "wait_interruptibly" else null end),
      collect_results:$native_continue,
      blocked_on:(.blocked_on // null), unit:(.unit // null), reason:""}
   else
@@ -230,7 +261,7 @@ jq -c --arg q "$QUESTION" '
      instance_id:.instance_id, anchor:.anchor, control:$control,
      hold_stands:($control == "held"), second_start:false,
      continuation:$continuation,
-     next_action:(if $native_continue then "wait_interruptibly" else null end),
+     next_action:(if $parent_waits then "wait_interruptibly" else null end),
      collect_results:$native_continue,
      blocked_on:(.blocked_on // null), unit:(.unit // null), reason:""}
   end

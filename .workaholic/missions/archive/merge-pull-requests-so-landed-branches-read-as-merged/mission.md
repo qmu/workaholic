@@ -2,7 +2,7 @@
 type: Mission
 title: Merge pull requests so landed branches read as merged
 slug: merge-pull-requests-so-landed-branches-read-as-merged
-status: active
+status: achieved
 merge_policy:
 created_at: 2026-09-26T17:37:04+09:00
 author: a@qmu.jp
@@ -37,9 +37,11 @@ After a unit's pull request merges, `git branch --merged origin/main` lists its 
 ## Acceptance
 
 - [x] Every merge site merges with a merge commit, derived by `merge-method.sh` (#20260926173821-merge-every-pull-request-with-a-merge-commit.md)
-- [ ] A landed branch and its worktree read as merged by ancestry and are reclaimed (#20260926173821-read-and-reclaim-landed-branches-by-ancestry.md)
+- [x] A landed branch and its worktree read as merged by ancestry and are reclaimed (#20260926173821-read-and-reclaim-landed-branches-by-ancestry.md)
 
 ## Changelog
 
 <!-- Append-only, dated timeline. One line per event; never rewrite past lines. -->
 - 2026-09-27 — ticket archived — 20260926173821-merge-every-pull-request-with-a-merge-commit.md
+- 2026-09-27 — ticket archived — 20260926173821-read-and-reclaim-landed-branches-by-ancestry.md
+- 2026-09-27 — mission achieved — mission.md

@@ -3,7 +3,6 @@
 ## active
 
 * [deliver-what-the-loop-already-knows-to-the-person-who-can-act](active/deliver-what-the-loop-already-knows-to-the-person-who-can-act/mission.md) - Deliver what the loop already knows to the person who can act
-* [merge-pull-requests-so-landed-branches-read-as-merged](active/merge-pull-requests-so-landed-branches-read-as-merged/mission.md) - Merge pull requests so landed branches read as merged
 * [say-when-the-loop-has-run-out-of-direction](active/say-when-the-loop-has-run-out-of-direction/mission.md) - Say when the loop has run out of direction
 
 ## archive
@@ -97,6 +96,7 @@
 * [make-the-workflow-scripts-survive-a-graphql-restricted-gh](archive/make-the-workflow-scripts-survive-a-graphql-restricted-gh/mission.md) - Make the workflow scripts survive a GraphQL-restricted gh
 * [make-workaholify-converge-the-account-s-routines](archive/make-workaholify-converge-the-account-s-routines/mission.md) - Make /workaholify converge the account's routines
 * [make-workaholify-converge-the-repository-state](archive/make-workaholify-converge-the-repository-state/mission.md) - Make workaholify converge the repository state
+* [merge-pull-requests-so-landed-branches-read-as-merged](archive/merge-pull-requests-so-landed-branches-read-as-merged/mission.md) - Merge pull requests so landed branches read as merged
 * [move-the-propose-and-implement-routines-to-a-fixed-interval-schedule](archive/move-the-propose-and-implement-routines-to-a-fixed-interval-schedule/mission.md) - Move the Propose and Implement routines to a fixed-interval schedule
 * [name-the-session-type-that-cannot-merge](archive/name-the-session-type-that-cannot-merge/mission.md) - Name the session type that cannot merge
 * [name-the-steps-a-tick-could-not-read](archive/name-the-steps-a-tick-could-not-read/mission.md) - Name the steps a tick could not read

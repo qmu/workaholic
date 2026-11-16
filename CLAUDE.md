@@ -49,7 +49,6 @@ docs/                    # Documentation; VitePress site (dependencies/ = depend
 - `guard-git-commit.sh` / `guard-git-branch.sh` — commit-subject and branch-name gates.
 - `guard-git-push.sh` — denies a composed `git push` whose refspec names only the base (`main`, `HEAD:main`, `x:refs/heads/main`, `--delete main`). No env toggle.
 - `guard-askuserquestion-label.sh` — every question body opens with a `[<project label>]` prefix (`gather/scripts/project-label.sh`).
-- `guard-working-directory.sh` — denies a top-level cwd-moving `cd`; a subshell `( cd … )`, absolute paths, `--prefix` forms and a leading `cd` onto a repository root pass. No env toggle.
 - `guard-repo-confinement.sh` (PreToolUse Write|Edit) — blocks writes outside this repository and its worktrees (the agent's memory store is exempt). Syntactic backstop; the rule lives in `rules/general.md`.
 - `policy-lens.sh` (UserPromptSubmit) — injects the policy index for commands carrying the `workaholic:policy-lens` sentinel. Regenerate `hooks/policy-index.md` with `build.mjs` after editing a pillar's `## Policies` list (CI fails on drift).
 - `layout-doctor.sh [path]` — read-only audit of `.workaholic/` against the layout allowlist.

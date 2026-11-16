@@ -82,7 +82,7 @@ fi
 This repository works under the workaholic engineering standards. The rules are
 **not** copied here — read them through the `workaholic:workaholify` gateway skill,
 which reaches the pillar policies (planning / design / implementation / operation /
-development / safety) and states the working-directory ground rules. Run
+development / safety). Run
 `/workaholify` to (re)wire this repository to them.
 EOF
 } >>"$file"

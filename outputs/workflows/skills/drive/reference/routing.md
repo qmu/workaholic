@@ -109,11 +109,12 @@ not write a second story generator.
   it failed, and it is neither a secret nor an override (REST
   `PUT repos/{owner}/{repo}/pulls/{n}/merge` through `gather/scripts/gh-rest.sh` — never the
   GraphQL-backed `gh pr merge`, which a web session may 403 — carrying **three read, never
-  spelled** fields: `merge_method` from `gather/scripts/merge-method.sh` (it answers `squash`),
-  and `commit_title` / `commit_message` from `gather/scripts/merge-commit-body.sh`. Without the
-  last two the forge concatenates every commit on the branch into the trunk's record, which is
-  how the claim stamp and the heartbeats reached `main` — measured, 48 such squash bodies here,
-  the longest 11,515 lines. A composer answering `unreadable:<reason>` still yields a fallback
+  spelled** fields: `merge_method` from `gather/scripts/merge-method.sh` (it answers `merge` since
+  2026-09-26, #1279, so a landed branch reads as merged by ancestry), and `commit_title` /
+  `commit_message` from `gather/scripts/merge-commit-body.sh`, which become the merge commit's
+  first-parent line on `main`. Without the last two the forge writes its own default — under the
+  retired squash that concatenated every commit on the branch into the trunk's record, measured,
+  48 such squash bodies here, the longest 11,515 lines. A composer answering `unreadable:<reason>` still yields a fallback
   body, so the merge is **never held on it**; its `source` is reported beside the merge outcome
   and moves no token) with
   no human confirmation and tear the claim down exactly as `auto` does below — quality is gated

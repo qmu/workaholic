@@ -79,7 +79,7 @@ while [ $# -gt 0 ]; do
         # `compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk`). A heartbeat,
         # a claim stamp, an index refresh and an hours record are the loop's memory, not a
         # change to the development target, and `merge-commit-body.sh` drops them from the
-        # squash body it composes. It drops them by THIS MARKER and never by a title, because
+        # merge commit body it composes. It drops them by THIS MARKER and never by a title, because
         # `Refresh heartbeat` is one wording of one writer and the next housekeeping commit
         # will carry another.
         --housekeeping)

@@ -776,4 +776,7 @@
 * [The moderation planner stops answering at the 35th step](20260919145924-the-moderation-planner-stops-answering-at.md)
 * [A native Work loop must not end after an ordinary progress report](20260921180138-a-native-work-loop-must-not-end-after-an-ordinary-progress-report.md)
 * [Exclude explicitly deferred tickets from the claimable offer](20260921180339-exclude-explicitly-deferred-tickets-from-the-claimable-offer.md)
+* [Stop squash-merging so landed branches read as merged](20260926173452-stop-squash-merging-so-landed-branches-read-as-merged.md)
+* [A mission-wide handoff consumes a fresh Implement worker every tick before any claim exists](20260926174519-a-mission-wide-handoff-consumes-a-fresh-implement-worker-every-tick-before-any-claim-exists.md)
+* [A running work loop must not stop after an ordinary progress report](20260926174713-a-running-work-loop-must-not-stop-after-an-ordinary-progress-report.md)
 <!-- okf:generated:end -->

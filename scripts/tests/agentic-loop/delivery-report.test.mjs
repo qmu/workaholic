@@ -124,3 +124,33 @@ test('P8 maintenance registry is ordered and complete', () => {
   // the planner on the second tick of an hour, silently, with nothing on stdout.
   for (const row of registry.steps) { assert.ok(row.script); assert.equal(typeof row.trigger,'object',`${row.id}: trigger must be an object the planner can index`); assert.equal(typeof row.trigger.seconds,'number',`${row.id}: trigger.seconds must be a number`); assert.equal(typeof row.reader,'boolean'); assert.equal(typeof row.writer,'boolean'); }
 });
+
+test('merge writer sends the derived merge method and the composed title and body', t => {
+  const dir=mkdtempSync(join(tmpdir(),'workaholic-merge-method-')); t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  run(['git','init','-q','-b','main',dir]); run(['git','-C',dir,'remote','add','origin','https://github.com/acme/repo.git']);
+  const bin=join(dir,'bin'); mkdirSync(bin); const calls=join(dir,'calls');
+  writeFileSync(join(bin,'gh'),`#!/bin/sh\nfor a in "$@"; do printf '%s\\n' "$a" >> '${calls}'; done\ncase "$*" in\n*'/merge'*) echo '{"merged":true,"sha":"mergecommit"}';;\n*'/pulls/9'*) echo '{"state":"open","merged":false,"head":{"sha":"headsha"}}';;\nesac\n`); chmodSync(join(bin,'gh'),0o755);
+  const method=run(['sh',join(scripts,'gather/scripts/merge-method.sh')]).stdout.trim();
+  assert.equal(method,'merge');
+  const request=join(dir,'request.json'); writeFileSync(request,JSON.stringify({repo:'acme/repo',pr:9,expected_sha:'headsha',method,title:'Unit title (#9)',body:'What the unit did.'}));
+  const out=run(['sh',join(scripts,'gather/scripts/merge-pull.sh'),'--request',request],{cwd:dir,env:{...process.env,PATH:`${bin}:${process.env.PATH}`}});
+  assert.equal(out.status,0,out.stderr); assert.equal(JSON.parse(out.stdout).status,'merged');
+  const sent=readFileSync(calls,'utf8').split('\n');
+  assert.ok(sent.includes('merge_method=merge'), sent.join(' '));
+  assert.ok(sent.includes('commit_title=Unit title (#9)'), sent.join(' '));
+  assert.ok(sent.includes('commit_message=What the unit did.'), sent.join(' '));
+});
+
+test('a merge-committed unit reads one first-parent line per unit', t => {
+  const dir=mkdtempSync(join(tmpdir(),'workaholic-first-parent-')); t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  const g=(...a)=>{ const r=run(['git','-C',dir,...a],{env:{...process.env,GIT_AUTHOR_NAME:'t',GIT_AUTHOR_EMAIL:'t@example.com',GIT_COMMITTER_NAME:'t',GIT_COMMITTER_EMAIL:'t@example.com'}}); assert.equal(r.status,0,r.stderr); return r.stdout; };
+  run(['git','init','-q','-b','main',dir]); g('commit','-q','--allow-empty','-m','Base');
+  for (const unit of ['one','two']) {
+    g('checkout','-q','-b',`work-${unit}`,'main');
+    g('commit','-q','--allow-empty','-m',`Claim ${unit}`); g('commit','-q','--allow-empty','-m',`Implement ${unit}`);
+    g('checkout','-q','main'); g('merge','-q','--no-ff','-m',`Land ${unit} (#1)`,`work-${unit}`);
+    assert.equal(g('rev-list','--count',`main..work-${unit}`).trim(),'0');
+  }
+  assert.deepEqual(g('log','--first-parent','--format=%s','main').trim().split('\n'),['Land two (#1)','Land one (#1)','Base']);
+  assert.match(g('branch','--merged','main'),/work-one[\s\S]*work-two/);
+});

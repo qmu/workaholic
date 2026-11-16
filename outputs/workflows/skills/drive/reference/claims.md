@@ -387,6 +387,13 @@ same fact, which is exactly what this exists to prevent.
 | `not_merged` | judgement | Same standing, the other way. It leaves the row whatever verdict the local reading gave it. |
 | `unanswerable` | judgement | **The absence of a reading, and acting on an absence is the failure the three-valued lookup exists to avoid.** It leaves the row precisely the verdict it would have had without the lookup, and is named in `merged_lookup_unanswered` instead. The direction of failure is chosen: a wrong `merged` releases work still in flight, a wrong `in flight` only delays a claim. |
 
+**Ancestry is the first proof of landing again** (2026-09-26, issue #1279). Every merge is now a
+merge commit (`gather/scripts/merge-method.sh`), so a branch whose pull request merged has its tip
+on the base: the oracle's unmerged-branch scan stops listing it, `survey-worktrees.sh` reads its
+worktree `merged: true`, and `prune-landed-branches.sh` removes its local branch on `ancestor`.
+The tree-derived `superseded`, this lookup and `content-reached-base.sh` stay for branches
+squash-landed before the ruling, which never become ancestors; history is not rewritten.
+
 ### Resolving a unit to one row (`claims_unit_resolution`)
 
 A different axis: these words say **which row a writer may read**, never whether a unit's work is
@@ -1359,7 +1366,9 @@ merged pull request. A squash merge never makes the branch an ancestor of the ba
 `--no-merged` lists it forever; `delete_branch_on_merge` is **forward-only**, so every branch
 merged before it was applied stands permanently; and `superseded` reaches almost none of them,
 because it is keyed on a **unit** and needs a claim commit, which a publish-tree publication
-never has. The printed deletion command was 17 lines long and nobody had run it.
+never has. The printed deletion command was 17 lines long and nobody had run it. (Since
+2026-09-26 every merge is a merge commit, so a newly merged branch is an ancestor and leaves
+`--no-merged` by itself; the class stays for the branches squash-landed before.)
 
 **A live row beats a merged pull request, always.** A unit the oracle holds any live row for is
 never a candidate whatever its pull request says: a run may be driving a **fresh** claim over a

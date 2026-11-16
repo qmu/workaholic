@@ -1,5 +1,5 @@
 #!/bin/sh -eu
-# The squash TITLE and BODY every merge this loop makes carries, derived in ONE place.
+# The merge commit's TITLE and BODY every merge this loop makes carries, derived in ONE place.
 #
 #   merge-commit-body.sh <pull-request-number>
 #   merge-commit-body.sh --branch <branch> [--number <n>] [--title <title>]
@@ -7,10 +7,15 @@
 #     -> {"ok", "title", "body", "source", "reason"} on stdout, and nothing else.
 #
 # WHY IT EXISTS (2026-09-03, mission `compose-the-squash-body-so-a-unit-s-housekeeping-stays-off-the-trunk`).
-# `merge-method.sh` settled that every merge is a SQUASH, and a squash whose API call carries no
-# `commit_message` gets the forge's own default: the concatenation of every commit message on the
-# branch. So the very bookkeeping the squash exists to keep off `main` -- the claim stamp, the
-# heartbeats, the index refreshes -- lands on `main` anyway, inside the squash commit's body.
+# `merge-method.sh` then settled that every merge was a SQUASH, and a squash whose API call carries
+# no `commit_message` gets the forge's own default: the concatenation of every commit message on
+# the branch. So the very bookkeeping the squash existed to keep off `main` -- the claim stamp, the
+# heartbeats, the index refreshes -- landed on `main` anyway, inside the squash commit's body.
+#
+# SINCE 2026-09-26 (#1279) EVERY MERGE IS A MERGE COMMIT, and this composer is what keeps the
+# trunk readable: the merge commit's title and body are the first-parent line of `main`
+# (`git log --first-parent`), so they must be the unit's own statement rather than the forge's
+# `Merge pull request #N from …`. The branch's commits reach `main` as second-parent history.
 #
 # MEASURED on this repository the day the mission was written: 48 commits on `main` whose body
 # carries the text `Refresh heartbeat`, every one of them a squash body rather than a heartbeat
@@ -21,7 +26,7 @@
 # and until now nothing read it at the merge. So:
 #
 #   title   the pull request's own title with its ` (#<n>)` suffix, which is the shape a reader
-#           already expects from a squash; the story's own heading when no number is in hand.
+#           already expects on the first-parent line; the story's own heading when no number is in hand.
 #   body    the story's `description:` line, then the branch's own commit subjects with the
 #           HOUSEKEEPING ones dropped.
 #
@@ -138,7 +143,7 @@ fi
 
 unit_name="${BRANCH:-#${NUMBER}}"
 
-# The title keeps the shape a squash already has, so a reader's expectations do not move.
+# The title keeps the shape the trunk's first-parent line already has, so a reader's expectations do not move.
 if [ -n "$TITLE" ]; then
   composed_title="$TITLE"
 else

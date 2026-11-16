@@ -45,13 +45,15 @@
 # THE PREDICATE IS NOT LOOSENED HERE, AND THAT IS THE OPERATOR'S OWN RULING (issue #1212,
 # verbatim: *"`reclaimable` is merged AND clean, which is the right predicate and I am not
 # proposing to loosen it"*). The consequence is stated rather than hidden: `merged` is `ahead ==
-# 0` against `origin/<base>` — ANCESTRY — and every pull request this loop merges is
-# squash-merged (2026-09-01), so a landed branch is never an ancestor of the base and `ahead`
-# never returns to zero. A landed branch is therefore PERMANENTLY `merged: false`, the same
-# misreading `superseded` was repaired for in issue #788: ancestry cannot answer *did this work
-# land* and the tree can. Measured on this repository the day this shipped: 4 worktrees, 191.7 M
-# held, `reclaimable_bytes: 0`, every one `unmerged`. THE FIRST SWEEP HERE FREES ZERO BYTES AND
-# REMOVES NONE OF THEM, and that is the correct outcome, not a failure. It still ships: the same
+# 0` against `origin/<base>` — ANCESTRY. Until 2026-09-26 every pull request this loop merged was
+# squash-merged, so a landed branch was never an ancestor of the base and read PERMANENTLY
+# `merged: false` (measured the day this shipped: 4 worktrees, 191.7 M held, `reclaimable_bytes:
+# 0`, every one `unmerged`). SINCE 2026-09-26 (issue #1279) EVERY MERGE IS A MERGE COMMIT, so a
+# landed unit's tip is an ancestor of the base, its clean worktree reads `reclaimable`, and this
+# sweep removes it — and the reaper then removes its local `work-*` branch on the same ancestry
+# proof (`update-ref -d` on the proved tip; no forced delete, and this step composes none).
+# Worktrees whose branches were squash-landed before the ruling stay `unmerged` and are named in
+# the held set; that is the correct outcome, not a failure. It still ships: the same
 # sweep run once on a consuming repository removed 44 worktrees and freed 5.4 GB with zero
 # failures, because the merged-and-clean case does occur wherever a run reaches its end normally.
 #

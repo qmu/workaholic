@@ -5,7 +5,8 @@
 #   reap-worktrees.sh --apply [base-branch]      # actually remove them
 #
 # Output (one JSON line):
-#   {"applied": true|false, "base": "<base>", "removed": [{"path","branch","size_bytes"}],
+#   {"applied": true|false, "base": "<base>",
+#    "removed": [{"path","branch","size_bytes","branch_removed","branch_kept_reason"}],
 #    "skipped": [{"path","branch","reason"}], "bytes_reclaimed": N, "human": "<n>",
 #    "failed": [{"path","error"}]}
 #
@@ -31,6 +32,16 @@
 # DRY RUN IS THE DEFAULT BECAUSE THE ACTION IS IRREVERSIBLE. A removed worktree is gone;
 # its branch and commits survive (that is what "merged" means), but an unpushed anything
 # would not — which is why "clean" is half the predicate rather than a nicety.
+#
+# THE LANDED BRANCH GOES WITH ITS WORKTREE (2026-09-26, issue #1279). Every merge is now a merge
+# commit, so a landed unit's tip is an ancestor of `origin/<base>` and its worktree reads
+# `merged: true` here. Under `--apply`, once the worktree is removed its local branch is removed
+# too — only a `work-YYYYMMDD-HHMMSS` branch, only when its tip is an ancestor of the base at that
+# moment, and only through `git update-ref -d <ref> <tip>` (never `git branch -D`), so the delete
+# is spent on exactly the commit the proof was made about. Anything else keeps its branch and
+# says why (`not_work_branch`, `not_ancestor`, `no_base`, `update_ref_refused`). The ~22 local
+# branches squash-landed before this ruling are `prune-landed-branches.sh`'s business, not this
+# sweep's. The remote is never touched.
 
 set -eu
 
@@ -54,6 +65,31 @@ human() {
 here=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
 
 SURVEY=$(sh "${SCRIPT_DIR}/survey-worktrees.sh" "$BASE")
+
+base_ref=""
+if git rev-parse --verify --quiet "refs/remotes/origin/${BASE}" >/dev/null 2>&1; then
+  base_ref="origin/${BASE}"
+elif git rev-parse --verify --quiet "refs/heads/${BASE}" >/dev/null 2>&1; then
+  base_ref="$BASE"
+fi
+
+# Remove a reaped worktree's landed local branch; prints `<removed>\t<kept_reason>`.
+remove_landed_branch() {
+  _b=$1
+  case "$_b" in
+    work-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+    *) printf 'false\tnot_work_branch'; return 0 ;;
+  esac
+  _tip=$(git rev-parse --verify --quiet "refs/heads/${_b}^{commit}" 2>/dev/null || true)
+  [ -n "$_tip" ] || { printf 'false\tabsent'; return 0; }
+  [ -n "$base_ref" ] || { printf 'false\tno_base'; return 0; }
+  git merge-base --is-ancestor "$_tip" "$base_ref" 2>/dev/null || { printf 'false\tnot_ancestor'; return 0; }
+  if git update-ref -d "refs/heads/${_b}" "$_tip" >/dev/null 2>&1; then
+    printf 'true\t'
+  else
+    printf 'false\tupdate_ref_refused'
+  fi
+}
 
 removed=""; r_sep=""
 skipped=""; s_sep=""
@@ -100,7 +136,10 @@ for rec in $records; do
   if [ "$APPLY" = "true" ]; then
     if git worktree remove "$path" >/dev/null 2>&1; then
       git worktree prune >/dev/null 2>&1 || true
-      removed="${removed}${r_sep}{\"path\": \"${path}\", \"branch\": \"${branch}\", \"size_bytes\": ${size}}"
+      branch_out=$(remove_landed_branch "$branch")
+      branch_removed=$(printf '%s' "$branch_out" | cut -f1)
+      branch_kept=$(printf '%s' "$branch_out" | cut -f2)
+      removed="${removed}${r_sep}{\"path\": \"${path}\", \"branch\": \"${branch}\", \"size_bytes\": ${size}, \"branch_removed\": ${branch_removed}, \"branch_kept_reason\": \"${branch_kept}\"}"
       r_sep=", "
       bytes=$((bytes + size))
     else

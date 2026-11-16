@@ -8,7 +8,7 @@
 #   {"ok": true, "identity": "<login>", "limit": N,
 #    "formation_pending": true|false,
 #    "issues":   [{"number", "title", "url", "updated_at", "state", "record"}...], oldest first
-#    "excluded": [{"number", "reason": "already_planned"|"captured_on_branch"|"self_originated"|"unassigned"}...]}
+#    "excluded": [{"number", "reason": "already_planned"|"captured_on_branch"|"recorded_machine_origin"|"self_originated"|"unassigned"}...]}
 #   {"ok": false, "reason": "gh_unavailable" | "identity_unresolved" | "list_failed",
 #    "detail": "..."}
 #
@@ -225,6 +225,19 @@ while IFS="$TAB" read -r number url updated origin title; do
         break
       fi
     done
+    # A MACHINE'S RECORD HOLDS NO FORMATION (2026-09-27). `/specificate` judges a record whose
+    # subject is a machine (`ask-origin.sh` → `machine`) as record-only under *What May
+    # Originate a Mission*, and that judgement leaves the issue open with no planned relation —
+    # so the row above re-offered it as `recorded_unplanned` forever, and `formation_pending`
+    # held every new `/implement` claim behind it. Measured on this repository: issue #1264's
+    # record merged record-only in #1281 and implement allocated zero runners for seventeen
+    # hours. It is excluded under its own word, never re-offered; a person who wants it planned
+    # re-files it as their own ask. Cost: a machine-origin record `/specificate` has not yet
+    # judged is not re-offered either.
+    if [ -n "$record" ] && [ -z "$captured" ] && \
+       [ "$(sh "${SCRIPT_DIR}/../../feedback/scripts/ask-origin.sh" "${FEEDBACKS_DIR}/${record}" 2>/dev/null | jq -r '.origin // empty' 2>/dev/null)" = machine ]; then
+      captured="recorded_machine_origin"
+    fi
     if [ -n "$record" ] && [ -z "$captured" ]; then
       formation_pending=true
       row="{\"number\": ${number}, \"title\": \"$(json_escape "$title")\", \"url\": \"$(json_escape "$url")\", \"updated_at\": \"$(json_escape "$updated")\", \"state\": \"recorded_unplanned\", \"record\": \"$(json_escape "$record")\"}"

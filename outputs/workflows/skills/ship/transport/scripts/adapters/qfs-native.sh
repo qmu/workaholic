@@ -92,7 +92,11 @@ case "$TRANSPORT_OPERATION" in
     [ "$(printf '%s' "$route" | jq -r --arg flag "$flag" '.[$flag]')" = true ] || {
       transport_result deferred qfs_map_unverified "$TRANSPORT_REQUEST_ID" '{}'; exit 0; }
     text=$(jq -r -L "$(dirname -- "$0")/../lib" 'include "qfs-string"; .input.text | qfs_string' "$TRANSPORT_REQUEST_FILE")
-    query="insert into $path values ($text)"
+    # NAME THE COLUMN. QFS previews a bare `values ('…')` as one affected row, and then the
+    # commit refuses it (`chat.postMessage requires nonempty content … no request sent`) because
+    # an unnamed value binds to no column. Measured 2026-09-26 on this repository's declared
+    # route: every loop reply was deferred `qfs_connector_failure` while the preview read green.
+    query="insert into $path values (text) ($text)"
     if ! qfs_call run "$query" --json > "$tmp/preview" 2> "$tmp/error"; then
       transport_result deferred qfs_preview_failed "$TRANSPORT_REQUEST_ID" "$(error_data)"; exit 0
     fi

@@ -80,14 +80,14 @@ fi
 # (`workaholify/scripts/check-repo-settings.sh`).
 #
 # THE METHOD IS READ, NEVER SPELLED (2026-09-01). `gather/scripts/merge-method.sh` is the one
-# derivation -- it answers `squash`, and its header carries why and what it costs. A literal
-# here would be one of four copies of one word, and a call site merging the other way would put
-# the loop's branch-internal bookkeeping back onto `main` for one route only.
+# derivation -- it answers `merge` (2026-09-26, #1279), and its header carries why and what it
+# costs. A literal here would be one of four copies of one word, and a call site merging the
+# other way would leave one route's landed branches reading unmerged.
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
 GATHER_SCRIPTS="${SCRIPT_DIR}/../../gather/scripts"
 MERGE_METHOD=$(sh "${GATHER_SCRIPTS}/merge-method.sh")
 
-# THE SQUASH BODY IS READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
+# THE MERGE COMMIT'S TITLE AND BODY ARE READ, NEVER SPELLED (2026-09-03). `gather/scripts/merge-commit-body.sh`
 # is the one derivation of `commit_title` / `commit_message`; without them the forge
 # concatenates every commit on the branch into the trunk's record. A composer that could not
 # read still yields a body (the story description when one was read, the fallback line otherwise), so the merge is never held on it.

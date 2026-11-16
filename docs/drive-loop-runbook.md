@@ -347,7 +347,7 @@ Every candidate row carries its `candidate_reason`, and each class is read diffe
 | `candidate_reason` | What CI proved | Read it as |
 | ------------------ | -------------- | ---------- |
 | `superseded_only` | the oracle's own emptiness proof | the loop's ordinary cleanup; nothing to do |
-| `pull_request_merged` | the branch's pull request merged — a squash merge leaves no ancestry, so `--no-merged` keeps listing it | backlog draining; nothing to do |
+| `pull_request_merged` | the branch's pull request merged — a squash merge (before 2026-09-26) leaves no ancestry, so `--no-merged` keeps listing it; a merge-committed branch drops out of the listing | backlog draining; nothing to do |
 | `pull_request_closed_unmerged` | a person closed the pull request without merging **and** the branch is empty against the base | your own recorded decision being carried out; if it refused, see `branch_holds_work` below |
 
 **What each refusal asks you to do.** All of them leave the branch on origin, exit 0 and change

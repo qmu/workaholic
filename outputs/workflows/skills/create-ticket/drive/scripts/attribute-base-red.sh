@@ -27,11 +27,13 @@
 # `WORKAHOLIC_BASE_ATTRIBUTION_MAX` (default 20) is the ceiling; the interesting culprit is
 # almost always recent.
 #
-# IT ASSUMES ONE COMMIT PER PULL REQUEST, which is what a squash-merged base gives and what
-# makes this walk tractable here. A repository that merges differently puts several commits
-# on the base per pull request, and the walk still works — it just attributes the commit
-# rather than the merge, and the pull-request lookup below maps it back. The assumption is
-# stated rather than encoded silently.
+# IT WALKS THE FIRST-PARENT LINE, one commit per landed pull request (2026-09-26). Every pull
+# request this loop merges is a merge commit (`gather/scripts/merge-method.sh`), so the base's
+# first-parent chain is one merge commit per unit — the commits `main` itself was pushed as and
+# its checks ran on — while the branch-internal commits hang off second parents. Walking every
+# reachable commit would spend the bound on a unit's claim stamp and per-ticket commits, none of
+# which the base's checks ever ran on. On a squash-landed or linear stretch of history the
+# first-parent line is every commit, so older history reads exactly as it did.
 #
 # IT MAKES NO LOCAL FETCH. The caller freshens (`branching/scripts/sync-main.sh` in a driving
 # run, a fresh clone in a routine's container) and the tip it walked is reported, so a stale
@@ -98,7 +100,7 @@ TIP=$(git rev-parse --verify "${TIP_REF}^{commit}" 2>/dev/null || true)
 
 # The walk's candidate list, newest first. One extra commit is requested so the walk can tell
 # "the bound stopped me" from "history stopped me" without a second git call.
-commits=$(git rev-list --max-count=$((MAX + 1)) "$TIP" 2>/dev/null || true)
+commits=$(git rev-list --first-parent --max-count=$((MAX + 1)) "$TIP" 2>/dev/null || true)
 [ -n "$commits" ] || emit unanswerable no_history
 
 # ONE READER CALL PER COMMIT, and both fields come out of it. Asking twice would double the

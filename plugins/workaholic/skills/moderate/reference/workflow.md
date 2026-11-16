@@ -2766,7 +2766,7 @@ the 2026-09-18 04:07 tick the three were `issue-triage`, `direction-health` and
 | `operator-pulls` | `needs_ruling` | The publication exists **because** merging it is the operator's ruling and closing it is their refusal; the seam refused to auto-merge it for exactly that reason. Filing it as work would be the loop asking itself to settle what it opened a diff to have settled. Every reading it carries is besides that a **judgement** (`drive/reference/claims.md`, *Whether an operator-facing pull request was acted on*). |
 | `thread-reconcile` | `needs_ruling` | Its repair is the tick's own reply, already taken; it owes the queue nothing. |
 | `retire-claims` | **`repairable`** | A branch CI could not delete names an executor or a bound that a change can fix. |
-| `worktree-sweep` | `needs_ruling` | It produces no finding to file, and the two things it reports are both a person's. A **removal** is done — the checkout is gone, the branch and its commits are untouched, and nothing is left to repair. A worktree it **held** is held by `reclaimable`, which is `merged AND clean`; `merged` is an ancestry test that a squash-merged base can never satisfy, so a landed branch reads `unmerged` forever and the backlog is permanent by construction rather than by a defect. Whether that predicate should change is the operator's ruling and has been made once already (2026-09-19: it should not), and what to do with a specific standing worktree is a person's judgement about work that may exist on no other ref. Filing either as work would have the loop proposing to loosen the gate that makes its own irreversible act safe. |
+| `worktree-sweep` | `needs_ruling` | It produces no finding to file, and the two things it reports are both a person's. A **removal** is done — the checkout is gone, the branch and its commits are untouched, and nothing is left to repair. A worktree it **held** is held by `reclaimable`, which is `merged AND clean`; `merged` is an ancestry test that a squash-landed branch can never satisfy, so a branch squash-landed before 2026-09-26 reads `unmerged` forever (a merge-committed one reads `merged` and is reclaimed). Whether that predicate should change is the operator's ruling and has been made once already (2026-09-19: it should not), and what to do with a specific standing worktree is a person's judgement about work that may exist on no other ref. Filing either as work would have the loop proposing to loosen the gate that makes its own irreversible act safe. |
 | `closable-missions` | `needs_ruling` | The tick closes what it proved; a rejected re-proof is a person's to read. |
 | `unrecorded-missions` | `needs_ruling` | **Whether to close the mission or drive it again is the assignee's**, and the step exists because the loop cannot tell them apart: what it establishes is that nothing *recorded* the work, never that the work is undone. `closable-missions`' row, one state over — and filing it as work would have the loop closing a mission on a reading its own header refuses to treat as a proof. |
 | `base-health` | `needs_ruling` | Its four readings are **judgements** a consumer may only report or ask about (`drive/reference/claims.md`), so turning one into work would be a consumer acting on a judgement. |
@@ -3832,12 +3832,13 @@ the reader a human consults and the writer that acts start disagreeing.
 **The predicate is not loosened, and the consequence is stated.** That is the operator's own
 ruling (issue #1212, verbatim: *"`reclaimable` is merged AND clean, which is the right predicate
 and I am not proposing to loosen it"*). `merged` is `ahead == 0` against `origin/<base>` —
-**ancestry** — and every pull request this loop merges is squash-merged (2026-09-01), so a landed
-branch is never an ancestor of the base and `ahead` never returns to zero: a landed branch is
-**permanently `merged: false`**, the same misreading `superseded` was repaired for in issue #788.
-Measured here the day this shipped: 4 worktrees, 191.7 M held, `reclaimable_bytes: 0`, every one
-`unmerged`. **The first sweep on this repository frees zero bytes and removes none of them, and
-that is the correct outcome rather than a failure.** It still ships — the same sweep run once on
+**ancestry**. While every pull request was squash-merged (2026-09-01 to 2026-09-26) a landed
+branch was never an ancestor of the base and read **permanently `merged: false`** — measured here
+the day this shipped: 4 worktrees, 191.7 M held, `reclaimable_bytes: 0`, every one `unmerged`.
+**Since 2026-09-26 (issue #1279) every merge is a merge commit**, so a landed unit reads `merged:
+true`, its clean worktree is removed, and the reaper then removes its local `work-*` branch on the
+same ancestry proof. Worktrees on branches squash-landed before that stay `unmerged` and are named
+in the held set — the correct outcome rather than a failure. It still ships — the same sweep run once on
 a consuming repository removed 44 worktrees and freed 5.4 GB with zero failures.
 
 **The summary says what is held, not only what was freed.** `<N> worktree(s); <R> reclaimable,

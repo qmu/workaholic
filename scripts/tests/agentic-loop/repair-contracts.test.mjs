@@ -289,7 +289,7 @@ else console.log(JSON.stringify({rows:[{ts:'100.123456',user:'U1',text:'hello',t
   assert.equal(post.status,'deferred');assert.equal(post.reason,'qfs_receipt_unavailable');
   const observed=readFileSync(calls,'utf8').trim().split('\n').map(JSON.parse);
   assert.match(observed[0][1],/^\/slack-clauyo\/qmu\/C123\/messages .*where ts >= '70.000000'/);
-  assert.equal(observed[1][1],"insert into /slack-clauyo/qmu/C123/messages/100.123456/replies values ('hello')");
+  assert.equal(observed[1][1],"insert into /slack-clauyo/qmu/C123/messages/100.123456/replies values (text) ('hello')");
   assert.equal(observed[1].includes('--commit'),false);assert.equal(observed[2].includes('--commit'),true);
 });
 test('a correct QFS preview commits and a preview stating no affected row still refuses',t=>{

@@ -254,7 +254,7 @@ if [ -n "$RECORDS" ]; then
                 # publication names its destination explicitly rather than inheriting a default.
                 # THE ROAD IS THE PULL-REQUEST SEAM (2026-09-11): `WORKAHOLIC_AUTO_MERGE=1` lets the
                 # seam merge behind the release scan, and the `[Record]` title names the class on
-                # the pull-request list. The method and the squash body stay the seam's own
+                # the pull-request list. The method and the merge commit body stay the seam's own
                 # derivations (`merge-method.sh`, `merge-commit-body.sh`); nothing is spelled here.
                 rec_out=$(cd "$repo_root" && WORKAHOLIC_PUBLISH_BASE="$BASE" WORKAHOLIC_AUTO_MERGE=1 \
                     WORKAHOLIC_PR_TITLE="[Record] Feedback findings from tick ${TICK}" \

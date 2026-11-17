@@ -286,11 +286,8 @@ are allowed by name; `land-unit.sh`'s fast-forward of a **reviewed** branch on a
 developer's instruction reads the gate with `reviewed` and is `allowed:reviewed_merge`; the REST
 merge is not a push and needs no gate.
 
-**The agent-level half is `hooks/guard-git-push.sh`**, a `PreToolUse` Bash guard that denies a
-composed `git push` whose refspec names the base (`main`, `HEAD:main`, `x:refs/heads/main`,
-`--delete main`) and nothing else. It is a literal-name match that no unattended command body
-composes, so an ordinary run never meets it — the deny is for the violation, not for pushing.
-There is no env-var toggle.
+The plugin does not register a PreToolUse Bash rejection hook. The script-level
+`base-ref-gate.sh` continues to guard the plugin's own push sites.
 
 **What it does not do**: it is not GitHub branch protection, which is the operator's setting and
 is reported as an advisory by `workaholify/scripts/check-repo-settings.sh`; it never changes a

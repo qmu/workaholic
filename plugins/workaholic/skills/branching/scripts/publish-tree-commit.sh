@@ -13,7 +13,7 @@
 #                          |"diverged"|"push_failed", ...}
 #
 # THE COMMIT GOES THROUGH commit.sh, inside the publish tree, via a
-# `( cd … && … )` subshell — the form the working-directory guard tolerates. The
+# `( cd … && … )` subshell. The
 # subject gate, the staging semantics, and the Co-Authored-By trailer are
 # inherited unchanged; there is no hand-rolled `git commit` here.
 #

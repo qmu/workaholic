@@ -198,7 +198,6 @@ const SCRIPTS = {
   fbTitle: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-title.sh"),
   fbFallback: join(REPO_ROOT, "plugins/workaholic/skills/feedback/scripts/fb-fallback.sh"),
   guardAskLabel: join(REPO_ROOT, "plugins/workaholic/hooks/guard-askuserquestion-label.sh"),
-  guardWorkingDir: join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh"),
   auditClaudeMd: join(REPO_ROOT, "plugins/workaholic/skills/workaholify/scripts/audit-claude-md.sh"),
   checkDeps: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/check.sh"),
   pluginSrc: join(REPO_ROOT, "plugins/workaholic/skills/check-deps/scripts/plugin-src.sh"),
@@ -11115,7 +11114,16 @@ function makeConflictClone(file, baseVal, mainVal, branchVal) {
   return { origin, clone };
 }
 
-// ---------- workaholify/audit-claude-md.sh + hooks/guard-working-directory.sh ----------
+// Bash and directory changes must not be intercepted by a plugin hook.
+T("hooks: Bash and cd are unrestricted", () => {
+  const hooks = JSON.parse(readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/hooks.json"), "utf8"));
+  assertTrue("no Bash PreToolUse matcher", !hooks.hooks.PreToolUse.some(h => h.matcher === "Bash"),
+    JSON.stringify(hooks.hooks.PreToolUse));
+  assertTrue("no working-directory guard exists",
+    !existsSync(join(REPO_ROOT, "plugins/workaholic/hooks/guard-working-directory.sh")), "legacy guard remains");
+});
+
+// ---------- workaholify/audit-claude-md.sh ----------
 T("workaholify/audit-claude-md.sh", testAuditClaudeMd);
 function testAuditClaudeMd() {
   const HOOK = SCRIPTS.auditClaudeMd;
@@ -11153,57 +11161,6 @@ function testAuditClaudeMd() {
         r.missing.includes("refers_workaholify_gateway"), JSON.stringify(r.missing));
     } finally { cleanup(dir); }
   }
-}
-
-T("hooks/guard-working-directory.sh", testGuardWorkingDirectory);
-function testGuardWorkingDirectory() {
-  const HOOK = SCRIPTS.guardWorkingDir;
-  let hasJq = true;
-  try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
-  if (!hasJq) { console.log("  skip  guard-working-directory (jq not available)"); return; }
-
-  // Single enforced mode: always exit 0, but emits a permissionDecision "deny" (no
-  // env-var toggle) when the command moves the persistent cwd; silent otherwise.
-  const invoke = (command) => {
-    const payload = JSON.stringify({ tool_name: "Bash", tool_input: { command } });
-    const out = execSync(`${POSIX_SH} ${HOOK}`, { cwd: REPO_ROOT, input: payload, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
-    return out; // never throws — hook always exits 0
-  };
-  const denies = (command) => /"permissionDecision":\s*"deny"/.test(invoke(command)) && /repository root/.test(invoke(command));
-
-  assertTrue("guard-workdir denies a leading cd", denies("cd /tmp && ls"), invoke("cd /tmp && ls"));
-  assertTrue("guard-workdir denies a chained cd", denies("ls && cd /var"), invoke("ls && cd /var"));
-  assertTrue("guard-workdir stays silent on a ( cd ... ) subshell",
-    !denies("( cd /tmp && ls )"), invoke("( cd /tmp && ls )"));
-  assertTrue("guard-workdir stays silent on an absolute-path command",
-    !denies("cat /etc/hostname"), invoke("cat /etc/hostname"));
-  assertTrue("guard-workdir stays silent on a plain command", !denies("git status"), invoke("git status"));
-
-  // A `cd` that LANDS ON a repository root restores the ground rule rather than breaking
-  // it, so it passes (2026-08-23, measured). Until then the guard refused the one command
-  // that repairs the invariant it enforces: a session whose cwd had been moved into a
-  // worktree could not get back, and the scripts that read the cwd operated on the wrong
-  // tree — create.sh switched a CLAIM worktree off its claim branch.
-  const cd = "c" + "d";  // not a literal `cd ` in this file: the guard reads its own suite
-  assertTrue("guard-workdir allows a cd that lands on the repository root",
-    !denies(`${cd} ${REPO_ROOT}`), invoke(`${cd} ${REPO_ROOT}`));
-  assertTrue("and allows it with the command it carries",
-    !denies(`${cd} ${REPO_ROOT} && git status`), invoke(`${cd} ${REPO_ROOT} && git status`));
-  assertTrue("and accepts the quoted form",
-    !denies(`${cd} '${REPO_ROOT}'`), invoke(`${cd} '${REPO_ROOT}'`));
-  // Only the ROOT. A directory inside the repository is still a move away from it.
-  assertTrue("guard-workdir still denies a cd into a subdirectory",
-    denies(`${cd} ${REPO_ROOT}/plugins`), invoke(`${cd} ${REPO_ROOT}/plugins`));
-  // A chained mid-command cd is the surprising shape and stays denied whatever its target;
-  // nothing needs it to reach a root.
-  assertTrue("guard-workdir still denies a chained cd even to the root",
-    denies(`ls && ${cd} ${REPO_ROOT}`), invoke(`ls && ${cd} ${REPO_ROOT}`));
-  // Unresolvable without evaluating it — denied rather than guessed. A false deny costs
-  // one subshell; a false allow silently moves the cwd.
-  assertTrue("guard-workdir denies a cd whose target it cannot resolve",
-    denies(`${cd} $HOME`), invoke(`${cd} $HOME`));
-  // Bare `cd` goes to $HOME. It matched nothing at all before this change and passed.
-  assertTrue("guard-workdir denies a bare cd", denies(cd), invoke(cd));
 }
 
 // ---------- hooks/guard-askuserquestion-label.sh (PreToolUse AskUserQuestion) ----------
@@ -15255,7 +15212,7 @@ function testReleaseRecord() {
 
 // ---------- check-deps/check.sh (dependency guard + stale-install diagnostics) ----------
 // The pre-check is trivially ok (single-plugin layout), but it also surfaces the
-// loaded version and asserts the three PreToolUse Bash guards are registered, so a
+// loaded version and asserts no blocking PreToolUse Bash hooks are registered, so a
 // stale/partial install is visible instead of looking like a broken hook. It locates
 // the plugin root relative to its own path and degrades to {ok:true} when no manifest
 // is found (the cross-agent bundle), so source and bundle copies stay identical.
@@ -15269,15 +15226,15 @@ function testCheckDeps() {
   try { execSync("command -v jq", { stdio: "ignore" }); } catch { hasJq = false; }
   if (!hasJq) { console.log("  skip  check-deps diagnostics (jq not available)"); return; }
 
-  // With jq + the real manifest/hooks: reports the version and all guards present.
+  // With jq + the real manifest/hooks: reports the version and no Bash hook.
   assertTrue("check-deps surfaces a semver version",
     typeof real.version === "string" && /^\d+\.\d+\.\d+$/.test(real.version), JSON.stringify(real));
-  assertEq("check-deps reports all guards present in source",
+  assertEq("check-deps reports no blocking Bash hooks in source",
     { g: real.guards_present, m: real.missing_guards }, { g: true, m: [] });
 
   const dir = mkdtempSync(join(tmpdir(), "workaholic-checkdeps-"));
   try {
-    // Fabricate a plugin root whose hooks.json is missing one guard -> flagged.
+    // Fabricate a stale plugin root with blocking Bash hooks -> flagged.
     const scriptsDir = join(dir, "skills/check-deps/scripts");
     mkdirSync(scriptsDir, { recursive: true });
     mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
@@ -15293,7 +15250,7 @@ function testCheckDeps() {
     const stale = JSON.parse(run(dir, `${POSIX_SH} ${join(scriptsDir, "check.sh")}`).stdout);
     assertEq("check-deps surfaces stale version + missing guards",
       { v: stale.version, g: stale.guards_present, m: stale.missing_guards },
-      { v: "9.9.9", g: false, m: ["guard-git-branch.sh", "guard-git-push.sh"] });
+      { v: "9.9.9", g: false, m: ["guard-git-commit.sh", "guard-ticket-structure.sh"] });
 
     // No manifest (the cross-agent bundle) -> degrades to {ok:true} only.
     const bare = join(dir, "bare/skills/check-deps/scripts");
@@ -43777,11 +43734,10 @@ function testBaseRefGate() {
     "sh ${CLAUDE_PLUGIN_ROOT}/skills/branching/scripts/publish-tree-pr.sh main"]) {
     assertEq(`guard-push allows: ${cmd}`, invoke(cmd).status, 0);
   }
-  // The hook is registered beside its siblings and check-deps expects it.
+  // A hook script may remain for direct inspection, but it is never registered on Bash.
   const hooks = JSON.parse(readFileSync(join(REPO_ROOT, "plugins/workaholic/hooks/hooks.json"), "utf8"));
-  const bash = hooks.hooks.PreToolUse.find((h) => h.matcher === "Bash").hooks.map((h) => h.command);
-  assertTrue("guard-git-push.sh is registered for Bash", bash.includes("${CLAUDE_PLUGIN_ROOT}/hooks/guard-git-push.sh"), bash.join(","));
-  assertTrue("check-deps expects the fourth guard", /guard-git-push\.sh/.test(readFileSync(SCRIPTS.checkDeps, "utf8")), "check.sh");
+  assertTrue("no PreToolUse Bash matcher is registered",
+    !hooks.hooks.PreToolUse.some((h) => h.matcher === "Bash"), JSON.stringify(hooks.hooks.PreToolUse));
   // The rule's prose home and the three surfaces that cite it.
   assertTrue("rules/shell.md states the rule", /## A base write is a merge of a pull request, never a push/.test(readFileSync(join(REPO_ROOT, "plugins/workaholic/rules/shell.md"), "utf8")), "rule missing");
   for (const rel of ["plugins/workaholic/commands/propose.md", "plugins/workaholic/commands/moderate.md"]) {

@@ -9,8 +9,8 @@
 #   - version          the loaded plugin version, so a stale install is visible
 #   - checkout_version the version THIS CHECKOUT wants ("" when not determinable)
 #   - version_drift    true when both are known and differ
-#   - guards_present   whether the four PreToolUse Bash guards are registered
-#   - missing_guards   any expected guard not found in the loaded hooks.json
+#   - guards_present   whether no blocking PreToolUse Bash hooks are registered
+#   - missing_guards   any blocking Bash hook found in the loaded hooks.json
 #
 # WHY version ALONE WAS NOT ENOUGH (2026-08-04). The loaded version was already
 # reported, but a bare "1.0.112" reads as healthy to anyone who does not happen to
@@ -237,29 +237,16 @@ if [ "$loaded_root_source" = "none" ] && [ "$claude_session_detected" = true ] &
   unbound_in_claude_session=true
 fi
 
-# Assert the four PreToolUse Bash guards are registered in the loaded hooks.json.
-expected="guard-ticket-structure.sh guard-git-commit.sh guard-git-branch.sh guard-git-push.sh"
-missing=""
-if [ -f "$hooks" ]; then
-  registered=$(jq -r '[.hooks.PreToolUse[]?.hooks[]?.command] | join("\n")' "$hooks" 2>/dev/null || printf '')
-  for g in $expected; do
-    case "$registered" in
-      *"$g"*) : ;;
-      *) missing="${missing:+$missing }$g" ;;
-    esac
-  done
-else
-  missing="$expected"
-fi
-
-if [ -n "$missing" ]; then
+# Bash commands are unrestricted by this plugin. Report a stale installation that still
+# registers a blocking PreToolUse Bash hook, while keeping the diagnostic field names
+# compatible with existing consumers.
+blocking=$(jq -r '[.hooks.PreToolUse[]? | select(.matcher == "Bash") | .hooks[]?.command | split("/")[-1]] | unique | .[]' "$hooks" 2>/dev/null || printf '')
+if [ -n "$blocking" ]; then
   guards_present=false
 else
   guards_present=true
 fi
-
-# Emit missing_guards as a JSON array (jq handles quoting; empty -> []).
-missing_json=$(printf '%s\n' $missing | jq -R . | jq -sc 'map(select(length > 0))')
+missing_json=$(printf '%s\n' "$blocking" | jq -R . | jq -sc 'map(select(length > 0))')
 
 printf '{"ok": true, "version": "%s", "checkout_version": "%s", "version_drift": %s, "loaded_root_source": "%s", "registry_version": "%s", "registry_unreadable": %s, "loaded_version_behind_registry": %s, "claude_session_detected": %s, "registry_has_install": %s, "unbound_in_claude_session": %s, "guards_present": %s, "missing_guards": %s}\n' \
   "$version" "$checkout_version" "$version_drift" "$loaded_root_source" "$registry_version" "$registry_unreadable" \

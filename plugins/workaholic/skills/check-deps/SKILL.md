@@ -12,7 +12,7 @@ metadata:
 Workaholic is a single plugin (`dependencies: []`), so the dependency check is trivially
 satisfied and kept for command-flow compatibility — `/ticket` and `/drive` call it as an early
 pre-check. Its real value is **stale-install diagnostics**: the loaded plugin version, the two
-drift axes below, and whether the PreToolUse Bash guards are registered.
+drift axes below, and whether a stale PreToolUse Bash guard is still registered.
 
 ## Usage
 
@@ -56,10 +56,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/check-deps/scripts/check.sh
   substitution happens in command-body text, never as a process env var), so this can
   false-positive there — accepted, since over-reporting costs a `pending` and under-reporting
   costs a run with zero plugin surface reading as healthy.
-- `guards_present` / `missing_guards` — whether the expected PreToolUse Bash guards
-  (`guard-ticket-structure.sh`, `guard-git-commit.sh`, `guard-git-branch.sh`) are registered in
-  the loaded `hooks.json`. A non-empty list means a stale/partial install — a warning, `ok` stays
-  `true`.
+- `guards_present` / `missing_guards` — compatibility fields: `guards_present: true` and
+  `missing_guards: []` mean no blocking PreToolUse Bash hook is registered. Any name in
+  `missing_guards` identifies a stale Bash hook still registered in the loaded plugin.
 
 When the manifest/hooks cannot be located (the generated cross-agent bundle) or `jq` is absent,
 the script degrades to `{"ok": true}` with no extra fields — the diagnostics are best-effort,
@@ -192,7 +191,5 @@ on its checkout-relative path rather than `${CLAUDE_PLUGIN_ROOT}`.
 - **Known limit:** `checkout_version` reads the checkout as it is now, and `/drive` calls this
   **before** `sync-main.sh` fast-forwards — a clone behind the base can agree with a stale
   install on one tick; the drift surfaces on the next. The script must not mutate the checkout.
-- **Activation probe:** `guards_present` proves registration, not firing (a PreToolUse hook runs
-  only on the Bash tool call, so a script cannot test its own activation). To verify live, try
-  `git branch zzz-activation-probe` through the Bash tool and expect the guard to block it; if it
-  is not blocked, the guard is registered but not firing — check the loaded `version`.
+- **Activation check:** inspect the loaded `hooks.json` for a `PreToolUse` matcher of `Bash`.
+  A current installation has none; older sessions may keep an older binding until reload.

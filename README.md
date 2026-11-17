@@ -20,6 +20,8 @@ claude
 /plugin marketplace add qmu/workaholic
 ```
 
+Bash commands and directory changes (`cd`) are not rejected by Workaholic hooks.
+
 Enable the plugins you want after installation. Auto update is recommended. For Codex, OpenCode, and other agents, see [Use with other coding agents](#use-with-other-coding-agents) below.
 
 ## Use with other coding agents
